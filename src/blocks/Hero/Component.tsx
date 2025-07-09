@@ -14,6 +14,7 @@ export async function HeroBlock({ type, highImpact, mediumImpact }: Props) {
         <HeroMedium
           {...mediumImpact}
           description={mediumImpact.description ?? undefined}
+          subtitle={mediumImpact.subtitle ?? undefined}
         />
       ) : null}
     </Container>
