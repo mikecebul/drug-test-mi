@@ -14,7 +14,7 @@ This website is built using PayloadCMS and Next.js 15, designed for managing and
   - Integrated Stripe checkout for secure payments
 - **Page Building Blocks**:
   - Two Column Layout block for flexible page design
-  - Mix content types across columns (text, images, forms).
+  - Mix content types across columns (text, images, forms)
 
 ## Getting Started
 
@@ -23,6 +23,10 @@ This website is built using PayloadCMS and Next.js 15, designed for managing and
 3. Copy `.env.example` to `.env` and fill in the required details
 4. Run `pnpm run dev` to start the development server
 5. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Staging Environment
+
+A staging environment exists for testing before production deployment. Contact the maintainer for access.
 
 ## Advanced Features
 
