@@ -1,0 +1,45 @@
+services:
+  payload:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - ENV_FILE=.env.docker
+    restart: always
+    ports:
+      - '3000:3000'
+    volumes:
+      - payload-public:/app/public
+    networks:
+      - app-network
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+    env_file: .env.docker
+
+  # Ensure your DATABASE_URI uses 'mongo' as the hostname ie. mongodb://mongo/my-db-name
+  mongo:
+    image: mongo:latest
+    ports:
+      - '27017:27017'
+    command:
+      - --storageEngine=wiredTiger
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongo-data:
+  payload-public:
+
+networks:
+  app-network:
+    driver: bridge
