@@ -1,4 +1,4 @@
-import type { Field, Where } from 'payload'
+import type { Field } from 'payload'
 
 import deepMerge from '@/utilities/deepMerge'
 import { addHTTPS } from '@/hooks/addHTTPS'

@@ -20,7 +20,7 @@ export default function Banner() {
         <p className="text-xs text-muted-foreground sm:text-base">Visit us at our new location: </p>
         <a
           className={cn(
-            buttonVariants({ variant: 'brand', size: 'sm' }),
+            buttonVariants({ variant: 'default', size: 'sm' }),
             'flex gap-2 items-center text-sm',
           )}
           href="https://goo.gl/maps/X956fmf511Fef9Pr7"

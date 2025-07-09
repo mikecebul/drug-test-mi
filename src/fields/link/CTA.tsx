@@ -12,7 +12,6 @@ export const CTA = ({ links }: { links: LinkGroup }) => {
             key={id}
             {...link}
             size="xl"
-            appearance={link.appearance === 'default' ? 'brand' : 'brandOutline'}
           />
         ))}
     </div>
