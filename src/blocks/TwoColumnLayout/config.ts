@@ -1,10 +1,11 @@
 import { Block } from 'payload'
 import { contentFields } from '@/fields/contentFields'
 import { Form } from '../Form/config'
+import { CalendarEmbedBlock } from '../Cal/config'
 
-export const NewTwoColumnLayout: Block = {
-  slug: 'newTwoColumnLayout',
-  interfaceName: 'NewTwoColumnLayoutBlock',
+export const TwoColumnLayout: Block = {
+  slug: 'TwoColumnLayout',
+  interfaceName: 'TwoColumnLayoutBlock',
   labels: {
     singular: 'Two Column Layout',
     plural: 'Two Column Layouts',
@@ -94,6 +95,7 @@ export const NewTwoColumnLayout: Block = {
           options: [
             { label: 'Image', value: 'image' },
             { label: 'Form', value: 'form' },
+            { label: 'Calendar Embed', value: 'calendarEmbed' },
           ],
           defaultValue: 'image',
         },
@@ -132,6 +134,15 @@ export const NewTwoColumnLayout: Block = {
           maxRows: 1,
           admin: {
             condition: (_, siblingData) => Boolean(siblingData.contentType === 'form'),
+          },
+        },
+        {
+          name: 'calendarEmbed',
+          type: 'blocks',
+          blocks: [CalendarEmbedBlock],
+          maxRows: 1,
+          admin: {
+            condition: (_, siblingData) => Boolean(siblingData.contentType === 'calendarEmbed'),
           },
         },
       ],

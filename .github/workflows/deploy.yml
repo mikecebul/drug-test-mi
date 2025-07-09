@@ -32,7 +32,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: mikecebul/cvx-jr-golf:${{ steps.vars.outputs.tag }}
+          tags: mikecebul/drug-test-mi:${{ steps.vars.outputs.tag }}
           platforms: linux/amd64
           secrets: |
             DATABASE_URI=${{ secrets.DATABASE_URI }}
@@ -87,7 +87,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: mikecebul/cvx-jr-golf:${{ steps.vars.outputs.tag }}
+          tags: mikecebul/drug-test-mi:${{ steps.vars.outputs.tag }}
           platforms: linux/amd64
           secrets: |
             DATABASE_URI=${{ secrets.DATABASE_URI }}

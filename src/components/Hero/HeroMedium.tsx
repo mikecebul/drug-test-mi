@@ -1,10 +1,10 @@
 import { cn } from '@/utilities/cn'
 
-export function HeroMedium({ title, description }: { title?: string; description?: string }) {
+export function HeroMedium({ title, description, subtitle }: { title?: string; description?: string; subtitle?: string }) {
   return (
     <div className="mx-auto flex flex-col justify-center max-w-prose text-left text-pretty lg:text-center gap-4">
       <div>
-        {/* {!!subtitle && <Subtitle text={subtitle} />} */}
+        {!!subtitle && <Subtitle text={subtitle} />}
         {!!title && <Title text={title} />}
       </div>
       {!!description && <Description text={description} />}
@@ -14,7 +14,7 @@ export function HeroMedium({ title, description }: { title?: string; description
 
 export const Subtitle = ({ text }: { text: string }) => {
   return (
-    <h3 className="text-base font-semibold leading-7 capitalize text-brand max-w-prose">{text}</h3>
+    <h3 className="text-base font-semibold leading-7 capitalize text-primary max-w-prose">{text}</h3>
   )
 }
 export const Title = ({

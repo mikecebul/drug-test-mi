@@ -180,12 +180,14 @@ export interface Page {
   id: string;
   title: string;
   layout: (
+    | CalendarEmbedBlock
     | EventsBlock
+    | Hero
     | RichTextBlock
     | LinksBlock
     | EventsPageBlock
     | FormBlock
-    | NewTwoColumnLayoutBlock
+    | TwoColumnLayoutBlock
     | EventCardsBlock
     | FeatureCardsBlock
     | LayoutBlock
@@ -207,6 +209,18 @@ export interface Page {
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CalendarEmbedBlock".
+ */
+export interface CalendarEmbedBlock {
+  title?: string | null;
+  description?: string | null;
+  calLink: string;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'calendarEmbed';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -317,6 +331,33 @@ export interface Event {
   location: string;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "Hero".
+ */
+export interface Hero {
+  type: 'highImpact' | 'mediumImpact';
+  highImpact?: {
+    title: string;
+    description: string;
+    /**
+     * Phone number for 'Call Now' cta on mobile.
+     */
+    phoneNumber: string;
+    links?: LinkGroup;
+    image: string | Media;
+    svg?: boolean | null;
+  };
+  mediumImpact?: {
+    subtitle?: string | null;
+    title: string;
+    heading?: ('h1' | 'h2') | null;
+    description?: string | null;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'hero';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -711,9 +752,9 @@ export interface GroupFormField {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "NewTwoColumnLayoutBlock".
+ * via the `definition` "TwoColumnLayoutBlock".
  */
-export interface NewTwoColumnLayoutBlock {
+export interface TwoColumnLayoutBlock {
   /**
    * The direction of the layout
    */
@@ -753,7 +794,7 @@ export interface NewTwoColumnLayoutBlock {
     };
   };
   columnTwo?: {
-    contentType?: ('image' | 'form') | null;
+    contentType?: ('image' | 'form' | 'calendarEmbed') | null;
     priority?: boolean | null;
     /**
      * Images will follow as user scrolls
@@ -761,10 +802,11 @@ export interface NewTwoColumnLayoutBlock {
     sticky?: boolean | null;
     images?: (string | Media)[] | null;
     form?: FormBlock[] | null;
+    calendarEmbed?: CalendarEmbedBlock[] | null;
   };
   id?: string | null;
   blockName?: string | null;
-  blockType: 'newTwoColumnLayout';
+  blockType: 'TwoColumnLayout';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -801,7 +843,7 @@ export interface FeatureCardsBlock {
  * via the `definition` "LayoutBlock".
  */
 export interface LayoutBlock {
-  blocks?: (NewTwoColumnLayoutBlock | FeatureCardsBlock | EventCardsBlock)[] | null;
+  blocks?: (TwoColumnLayoutBlock | FeatureCardsBlock | EventCardsBlock | Hero | CalendarEmbedBlock)[] | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'layout';
@@ -1122,12 +1164,14 @@ export interface PagesSelect<T extends boolean = true> {
   layout?:
     | T
     | {
+        calendarEmbed?: T | CalendarEmbedBlockSelect<T>;
         events?: T | EventsBlockSelect<T>;
+        hero?: T | HeroSelect<T>;
         richText?: T | RichTextBlockSelect<T>;
         linksBlock?: T | LinksBlockSelect<T>;
         eventsPage?: T | EventsPageBlockSelect<T>;
         formBlock?: T | FormBlockSelect<T>;
-        newTwoColumnLayout?: T | NewTwoColumnLayoutBlockSelect<T>;
+        TwoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
         eventCards?: T | EventCardsBlockSelect<T>;
         featureCards?: T | FeatureCardsBlockSelect<T>;
         layout?: T | LayoutBlockSelect<T>;
@@ -1150,6 +1194,17 @@ export interface PagesSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CalendarEmbedBlock_select".
+ */
+export interface CalendarEmbedBlockSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  calLink?: T;
+  id?: T;
+  blockName?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1184,6 +1239,33 @@ export interface LinkSelect<T extends boolean = true> {
   url?: T;
   label?: T;
   appearance?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "Hero_select".
+ */
+export interface HeroSelect<T extends boolean = true> {
+  type?: T;
+  highImpact?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        phoneNumber?: T;
+        links?: T | LinkGroupSelect<T>;
+        image?: T;
+        svg?: T;
+      };
+  mediumImpact?:
+    | T
+    | {
+        subtitle?: T;
+        title?: T;
+        heading?: T;
+        description?: T;
+      };
+  id?: T;
+  blockName?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1252,9 +1334,9 @@ export interface FormBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "NewTwoColumnLayoutBlock_select".
+ * via the `definition` "TwoColumnLayoutBlock_select".
  */
-export interface NewTwoColumnLayoutBlockSelect<T extends boolean = true> {
+export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
   direction?: T;
   breakpoint?: T;
   columnOne?:
@@ -1290,6 +1372,11 @@ export interface NewTwoColumnLayoutBlockSelect<T extends boolean = true> {
           | T
           | {
               formBlock?: T | FormBlockSelect<T>;
+            };
+        calendarEmbed?:
+          | T
+          | {
+              calendarEmbed?: T | CalendarEmbedBlockSelect<T>;
             };
       };
   id?: T;
@@ -1328,9 +1415,11 @@ export interface LayoutBlockSelect<T extends boolean = true> {
   blocks?:
     | T
     | {
-        newTwoColumnLayout?: T | NewTwoColumnLayoutBlockSelect<T>;
+        TwoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
         featureCards?: T | FeatureCardsBlockSelect<T>;
         eventCards?: T | EventCardsBlockSelect<T>;
+        hero?: T | HeroSelect<T>;
+        calendarEmbed?: T | CalendarEmbedBlockSelect<T>;
       };
   id?: T;
   blockName?: T;

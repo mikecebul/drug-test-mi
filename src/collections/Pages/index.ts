@@ -23,9 +23,11 @@ import { EventCards } from '@/blocks/EventCards/config'
 import { FeatureCards } from '@/blocks/FeatureCards/config'
 import { Form } from '@/blocks/Form/config'
 import { Layout } from '@/blocks/Layout/config'
-import { NewTwoColumnLayout } from '@/blocks/NewTwoColumnLayout/config'
+import { TwoColumnLayout } from '@/blocks/TwoColumnLayout/config'
 import { revalidateDelete } from './hooks/revalidateDelete'
 import { editorOrHigher } from '@/access/editorOrHigher'
+import { CalendarEmbedBlock } from '@/blocks/Cal/config'
+import { Hero } from '@/blocks/Hero/config'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
@@ -65,12 +67,14 @@ export const Pages: CollectionConfig = {
               name: 'layout',
               type: 'blocks',
               blocks: [
+                CalendarEmbedBlock,
                 Events,
+                Hero,
                 RichText,
                 Links,
                 EventsPage,
                 Form,
-                NewTwoColumnLayout,
+                TwoColumnLayout,
                 EventCards,
                 FeatureCards,
                 Layout,

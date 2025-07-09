@@ -4,19 +4,19 @@ import { Description, Title } from '@/components/Hero/HeroMedium'
 import { Icon } from '@/components/Icons/Icon'
 import { Media } from '@/components/Media'
 import { Badge } from '@/components/ui/badge'
-import type { NewTwoColumnLayoutBlock as NewTwoColumnLayoutBlockType } from '@/payload-types'
+import type { TwoColumnLayoutBlock as TwoColumnLayoutBlockType } from '@/payload-types'
 import { cn } from '@/utilities/cn'
 import { RenderBlocks } from '../RenderBlocks'
 import RichTextCarousel from '../RichText/RichTextCarousel'
 import { imagesAsMedia } from '@/utilities/imagesAsLandscapes'
 import { RichText } from '@/components/RichText'
 
-export const NewTwoColumnLayoutBlock = ({
+export const TwoColumnLayoutBlock = ({
   direction = 'ltr',
   breakpoint = 'md',
   columnOne,
   columnTwo,
-}: NewTwoColumnLayoutBlockType) => {
+}: TwoColumnLayoutBlockType) => {
   const {
     contentType: columnOneType,
     cta,
@@ -24,26 +24,36 @@ export const NewTwoColumnLayoutBlock = ({
     verticalAlignment = 'center',
   } = columnOne ?? {}
   const { hasSubtitle, subtitle, title, heading, description, links } = cta ?? {}
-  const { contentType: columnTwoType, form, images, priority, sticky = false } = columnTwo ?? {}
+  const { calendarEmbed, contentType: columnTwoType, form, images, priority, sticky = false } = columnTwo ?? {}
   const validImages = imagesAsMedia(images)
+  const isCalendarEmbed = columnTwoType === 'calendarEmbed'
 
   return (
     <Container className="xl:overflow-visible">
       <div
-        className={cn('grid grid-cols-1 gap-12', `${breakpoint}:grid-cols-2`, {
-          'xl:items-start': sticky,
-        })}
+        className={cn(
+          isCalendarEmbed
+            ? 'grid grid-cols-3 gap-12'
+            : 'grid grid-cols-1 gap-12 ' + `${breakpoint}:grid-cols-2`,
+          {
+            'xl:items-start': sticky,
+          }
+        )}
       >
         <div
-          className={cn('order-1 flex flex-col justify-center gap-4', {
-            'justify-center': verticalAlignment === 'center',
-            'justify-start': verticalAlignment === 'top',
-            'justify-end': verticalAlignment === 'bottom',
-            'sm:order-2': direction === 'rtl' && breakpoint === 'sm',
-            'md:order-2': direction === 'rtl' && breakpoint === 'md',
-            'lg:order-2': direction === 'rtl' && breakpoint === 'lg',
-            'xl:order-2': direction === 'rtl' && breakpoint === 'xl',
-          })}
+          className={cn(
+            'order-1 flex flex-col justify-center gap-4',
+            isCalendarEmbed ? 'col-span-1' : '',
+            {
+              'justify-center': verticalAlignment === 'center',
+              'justify-start': verticalAlignment === 'top',
+              'justify-end': verticalAlignment === 'bottom',
+              'sm:order-2': direction === 'rtl' && breakpoint === 'sm',
+              'md:order-2': direction === 'rtl' && breakpoint === 'md',
+              'lg:order-2': direction === 'rtl' && breakpoint === 'lg',
+              'xl:order-2': direction === 'rtl' && breakpoint === 'xl',
+            }
+          )}
         >
           {columnOneType === 'cta' ? (
             <>
@@ -62,17 +72,23 @@ export const NewTwoColumnLayoutBlock = ({
           )}
         </div>
         <div
-          className={cn('order-2', {
-            'flex items-center justify-center': !sticky,
-            'sticky xl:top-20 xl:pt-2': sticky,
-            'sm:order-1': direction === 'rtl' && breakpoint === 'sm',
-            'md:order-1': direction === 'rtl' && breakpoint === 'md',
-            'lg:order-1': direction === 'rtl' && breakpoint === 'lg',
-            'xl:order-1': direction === 'rtl' && breakpoint === 'xl',
-          })}
+          className={cn(
+            'order-2',
+            isCalendarEmbed ? 'col-span-2' : '',
+            {
+              'flex items-center justify-center': !sticky,
+              'sticky xl:top-20 xl:pt-2': sticky,
+              'sm:order-1': direction === 'rtl' && breakpoint === 'sm',
+              'md:order-1': direction === 'rtl' && breakpoint === 'md',
+              'lg:order-1': direction === 'rtl' && breakpoint === 'lg',
+              'xl:order-1': direction === 'rtl' && breakpoint === 'xl',
+            }
+          )}
         >
           {columnTwoType === 'form' ? (
             form && <RenderBlocks blocks={form} nested />
+          ) : columnTwoType === 'calendarEmbed' ? (
+            calendarEmbed && <RenderBlocks blocks={calendarEmbed} nested />
           ) : validImages.length > 0 ? (
             <RichTextCarousel images={validImages} priority={priority} />
           ) : (

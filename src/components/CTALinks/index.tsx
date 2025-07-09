@@ -24,7 +24,6 @@ export const CTALinks = ({
             key={id}
             {...link}
             size="xl"
-            appearance={link.appearance === 'default' ? 'brand' : 'brandOutline'}
           />
         ))}
     </div>
