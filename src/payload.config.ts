@@ -53,9 +53,9 @@ const dirname = path.dirname(filename)
 
 const generateTitle: GenerateTitle<Page> = ({ doc }) => {
   if ('name' in doc) {
-    return doc.name ? `${doc.name}` : 'Charlevoix County Junior Golf Association'
+    return doc.name ? `${doc.name}` : 'Drug Test MI'
   }
-  return doc?.title ? `${doc.title}` : 'Charlevoix County Junior Golf Association'
+  return doc?.title ? `${doc.title}` : 'Drug Test MI'
 }
 
 const generateURL: GenerateURL<Page> = ({ doc }) => {
@@ -130,7 +130,7 @@ export default buildConfig({
     },
     meta: {
       icons: [{ url: '/favicon.ico' }],
-      titleSuffix: ' | CVX Junior Golf',
+      titleSuffix: ' | Drug Test MI',
     },
     user: Users.slug,
     livePreview: {
@@ -210,8 +210,8 @@ export default buildConfig({
   cors: [baseUrl].filter(Boolean),
   csrf: [baseUrl].filter(Boolean),
   email: nodemailerAdapter({
-    defaultFromName: 'Charlevoix County Junior Golf Association',
-    defaultFromAddress: 'website@cvxjrgolf.org',
+    defaultFromName: 'Drug Test MI',
+    defaultFromAddress: 'website@drugtestmi.com',
     transportOptions: {
       host: process.env.EMAIL_HOST || 'localhost',
       port: process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT, 10) : 1025,

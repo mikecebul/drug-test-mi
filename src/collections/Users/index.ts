@@ -23,9 +23,7 @@ const Users: CollectionConfig = {
     group: 'Admin',
     useAsTitle: 'name',
   },
-  auth: {
-    useAPIKey: true,
-  },
+  auth: {},
   fields: [
     {
       name: 'name',
@@ -98,23 +96,6 @@ const Users: CollectionConfig = {
           return 'Admins cannot create super admins'
         if (user?.role === 'editor') return 'Editors cannot update roles'
         return true
-      },
-    },
-    {
-      name: 'enableAPIKey',
-      type: 'checkbox',
-      access: {
-        update: ({ req }) => !!superAdmin({ req }),
-      },
-      admin: {
-        condition: ({ user }) => user?.role === 'superAdmin',
-      },
-    },
-    {
-      name: 'apiKey',
-      type: 'text',
-      access: {
-        update: ({ req }) => !!superAdmin({ req }),
       },
     },
   ],

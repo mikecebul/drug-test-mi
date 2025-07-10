@@ -17,7 +17,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <link href="/favicon.ico" rel="icon" sizes="32x32" />
         <Script
           defer
-          data-website-id="bb29bba2-5ce1-4426-b2a0-b7612ef004a9"
+          data-website-id="3b4eb443-b6c6-47a8-99b8-b8affdb78a33"
           src="https://analytics.mikecebul.dev/script.js"
           strategy="lazyOnload"
         />
