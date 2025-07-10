@@ -216,8 +216,8 @@ export default buildConfig({
       host: process.env.EMAIL_HOST || 'localhost',
       port: process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT, 10) : 1025,
       auth: {
-        user: process.env.EMAIL_USER || '',
-        pass: process.env.EMAIL_PASSWORD || '',
+        user: process.env.EMAIL_USER || 'admin',
+        pass: process.env.EMAIL_PASSWORD || 'password',
       },
     },
   }),
