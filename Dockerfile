@@ -47,10 +47,6 @@ RUN --mount=type=secret,id=DATABASE_URI \
   --mount=type=secret,id=S3_REGION \
   --mount=type=secret,id=S3_SECRET_ACCESS_KEY \
   --mount=type=secret,id=SENTRY_AUTH_TOKEN \
-  --mount=type=secret,id=SOURCE_API_KEY \
-  --mount=type=secret,id=SOURCE_API_URL \
-  --mount=type=secret,id=STRIPE_SECRET_KEY \
-  --mount=type=secret,id=STRIPE_WEBHOOKS_ENDPOINT_SECRET \
   --mount=type=secret,id=UNSPLASH_ACCESS_KEY \
   --mount=type=secret,id=UNSPLASH_URL \
   sh -c '( \
