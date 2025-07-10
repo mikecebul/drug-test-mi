@@ -18,7 +18,7 @@ const Users: CollectionConfig = {
     update: ({ req, id }) => self({ req, id }) || adminUserAccess({ req }) || superAdmin({ req }),
   },
   admin: {
-    hideAPIURL: !superAdmin,
+    hideAPIURL: true,
     defaultColumns: ['name', 'email', 'role'],
     group: 'Admin',
     useAsTitle: 'name',
@@ -36,13 +36,7 @@ const Users: CollectionConfig = {
       required: true,
       access: {
         create: roleSelectMutate,
-        read: async ({ req: { payload } }) => {
-          const users = await payload.find({
-            collection: 'users',
-            limit: 0,
-          })
-          return users.totalDocs > 0
-        },
+        read: authenticated,
         update: roleSelectMutate,
       },
       options: [

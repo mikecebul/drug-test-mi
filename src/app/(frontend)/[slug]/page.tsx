@@ -18,6 +18,10 @@ export async function generateStaticParams() {
     collection: 'pages',
     draft: false,
     limit: 1000,
+    where: {
+      slug: {exists: true},
+      _status: {equals: 'published'}
+    },
   })
 
   const params = pages.docs
