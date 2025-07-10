@@ -39,7 +39,7 @@ const nextConfig = {
 // Sentry Configuration
 const sentryConfig = {
   org: 'mikecebul',
-  project: 'cvx-jr-golf',
+  project: 'drug-test-mi',
   sentryUrl: 'https://monitor.mikecebul.dev/',
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: !process.env.CI,
