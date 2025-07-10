@@ -19,8 +19,8 @@ export const generateMeta = async (args: { doc: Page }): Promise<Metadata> => {
       : '/golf-hero.jpg'
 
   const title = doc?.meta?.metadata?.title
-    ? doc.meta.metadata.title + ' | CVX Junior Golf'
-    : 'CVX Junior Golf'
+    ? doc.meta.metadata.title + ' | Drug Test MI'
+    : 'Drug Test MI'
 
   return {
     description: doc?.meta?.metadata?.description,

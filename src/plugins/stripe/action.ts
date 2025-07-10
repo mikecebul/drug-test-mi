@@ -21,7 +21,7 @@ export const createCheckoutSession = async (submissionId: string, price: number)
           price_data: {
             currency: 'usd',
             product_data: {
-              name: 'CVX Jr Golf Registration - 2025',
+              name: 'Drug Test Submission',
             },
             unit_amount: price * 100,
           },

@@ -57,7 +57,7 @@ const contactInfo: ContactGroupType = ({ overrides = {} }: { overrides?: Partial
             name: 'email',
             label: 'Email',
             type: 'text',
-            defaultValue: 'info@cvx-junior-golf.org',
+            defaultValue: 'info@drugtestmi.com',
             admin: { width: '45%' },
           },
         ],

@@ -3,13 +3,12 @@ import type { Metadata } from 'next'
 import React, { cache } from 'react'
 import configPromise from '@payload-config'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
-import { getPayload } from 'payload'
+import { getPayload, RequiredDataFromCollectionSlug } from 'payload'
 import { draftMode } from 'next/headers'
 
 import { RenderBlocks } from '@/blocks/RenderBlocks'
 import { generateMeta } from '@/utilities/generateMeta'
 
-import type { Page as PageType } from '@/payload-types'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 
 export async function generateStaticParams() {
@@ -18,9 +17,10 @@ export async function generateStaticParams() {
     collection: 'pages',
     draft: false,
     limit: 1000,
-    where: {
-      slug: {exists: true},
-      _status: {equals: 'published'}
+    overrideAccess: false,
+    pagination: false,
+    select: {
+      slug: true,
     },
   })
 
@@ -46,7 +46,7 @@ export default async function Page({ params: paramsPromise }: Args) {
   const { slug = 'home' } = await paramsPromise
   const url = '/' + slug
 
-  let page: PageType | null
+  let page: RequiredDataFromCollectionSlug<'pages'> | null
 
   page = await queryPageBySlug({
     slug,

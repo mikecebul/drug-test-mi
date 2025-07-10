@@ -3,14 +3,14 @@ import { baseUrl } from './baseUrl'
 
 const defaultOpenGraph: Metadata['openGraph'] = {
   type: 'website',
-  description: 'CVX Junior Golf',
+  description: 'Drug Test MI is a leading provider of drug testing services in Chrarlevoix, Michigan.',
   images: [
     {
       url: `${baseUrl}/golf-hero.jpg`,
     },
   ],
-  siteName: 'CVX Junior Golf',
-  title: 'CVX Junior Golf',
+  siteName: 'Drug Test MI',
+  title: 'Drug Test MI',
 }
 
 export const mergeOpenGraph = (og?: Metadata['openGraph']): Metadata['openGraph'] => {
