@@ -55,10 +55,6 @@ jobs:
             S3_REGION=${{ secrets.S3_REGION }}
             S3_SECRET_ACCESS_KEY=${{ secrets.S3_SECRET_ACCESS_KEY }}
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
-            SOURCE_API_KEY=${{ secrets.SOURCE_API_KEY }}
-            SOURCE_API_URL=${{ secrets.SOURCE_API_URL }}
-            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
-            STRIPE_WEBHOOKS_ENDPOINT_SECRET=${{ secrets.STRIPE_WEBHOOKS_ENDPOINT_SECRET }}
             UNSPLASH_ACCESS_KEY=${{ secrets.UNSPLASH_ACCESS_KEY }}
             UNSPLASH_URL=${{ secrets.UNSPLASH_URL }}
 
