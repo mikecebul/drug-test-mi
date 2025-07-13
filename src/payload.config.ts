@@ -111,7 +111,7 @@ export default buildConfig({
   admin: {
     avatar: 'default',
     components: {
-      beforeDashboard: ['@/components/beforeDashboard/RegistrationCount'],
+      // beforeDashboard: ['@/components/beforeDashboard/RegistrationCount'],
       afterDashboard: ['@/components/afterDashboard/Analytics'],
       afterNavLinks: ['@/components/afterNavLinks/LinkToAnalyticsDefaultRootView'],
       graphics: {

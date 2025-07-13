@@ -29,7 +29,7 @@ const AnalyticsDefaultRootView: React.FC<AdminViewServerProps> = ({
       <SetStepNav nav={navItem} />
       <Gutter>
         <iframe
-          src="https://analytics.mikecebul.dev/share/I2hjT6r3yQs4CEJU/dt.mikecebul.com"
+          src="https://https://analytics.mikecebul.dev/share/iHFY1XLpm4lXgWgw/www.drugtest.com"
           width="100%"
           height="100%"
           style={{ border: 'none', overflow: 'hidden', minHeight: '85dvh' }}
