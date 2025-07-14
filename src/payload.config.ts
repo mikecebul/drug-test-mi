@@ -210,8 +210,8 @@ export default buildConfig({
   cors: [baseUrl].filter(Boolean),
   csrf: [baseUrl].filter(Boolean),
   email: nodemailerAdapter({
-    defaultFromName: 'Drug Test MI',
-    defaultFromAddress: 'website@drugtestmi.com',
+    defaultFromName: 'MI Drug Test',
+    defaultFromAddress: 'website@midrugtest.com',
     transportOptions: {
       host: process.env.EMAIL_HOST || 'localhost',
       port: process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT, 10) : 1025,
