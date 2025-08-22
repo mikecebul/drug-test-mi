@@ -36,15 +36,15 @@ export const HeaderClient = ({
       <div className="flex w-full items-center px-4 py-3 md:px-8 2xl:container 2xl:mx-auto">
         <Logo name={companyName ?? 'Drug Test MI, LLC'} />
         <MainNav navItems={navItems} />
-        <MobileNav navItems={navItems} companyName={companyName ?? 'Charlevoix Junior Golf'} />
+        <MobileNav navItems={navItems} companyName={companyName ?? 'MI Drug Test'} />
         <div className="flex flex-col items-center text-lg xl:flex-row 2xl:space-x-2">
           <div
             className={cn(
               buttonVariants({ variant: 'text' }),
-              'text-brand hidden pr-0 text-lg xl:inline-flex',
+              'text-brand hidden pr-0 md:text-2xl xl:inline-flex',
             )}
           >
-            <Icons.phone className="mr-2" size={20} />
+            <Icons.phone className="mr-2 size-4 shrink-0 md:size-5 xl:size-6" />
             {phone}
           </div>
         </div>

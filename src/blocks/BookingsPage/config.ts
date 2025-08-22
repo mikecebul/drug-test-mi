@@ -1,11 +1,11 @@
 import { Block } from 'payload'
 
-export const EventsPage: Block = {
-  slug: 'eventsPage',
-  interfaceName: 'EventsPageBlock',
+export const BookingsPage: Block = {
+  slug: 'bookingsPage',
+  interfaceName: 'BookingsPageBlock',
   labels: {
-    singular: 'Events Page',
-    plural: 'Events Pages',
+    singular: 'Bookings Page',
+    plural: 'Bookings Pages',
   },
   fields: [
     {
@@ -14,9 +14,9 @@ export const EventsPage: Block = {
       type: 'text',
     },
     {
-      name: 'eventCards',
+      name: 'bookingCards',
       type: 'relationship',
-      relationTo: 'events',
+      relationTo: 'bookings',
       hasMany: true,
     },
     {

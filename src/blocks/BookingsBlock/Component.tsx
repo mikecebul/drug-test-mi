@@ -1,6 +1,6 @@
 import Container from '@/components/Container'
 import { Description, Title } from '@/components/Hero/HeroMedium'
-import { EventsBlock as EventsBlockType } from '@/payload-types'
+import { BookingsBlock as BookingsBlockType } from '@/payload-types'
 import { format } from 'date-fns'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CalendarIcon, MapPinIcon } from 'lucide-react'
@@ -9,14 +9,14 @@ import { TwoColumnLayout } from '@/components/TwoColumnLayout'
 import { Media } from '@/components/Media'
 import { RichText } from '@/components/RichText'
 
-export const EventsBlock = ({
+export const BookingsBlock = ({
   title,
   description,
-  eventItems,
+  bookingItems,
   direction,
   links,
   image,
-}: EventsBlockType) => {
+}: BookingsBlockType) => {
   return (
     <Container className="space-y-12">
       <TwoColumnLayout direction={direction ?? 'ltr'}>
@@ -29,33 +29,37 @@ export const EventsBlock = ({
       </TwoColumnLayout>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {Array.isArray(eventItems) &&
-          eventItems.length > 0 &&
-          eventItems.map((event) => {
-            if (typeof event !== 'object') {
+        {Array.isArray(bookingItems) &&
+          bookingItems.length > 0 &&
+          bookingItems.map((booking) => {
+            if (typeof booking !== 'object') {
               return null
             }
             return (
-              <Card key={event.id} className="col-span-1">
+              <Card key={booking.id} className="col-span-1">
                 <CardHeader className="">
-                  <CardTitle>{event.title}</CardTitle>
+                  <CardTitle>{booking.title}</CardTitle>
                 </CardHeader>
                 <CardContent className="pb-6">
                   <CardDescription className="text-base">
                     <span className="flex flex-col">
                       <span className="flex items-center gap-2">
                         <CalendarIcon className="size-4" />
-                        <span>{format(event.date, 'MMMM do, yyyy')}</span>
+                        <span>{format(booking.startTime, 'MMMM do, yyyy h:mm a')}</span>
                       </span>
                       <span className="flex items-center gap-2">
                         <MapPinIcon className="size-4" />
-                        <span>{event.location}</span>
+                        <span>{booking.location}</span>
                       </span>
                     </span>
                   </CardDescription>
                 </CardContent>
                 <CardContent className="">
-                  <RichText data={event.description} />
+                  <div className="text-sm text-muted-foreground">
+                    <p><strong>Attendee:</strong> {booking.attendeeName}</p>
+                    <p><strong>Type:</strong> {booking.type}</p>
+                    <p><strong>Status:</strong> {booking.status}</p>
+                  </div>
                 </CardContent>
               </Card>
             )

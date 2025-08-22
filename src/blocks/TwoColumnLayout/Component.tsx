@@ -24,7 +24,14 @@ export const TwoColumnLayoutBlock = ({
     verticalAlignment = 'center',
   } = columnOne ?? {}
   const { hasSubtitle, subtitle, title, heading, description, links } = cta ?? {}
-  const { calendarEmbed, contentType: columnTwoType, form, images, priority, sticky = false } = columnTwo ?? {}
+  const {
+    calendarEmbed,
+    contentType: columnTwoType,
+    form,
+    images,
+    priority,
+    sticky = false,
+  } = columnTwo ?? {}
   const validImages = imagesAsMedia(images)
   const isCalendarEmbed = columnTwoType === 'calendarEmbed'
 
@@ -37,7 +44,7 @@ export const TwoColumnLayoutBlock = ({
             : 'grid grid-cols-1 gap-12 ' + `${breakpoint}:grid-cols-2`,
           {
             'xl:items-start': sticky,
-          }
+          },
         )}
       >
         <div
@@ -52,7 +59,7 @@ export const TwoColumnLayoutBlock = ({
               'md:order-2': direction === 'rtl' && breakpoint === 'md',
               'lg:order-2': direction === 'rtl' && breakpoint === 'lg',
               'xl:order-2': direction === 'rtl' && breakpoint === 'xl',
-            }
+            },
           )}
         >
           {columnOneType === 'cta' ? (
@@ -72,18 +79,14 @@ export const TwoColumnLayoutBlock = ({
           )}
         </div>
         <div
-          className={cn(
-            'order-2',
-            isCalendarEmbed ? 'col-span-2' : '',
-            {
-              'flex items-center justify-center': !sticky,
-              'sticky xl:top-20 xl:pt-2': sticky,
-              'sm:order-1': direction === 'rtl' && breakpoint === 'sm',
-              'md:order-1': direction === 'rtl' && breakpoint === 'md',
-              'lg:order-1': direction === 'rtl' && breakpoint === 'lg',
-              'xl:order-1': direction === 'rtl' && breakpoint === 'xl',
-            }
-          )}
+          className={cn('order-2', isCalendarEmbed ? 'col-span-2' : '', {
+            'flex items-center justify-center': !sticky,
+            'sticky xl:top-20 xl:pt-2': sticky,
+            'sm:order-1': direction === 'rtl' && breakpoint === 'sm',
+            'md:order-1': direction === 'rtl' && breakpoint === 'md',
+            'lg:order-1': direction === 'rtl' && breakpoint === 'lg',
+            'xl:order-1': direction === 'rtl' && breakpoint === 'xl',
+          })}
         >
           {columnTwoType === 'form' ? (
             form && <RenderBlocks blocks={form} nested />

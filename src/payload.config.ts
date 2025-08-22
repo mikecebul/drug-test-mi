@@ -39,7 +39,7 @@ import { GenerateTitle, GenerateURL, GenerateImage } from '@payloadcms/plugin-se
 import { Page } from 'src/payload-types'
 import { CompanyInfo } from './globals/CompanyInfo/config'
 import { superAdmin } from './access/superAdmin'
-import { Events } from './collections/Events'
+import { Bookings } from './collections/Bookings'
 import { Media } from './collections/Media'
 import { MediaBlock } from './blocks/MediaBlock/config'
 import { baseUrl } from './utilities/baseUrl'
@@ -206,7 +206,7 @@ export default buildConfig({
   db: mongooseAdapter({
     url: process.env.DATABASE_URI!,
   }),
-  collections: [Pages, Events, Forms, FormSubmissions, Media, Users, Registrations],
+  collections: [Pages, Bookings, Forms, FormSubmissions, Media, Users, Registrations],
   cors: [baseUrl].filter(Boolean),
   csrf: [baseUrl].filter(Boolean),
   email: nodemailerAdapter({

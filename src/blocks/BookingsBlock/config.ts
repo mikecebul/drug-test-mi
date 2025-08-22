@@ -1,13 +1,13 @@
 import { linkGroup } from '@/fields/link/linkGroup'
 import { Block } from 'payload'
 
-export const Events: Block = {
-  slug: 'events',
+export const Bookings: Block = {
+  slug: 'bookings',
   labels: {
-    singular: 'Events Block',
-    plural: 'Events Blocks',
+    singular: 'Bookings Block',
+    plural: 'Bookings Blocks',
   },
-  interfaceName: 'EventsBlock',
+  interfaceName: 'BookingsBlock',
   fields: [
     {
       name: 'direction',
@@ -44,13 +44,13 @@ export const Events: Block = {
       relationTo: 'media',
     },
     {
-      name: 'eventItems',
+      name: 'bookingItems',
       type: 'relationship',
-      relationTo: 'events',
+      relationTo: 'bookings',
       hasMany: true,
       maxRows: 3,
       admin: {
-        description: 'Select up to 3 schedule items to display',
+        description: 'Select up to 3 bookings to display',
       },
     },
   ],

@@ -97,7 +97,7 @@ export interface Config {
   blocks: {};
   collections: {
     pages: Page;
-    events: Event;
+    bookings: Booking;
     forms: Form;
     'form-submissions': FormSubmission;
     media: Media;
@@ -113,7 +113,7 @@ export interface Config {
   collectionsJoins: {};
   collectionsSelect: {
     pages: PagesSelect<false> | PagesSelect<true>;
-    events: EventsSelect<false> | EventsSelect<true>;
+    bookings: BookingsSelect<false> | BookingsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
@@ -181,14 +181,14 @@ export interface Page {
   title: string;
   layout: (
     | CalendarEmbedBlock
-    | EventsBlock
+    | BookingsBlock
     | Hero
     | RichTextBlock
     | LinksBlock
-    | EventsPageBlock
+    | BookingsPageBlock
     | FormBlock
     | TwoColumnLayoutBlock
-    | EventCardsBlock
+    | BookingCardsBlock
     | FeatureCardsBlock
     | LayoutBlock
   )[];
@@ -224,21 +224,21 @@ export interface CalendarEmbedBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "EventsBlock".
+ * via the `definition` "BookingsBlock".
  */
-export interface EventsBlock {
+export interface BookingsBlock {
   direction?: ('ltr' | 'rtl') | null;
   title: string;
   description: string;
   links?: LinkGroup;
   image?: (string | null) | Media;
   /**
-   * Select up to 3 schedule items to display
+   * Select up to 3 bookings to display
    */
-  eventItems?: (string | Event)[] | null;
+  bookingItems?: (string | Booking)[] | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'events';
+  blockType: 'bookings';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -307,28 +307,64 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "events".
+ * via the `definition` "bookings".
  */
-export interface Event {
+export interface Booking {
   id: string;
   title: string;
-  description: {
-    root: {
-      type: string;
-      children: {
-        type: string;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
+  /**
+   * Event type duration (e.g., 60min, 30min)
+   */
+  type: string;
+  description?: string | null;
+  additionalNotes?: string | null;
+  startTime: string;
+  endTime: string;
+  status: 'confirmed' | 'cancelled' | 'rescheduled' | 'pending' | 'rejected';
+  organizer: {
+    id?: number | null;
+    name: string;
+    email: string;
+    username?: string | null;
+    timeZone?: string | null;
+    timeFormat?: string | null;
   };
-  date: string;
-  location: string;
+  attendeeName: string;
+  attendeeEmail: string;
+  location?: string | null;
+  /**
+   * Cal.com booking UID
+   */
+  calcomBookingId?: string | null;
+  eventTypeId?: number | null;
+  /**
+   * Additional form responses from Cal.com
+   */
+  customInputs?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Raw webhook payload for debugging
+   */
+  webhookData?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Whether this booking was created via Cal.com webhook
+   */
+  createdViaWebhook?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -400,11 +436,11 @@ export interface LinksBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "EventsPageBlock".
+ * via the `definition` "BookingsPageBlock".
  */
-export interface EventsPageBlock {
+export interface BookingsPageBlock {
   title?: string | null;
-  eventCards?: (string | Event)[] | null;
+  bookingCards?: (string | Booking)[] | null;
   announcements?:
     | {
         title: string;
@@ -428,7 +464,7 @@ export interface EventsPageBlock {
     | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'eventsPage';
+  blockType: 'bookingsPage';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -810,16 +846,16 @@ export interface TwoColumnLayoutBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "EventCardsBlock".
+ * via the `definition` "BookingCardsBlock".
  */
-export interface EventCardsBlock {
+export interface BookingCardsBlock {
   /**
-   * Select up to 3 schedule items to display
+   * Select up to 3 bookings to display
    */
-  eventCards?: (string | Event)[] | null;
+  bookingCards?: (string | Booking)[] | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'eventCards';
+  blockType: 'bookingCards';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -843,7 +879,7 @@ export interface FeatureCardsBlock {
  * via the `definition` "LayoutBlock".
  */
 export interface LayoutBlock {
-  blocks?: (TwoColumnLayoutBlock | FeatureCardsBlock | EventCardsBlock | Hero | CalendarEmbedBlock)[] | null;
+  blocks?: (TwoColumnLayoutBlock | FeatureCardsBlock | BookingCardsBlock | Hero | CalendarEmbedBlock)[] | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'layout';
@@ -922,9 +958,11 @@ export interface Registration {
 export interface Export {
   id: string;
   name?: string | null;
-  format: 'csv' | 'json';
+  format?: ('csv' | 'json') | null;
   limit?: number | null;
+  page?: number | null;
   sort?: string | null;
+  sortOrder?: ('asc' | 'desc') | null;
   drafts?: ('yes' | 'no') | null;
   selectionToUse?: ('currentSelection' | 'currentFilters' | 'all') | null;
   fields?: string[] | null;
@@ -1075,8 +1113,8 @@ export interface PayloadLockedDocument {
         value: string | Page;
       } | null)
     | ({
-        relationTo: 'events';
-        value: string | Event;
+        relationTo: 'bookings';
+        value: string | Booking;
       } | null)
     | ({
         relationTo: 'forms';
@@ -1162,14 +1200,14 @@ export interface PagesSelect<T extends boolean = true> {
     | T
     | {
         calendarEmbed?: T | CalendarEmbedBlockSelect<T>;
-        events?: T | EventsBlockSelect<T>;
+        bookings?: T | BookingsBlockSelect<T>;
         hero?: T | HeroSelect<T>;
         richText?: T | RichTextBlockSelect<T>;
         linksBlock?: T | LinksBlockSelect<T>;
-        eventsPage?: T | EventsPageBlockSelect<T>;
+        bookingsPage?: T | BookingsPageBlockSelect<T>;
         formBlock?: T | FormBlockSelect<T>;
         TwoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
-        eventCards?: T | EventCardsBlockSelect<T>;
+        bookingCards?: T | BookingCardsBlockSelect<T>;
         featureCards?: T | FeatureCardsBlockSelect<T>;
         layout?: T | LayoutBlockSelect<T>;
       };
@@ -1205,15 +1243,15 @@ export interface CalendarEmbedBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "EventsBlock_select".
+ * via the `definition` "BookingsBlock_select".
  */
-export interface EventsBlockSelect<T extends boolean = true> {
+export interface BookingsBlockSelect<T extends boolean = true> {
   direction?: T;
   title?: T;
   description?: T;
   links?: T | LinkGroupSelect<T>;
   image?: T;
-  eventItems?: T;
+  bookingItems?: T;
   id?: T;
   blockName?: T;
 }
@@ -1303,11 +1341,11 @@ export interface LinkCardsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "EventsPageBlock_select".
+ * via the `definition` "BookingsPageBlock_select".
  */
-export interface EventsPageBlockSelect<T extends boolean = true> {
+export interface BookingsPageBlockSelect<T extends boolean = true> {
   title?: T;
-  eventCards?: T;
+  bookingCards?: T;
   announcements?:
     | T
     | {
@@ -1381,10 +1419,10 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "EventCardsBlock_select".
+ * via the `definition` "BookingCardsBlock_select".
  */
-export interface EventCardsBlockSelect<T extends boolean = true> {
-  eventCards?: T;
+export interface BookingCardsBlockSelect<T extends boolean = true> {
+  bookingCards?: T;
   id?: T;
   blockName?: T;
 }
@@ -1414,7 +1452,7 @@ export interface LayoutBlockSelect<T extends boolean = true> {
     | {
         TwoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
         featureCards?: T | FeatureCardsBlockSelect<T>;
-        eventCards?: T | EventCardsBlockSelect<T>;
+        bookingCards?: T | BookingCardsBlockSelect<T>;
         hero?: T | HeroSelect<T>;
         calendarEmbed?: T | CalendarEmbedBlockSelect<T>;
       };
@@ -1423,13 +1461,34 @@ export interface LayoutBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "events_select".
+ * via the `definition` "bookings_select".
  */
-export interface EventsSelect<T extends boolean = true> {
+export interface BookingsSelect<T extends boolean = true> {
   title?: T;
+  type?: T;
   description?: T;
-  date?: T;
+  additionalNotes?: T;
+  startTime?: T;
+  endTime?: T;
+  status?: T;
+  organizer?:
+    | T
+    | {
+        id?: T;
+        name?: T;
+        email?: T;
+        username?: T;
+        timeZone?: T;
+        timeFormat?: T;
+      };
+  attendeeName?: T;
+  attendeeEmail?: T;
   location?: T;
+  calcomBookingId?: T;
+  eventTypeId?: T;
+  customInputs?: T;
+  webhookData?: T;
+  createdViaWebhook?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1770,7 +1829,9 @@ export interface ExportsSelect<T extends boolean = true> {
   name?: T;
   format?: T;
   limit?: T;
+  page?: T;
   sort?: T;
+  sortOrder?: T;
   drafts?: T;
   selectionToUse?: T;
   fields?: T;
@@ -2030,9 +2091,11 @@ export interface CompanyInfoSelect<T extends boolean = true> {
 export interface TaskCreateCollectionExport {
   input: {
     name?: string | null;
-    format: 'csv' | 'json';
+    format?: ('csv' | 'json') | null;
     limit?: number | null;
+    page?: number | null;
     sort?: string | null;
+    sortOrder?: ('asc' | 'desc') | null;
     drafts?: ('yes' | 'no') | null;
     selectionToUse?: ('currentSelection' | 'currentFilters' | 'all') | null;
     fields?: string[] | null;

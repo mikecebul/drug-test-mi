@@ -3,9 +3,11 @@ import Link from 'next/link'
 
 export const Logo = ({ name }: { name: string }) => {
   return (
-    <Link href="/" className="text-primary flex items-center">
-      <FlaskConical className="h-8 w-8 shrink-0" />
-      <p className="ml-2 max-w-2xs text-xl font-bold text-balance">{name}</p>
+    <Link href="/" className="text-default flex items-center">
+      <FlaskConical className="size-4 shrink-0 stroke-3 md:size-5 xl:size-6" />
+      <p className="ml-2 max-w-2xs text-xl font-bold text-balance md:text-2xl xl:text-3xl">
+        {name}
+      </p>
     </Link>
   )
 }

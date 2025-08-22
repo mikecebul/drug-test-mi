@@ -1,6 +1,6 @@
 import { Block } from 'payload'
 import { FeatureCards } from '../FeatureCards/config'
-import { EventCards } from '../EventCards/config'
+import { BookingCards } from '../BookingCards/config'
 import { TwoColumnLayout } from '../TwoColumnLayout/config'
 import { Hero } from '../Hero/config'
 import { CalendarEmbedBlock } from '../Cal/config'
@@ -17,7 +17,7 @@ export const Layout: Block = {
       name: 'blocks',
       type: 'blocks',
       maxRows: 2,
-      blocks: [TwoColumnLayout, FeatureCards, EventCards, Hero, CalendarEmbedBlock],
+      blocks: [TwoColumnLayout, FeatureCards, BookingCards, Hero, CalendarEmbedBlock],
     },
   ],
 }

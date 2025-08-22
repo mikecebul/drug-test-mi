@@ -15,11 +15,11 @@ import {
 } from '@payloadcms/plugin-seo/fields'
 import { Links } from '@/blocks/Links/config'
 import { superAdmin } from '@/access/superAdmin'
-import { Events } from '@/blocks/EventsBlock/config'
+import { Bookings } from '@/blocks/BookingsBlock/config'
 import { RichText } from '@/blocks/RichText/config'
-import { EventsPage } from '@/blocks/EventsPage/config'
+import { BookingsPage } from '@/blocks/BookingsPage/config'
 import { baseUrl } from '@/utilities/baseUrl'
-import { EventCards } from '@/blocks/EventCards/config'
+import { BookingCards } from '@/blocks/BookingCards/config'
 import { FeatureCards } from '@/blocks/FeatureCards/config'
 import { Form } from '@/blocks/Form/config'
 import { Layout } from '@/blocks/Layout/config'
@@ -68,14 +68,14 @@ export const Pages: CollectionConfig = {
               type: 'blocks',
               blocks: [
                 CalendarEmbedBlock,
-                Events,
+                Bookings,
                 Hero,
                 RichText,
                 Links,
-                EventsPage,
+                BookingsPage,
                 Form,
                 TwoColumnLayout,
-                EventCards,
+                BookingCards,
                 FeatureCards,
                 Layout,
               ],

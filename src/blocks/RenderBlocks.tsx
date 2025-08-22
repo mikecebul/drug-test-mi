@@ -3,12 +3,12 @@ import React, { Fragment } from 'react'
 import type { Page } from '@/payload-types'
 
 import { LinksBlock } from './Links/Component'
-import { EventsBlock } from './EventsBlock/Component'
+import { BookingsBlock } from './BookingsBlock/Component'
 import { RichTextBlock } from './RichText/Component'
-import { EventsPageBlock } from './EventsPage/Component'
+import { BookingsPageBlock } from './BookingsPage/Component'
 import { FormBlockRouter } from './Form/Component'
 import { MediaBlock } from './MediaBlock/Component'
-import { EventCardsBlock } from './EventCards/Component'
+import { BookingCardsBlock } from './BookingCards/Component'
 import { FeatureCardsBlock } from './FeatureCards/Component'
 import { LayoutBlock } from './Layout/Component'
 import { TwoColumnLayoutBlock } from './TwoColumnLayout/Component'
@@ -18,11 +18,11 @@ import { HeroBlock } from './Hero/Component'
 const blockComponents = {
   richText: RichTextBlock,
   linksBlock: LinksBlock,
-  events: EventsBlock,
-  eventsPage: EventsPageBlock,
+  bookings: BookingsBlock,
+  bookingsPage: BookingsPageBlock,
   formBlock: FormBlockRouter,
   mediaBlock: MediaBlock,
-  eventCards: EventCardsBlock,
+  bookingCards: BookingCardsBlock,
   featureCards: FeatureCardsBlock,
   TwoColumnLayout: TwoColumnLayoutBlock,
   layout: LayoutBlock,
