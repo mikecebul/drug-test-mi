@@ -47,6 +47,7 @@ import { checkoutSessionCompleted } from './plugins/stripe/webhooks/checkoutSess
 import Registrations from './collections/Registrations'
 import { Forms } from './collections/Forms'
 import { FormSubmissions } from './collections/FormSubmissions'
+import { getMaxListeners } from 'events'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -108,6 +109,20 @@ const createRegistrationsOnPayment = async ({ doc, previousDoc, req }) => {
 }
 
 export default buildConfig({
+  onInit: async (payload) => {
+    // Unlock admin account if needed
+    const admin = 'mikecebul@gmail.com'
+    try {
+      await payload.unlock({
+        collection: 'users',
+        data: { email: admin, password: "" },
+        overrideAccess: true,
+      })
+      console.log(`✅ Admin account unlocked for ${admin}`)
+    } catch (error) {
+      console.error('❌ Error unlocking admin:', error.message)
+    }
+  },
   admin: {
     avatar: 'default',
     components: {
