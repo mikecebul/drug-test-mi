@@ -227,6 +227,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Fallback return in case none of the conditions match
+    return NextResponse.json({ message: 'Event processed' }, { status: 200 })
+
   } catch (error) {
     console.error('Error processing Cal.com webhook:', error)
     return NextResponse.json(

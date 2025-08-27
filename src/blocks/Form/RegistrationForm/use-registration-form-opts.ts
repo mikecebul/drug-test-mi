@@ -47,7 +47,7 @@ const playerSchema = z.object({
   gender: z.string().min(1, 'Gender is required'),
   ethnicity: z.string().min(1, 'Ethnicity is required'),
   dob: z
-    .date({ required_error: 'Date of birth is required' })
+    .date({ message: 'Date of birth is required' })
     .max(new Date(), { message: 'Date of birth cannot be in the future!' }),
 })
 
