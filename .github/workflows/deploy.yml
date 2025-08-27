@@ -46,6 +46,7 @@ jobs:
             NEXT_PUBLIC_SERVER_URL=${{ secrets.NEXT_PUBLIC_SERVER_URL }}
             NEXT_PUBLIC_UPLOAD_PREFIX=${{ secrets.NEXT_PUBLIC_UPLOAD_PREFIX }}
             PAYLOAD_SECRET=${{ secrets.PAYLOAD_SECRET }}
+            PREVIEW_SECRET=${{ secrets.PREVIEW_SECRET }}
             EMAIL_HOST=${{ secrets.EMAIL_HOST }}
             EMAIL_PORT=${{ secrets.EMAIL_PORT }}
             EMAIL_USER=${{ secrets.EMAIL_USER }}
