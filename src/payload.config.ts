@@ -65,9 +65,9 @@ const generateURL: GenerateURL<Page> = ({ doc }) => {
 }
 const generateImage: GenerateImage<Page> = ({ doc }) => {
   if (typeof doc.meta?.metadata?.image === 'object' && doc.meta?.metadata?.image) {
-    return doc.meta.metadata.image.url || '/golf-hero.jpg'
+    return doc.meta.metadata.image.url || '/og.png'
   }
-  return '/golf-hero.jpg'
+  return '/og.png'
 }
 
 // Hook to create registrations when payment status is set to 'paid'

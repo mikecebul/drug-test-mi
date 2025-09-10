@@ -16,7 +16,7 @@ export const generateMeta = async (args: { doc: Page }): Promise<Metadata> => {
       ? process.env.NEXT_PUBLIC_SERVER_URL !== 'localhost:3000'
         ? doc.meta.metadata.image.sizes.meta.url
         : `${baseUrl}${doc.meta.metadata.image.url}`
-      : '/golf-hero.jpg'
+      : '/og.png'
 
   const title = doc?.meta?.metadata?.title
     ? doc.meta.metadata.title + ' | Drug Test MI'

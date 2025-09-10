@@ -3,10 +3,11 @@ import { baseUrl } from './baseUrl'
 
 const defaultOpenGraph: Metadata['openGraph'] = {
   type: 'website',
-  description: 'Drug Test MI is a leading provider of drug testing services in Chrarlevoix, Michigan.',
+  description:
+    'MI Drug Test is a leading provider of drug testing services in Chrarlevoix, Michigan.',
   images: [
     {
-      url: `${baseUrl}/golf-hero.jpg`,
+      url: `${baseUrl}/og.png`,
     },
   ],
   siteName: 'Drug Test MI',
