@@ -1,4 +1,4 @@
-# Charlevoix Junior Golf League Website
+# MI Drug Test
 
 This website is built using PayloadCMS and Next.js 15, designed for managing and showcasing a junior golf league.
 

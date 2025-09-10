@@ -174,7 +174,7 @@ export async function Footer() {
         <div className="flex items-center justify-center">
           <Copyright>
             <Link href="/" className={cn(buttonVariants({ variant: 'ghost' }), 'p-0 text-balance')}>
-              {contact.name ?? 'Charlevoix Junior Golf'}
+              {contact.name ?? 'MI Drug Test'}
             </Link>
           </Copyright>
         </div>
