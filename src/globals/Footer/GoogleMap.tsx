@@ -2,7 +2,7 @@
 
 import { CompanyInfo } from '@/payload-types'
 import { APIProvider, InfoWindow, Map } from '@vis.gl/react-google-maps'
-import { LandPlot } from 'lucide-react'
+import { FlaskConical, LandPlot } from 'lucide-react'
 
 export const GoogleMap = ({ contact }: { contact: CompanyInfo['contact'] }) => {
   const {
@@ -35,7 +35,7 @@ export const GoogleMap = ({ contact }: { contact: CompanyInfo['contact'] }) => {
             maxWidth={280}
             headerContent={
               <div className="flex items-center gap-4">
-                <LandPlot className="text-primary size-8 shrink-0" />
+                <FlaskConical className="text-primary size-8 shrink-0" />
                 <div className="flex flex-col gap-4">
                   <h3 className="text-base leading-5 font-bold text-balance">{name}</h3>
                 </div>
