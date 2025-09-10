@@ -40,14 +40,13 @@ const nextConfig = {
 const sentryConfig = {
   org: 'mikecebul',
   project: 'drug-test-mi',
-  sentryUrl: 'https://monitor.mikecebul.dev/',
+  sentryUrl: 'https://monitor.mikecebul.com/',
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: !process.env.CI,
   widenClientFileUpload: true,
   reactComponentAnnotation: {
     enabled: true,
   },
-  tunnelRoute: '/monitoring',
   hideSourceMaps: true,
   disableLogger: true,
   automaticVercelMonitors: true,

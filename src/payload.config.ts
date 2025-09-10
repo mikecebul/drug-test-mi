@@ -109,20 +109,7 @@ const createRegistrationsOnPayment = async ({ doc, previousDoc, req }) => {
 }
 
 export default buildConfig({
-  onInit: async (payload) => {
-    // Unlock admin account if needed
-    const admin = 'mikecebul@gmail.com'
-    try {
-      await payload.unlock({
-        collection: 'users',
-        data: { email: admin, password: "" },
-        overrideAccess: true,
-      })
-      console.log(`✅ Admin account unlocked for ${admin}`)
-    } catch (error) {
-      console.error('❌ Error unlocking admin:', error.message)
-    }
-  },
+  serverURL: baseUrl,
   admin: {
     avatar: 'default',
     components: {

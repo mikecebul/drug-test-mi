@@ -29,7 +29,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     return new Response('This endpoint can only be used for relative previews', { status: 500 })
   }
 
-  let user: any
+  let user
 
   try {
     user = await payload.auth({
