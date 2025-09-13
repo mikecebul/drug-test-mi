@@ -1,7 +1,7 @@
 import type { CollectionConfig } from 'payload'
 import { editorOrHigher } from '@/access/editorOrHigher'
 import { superAdmin } from '@/access/superAdmin'
-import { revalidatePath } from 'next/cache'
+import { revalidateTechnicians } from './hooks/revalidateTechnicians'
 
 export const Technicians: CollectionConfig = {
   slug: 'technicians',
@@ -95,12 +95,6 @@ export const Technicians: CollectionConfig = {
     },
   ],
   hooks: {
-    afterChange: [
-      ({ req }) => {
-        if (req.headers['X-Payload-Migration'] !== 'true') {
-          revalidatePath('/(frontend)', 'layout')
-        }
-      },
-    ],
+    afterChange: [revalidateTechnicians],
   },
 }
