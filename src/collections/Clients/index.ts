@@ -15,7 +15,7 @@ export const Clients: CollectionConfig = {
     update: editorOrHigher,
   },
   admin: {
-    defaultColumns: ['name', 'email', 'phone', 'totalBookings', 'lastBookingDate'],
+    defaultColumns: ['headshot', 'name', 'email', 'clientType', 'totalBookings', 'lastBookingDate'],
     useAsTitle: 'name',
   },
   fields: [
@@ -40,17 +40,123 @@ export const Clients: CollectionConfig = {
       },
     },
     {
-      name: 'company',
-      type: 'text',
+      name: 'headshot',
+      type: 'upload',
+      relationTo: 'media',
       admin: {
-        description: 'Company or organization name',
+        description: 'Client headshot photo for identification during testing',
       },
+      filterOptions: {
+        mimeType: {
+          contains: 'image',
+        },
+      },
+    },
+    {
+      name: 'clientType',
+      type: 'select',
+      options: [
+        { label: 'Probation/Court', value: 'probation' },
+        { label: 'Employment', value: 'employment' },
+      ],
+      required: true,
+      admin: {
+        description: 'Type of client - determines required fields',
+      },
+    },
+    // Probation/Court specific fields
+    {
+      name: 'courtInfo',
+      type: 'group',
+      admin: {
+        condition: (data, siblingData) => siblingData?.clientType === 'probation',
+        description: 'Court and probation officer information',
+      },
+      fields: [
+        {
+          name: 'courtName',
+          type: 'text',
+          required: true,
+          admin: {
+            description: 'Name of the court',
+          },
+        },
+        {
+          name: 'probationOfficerName',
+          type: 'text',
+          required: true,
+          admin: {
+            description: 'Name of probation officer',
+          },
+        },
+        {
+          name: 'probationOfficerEmail',
+          type: 'email',
+          required: true,
+          admin: {
+            description: 'Email of probation officer',
+          },
+        },
+      ],
+    },
+    // Employment specific fields
+    {
+      name: 'employmentInfo',
+      type: 'group',
+      admin: {
+        condition: (data, siblingData) => siblingData?.clientType === 'employment',
+        description: 'Employer and contact information',
+      },
+      fields: [
+        {
+          name: 'employerName',
+          type: 'text',
+          required: true,
+          admin: {
+            description: 'Name of employer/company',
+          },
+        },
+        {
+          name: 'contactName',
+          type: 'text',
+          required: true,
+          admin: {
+            description: 'Name of HR contact or hiring manager',
+          },
+        },
+        {
+          name: 'contactEmail',
+          type: 'email',
+          required: true,
+          admin: {
+            description: 'Email of HR contact or hiring manager',
+          },
+        },
+      ],
     },
     {
       name: 'notes',
       type: 'textarea',
       admin: {
         description: 'Internal notes about the client',
+      },
+    },
+    // Drug screen results (auto-populated via join)
+    {
+      name: 'drugScreenResults',
+      type: 'join',
+      collection: 'media',
+      on: 'relatedClient',
+      where: {
+        isSecure: {
+          equals: true,
+        },
+        documentType: {
+          equals: 'drug-screen',
+        },
+      },
+      admin: {
+        description: 'Drug screen result documents automatically linked to this client',
       },
     },
     // Calculated fields updated by hooks

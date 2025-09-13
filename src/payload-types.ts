@@ -111,7 +111,11 @@ export interface Config {
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  collectionsJoins: {};
+  collectionsJoins: {
+    clients: {
+      drugScreenResults: 'media';
+    };
+  };
   collectionsSelect: {
     pages: PagesSelect<false> | PagesSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
@@ -284,6 +288,18 @@ export interface Media {
   alt: string;
   caption?: string | null;
   prefix?: string | null;
+  /**
+   * Mark as secure document (requires authentication to access)
+   */
+  isSecure?: boolean | null;
+  /**
+   * Type of document (for secure files)
+   */
+  documentType?: ('drug-screen' | 'other') | null;
+  /**
+   * Client this document belongs to (for secure files)
+   */
+  relatedClient?: (string | null) | Client;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -313,6 +329,92 @@ export interface Media {
       filename?: string | null;
     };
   };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "clients".
+ */
+export interface Client {
+  id: string;
+  name: string;
+  email: string;
+  /**
+   * Phone number for contact
+   */
+  phone?: string | null;
+  /**
+   * Client headshot photo for identification during testing
+   */
+  headshot?: (string | null) | Media;
+  /**
+   * Type of client - determines required fields
+   */
+  clientType: 'probation' | 'employment';
+  /**
+   * Court and probation officer information
+   */
+  courtInfo?: {
+    /**
+     * Name of the court
+     */
+    courtName: string;
+    /**
+     * Name of probation officer
+     */
+    probationOfficerName: string;
+    /**
+     * Email of probation officer
+     */
+    probationOfficerEmail: string;
+  };
+  /**
+   * Employer and contact information
+   */
+  employmentInfo?: {
+    /**
+     * Name of employer/company
+     */
+    employerName: string;
+    /**
+     * Name of HR contact or hiring manager
+     */
+    contactName: string;
+    /**
+     * Email of HR contact or hiring manager
+     */
+    contactEmail: string;
+  };
+  /**
+   * Internal notes about the client
+   */
+  notes?: string | null;
+  /**
+   * Drug screen result documents automatically linked to this client
+   */
+  drugScreenResults?: {
+    docs?: (string | Media)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Total number of bookings made by this client
+   */
+  totalBookings?: number | null;
+  /**
+   * Date of most recent booking
+   */
+  lastBookingDate?: string | null;
+  /**
+   * Date of first booking
+   */
+  firstBookingDate?: string | null;
+  preferredContactMethod?: ('email' | 'phone' | 'sms') | null;
+  /**
+   * Whether this client is active
+   */
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -906,54 +1008,16 @@ export interface Technician {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "clients".
- */
-export interface Client {
-  id: string;
-  name: string;
-  email: string;
-  /**
-   * Phone number for contact
-   */
-  phone?: string | null;
-  /**
-   * Company or organization name
-   */
-  company?: string | null;
-  /**
-   * Internal notes about the client
-   */
-  notes?: string | null;
-  /**
-   * Total number of bookings made by this client
-   */
-  totalBookings?: number | null;
-  /**
-   * Date of most recent booking
-   */
-  lastBookingDate?: string | null;
-  /**
-   * Date of first booking
-   */
-  firstBookingDate?: string | null;
-  preferredContactMethod?: ('email' | 'phone' | 'sms') | null;
-  /**
-   * Whether this client is active
-   */
-  isActive?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "exports".
  */
 export interface Export {
   id: string;
   name?: string | null;
-  format: 'csv' | 'json';
+  format?: ('csv' | 'json') | null;
   limit?: number | null;
+  page?: number | null;
   sort?: string | null;
+  sortOrder?: ('asc' | 'desc') | null;
   drafts?: ('yes' | 'no') | null;
   selectionToUse?: ('currentSelection' | 'currentFilters' | 'all') | null;
   fields?: string[] | null;
@@ -1701,6 +1765,9 @@ export interface MediaSelect<T extends boolean = true> {
   alt?: T;
   caption?: T;
   prefix?: T;
+  isSecure?: T;
+  documentType?: T;
+  relatedClient?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -1792,8 +1859,24 @@ export interface ClientsSelect<T extends boolean = true> {
   name?: T;
   email?: T;
   phone?: T;
-  company?: T;
+  headshot?: T;
+  clientType?: T;
+  courtInfo?:
+    | T
+    | {
+        courtName?: T;
+        probationOfficerName?: T;
+        probationOfficerEmail?: T;
+      };
+  employmentInfo?:
+    | T
+    | {
+        employerName?: T;
+        contactName?: T;
+        contactEmail?: T;
+      };
   notes?: T;
+  drugScreenResults?: T;
   totalBookings?: T;
   lastBookingDate?: T;
   firstBookingDate?: T;
@@ -1810,7 +1893,9 @@ export interface ExportsSelect<T extends boolean = true> {
   name?: T;
   format?: T;
   limit?: T;
+  page?: T;
   sort?: T;
+  sortOrder?: T;
   drafts?: T;
   selectionToUse?: T;
   fields?: T;
@@ -2070,9 +2155,11 @@ export interface CompanyInfoSelect<T extends boolean = true> {
 export interface TaskCreateCollectionExport {
   input: {
     name?: string | null;
-    format: 'csv' | 'json';
+    format?: ('csv' | 'json') | null;
     limit?: number | null;
+    page?: number | null;
     sort?: string | null;
+    sortOrder?: ('asc' | 'desc') | null;
     drafts?: ('yes' | 'no') | null;
     selectionToUse?: ('currentSelection' | 'currentFilters' | 'all') | null;
     fields?: string[] | null;

@@ -85,5 +85,35 @@ export const Media: CollectionConfig = {
         hidden: true,
       },
     },
+    // Security fields for sensitive documents
+    {
+      name: 'isSecure',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: {
+        description: 'Mark as secure document (requires authentication to access)',
+      },
+    },
+    {
+      name: 'documentType',
+      type: 'select',
+      options: [
+        { label: 'Drug Screen Result', value: 'drug-screen' },
+        { label: 'Other Sensitive Document', value: 'other' },
+      ],
+      admin: {
+        description: 'Type of document (for secure files)',
+        condition: (data, siblingData) => siblingData?.isSecure,
+      },
+    },
+    {
+      name: 'relatedClient',
+      type: 'relationship',
+      relationTo: 'clients',
+      admin: {
+        description: 'Client this document belongs to (for secure files)',
+        condition: (data, siblingData) => siblingData?.isSecure,
+      },
+    },
   ],
 }
