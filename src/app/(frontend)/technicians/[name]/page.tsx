@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
-import React, { cache } from 'react'
+import React, { cache, Suspense } from 'react'
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 import { notFound } from 'next/navigation'
 import { TechnicianDetailPage } from '@/components/TechnicianDetailPage'
+import { TechnicianDetailSkeleton } from '@/components/TechnicianDetailSkeleton'
 
 export async function generateStaticParams() {
   const payload = await getPayload({ config: configPromise })
@@ -48,7 +49,11 @@ export default async function Page({ params: paramsPromise }: Args) {
     return notFound()
   }
 
-  return <TechnicianDetailPage technician={technician} />
+  return (
+    <Suspense fallback={<TechnicianDetailSkeleton />}>
+      <TechnicianDetailPage technician={technician} />
+    </Suspense>
+  )
 }
 
 export async function generateMetadata({ params: paramsPromise }: Args): Promise<Metadata> {
