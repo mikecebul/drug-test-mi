@@ -3,31 +3,27 @@ import React, { Fragment } from 'react'
 import type { Page } from '@/payload-types'
 
 import { LinksBlock } from './Links/Component'
-import { BookingsBlock } from './BookingsBlock/Component'
 import { RichTextBlock } from './RichText/Component'
-import { BookingsPageBlock } from './BookingsPage/Component'
 import { FormBlockRouter } from './Form/Component'
 import { MediaBlock } from './MediaBlock/Component'
-import { BookingCardsBlock } from './BookingCards/Component'
 import { FeatureCardsBlock } from './FeatureCards/Component'
 import { LayoutBlock } from './Layout/Component'
 import { TwoColumnLayoutBlock } from './TwoColumnLayout/Component'
 import { CalendarEmbedBlock } from './Cal/Component'
-import { HeroBlock } from './Hero/Component' 
+import { HeroBlock } from './Hero/Component'
+import { SchedulePageBlock } from './SchedulePage/Component'
 
 const blockComponents = {
   richText: RichTextBlock,
   linksBlock: LinksBlock,
-  bookings: BookingsBlock,
-  bookingsPage: BookingsPageBlock,
   formBlock: FormBlockRouter,
   mediaBlock: MediaBlock,
-  bookingCards: BookingCardsBlock,
   featureCards: FeatureCardsBlock,
   TwoColumnLayout: TwoColumnLayoutBlock,
   layout: LayoutBlock,
   calendarEmbed: CalendarEmbedBlock,
-  hero: HeroBlock
+  hero: HeroBlock,
+  schedulePage: SchedulePageBlock,
 }
 
 export const RenderBlocks: React.FC<{

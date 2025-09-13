@@ -181,16 +181,14 @@ export interface Page {
   title: string;
   layout: (
     | CalendarEmbedBlock
-    | BookingsBlock
     | Hero
     | RichTextBlock
     | LinksBlock
-    | BookingsPageBlock
     | FormBlock
     | TwoColumnLayoutBlock
-    | BookingCardsBlock
     | FeatureCardsBlock
     | LayoutBlock
+    | SchedulePageBlock
   )[];
   meta?: {
     hideFromSearchEngines?: boolean | null;
@@ -224,21 +222,30 @@ export interface CalendarEmbedBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "BookingsBlock".
+ * via the `definition` "Hero".
  */
-export interface BookingsBlock {
-  direction?: ('ltr' | 'rtl') | null;
-  title: string;
-  description: string;
-  links?: LinkGroup;
-  image?: (string | null) | Media;
-  /**
-   * Select up to 3 bookings to display
-   */
-  bookingItems?: (string | Booking)[] | null;
+export interface Hero {
+  type: 'highImpact' | 'mediumImpact';
+  highImpact?: {
+    title: string;
+    description: string;
+    /**
+     * Phone number for 'Call Now' cta on mobile.
+     */
+    phoneNumber: string;
+    links?: LinkGroup;
+    image: string | Media;
+    svg?: boolean | null;
+  };
+  mediumImpact?: {
+    subtitle?: string | null;
+    title: string;
+    heading?: ('h1' | 'h2') | null;
+    description?: string | null;
+  };
   id?: string | null;
   blockName?: string | null;
-  blockType: 'bookings';
+  blockType: 'hero';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -307,96 +314,6 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "bookings".
- */
-export interface Booking {
-  id: string;
-  title: string;
-  /**
-   * Event type duration (e.g., 60min, 30min)
-   */
-  type: string;
-  description?: string | null;
-  additionalNotes?: string | null;
-  startTime: string;
-  endTime: string;
-  status: 'confirmed' | 'cancelled' | 'rescheduled' | 'pending' | 'rejected';
-  organizer: {
-    id?: number | null;
-    name: string;
-    email: string;
-    username?: string | null;
-    timeZone?: string | null;
-    timeFormat?: string | null;
-  };
-  attendeeName: string;
-  attendeeEmail: string;
-  location?: string | null;
-  /**
-   * Cal.com booking UID
-   */
-  calcomBookingId?: string | null;
-  eventTypeId?: number | null;
-  /**
-   * Additional form responses from Cal.com
-   */
-  customInputs?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  /**
-   * Raw webhook payload for debugging
-   */
-  webhookData?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  /**
-   * Whether this booking was created via Cal.com webhook
-   */
-  createdViaWebhook?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "Hero".
- */
-export interface Hero {
-  type: 'highImpact' | 'mediumImpact';
-  highImpact?: {
-    title: string;
-    description: string;
-    /**
-     * Phone number for 'Call Now' cta on mobile.
-     */
-    phoneNumber: string;
-    links?: LinkGroup;
-    image: string | Media;
-    svg?: boolean | null;
-  };
-  mediumImpact?: {
-    subtitle?: string | null;
-    title: string;
-    heading?: ('h1' | 'h2') | null;
-    description?: string | null;
-  };
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'hero';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "RichTextBlock".
  */
 export interface RichTextBlock {
@@ -433,38 +350,6 @@ export interface LinksBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'linksBlock';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "BookingsPageBlock".
- */
-export interface BookingsPageBlock {
-  title?: string | null;
-  bookingCards?: (string | Booking)[] | null;
-  announcements?:
-    | {
-        title: string;
-        description: {
-          root: {
-            type: string;
-            children: {
-              type: string;
-              version: number;
-              [k: string]: unknown;
-            }[];
-            direction: ('ltr' | 'rtl') | null;
-            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-            indent: number;
-            version: number;
-          };
-          [k: string]: unknown;
-        };
-        id?: string | null;
-      }[]
-    | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'bookingsPage';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -846,19 +731,6 @@ export interface TwoColumnLayoutBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "BookingCardsBlock".
- */
-export interface BookingCardsBlock {
-  /**
-   * Select up to 3 bookings to display
-   */
-  bookingCards?: (string | Booking)[] | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'bookingCards';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "FeatureCardsBlock".
  */
 export interface FeatureCardsBlock {
@@ -879,10 +751,83 @@ export interface FeatureCardsBlock {
  * via the `definition` "LayoutBlock".
  */
 export interface LayoutBlock {
-  blocks?: (TwoColumnLayoutBlock | FeatureCardsBlock | BookingCardsBlock | Hero | CalendarEmbedBlock)[] | null;
+  blocks?: (TwoColumnLayoutBlock | FeatureCardsBlock | Hero | CalendarEmbedBlock)[] | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'layout';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SchedulePageBlock".
+ */
+export interface SchedulePageBlock {
+  title?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'schedulePage';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings".
+ */
+export interface Booking {
+  id: string;
+  title: string;
+  /**
+   * Event type duration (e.g., 60min, 30min)
+   */
+  type: string;
+  description?: string | null;
+  additionalNotes?: string | null;
+  startTime: string;
+  endTime: string;
+  status: 'confirmed' | 'cancelled' | 'rescheduled' | 'pending' | 'rejected';
+  organizer: {
+    id?: number | null;
+    name: string;
+    email: string;
+    username?: string | null;
+    timeZone?: string | null;
+    timeFormat?: string | null;
+  };
+  attendeeName: string;
+  attendeeEmail: string;
+  location?: string | null;
+  /**
+   * Cal.com booking UID
+   */
+  calcomBookingId?: string | null;
+  eventTypeId?: number | null;
+  /**
+   * Additional form responses from Cal.com
+   */
+  customInputs?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Raw webhook payload for debugging
+   */
+  webhookData?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Whether this booking was created via Cal.com webhook
+   */
+  createdViaWebhook?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1198,16 +1143,14 @@ export interface PagesSelect<T extends boolean = true> {
     | T
     | {
         calendarEmbed?: T | CalendarEmbedBlockSelect<T>;
-        bookings?: T | BookingsBlockSelect<T>;
         hero?: T | HeroSelect<T>;
         richText?: T | RichTextBlockSelect<T>;
         linksBlock?: T | LinksBlockSelect<T>;
-        bookingsPage?: T | BookingsPageBlockSelect<T>;
         formBlock?: T | FormBlockSelect<T>;
         TwoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
-        bookingCards?: T | BookingCardsBlockSelect<T>;
         featureCards?: T | FeatureCardsBlockSelect<T>;
         layout?: T | LayoutBlockSelect<T>;
+        schedulePage?: T | SchedulePageBlockSelect<T>;
       };
   meta?:
     | T
@@ -1241,40 +1184,6 @@ export interface CalendarEmbedBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "BookingsBlock_select".
- */
-export interface BookingsBlockSelect<T extends boolean = true> {
-  direction?: T;
-  title?: T;
-  description?: T;
-  links?: T | LinkGroupSelect<T>;
-  image?: T;
-  bookingItems?: T;
-  id?: T;
-  blockName?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "LinkGroup_select".
- */
-export interface LinkGroupSelect<T extends boolean = true> {
-  link?: T | LinkSelect<T>;
-  id?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "Link_select".
- */
-export interface LinkSelect<T extends boolean = true> {
-  type?: T;
-  newTab?: T;
-  reference?: T;
-  url?: T;
-  label?: T;
-  appearance?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "Hero_select".
  */
 export interface HeroSelect<T extends boolean = true> {
@@ -1299,6 +1208,26 @@ export interface HeroSelect<T extends boolean = true> {
       };
   id?: T;
   blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "LinkGroup_select".
+ */
+export interface LinkGroupSelect<T extends boolean = true> {
+  link?: T | LinkSelect<T>;
+  id?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "Link_select".
+ */
+export interface LinkSelect<T extends boolean = true> {
+  type?: T;
+  newTab?: T;
+  reference?: T;
+  url?: T;
+  label?: T;
+  appearance?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1336,23 +1265,6 @@ export interface LinkCardsSelect<T extends boolean = true> {
   image?: T;
   href?: T;
   id?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "BookingsPageBlock_select".
- */
-export interface BookingsPageBlockSelect<T extends boolean = true> {
-  title?: T;
-  bookingCards?: T;
-  announcements?:
-    | T
-    | {
-        title?: T;
-        description?: T;
-        id?: T;
-      };
-  id?: T;
-  blockName?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1417,15 +1329,6 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "BookingCardsBlock_select".
- */
-export interface BookingCardsBlockSelect<T extends boolean = true> {
-  bookingCards?: T;
-  id?: T;
-  blockName?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "FeatureCardsBlock_select".
  */
 export interface FeatureCardsBlockSelect<T extends boolean = true> {
@@ -1450,10 +1353,18 @@ export interface LayoutBlockSelect<T extends boolean = true> {
     | {
         TwoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
         featureCards?: T | FeatureCardsBlockSelect<T>;
-        bookingCards?: T | BookingCardsBlockSelect<T>;
         hero?: T | HeroSelect<T>;
         calendarEmbed?: T | CalendarEmbedBlockSelect<T>;
       };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SchedulePageBlock_select".
+ */
+export interface SchedulePageBlockSelect<T extends boolean = true> {
+  title?: T;
   id?: T;
   blockName?: T;
 }

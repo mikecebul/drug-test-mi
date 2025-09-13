@@ -15,11 +15,7 @@ import {
 } from '@payloadcms/plugin-seo/fields'
 import { Links } from '@/blocks/Links/config'
 import { superAdmin } from '@/access/superAdmin'
-import { Bookings } from '@/blocks/BookingsBlock/config'
 import { RichText } from '@/blocks/RichText/config'
-import { BookingsPage } from '@/blocks/BookingsPage/config'
-import { baseUrl } from '@/utilities/baseUrl'
-import { BookingCards } from '@/blocks/BookingCards/config'
 import { FeatureCards } from '@/blocks/FeatureCards/config'
 import { Form } from '@/blocks/Form/config'
 import { Layout } from '@/blocks/Layout/config'
@@ -28,6 +24,7 @@ import { revalidateDelete } from './hooks/revalidateDelete'
 import { editorOrHigher } from '@/access/editorOrHigher'
 import { CalendarEmbedBlock } from '@/blocks/Cal/config'
 import { Hero } from '@/blocks/Hero/config'
+import { SchedulePage } from '@/blocks/SchedulePage/config'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
@@ -75,16 +72,14 @@ export const Pages: CollectionConfig = {
               type: 'blocks',
               blocks: [
                 CalendarEmbedBlock,
-                Bookings,
                 Hero,
                 RichText,
                 Links,
-                BookingsPage,
                 Form,
                 TwoColumnLayout,
-                BookingCards,
                 FeatureCards,
                 Layout,
+                SchedulePage,
               ],
               required: true,
             },
