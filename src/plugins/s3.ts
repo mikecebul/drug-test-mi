@@ -15,3 +15,4 @@ export const S3_PLUGIN_CONFIG: S3StoragePlugin = {
     region: process.env.S3_REGION,
   },
 }
+

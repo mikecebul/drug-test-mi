@@ -74,9 +74,9 @@ export const useRegistrationFormOpts = ({
   return formOptions({
     defaultValues: {
       parents: [{ firstName: '', lastName: '', phone: '', postalCode: '', email: '' }],
-      players: [{ firstName: '', lastName: '', gender: '', ethnicity: '', dob: undefined }],
+      players: [{ firstName: '', lastName: '', gender: '', ethnicity: '', dob: undefined as Date | undefined }],
       price: 75,
-    },
+    } as RegistrationFormType,
     validators: {
       onChange: registrationSchema,
     },
@@ -84,7 +84,7 @@ export const useRegistrationFormOpts = ({
       setPostError(undefined)
       try {
         // Format dob for each player before sending
-        const formattedPlayers = data.players.map((player) => ({
+        const formattedPlayers = data.players.map((player: RegistrationFormType['players'][0]) => ({
           ...player,
           dob: player.dob ? format(player.dob, 'MMMM d, yyyy') : undefined,
         }))

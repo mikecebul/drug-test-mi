@@ -101,6 +101,7 @@ export interface Config {
     forms: Form;
     'form-submissions': FormSubmission;
     media: Media;
+    'private-media': PrivateMedia;
     users: User;
     technicians: Technician;
     clients: Client;
@@ -113,7 +114,7 @@ export interface Config {
   };
   collectionsJoins: {
     clients: {
-      drugScreenResults: 'media';
+      drugScreenResults: 'private-media';
     };
   };
   collectionsSelect: {
@@ -122,6 +123,7 @@ export interface Config {
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    'private-media': PrivateMediaSelect<false> | PrivateMediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     technicians: TechniciansSelect<false> | TechniciansSelect<true>;
     clients: ClientsSelect<false> | ClientsSelect<true>;
@@ -288,18 +290,6 @@ export interface Media {
   alt: string;
   caption?: string | null;
   prefix?: string | null;
-  /**
-   * Mark as secure document (requires authentication to access)
-   */
-  isSecure?: boolean | null;
-  /**
-   * Type of document (for secure files)
-   */
-  documentType?: ('drug-screen' | 'other') | null;
-  /**
-   * Client this document belongs to (for secure files)
-   */
-  relatedClient?: (string | null) | Client;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -329,92 +319,6 @@ export interface Media {
       filename?: string | null;
     };
   };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "clients".
- */
-export interface Client {
-  id: string;
-  name: string;
-  email: string;
-  /**
-   * Phone number for contact
-   */
-  phone?: string | null;
-  /**
-   * Client headshot photo for identification during testing
-   */
-  headshot?: (string | null) | Media;
-  /**
-   * Type of client - determines required fields
-   */
-  clientType: 'probation' | 'employment';
-  /**
-   * Court and probation officer information
-   */
-  courtInfo?: {
-    /**
-     * Name of the court
-     */
-    courtName: string;
-    /**
-     * Name of probation officer
-     */
-    probationOfficerName: string;
-    /**
-     * Email of probation officer
-     */
-    probationOfficerEmail: string;
-  };
-  /**
-   * Employer and contact information
-   */
-  employmentInfo?: {
-    /**
-     * Name of employer/company
-     */
-    employerName: string;
-    /**
-     * Name of HR contact or hiring manager
-     */
-    contactName: string;
-    /**
-     * Email of HR contact or hiring manager
-     */
-    contactEmail: string;
-  };
-  /**
-   * Internal notes about the client
-   */
-  notes?: string | null;
-  /**
-   * Drug screen result documents automatically linked to this client
-   */
-  drugScreenResults?: {
-    docs?: (string | Media)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Total number of bookings made by this client
-   */
-  totalBookings?: number | null;
-  /**
-   * Date of most recent booking
-   */
-  lastBookingDate?: string | null;
-  /**
-   * Date of first booking
-   */
-  firstBookingDate?: string | null;
-  preferredContactMethod?: ('email' | 'phone' | 'sms') | null;
-  /**
-   * Whether this client is active
-   */
-  isActive?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -953,6 +857,143 @@ export interface FormSubmission {
   createdAt: string;
 }
 /**
+ * Secure file storage for sensitive documents like drug test results
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "private-media".
+ */
+export interface PrivateMedia {
+  id: string;
+  /**
+   * Alternative text for SEO and accessibility
+   */
+  alt: string;
+  /**
+   * Type of sensitive document
+   */
+  documentType: 'drug-screen' | 'lab-report' | 'other';
+  /**
+   * Client this document belongs to
+   */
+  relatedClient: string | Client;
+  /**
+   * Date the test was conducted (if applicable)
+   */
+  testDate?: string | null;
+  /**
+   * Internal notes about this document
+   */
+  notes?: string | null;
+  prefix?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+  sizes?: {
+    thumbnail?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "clients".
+ */
+export interface Client {
+  id: string;
+  name: string;
+  email: string;
+  /**
+   * Phone number for contact
+   */
+  phone?: string | null;
+  /**
+   * Client headshot photo for identification during testing
+   */
+  headshot?: (string | null) | Media;
+  /**
+   * Type of client - determines required fields
+   */
+  clientType?: ('probation' | 'employment') | null;
+  /**
+   * Court and probation officer information
+   */
+  courtInfo?: {
+    /**
+     * Name of the court
+     */
+    courtName: string;
+    /**
+     * Name of probation officer
+     */
+    probationOfficerName: string;
+    /**
+     * Email of probation officer
+     */
+    probationOfficerEmail: string;
+  };
+  /**
+   * Employer and contact information
+   */
+  employmentInfo?: {
+    /**
+     * Name of employer/company
+     */
+    employerName: string;
+    /**
+     * Name of HR contact or hiring manager
+     */
+    contactName: string;
+    /**
+     * Email of HR contact or hiring manager
+     */
+    contactEmail: string;
+  };
+  /**
+   * Internal notes about the client
+   */
+  notes?: string | null;
+  /**
+   * Drug screen result documents automatically linked to this client
+   */
+  drugScreenResults?: {
+    docs?: (string | PrivateMedia)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Total number of bookings made by this client
+   */
+  totalBookings?: number | null;
+  /**
+   * Date of most recent booking
+   */
+  lastBookingDate?: string | null;
+  /**
+   * Date of first booking
+   */
+  firstBookingDate?: string | null;
+  preferredContactMethod?: ('email' | 'phone' | 'sms') | null;
+  /**
+   * Whether this client is active
+   */
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
@@ -1182,6 +1223,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: string | Media;
+      } | null)
+    | ({
+        relationTo: 'private-media';
+        value: string | PrivateMedia;
       } | null)
     | ({
         relationTo: 'users';
@@ -1765,9 +1810,6 @@ export interface MediaSelect<T extends boolean = true> {
   alt?: T;
   caption?: T;
   prefix?: T;
-  isSecure?: T;
-  documentType?: T;
-  relatedClient?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -1793,6 +1835,43 @@ export interface MediaSelect<T extends boolean = true> {
               filename?: T;
             };
         meta?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+      };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "private-media_select".
+ */
+export interface PrivateMediaSelect<T extends boolean = true> {
+  alt?: T;
+  documentType?: T;
+  relatedClient?: T;
+  testDate?: T;
+  notes?: T;
+  prefix?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+  sizes?:
+    | T
+    | {
+        thumbnail?:
           | T
           | {
               url?: T;

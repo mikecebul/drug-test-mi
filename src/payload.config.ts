@@ -41,6 +41,7 @@ import { CompanyInfo } from './globals/CompanyInfo/config'
 import { superAdmin } from './access/superAdmin'
 import { Bookings } from './collections/Bookings'
 import { Media } from './collections/Media'
+import { PrivateMedia } from './collections/PrivateMedia'
 import { MediaBlock } from './blocks/MediaBlock/config'
 import { baseUrl } from './utilities/baseUrl'
 import { checkoutSessionCompleted } from './plugins/stripe/webhooks/checkoutSessionCompleted'
@@ -169,7 +170,7 @@ export default buildConfig({
   db: mongooseAdapter({
     url: process.env.DATABASE_URI!,
   }),
-  collections: [Pages, Bookings, Forms, FormSubmissions, Media, Users, Technicians, Clients],
+  collections: [Pages, Bookings, Forms, FormSubmissions, Media, PrivateMedia, Users, Technicians, Clients],
   cors: [baseUrl].filter(Boolean),
   csrf: [baseUrl].filter(Boolean),
   email: nodemailerAdapter({
@@ -268,6 +269,13 @@ export default buildConfig({
             return `https://${process.env.NEXT_PUBLIC_S3_HOSTNAME}/${prefix}/${filename}`
           },
           prefix: process.env.NEXT_PUBLIC_UPLOAD_PREFIX,
+        },
+        'private-media': {
+          disableLocalStorage: true,
+          prefix: 'private',
+          signedDownloads: {
+            shouldUseSignedURL: () => true, // Always use signed URLs for private media
+          },
         },
       },
     }),

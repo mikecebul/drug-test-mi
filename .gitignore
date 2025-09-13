@@ -9,6 +9,7 @@ node_modules
 .pnpm-store
 
 # Payload default media upload directory
+private-media
 public/media/
 public/files
 public/landscapes

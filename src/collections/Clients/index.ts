@@ -59,7 +59,6 @@ export const Clients: CollectionConfig = {
         { label: 'Probation/Court', value: 'probation' },
         { label: 'Employment', value: 'employment' },
       ],
-      required: true,
       admin: {
         description: 'Type of client - determines required fields',
       },
@@ -145,12 +144,9 @@ export const Clients: CollectionConfig = {
     {
       name: 'drugScreenResults',
       type: 'join',
-      collection: 'media',
+      collection: 'private-media',
       on: 'relatedClient',
       where: {
-        isSecure: {
-          equals: true,
-        },
         documentType: {
           equals: 'drug-screen',
         },
