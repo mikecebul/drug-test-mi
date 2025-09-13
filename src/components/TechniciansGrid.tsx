@@ -85,7 +85,7 @@ export function TechniciansGrid({ technicians }: TechniciansGridProps) {
                     </div>
                   </div>
 
-                  <Link href={`/technicians/${technicianSlug}`} className="block">
+                  <Link href={`/technicians/${technicianSlug}?from=technicians`} className="block">
                     <Button className="w-full mt-4 group-hover:bg-primary/90 transition-colors">
                       <Calendar className="h-4 w-4 mr-2" />
                       Schedule with {technician.name.split(" ")[0]}

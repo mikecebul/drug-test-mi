@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useMemo, useCallback } from "react"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -19,11 +20,11 @@ interface TechnicianSelectionProps {
 }
 
 function getTechnicianAvailabilityText(technician: Technician): string {
-  const times = []
+  const times: string[] = []
   if (technician.availability?.mornings) times.push("mornings")
   if (technician.availability?.evenings) times.push("evenings")
   
-  const days = []
+  const days: string[] = []
   if (technician.availability?.weekdays) days.push("weekdays")
   if (technician.availability?.weekends) days.push("weekends")
   
@@ -34,10 +35,48 @@ function getTechnicianAvailabilityText(technician: Technician): string {
 }
 
 export function TechnicianSelection({ onTechnicianSelect, technicians }: TechnicianSelectionProps) {
-  const [genderPreference, setGenderPreference] = useState<GenderPreference>("any")
-  const [timePreference, setTimePreference] = useState<TimePreference>("any")
-  const [dayPreference, setDayPreference] = useState<DayPreference>("any")
-  const [locationPreference, setLocationPreference] = useState<string>("any")
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  // Get current filter values from URL params
+  const genderPreference = (searchParams.get('gender') as GenderPreference) || "any"
+  const timePreference = (searchParams.get('time') as TimePreference) || "any"
+  const dayPreference = (searchParams.get('day') as DayPreference) || "any"
+  const locationPreference = searchParams.get('location') || "any"
+
+  // Function to update URL with new filter values
+  const updateFilters = useCallback((updates: Record<string, string>) => {
+    const params = new URLSearchParams(searchParams.toString())
+    
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === "any") {
+        params.delete(key)
+      } else {
+        params.set(key, value)
+      }
+    })
+
+    const queryString = params.toString()
+    const newUrl = queryString ? `${pathname}?${queryString}` : pathname
+    router.replace(newUrl, { scroll: false })
+  }, [router, pathname, searchParams])
+
+  const setGenderPreference = useCallback((value: GenderPreference) => {
+    updateFilters({ gender: value })
+  }, [updateFilters])
+
+  const setTimePreference = useCallback((value: TimePreference) => {
+    updateFilters({ time: value })
+  }, [updateFilters])
+
+  const setDayPreference = useCallback((value: DayPreference) => {
+    updateFilters({ day: value })
+  }, [updateFilters])
+
+  const setLocationPreference = useCallback((value: string) => {
+    updateFilters({ location: value })
+  }, [updateFilters])
 
   const availableTechnicians = useMemo(() => {
     return technicians.filter((technician) => {

@@ -2,7 +2,7 @@
 
 import { TechnicianSelection } from "@/components/technician-selection"
 import type { Technician } from "@/payload-types"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 interface SchedulePageClientProps {
   title?: string
@@ -11,10 +11,19 @@ interface SchedulePageClientProps {
 
 export const SchedulePageClient = ({ title, technicians }: SchedulePageClientProps) => {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const handleTechnicianSelect = (technician: Technician) => {
     const technicianSlug = technician.name.toLowerCase().replace(/\s+/g, '-')
-    router.push(`/technicians/${technicianSlug}`)
+    
+    // Build the URL with current filters and referrer info
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('from', 'schedule')
+    
+    const queryString = params.toString()
+    const url = `/technicians/${technicianSlug}${queryString ? `?${queryString}` : ''}`
+    
+    router.push(url)
   }
 
   return (
