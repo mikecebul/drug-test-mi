@@ -10,8 +10,8 @@ const defaultOpenGraph: Metadata['openGraph'] = {
       url: `${baseUrl}/og.png`,
     },
   ],
-  siteName: 'Drug Test MI',
-  title: 'Drug Test MI',
+  siteName: 'MI Drug Test',
+  title: 'MI Drug Test',
 }
 
 export const mergeOpenGraph = (og?: Metadata['openGraph']): Metadata['openGraph'] => {

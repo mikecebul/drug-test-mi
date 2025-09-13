@@ -31,8 +31,8 @@ export const generateMeta = async (args: { doc: Page }): Promise<Metadata> => {
       : getFallbackOgImage(doc?.slug || undefined)
 
   const title = doc?.meta?.metadata?.title
-    ? doc.meta.metadata.title + ' | Drug Test MI'
-    : 'Drug Test MI'
+    ? doc.meta.metadata.title + ' | MI Drug Test'
+    : 'MI Drug Test'
 
   return {
     description: doc?.meta?.metadata?.description,

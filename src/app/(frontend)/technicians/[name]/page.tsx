@@ -69,7 +69,7 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
   }
 
   return {
-    title: `Schedule with ${technician.name} | Drug Test MI`,
+    title: `Schedule with ${technician.name} | MI Drug Test`,
     description: `Book an appointment with ${technician.name}, a certified drug testing technician. ${technician.bio}`,
   }
 }

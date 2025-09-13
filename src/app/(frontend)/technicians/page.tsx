@@ -5,7 +5,7 @@ import { getPayload } from 'payload'
 import { TechniciansGrid } from '@/components/TechniciansGrid'
 
 export const metadata: Metadata = {
-  title: 'Our Technicians | Drug Test MI',
+  title: 'Our Technicians | MI Drug Test',
   description: 'Meet our certified drug testing technicians. Professional, discreet, and experienced testing services.',
 }
 

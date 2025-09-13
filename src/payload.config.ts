@@ -55,9 +55,9 @@ const dirname = path.dirname(filename)
 
 const generateTitle: GenerateTitle<Page> = ({ doc }) => {
   if ('name' in doc) {
-    return doc.name ? `${doc.name}` : 'Drug Test MI'
+    return doc.name ? `${doc.name}` : 'MI Drug Test'
   }
-  return doc?.title ? `${doc.title}` : 'Drug Test MI'
+  return doc?.title ? `${doc.title}` : 'MI Drug Test'
 }
 
 const generateURL: GenerateURL<Page> = ({ doc }) => {
@@ -94,7 +94,7 @@ export default buildConfig({
     },
     meta: {
       icons: [{ url: '/favicon.ico' }],
-      titleSuffix: ' | Drug Test MI',
+      titleSuffix: ' | MI Drug Test',
     },
     user: Users.slug,
     livePreview: {
