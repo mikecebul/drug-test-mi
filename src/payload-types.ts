@@ -102,7 +102,7 @@ export interface Config {
     'form-submissions': FormSubmission;
     media: Media;
     users: User;
-    registrations: Registration;
+    technicians: Technician;
     exports: Export;
     redirects: Redirect;
     'payload-jobs': PayloadJob;
@@ -118,7 +118,7 @@ export interface Config {
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
-    registrations: RegistrationsSelect<false> | RegistrationsSelect<true>;
+    technicians: TechniciansSelect<false> | TechniciansSelect<true>;
     exports: ExportsSelect<false> | ExportsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
@@ -876,23 +876,29 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "registrations".
+ * via the `definition` "technicians".
  */
-export interface Registration {
+export interface Technician {
   id: string;
-  year: number;
-  childFirstName: string;
-  childLastName: string;
-  childBirthdate: string;
-  childAge?: number | null;
-  ethnicity?: string | null;
-  gender?: string | null;
-  parentName: string;
-  parentPhone: string;
-  parentEmail: string;
-  notes?: string | null;
-  postalCode?: string | null;
-  paid: boolean;
+  name: string;
+  bio: string;
+  gender: 'male' | 'female';
+  photo?: (string | null) | Media;
+  /**
+   * Cal.com username for booking appointments
+   */
+  calComUsername: string;
+  location: 'charlevoix';
+  availability?: {
+    mornings?: boolean | null;
+    evenings?: boolean | null;
+    weekdays?: boolean | null;
+    weekends?: boolean | null;
+  };
+  /**
+   * Inactive technicians will not appear in scheduling
+   */
+  isActive?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1076,8 +1082,8 @@ export interface PayloadLockedDocument {
         value: string | User;
       } | null)
     | ({
-        relationTo: 'registrations';
-        value: string | Registration;
+        relationTo: 'technicians';
+        value: string | Technician;
       } | null)
     | ({
         relationTo: 'exports';
@@ -1711,22 +1717,24 @@ export interface UsersSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "registrations_select".
+ * via the `definition` "technicians_select".
  */
-export interface RegistrationsSelect<T extends boolean = true> {
-  year?: T;
-  childFirstName?: T;
-  childLastName?: T;
-  childBirthdate?: T;
-  childAge?: T;
-  ethnicity?: T;
+export interface TechniciansSelect<T extends boolean = true> {
+  name?: T;
+  bio?: T;
   gender?: T;
-  parentName?: T;
-  parentPhone?: T;
-  parentEmail?: T;
-  notes?: T;
-  postalCode?: T;
-  paid?: T;
+  photo?: T;
+  calComUsername?: T;
+  location?: T;
+  availability?:
+    | T
+    | {
+        mornings?: T;
+        evenings?: T;
+        weekdays?: T;
+        weekends?: T;
+      };
+  isActive?: T;
   updatedAt?: T;
   createdAt?: T;
 }

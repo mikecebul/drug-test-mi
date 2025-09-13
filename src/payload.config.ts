@@ -44,10 +44,9 @@ import { Media } from './collections/Media'
 import { MediaBlock } from './blocks/MediaBlock/config'
 import { baseUrl } from './utilities/baseUrl'
 import { checkoutSessionCompleted } from './plugins/stripe/webhooks/checkoutSessionCompleted'
-import Registrations from './collections/Registrations'
 import { Forms } from './collections/Forms'
 import { FormSubmissions } from './collections/FormSubmissions'
-import { getMaxListeners } from 'events'
+import { Technicians } from './collections/Technicians'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -70,50 +69,11 @@ const generateImage: GenerateImage<Page> = ({ doc }) => {
   return '/og.png'
 }
 
-// Hook to create registrations when payment status is set to 'paid'
-const createRegistrationsOnPayment = async ({ doc, previousDoc, req }) => {
-  const prevStatus = previousDoc?.payment?.status
-  const newStatus = doc?.payment?.status
-  if (prevStatus === 'paid' || newStatus !== 'paid') return
-
-  const players = Array.isArray(doc.submissionData?.players) ? doc.submissionData.players : []
-  const parent =
-    Array.isArray(doc.submissionData?.parents) && doc.submissionData.parents.length > 0
-      ? doc.submissionData.parents[0]
-      : {}
-  const parentName =
-    parent.firstName && parent.lastName ? `${parent.firstName} ${parent.lastName}` : undefined
-  const parentPhone = parent.phone
-  const parentEmail = parent.email
-  const year = new Date().getFullYear()
-
-  for (const player of players) {
-    if (!player) continue
-    const postalCode = player.postalCode || parent.postalCode || ''
-    await req.payload.create({
-      collection: 'registrations',
-      data: {
-        year,
-        childFirstName: player.firstName || player.childFirstName,
-        childLastName: player.lastName || player.childLastName,
-        childBirthdate: player.birthdate || player.dob || player.childBirthdate,
-        parentName,
-        parentPhone,
-        parentEmail,
-        ethnicity: player.ethnicity || '',
-        gender: player.gender || '',
-        postalCode,
-      },
-    })
-  }
-}
-
 export default buildConfig({
   serverURL: baseUrl,
   admin: {
     avatar: 'default',
     components: {
-      // beforeDashboard: ['@/components/beforeDashboard/RegistrationCount'],
       afterDashboard: ['@/components/afterDashboard/Analytics'],
       afterNavLinks: ['@/components/afterNavLinks/LinkToAnalyticsDefaultRootView'],
       graphics: {
@@ -208,7 +168,7 @@ export default buildConfig({
   db: mongooseAdapter({
     url: process.env.DATABASE_URI!,
   }),
-  collections: [Pages, Bookings, Forms, FormSubmissions, Media, Users, Registrations],
+  collections: [Pages, Bookings, Forms, FormSubmissions, Media, Users, Technicians],
   cors: [baseUrl].filter(Boolean),
   csrf: [baseUrl].filter(Boolean),
   email: nodemailerAdapter({
@@ -228,7 +188,7 @@ export default buildConfig({
   graphQL: { disable: true },
   plugins: [
     importExportPlugin({
-      collections: ['registrations', 'form-submissions'],
+      collections: ['form-submissions'],
       overrideExportCollection: (collection) => {
         collection.admin.group = 'Admin'
         collection.upload.staticDir = path.resolve(dirname, 'uploads')
