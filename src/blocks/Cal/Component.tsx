@@ -10,8 +10,8 @@ export const CalendarEmbedBlock = ({
 }: CalendarEmbedBlockType) => {
   return (
     <Cal
-      calLink={calLink ?? 'mikecebul'}
-      config={{ theme: 'light', }}
+      calLink={calLink ?? 'midrugtest'}
+      config={{ theme: 'light' }}
       style={{ width: '100%', height: '100%', overflow: 'scroll' }}
     />
   )

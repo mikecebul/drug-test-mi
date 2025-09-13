@@ -2,6 +2,7 @@ import { authenticatedOrPublished } from '@/access/authenticatedOrPublished'
 import { editorOrHigher } from '@/access/editorOrHigher'
 import { revalidatePath } from 'next/cache'
 import { CollectionConfig } from 'payload'
+import { syncClient } from './hooks/syncClient'
 
 export const Bookings: CollectionConfig = {
   slug: 'bookings',
@@ -162,12 +163,7 @@ export const Bookings: CollectionConfig = {
   ],
   hooks: {
     afterChange: [
-      ({ req }) => {
-        if (req.headers['X-Payload-Migration'] !== 'true') {
-          revalidatePath('/(payload)', 'layout')
-          revalidatePath('/(frontend)', 'layout')
-        }
-      },
+      syncClient,
     ],
   },
 }

@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 import { editorOrHigher } from '@/access/editorOrHigher'
 import { superAdmin } from '@/access/superAdmin'
+import { revalidatePath } from 'next/cache'
 
 export const Technicians: CollectionConfig = {
   slug: 'technicians',
@@ -50,9 +51,7 @@ export const Technicians: CollectionConfig = {
     {
       name: 'location',
       type: 'select',
-      options: [
-        { label: 'Charlevoix', value: 'charlevoix' },
-      ],
+      options: [{ label: 'Charlevoix', value: 'charlevoix' }],
       required: true,
     },
     {
@@ -95,4 +94,13 @@ export const Technicians: CollectionConfig = {
       },
     },
   ],
+  hooks: {
+    afterChange: [
+      ({ req }) => {
+        if (req.headers['X-Payload-Migration'] !== 'true') {
+          revalidatePath('/(frontend)', 'layout')
+        }
+      },
+    ],
+  },
 }

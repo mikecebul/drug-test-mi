@@ -103,6 +103,7 @@ export interface Config {
     media: Media;
     users: User;
     technicians: Technician;
+    clients: Client;
     exports: Export;
     redirects: Redirect;
     'payload-jobs': PayloadJob;
@@ -119,6 +120,7 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     technicians: TechniciansSelect<false> | TechniciansSelect<true>;
+    clients: ClientsSelect<false> | ClientsSelect<true>;
     exports: ExportsSelect<false> | ExportsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
@@ -904,6 +906,46 @@ export interface Technician {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "clients".
+ */
+export interface Client {
+  id: string;
+  name: string;
+  email: string;
+  /**
+   * Phone number for contact
+   */
+  phone?: string | null;
+  /**
+   * Company or organization name
+   */
+  company?: string | null;
+  /**
+   * Internal notes about the client
+   */
+  notes?: string | null;
+  /**
+   * Total number of bookings made by this client
+   */
+  totalBookings?: number | null;
+  /**
+   * Date of most recent booking
+   */
+  lastBookingDate?: string | null;
+  /**
+   * Date of first booking
+   */
+  firstBookingDate?: string | null;
+  preferredContactMethod?: ('email' | 'phone' | 'sms') | null;
+  /**
+   * Whether this client is active
+   */
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "exports".
  */
 export interface Export {
@@ -1084,6 +1126,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'technicians';
         value: string | Technician;
+      } | null)
+    | ({
+        relationTo: 'clients';
+        value: string | Client;
       } | null)
     | ({
         relationTo: 'exports';
@@ -1734,6 +1780,24 @@ export interface TechniciansSelect<T extends boolean = true> {
         weekdays?: T;
         weekends?: T;
       };
+  isActive?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "clients_select".
+ */
+export interface ClientsSelect<T extends boolean = true> {
+  name?: T;
+  email?: T;
+  phone?: T;
+  company?: T;
+  notes?: T;
+  totalBookings?: T;
+  lastBookingDate?: T;
+  firstBookingDate?: T;
+  preferredContactMethod?: T;
   isActive?: T;
   updatedAt?: T;
   createdAt?: T;

@@ -47,6 +47,7 @@ import { checkoutSessionCompleted } from './plugins/stripe/webhooks/checkoutSess
 import { Forms } from './collections/Forms'
 import { FormSubmissions } from './collections/FormSubmissions'
 import { Technicians } from './collections/Technicians'
+import { Clients } from './collections/Clients'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -168,7 +169,7 @@ export default buildConfig({
   db: mongooseAdapter({
     url: process.env.DATABASE_URI!,
   }),
-  collections: [Pages, Bookings, Forms, FormSubmissions, Media, Users, Technicians],
+  collections: [Pages, Bookings, Forms, FormSubmissions, Media, Users, Technicians, Clients],
   cors: [baseUrl].filter(Boolean),
   csrf: [baseUrl].filter(Boolean),
   email: nodemailerAdapter({
