@@ -404,7 +404,7 @@ export async function GET() {
                   fontWeight: '600',
                 }}
               >
-                Register Now - It's Free
+                Register Now - It&apos;s Free
               </span>
               <svg
                 width="28"
