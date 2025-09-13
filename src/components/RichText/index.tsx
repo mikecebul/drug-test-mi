@@ -37,7 +37,7 @@ const jsxConverters = (paragraphClassName?: string): JSXConvertersFunction<NodeT
         })
 
         return (
-          <p className={cn('text-primary max-w-prose pb-3 text-pretty', paragraphClassName)}>
+          <p className={cn('text-foreground max-w-prose pb-3 text-pretty', paragraphClassName)}>
             {children}
           </p>
         )
