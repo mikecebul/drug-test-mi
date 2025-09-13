@@ -1,7 +1,6 @@
 import type { Field } from 'payload'
 
 import deepMerge from '@/utilities/deepMerge'
-import { addHTTPS } from '@/hooks/addHTTPS'
 
 export type LinkAppearances = 'default' | 'outline'
 
@@ -100,9 +99,6 @@ export const link: LinkType = ({ appearances, disableLabel = false, overrides = 
       },
       label: 'Custom URL',
       required: true,
-      hooks: {
-        beforeValidate: [addHTTPS],
-      },
     },
   ]
 
