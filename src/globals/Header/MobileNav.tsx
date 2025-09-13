@@ -10,7 +10,7 @@ import { cn } from '@/utilities/cn'
 import { isActiveRoute } from '@/utilities/isActiveRoute'
 import { Header } from '@/payload-types'
 import { CMSLink } from '@/components/Link'
-import { Logo, SheetLogo } from '@/components/Logo'
+import { SheetLogo } from '@/components/Logo'
 
 export type NavItem = NonNullable<Header['navItems']>[number]
 
@@ -44,15 +44,17 @@ export function MobileNav({ navItems, companyName }: { navItems: NavItem[]; comp
             <nav className="flex flex-col items-center space-y-4">
               {navItems.map(({ link }, i) => {
                 const slug =
-                  typeof link.reference?.value === 'object'
-                    ? link.reference?.relationTo === 'pages' &&
-                      typeof link.reference.value.slug === 'string'
-                      ? link.reference.value.slug
-                      : link.reference?.relationTo === 'media' &&
-                          typeof link.reference.value.url === 'string'
-                        ? link.reference.value.url
-                        : ''
-                    : ''
+                  link.type === 'custom' && link.url
+                    ? link.url.replace(/^\//, '') // Remove leading slash for custom URLs
+                    : typeof link.reference?.value === 'object'
+                      ? link.reference?.relationTo === 'pages' &&
+                        typeof link.reference.value.slug === 'string'
+                        ? link.reference.value.slug
+                        : link.reference?.relationTo === 'media' &&
+                            typeof link.reference.value.url === 'string'
+                          ? link.reference.value.url
+                          : ''
+                      : ''
                 return (
                   <CMSLink
                     key={i}

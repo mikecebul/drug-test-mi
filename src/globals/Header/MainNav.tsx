@@ -14,15 +14,17 @@ export function MainNav({ navItems }: { navItems: NavItem[] }) {
       <div className="hidden justify-center gap-8 px-8 lg:flex lg:flex-wrap">
         {navItems.map(({ link }, i) => {
           const slug =
-            typeof link.reference?.value === 'object'
-              ? link.reference?.relationTo === 'pages' &&
-                typeof link.reference.value.slug === 'string'
-                ? link.reference.value.slug
-                : link.reference?.relationTo === 'media' &&
-                    typeof link.reference.value.url === 'string'
-                  ? link.reference.value.url
-                  : ''
-              : ''
+            link.type === 'custom' && link.url
+              ? link.url.replace(/^\//, '') // Remove leading slash for custom URLs
+              : typeof link.reference?.value === 'object'
+                ? link.reference?.relationTo === 'pages' &&
+                  typeof link.reference.value.slug === 'string'
+                  ? link.reference.value.slug
+                  : link.reference?.relationTo === 'media' &&
+                      typeof link.reference.value.url === 'string'
+                    ? link.reference.value.url
+                    : ''
+                : ''
           return (
             <CMSLink
               key={i}
