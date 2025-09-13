@@ -221,7 +221,7 @@ export async function GET() {
                     marginBottom: '8px',
                   }}
                 >
-                  24/7
+                  Daily
                 </span>
                 <span
                   style={{
