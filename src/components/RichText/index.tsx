@@ -49,12 +49,12 @@ const jsxConverters = (paragraphClassName?: string): JSXConvertersFunction<NodeT
 
         const Tag = node?.tag
         const textSizeMap = {
-          h1: 'text-5xl md:text-7xl font-bold tracking-tight text-balance max-w-prose pb-16',
-          h2: 'text-4xl font-bold tracking-tight text-balance max-w-prose pb-8',
-          h3: 'text-2xl font-semibold tracking-tight text-balance max-w-prose pb-6',
-          h4: 'text-xl font-semibold tracking-tight text-balance max-w-prose pb-4',
-          h5: 'text-xl font-medium tracking-tight text-balance max-w-prose pb-4',
-          h6: 'text-lg font-medium tracking-tight text-balance max-w-prose pb-4',
+          h1: 'text-5xl md:text-7xl font-bold tracking-tight text-balance max-w-prose pb-8 pt-8',
+          h2: 'text-4xl font-bold tracking-tight text-balance max-w-prose pb-4 pt-8',
+          h3: 'text-2xl font-semibold tracking-tight text-balance max-w-prose pb-3 pt-6',
+          h4: 'text-xl font-semibold tracking-tight text-balance max-w-prose pb-3 pt-6',
+          h5: 'text-xl font-medium tracking-tight text-balance max-w-prose pb-3 pt-6',
+          h6: 'text-lg font-medium tracking-tight text-balance max-w-prose pb-3 pt-6',
         }
         const textSizeClass = textSizeMap[Tag] || 'text-lg'
 
