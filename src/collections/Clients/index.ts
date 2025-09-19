@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 import { admins } from '@/access/admins'
 import { superAdmin } from '@/access/superAdmin'
+import { baseUrl } from '@/utilities/baseUrl'
 
 export const Clients: CollectionConfig = {
   slug: 'clients',
@@ -8,7 +9,57 @@ export const Clients: CollectionConfig = {
     singular: 'Client',
     plural: 'Clients',
   },
-  auth: true,
+  auth: {
+    forgotPassword: {
+      generateEmailHTML: (args) => {
+        const { token, user } = args || {}
+        const resetURL = `${baseUrl}/reset-password?token=${token}`
+
+        return `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>Reset Your Password</title>
+              <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { text-align: center; margin-bottom: 30px; }
+                .button { display: inline-block; padding: 12px 24px; background-color: #007cba; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+                .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">
+                  <h1>Reset Your Password</h1>
+                </div>
+
+                <p>Hello ${user.name || user.email},</p>
+
+                <p>You recently requested to reset your password for your MI Drug Test account. Click the button below to reset it:</p>
+
+                <div style="text-align: center;">
+                  <a href="${resetURL}" class="button">Reset My Password</a>
+                </div>
+
+                <p>This password reset link will expire in 1 hour for security reasons.</p>
+
+                <p>If you didn't request this password reset, you can safely ignore this email. Your password will not be changed.</p>
+
+                <div class="footer">
+                  <p>Best regards,<br>The MI Drug Test Team</p>
+                  <p><small>This is an automated message, please do not reply to this email.</small></p>
+                </div>
+              </div>
+            </body>
+          </html>
+        `
+      },
+      generateEmailSubject: () => 'Reset Your Password - MI Drug Test',
+    },
+  },
   access: {
     create: admins,
     delete: superAdmin,
@@ -32,8 +83,21 @@ export const Clients: CollectionConfig = {
       return false
     },
     update: ({ req: { user } }) => {
-      // Only admins (users collection) can update client records
-      return user?.collection === 'admins'
+      // Admins can update any client records
+      if (user?.collection === 'admins') {
+        return true
+      }
+
+      // Clients can only update their own records
+      if (user?.collection === 'clients') {
+        return {
+          id: {
+            equals: user.id,
+          },
+        }
+      }
+
+      return false
     },
   },
   admin: {
@@ -90,7 +154,7 @@ export const Clients: CollectionConfig = {
       name: 'courtInfo',
       type: 'group',
       admin: {
-        condition: (data, siblingData) => siblingData?.clientType === 'probation',
+        condition: (_data, siblingData) => siblingData?.clientType === 'probation',
         description: 'Court and probation officer information',
       },
       fields: [
@@ -125,7 +189,7 @@ export const Clients: CollectionConfig = {
       name: 'employmentInfo',
       type: 'group',
       admin: {
-        condition: (data, siblingData) => siblingData?.clientType === 'employment',
+        condition: (_data, siblingData) => siblingData?.clientType === 'employment',
         description: 'Employer and contact information',
       },
       fields: [

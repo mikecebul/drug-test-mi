@@ -4,6 +4,7 @@ import { createFormHook } from '@tanstack/react-form'
 import { fieldContext, formContext } from './form-context'
 import TextareaField from '../field-components/textarea-field'
 import TextField from '../field-components/text-field'
+import PasswordField from '../field-components/password-field'
 import CheckboxField from '../field-components/checkbox-field'
 import NumberField from '../field-components/number-field'
 import EmailField from '../field-components/email-field'
@@ -18,6 +19,7 @@ import DobField from '../field-components/dob-picker'
 export const { useAppForm, withForm } = createFormHook({
   fieldComponents: {
     TextField,
+    PasswordField,
     TextareaField,
     CheckboxField,
     DobField,

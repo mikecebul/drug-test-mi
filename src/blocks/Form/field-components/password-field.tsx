@@ -5,15 +5,16 @@ import { useFieldContext } from '../hooks/form-context'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/utilities/cn'
-import { EmailFormField } from '@/payload-types'
 
-export interface EmailFieldUIProps {
+// UI-only props for password field
+export interface PasswordFieldUIProps {
   label?: string | null
   colSpan?: '1' | '2'
   required?: boolean | null
+  autoComplete?: string
 }
 
-export default function EmailField({ label, colSpan, required }: EmailFieldUIProps) {
+export default function PasswordField({ label, colSpan, required, autoComplete = "current-password" }: PasswordFieldUIProps) {
   const field = useFieldContext<string>()
   const errors = useStore(field.store, (state) => state.meta.errors)
 
@@ -24,14 +25,15 @@ export default function EmailField({ label, colSpan, required }: EmailFieldUIPro
           {label}
           {required ? <span className="text-destructive">*</span> : null}
         </Label>
+
         <Input
           id={field.name}
           name={field.name}
-          type="email"
+          type="password"
           value={field.state.value ?? ''}
           onBlur={() => field.handleBlur()}
           onChange={(e) => field.handleChange(e.target.value)}
-          autoComplete="email"
+          autoComplete={autoComplete}
         />
       </div>
       <div>
