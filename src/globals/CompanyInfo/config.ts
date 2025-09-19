@@ -1,19 +1,14 @@
-import { authenticated } from '@/access/authenticated'
-import { editorOrHigher } from '@/access/editorOrHigher'
-import { superAdmin } from '@/access/superAdmin'
+import { admins } from '@/access/admins'
 import { link } from '@/fields/link'
 import { revalidatePath } from 'next/cache'
-import { GlobalConfig } from 'payload'
+import type { GlobalConfig } from 'payload'
 
 export const CompanyInfo: GlobalConfig = {
   slug: 'company-info',
   label: 'Company Info',
   access: {
-    read: authenticated,
-    update: editorOrHigher,
-  },
-  admin: {
-    hideAPIURL: !superAdmin,
+    read: admins,
+    update: admins,
   },
   hooks: {
     afterChange: [

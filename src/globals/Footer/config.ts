@@ -1,17 +1,14 @@
-import type { GlobalConfig } from 'payload'
 import { link } from '@/fields/link'
 import { revalidateFooter } from './hooks/revalidateFooter'
-import { superAdmin } from '@/access/superAdmin'
-import { authenticated } from '@/access/authenticated'
-import { editorOrHigher } from '@/access/editorOrHigher'
+import { admins } from '@/access/admins'
+import type { GlobalConfig } from 'payload'
 
 export const Footer: GlobalConfig = {
   slug: 'footer',
   access: {
-    read: authenticated,
-    update: editorOrHigher,
+    read: admins,
+    update: admins,
   },
-  admin: { hideAPIURL: !superAdmin },
   fields: [
     {
       name: 'pageLinks',

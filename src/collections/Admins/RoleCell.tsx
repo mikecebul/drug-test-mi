@@ -10,10 +10,6 @@ function RoleCell({ cellData }: DefaultCellComponentProps) {
       return 'Admin'
     case 'admin':
       return 'Admin'
-    case 'editor':
-      return 'Editor'
-    case 'user':
-      return 'User'
   }
 }
 

@@ -21,7 +21,7 @@ import { Form } from '@/blocks/Form/config'
 import { Layout } from '@/blocks/Layout/config'
 import { TwoColumnLayout } from '@/blocks/TwoColumnLayout/config'
 import { revalidateDelete } from './hooks/revalidateDelete'
-import { editorOrHigher } from '@/access/editorOrHigher'
+import { admins } from '@/access/admins'
 import { CalendarEmbedBlock } from '@/blocks/Cal/config'
 import { Hero } from '@/blocks/Hero/config'
 import { SchedulePage } from '@/blocks/SchedulePage/config'
@@ -29,14 +29,13 @@ import { SchedulePage } from '@/blocks/SchedulePage/config'
 export const Pages: CollectionConfig = {
   slug: 'pages',
   access: {
-    create: editorOrHigher,
-    delete: editorOrHigher,
+    create: admins,
+    delete: admins,
     read: authenticatedOrPublished,
-    update: editorOrHigher,
+    update: admins,
   },
   admin: {
     defaultColumns: ['title', 'slug', 'updatedAt'],
-    hideAPIURL: !superAdmin,
     livePreview: {
       url: ({ data, req }) => {
         const path = generatePreviewPath({

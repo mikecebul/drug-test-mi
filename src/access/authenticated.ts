@@ -1,8 +1,8 @@
 import type { AccessArgs } from 'payload'
 
-import type { User } from '@/payload-types'
+import type { Admin, Client } from '@/payload-types'
 
-type isAuthenticated = (args: AccessArgs<User>) => boolean | Promise<boolean>
+type isAuthenticated = (args: AccessArgs<Admin | Client>) => boolean | Promise<boolean>
 
 export const authenticated: isAuthenticated = ({ req: { user } }) => {
   return Boolean(user)

@@ -4,7 +4,7 @@ export const roleSelectMutate: FieldAccess = async ({ req, data }) => {
   const { payload, user } = req
 
   const users = await payload.find({
-    collection: 'users',
+    collection: 'admins',
     depth: 0,
     limit: 0,
   })
@@ -23,8 +23,6 @@ export const roleSelectMutate: FieldAccess = async ({ req, data }) => {
     if (user.role === 'admin') {
       if (data?.role !== 'superAdmin') return true
     }
-    // Editors cannot change roles at all
-    if (user.role === 'editor') return false
   }
   return false
 }

@@ -1,6 +1,6 @@
 import { CollectionConfig } from 'payload'
 import { superAdmin } from '@/access/superAdmin'
-import { editorOrHigher } from '@/access/editorOrHigher'
+import { admins } from '@/access/admins'
 import { fileURLToPath } from 'url'
 import path from 'path'
 
@@ -14,26 +14,32 @@ export const PrivateMedia: CollectionConfig = {
     plural: 'Private Media',
   },
   access: {
-    create: editorOrHigher,
+    create: admins,
     delete: superAdmin,
     read: ({ req: { user } }) => {
-      // Only authenticated users with editor or higher permissions can access private media
       if (!user) return false
 
-      // Super admins can access all private media
-      if (user.role === 'superAdmin') return true
+      // Users from the users collection (admins) can access all private media
+      if (user.collection === 'admins') {
+        return true
+      }
 
-      // Editors and admins can access private media
-      if (user.role === 'admin' || user.role === 'editor') return true
+      // Users from the clients collection can only access their own drug test reports
+      if (user.collection === 'clients') {
+        return {
+          relatedClient: {
+            equals: user.id,
+          },
+        }
+      }
 
       return false
     },
-    update: editorOrHigher,
+    update: admins,
   },
   admin: {
     defaultColumns: ['filename', 'documentType', 'relatedClient', 'updatedAt'],
     group: 'Admin',
-    hideAPIURL: !superAdmin,
     description: 'Secure file storage for sensitive documents like drug test results',
   },
   upload: {
@@ -96,8 +102,7 @@ export const PrivateMedia: CollectionConfig = {
       type: 'date',
       admin: {
         description: 'Date the test was conducted (if applicable)',
-        condition: (data, siblingData) =>
-          siblingData?.documentType === 'drug-screen',
+        condition: (data, siblingData) => siblingData?.documentType === 'drug-screen',
       },
     },
     {

@@ -8,7 +8,7 @@ import type { FieldHook } from 'payload'
 export const ensureFirstUserIsSuperAdmin: FieldHook = async ({ operation, req, value }) => {
   if (operation === 'create') {
     const users = await req.payload.find({
-      collection: 'users',
+      collection: 'admins',
       depth: 0,
       limit: 0,
     })

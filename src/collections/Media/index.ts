@@ -3,7 +3,7 @@ import { anyone } from '../../access/anyone'
 import { fileURLToPath } from 'url'
 import path from 'path'
 import { superAdmin } from '@/access/superAdmin'
-import { editorOrHigher } from '@/access/editorOrHigher'
+import { admins } from '@/access/admins'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -15,15 +15,14 @@ export const Media: CollectionConfig = {
     plural: 'Media',
   },
   access: {
-    create: editorOrHigher,
-    delete: editorOrHigher,
+    create: admins,
+    delete: admins,
     read: anyone,
-    update: editorOrHigher,
+    update: admins,
   },
   admin: {
     defaultColumns: ['filename', 'alt', 'updatedAt'],
     group: 'Admin',
-    hideAPIURL: !superAdmin,
   },
   upload: {
     formatOptions: {

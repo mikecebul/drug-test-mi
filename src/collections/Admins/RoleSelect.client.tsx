@@ -19,27 +19,11 @@ export const RoleSelectClient: SelectFieldClientComponent = ({ path, validate })
           label: 'Admin',
           value: 'admin',
         },
-        {
-          label: 'Editor',
-          value: 'editor',
-        },
-        {
-          label: 'User',
-          value: 'user',
-        },
       ]
     return [
       {
         label: 'Admin',
         value: 'admin',
-      },
-      {
-        label: 'Editor',
-        value: 'editor',
-      },
-      {
-        label: 'User',
-        value: 'user',
       },
     ]
   }
@@ -63,7 +47,7 @@ export const RoleSelectClient: SelectFieldClientComponent = ({ path, validate })
           hasMany: false,
           options: options(),
         }}
-        readOnly={value === 'superAdmin' || user?.role === 'editor'}
+        readOnly={value === 'superAdmin'}
         value={value}
         onChange={onChange}
         validate={validate}

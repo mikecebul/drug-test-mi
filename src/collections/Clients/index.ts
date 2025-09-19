@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import { editorOrHigher } from '@/access/editorOrHigher'
+import { admins } from '@/access/admins'
 import { superAdmin } from '@/access/superAdmin'
 
 export const Clients: CollectionConfig = {
@@ -8,11 +8,33 @@ export const Clients: CollectionConfig = {
     singular: 'Client',
     plural: 'Clients',
   },
+  auth: true,
   access: {
-    create: editorOrHigher,
+    create: admins,
     delete: superAdmin,
-    read: editorOrHigher,
-    update: editorOrHigher,
+    read: ({ req: { user } }) => {
+      if (!user) return false
+
+      // Users from the users collection (admins) can read all clients
+      if (user.collection === 'admins') {
+        return true
+      }
+
+      // Users from the clients collection can only read their own record
+      if (user.collection === 'clients') {
+        return {
+          id: {
+            equals: user.id,
+          },
+        }
+      }
+
+      return false
+    },
+    update: ({ req: { user } }) => {
+      // Only admins (users collection) can update client records
+      return user?.collection === 'admins'
+    },
   },
   admin: {
     defaultColumns: ['headshot', 'name', 'email', 'clientType', 'totalBookings', 'lastBookingDate'],

@@ -1,16 +1,16 @@
 import { authenticated } from '@/access/authenticated'
 import { authenticatedOrPublished } from '@/access/authenticatedOrPublished'
-import { editorOrHigher } from '@/access/editorOrHigher'
+import { admins } from '@/access/admins'
 import { linkGroup } from '@/fields/link/linkGroup'
 import { CollectionConfig } from 'payload'
 
 export const Resources: CollectionConfig = {
   slug: 'resources',
   access: {
-    create: editorOrHigher,
-    delete: editorOrHigher,
+    create: admins,
+    delete: admins,
     read: authenticatedOrPublished,
-    update: editorOrHigher,
+    update: admins,
   },
   labels: {
     singular: 'Resource',

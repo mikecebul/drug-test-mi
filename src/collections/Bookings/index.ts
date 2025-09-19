@@ -1,5 +1,5 @@
 import { authenticatedOrPublished } from '@/access/authenticatedOrPublished'
-import { editorOrHigher } from '@/access/editorOrHigher'
+import { admins } from '@/access/admins'
 import { revalidatePath } from 'next/cache'
 import { CollectionConfig } from 'payload'
 import { syncClient } from './hooks/syncClient'
@@ -11,14 +11,13 @@ export const Bookings: CollectionConfig = {
     plural: 'Bookings',
   },
   access: {
-    create: () => true, // Allow webhooks to create
-    delete: editorOrHigher,
-    read: authenticatedOrPublished,
-    update: editorOrHigher,
+    create: admins,
+    delete: admins,
+    read: admins,
+    update: admins,
   },
   admin: {
     useAsTitle: 'title',
-    hideAPIURL: true, // Always hide API URL for security
     defaultColumns: ['title', 'startTime', 'attendeeName', 'attendeeEmail', 'status'],
   },
   fields: [
@@ -162,8 +161,6 @@ export const Bookings: CollectionConfig = {
     },
   ],
   hooks: {
-    afterChange: [
-      syncClient,
-    ],
+    afterChange: [syncClient],
   },
 }

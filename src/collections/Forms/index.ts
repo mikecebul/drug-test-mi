@@ -1,10 +1,14 @@
 import { CollectionConfig } from 'payload'
 import { fields } from './fields'
+import { admins } from '@/access/admins'
 
 export const Forms: CollectionConfig = {
   slug: 'forms',
   access: {
-    read: () => true,
+    read: admins,
+    create: admins,
+    update: admins,
+    delete: admins,
   },
   admin: {
     useAsTitle: 'title',

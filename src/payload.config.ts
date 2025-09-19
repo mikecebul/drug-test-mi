@@ -31,7 +31,6 @@ import { buildConfig, TextFieldSingleValidation } from 'payload'
 import { fileURLToPath } from 'url'
 
 import { Pages } from './collections/Pages'
-import Users from './collections/Users'
 import { Footer } from './globals/Footer/config'
 import { Header } from './globals/Header/config'
 import { revalidateRedirects } from './hooks/revalidateRedirects'
@@ -49,6 +48,7 @@ import { Forms } from './collections/Forms'
 import { FormSubmissions } from './collections/FormSubmissions'
 import { Technicians } from './collections/Technicians'
 import { Clients } from './collections/Clients'
+import Admins from './collections/Admins'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -96,7 +96,7 @@ export default buildConfig({
       icons: [{ url: '/favicon.ico' }],
       titleSuffix: ' | MI Drug Test',
     },
-    user: Users.slug,
+    user: Admins.slug,
     livePreview: {
       breakpoints: [
         {
@@ -170,7 +170,17 @@ export default buildConfig({
   db: mongooseAdapter({
     url: process.env.DATABASE_URI!,
   }),
-  collections: [Pages, Bookings, Forms, FormSubmissions, Media, PrivateMedia, Users, Technicians, Clients],
+  collections: [
+    Pages,
+    Bookings,
+    Forms,
+    FormSubmissions,
+    Media,
+    PrivateMedia,
+    Admins,
+    Technicians,
+    Clients,
+  ],
   cors: [baseUrl].filter(Boolean),
   csrf: [baseUrl].filter(Boolean),
   email: nodemailerAdapter({

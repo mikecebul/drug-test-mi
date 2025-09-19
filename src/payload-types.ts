@@ -92,7 +92,8 @@ export type SupportedTimezones =
 
 export interface Config {
   auth: {
-    users: UserAuthOperations;
+    admins: AdminAuthOperations;
+    clients: ClientAuthOperations;
   };
   blocks: {};
   collections: {
@@ -102,7 +103,7 @@ export interface Config {
     'form-submissions': FormSubmission;
     media: Media;
     'private-media': PrivateMedia;
-    users: User;
+    admins: Admin;
     technicians: Technician;
     clients: Client;
     exports: Export;
@@ -124,7 +125,7 @@ export interface Config {
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     'private-media': PrivateMediaSelect<false> | PrivateMediaSelect<true>;
-    users: UsersSelect<false> | UsersSelect<true>;
+    admins: AdminsSelect<false> | AdminsSelect<true>;
     technicians: TechniciansSelect<false> | TechniciansSelect<true>;
     clients: ClientsSelect<false> | ClientsSelect<true>;
     exports: ExportsSelect<false> | ExportsSelect<true>;
@@ -148,9 +149,13 @@ export interface Config {
     'company-info': CompanyInfoSelect<false> | CompanyInfoSelect<true>;
   };
   locale: null;
-  user: User & {
-    collection: 'users';
-  };
+  user:
+    | (Admin & {
+        collection: 'admins';
+      })
+    | (Client & {
+        collection: 'clients';
+      });
   jobs: {
     tasks: {
       createCollectionExport: TaskCreateCollectionExport;
@@ -162,7 +167,25 @@ export interface Config {
     workflows: unknown;
   };
 }
-export interface UserAuthOperations {
+export interface AdminAuthOperations {
+  forgotPassword: {
+    email: string;
+    password: string;
+  };
+  login: {
+    email: string;
+    password: string;
+  };
+  registerFirstUser: {
+    email: string;
+    password: string;
+  };
+  unlock: {
+    email: string;
+    password: string;
+  };
+}
+export interface ClientAuthOperations {
   forgotPassword: {
     email: string;
     password: string;
@@ -914,7 +937,6 @@ export interface PrivateMedia {
 export interface Client {
   id: string;
   name: string;
-  email: string;
   /**
    * Phone number for contact
    */
@@ -992,15 +1014,30 @@ export interface Client {
   isActive?: boolean | null;
   updatedAt: string;
   createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
+ * via the `definition` "admins".
  */
-export interface User {
+export interface Admin {
   id: string;
   name?: string | null;
-  role?: ('user' | 'editor' | 'admin' | 'superAdmin') | null;
+  role?: ('admin' | 'superAdmin') | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -1229,8 +1266,8 @@ export interface PayloadLockedDocument {
         value: string | PrivateMedia;
       } | null)
     | ({
-        relationTo: 'users';
-        value: string | User;
+        relationTo: 'admins';
+        value: string | Admin;
       } | null)
     | ({
         relationTo: 'technicians';
@@ -1253,10 +1290,15 @@ export interface PayloadLockedDocument {
         value: string | PayloadJob;
       } | null);
   globalSlug?: string | null;
-  user: {
-    relationTo: 'users';
-    value: string | User;
-  };
+  user:
+    | {
+        relationTo: 'admins';
+        value: string | Admin;
+      }
+    | {
+        relationTo: 'clients';
+        value: string | Client;
+      };
   updatedAt: string;
   createdAt: string;
 }
@@ -1266,10 +1308,15 @@ export interface PayloadLockedDocument {
  */
 export interface PayloadPreference {
   id: string;
-  user: {
-    relationTo: 'users';
-    value: string | User;
-  };
+  user:
+    | {
+        relationTo: 'admins';
+        value: string | Admin;
+      }
+    | {
+        relationTo: 'clients';
+        value: string | Client;
+      };
   key?: string | null;
   value?:
     | {
@@ -1885,9 +1932,9 @@ export interface PrivateMediaSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
+ * via the `definition` "admins_select".
  */
-export interface UsersSelect<T extends boolean = true> {
+export interface AdminsSelect<T extends boolean = true> {
   name?: T;
   role?: T;
   updatedAt?: T;
@@ -1936,7 +1983,6 @@ export interface TechniciansSelect<T extends boolean = true> {
  */
 export interface ClientsSelect<T extends boolean = true> {
   name?: T;
-  email?: T;
   phone?: T;
   headshot?: T;
   clientType?: T;
@@ -1963,6 +2009,20 @@ export interface ClientsSelect<T extends boolean = true> {
   isActive?: T;
   updatedAt?: T;
   createdAt?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

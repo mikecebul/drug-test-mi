@@ -1,17 +1,14 @@
-import type { GlobalConfig } from 'payload'
-
 import { link } from '@/fields/link'
 import { revalidateHeader } from './hooks/revalidateHeader'
-import { authenticated } from '@/access/authenticated'
-import { editorOrHigher } from '@/access/editorOrHigher'
+import { admins } from '@/access/admins'
+import type { GlobalConfig } from 'payload'
 
 export const Header: GlobalConfig = {
   slug: 'header',
   access: {
-    read: authenticated,
-    update: editorOrHigher,
+    read: admins,
+    update: admins,
   },
-  admin: { hideAPIURL: true },
   fields: [
     {
       name: 'navItems',

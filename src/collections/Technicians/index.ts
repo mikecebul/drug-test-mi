@@ -1,15 +1,16 @@
 import type { CollectionConfig } from 'payload'
-import { editorOrHigher } from '@/access/editorOrHigher'
+import { admins } from '@/access/admins'
 import { superAdmin } from '@/access/superAdmin'
 import { revalidateTechnicians } from './hooks/revalidateTechnicians'
+import { anyone } from '@/access/anyone'
 
 export const Technicians: CollectionConfig = {
   slug: 'technicians',
   access: {
-    create: editorOrHigher,
+    create: admins,
     delete: superAdmin,
-    read: () => true,
-    update: editorOrHigher,
+    read: anyone,
+    update: admins,
   },
   admin: {
     defaultColumns: ['name', 'gender', 'location', 'isActive'],
