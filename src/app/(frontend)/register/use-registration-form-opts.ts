@@ -73,7 +73,7 @@ export const useRegistrationFormOpts = ({
 }) => {
   return formOptions({
     defaultValues: defaultValues,
-    onSubmit: async ({ value }: { value: RegistrationFormType }) => {
+    onSubmit: async ({ value, formApi }: { value: RegistrationFormType; formApi: any }) => {
       try {
         // Create the client account via Payload API
         // Validate password confirmation
@@ -127,6 +127,8 @@ export const useRegistrationFormOpts = ({
         localStorage.removeItem('registration-form-state')
         localStorage.removeItem('registration-current-step')
         localStorage.removeItem('registration-form-timestamp')
+
+        formApi.reset()
 
         toast.success('Registration submitted successfully! Please check your email to verify your account.')
         setShowVerification(true)

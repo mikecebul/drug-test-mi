@@ -50,7 +50,9 @@ export const syncClient: CollectionAfterChangeHook = async ({
         collection: 'clients',
         id: existingClient.id,
         data: {
-          name: doc.attendeeName, // Update name in case it changed
+          name: doc.attendeeName,// Update name in case it changed
+          firstName: doc.attendeeName.split(' ')[0],
+          lastName: doc.attendeeName.split(' ').slice(1).join(' '),
           totalBookings,
           lastBookingDate,
           firstBookingDate,
@@ -64,6 +66,8 @@ export const syncClient: CollectionAfterChangeHook = async ({
         collection: 'clients',
         data: {
           name: doc.attendeeName,
+          firstName: doc.attendeeName.split(' ')[0],
+          lastName: doc.attendeeName.split(' ').slice(1).join(' '),
           email: doc.attendeeEmail,
           totalBookings: 1,
           lastBookingDate: doc.startTime,

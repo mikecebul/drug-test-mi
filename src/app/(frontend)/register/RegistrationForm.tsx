@@ -114,17 +114,16 @@ RegistrationForm = (props: any) => {
 
 
   // Debounced save function for form state
-  const saveFormState = useCallback(
-    debounce((formState: any) => {
+  const saveFormState = useCallback(() => {
+    return debounce((formState: any) => {
       try {
         localStorage.setItem(FORM_STATE_KEY, JSON.stringify(formState))
         localStorage.setItem(TIMESTAMP_KEY, Date.now().toString())
       } catch (error) {
         console.warn('Failed to save form state:', error)
       }
-    }, 300), // 300ms debounce
-    []
-  )
+    }, 300)
+  }, [])() // Immediately invoke to return the debounced function
 
   const formOpts = useRegistrationFormOpts({
     setShowVerification,

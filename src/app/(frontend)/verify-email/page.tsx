@@ -5,16 +5,24 @@ import { useEffect, useState, Suspense } from 'react'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { ResendVerificationForm } from './ResendVerificationForm'
 
-type VerificationState = 'loading' | 'success' | 'error' | 'invalid'
+type VerificationState = 'loading' | 'success' | 'error' | 'invalid' | 'resend'
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
+  const shouldResend = searchParams.get('resend') === 'true'
   const [state, setState] = useState<VerificationState>('loading')
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
+    // If resend parameter is present, show resend form directly
+    if (shouldResend && !token) {
+      setState('resend')
+      return
+    }
+
     const verifyEmail = async () => {
       if (!token) {
         setState('invalid')
@@ -48,7 +56,7 @@ function VerifyEmailContent() {
     }
 
     verifyEmail()
-  }, [token])
+  }, [token, shouldResend])
 
   const renderContent = () => {
     switch (state) {
@@ -88,9 +96,17 @@ function VerifyEmailContent() {
             <p className="mb-6 text-muted-foreground">
               The verification link is missing or invalid. Please check your email for the correct link.
             </p>
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/register">Back to Registration</Link>
-            </Button>
+            <div className="space-y-3">
+              <Button
+                onClick={() => setState('resend')}
+                className="w-full"
+              >
+                Resend Verification Email
+              </Button>
+              <Button asChild variant="outline" className="w-full">
+                <Link href="/register">Back to Registration</Link>
+              </Button>
+            </div>
           </div>
         )
 
@@ -103,15 +119,24 @@ function VerifyEmailContent() {
               {errorMessage || 'We couldn\'t verify your email. The link may have expired or already been used.'}
             </p>
             <div className="space-y-3">
-              <Button asChild className="w-full">
-                <Link href="/register">Try Registration Again</Link>
+              <Button
+                onClick={() => setState('resend')}
+                className="w-full"
+              >
+                Resend Verification Email
               </Button>
               <Button asChild variant="outline" className="w-full">
+                <Link href="/register">Try Registration Again</Link>
+              </Button>
+              <Button asChild variant="ghost" className="w-full">
                 <Link href="/login">Already have an account? Sign In</Link>
               </Button>
             </div>
           </div>
         )
+
+      case 'resend':
+        return <ResendVerificationForm showLoginMessage={shouldResend} />
     }
   }
 

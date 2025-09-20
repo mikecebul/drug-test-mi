@@ -936,7 +936,12 @@ export interface PrivateMedia {
  */
 export interface Client {
   id: string;
-  name: string;
+  /**
+   * Legacy full name field - will be removed after migration
+   */
+  name?: string | null;
+  firstName: string;
+  lastName: string;
   /**
    * Phone number for contact
    */
@@ -1985,6 +1990,8 @@ export interface TechniciansSelect<T extends boolean = true> {
  */
 export interface ClientsSelect<T extends boolean = true> {
   name?: T;
+  firstName?: T;
+  lastName?: T;
   phone?: T;
   headshot?: T;
   clientType?: T;

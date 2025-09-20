@@ -33,7 +33,14 @@ export const useLoginFormOpts = () => {
         const res = await req.json()
 
         if (req.status >= 400) {
-          toast.error(res.errors?.[0]?.message || res.message || 'Invalid credentials')
+          const errorMessage = res.errors?.[0]?.message || res.message || 'Invalid credentials'
+          // Check if the error is related to unverified email
+          if (errorMessage.toLowerCase().includes('verify') || errorMessage.toLowerCase().includes('unverified')) {
+            router.push('/verify-email?resend=true')
+            return
+          } else {
+            toast.error(errorMessage)
+          }
           return
         }
 
