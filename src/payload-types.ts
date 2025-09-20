@@ -993,6 +993,19 @@ export interface Client {
    */
   notes?: string | null;
   /**
+   * Alternative recipient for test results (self-pay clients only)
+   */
+  alternativeRecipient?: {
+    /**
+     * Name of alternative recipient
+     */
+    name?: string | null;
+    /**
+     * Email of alternative recipient
+     */
+    email?: string | null;
+  };
+  /**
    * Drug screen result documents automatically linked to this client
    */
   drugScreenResults?: {
@@ -2010,6 +2023,12 @@ export interface ClientsSelect<T extends boolean = true> {
         contactEmail?: T;
       };
   notes?: T;
+  alternativeRecipient?:
+    | T
+    | {
+        name?: T;
+        email?: T;
+      };
   drugScreenResults?: T;
   totalBookings?: T;
   lastBookingDate?: T;

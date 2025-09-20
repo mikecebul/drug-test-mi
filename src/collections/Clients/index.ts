@@ -293,6 +293,31 @@ export const Clients: CollectionConfig = {
         description: 'Internal notes about the client',
       },
     },
+    // Alternative recipient for self-pay clients
+    {
+      name: 'alternativeRecipient',
+      type: 'group',
+      admin: {
+        condition: (_data, siblingData) => siblingData?.clientType === 'self',
+        description: 'Alternative recipient for test results (self-pay clients only)',
+      },
+      fields: [
+        {
+          name: 'name',
+          type: 'text',
+          admin: {
+            description: 'Name of alternative recipient',
+          },
+        },
+        {
+          name: 'email',
+          type: 'email',
+          admin: {
+            description: 'Email of alternative recipient',
+          },
+        },
+      ],
+    },
     // Drug screen results (auto-populated via join)
     {
       name: 'drugScreenResults',

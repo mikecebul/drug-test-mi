@@ -25,8 +25,20 @@ export type ScreeningRequestFields = {
 }
 
 export type ResultsRecipientFields = {
-  resultRecipientName: string
-  resultRecipientEmail: string
+  // Self-pay recipient fields
+  useSelfAsRecipient?: boolean
+  alternativeRecipientName?: string
+  alternativeRecipientEmail?: string
+
+  // Employment recipient fields
+  employerName?: string
+  contactName?: string
+  contactEmail?: string
+
+  // Probation/Court recipient fields
+  courtName?: string
+  probationOfficerName?: string
+  probationOfficerEmail?: string
 }
 
 export type TermsAndConditionsFields = {
@@ -58,8 +70,15 @@ const defaultValues: RegistrationFormType = {
     requestedBy: '',
   },
   resultsRecipient: {
-    resultRecipientName: '',
-    resultRecipientEmail: '',
+    useSelfAsRecipient: true,
+    alternativeRecipientName: '',
+    alternativeRecipientEmail: '',
+    employerName: '',
+    contactName: '',
+    contactEmail: '',
+    courtName: '',
+    probationOfficerName: '',
+    probationOfficerEmail: '',
   },
   termsAndConditions: {
     agreeToTerms: false,
@@ -98,18 +117,23 @@ export const useRegistrationFormOpts = ({
         // Add type-specific information for employment and probation
         if (clientType === 'employment') {
           payload.employmentInfo = {
-            employerName: value.resultsRecipient.resultRecipientName, // Use recipient as employer
-            contactName: value.resultsRecipient.resultRecipientName,
-            contactEmail: value.resultsRecipient.resultRecipientEmail,
+            employerName: value.resultsRecipient.employerName,
+            contactName: value.resultsRecipient.contactName,
+            contactEmail: value.resultsRecipient.contactEmail,
           }
         } else if (clientType === 'probation') {
           payload.courtInfo = {
-            courtName: value.resultsRecipient.resultRecipientName, // Use recipient as court
-            probationOfficerName: value.resultsRecipient.resultRecipientName,
-            probationOfficerEmail: value.resultsRecipient.resultRecipientEmail,
+            courtName: value.resultsRecipient.courtName,
+            probationOfficerName: value.resultsRecipient.probationOfficerName,
+            probationOfficerEmail: value.resultsRecipient.probationOfficerEmail,
+          }
+        } else if (clientType === 'self' && !value.resultsRecipient.useSelfAsRecipient) {
+          // Add alternative recipient info for self-pay clients
+          payload.alternativeRecipient = {
+            name: value.resultsRecipient.alternativeRecipientName,
+            email: value.resultsRecipient.alternativeRecipientEmail,
           }
         }
-        // For 'self' type, no additional info needed
 
         const response = await fetch('/api/clients', {
           method: 'POST',

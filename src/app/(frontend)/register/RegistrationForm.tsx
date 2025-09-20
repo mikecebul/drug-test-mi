@@ -308,10 +308,33 @@ RegistrationForm = (props: any) => {
                getFieldErrors('screeningRequest.requestedBy').length === 0
 
       case 4:
-        const recipientFields = [
-          'resultsRecipient.resultRecipientName',
-          'resultsRecipient.resultRecipientEmail'
-        ]
+        // Dynamic validation based on requestedBy value
+        const requestedBy = formValues.screeningRequest?.requestedBy
+        let recipientFields: string[] = []
+
+        if (requestedBy === 'self') {
+          const useSelfAsRecipient = formValues.resultsRecipient?.useSelfAsRecipient
+          if (useSelfAsRecipient === false) {
+            recipientFields = [
+              'resultsRecipient.alternativeRecipientName',
+              'resultsRecipient.alternativeRecipientEmail'
+            ]
+          }
+          // If useSelfAsRecipient is true, no additional validation needed
+        } else if (requestedBy === 'employment') {
+          recipientFields = [
+            'resultsRecipient.employerName',
+            'resultsRecipient.contactName',
+            'resultsRecipient.contactEmail'
+          ]
+        } else if (requestedBy === 'probation') {
+          recipientFields = [
+            'resultsRecipient.courtName',
+            'resultsRecipient.probationOfficerName',
+            'resultsRecipient.probationOfficerEmail'
+          ]
+        }
+
         return recipientFields.every(field => {
           const fieldValue = field.split('.').reduce((obj, key) => obj?.[key], formValues)
           return hasValue(fieldValue) && getFieldErrors(field).length === 0
@@ -448,7 +471,12 @@ RegistrationForm = (props: any) => {
 
               {/* Step 4: Results Recipient */}
               {currentStep === 4 && (
-                <ResultsRecipientGroup form={form} fields="resultsRecipient" title="Results Recipient" />
+                <ResultsRecipientGroup
+                  form={form}
+                  fields="resultsRecipient"
+                  title="Results Recipient"
+                  requestedBy={formValues.screeningRequest?.requestedBy || ''}
+                />
               )}
 
               {/* Step 5: Terms & Conditions */}
