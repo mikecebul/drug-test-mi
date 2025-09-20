@@ -14,15 +14,15 @@ export function AdminLogoutButton() {
       })
 
       if (response.ok) {
-        router.push('/login')
+        router.push('/')
       } else {
         console.error('Logout failed')
-        router.push('/login') // Still redirect
+        router.push('/') // Still redirect
       }
     } catch (error) {
       console.error('Logout error:', error)
       // Still redirect on error
-      router.push('/login')
+      router.push('/')
     }
   }
 

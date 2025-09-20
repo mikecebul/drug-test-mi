@@ -1,12 +1,13 @@
 'use client'
 
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import React, { Suspense } from 'react'
+import React, { Suspense, useState } from 'react'
 import { AccountForm } from './AccountForm'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Client } from '@/payload-types'
+import { getClientSideURL } from '@/utilities/getURL'
+import { toast } from 'sonner'
 
 type AccountTabsProps = {
   user: Client
@@ -16,6 +17,7 @@ function AccountTabsContent({ user }: AccountTabsProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentTab = searchParams.get('tab') || 'profile'
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleTabChange = (value: string) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -26,6 +28,32 @@ function AccountTabsContent({ user }: AccountTabsProps) {
     }
     const newUrl = params.toString() ? `/account?${params.toString()}` : '/account'
     router.push(newUrl, { scroll: false })
+  }
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      const response = await fetch(`${getClientSideURL()}/api/clients/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        toast.success('Logged out successfully.')
+        router.push('/')
+      } else {
+        toast.error('Logout failed. Please try again.')
+        router.push('/')
+      }
+    } catch (err) {
+      toast.warning('You are already logged out.')
+      router.push('/')
+    } finally {
+      setIsLoggingOut(false)
+    }
   }
 
   return (
@@ -139,12 +167,13 @@ function AccountTabsContent({ user }: AccountTabsProps) {
         </Tabs>
 
         <div className="flex justify-between items-center pt-6 border-t">
-          <Link
-            href="/logout"
-            className="text-destructive hover:underline"
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="text-destructive hover:underline disabled:opacity-50"
           >
-            Log out
-          </Link>
+            {isLoggingOut ? 'Logging out...' : 'Log out'}
+          </button>
         </div>
       </div>
     </div>
