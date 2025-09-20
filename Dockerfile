@@ -38,6 +38,7 @@ RUN --mount=type=secret,id=DATABASE_URI \
   --mount=type=secret,id=NEXT_PUBLIC_UPLOAD_PREFIX \
   --mount=type=secret,id=PAYLOAD_SECRET \
   --mount=type=secret,id=PREVIEW_SECRET \
+  --mount=type=secret,id=RESEND_API_KEY \
   --mount=type=secret,id=S3_ACCESS_KEY_ID \
   --mount=type=secret,id=S3_BUCKET \
   --mount=type=secret,id=S3_ENDPOINT \
@@ -58,6 +59,7 @@ RUN --mount=type=secret,id=DATABASE_URI \
   echo "NEXT_PUBLIC_UPLOAD_PREFIX=$(cat /run/secrets/NEXT_PUBLIC_UPLOAD_PREFIX)" && \
   echo "PAYLOAD_SECRET=$(cat /run/secrets/PAYLOAD_SECRET)" && \
   echo "PREVIEW_SECRET=$(cat /run/secrets/PREVIEW_SECRET)" && \
+  echo "RESEND_API_KEY=$(cat /run/secrets/RESEND_API_KEY)" && \
   echo "S3_ACCESS_KEY_ID=$(cat /run/secrets/S3_ACCESS_KEY_ID)" && \
   echo "S3_BUCKET=$(cat /run/secrets/S3_BUCKET)" && \
   echo "S3_ENDPOINT=$(cat /run/secrets/S3_ENDPOINT)" && \
