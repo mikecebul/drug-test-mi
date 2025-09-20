@@ -159,6 +159,21 @@ export const Clients: CollectionConfig = {
     {
       name: 'name',
       type: 'text',
+      required: false, // Keep for migration purposes
+      index: true,
+      admin: {
+        description: 'Legacy full name field - will be removed after migration',
+      },
+    },
+    {
+      name: 'firstName',
+      type: 'text',
+      required: true,
+      index: true,
+    },
+    {
+      name: 'lastName',
+      type: 'text',
       required: true,
       index: true,
     },

@@ -85,7 +85,9 @@ export const useRegistrationFormOpts = ({
         const clientType = value.screeningRequest.requestedBy as 'probation' | 'employment' | 'self'
 
         const payload: any = {
-          name: `${value.personalInfo.firstName} ${value.personalInfo.lastName}`,
+          name: `${value.personalInfo.firstName} ${value.personalInfo.lastName}`, // Keep for migration
+          firstName: value.personalInfo.firstName,
+          lastName: value.personalInfo.lastName,
           email: value.accountInfo.email,
           phone: value.personalInfo.phone,
           password: value.accountInfo.password,
@@ -120,8 +122,6 @@ export const useRegistrationFormOpts = ({
         if (!response.ok) {
           throw new Error(result.errors?.[0]?.message || 'Registration failed')
         }
-
-        console.log('Registration successful:', result)
 
         // Clear localStorage after successful submission
         localStorage.removeItem('registration-form-state')
