@@ -38,10 +38,6 @@ RUN --mount=type=secret,id=DATABASE_URI \
   --mount=type=secret,id=NEXT_PUBLIC_UPLOAD_PREFIX \
   --mount=type=secret,id=PAYLOAD_SECRET \
   --mount=type=secret,id=PREVIEW_SECRET \
-  --mount=type=secret,id=EMAIL_HOST \
-  --mount=type=secret,id=EMAIL_PORT \
-  --mount=type=secret,id=EMAIL_USER \
-  --mount=type=secret,id=EMAIL_PASSWORD \
   --mount=type=secret,id=S3_ACCESS_KEY_ID \
   --mount=type=secret,id=S3_BUCKET \
   --mount=type=secret,id=S3_ENDPOINT \
@@ -62,10 +58,6 @@ RUN --mount=type=secret,id=DATABASE_URI \
   echo "NEXT_PUBLIC_UPLOAD_PREFIX=$(cat /run/secrets/NEXT_PUBLIC_UPLOAD_PREFIX)" && \
   echo "PAYLOAD_SECRET=$(cat /run/secrets/PAYLOAD_SECRET)" && \
   echo "PREVIEW_SECRET=$(cat /run/secrets/PREVIEW_SECRET)" && \
-  echo "EMAIL_HOST=$(cat /run/secrets/EMAIL_HOST)" && \
-  echo "EMAIL_PORT=$(cat /run/secrets/EMAIL_PORT)" && \
-  echo "EMAIL_USER=$(cat /run/secrets/EMAIL_USER)" && \
-  echo "EMAIL_PASSWORD=$(cat /run/secrets/EMAIL_PASSWORD)" && \
   echo "S3_ACCESS_KEY_ID=$(cat /run/secrets/S3_ACCESS_KEY_ID)" && \
   echo "S3_BUCKET=$(cat /run/secrets/S3_BUCKET)" && \
   echo "S3_ENDPOINT=$(cat /run/secrets/S3_ENDPOINT)" && \

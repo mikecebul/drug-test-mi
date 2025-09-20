@@ -1,5 +1,6 @@
 import { mongooseAdapter } from '@payloadcms/db-mongodb'
 import { nodemailerAdapter } from '@payloadcms/email-nodemailer'
+import { resendAdapter } from '@payloadcms/email-resend'
 
 import { sentryPlugin } from '@payloadcms/plugin-sentry'
 import * as Sentry from '@sentry/nextjs'
@@ -183,18 +184,25 @@ export default buildConfig({
   ],
   cors: [baseUrl].filter(Boolean),
   csrf: [baseUrl].filter(Boolean),
-  email: nodemailerAdapter({
-    defaultFromName: 'MI Drug Test',
-    defaultFromAddress: 'website@midrugtest.com',
-    transportOptions: {
-      host: process.env.EMAIL_HOST || 'localhost',
-      port: process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT, 10) : 1025,
-      auth: {
-        user: process.env.EMAIL_USER || 'admin',
-        pass: process.env.EMAIL_PASSWORD || 'password',
-      },
-    },
-  }),
+  email:
+    process.env.NODE_ENV === 'production'
+      ? resendAdapter({
+          apiKey: process.env.RESEND_API_KEY || '',
+          defaultFromAddress: 'website@midrugtest.com',
+          defaultFromName: 'MI Drug Test',
+        })
+      : nodemailerAdapter({
+          defaultFromAddress: 'website@midrugtest.com',
+          defaultFromName: 'MI Drug Test',
+          transportOptions: {
+            host: process.env.EMAIL_HOST || 'localhost',
+            port: process.env.EMAIL_PORT || 1025,
+            auth: {
+              user: process.env.EMAIL_USER || 'user',
+              pass: process.env.EMAIL_PASSWORD || 'password',
+            },
+          },
+        }),
   endpoints: [],
   globals: [Header, Footer, CompanyInfo],
   graphQL: { disable: true },
