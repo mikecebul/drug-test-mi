@@ -439,20 +439,7 @@ RegistrationForm = (props: any) => {
               e.stopPropagation()
             }}
           >
-            <div className="mt-8 relative">
-              {/* Clear form button - positioned absolutely in top right of step content */}
-              {isHydrated && (localStorage.getItem(FORM_STATE_KEY) || currentStep > 1) && (
-                <div className="absolute top-0 right-0 z-10">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                    onClick={clearFormDataWithUndo}
-                  >
-                    Clear Form
-                  </Button>
-                </div>
-              )}
+            <div className="mt-8">
 
               {/* Step 1: Personal Information */}
               {currentStep === 1 && (
@@ -487,20 +474,33 @@ RegistrationForm = (props: any) => {
 
             {/* Navigation Buttons */}
             <div className="flex justify-between mt-8">
-              <Button
-                type="button"
-                onClick={prevStep}
-                variant="outline"
-                className={
-                  currentStep === 1
-                    ? 'cursor-not-allowed opacity-50'
-                    : ''
-                }
-                disabled={currentStep === 1}
-              >
-                <ChevronLeft className="w-5 h-5 mr-2" />
-                Previous
-              </Button>
+              <div className="flex flex-col items-start space-y-2">
+                <Button
+                  type="button"
+                  onClick={prevStep}
+                  variant="outline"
+                  className={
+                    currentStep === 1
+                      ? 'cursor-not-allowed opacity-50'
+                      : ''
+                  }
+                  disabled={currentStep === 1}
+                >
+                  <ChevronLeft className="w-5 h-5 mr-2" />
+                  Previous
+                </Button>
+
+                {/* Clear form button - small text below Previous */}
+                {isHydrated && (localStorage.getItem(FORM_STATE_KEY) || currentStep > 1) && (
+                  <button
+                    type="button"
+                    onClick={clearFormDataWithUndo}
+                    className="text-xs text-muted-foreground hover:text-destructive underline"
+                  >
+                    Clear Form
+                  </button>
+                )}
+              </div>
 
               {currentStep < totalSteps ? (
                 <Button
