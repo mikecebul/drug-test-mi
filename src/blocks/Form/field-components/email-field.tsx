@@ -35,7 +35,11 @@ export default function EmailField({ label, colSpan, required }: EmailFieldUIPro
         />
       </div>
       <div>
-        {errors && <em className="text-destructive text-sm first:mt-1">{errors[0]?.message}</em>}
+        {errors && errors.length > 0 && (
+          <em className="text-destructive text-sm first:mt-1">
+            {typeof errors[0] === 'string' ? errors[0] : errors[0]?.message}
+          </em>
+        )}
       </div>
     </div>
   )

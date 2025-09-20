@@ -2,7 +2,7 @@ import { FormBlock } from '@/payload-types'
 import { ContactForm } from './ContactForm'
 import { DynamicForm } from './DynamicForm'
 import Container from '@/components/Container'
-import { RegistrationForm } from './RegistrationForm'
+import { RegistrationForm } from '@/app/(frontend)/register/RegistrationForm'
 
 export type PostError = {
   message: string

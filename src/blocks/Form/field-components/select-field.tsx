@@ -41,7 +41,7 @@ export default function SelectField({ label, colSpan, options, required }: Selec
           {label}
           {required ? <span className="text-destructive">*</span> : null}
         </Label>
-        <Select onValueChange={(e) => field.handleChange(e)}>
+        <Select onValueChange={(e) => field.handleChange(e)} value={field.state.value || ''}>
           <SelectTrigger id={field.name}>
             <SelectValue placeholder={`Select a ${label || 'option'}`} />
           </SelectTrigger>

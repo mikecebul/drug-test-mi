@@ -948,7 +948,7 @@ export interface Client {
   /**
    * Type of client - determines required fields
    */
-  clientType?: ('probation' | 'employment') | null;
+  clientType?: ('probation' | 'employment' | 'self') | null;
   /**
    * Court and probation officer information
    */
@@ -1019,6 +1019,8 @@ export interface Client {
   resetPasswordExpiration?: string | null;
   salt?: string | null;
   hash?: string | null;
+  _verified?: boolean | null;
+  _verificationToken?: string | null;
   loginAttempts?: number | null;
   lockUntil?: string | null;
   sessions?:
@@ -2014,6 +2016,8 @@ export interface ClientsSelect<T extends boolean = true> {
   resetPasswordExpiration?: T;
   salt?: T;
   hash?: T;
+  _verified?: T;
+  _verificationToken?: T;
   loginAttempts?: T;
   lockUntil?: T;
   sessions?:

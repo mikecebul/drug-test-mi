@@ -16,7 +16,7 @@ import SubmitButton from '../form-components/submit-button'
 import MultiSelectField from '../field-components/multi-select-field'
 import DobField from '../field-components/dob-picker'
 
-export const { useAppForm, withForm } = createFormHook({
+export const { useAppForm, withForm, withFieldGroup } = createFormHook({
   fieldComponents: {
     TextField,
     PasswordField,

@@ -109,6 +109,25 @@ function AccountTabsContent({ user }: AccountTabsProps) {
                       </div>
                     </>
                   )}
+
+                  {/* Self-pay specific information */}
+                  {user?.clientType === 'self' && (
+                    <>
+                      <div className="border-t pt-4 mt-4">
+                        <h4 className="text-sm font-semibold text-foreground mb-3">Testing Information</h4>
+                        <div className="grid grid-cols-1 gap-3">
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">Testing Type</label>
+                            <p className="text-sm">Self-Pay / Individual Testing</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">Preferred Contact Method</label>
+                            <p className="text-sm">{user?.preferredContactMethod || 'Not provided'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
