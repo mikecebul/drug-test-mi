@@ -34,7 +34,7 @@ export const Hero: Block = {
           name: 'title',
           label: 'Title',
           type: 'text',
-          defaultValue: 'Substance Use and Mental Health Counseling',
+          defaultValue: 'Drug and Alcohol Testing in Charlevoix County',
           required: true,
         },
         {
@@ -42,18 +42,8 @@ export const Hero: Block = {
           label: 'Description',
           type: 'textarea',
           defaultValue:
-            'We bridge the gap to recovery, offering flexible and personalized services both in-person and via telehealth.',
+            'Fast, reliable, and confidential drug testing with certified professionals. Schedule your appointment with our experienced testers available mornings and evenings.',
           required: true,
-        },
-        {
-          name: 'phoneNumber',
-          label: 'Phone Number',
-          type: 'text',
-          required: true,
-          defaultValue: '(231) 547-1144',
-          admin: {
-            description: "Phone number for 'Call Now' cta on mobile.",
-          },
         },
         linkGroup({
           overrides: {
@@ -65,18 +55,6 @@ export const Hero: Block = {
             },
           },
         }),
-        {
-          name: 'image',
-          type: 'upload',
-          relationTo: 'media',
-          required: true,
-        },
-        {
-          name: 'svg',
-          type: 'checkbox',
-          defaultValue: true,
-          label: 'Show decorative SVG',
-        },
       ],
     },
     {

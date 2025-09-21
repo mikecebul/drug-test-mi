@@ -260,13 +260,7 @@ export interface Hero {
   highImpact?: {
     title: string;
     description: string;
-    /**
-     * Phone number for 'Call Now' cta on mobile.
-     */
-    phoneNumber: string;
     links?: LinkGroup;
-    image: string | Media;
-    svg?: boolean | null;
   };
   mediumImpact?: {
     subtitle?: string | null;
@@ -1429,10 +1423,7 @@ export interface HeroSelect<T extends boolean = true> {
     | {
         title?: T;
         description?: T;
-        phoneNumber?: T;
         links?: T | LinkGroupSelect<T>;
-        image?: T;
-        svg?: T;
       };
   mediumImpact?:
     | T

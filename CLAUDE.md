@@ -34,6 +34,7 @@ Pages are built using a flexible block system (`src/blocks/`):
 - `RenderBlocks.tsx` - Central block renderer
 - Block types: Hero, Form, MediaBlock, TwoColumnLayout, EventCards, etc.
 - Blocks support nesting (see `TwoColumnLayout`)
+- Blocks used in Pages collection require updating blocks map in blocks/RenderBlocks.tsx and collections/Pages/index.ts
 
 ### Collections & Globals
 
