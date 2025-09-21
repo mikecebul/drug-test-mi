@@ -3,10 +3,16 @@
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { FileText } from 'lucide-react'
 import { z } from 'zod'
+import type { RegistrationFormType } from '../schemas/registrationSchemas'
 
-import { TermsAndConditionsFields } from '../use-registration-form-opts'
+// Export the schema for reuse in step validation
+export const termsAndConditionsFieldSchema = z.object({
+  agreeToTerms: z.boolean().refine((val) => val === true, {
+    error: 'You must agree to the terms and conditions',
+  }),
+})
 
-const defaultValues: TermsAndConditionsFields = {
+const defaultValues: RegistrationFormType['termsAndConditions'] = {
   agreeToTerms: false,
 }
 export const TermsAndConditionsGroup = withFieldGroup({

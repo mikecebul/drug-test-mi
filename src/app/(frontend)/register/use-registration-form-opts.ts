@@ -2,56 +2,8 @@
 
 import { formOptions } from '@tanstack/react-form'
 import { toast } from 'sonner'
-import { z } from 'zod'
 import type { Dispatch, SetStateAction } from 'react'
-
-// Import the field group types
-export type PersonalInfoFields = {
-  firstName: string
-  lastName: string
-  gender: string
-  dob: Date | string
-  phone: string
-}
-
-export type AccountInfoFields = {
-  email: string
-  password: string
-  confirmPassword: string
-}
-
-export type ScreeningRequestFields = {
-  requestedBy: 'probation' | 'employment' | 'self' | ''
-}
-
-export type ResultsRecipientFields = {
-  // Self-pay recipient fields
-  useSelfAsRecipient?: boolean
-  alternativeRecipientName?: string
-  alternativeRecipientEmail?: string
-
-  // Employment recipient fields
-  employerName?: string
-  contactName?: string
-  contactEmail?: string
-
-  // Probation/Court recipient fields
-  courtName?: string
-  probationOfficerName?: string
-  probationOfficerEmail?: string
-}
-
-export type TermsAndConditionsFields = {
-  agreeToTerms: boolean
-}
-
-export type RegistrationFormType = {
-  personalInfo: PersonalInfoFields
-  accountInfo: AccountInfoFields
-  screeningRequest: ScreeningRequestFields
-  resultsRecipient: ResultsRecipientFields
-  termsAndConditions: TermsAndConditionsFields
-}
+import type { RegistrationFormType } from './schemas/registrationSchemas'
 
 const defaultValues: RegistrationFormType = {
   personalInfo: {
@@ -101,7 +53,7 @@ export const useRegistrationFormOpts = ({
         }
 
         // Build payload based on selected client type
-        const clientType = value.screeningRequest.requestedBy as 'probation' | 'employment' | 'self'
+        const clientType = value.screeningRequest.requestedBy
 
         const payload: any = {
           name: `${value.personalInfo.firstName} ${value.personalInfo.lastName}`, // Keep for migration
@@ -147,11 +99,6 @@ export const useRegistrationFormOpts = ({
           throw new Error(result.errors?.[0]?.message || 'Registration failed')
         }
 
-        // Clear localStorage after successful submission
-        localStorage.removeItem('registration-form-state')
-        localStorage.removeItem('registration-current-step')
-        localStorage.removeItem('registration-form-timestamp')
-
         formApi.reset()
 
         toast.success('Registration submitted successfully! Please check your email to verify your account.')
@@ -164,3 +111,5 @@ export const useRegistrationFormOpts = ({
     },
   })
 }
+
+export { defaultValues }

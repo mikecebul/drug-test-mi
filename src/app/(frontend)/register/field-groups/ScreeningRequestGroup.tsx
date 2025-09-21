@@ -5,9 +5,18 @@ import { ClipboardCheck } from 'lucide-react'
 import { z } from 'zod'
 import { useStore } from '@tanstack/react-form'
 import { SCREENING_TYPES } from '../types'
-import type { ScreeningRequestFields } from '../use-registration-form-opts'
+import type { RegistrationFormType } from '../schemas/registrationSchemas'
 
-const defaultValues: ScreeningRequestFields = {
+// Export the schema for reuse in step validation
+export const screeningRequestFieldSchema = z.object({
+  requestedBy: z.enum(['probation', 'employment', 'self', ''], {
+    error: 'Please select who is requesting this screening',
+  }).refine((val) => val !== '', {
+    error: 'Please select who is requesting this screening',
+  }),
+})
+
+const defaultValues: RegistrationFormType['screeningRequest'] = {
   requestedBy: '',
 }
 
@@ -30,9 +39,7 @@ export const ScreeningRequestGroup = withFieldGroup({
         <group.AppField
           name="requestedBy"
           validators={{
-            onChange: z.enum(['probation', 'employment', 'self'], {
-              message: 'Please select who is requesting this screening'
-            }),
+            onChange: screeningRequestFieldSchema.shape.requestedBy,
           }}
         >
           {(field) => (

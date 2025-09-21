@@ -4,9 +4,9 @@ import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { FileText } from 'lucide-react'
 import { z } from 'zod'
 import { useStore } from '@tanstack/react-form'
-import type { ResultsRecipientFields } from '../use-registration-form-opts'
+import type { RegistrationFormType } from '../schemas/registrationSchemas'
 
-const defaultValues: ResultsRecipientFields = {
+const defaultValues: RegistrationFormType['resultsRecipient'] = {
   useSelfAsRecipient: true,
   alternativeRecipientName: '',
   alternativeRecipientEmail: '',

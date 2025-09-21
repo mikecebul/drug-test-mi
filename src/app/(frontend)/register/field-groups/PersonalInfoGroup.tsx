@@ -4,9 +4,23 @@ import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { User, Phone } from 'lucide-react'
 import { z } from 'zod'
 import { GENDER_OPTIONS } from '../types'
-import type { PersonalInfoFields } from '../use-registration-form-opts'
+import type { RegistrationFormType } from '../schemas/registrationSchemas'
 
-const defaultValues: PersonalInfoFields = {
+// Export the schema for reuse in step validation
+export const personalInfoFieldSchema = z.object({
+  firstName: z.string().min(1, { error: 'First name is required' }),
+  lastName: z.string().min(1, { error: 'Last name is required' }),
+  gender: z.string().min(1, { error: 'Please select a gender' }),
+  dob: z.coerce.date({ error: 'Date of birth is required' }),
+  phone: z.string()
+    .min(1, { error: 'Phone number is required' })
+    .regex(
+      /^(?:\+?1[-. ]?)?\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/,
+      { error: 'Please enter a valid phone number' }
+    ),
+})
+
+const defaultValues: RegistrationFormType['personalInfo'] = {
   firstName: '',
   lastName: '',
   gender: '',
@@ -32,7 +46,7 @@ export const PersonalInfoGroup = withFieldGroup({
           <group.AppField
             name="firstName"
             validators={{
-              onChange: z.string().min(1, 'First name is required'),
+              onChange: personalInfoFieldSchema.shape.firstName,
             }}
           >
             {(field) => <field.TextField label="First Name" required />}
@@ -41,7 +55,7 @@ export const PersonalInfoGroup = withFieldGroup({
           <group.AppField
             name="lastName"
             validators={{
-              onChange: z.string().min(1, 'Last name is required'),
+              onChange: personalInfoFieldSchema.shape.lastName,
             }}
           >
             {(field) => <field.TextField label="Last Name" required />}
@@ -51,26 +65,25 @@ export const PersonalInfoGroup = withFieldGroup({
         <group.AppField
           name="gender"
           validators={{
-            onChange: z.string().min(1, 'Please select a gender'),
+            onChange: personalInfoFieldSchema.shape.gender,
           }}
         >
           {(field) => <field.SelectField label="Gender" options={GENDER_OPTIONS} required />}
         </group.AppField>
 
-        <group.AppField name="dob">
+        <group.AppField
+          name="dob"
+          validators={{
+            onChange: personalInfoFieldSchema.shape.dob,
+          }}
+        >
           {(field) => <field.DobField label="Date of Birth" required />}
         </group.AppField>
 
         <group.AppField
           name="phone"
           validators={{
-            onChange: z
-              .string()
-              .min(1, 'Phone number is required')
-              .regex(
-                /^(?:\+?1[-. ]?)?\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/,
-                'Please enter a valid phone number',
-              ),
+            onChange: personalInfoFieldSchema.shape.phone,
           }}
         >
           {(field) => <field.PhoneField label="Phone Number" required />}

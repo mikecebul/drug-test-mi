@@ -3,10 +3,23 @@
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { Mail, Shield } from 'lucide-react'
 import { z } from 'zod'
-import { AccountInfoFields } from '../use-registration-form-opts'
+import type { RegistrationFormType } from '../schemas/registrationSchemas'
 import { checkEmailExists } from '../actions'
 
-const defaultValues: AccountInfoFields = {
+// Export the schema for reuse in step validation
+export const accountInfoFieldSchema = z.object({
+  email: z.string()
+    .min(1, { error: 'Email is required' })
+    .pipe(z.email({ error: 'Please enter a valid email address' })),
+  password: z.string()
+    .min(8, { error: 'Password must be at least 8 characters' })
+    .regex(/[A-Z]/, { error: 'Password must contain at least one uppercase letter' })
+    .regex(/[a-z]/, { error: 'Password must contain at least one lowercase letter' })
+    .regex(/[0-9]/, { error: 'Password must contain at least one number' }),
+  confirmPassword: z.string().min(1, { error: 'Please confirm your password' }),
+})
+
+const defaultValues: RegistrationFormType['accountInfo'] = {
   email: '',
   password: '',
   confirmPassword: '',
@@ -30,8 +43,7 @@ export const AccountInfoGroup = withFieldGroup({
         <group.AppField
           name="email"
           validators={{
-            onChange: z
-              .email('Please enter a valid email address'),
+            onChange: accountInfoFieldSchema.shape.email,
             onChangeAsyncDebounceMs: 300,
             onChangeAsync: async ({ value }) => {
               if (!value || !z.email().safeParse(value).success) {
@@ -68,12 +80,7 @@ export const AccountInfoGroup = withFieldGroup({
         <group.AppField
           name="password"
           validators={{
-            onChange: z
-              .string()
-              .min(8, 'Password must be at least 8 characters')
-              .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-              .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-              .regex(/[0-9]/, 'Password must contain at least one number'),
+            onChange: accountInfoFieldSchema.shape.password,
           }}
         >
           {(field) => <field.PasswordField label="Password" required autoComplete="new-password" />}
@@ -82,7 +89,7 @@ export const AccountInfoGroup = withFieldGroup({
         <group.AppField
           name="confirmPassword"
           validators={{
-            onChange: z.string().min(1, 'Please confirm your password'),
+            onChange: accountInfoFieldSchema.shape.confirmPassword,
             onBlur: ({ value, fieldApi }) => {
               const password = fieldApi.form.getFieldValue('accountInfo.password')
               if (value && password && value !== password) {
