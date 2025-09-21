@@ -11,7 +11,7 @@ const defaultValues: RegistrationFormType = {
     firstName: '',
     lastName: '',
     gender: '',
-    dob: new Date(0),
+    dob: '',
     phone: '',
   },
   accountInfo: {
@@ -60,7 +60,9 @@ export const useRegistrationFormOpts = ({
           name: `${value.personalInfo.firstName} ${value.personalInfo.lastName}`, // Keep for migration
           firstName: value.personalInfo.firstName,
           lastName: value.personalInfo.lastName,
-          dateOfBirth: value.personalInfo.dob,
+          dob: value.personalInfo.dob instanceof Date
+            ? value.personalInfo.dob.toISOString().split('T')[0]
+            : value.personalInfo.dob,
           gender: value.personalInfo.gender,
           email: value.accountInfo.email,
           phone: value.personalInfo.phone,

@@ -17,11 +17,23 @@ export interface DobFieldUIProps {
 }
 
 export default function DobPicker({ label, colSpan, required }: DobFieldUIProps) {
-  const field = useFieldContext<Date | undefined>()
+  const field = useFieldContext<string | Date | undefined>()
   const errors = field.state.meta.errors
   const [open, setOpen] = React.useState(false)
 
-  console.log('DOB field value:', field.state.value)
+  // Handle both string and Date values
+  const dateValue = React.useMemo(() => {
+    if (!field.state.value) return undefined
+    if (field.state.value instanceof Date) return field.state.value
+    if (typeof field.state.value === 'string' && field.state.value !== '') {
+      try {
+        return new Date(field.state.value)
+      } catch {
+        return undefined
+      }
+    }
+    return undefined
+  }, [field.state.value])
 
   return (
     <div className={cn('col-span-2 flex w-full flex-col', { '@lg:col-span-1': colSpan === '1' })}>
@@ -37,16 +49,17 @@ export default function DobPicker({ label, colSpan, required }: DobFieldUIProps)
             className="w-full justify-between font-normal"
             type="button"
           >
-            {field.state.value ? format(field.state.value, 'MMMM d, yyyy') : 'Select date'}
+            {dateValue ? format(dateValue, 'MMMM d, yyyy') : 'Select date'}
             <ChevronDownIcon />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto overflow-hidden p-0" align="start">
           <Calendar
             mode="single"
-            selected={field.state.value}
+            selected={dateValue}
             captionLayout="dropdown"
-            onSelect={(date) => {
+            onSelect={(date: Date | undefined) => {
+              // Store Date object directly, convert to ISO on form submission
               field.handleChange(date)
               setOpen(false)
             }}

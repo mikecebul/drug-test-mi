@@ -11,11 +11,10 @@ export const personalInfoFieldSchema = z.object({
   firstName: z.string().min(1, { error: 'First name is required' }),
   lastName: z.string().min(1, { error: 'Last name is required' }),
   gender: z.string().min(1, { error: 'Please select a gender' }),
-  dob: z
-  .date({ error: "Date of birth is required" })
-  .refine((d) => d instanceof Date && !isNaN(d.getTime()), {
-    message: "Date of birth must be a valid date",
-  }),
+  dob: z.union([
+    z.string().min(1, { error: 'Date of birth is required' }),
+    z.date({ error: 'Date of birth is required' })
+  ]),
   phone: z
     .string()
     .min(1, { error: 'Phone number is required' })
@@ -28,7 +27,7 @@ const defaultValues: RegistrationFormType['personalInfo'] = {
   firstName: '',
   lastName: '',
   gender: '',
-  dob: new Date(0),
+  dob: '',
   phone: '',
 }
 
