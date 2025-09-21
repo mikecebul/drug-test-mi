@@ -25,6 +25,9 @@ import { admins } from '@/access/admins'
 import { CalendarEmbedBlock } from '@/blocks/Cal/config'
 import { Hero } from '@/blocks/Hero/config'
 import { SchedulePage } from '@/blocks/SchedulePage/config'
+import { FeatureGrid } from '@/blocks/FeatureGrid/config'
+import { TrustIndicators } from '@/blocks/TrustIndicators/config'
+import { QuickSchedule } from '@/blocks/QuickSchedule/config'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
@@ -72,6 +75,9 @@ export const Pages: CollectionConfig = {
               blocks: [
                 CalendarEmbedBlock,
                 Hero,
+                FeatureGrid,
+                TrustIndicators,
+                QuickSchedule,
                 RichText,
                 Links,
                 Form,

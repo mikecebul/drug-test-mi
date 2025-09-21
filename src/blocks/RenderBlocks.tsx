@@ -12,6 +12,9 @@ import { TwoColumnLayoutBlock } from './TwoColumnLayout/Component'
 import { CalendarEmbedBlock } from './Cal/Component'
 import { HeroBlock } from './Hero/Component'
 import { SchedulePageBlock } from './SchedulePage/Component'
+import { FeatureGridBlock } from './FeatureGrid/Component'
+import { TrustIndicatorsBlock } from './TrustIndicators/Component'
+import { QuickScheduleBlock } from './QuickSchedule/Component'
 
 const blockComponents = {
   richText: RichTextBlock,
@@ -24,6 +27,9 @@ const blockComponents = {
   calendarEmbed: CalendarEmbedBlock,
   hero: HeroBlock,
   schedulePage: SchedulePageBlock,
+  featureGrid: FeatureGridBlock,
+  trustIndicators: TrustIndicatorsBlock,
+  quickSchedule: QuickScheduleBlock,
 }
 
 export const RenderBlocks: React.FC<{
@@ -47,7 +53,14 @@ export const RenderBlocks: React.FC<{
               return nested ? (
                 <Block key={index} {...(block as any)} nested={nested} />
               ) : (
-                <div key={index} className="space-y-16 py-24 last:pb-36">
+                <div
+                  key={index}
+                  className={
+                    blockType === 'hero' && (block as any).type === 'highImpact'
+                      ? 'space-y-16 pt-24 last:pb-36'
+                      : 'space-y-16 py-24 last:pb-36'
+                  }
+                >
                   <Block {...(block as any)} nested={nested} />
                 </div>
               )
