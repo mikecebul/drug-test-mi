@@ -39,12 +39,15 @@ Pages are built using a flexible block system (`src/blocks/`):
 
 **Collections** (`src/collections/`):
 - `Pages` - Dynamic page content
-- `Events` - Event management
 - `Forms` - Dynamic form builder with Stripe integration
 - `FormSubmissions` - Form response storage
 - `Media` - S3-hosted media files
-- `Users` - Role-based access (super admin, admin, editor)
-- `Registrations` - Automated registration creation from paid form submissions
+- `Admins` - Role-based access (super admin, admin)
+- `Bookings` - Calcom bookings from webhook
+- `Clients` - Auth collection for clients receiving services
+- `PrivateMedia` - mostly drug test results as PDf
+- `Technicians` - Employees who observe the test collection
+- `Resources` - Not yet utilized, but will be link cards for outside recources
 
 **Globals** (`src/globals/`):
 - `Header` - Navigation configuration
@@ -53,11 +56,11 @@ Pages are built using a flexible block system (`src/blocks/`):
 
 ### Key Integration Patterns
 
-**Form System**: Uses TanStack Form with custom field components (`src/blocks/Form/field-components/`) and Stripe checkout integration.
+**Form System**: Uses TanStack Form with custom field components (`src/blocks/Form/field-components/`)
 
 **Media Storage**: S3/Cloudflare R2 storage with PayloadCMS integration.
 
-**Registration Flow**: Automated - when a form submission payment status changes to 'paid', registrations are automatically created for all players in the submission.
+**Registration Flow**: Clients register so we have info of where durg test reports are sent. This needs to be improved to encourage registration before Calcom embed bookings.
 
 ## Environment Requirements
 
@@ -65,7 +68,7 @@ Pages are built using a flexible block system (`src/blocks/`):
 - pnpm ^9 || ^10
 - MongoDB database
 - S3-compatible storage (Cloudflare R2)
-- Stripe account for payments
+- Calcom bookings with Stripe payments through Calcom. Will need to add stripe integration later for recurring customers
 
 ## Development Notes
 
