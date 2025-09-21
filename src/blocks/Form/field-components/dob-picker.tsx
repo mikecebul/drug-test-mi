@@ -21,6 +21,8 @@ export default function DobPicker({ label, colSpan, required }: DobFieldUIProps)
   const errors = field.state.meta.errors
   const [open, setOpen] = React.useState(false)
 
+  console.log('DOB field value:', field.state.value)
+
   return (
     <div className={cn('col-span-2 flex w-full flex-col', { '@lg:col-span-1': colSpan === '1' })}>
       <Label htmlFor={field.name} className="px-1 pb-2">

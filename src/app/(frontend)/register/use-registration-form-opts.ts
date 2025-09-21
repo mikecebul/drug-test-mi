@@ -4,13 +4,14 @@ import { formOptions } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import type { Dispatch, SetStateAction } from 'react'
 import type { RegistrationFormType } from './schemas/registrationSchemas'
+import { Client } from '@/payload-types'
 
 const defaultValues: RegistrationFormType = {
   personalInfo: {
     firstName: '',
     lastName: '',
     gender: '',
-    dob: '',
+    dob: new Date(0),
     phone: '',
   },
   accountInfo: {
@@ -59,10 +60,12 @@ export const useRegistrationFormOpts = ({
           name: `${value.personalInfo.firstName} ${value.personalInfo.lastName}`, // Keep for migration
           firstName: value.personalInfo.firstName,
           lastName: value.personalInfo.lastName,
+          dateOfBirth: value.personalInfo.dob,
+          gender: value.personalInfo.gender,
           email: value.accountInfo.email,
           phone: value.personalInfo.phone,
           password: value.accountInfo.password,
-          clientType,
+          clientType: clientType,
           preferredContactMethod: 'email',
         }
 
@@ -101,11 +104,15 @@ export const useRegistrationFormOpts = ({
 
         formApi.reset()
 
-        toast.success('Registration submitted successfully! Please check your email to verify your account.')
+        toast.success(
+          'Registration submitted successfully! Please check your email to verify your account.',
+        )
         setShowVerification(true)
       } catch (error) {
         console.error('Registration error:', error)
-        toast.error(error instanceof Error ? error.message : 'Registration failed. Please try again.')
+        toast.error(
+          error instanceof Error ? error.message : 'Registration failed. Please try again.',
+        )
         throw error
       }
     },

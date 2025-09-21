@@ -947,6 +947,14 @@ export interface Client {
    */
   phone?: string | null;
   /**
+   * Client gender identity
+   */
+  gender?: ('male' | 'female' | 'other' | 'prefer-not-to-say') | null;
+  /**
+   * Date of birth
+   */
+  dob?: string | null;
+  /**
    * Client headshot photo for identification during testing
    */
   headshot?: (string | null) | Media;
@@ -2006,6 +2014,8 @@ export interface ClientsSelect<T extends boolean = true> {
   firstName?: T;
   lastName?: T;
   phone?: T;
+  gender?: T;
+  dob?: T;
   headshot?: T;
   clientType?: T;
   courtInfo?:

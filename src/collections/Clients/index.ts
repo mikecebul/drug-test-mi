@@ -192,6 +192,30 @@ export const Clients: CollectionConfig = {
       },
     },
     {
+      name: 'gender',
+      type: 'select',
+      options: [
+        { label: 'Male', value: 'male' },
+        { label: 'Female', value: 'female' },
+        { label: 'Other', value: 'other' },
+        { label: 'Prefer not to say', value: 'prefer-not-to-say' },
+      ],
+      admin: {
+        description: 'Client gender identity',
+      },
+    },
+    {
+      name: 'dob',
+      type: 'date',
+      admin: {
+        description: 'Date of birth',
+        date: {
+          pickerAppearance: 'dayOnly',
+          displayFormat: 'MM/dd/yyyy',
+        },
+      },
+    },
+    {
       name: 'headshot',
       type: 'upload',
       relationTo: 'media',
