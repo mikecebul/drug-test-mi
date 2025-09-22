@@ -11,7 +11,6 @@ import { TwoColumnLayoutBlock } from './TwoColumnLayout/Component'
 import { CalendarEmbedBlock } from './Cal/Component'
 import { HeroBlock } from './Hero/Component'
 import { SchedulePageBlock } from './SchedulePage/Component'
-import { TrustIndicatorsBlock } from './TrustIndicators/Component'
 import { TrustBlock } from './Trust/Component'
 import TechniciansBlockComponent from './TechniciansBlock/Component'
 
@@ -25,7 +24,6 @@ const blockComponents = {
   calendarEmbed: CalendarEmbedBlock,
   hero: HeroBlock,
   schedulePage: SchedulePageBlock,
-  trustIndicators: TrustIndicatorsBlock,
   trust: TrustBlock,
   techniciansBlock: TechniciansBlockComponent,
 }

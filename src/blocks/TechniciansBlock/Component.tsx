@@ -3,6 +3,8 @@ import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 import { TechniciansGrid } from '@/components/TechniciansGrid'
 import type { TechniciansBlock } from '@/payload-types'
+import Container from '@/components/Container'
+import { HeroMedium } from '@/components/Hero/HeroMedium'
 
 export default async function TechniciansBlockComponent({
   heading,
@@ -24,20 +26,16 @@ export default async function TechniciansBlockComponent({
   })
 
   return (
-    <div className="bg-background min-h-screen">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-12">
-        <div className="mb-8 text-center sm:mb-12 lg:mb-16">
-          <h2 className="text-foreground mb-4 text-3xl font-bold sm:text-4xl lg:text-5xl">
-            {heading || 'Our Technicians'}
-          </h2>
-          <p className="text-muted-foreground mx-auto max-w-3xl text-lg sm:text-xl">
-            {description ||
-              'Meet our drug testing professionals. Each technician is trained, experienced, and committed to providing professional and discreet testing services.'}
-          </p>
-        </div>
+    <Container className="space-y-16">
+      <HeroMedium
+        title={heading || 'Our technicians'}
+        description={
+          description ||
+          'Meet our drug testing professionals. Each technician is trained, experienced, and committed to providing professional and discreet testing services.'
+        }
+      />
 
-        <TechniciansGrid technicians={technicians.docs} />
-      </div>
-    </div>
+      <TechniciansGrid technicians={technicians.docs} />
+    </Container>
   )
 }

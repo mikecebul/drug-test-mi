@@ -1,11 +1,21 @@
 import { cn } from '@/utilities/cn'
 
-export function HeroMedium({ title, description, subtitle }: { title?: string; description?: string; subtitle?: string }) {
+export function HeroMedium({
+  title,
+  description,
+  subtitle,
+  heading = 'h2',
+}: {
+  title?: string
+  description?: string
+  subtitle?: string
+  heading?: 'h1' | 'h2'
+}) {
   return (
-    <div className="mx-auto flex flex-col justify-center max-w-prose text-left text-pretty lg:text-center gap-4">
+    <div className="flex max-w-prose flex-col justify-center gap-4 text-left text-pretty xl:mx-auto xl:justify-center xl:text-center">
       <div>
         {!!subtitle && <Subtitle text={subtitle} />}
-        {!!title && <Title text={title} />}
+        {!!title && <Title text={title} heading={heading} />}
       </div>
       {!!description && <Description text={description} />}
     </div>
@@ -14,7 +24,9 @@ export function HeroMedium({ title, description, subtitle }: { title?: string; d
 
 export const Subtitle = ({ text }: { text: string }) => {
   return (
-    <h3 className="text-base font-semibold leading-7 capitalize text-primary max-w-prose">{text}</h3>
+    <h3 className="text-primary max-w-prose text-base leading-7 font-semibold capitalize">
+      {text}
+    </h3>
   )
 }
 export const Title = ({
@@ -30,7 +42,7 @@ export const Title = ({
     return (
       <h1
         className={cn(
-          'text-6xl md:text-7xl font-bold tracking-tight text-balance max-w-prose',
+          'max-w-prose text-5xl font-bold tracking-tight text-balance md:text-7xl',
           className,
         )}
       >
@@ -42,7 +54,7 @@ export const Title = ({
     return (
       <h2
         className={cn(
-          'text-5xl font-bold tracking-tight text-balance max-w-prose',
+          'max-w-prose text-4xl font-bold tracking-tight text-balance md:text-6xl',
           className,
         )}
       >
@@ -53,7 +65,7 @@ export const Title = ({
 }
 export const Description = ({ text, className }: { text: string; className?: string }) => {
   return (
-    <p className={cn('text-lg leading-7 text-muted-foreground max-w-prose text-pretty', className)}>
+    <p className={cn('text-muted-foreground max-w-prose text-lg leading-7 text-pretty', className)}>
       {text}
     </p>
   )

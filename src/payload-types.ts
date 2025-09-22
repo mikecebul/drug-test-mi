@@ -213,7 +213,6 @@ export interface Page {
   layout: (
     | CalendarEmbedBlock
     | Hero
-    | TrustIndicatorsBlock
     | TrustBlock
     | TechniciansBlock
     | RichTextBlock
@@ -338,15 +337,6 @@ export interface Media {
       filename?: string | null;
     };
   };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TrustIndicatorsBlock".
- */
-export interface TrustIndicatorsBlock {
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'trustIndicators';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1399,7 +1389,6 @@ export interface PagesSelect<T extends boolean = true> {
     | {
         calendarEmbed?: T | CalendarEmbedBlockSelect<T>;
         hero?: T | HeroSelect<T>;
-        trustIndicators?: T | TrustIndicatorsBlockSelect<T>;
         trust?: T | TrustBlockSelect<T>;
         techniciansBlock?: T | TechniciansBlockSelect<T>;
         richText?: T | RichTextBlockSelect<T>;
@@ -1482,14 +1471,6 @@ export interface LinkSelect<T extends boolean = true> {
   url?: T;
   label?: T;
   appearance?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TrustIndicatorsBlock_select".
- */
-export interface TrustIndicatorsBlockSelect<T extends boolean = true> {
-  id?: T;
-  blockName?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

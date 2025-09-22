@@ -18,7 +18,8 @@ const defaultFeatures = [
   },
   {
     title: 'Gender Options',
-    description: 'Choose from male or female testers based on your comfort and preference.',
+    description:
+      'Choose a male or female technician for your screening to support trauma-informed care and comply with court requirements.',
     icon: 'Users',
   },
 ]
@@ -34,7 +35,7 @@ export function TrustBlock({ heading, description, features }: TrustBlockType) {
           <HeroMedium
             title={heading || 'Why Choose MI Drug Test?'}
             description={
-              description || 'Trusted testing provider with official pre-approval from local courts'
+              description || 'Trusted testing provider with official approval from local courts'
             }
           />
         </div>
@@ -46,11 +47,9 @@ export function TrustBlock({ heading, description, features }: TrustBlockType) {
               <div className="bg-primary/10 mx-auto mb-6 inline-flex items-center justify-center rounded-full p-4">
                 <Scale className="text-primary h-8 w-8" />
               </div>
-              <h3 className="text-foreground mb-4 text-xl font-bold">
-                Court Pre-Approved Provider
-              </h3>
+              <h3 className="text-foreground mb-4 text-xl font-bold">Court Approved Provider</h3>
               <p className="text-muted-foreground mb-6 text-base">
-                Officially recognized and pre-approved by local courts for reliable drug testing
+                Officially recognized and approved by local courts for reliable drug testing
                 services
               </p>
               <div className="flex flex-col items-center justify-center gap-6 text-sm sm:flex-row">

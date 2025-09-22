@@ -24,7 +24,6 @@ import { admins } from '@/access/admins'
 import { CalendarEmbedBlock } from '@/blocks/Cal/config'
 import { Hero } from '@/blocks/Hero/config'
 import { SchedulePage } from '@/blocks/SchedulePage/config'
-import { TrustIndicators } from '@/blocks/TrustIndicators/config'
 import { Trust } from '@/blocks/Trust/config'
 import { TechniciansBlock } from '@/blocks/TechniciansBlock/config'
 
@@ -74,7 +73,6 @@ export const Pages: CollectionConfig = {
               blocks: [
                 CalendarEmbedBlock,
                 Hero,
-                TrustIndicators,
                 Trust,
                 TechniciansBlock,
                 RichText,
