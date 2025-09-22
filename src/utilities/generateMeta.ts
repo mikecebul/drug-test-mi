@@ -15,6 +15,8 @@ export const generateMeta = async (args: { doc: Page }): Promise<Metadata> => {
     switch (slugString) {
       case 'schedule':
         return '/api/og/schedule'
+      case 'register':
+        return '/api/og/register'
       default:
         return '/api/og'
     }

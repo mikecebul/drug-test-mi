@@ -14,6 +14,7 @@ export async function GET() {
             flexDirection: 'column',
             backgroundColor: '#ffffff',
             backgroundImage: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+            padding: '100px 80px',
           }}
         >
           {/* Header */}
@@ -21,12 +22,11 @@ export async function GET() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '100px 80px 40px',
-              width: '100%',
+              justifyContent: 'center',
+              marginBottom: '40px',
             }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <h1
                 style={{
                   fontSize: 48,
@@ -34,6 +34,7 @@ export async function GET() {
                   color: '#0f172a',
                   margin: 0,
                   lineHeight: 1.1,
+                  textAlign: 'center',
                 }}
               >
                 MI Drug Test LLC
@@ -43,29 +44,11 @@ export async function GET() {
                   fontSize: 24,
                   color: '#64748b',
                   margin: '8px 0 0 0',
+                  textAlign: 'center',
                 }}
               >
                 Professional Drug Screening Services
               </p>
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                backgroundColor: '#005a9c',
-                padding: '12px 24px',
-                borderRadius: '12px',
-              }}
-            >
-              <span
-                style={{
-                  color: '#ffffff',
-                  fontSize: 20,
-                  fontWeight: '600',
-                }}
-              >
-                Get Started Today
-              </span>
             </div>
           </div>
 
@@ -77,39 +60,41 @@ export async function GET() {
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: '20px 80px 100px',
+              gap: '40px',
             }}
           >
-            {/* Simple centered content */}
+            {/* Big Register Button */}
             <div
               style={{
                 display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
-                textAlign: 'center',
+                gap: '20px',
+                padding: '40px 60px',
+                background: 'linear-gradient(135deg, #005a9c, #004080)',
+                borderRadius: '20px',
+                boxShadow: '0 20px 50px rgba(0, 90, 156, 0.4)',
               }}
             >
-              <h2
+              <span
                 style={{
-                  fontSize: 72,
-                  fontWeight: 'bold',
-                  color: '#0f172a',
-                  margin: '0 0 32px 0',
-                  lineHeight: 1.1,
+                  fontSize: 48,
+                  color: '#ffffff',
+                  fontWeight: '700',
                 }}
               >
-                Professional Drug Testing
-              </h2>
-              <p
-                style={{
-                  fontSize: 36,
-                  color: '#64748b',
-                  margin: 0,
-                  fontWeight: '400',
-                }}
+                Register Now
+              </span>
+              <svg
+                width="40"
+                height="40"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#ffffff"
+                strokeWidth="2.5"
               >
-                Fast, Reliable & Court Approved
-              </p>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
             </div>
           </div>
         </div>
@@ -120,7 +105,7 @@ export async function GET() {
       },
     )
   } catch (e) {
-    console.error('OG Image generation failed:', e)
+    console.error('Register OG Image generation failed:', e)
     return new Response(`Failed to generate image`, {
       status: 500,
     })
