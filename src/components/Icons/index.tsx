@@ -35,6 +35,7 @@ import {
   Handshake,
   Shield,
   Calendar,
+  Loader2,
 } from 'lucide-react'
 import { ReactNode } from 'react'
 import { cn } from '@/utilities/cn'
@@ -93,6 +94,7 @@ export const Icons = {
   trophy: Trophy,
   Shield: Shield,
   calendar: Calendar,
+  spinner: Loader2,
 }
 
 export type LucideIconsType = (typeof lucideIcons)[number]

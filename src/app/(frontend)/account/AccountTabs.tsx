@@ -6,8 +6,8 @@ import { AccountForm } from './AccountForm'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Client } from '@/payload-types'
-import { getClientSideURL } from '@/utilities/getURL'
 import { toast } from 'sonner'
+import { useAuthActions } from '@/hooks/useAuthActions'
 
 type AccountTabsProps = {
   user: Client
@@ -18,6 +18,7 @@ function AccountTabsContent({ user }: AccountTabsProps) {
   const searchParams = useSearchParams()
   const currentTab = searchParams.get('tab') || 'profile'
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const { logout } = useAuthActions()
 
   const handleTabChange = (value: string) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -33,23 +34,10 @@ function AccountTabsContent({ user }: AccountTabsProps) {
   const handleLogout = async () => {
     setIsLoggingOut(true)
     try {
-      const response = await fetch(`${getClientSideURL()}/api/clients/logout`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.ok) {
-        toast.success('Logged out successfully.')
-        router.push('/')
-      } else {
-        toast.error('Logout failed. Please try again.')
-        router.push('/')
-      }
+      await logout() // This handles the logout and auth state clearing
+      toast.success('Logged out successfully.')
     } catch (err) {
-      toast.warning('You are already logged out.')
+      toast.error('Logout failed. Please try again.')
       router.push('/')
     } finally {
       setIsLoggingOut(false)

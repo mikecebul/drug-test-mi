@@ -2243,6 +2243,10 @@ export interface CompanyInfo {
        * @maxItems 2
        */
       coordinates?: [number, number] | null;
+      /**
+       * Link to the location on Google Maps
+       */
+      googleMapLink?: string | null;
     };
     mailingAddress: {
       street: string;
@@ -2318,6 +2322,7 @@ export interface CompanyInfoSelect<T extends boolean = true> {
               street?: T;
               cityStateZip?: T;
               coordinates?: T;
+              googleMapLink?: T;
             };
         mailingAddress?:
           | T

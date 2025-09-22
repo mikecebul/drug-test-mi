@@ -94,6 +94,15 @@ export const CompanyInfo: GlobalConfig = {
                 description: 'Select the exact location on Google Maps',
               },
             },
+            {
+              name: 'googleMapLink',
+              label: 'Google Maps Link',
+              type: 'text',
+              admin: {
+                description: 'Link to the location on Google Maps',
+              },
+              defaultValue: 'https://maps.app.goo.gl/Zvr1sGdDdCMfJdwm6'
+            },
           ],
         },
         {

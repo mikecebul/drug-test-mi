@@ -1,14 +1,15 @@
 'use client'
 
 import { SelectField, useAuth, useField } from '@payloadcms/ui'
-import type { User } from 'payload'
+import type { TypedUser } from 'payload'
 import { Option, SelectFieldClientComponent } from 'payload'
 
 export const RoleSelectClient: SelectFieldClientComponent = ({ path, validate }) => {
   const { value, setValue } = useField<string>({ path })
-  const { user } = useAuth<User>()
+  const { user } = useAuth<TypedUser>()
 
   const options = () => {
+    if (user?.collection !== 'admins') return []
     if (user?.role === 'superAdmin')
       return [
         {
@@ -30,9 +31,7 @@ export const RoleSelectClient: SelectFieldClientComponent = ({ path, validate })
 
   const onChange = (option: Option | Option[]) => {
     // prevent admins from creating super admins
-    if (user?.role !== 'superAdmin' && value === 'superAdmin') return
-    // prevent editors from creating admins
-    if (user?.role === 'editor' && value === 'admin') return
+    if (user?.collection === 'admins' && user?.role !== 'superAdmin' && value === 'superAdmin') return
 
     setValue(option)
   }
