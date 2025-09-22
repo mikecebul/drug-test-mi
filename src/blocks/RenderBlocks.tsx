@@ -6,30 +6,28 @@ import { LinksBlock } from './Links/Component'
 import { RichTextBlock } from './RichText/Component'
 import { FormBlockRouter } from './Form/Component'
 import { MediaBlock } from './MediaBlock/Component'
-import { FeatureCardsBlock } from './FeatureCards/Component'
 import { LayoutBlock } from './Layout/Component'
 import { TwoColumnLayoutBlock } from './TwoColumnLayout/Component'
 import { CalendarEmbedBlock } from './Cal/Component'
 import { HeroBlock } from './Hero/Component'
 import { SchedulePageBlock } from './SchedulePage/Component'
-import { FeatureGridBlock } from './FeatureGrid/Component'
 import { TrustIndicatorsBlock } from './TrustIndicators/Component'
-import { QuickScheduleBlock } from './QuickSchedule/Component'
+import { TrustBlock } from './Trust/Component'
+import TechniciansBlockComponent from './TechniciansBlock/Component'
 
 const blockComponents = {
   richText: RichTextBlock,
   linksBlock: LinksBlock,
   formBlock: FormBlockRouter,
   mediaBlock: MediaBlock,
-  featureCards: FeatureCardsBlock,
   TwoColumnLayout: TwoColumnLayoutBlock,
   layout: LayoutBlock,
   calendarEmbed: CalendarEmbedBlock,
   hero: HeroBlock,
   schedulePage: SchedulePageBlock,
-  featureGrid: FeatureGridBlock,
   trustIndicators: TrustIndicatorsBlock,
-  quickSchedule: QuickScheduleBlock,
+  trust: TrustBlock,
+  techniciansBlock: TechniciansBlockComponent,
 }
 
 export const RenderBlocks: React.FC<{

@@ -213,14 +213,13 @@ export interface Page {
   layout: (
     | CalendarEmbedBlock
     | Hero
-    | FeatureGridBlock
     | TrustIndicatorsBlock
-    | QuickScheduleBlock
+    | TrustBlock
+    | TechniciansBlock
     | RichTextBlock
     | LinksBlock
     | FormBlock
     | TwoColumnLayoutBlock
-    | FeatureCardsBlock
     | LayoutBlock
     | SchedulePageBlock
   )[];
@@ -342,15 +341,6 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "FeatureGridBlock".
- */
-export interface FeatureGridBlock {
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'featureGrid';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TrustIndicatorsBlock".
  */
 export interface TrustIndicatorsBlock {
@@ -360,12 +350,34 @@ export interface TrustIndicatorsBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "QuickScheduleBlock".
+ * via the `definition` "TrustBlock".
  */
-export interface QuickScheduleBlock {
+export interface TrustBlock {
+  heading?: string | null;
+  description?: string | null;
+  features?:
+    | {
+        title: string;
+        description?: string | null;
+        icon?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'quickSchedule';
+  blockType: 'trust';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TechniciansBlock".
+ */
+export interface TechniciansBlock {
+  heading?: string | null;
+  description?: string | null;
+  maxTechnicians?: number | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'techniciansBlock';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -786,27 +798,10 @@ export interface TwoColumnLayoutBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "FeatureCardsBlock".
- */
-export interface FeatureCardsBlock {
-  cards?:
-    | {
-        icon?: string | null;
-        title?: string | null;
-        description?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'featureCards';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "LayoutBlock".
  */
 export interface LayoutBlock {
-  blocks?: (TwoColumnLayoutBlock | FeatureCardsBlock | Hero | CalendarEmbedBlock)[] | null;
+  blocks?: (TwoColumnLayoutBlock | Hero | CalendarEmbedBlock)[] | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'layout';
@@ -1404,14 +1399,13 @@ export interface PagesSelect<T extends boolean = true> {
     | {
         calendarEmbed?: T | CalendarEmbedBlockSelect<T>;
         hero?: T | HeroSelect<T>;
-        featureGrid?: T | FeatureGridBlockSelect<T>;
         trustIndicators?: T | TrustIndicatorsBlockSelect<T>;
-        quickSchedule?: T | QuickScheduleBlockSelect<T>;
+        trust?: T | TrustBlockSelect<T>;
+        techniciansBlock?: T | TechniciansBlockSelect<T>;
         richText?: T | RichTextBlockSelect<T>;
         linksBlock?: T | LinksBlockSelect<T>;
         formBlock?: T | FormBlockSelect<T>;
         TwoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
-        featureCards?: T | FeatureCardsBlockSelect<T>;
         layout?: T | LayoutBlockSelect<T>;
         schedulePage?: T | SchedulePageBlockSelect<T>;
       };
@@ -1491,14 +1485,6 @@ export interface LinkSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "FeatureGridBlock_select".
- */
-export interface FeatureGridBlockSelect<T extends boolean = true> {
-  id?: T;
-  blockName?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TrustIndicatorsBlock_select".
  */
 export interface TrustIndicatorsBlockSelect<T extends boolean = true> {
@@ -1507,9 +1493,30 @@ export interface TrustIndicatorsBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "QuickScheduleBlock_select".
+ * via the `definition` "TrustBlock_select".
  */
-export interface QuickScheduleBlockSelect<T extends boolean = true> {
+export interface TrustBlockSelect<T extends boolean = true> {
+  heading?: T;
+  description?: T;
+  features?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        icon?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TechniciansBlock_select".
+ */
+export interface TechniciansBlockSelect<T extends boolean = true> {
+  heading?: T;
+  description?: T;
+  maxTechnicians?: T;
   id?: T;
   blockName?: T;
 }
@@ -1613,22 +1620,6 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "FeatureCardsBlock_select".
- */
-export interface FeatureCardsBlockSelect<T extends boolean = true> {
-  cards?:
-    | T
-    | {
-        icon?: T;
-        title?: T;
-        description?: T;
-        id?: T;
-      };
-  id?: T;
-  blockName?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "LayoutBlock_select".
  */
 export interface LayoutBlockSelect<T extends boolean = true> {
@@ -1636,7 +1627,6 @@ export interface LayoutBlockSelect<T extends boolean = true> {
     | T
     | {
         TwoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
-        featureCards?: T | FeatureCardsBlockSelect<T>;
         hero?: T | HeroSelect<T>;
         calendarEmbed?: T | CalendarEmbedBlockSelect<T>;
       };

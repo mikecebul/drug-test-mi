@@ -33,9 +33,12 @@ import {
   Trophy,
   LandPlot,
   Handshake,
+  Shield,
+  Calendar,
 } from 'lucide-react'
 import { ReactNode } from 'react'
 import { cn } from '@/utilities/cn'
+import { ca } from 'date-fns/locale'
 
 export const Icons = {
   logo: ({ className }: { className: string }) => (
@@ -88,6 +91,8 @@ export const Icons = {
   graduationCap: GraduationCap,
   handshake: Handshake,
   trophy: Trophy,
+  Shield: Shield,
+  calendar: Calendar,
 }
 
 export type LucideIconsType = (typeof lucideIcons)[number]
@@ -122,6 +127,9 @@ export const lucideIcons = [
   { component: User, label: 'User', value: 'User' },
   { component: WineOff, label: 'Wine Off', value: 'WineOff' },
   { component: CircleOff, label: 'Zero', value: 'CircleOff' },
+  { component: Clock, label: 'Clock', value: 'Clock' },
+  { component: Shield, label: 'Shield', value: 'Shield' },
+  { component: Calendar, label: 'Calendar', value: 'Calendar' },
 ]
 
 export const iconMapping = lucideIcons.reduce<Record<string, LucideIcon>>((acc, icon) => {
@@ -136,14 +144,14 @@ export const renderIcon = (iconValue: string, small?: 'small', component?: strin
 
   if (!IconComponent) {
     return (
-      <div className={`flex items-center justify-center ${containerSize} rounded-lg bg-brand`}>
+      <div className={`flex items-center justify-center ${containerSize} bg-brand rounded-lg`}>
         <User className={`${iconSize} text-white`} aria-hidden="true" />
       </div>
     )
   }
 
   return (
-    <div className={`flex items-center justify-center ${containerSize} rounded-lg bg-brand`}>
+    <div className={`flex items-center justify-center ${containerSize} bg-brand rounded-lg`}>
       <IconComponent className={`${iconSize} text-white`} aria-hidden="true" />
     </div>
   )

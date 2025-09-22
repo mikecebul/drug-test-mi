@@ -16,7 +16,6 @@ import {
 import { Links } from '@/blocks/Links/config'
 import { superAdmin } from '@/access/superAdmin'
 import { RichText } from '@/blocks/RichText/config'
-import { FeatureCards } from '@/blocks/FeatureCards/config'
 import { Form } from '@/blocks/Form/config'
 import { Layout } from '@/blocks/Layout/config'
 import { TwoColumnLayout } from '@/blocks/TwoColumnLayout/config'
@@ -25,9 +24,9 @@ import { admins } from '@/access/admins'
 import { CalendarEmbedBlock } from '@/blocks/Cal/config'
 import { Hero } from '@/blocks/Hero/config'
 import { SchedulePage } from '@/blocks/SchedulePage/config'
-import { FeatureGrid } from '@/blocks/FeatureGrid/config'
 import { TrustIndicators } from '@/blocks/TrustIndicators/config'
-import { QuickSchedule } from '@/blocks/QuickSchedule/config'
+import { Trust } from '@/blocks/Trust/config'
+import { TechniciansBlock } from '@/blocks/TechniciansBlock/config'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
@@ -75,14 +74,13 @@ export const Pages: CollectionConfig = {
               blocks: [
                 CalendarEmbedBlock,
                 Hero,
-                FeatureGrid,
                 TrustIndicators,
-                QuickSchedule,
+                Trust,
+                TechniciansBlock,
                 RichText,
                 Links,
                 Form,
                 TwoColumnLayout,
-                FeatureCards,
                 Layout,
                 SchedulePage,
               ],
