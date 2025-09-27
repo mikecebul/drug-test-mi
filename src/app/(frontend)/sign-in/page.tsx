@@ -17,7 +17,8 @@ export default async function Login() {
   const generalToken = cookieStore.get('payload-token')?.value
 
   if (user) {
-    redirect(`/account?message=${encodeURIComponent('You are already logged in.')}`)
+    const redirectUrl = user.collection === 'clients' ? '/dashboard' : '/admin'
+    redirect(`${redirectUrl}?message=${encodeURIComponent('You are already logged in.')}`)
   }
 
   // If there's a token but no user, check if they're unverified
@@ -51,7 +52,7 @@ export default async function Login() {
     <div className="container mx-auto max-w-md px-4 py-16">
       <div className="space-y-6">
         <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-bold">Log in</h1>
+          <h1 className="text-3xl font-bold">Sign in</h1>
           <p className="text-muted-foreground">
             Enter your credentials to access your account
           </p>

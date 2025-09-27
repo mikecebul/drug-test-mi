@@ -65,7 +65,7 @@ export const TwoColumnLayoutBlock = ({
           {columnOneType === 'cta' ? (
             <>
               {hasSubtitle && (
-                <Badge variant="brand" className="w-fit">
+                <Badge variant="default" className="w-fit">
                   <Icon name={subtitle?.icon ?? 'trophy'} className="mr-1 size-4" />
                   {subtitle?.text}
                 </Badge>

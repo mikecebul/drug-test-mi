@@ -28,7 +28,7 @@ export default async function Register() {
 
   if (user) {
     redirect(
-      `/account?message=${encodeURIComponent(
+      `/dashboard?message=${encodeURIComponent(
         'You are already logged in. Please log out to register a new account.',
       )}`,
     )

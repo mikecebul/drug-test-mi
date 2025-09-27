@@ -11,10 +11,10 @@ export type LoginFormType = {
   password: string
 }
 
-export const useLoginFormOpts = () => {
+export const useSignInFormOpts = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirect') || '/account'
+  const redirectTo = searchParams.get('redirect') || '/dashboard'
   const { invalidateAuth } = useAuthActions()
 
   return formOptions({
@@ -37,7 +37,10 @@ export const useLoginFormOpts = () => {
         if (req.status >= 400) {
           const errorMessage = res.errors?.[0]?.message || res.message || 'Invalid credentials'
           // Check if the error is related to unverified email
-          if (errorMessage.toLowerCase().includes('verify') || errorMessage.toLowerCase().includes('unverified')) {
+          if (
+            errorMessage.toLowerCase().includes('verify') ||
+            errorMessage.toLowerCase().includes('unverified')
+          ) {
             router.push('/verify-email?resend=true')
             return
           } else {

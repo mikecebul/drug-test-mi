@@ -12,7 +12,7 @@ export default async function ResetPassword() {
   const { user } = await payload.auth({ headers })
 
   if (user) {
-    redirect(`/account?message=${encodeURIComponent('Cannot reset password while logged in.')}`)
+    redirect(`/dashboard?message=${encodeURIComponent('Cannot reset password while logged in.')}`)
   }
 
   return (

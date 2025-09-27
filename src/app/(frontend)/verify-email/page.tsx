@@ -75,11 +75,11 @@ function VerifyEmailContent() {
             <CheckCircle className="mx-auto mb-4 h-12 w-12 text-green-500" />
             <h1 className="mb-2 text-2xl font-bold text-foreground">Email Verified Successfully!</h1>
             <p className="mb-6 text-muted-foreground">
-              Your account has been verified. You can now log in and schedule your drug screening appointment.
+              Your account has been verified. You can now sign in and schedule your drug screening appointment.
             </p>
             <div className="space-y-3">
               <Button asChild className="w-full">
-                <Link href="/login">Sign In to Your Account</Link>
+                <Link href="/sign-in">Sign In to Your Account</Link>
               </Button>
               <Button asChild variant="outline" className="w-full">
                 <Link href="/schedule">Schedule Appointment</Link>
@@ -129,7 +129,7 @@ function VerifyEmailContent() {
                 <Link href="/register">Try Registration Again</Link>
               </Button>
               <Button asChild variant="ghost" className="w-full">
-                <Link href="/login">Already have an account? Sign In</Link>
+                <Link href="/sign-in">Already have an account? Sign In</Link>
               </Button>
             </div>
           </div>

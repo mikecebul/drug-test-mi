@@ -21,17 +21,20 @@ export function MobileAuthButton({ onClose }: MobileAuthButtonProps) {
   }
 
   if (user) {
+    const accountUrl = user.collection === 'clients' ? '/dashboard' : '/admin'
+    const accountLabel = user.collection === 'clients' ? 'My Account' : 'Admin Panel'
+
     return (
       <div className="border-border mb-4 border-b pb-4">
         <CMSLink
           type="custom"
-          url="/account"
+          url={accountUrl}
           appearance="default"
           className={cn('w-full justify-center')}
           onClick={onClose}
         >
           <Icons.user className="mr-2 h-4 w-4" />
-          My Account
+          {accountLabel}
         </CMSLink>
       </div>
     )
@@ -41,7 +44,7 @@ export function MobileAuthButton({ onClose }: MobileAuthButtonProps) {
     <div className="border-border mb-4 space-y-2 border-b pb-4">
       <CMSLink
         type="custom"
-        url="/login"
+        url="/sign-in"
         appearance="outline"
         className={cn('w-full justify-center')}
         onClick={onClose}

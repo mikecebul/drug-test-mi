@@ -38,7 +38,7 @@ export const RecoverPasswordForm = () => {
             </form.AppForm>
 
             <div className="text-center">
-              <Link href="/login" className="text-primary text-sm hover:underline">
+              <Link href="/sign-in" className="text-primary text-sm hover:underline">
                 Back to Login
               </Link>
             </div>

@@ -37,7 +37,7 @@ export const ResetPasswordForm = () => {
               Request New Reset Link
             </Link>
             <Link
-              href="/login"
+              href="/sign-in"
               className="inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 hover:bg-gray-50"
             >
               Back to Login
@@ -110,7 +110,7 @@ export const ResetPasswordForm = () => {
             </form.AppForm>
 
             <div className="text-center">
-              <Link href="/login" className="text-primary text-sm hover:underline">
+              <Link href="/sign-in" className="text-primary text-sm hover:underline">
                 Back to Login
               </Link>
             </div>

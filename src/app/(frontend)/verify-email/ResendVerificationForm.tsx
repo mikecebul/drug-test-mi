@@ -90,7 +90,7 @@ export const ResendVerificationForm = ({ showLoginMessage = false }: ResendVerif
         <CardTitle className="text-center">Email Verification Required</CardTitle>
         {showLoginMessage && (
           <p className="text-center text-muted-foreground">
-            Your account needs to be verified before you can log in. Please check your email or request a new verification email below.
+            Your account needs to be verified before you can sign in. Please check your email or request a new verification email below.
           </p>
         )}
       </CardHeader>

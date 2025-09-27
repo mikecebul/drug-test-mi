@@ -4,11 +4,11 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { useStore } from '@tanstack/react-form'
 import { z } from 'zod'
 import { useAppForm } from '@/blocks/Form/hooks/form'
-import { useLoginFormOpts } from './use-login-form-opts'
+import { useSignInFormOpts } from './use-sign-in-form-opts'
 import Link from 'next/link'
 
 export const LoginForm = () => {
-  const formOpts = useLoginFormOpts()
+  const formOpts = useSignInFormOpts()
   const form = useAppForm({
     ...formOpts,
   })
@@ -34,12 +34,7 @@ export const LoginForm = () => {
                 onChange: z.string().min(1, 'Email is required').email('Invalid email address'),
               }}
             >
-              {(formField) => (
-                <formField.EmailField
-                  label="Email Address"
-                  required
-                />
-              )}
+              {(formField) => <formField.EmailField label="Email Address" required />}
             </form.AppField>
             <form.AppField
               name="password"
@@ -47,19 +42,14 @@ export const LoginForm = () => {
                 onChange: z.string().min(1, 'Password is required'),
               }}
             >
-              {(formField) => (
-                <formField.PasswordField
-                  label="Password"
-                  required
-                />
-              )}
+              {(formField) => <formField.PasswordField label="Password" required />}
             </form.AppField>
           </CardContent>
           <CardFooter className="flex flex-col items-center space-y-4">
             <form.AppForm>
-              <form.SubmitButton label={'Log in'} />
+              <form.SubmitButton label={'Sign in'} />
             </form.AppForm>
-            <div className="text-sm text-center space-y-2">
+            <div className="space-y-2 text-center text-sm">
               <p>
                 <Link href="/forgot-password" className="text-primary hover:underline">
                   Forgot your password?

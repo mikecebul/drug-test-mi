@@ -53,7 +53,7 @@ export const useResetPasswordOpts = ({
         // If successful, automatically log the user in
         if (res.user) {
           try {
-            const loginReq = await fetch(`${getClientSideURL()}/api/clients/login`, {
+            const loginReq = await fetch(`${getClientSideURL()}/api/clients/sign-in`, {
               body: JSON.stringify({
                 email: res.user.email,
                 password: data.password,
@@ -65,19 +65,19 @@ export const useResetPasswordOpts = ({
             if (loginReq.ok) {
               // Show success toast and redirect to account
               toast.success('Password reset successfully! You are now logged in.')
-              window.location.href = '/account'
+              window.location.href = '/dashboard'
               return
             }
           } catch (loginErr) {
             // If auto-login fails, still show success but redirect to login
-            toast.success('Password reset successfully! Please log in with your new password.')
-            window.location.href = '/login'
+            toast.success('Password reset successfully! Please sign in with your new password.')
+            window.location.href = '/sign-in'
             return
           }
         }
 
-        toast.success('Password reset successfully! Please log in with your new password.')
-        window.location.href = '/login'
+        toast.success('Password reset successfully! Please sign in with your new password.')
+        window.location.href = '/sign-in'
       } catch (err) {
         toast.error('Something went wrong. Please try again.')
       }

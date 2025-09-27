@@ -1010,6 +1010,58 @@ export interface Client {
    */
   notes?: string | null;
   /**
+   * Current and historical medications for drug test verification
+   */
+  medications?:
+    | {
+        /**
+         * Brand or generic name of medication
+         */
+        medicationName: string;
+        /**
+         * Dosage amount and frequency (e.g., "20mg daily")
+         */
+        dosage: string;
+        /**
+         * Prescribing physician name
+         */
+        prescriber: string;
+        /**
+         * Prescriber contact phone for verification
+         */
+        prescriberPhone?: string | null;
+        /**
+         * Date medication was started
+         */
+        startDate: string;
+        /**
+         * Date medication was discontinued (leave empty if current)
+         */
+        endDate?: string | null;
+        /**
+         * Current status of this medication
+         */
+        status: 'active' | 'discontinued' | 'hold';
+        /**
+         * What substance this medication shows as in drug tests (e.g., "Amphetamine", "Benzodiazepine")
+         */
+        detectedAs?: string | null;
+        /**
+         * Has this medication been verified with the prescriber?
+         */
+        isVerified?: boolean | null;
+        /**
+         * Date this medication was last verified
+         */
+        lastVerified?: string | null;
+        /**
+         * Additional notes about this medication
+         */
+        notes?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
    * Alternative recipient for test results (self-pay clients only)
    */
   alternativeRecipient?: {
@@ -1042,6 +1094,47 @@ export interface Client {
    * Date of first booking
    */
   firstBookingDate?: string | null;
+  /**
+   * Recurring appointment subscription settings
+   */
+  recurringAppointments?: {
+    /**
+     * Is this client subscribed to recurring appointments?
+     */
+    isRecurring?: boolean | null;
+    /**
+     * How often should appointments be scheduled?
+     */
+    frequency?: ('weekly' | 'biweekly' | 'monthly' | 'quarterly') | null;
+    /**
+     * Preferred day of the week for appointments
+     */
+    preferredDayOfWeek?: ('monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday') | null;
+    /**
+     * Preferred time slot for appointments
+     */
+    preferredTimeSlot?: ('morning' | 'afternoon' | 'evening') | null;
+    /**
+     * Stripe customer ID for subscription billing
+     */
+    stripeCustomerId?: string | null;
+    /**
+     * Stripe subscription ID
+     */
+    stripeSubscriptionId?: string | null;
+    /**
+     * Current subscription status from Stripe
+     */
+    subscriptionStatus?: ('active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete') | null;
+    /**
+     * Next scheduled appointment date
+     */
+    nextAppointmentDate?: string | null;
+    /**
+     * Date the subscription started
+     */
+    subscriptionStartDate?: string | null;
+  };
   preferredContactMethod?: ('email' | 'phone' | 'sms') | null;
   /**
    * Whether this client is active
@@ -2052,6 +2145,22 @@ export interface ClientsSelect<T extends boolean = true> {
         contactEmail?: T;
       };
   notes?: T;
+  medications?:
+    | T
+    | {
+        medicationName?: T;
+        dosage?: T;
+        prescriber?: T;
+        prescriberPhone?: T;
+        startDate?: T;
+        endDate?: T;
+        status?: T;
+        detectedAs?: T;
+        isVerified?: T;
+        lastVerified?: T;
+        notes?: T;
+        id?: T;
+      };
   alternativeRecipient?:
     | T
     | {
@@ -2062,6 +2171,19 @@ export interface ClientsSelect<T extends boolean = true> {
   totalBookings?: T;
   lastBookingDate?: T;
   firstBookingDate?: T;
+  recurringAppointments?:
+    | T
+    | {
+        isRecurring?: T;
+        frequency?: T;
+        preferredDayOfWeek?: T;
+        preferredTimeSlot?: T;
+        stripeCustomerId?: T;
+        stripeSubscriptionId?: T;
+        subscriptionStatus?: T;
+        nextAppointmentDate?: T;
+        subscriptionStartDate?: T;
+      };
   preferredContactMethod?: T;
   isActive?: T;
   updatedAt?: T;

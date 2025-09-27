@@ -17,23 +17,26 @@ export function AuthButton() {
   }
 
   if (user) {
+    const accountUrl = user.collection === 'clients' ? '/dashboard' : '/admin'
+    const accountLabel = user.collection === 'clients' ? 'Account' : 'Admin'
+
     return (
       <CMSLink
         type="custom"
-        url="/account"
+        url={accountUrl}
         appearance="default"
         className={cn('hidden md:inline-flex')}
         size={'sm'}
       >
         <Icons.user className="mr-2 h-4 w-4" />
-        Account
+        {accountLabel}
       </CMSLink>
     )
   }
 
   return (
     <div className="hidden items-center gap-2 md:flex">
-      <CMSLink type="custom" url="/login" appearance="inline" size='sm' className={cn('sm:min-w-0')}>
+      <CMSLink type="custom" url="/sign-in" appearance="inline" size='sm' className={cn('sm:min-w-0')}>
         Sign In
       </CMSLink>
       <CMSLink type="custom" url="/register" appearance="default" size="sm" className={cn('sm:min-w-0')}>

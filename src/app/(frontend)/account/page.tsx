@@ -47,7 +47,7 @@ export default async function Account() {
       // If we can't determine verification status, redirect to verify-email anyway
       redirect('/verify-email?resend=true')
     }
-    redirect('/login?redirect=/account')
+    redirect('/sign-in?redirect=/dashboard')
   }
 
   // Check if user is a client

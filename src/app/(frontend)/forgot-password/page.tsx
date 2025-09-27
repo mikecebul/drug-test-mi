@@ -12,7 +12,7 @@ export default async function ForgotPassword() {
   const { user } = await payload.auth({ headers })
 
   if (user) {
-    redirect(`/account?message=${encodeURIComponent('Cannot recover password while logged in.')}`)
+    redirect(`/dashboard?message=${encodeURIComponent('Cannot recover password while logged in.')}`)
   }
 
   return (

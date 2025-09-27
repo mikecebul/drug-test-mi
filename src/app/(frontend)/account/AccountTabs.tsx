@@ -27,7 +27,7 @@ function AccountTabsContent({ user }: AccountTabsProps) {
     } else {
       params.set('tab', value)
     }
-    const newUrl = params.toString() ? `/account?${params.toString()}` : '/account'
+    const newUrl = params.toString() ? `/dashboard?${params.toString()}` : '/dashboard'
     router.push(newUrl, { scroll: false })
   }
 
