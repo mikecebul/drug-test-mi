@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { getPayload } from 'payload'
 import React from 'react'
 
-import config from '../../../payload.config'
+import config from '@payload-config'
 import { LoginForm } from './LoginForm'
 import { baseUrl } from '@/utilities/baseUrl'
 
