@@ -29,10 +29,24 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Download, FileText, Eye, AlertCircle } from "lucide-react"
+import { FileText, AlertCircle, MessageSquare } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { PrivateMedia } from "@/payload-types"
 import { useQuery } from "@tanstack/react-query"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
 type DrugTestResult = PrivateMedia
 
@@ -151,9 +165,23 @@ export default function TestResultsPage() {
       }
 
       const result = await response.json()
-      return result.docs?.filter((doc: PrivateMedia) =>
+      const drugScreens = result.docs?.filter((doc: PrivateMedia) =>
         doc.documentType === 'drug-screen'
       ) || []
+
+      // For testing pagination - duplicate the first result 100 times
+      if (drugScreens.length > 0) {
+        const testData = []
+        for (let i = 0; i < 100; i++) {
+          testData.push({
+            ...drugScreens[0],
+            id: `${drugScreens[0].id}-${i}`, // Unique ID for each duplicate
+          })
+        }
+        return testData
+      }
+
+      return drugScreens
     },
     enabled: !!user && user.collection === 'clients',
   })
@@ -186,7 +214,7 @@ export default function TestResultsPage() {
       cell: ({ row }) => {
         const result = formatTestResult(
           row.original.testResult,
-          row.original.isDilute,
+          false, // Don't show dilute in the result badge
           row.original.requiresConfirmation,
           row.original.confirmationStatus
         )
@@ -194,6 +222,19 @@ export default function TestResultsPage() {
           <Badge variant={getResultBadgeVariant(result)}>
             {result}
           </Badge>
+        )
+      },
+    },
+    {
+      id: "dilute",
+      header: "Dilute",
+      cell: ({ row }) => {
+        return row.original.isDilute ? (
+          <Badge variant="outline" className="text-orange-600 border-orange-200">
+            Dilute
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground text-sm">-</span>
         )
       },
     },
@@ -215,7 +256,26 @@ export default function TestResultsPage() {
       cell: ({ getValue }) => {
         const notes = getValue()
         return notes ? (
-          <span className="text-sm">{notes}</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                title="View notes"
+              >
+                <MessageSquare className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80">
+              <div className="space-y-2">
+                <h4 className="font-medium leading-none">Notes</h4>
+                <p className="text-sm text-muted-foreground">
+                  {notes}
+                </p>
+              </div>
+            </PopoverContent>
+          </Popover>
         ) : (
           <span className="text-muted-foreground text-sm">-</span>
         )
@@ -393,23 +453,63 @@ export default function TestResultsPage() {
                 </TableBody>
               </Table>
             </div>
-            <div className="flex items-center justify-end space-x-2 py-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-              >
-                Next
-              </Button>
+            <div className="flex items-center justify-center py-4">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => table.previousPage()}
+                      className={!table.getCanPreviousPage() ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+
+                  {/* Generate page numbers */}
+                  {Array.from({ length: table.getPageCount() }, (_, i) => {
+                    const pageNumber = i + 1
+                    const currentPage = table.getState().pagination.pageIndex + 1
+
+                    // Show first page, current page +/- 1, and last page
+                    if (
+                      pageNumber === 1 ||
+                      pageNumber === table.getPageCount() ||
+                      (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                    ) {
+                      return (
+                        <PaginationItem key={pageNumber}>
+                          <PaginationLink
+                            onClick={() => table.setPageIndex(pageNumber - 1)}
+                            isActive={pageNumber === currentPage}
+                            className="cursor-pointer"
+                          >
+                            {pageNumber}
+                          </PaginationLink>
+                        </PaginationItem>
+                      )
+                    }
+
+                    // Show ellipsis
+                    if (
+                      (pageNumber === currentPage - 2 && currentPage > 3) ||
+                      (pageNumber === currentPage + 2 && currentPage < table.getPageCount() - 2)
+                    ) {
+                      return (
+                        <PaginationItem key={`ellipsis-${pageNumber}`}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )
+                    }
+
+                    return null
+                  })}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => table.nextPage()}
+                      className={!table.getCanNextPage() ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
           </CardContent>
         </Card>
