@@ -1,14 +1,9 @@
 // TODO: Implement appointments page with real data from Payload CMS
 // Currently contains mock data and needs to be connected to actual appointment system
 
-"use client"
+'use client'
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function AppointmentsPage() {
   return (
@@ -17,9 +12,7 @@ export default function AppointmentsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Appointments</h1>
-            <p className="text-muted-foreground">
-              Manage your upcoming appointments
-            </p>
+            <p className="text-muted-foreground">Manage your upcoming appointments</p>
           </div>
         </div>
       </div>
@@ -31,8 +24,8 @@ export default function AppointmentsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">
-              The appointments feature is currently under development.
-              You'll be able to view and manage your appointments here once it's complete.
+              The appointments feature is currently under development. You&apos;ll be able to view
+              and manage your appointments here once it&apos;s complete.
             </p>
           </CardContent>
         </Card>
