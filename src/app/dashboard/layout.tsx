@@ -6,6 +6,7 @@ import { cn } from '@/utilities/cn'
 import { QueryProvider } from '@/providers/QueryProvider'
 import { Toaster } from '@/components/ui/sonner'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { getAuthenticatedClient } from '@/utilities/getAuthenticatedClient'
 import type { Metadata } from 'next'
 
 import './globals.css'
@@ -21,7 +22,12 @@ export const metadata: Metadata = {
   },
 }
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  // Protect all dashboard routes by checking authentication here
+  // This will redirect to sign-in if user is not authenticated
+  // or redirect to admin if user is an admin
+  await getAuthenticatedClient()
+
   return (
     <html className={cn(GeistSans.variable)} lang="en" suppressHydrationWarning>
       <body className={cn('antialiased')} suppressHydrationWarning>

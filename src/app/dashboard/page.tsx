@@ -1,11 +1,10 @@
 import { Suspense } from 'react'
-import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { DashboardClient } from './DashboardClient'
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query'
 import { DrugTest } from '@/payload-types'
+import { getAuthenticatedClient } from '@/utilities/getAuthenticatedClient'
 
 // Helper functions to format test data
 function formatTestResult(
@@ -62,26 +61,10 @@ function formatTestStatus(status: string | null | undefined): string {
 }
 
 async function getDashboardData() {
-  const headersList = await headers()
   const payload = await getPayload({ config })
 
-  // Get authenticated user
-  const { user } = await payload.auth({ headers: headersList })
-
-  if (!user) {
-    redirect('/sign-in?redirect=/dashboard')
-  }
-
-  if (user.collection !== 'clients') {
-    redirect('/admin')
-  }
-
-  // Get full client with populated relationships (like headshot)
-  const client = await payload.findByID({
-    collection: 'clients',
-    id: user.id,
-    depth: 2,
-  })
+  // Get authenticated client (authentication handled by getAuthenticatedClient)
+  const client = await getAuthenticatedClient()
 
   // Fetch related data in parallel
   const [drugScreenResults, bookings] = await Promise.all([
@@ -168,22 +151,18 @@ async function getDashboardData() {
 export default async function DashboardPage() {
   const queryClient = new QueryClient()
 
-  try {
-    // Prefetch the dashboard data on the server
-    const dashboardData = await getDashboardData()
+  // Prefetch the dashboard data on the server
+  // Authentication is already handled by the layout
+  const dashboardData = await getDashboardData()
 
-    // Store it in TanStack Query cache
-    queryClient.setQueryData(['clientDashboard'], dashboardData)
+  // Store it in TanStack Query cache
+  queryClient.setQueryData(['clientDashboard'], dashboardData)
 
-    return (
-      <HydrationBoundary state={dehydrate(queryClient)}>
-        <Suspense fallback={<div>Loading...</div>}>
-          <DashboardClient initialData={dashboardData} />
-        </Suspense>
-      </HydrationBoundary>
-    )
-  } catch (error) {
-    // Handle access denied or other errors
-    redirect('/sign-in?redirect=/dashboard')
-  }
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <Suspense fallback={<div>Loading...</div>}>
+        <DashboardClient initialData={dashboardData} />
+      </Suspense>
+    </HydrationBoundary>
+  )
 }
