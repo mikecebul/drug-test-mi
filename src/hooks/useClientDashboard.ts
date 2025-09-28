@@ -90,7 +90,7 @@ function formatTestStatus(status: string): string {
 }
 
 // Real refetch function that gets actual data using Payload types
-async function refetchClientDashboard(): Promise<ClientDashboardData> {
+export async function refetchClientDashboard(): Promise<ClientDashboardData> {
   // Fetch user data
   const userResponse = await fetch('/api/clients/me', {
     credentials: 'include',
@@ -183,14 +183,13 @@ async function refetchClientDashboard(): Promise<ClientDashboardData> {
   }
 }
 
-export function useClientDashboard(initialData?: ClientDashboardData) {
+export function useClientDashboard() {
   return useQuery({
     queryKey: ['clientDashboard'],
     queryFn: refetchClientDashboard,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
-    initialData: initialData,
     // This data should be prefetched by the server component
-    // so this will rarely actually fetch
+    // so this will rarely actually fetch on the client
   })
 }

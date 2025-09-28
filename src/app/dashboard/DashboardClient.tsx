@@ -21,7 +21,8 @@ import {
   Shield,
 } from "lucide-react"
 import Link from "next/link"
-import { useClientDashboard, ClientDashboardData } from "@/hooks/useClientDashboard"
+import { useClientDashboard } from "@/hooks/useClientDashboard"
+import { DashboardSkeleton } from "@/components/DashboardSkeleton"
 
 const getResultBadgeVariant = (result: string) => {
   switch (result) {
@@ -60,15 +61,11 @@ const getDaysUntil = (dateString: string) => {
 }
 
 
-interface DashboardClientProps {
-  initialData: ClientDashboardData
-}
+export function DashboardClient() {
+  // Data will be available from the prefetched query cache
+  const { data: dashboardData, error } = useClientDashboard()
 
-export function DashboardClient({ initialData }: DashboardClientProps) {
-  // Use the query for client-side updates, with initialData from server
-  const { data: dashboardData = initialData, error } = useClientDashboard(initialData)
-
-  // Show error state only - data should always be available from props or query
+  // Show error state
   if (error) {
     return (
       <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
@@ -90,6 +87,12 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
         </div>
       </div>
     )
+  }
+
+  // Since data is prefetched on the server, it should be immediately available
+  // If not available, show skeleton to maintain consistent UI
+  if (!dashboardData) {
+    return <DashboardSkeleton />
   }
 
   const { user, stats, nextAppointment, recentTest, recurringSubscription } = dashboardData
@@ -354,14 +357,14 @@ export function DashboardClient({ initialData }: DashboardClientProps) {
                   <li>• Arrive 15 minutes before your appointment</li>
                   <li>• Bring a valid photo ID</li>
                   <li>• Stay hydrated but avoid excessive fluids</li>
-                  <li>• Inform staff of any new medications</li>
+                  <li>• Update profile and inform staff of any new medications</li>
                 </ul>
               </div>
               <div>
                 <h4 className="font-medium mb-2">Privacy & Security</h4>
                 <ul className="space-y-1 text-muted-foreground">
                   <li>• Your results are shared only with authorized personnel</li>
-                  <li>• All medication information is verified with prescribers</li>
+                  <li>• All medication information is shared with referral</li>
                   <li>• Complete testing history is maintained for compliance</li>
                   <li>• Contact us immediately for any concerns</li>
                 </ul>

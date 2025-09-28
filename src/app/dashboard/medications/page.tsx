@@ -31,6 +31,7 @@ import {
   Lock,
 } from "lucide-react"
 import { useClientDashboard } from "@/hooks/useClientDashboard"
+import { MedicationsSkeleton } from "@/components/MedicationsSkeleton"
 import { AddMedicationDialog, UpdateMedicationDialog } from "./components"
 import { EditMedicationDialog } from "./components/EditMedicationDialog"
 import type { Medication, MedicationStatus } from "./types"
@@ -102,15 +103,9 @@ export default function MedicationsPage() {
     }
   }
 
+  // Show loading state while data is loading
   if (isLoading) {
-    return (
-      <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-        <div className="px-4 lg:px-6">
-          <h1 className="text-2xl font-bold tracking-tight">Medications</h1>
-          <p className="text-muted-foreground">Loading your medications...</p>
-        </div>
-      </div>
-    )
+    return <MedicationsSkeleton />
   }
 
   return (

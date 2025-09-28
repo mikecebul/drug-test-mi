@@ -30,6 +30,7 @@ import { useStore } from '@tanstack/react-form'
 import { z } from 'zod'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { useProfileFormOpts } from './use-profile-form-opts'
+import { ProfileSkeleton } from '@/components/ProfileSkeleton'
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState("view")
@@ -79,19 +80,9 @@ export default function ProfilePage() {
     }
   }
 
-  // Show loading state
+  // Show loading state while data is loading
   if (isLoading) {
-    return (
-      <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-        <div className="px-4 lg:px-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-center">Loading...</div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
+    return <ProfileSkeleton />
   }
 
   // Show error state

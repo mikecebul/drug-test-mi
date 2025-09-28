@@ -28,6 +28,7 @@ import { DrugTest, PrivateMedia } from '@/payload-types'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 // Removed unused pagination and popover imports to reduce bundle size
 import { CheckCircle, Circle, Clock, Truck, FlaskConical, FileCheck } from 'lucide-react'
+import { ResultsSkeleton } from '@/components/ResultsSkeleton'
 
 type DrugTestResult = DrugTest & {
   testDocument?: PrivateMedia
@@ -84,7 +85,7 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
           icon: CheckCircle,
           completed: !!isConfirmed,
           current: confirmationStatus === 'pending-confirmation',
-        }
+        },
       )
     } else if (confirmationDecision === 'accept') {
       baseSteps.push({
@@ -210,24 +211,24 @@ function formatTestResult(testData: DrugTestResult): { result: string; substance
   if (presumptivePositive && ['expected-positive', 'unexpected-positive'].includes(initialResult)) {
     // Format substance name for display
     const substanceMap: { [key: string]: string } = {
-      'amphetamines': 'Amphetamines',
-      'methamphetamines': 'Methamphetamines',
-      'benzodiazepines': 'Benzodiazepines',
-      'thc': 'THC',
-      'opiates': 'Opiates',
-      'oxycodone': 'Oxycodone',
-      'cocaine': 'Cocaine',
-      'pcp': 'PCP',
-      'barbiturates': 'Barbiturates',
-      'methadone': 'Methadone',
-      'propoxyphene': 'Propoxyphene',
-      'tricyclic_antidepressants': 'Tricyclic Antidepressants',
-      'mdma': 'MDMA',
-      'buprenorphine': 'Buprenorphine',
-      'tramadol': 'Tramadol',
-      'fentanyl': 'Fentanyl',
-      'kratom': 'Kratom',
-      'other': 'Other'
+      amphetamines: 'Amphetamines',
+      methamphetamines: 'Methamphetamines',
+      benzodiazepines: 'Benzodiazepines',
+      thc: 'THC',
+      opiates: 'Opiates',
+      oxycodone: 'Oxycodone',
+      cocaine: 'Cocaine',
+      pcp: 'PCP',
+      barbiturates: 'Barbiturates',
+      methadone: 'Methadone',
+      propoxyphene: 'Propoxyphene',
+      tricyclic_antidepressants: 'Tricyclic Antidepressants',
+      mdma: 'MDMA',
+      buprenorphine: 'Buprenorphine',
+      tramadol: 'Tramadol',
+      fentanyl: 'Fentanyl',
+      kratom: 'Kratom',
+      other: 'Other',
     }
     substance = substanceMap[presumptivePositive] || presumptivePositive
   }
@@ -284,135 +285,145 @@ export default function TestResultsPage() {
 
   const data = useMemo(() => {
     if (!testResults || !Array.isArray(testResults)) return []
-    return testResults.filter(result => result && typeof result === 'object')
+    return testResults.filter((result) => result && typeof result === 'object')
   }, [testResults])
 
-  const columns: ColumnDef<DrugTestResult, any>[] = useMemo(() => [
-    {
-      accessorKey: 'collectionDate',
-      header: 'Date',
-      cell: ({ row }) => {
-        const collectionDate = row.original.collectionDate
-        const createdAt = row.original.createdAt
-        const date = new Date(collectionDate || createdAt)
-        return date.toLocaleDateString('en-US', {
-          month: '2-digit',
-          day: '2-digit',
-          year: 'numeric',
-        })
+  const columns: ColumnDef<DrugTestResult, any>[] = useMemo(
+    () => [
+      {
+        accessorKey: 'collectionDate',
+        header: 'Date',
+        cell: ({ row }) => {
+          const collectionDate = row.original.collectionDate
+          const createdAt = row.original.createdAt
+          const date = new Date(collectionDate || createdAt)
+          return date.toLocaleDateString('en-US', {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric',
+          })
+        },
       },
-    },
-    {
-      accessorKey: 'testType',
-      header: 'Test Type',
-      cell: ({ getValue }) => {
-        const testType = getValue()
-        switch (testType) {
-          case '11-panel-lab':
-            return '11-Panel Lab'
-          case '15-panel-instant':
-            return '15-Panel Instant'
-          default:
-            return 'Drug Screen'
-        }
+      {
+        accessorKey: 'testType',
+        header: 'Test Type',
+        cell: ({ getValue }) => {
+          const testType = getValue()
+          switch (testType) {
+            case '11-panel-lab':
+              return '11-Panel Lab'
+            case '15-panel-instant':
+              return '15-Panel Instant'
+            default:
+              return 'Drug Screen'
+          }
+        },
       },
-    },
-    {
-      id: 'result',
-      header: 'Result',
-      cell: ({ row }) => {
-        const { result, substance } = formatTestResult(row.original)
-        return (
-          <div className="space-y-1">
-            <Badge variant={getResultBadgeVariant(result)}>{result}</Badge>
-            {substance && (
-              <div className="text-xs text-muted-foreground font-medium">{substance}</div>
-            )}
-          </div>
-        )
+      {
+        id: 'result',
+        header: 'Result',
+        cell: ({ row }) => {
+          const { result, substance } = formatTestResult(row.original)
+          return (
+            <div className="space-y-1">
+              <Badge variant={getResultBadgeVariant(result)}>{result}</Badge>
+              {substance && (
+                <div className="text-muted-foreground text-xs font-medium">{substance}</div>
+              )}
+            </div>
+          )
+        },
       },
-    },
-    {
-      id: 'chain-of-custody',
-      header: 'Chain of Custody',
-      cell: ({ row }) => {
-        return (
-          <div className="min-w-[200px]">
-            <ChainOfCustody result={row.original} />
-          </div>
-        )
+      {
+        id: 'chain-of-custody',
+        header: 'Chain of Custody',
+        cell: ({ row }) => {
+          return (
+            <div className="min-w-[200px]">
+              <ChainOfCustody result={row.original} />
+            </div>
+          )
+        },
       },
-    },
-    {
-      id: 'dilute',
-      header: 'Dilute',
-      cell: ({ row }) => {
-        return row.original.isDilute ? (
-          <Badge variant="destructive">
-            Dilute
-          </Badge>
-        ) : (
-          <span className="text-muted-foreground text-sm">-</span>
-        )
+      {
+        id: 'dilute',
+        header: 'Dilute',
+        cell: ({ row }) => {
+          return row.original.isDilute ? (
+            <Badge variant="destructive">Dilute</Badge>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
+          )
+        },
       },
-    },
-    {
-      id: 'actions',
-      header: 'Actions',
-      cell: ({ row }) => {
-        const result = row.original
-        const initialResult = result.initialScreenResult
-        const confirmationDecision = result.confirmationDecision
-        const needsDecision = initialResult &&
-          ['expected-positive', 'unexpected-positive'].includes(initialResult) &&
-          !confirmationDecision
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => {
+          const result = row.original
+          const initialResult = result.initialScreenResult
+          const confirmationDecision = result.confirmationDecision
+          const needsDecision =
+            initialResult &&
+            ['expected-positive', 'unexpected-positive'].includes(initialResult) &&
+            !confirmationDecision
 
-        return (
-          <div className="flex space-x-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                if (result.testDocument && typeof result.testDocument === 'object' && result.testDocument.url) {
-                  window.open(result.testDocument.url, '_blank')
+          return (
+            <div className="flex space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (
+                    result.testDocument &&
+                    typeof result.testDocument === 'object' &&
+                    result.testDocument.url
+                  ) {
+                    window.open(result.testDocument.url, '_blank')
+                  }
+                }}
+                disabled={
+                  !result.testDocument ||
+                  typeof result.testDocument !== 'object' ||
+                  !result.testDocument.url
                 }
-              }}
-              disabled={!result.testDocument || typeof result.testDocument !== 'object' || !result.testDocument.url}
-              title="View test result"
-            >
-              <FileText className="h-4 w-4" />
-            </Button>
-            {needsDecision && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    // TODO: Implement accept results functionality
-                    console.log('Accept results for:', result.id)
-                  }}
-                  title="Accept results without confirmation"
-                >
-                  Accept
-                </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => {
-                    // TODO: Implement request confirmation functionality
-                    console.log('Request confirmation for:', result.id)
-                  }}
-                  title="Request confirmation testing"
-                >
-                  Request Confirmation
-                </Button>
-              </>
-            )}
-          </div>
-        )
+                title="View test result"
+              >
+                <FileText className="h-4 w-4" />
+              </Button>
+              {needsDecision && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // TODO: Implement accept results functionality
+                      console.log('Accept results for:', result.id)
+                    }}
+                    title="Accept results without confirmation"
+                  >
+                    Accept
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => {
+                      // TODO: Implement request confirmation functionality
+                      console.log('Request confirmation for:', result.id)
+                    }}
+                    title="Request confirmation testing"
+                  >
+                    Request Confirmation
+                  </Button>
+                </>
+              )}
+            </div>
+          )
+        },
       },
-    },
-  ], []) // Empty dependency array since columns are static
+    ],
+    [],
+  ) // Empty dependency array since columns are static
 
   const table = useReactTable({
     data,
@@ -434,47 +445,9 @@ export default function TestResultsPage() {
     enableMultiRowSelection: false,
   })
 
-  // Early return if no user or user is not a client
-  if (!user || user.collection !== 'clients') {
-    return (
-      <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-        <div className="px-4 lg:px-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-center text-destructive">
-                Access denied. This page is only available to clients.
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
-  }
-
-  // Show loading state
+  // Show loading state while data is loading
   if (isLoading) {
-    return (
-      <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-        <div className="px-4 lg:px-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Test Results</h1>
-              <p className="text-muted-foreground">Loading your test results...</p>
-            </div>
-          </div>
-        </div>
-        <div className="px-4 lg:px-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-center">
-                <div className="border-primary mx-auto h-8 w-8 animate-spin rounded-full border-b-2"></div>
-                <p className="text-muted-foreground mt-2 text-sm">Loading test results...</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
+    return <ResultsSkeleton />
   }
 
   // Show error state
@@ -569,12 +542,16 @@ export default function TestResultsPage() {
               </Table>
             </div>
             <div className="flex items-center justify-between py-4">
-              <div className="text-sm text-muted-foreground">
-                Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{' '}
+              <div className="text-muted-foreground text-sm">
+                Showing{' '}
+                {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}{' '}
+                to{' '}
                 {Math.min(
-                  (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-                  table.getFilteredRowModel().rows.length
-                )} of {table.getFilteredRowModel().rows.length} results
+                  (table.getState().pagination.pageIndex + 1) *
+                    table.getState().pagination.pageSize,
+                  table.getFilteredRowModel().rows.length,
+                )}{' '}
+                of {table.getFilteredRowModel().rows.length} results
               </div>
               <div className="flex items-center space-x-2">
                 <Button
@@ -612,7 +589,9 @@ export default function TestResultsPage() {
               <div className="space-y-6">
                 {/* Blue - Negative & Expected Results */}
                 <div>
-                  <h4 className="font-medium text-sm mb-3 text-blue-700">Blue - Negative & Expected Results</h4>
+                  <h4 className="mb-3 text-sm font-medium text-blue-700">
+                    Blue - Negative & Expected Results
+                  </h4>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <Badge variant="secondary">Negative</Badge>
@@ -620,45 +599,63 @@ export default function TestResultsPage() {
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="secondary">Presumptive Positive (Expected)</Badge>
-                      <span className="text-muted-foreground text-sm">Expected positive result (prescribed medication)</span>
+                      <span className="text-muted-foreground text-sm">
+                        Expected positive result (prescribed medication)
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="secondary">Positive (Expected)</Badge>
-                      <span className="text-muted-foreground text-sm">Final expected positive result</span>
+                      <span className="text-muted-foreground text-sm">
+                        Final expected positive result
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Red - Unexpected Positive & Dilute */}
                 <div>
-                  <h4 className="font-medium text-sm mb-3 text-red-700">Red - Unexpected Positive & Dilute</h4>
+                  <h4 className="mb-3 text-sm font-medium text-red-700">
+                    Red - Unexpected Positive & Dilute
+                  </h4>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <Badge variant="destructive">Presumptive Positive</Badge>
-                      <span className="text-muted-foreground text-sm">Unexpected positive result (not prescribed)</span>
+                      <span className="text-muted-foreground text-sm">
+                        Unexpected positive result (not prescribed)
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="destructive">Positive</Badge>
-                      <span className="text-muted-foreground text-sm">Final unexpected positive result</span>
+                      <span className="text-muted-foreground text-sm">
+                        Final unexpected positive result
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="destructive">Dilute</Badge>
-                      <span className="text-muted-foreground text-sm">Sample was dilute (shown in separate column)</span>
+                      <span className="text-muted-foreground text-sm">
+                        Sample was dilute (shown in separate column)
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* White - Pending/Inconclusive */}
                 <div>
-                  <h4 className="font-medium text-sm mb-3 text-gray-700">White - Pending/Inconclusive</h4>
+                  <h4 className="mb-3 text-sm font-medium text-gray-700">
+                    White - Pending/Inconclusive
+                  </h4>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <Badge variant="outline">Pending</Badge>
-                      <span className="text-muted-foreground text-sm">Awaiting initial results</span>
+                      <span className="text-muted-foreground text-sm">
+                        Awaiting initial results
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="outline">Pending Confirmation</Badge>
-                      <span className="text-muted-foreground text-sm">Awaiting confirmation testing</span>
+                      <span className="text-muted-foreground text-sm">
+                        Awaiting confirmation testing
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="outline">Inconclusive</Badge>
