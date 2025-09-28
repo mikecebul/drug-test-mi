@@ -106,6 +106,65 @@ export const PrivateMedia: CollectionConfig = {
       },
     },
     {
+      name: 'testResult',
+      type: 'select',
+      options: [
+        { label: 'Negative', value: 'negative' },
+        { label: 'Expected Positive', value: 'expected-positive' },
+        { label: 'Unexpected Positive', value: 'unexpected-positive' },
+        { label: 'Pending', value: 'pending' },
+        { label: 'Inconclusive', value: 'inconclusive' },
+      ],
+      admin: {
+        description: 'Result of the drug screen test',
+        condition: (_, siblingData) => siblingData?.documentType === 'drug-screen',
+      },
+    },
+    {
+      name: 'testStatus',
+      type: 'select',
+      options: [
+        { label: 'Verified', value: 'verified' },
+        { label: 'Under Review', value: 'under-review' },
+        { label: 'Pending Lab Results', value: 'pending-lab' },
+        { label: 'Requires Follow-up', value: 'requires-followup' },
+      ],
+      admin: {
+        description: 'Current status of the test result',
+        condition: (_, siblingData) => siblingData?.documentType === 'drug-screen',
+      },
+    },
+    {
+      name: 'isDilute',
+      type: 'checkbox',
+      admin: {
+        description: 'Mark if the test sample was dilute',
+        condition: (_, siblingData) => siblingData?.documentType === 'drug-screen',
+      },
+    },
+    {
+      name: 'requiresConfirmation',
+      type: 'checkbox',
+      admin: {
+        description: 'Mark if this test requires confirmation testing',
+        condition: (_, siblingData) => siblingData?.documentType === 'drug-screen',
+      },
+    },
+    {
+      name: 'confirmationStatus',
+      type: 'select',
+      options: [
+        { label: 'Pending Confirmation', value: 'pending-confirmation' },
+        { label: 'Confirmed Positive', value: 'confirmed-positive' },
+        { label: 'Confirmed Negative', value: 'confirmed-negative' },
+        { label: 'Confirmation Inconclusive', value: 'confirmation-inconclusive' },
+      ],
+      admin: {
+        description: 'Status of the confirmation test',
+        condition: (_, siblingData) => siblingData?.requiresConfirmation === true,
+      },
+    },
+    {
       name: 'notes',
       type: 'textarea',
       admin: {

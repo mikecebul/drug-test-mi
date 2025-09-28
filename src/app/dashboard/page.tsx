@@ -6,6 +6,60 @@ import config from '@payload-config'
 import { DashboardClient } from './DashboardClient'
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query'
 
+// Helper functions to format test data
+function formatTestResult(
+  result: string | null | undefined,
+  isDilute?: boolean | null,
+  requiresConfirmation?: boolean | null,
+  confirmationStatus?: string | null
+): string {
+  if (!result) return 'Pending'
+
+  let formattedResult: string
+
+  // If confirmation is required, show confirmation status instead of initial result
+  if (requiresConfirmation && confirmationStatus) {
+    switch (confirmationStatus) {
+      case 'pending-confirmation': formattedResult = 'Pending Confirmation'; break
+      case 'confirmed-positive': formattedResult = 'Confirmed Positive'; break
+      case 'confirmed-negative': formattedResult = 'Confirmed Negative'; break
+      case 'confirmation-inconclusive': formattedResult = 'Confirmation Inconclusive'; break
+      default: formattedResult = 'Pending Confirmation'
+    }
+  } else if (requiresConfirmation && !confirmationStatus) {
+    formattedResult = 'Pending Confirmation'
+  } else {
+    // Standard initial result
+    switch (result) {
+      case 'negative': formattedResult = 'Negative'; break
+      case 'expected-positive': formattedResult = 'Expected Positive'; break
+      case 'unexpected-positive': formattedResult = 'Unexpected Positive'; break
+      case 'pending': formattedResult = 'Pending'; break
+      case 'inconclusive': formattedResult = 'Inconclusive'; break
+      default: formattedResult = 'Unknown'
+    }
+  }
+
+  // Add dilute indicator if present
+  if (isDilute) {
+    formattedResult += ' (Dilute)'
+  }
+
+  return formattedResult
+}
+
+function formatTestStatus(status: string | null | undefined): string {
+  if (!status) return 'Pending'
+
+  switch (status) {
+    case 'verified': return 'Verified'
+    case 'under-review': return 'Under Review'
+    case 'pending-lab': return 'Pending Lab Results'
+    case 'requires-followup': return 'Requires Follow-up'
+    default: return 'Unknown'
+  }
+}
+
 async function getDashboardData() {
   const headersList = await headers()
   const payload = await getPayload({ config })
@@ -52,16 +106,28 @@ async function getDashboardData() {
     }).catch(() => ({ docs: [] })),
   ])
 
-  // Calculate stats
+  // Calculate stats from real data
   const totalTests = drugScreenResults.totalDocs || 0
   const activeMedications = client.medications?.filter((med: any) => med.status === 'active').length || 0
 
-  // Get most recent test result
+  // Calculate compliance based on actual test results
+  const compliantTests = drugScreenResults.docs?.filter(test =>
+    test.testResult === 'negative' || test.testResult === 'expected-positive'
+  ).length || 0
+
+  const complianceRate = totalTests > 0 ? Math.round((compliantTests / totalTests) * 100) : 0
+
+  // Get most recent test result with real data
   const recentTest = drugScreenResults.docs?.[0]
     ? {
-        date: drugScreenResults.docs[0].createdAt,
-        result: 'Negative',
-        status: 'Verified',
+        date: drugScreenResults.docs[0].testDate || drugScreenResults.docs[0].createdAt,
+        result: formatTestResult(
+          drugScreenResults.docs[0].testResult,
+          drugScreenResults.docs[0].isDilute,
+          drugScreenResults.docs[0].requiresConfirmation,
+          drugScreenResults.docs[0].confirmationStatus
+        ),
+        status: formatTestStatus(drugScreenResults.docs[0].testStatus),
       }
     : undefined
 
@@ -76,8 +142,8 @@ async function getDashboardData() {
     },
     stats: {
       totalTests,
-      compliantTests: totalTests,
-      complianceRate: totalTests > 0 ? 100 : 0,
+      compliantTests,
+      complianceRate,
       activeMedications,
     },
     nextAppointment: client.recurringAppointments?.isRecurring && client.recurringAppointments.nextAppointmentDate

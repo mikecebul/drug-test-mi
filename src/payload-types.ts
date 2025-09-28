@@ -913,6 +913,28 @@ export interface PrivateMedia {
    */
   testDate?: string | null;
   /**
+   * Result of the drug screen test
+   */
+  testResult?: ('negative' | 'expected-positive' | 'unexpected-positive' | 'pending' | 'inconclusive') | null;
+  /**
+   * Current status of the test result
+   */
+  testStatus?: ('verified' | 'under-review' | 'pending-lab' | 'requires-followup') | null;
+  /**
+   * Mark if the test sample was dilute
+   */
+  isDilute?: boolean | null;
+  /**
+   * Mark if this test requires confirmation testing
+   */
+  requiresConfirmation?: boolean | null;
+  /**
+   * Status of the confirmation test
+   */
+  confirmationStatus?:
+    | ('pending-confirmation' | 'confirmed-positive' | 'confirmed-negative' | 'confirmation-inconclusive')
+    | null;
+  /**
    * Internal notes about this document
    */
   notes?: string | null;
@@ -2042,6 +2064,11 @@ export interface PrivateMediaSelect<T extends boolean = true> {
   documentType?: T;
   relatedClient?: T;
   testDate?: T;
+  testResult?: T;
+  testStatus?: T;
+  isDilute?: T;
+  requiresConfirmation?: T;
+  confirmationStatus?: T;
   notes?: T;
   prefix?: T;
   updatedAt?: T;
