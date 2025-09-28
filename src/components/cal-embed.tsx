@@ -4,14 +4,14 @@ import Cal from '@calcom/embed-react'
 
 interface CalEmbedProps {
   calUsername: string
-  testerName: string
+  testerName?: string
   userData?: {
     name: string
     email: string
   }
 }
 
-export function CalEmbed({ calUsername, testerName, userData }: CalEmbedProps) {
+export function CalEmbed({ calUsername, userData }: CalEmbedProps) {
   const config: any = {
     theme: 'light',
   }
