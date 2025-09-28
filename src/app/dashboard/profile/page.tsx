@@ -24,6 +24,7 @@ import {
   Shield,
   Edit,
   Eye,
+  MailPlus,
 } from "lucide-react"
 import { useQuery } from '@tanstack/react-query'
 import { useStore } from '@tanstack/react-form'
@@ -78,6 +79,57 @@ export default function ProfilePage() {
       default:
         return type
     }
+  }
+
+  const requestReferralUpdate = (type: 'court' | 'employment') => {
+    const clientName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim()
+    const clientEmail = user?.email || ''
+
+    let subject = ''
+    let body = ''
+
+    if (type === 'court') {
+      subject = encodeURIComponent(`Referral Information Update Request - ${clientName}`)
+      body = encodeURIComponent(`Dear MI Drug Test Team,
+
+I would like to request an update to my court/probation referral information in my profile.
+
+Client Information:
+- Name: ${clientName}
+- Email: ${clientEmail}
+
+Current Court Information:
+- Court Name: ${user?.courtInfo?.courtName || 'Not provided'}
+- Probation Officer: ${user?.courtInfo?.probationOfficerName || 'Not provided'}
+- Officer Email: ${user?.courtInfo?.probationOfficerEmail || 'Not provided'}
+
+Please contact me to update this information.
+
+Thank you,
+${clientName}`)
+    } else if (type === 'employment') {
+      subject = encodeURIComponent(`Referral Information Update Request - ${clientName}`)
+      body = encodeURIComponent(`Dear MI Drug Test Team,
+
+I would like to request an update to my employment referral information in my profile.
+
+Client Information:
+- Name: ${clientName}
+- Email: ${clientEmail}
+
+Current Employment Information:
+- Employer: ${user?.employmentInfo?.employerName || 'Not provided'}
+- HR Contact: ${user?.employmentInfo?.contactName || 'Not provided'}
+- Contact Email: ${user?.employmentInfo?.contactEmail || 'Not provided'}
+
+Please contact me to update this information.
+
+Thank you,
+${clientName}`)
+    }
+
+    const mailtoLink = `mailto:mike@midrugtest.com?subject=${subject}&body=${body}`
+    window.open(mailtoLink, '_blank')
   }
 
   // Show loading state while data is loading
@@ -160,10 +212,23 @@ export default function ProfilePage() {
       {user?.clientType === 'probation' && user?.courtInfo && (
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle>Court/Probation Information</CardTitle>
-            <CardDescription>
-              Your referral source information
-            </CardDescription>
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle>Court/Probation Information</CardTitle>
+                <CardDescription>
+                  Your referral source information
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => requestReferralUpdate('court')}
+                className="flex items-center gap-2"
+              >
+                <MailPlus className="w-4 h-4" />
+                Request Update
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-3 gap-4 text-sm">
@@ -187,10 +252,23 @@ export default function ProfilePage() {
       {user?.clientType === 'employment' && user?.employmentInfo && (
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle>Employment Information</CardTitle>
-            <CardDescription>
-              Your employer contact information
-            </CardDescription>
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle>Employment Information</CardTitle>
+                <CardDescription>
+                  Your employer contact information
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => requestReferralUpdate('employment')}
+                className="flex items-center gap-2"
+              >
+                <MailPlus className="w-4 h-4" />
+                Request Update
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-3 gap-4 text-sm">

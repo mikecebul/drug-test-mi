@@ -56,9 +56,8 @@ export const useProfileFormOpts = ({
 
       return response.json()
     },
-    onSuccess: (data) => {
-      // Update the cache with the new user data
-      queryClient.setQueryData(['currentUser'], data)
+    onSuccess: () => {
+      // Invalidate and refetch user data to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['currentUser'] })
       toast.success('Successfully updated profile.')
     },
@@ -177,10 +176,37 @@ export const useProfileFormOpts = ({
         }
 
         // Use the mutation to update the profile
-        updateProfileMutation.mutate(updateData)
+        await new Promise((resolve, reject) => {
+          updateProfileMutation.mutate(updateData, {
+            onSuccess: async () => {
+              // Wait for query to refetch and get fresh user data
+              await queryClient.invalidateQueries({ queryKey: ['currentUser'] })
+              const freshUser = queryClient.getQueryData(['currentUser']) as any
 
-        // Reset email confirmation field
-        form.setFieldValue('confirmEmail', '')
+              // Reset the form with the fresh user data
+              const updatedDefaultValues = {
+                firstName: freshUser?.firstName || '',
+                lastName: freshUser?.lastName || '',
+                email: freshUser?.email || '',
+                confirmEmail: '',
+                phone: freshUser?.phone || '',
+                gender: freshUser?.gender || '',
+                dob: freshUser?.dob || '',
+                preferredContactMethod: freshUser?.preferredContactMethod || 'email',
+                courtInfo: freshUser?.courtInfo || undefined,
+                employmentInfo: freshUser?.employmentInfo || undefined,
+                alternativeRecipient: freshUser?.alternativeRecipient || undefined,
+              }
+
+              // Reset form to updated default values
+              form.reset(updatedDefaultValues)
+              resolve(undefined)
+            },
+            onError: (error) => {
+              reject(error)
+            }
+          })
+        })
       } catch (err) {
         console.error('Profile update error:', err)
         toast.error('Something went wrong. Please try again.')
