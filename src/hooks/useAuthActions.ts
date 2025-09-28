@@ -11,6 +11,7 @@ export const useAuthActions = () => {
 
   const logout = async () => {
     try {
+      // Use Payload's built-in logout endpoint
       const response = await fetch('/api/clients/logout', {
         method: 'POST',
         credentials: 'include',

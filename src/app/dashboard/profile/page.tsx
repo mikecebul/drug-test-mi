@@ -3,9 +3,6 @@
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Card,
   CardContent,
@@ -14,12 +11,11 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
 import {
   User,
   Mail,
@@ -27,69 +23,48 @@ import {
   Calendar,
   Shield,
   Edit,
-  Save,
-  X,
+  Eye,
 } from "lucide-react"
-
-type ClientProfile = {
-  id: string
-  firstName: string
-  lastName: string
-  email: string
-  phone?: string
-  dob?: string
-  gender?: "male" | "female" | "other" | "prefer-not-to-say"
-  clientType: "probation" | "employment" | "self"
-  preferredContactMethod: "email" | "phone" | "sms"
-  isActive: boolean
-  courtInfo?: {
-    courtName: string
-    probationOfficerName: string
-    probationOfficerEmail: string
-  }
-  employmentInfo?: {
-    employerName: string
-    contactName: string
-    contactEmail: string
-  }
-  alternativeRecipient?: {
-    name: string
-    email: string
-  }
-}
-
-const mockProfile: ClientProfile = {
-  id: "1",
-  firstName: "John",
-  lastName: "Doe",
-  email: "john.doe@email.com",
-  phone: "(555) 123-4567",
-  dob: "1985-03-15",
-  gender: "male",
-  clientType: "probation",
-  preferredContactMethod: "email",
-  isActive: true,
-  courtInfo: {
-    courtName: "Oakland County Circuit Court",
-    probationOfficerName: "Sarah Johnson",
-    probationOfficerEmail: "s.johnson@oaklandcounty.gov"
-  }
-}
+import { useQuery } from '@tanstack/react-query'
+import { useStore } from '@tanstack/react-form'
+import { z } from 'zod'
+import { useAppForm } from '@/blocks/Form/hooks/form'
+import { useProfileFormOpts } from './use-profile-form-opts'
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<ClientProfile>(mockProfile)
-  const [isEditing, setIsEditing] = useState(false)
-  const [editedProfile, setEditedProfile] = useState<ClientProfile>(mockProfile)
+  const [activeTab, setActiveTab] = useState("view")
 
-  const handleSave = () => {
-    setProfile(editedProfile)
-    setIsEditing(false)
-  }
+  // Fetch current user data with TanStack Query using Payload's built-in API
+  const { data: user, isLoading, error } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: async () => {
+      const response = await fetch('/api/clients/me', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
 
-  const handleCancel = () => {
-    setEditedProfile(profile)
-    setIsEditing(false)
-  }
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data')
+      }
+
+      const userData = await response.json()
+      return userData.user
+    },
+  })
+
+  const formOpts = useProfileFormOpts({
+    user,
+  })
+
+  const form = useAppForm({
+    ...formOpts,
+  })
+
+  // Watch email field to show/hide confirmation field
+  const emailValue = useStore(form.store, (state) => state.values.email)
+  const showEmailConfirmation = emailValue && emailValue !== user?.email
 
   const getClientTypeLabel = (type: string) => {
     switch (type) {
@@ -104,6 +79,172 @@ export default function ProfilePage() {
     }
   }
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+        <div className="px-4 lg:px-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center">Loading...</div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+        <div className="px-4 lg:px-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center text-destructive">
+                Failed to load user data. Please try again.
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // Profile Overview Component (shared between view and edit)
+  const ProfileOverview = () => (
+    <Card className="lg:col-span-1">
+      <CardHeader>
+        <CardTitle className="flex items-center">
+          <User className="w-5 h-5 mr-2" />
+          Profile Overview
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="text-center mb-6">
+          <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full mx-auto flex items-center justify-center mb-3">
+            <span className="text-white text-2xl font-bold">
+              {user?.firstName?.[0] || ''}{user?.lastName?.[0] || ''}
+            </span>
+          </div>
+          <h3 className="font-semibold text-lg">
+            {user?.firstName} {user?.lastName}
+          </h3>
+          <Badge variant="outline" className="mt-1">
+            {getClientTypeLabel(user?.clientType || '')}
+          </Badge>
+        </div>
+
+        <div className="space-y-3 text-sm">
+          <div className="flex items-center space-x-2">
+            <Mail className="w-4 h-4 text-muted-foreground" />
+            <span>{user?.email}</span>
+          </div>
+          {user?.phone && (
+            <div className="flex items-center space-x-2">
+              <Phone className="w-4 h-4 text-muted-foreground" />
+              <span>{user?.phone}</span>
+            </div>
+          )}
+          {user?.dob && (
+            <div className="flex items-center space-x-2">
+              <Calendar className="w-4 h-4 text-muted-foreground" />
+              <span>{new Date(user?.dob).toLocaleDateString()}</span>
+            </div>
+          )}
+          <div className="flex items-center space-x-2">
+            <Shield className="w-4 h-4 text-muted-foreground" />
+            <span className={user?.isActive ? "text-green-600" : "text-red-600"}>
+              {user?.isActive ? "Active" : "Inactive"}
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+
+  // Client Type Specific Info Component
+  const ClientTypeInfo = () => (
+    <>
+      {user?.clientType === 'probation' && user?.courtInfo && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Court/Probation Information</CardTitle>
+            <CardDescription>
+              Your referral source information
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <p className="font-medium">Court Name</p>
+                <p className="text-muted-foreground">{user.courtInfo.courtName}</p>
+              </div>
+              <div>
+                <p className="font-medium">Probation Officer</p>
+                <p className="text-muted-foreground">{user.courtInfo.probationOfficerName}</p>
+              </div>
+              <div>
+                <p className="font-medium">Officer Email</p>
+                <p className="text-muted-foreground">{user.courtInfo.probationOfficerEmail}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {user?.clientType === 'employment' && user?.employmentInfo && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Employment Information</CardTitle>
+            <CardDescription>
+              Your employer contact information
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <p className="font-medium">Employer</p>
+                <p className="text-muted-foreground">{user.employmentInfo.employerName}</p>
+              </div>
+              <div>
+                <p className="font-medium">HR Contact</p>
+                <p className="text-muted-foreground">{user.employmentInfo.contactName}</p>
+              </div>
+              <div>
+                <p className="font-medium">Contact Email</p>
+                <p className="text-muted-foreground">{user.employmentInfo.contactEmail}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {user?.clientType === 'self' && user?.alternativeRecipient && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Alternative Recipient</CardTitle>
+            <CardDescription>
+              Where to send your test results
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-medium">Name</p>
+                <p className="text-muted-foreground">{user.alternativeRecipient.name}</p>
+              </div>
+              <div>
+                <p className="font-medium">Email</p>
+                <p className="text-muted-foreground">{user.alternativeRecipient.email}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </>
+  )
+
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <div className="px-4 lg:px-6">
@@ -114,299 +255,278 @@ export default function ProfilePage() {
               Manage your personal information and preferences
             </p>
           </div>
-          {!isEditing ? (
-            <Button onClick={() => setIsEditing(true)}>
-              <Edit className="w-4 h-4 mr-2" />
+        </div>
+      </div>
+
+      <div className="px-4 lg:px-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+            <TabsTrigger value="view" className="flex items-center gap-2">
+              <Eye className="w-4 h-4" />
+              View Profile
+            </TabsTrigger>
+            <TabsTrigger value="edit" className="flex items-center gap-2">
+              <Edit className="w-4 h-4" />
               Edit Profile
-            </Button>
-          ) : (
-            <div className="flex space-x-2">
-              <Button onClick={handleSave}>
-                <Save className="w-4 h-4 mr-2" />
-                Save Changes
-              </Button>
-              <Button variant="outline" onClick={handleCancel}>
-                <X className="w-4 h-4 mr-2" />
-                Cancel
-              </Button>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* View Mode */}
+          <TabsContent value="view" className="mt-6">
+            <div className="grid lg:grid-cols-3 gap-6">
+              <ProfileOverview />
+
+              {/* Personal Information - View Mode */}
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>Personal Information</CardTitle>
+                  <CardDescription>
+                    Your basic personal details
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-sm font-medium">First Name</p>
+                      <p className="text-sm text-muted-foreground mt-1">{user?.firstName || 'Not provided'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Last Name</p>
+                      <p className="text-sm text-muted-foreground mt-1">{user?.lastName || 'Not provided'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Email</p>
+                      <p className="text-sm text-muted-foreground mt-1">{user?.email || 'Not provided'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Phone</p>
+                      <p className="text-sm text-muted-foreground mt-1">{user?.phone || 'Not provided'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Date of Birth</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {user?.dob ? new Date(user.dob).toLocaleDateString() : 'Not provided'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Gender</p>
+                      <p className="text-sm text-muted-foreground mt-1 capitalize">
+                        {user?.gender?.replace('-', ' ') || 'Not specified'}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          )}
-        </div>
-      </div>
 
-      <div className="px-4 lg:px-6">
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Profile Overview */}
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <User className="w-5 h-5 mr-2" />
-                Profile Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center mb-6">
-                <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full mx-auto flex items-center justify-center mb-3">
-                  <span className="text-white text-2xl font-bold">
-                    {profile.firstName[0]}{profile.lastName[0]}
-                  </span>
-                </div>
-                <h3 className="font-semibold text-lg">
-                  {profile.firstName} {profile.lastName}
-                </h3>
-                <Badge variant="outline" className="mt-1">
-                  {getClientTypeLabel(profile.clientType)}
-                </Badge>
-              </div>
-
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center space-x-2">
-                  <Mail className="w-4 h-4 text-muted-foreground" />
-                  <span>{profile.email}</span>
-                </div>
-                {profile.phone && (
-                  <div className="flex items-center space-x-2">
-                    <Phone className="w-4 h-4 text-muted-foreground" />
-                    <span>{profile.phone}</span>
-                  </div>
-                )}
-                {profile.dob && (
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <span>{new Date(profile.dob).toLocaleDateString()}</span>
-                  </div>
-                )}
-                <div className="flex items-center space-x-2">
-                  <Shield className="w-4 h-4 text-muted-foreground" />
-                  <span className={profile.isActive ? "text-green-600" : "text-red-600"}>
-                    {profile.isActive ? "Active" : "Inactive"}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Personal Information */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Personal Information</CardTitle>
-              <CardDescription>
-                Your basic personal details
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
-                  {isEditing ? (
-                    <Input
-                      id="firstName"
-                      value={editedProfile.firstName}
-                      onChange={(e) => setEditedProfile({
-                        ...editedProfile,
-                        firstName: e.target.value
-                      })}
-                    />
-                  ) : (
-                    <p className="text-sm py-2">{profile.firstName}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  {isEditing ? (
-                    <Input
-                      id="lastName"
-                      value={editedProfile.lastName}
-                      onChange={(e) => setEditedProfile({
-                        ...editedProfile,
-                        lastName: e.target.value
-                      })}
-                    />
-                  ) : (
-                    <p className="text-sm py-2">{profile.lastName}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  {isEditing ? (
-                    <Input
-                      id="email"
-                      type="email"
-                      value={editedProfile.email}
-                      onChange={(e) => setEditedProfile({
-                        ...editedProfile,
-                        email: e.target.value
-                      })}
-                    />
-                  ) : (
-                    <p className="text-sm py-2">{profile.email}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  {isEditing ? (
-                    <Input
-                      id="phone"
-                      value={editedProfile.phone || ""}
-                      onChange={(e) => setEditedProfile({
-                        ...editedProfile,
-                        phone: e.target.value
-                      })}
-                    />
-                  ) : (
-                    <p className="text-sm py-2">{profile.phone || "Not provided"}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="dob">Date of Birth</Label>
-                  {isEditing ? (
-                    <Input
-                      id="dob"
-                      type="date"
-                      value={editedProfile.dob || ""}
-                      onChange={(e) => setEditedProfile({
-                        ...editedProfile,
-                        dob: e.target.value
-                      })}
-                    />
-                  ) : (
-                    <p className="text-sm py-2">
-                      {profile.dob ? new Date(profile.dob).toLocaleDateString() : "Not provided"}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="gender">Gender</Label>
-                  {isEditing ? (
-                    <Select
-                      value={editedProfile.gender || ""}
-                      onValueChange={(value) => setEditedProfile({
-                        ...editedProfile,
-                        gender: value as any
-                      })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select gender" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                        <SelectItem value="prefer-not-to-say">Prefer not to say</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="text-sm py-2 capitalize">
-                      {profile.gender?.replace("-", " ") || "Not specified"}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Contact Preferences */}
-          <Card className="lg:col-span-3">
-            <CardHeader>
-              <CardTitle>Contact Preferences</CardTitle>
-              <CardDescription>
-                How you prefer to be contacted
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Label htmlFor="contactMethod">Preferred Contact Method</Label>
-                {isEditing ? (
-                  <Select
-                    value={editedProfile.preferredContactMethod}
-                    onValueChange={(value) => setEditedProfile({
-                      ...editedProfile,
-                      preferredContactMethod: value as any
-                    })}
-                  >
-                    <SelectTrigger className="w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="email">Email</SelectItem>
-                      <SelectItem value="phone">Phone</SelectItem>
-                      <SelectItem value="sms">Text/SMS</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <p className="text-sm py-2 capitalize">
-                    {profile.preferredContactMethod.replace("sms", "Text/SMS")}
+            {/* Contact Preferences - View Mode */}
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Contact Preferences</CardTitle>
+                <CardDescription>
+                  How you prefer to be contacted
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div>
+                  <p className="text-sm font-medium">Preferred Contact Method</p>
+                  <p className="text-sm text-muted-foreground mt-1 capitalize">
+                    {user?.preferredContactMethod?.replace('sms', 'Text/SMS') || 'Email'}
                   </p>
-                )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <ClientTypeInfo />
+          </TabsContent>
+
+          {/* Edit Mode */}
+          <TabsContent value="edit" className="mt-6">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                form.handleSubmit()
+              }}
+            >
+              <div className="grid lg:grid-cols-3 gap-6">
+                <ProfileOverview />
+
+                {/* Personal Information - Edit Mode */}
+                <Card className="lg:col-span-2">
+                  <CardHeader>
+                    <CardTitle>Personal Information</CardTitle>
+                    <CardDescription>
+                      Edit your basic personal details
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <form.AppField
+                        name="firstName"
+                        validators={{
+                          onChange: z.string().min(1, 'First name is required'),
+                        }}
+                      >
+                        {(formField) => (
+                          <formField.TextField
+                            label="First Name"
+                            required
+                          />
+                        )}
+                      </form.AppField>
+
+                      <form.AppField
+                        name="lastName"
+                        validators={{
+                          onChange: z.string().min(1, 'Last name is required'),
+                        }}
+                      >
+                        {(formField) => (
+                          <formField.TextField
+                            label="Last Name"
+                            required
+                          />
+                        )}
+                      </form.AppField>
+
+                      <form.AppField
+                        name="email"
+                        validators={{
+                          onChange: z
+                            .string()
+                            .email('Invalid email address')
+                            .min(1, 'Email is required'),
+                        }}
+                      >
+                        {(formField) => (
+                          <formField.EmailField
+                            label="Email Address"
+                            required
+                          />
+                        )}
+                      </form.AppField>
+
+                      {showEmailConfirmation && (
+                        <form.AppField
+                          name="confirmEmail"
+                          validators={{
+                            onChangeListenTo: ['email'],
+                            onChange: ({ value, fieldApi }) => {
+                              const email = fieldApi.form.getFieldValue('email')
+                              if (email && value !== email) {
+                                return { message: 'Emails do not match' }
+                              }
+                              return undefined
+                            },
+                          }}
+                        >
+                          {(formField) => (
+                            <formField.EmailField
+                              label="Confirm Email"
+                              required
+                            />
+                          )}
+                        </form.AppField>
+                      )}
+
+                      <form.AppField
+                        name="phone"
+                        validators={{
+                          onChange: z
+                            .string()
+                            .optional()
+                            .refine((val) => !val || /^(?:\+?1[-. ]?)?\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/.test(val), {
+                              message: 'Invalid phone number'
+                            }),
+                        }}
+                      >
+                        {(formField) => (
+                          <formField.PhoneField
+                            label="Phone Number"
+                          />
+                        )}
+                      </form.AppField>
+
+                      <form.AppField
+                        name="dob"
+                        validators={{
+                          onChange: z.string().optional(),
+                        }}
+                      >
+                        {(formField) => (
+                          <formField.DateField
+                            label="Date of Birth"
+                          />
+                        )}
+                      </form.AppField>
+
+                      <form.AppField
+                        name="gender"
+                        validators={{
+                          onChange: z.enum(['male', 'female', 'other', 'prefer-not-to-say']).optional(),
+                        }}
+                      >
+                        {(formField) => (
+                          <formField.SelectField
+                            label="Gender"
+                            options={[
+                              { label: 'Male', value: 'male' },
+                              { label: 'Female', value: 'female' },
+                              { label: 'Other', value: 'other' },
+                              { label: 'Prefer not to say', value: 'prefer-not-to-say' },
+                            ]}
+                          />
+                        )}
+                      </form.AppField>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Referral Information */}
-          {profile.courtInfo && (
-            <Card className="lg:col-span-3">
-              <CardHeader>
-                <CardTitle>Court/Probation Information</CardTitle>
-                <CardDescription>
-                  Your referral source information
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div>
-                    <Label>Court Name</Label>
-                    <p className="text-sm py-2">{profile.courtInfo.courtName}</p>
-                  </div>
-                  <div>
-                    <Label>Probation Officer</Label>
-                    <p className="text-sm py-2">{profile.courtInfo.probationOfficerName}</p>
-                  </div>
-                  <div>
-                    <Label>Officer Email</Label>
-                    <p className="text-sm py-2">{profile.courtInfo.probationOfficerEmail}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+              {/* Contact Preferences - Edit Mode */}
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle>Contact Preferences</CardTitle>
+                  <CardDescription>
+                    How you prefer to be contacted
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form.AppField
+                    name="preferredContactMethod"
+                    validators={{
+                      onChange: z.enum(['email', 'phone', 'sms']),
+                    }}
+                  >
+                    {(formField) => (
+                      <formField.SelectField
+                        label="Preferred Contact Method"
+                        options={[
+                          { label: 'Email', value: 'email' },
+                          { label: 'Phone', value: 'phone' },
+                          { label: 'Text/SMS', value: 'sms' },
+                        ]}
+                      />
+                    )}
+                  </form.AppField>
+                </CardContent>
+              </Card>
 
-          {profile.employmentInfo && (
-            <Card className="lg:col-span-3">
-              <CardHeader>
-                <CardTitle>Employment Information</CardTitle>
-                <CardDescription>
-                  Your employer contact information
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div>
-                    <Label>Employer</Label>
-                    <p className="text-sm py-2">{profile.employmentInfo.employerName}</p>
-                  </div>
-                  <div>
-                    <Label>HR Contact</Label>
-                    <p className="text-sm py-2">{profile.employmentInfo.contactName}</p>
-                  </div>
-                  <div>
-                    <Label>Contact Email</Label>
-                    <p className="text-sm py-2">{profile.employmentInfo.contactEmail}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
+              <ClientTypeInfo />
 
-      {/* Security & Privacy */}
-      <div className="px-4 lg:px-6">
-        <Card>
+              {/* Submit Button - Positioned closer to form */}
+              <div className="mt-6 flex justify-end">
+                <form.AppForm>
+                  <form.SubmitButton label="Save Changes" />
+                </form.AppForm>
+              </div>
+            </form>
+          </TabsContent>
+        </Tabs>
+
+        {/* Security & Privacy - Always visible */}
+        <Card className="mt-6">
           <CardHeader>
             <CardTitle className="flex items-center">
               <Shield className="w-5 h-5 mr-2" />
@@ -427,15 +547,21 @@ export default function ProfilePage() {
               <div>
                 <h4 className="font-medium mb-3">Account Actions</h4>
                 <div className="space-y-2">
-                  <Button variant="outline" size="sm">
+                  {/* TODO: Implement Change Password functionality */}
+                  {/* <Button variant="outline" size="sm">
                     Change Password
-                  </Button>
-                  <Button variant="outline" size="sm">
+                  </Button> */}
+                  {/* TODO: Implement Download My Data functionality */}
+                  {/* <Button variant="outline" size="sm">
                     Download My Data
-                  </Button>
-                  <Button variant="outline" size="sm">
+                  </Button> */}
+                  {/* TODO: Implement Privacy Settings functionality */}
+                  {/* <Button variant="outline" size="sm">
                     Privacy Settings
-                  </Button>
+                  </Button> */}
+                  <p className="text-sm text-muted-foreground">
+                    Additional account features coming soon.
+                  </p>
                 </div>
               </div>
             </div>

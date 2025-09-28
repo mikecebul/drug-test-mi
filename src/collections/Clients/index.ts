@@ -310,6 +310,16 @@ export const Clients: CollectionConfig = {
         },
       ],
     },
+    // Drug tests (auto-populated via join)
+    {
+      name: 'drugTests',
+      type: 'join',
+      collection: 'drug-tests',
+      on: 'relatedClient',
+      admin: {
+        description: 'Drug tests automatically linked to this client',
+      },
+    },
     {
       name: 'notes',
       type: 'textarea',
@@ -331,29 +341,6 @@ export const Clients: CollectionConfig = {
           required: true,
           admin: {
             description: 'Brand or generic name of medication',
-          },
-        },
-        {
-          name: 'dosage',
-          type: 'text',
-          required: true,
-          admin: {
-            description: 'Dosage amount and frequency (e.g., "20mg daily")',
-          },
-        },
-        {
-          name: 'prescriber',
-          type: 'text',
-          required: true,
-          admin: {
-            description: 'Prescribing physician name',
-          },
-        },
-        {
-          name: 'prescriberPhone',
-          type: 'text',
-          admin: {
-            description: 'Prescriber contact phone for verification',
           },
         },
         {
@@ -397,26 +384,8 @@ export const Clients: CollectionConfig = {
           name: 'detectedAs',
           type: 'text',
           admin: {
-            description: 'What substance this medication shows as in drug tests (e.g., "Amphetamine", "Benzodiazepine")',
-          },
-        },
-        {
-          name: 'isVerified',
-          type: 'checkbox',
-          defaultValue: false,
-          admin: {
-            description: 'Has this medication been verified with the prescriber?',
-          },
-        },
-        {
-          name: 'lastVerified',
-          type: 'date',
-          admin: {
-            description: 'Date this medication was last verified',
-            date: {
-              pickerAppearance: 'dayOnly',
-              displayFormat: 'MM/dd/yyyy',
-            },
+            description:
+              'What substance this medication shows as in drug tests (e.g., "Amphetamine", "Benzodiazepine")',
           },
         },
         {
@@ -424,6 +393,21 @@ export const Clients: CollectionConfig = {
           type: 'textarea',
           admin: {
             description: 'Additional notes about this medication',
+          },
+        },
+        {
+          name: 'createdAt',
+          type: 'date',
+          access: {
+            update: ({ req }) => {
+              // Only super admins can update createdAt
+              return req?.user?.collection === 'admins' ? req?.user?.role === 'superAdmin' : false
+            },
+          },
+          admin: {
+            description:
+              'When this medication was added to the system - editable by super admins only',
+            readOnly: false,
           },
         },
       ],
@@ -453,19 +437,15 @@ export const Clients: CollectionConfig = {
         },
       ],
     },
-    // Drug screen results (auto-populated via join)
+
+    // Private documents (auto-populated via join)
     {
-      name: 'drugScreenResults',
+      name: 'privateDocuments',
       type: 'join',
       collection: 'private-media',
       on: 'relatedClient',
-      where: {
-        documentType: {
-          equals: 'drug-screen',
-        },
-      },
       admin: {
-        description: 'Drug screen result documents automatically linked to this client',
+        description: 'Private documents linked to this client',
       },
     },
     // Calculated fields updated by hooks

@@ -1,9 +1,10 @@
-export function getImageThumbnailUrl(media: any): string {
+export function getImageThumbnailUrl(media: any): string | undefined {
   if (!media || typeof media !== 'object') {
-    return ""
+    return undefined
   }
 
-  return media.thumbnailURL || media.url || ""
+  const url = media.thumbnailURL || media.url
+  return url || undefined
 }
 
 export function getImageAlt(media: any, fallback: string = 'image'): string {

@@ -53,11 +53,12 @@ const data = {
       url: "/dashboard/medications",
       icon: FileIcon,
     },
-    {
-      title: "Appointments",
-      url: "/dashboard/appointments",
-      icon: DatabaseIcon,
-    },
+    // TODO: Implement appointments page with real data
+    // {
+    //   title: "Appointments",
+    //   url: "/dashboard/appointments",
+    //   icon: DatabaseIcon,
+    // },
     {
       title: "Profile",
       url: "/dashboard/profile",
@@ -65,16 +66,18 @@ const data = {
     },
   ],
   navSecondary: [
-    {
-      title: "Settings",
-      url: "/dashboard/settings",
-      icon: SettingsIcon,
-    },
-    {
-      title: "Get Help",
-      url: "/dashboard/help",
-      icon: HelpCircleIcon,
-    },
+    // TODO: Create settings page with user preferences
+    // {
+    //   title: "Settings",
+    //   url: "/dashboard/settings",
+    //   icon: SettingsIcon,
+    // },
+    // TODO: Create help/support page with documentation
+    // {
+    //   title: "Get Help",
+    //   url: "/dashboard/help",
+    //   icon: HelpCircleIcon,
+    // },
   ],
 }
 

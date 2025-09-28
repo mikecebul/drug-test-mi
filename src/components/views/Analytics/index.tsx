@@ -17,13 +17,13 @@ const AnalyticsDefaultRootView: React.FC<AdminViewServerProps> = ({
   ]
   return (
     <DefaultTemplate
-      i18n={initPageResult.req.i18n}
+      i18n={initPageResult.req?.i18n}
       locale={initPageResult.locale}
       params={params}
-      payload={initPageResult.req.payload}
+      payload={initPageResult.req?.payload}
       permissions={initPageResult.permissions}
       searchParams={searchParams}
-      user={initPageResult.req.user || undefined}
+      user={initPageResult.req?.user || undefined}
       visibleEntities={initPageResult.visibleEntities}
     >
       <SetStepNav nav={navItem} />

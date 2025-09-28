@@ -49,6 +49,7 @@ import { Forms } from './collections/Forms'
 import { FormSubmissions } from './collections/FormSubmissions'
 import { Technicians } from './collections/Technicians'
 import { Clients } from './collections/Clients'
+import { DrugTests } from './collections/DrugTests'
 import Admins from './collections/Admins'
 
 const filename = fileURLToPath(import.meta.url)
@@ -77,8 +78,9 @@ export default buildConfig({
   admin: {
     avatar: 'default',
     components: {
+      beforeDashboard: ['@/components/beforeDashboard/DrugTestStats'],
       afterDashboard: ['@/components/afterDashboard/Analytics'],
-      afterNavLinks: ['@/components/afterNavLinks/LinkToAnalyticsDefaultRootView'],
+      afterNavLinks: ['@/components/afterNavLinks/LinkToAnalyticsDefaultRootView', '@/components/afterNavLinks/DrugTestTrackerLink'],
       graphics: {
         Icon: '@/graphics/Icon',
         Logo: '@/components/Logo/Graphic',
@@ -87,6 +89,10 @@ export default buildConfig({
         CustomRootView: {
           Component: '@/components/views/Analytics',
           path: '/analytics',
+        },
+        DrugTestTracker: {
+          Component: '@/components/views/DrugTestTracker',
+          path: '/drug-test-tracker',
         },
       },
     },
@@ -181,6 +187,7 @@ export default buildConfig({
     Admins,
     Technicians,
     Clients,
+    DrugTests,
   ],
   cors: [baseUrl].filter(Boolean),
   csrf: [baseUrl].filter(Boolean),

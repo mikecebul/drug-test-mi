@@ -15,6 +15,7 @@ import SelectField from '../field-components/select-field'
 import SubmitButton from '../form-components/submit-button'
 import MultiSelectField from '../field-components/multi-select-field'
 import DobField from '../field-components/dob-picker'
+import DateField from '../field-components/date-field'
 
 export const { useAppForm, withForm, withFieldGroup } = createFormHook({
   fieldComponents: {
@@ -23,6 +24,7 @@ export const { useAppForm, withForm, withFieldGroup } = createFormHook({
     TextareaField,
     CheckboxField,
     DobField,
+    DateField,
     NumberField,
     EmailField,
     PhoneField,

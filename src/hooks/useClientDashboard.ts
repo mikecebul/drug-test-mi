@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { PrivateMedia, Client } from '@/payload-types'
+import { DrugTest, Client } from '@/payload-types'
 
 export type ClientDashboardData = {
   user: {
@@ -38,10 +38,10 @@ export type ClientDashboardData = {
 
 // Helper functions to format test data using Payload types
 function formatTestResult(
-  result: PrivateMedia['testResult'],
-  isDilute?: PrivateMedia['isDilute'],
-  requiresConfirmation?: PrivateMedia['requiresConfirmation'],
-  confirmationStatus?: PrivateMedia['confirmationStatus']
+  result: DrugTest['initialScreenResult'],
+  isDilute?: DrugTest['isDilute'],
+  requiresConfirmation?: boolean,
+  confirmationStatus?: DrugTest['confirmationStatus']
 ): string {
   if (!result) return 'Pending'
 
@@ -64,7 +64,6 @@ function formatTestResult(
       case 'negative': formattedResult = 'Negative'; break
       case 'expected-positive': formattedResult = 'Expected Positive'; break
       case 'unexpected-positive': formattedResult = 'Unexpected Positive'; break
-      case 'pending': formattedResult = 'Pending'; break
       case 'inconclusive': formattedResult = 'Inconclusive'; break
       default: formattedResult = 'Unknown'
     }
@@ -78,7 +77,7 @@ function formatTestResult(
   return formattedResult
 }
 
-function formatTestStatus(status: PrivateMedia['testStatus']): string {
+function formatTestStatus(status: string): string {
   if (!status) return 'Pending'
 
   switch (status) {
@@ -111,19 +110,17 @@ async function refetchClientDashboard(): Promise<ClientDashboardData> {
 
   const client = userData.user as Client
 
-  // Fetch private media (test results)
-  const mediaResponse = await fetch('/api/private-media', {
+  // Fetch drug test results
+  const testResponse = await fetch('/api/drug-tests?depth=1', {
     credentials: 'include',
   })
 
-  if (!mediaResponse.ok) {
+  if (!testResponse.ok) {
     throw new Error('Failed to fetch test results')
   }
 
-  const mediaResult = await mediaResponse.json()
-  const drugScreenResults = (mediaResult.docs as PrivateMedia[])?.filter(doc =>
-    doc.documentType === 'drug-screen'
-  ) || []
+  const testResult = await testResponse.json()
+  const drugScreenResults = (testResult.docs as DrugTest[]) || []
 
   // Calculate stats from real data
   const totalTests = drugScreenResults.length
@@ -131,7 +128,7 @@ async function refetchClientDashboard(): Promise<ClientDashboardData> {
 
   // Calculate compliance based on actual test results
   const compliantTests = drugScreenResults.filter(test =>
-    test.testResult === 'negative' || test.testResult === 'expected-positive'
+    test.initialScreenResult === 'negative' || test.initialScreenResult === 'expected-positive'
   ).length
 
   const complianceRate = totalTests > 0 ? Math.round((compliantTests / totalTests) * 100) : 0
@@ -139,14 +136,14 @@ async function refetchClientDashboard(): Promise<ClientDashboardData> {
   // Get most recent test result with real data
   const recentTest = drugScreenResults[0]
     ? {
-        date: drugScreenResults[0].testDate || drugScreenResults[0].createdAt,
+        date: drugScreenResults[0].collectionDate || drugScreenResults[0].createdAt,
         result: formatTestResult(
-          drugScreenResults[0].testResult,
+          drugScreenResults[0].initialScreenResult,
           drugScreenResults[0].isDilute,
-          drugScreenResults[0].requiresConfirmation,
+          drugScreenResults[0].confirmationDecision === 'request-confirmation',
           drugScreenResults[0].confirmationStatus
         ),
-        status: formatTestStatus(drugScreenResults[0].testStatus),
+        status: formatTestStatus(drugScreenResults[0].isComplete ? 'complete' : 'pending'),
       }
     : undefined
 

@@ -3,9 +3,6 @@
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Card,
   CardContent,
@@ -29,118 +26,17 @@ import {
   Clock,
   AlertCircle,
   Edit,
-  History,
+  Trash2,
+  Phone,
+  Lock,
 } from "lucide-react"
-
-type MedicationStatus = "active" | "discontinued" | "hold"
-
-type Medication = {
-  id: string
-  medicationName: string
-  dosage: string
-  prescriber: string
-  prescriberPhone?: string
-  startDate: string
-  endDate?: string
-  status: MedicationStatus
-  detectedAs?: string
-  isVerified: boolean
-  lastVerified?: string
-  notes?: string
-  revisions: MedicationRevision[]
-}
-
-type MedicationRevision = {
-  id: string
-  timestamp: string
-  changes: {
-    field: string
-    oldValue: any
-    newValue: any
-  }[]
-  modifiedBy: string
-}
-
-const mockMedications: Medication[] = [
-  {
-    id: "1",
-    medicationName: "Adderall XR",
-    dosage: "20mg daily",
-    prescriber: "Dr. Michael Chen",
-    prescriberPhone: "(555) 123-4567",
-    startDate: "2024-01-15",
-    status: "active",
-    detectedAs: "Amphetamine",
-    isVerified: true,
-    lastVerified: "2025-09-01",
-    notes: "Prescribed for ADHD",
-    revisions: [
-      {
-        id: "r1",
-        timestamp: "2025-09-01",
-        changes: [
-          { field: "lastVerified", oldValue: "2025-08-01", newValue: "2025-09-01" }
-        ],
-        modifiedBy: "System Verification"
-      },
-      {
-        id: "r2",
-        timestamp: "2024-06-15",
-        changes: [
-          { field: "dosage", oldValue: "15mg daily", newValue: "20mg daily" }
-        ],
-        modifiedBy: "Dr. Michael Chen"
-      }
-    ]
-  },
-  {
-    id: "2",
-    medicationName: "Xanax",
-    dosage: "0.5mg as needed",
-    prescriber: "Dr. Sarah Williams",
-    prescriberPhone: "(555) 987-6543",
-    startDate: "2024-06-10",
-    status: "active",
-    detectedAs: "Benzodiazepine",
-    isVerified: true,
-    lastVerified: "2025-09-01",
-    notes: "For anxiety management",
-    revisions: [
-      {
-        id: "r3",
-        timestamp: "2025-09-01",
-        changes: [
-          { field: "lastVerified", oldValue: "2025-08-01", newValue: "2025-09-01" }
-        ],
-        modifiedBy: "System Verification"
-      }
-    ]
-  },
-  {
-    id: "3",
-    medicationName: "Hydrocodone",
-    dosage: "5mg every 6 hours",
-    prescriber: "Dr. Robert Johnson",
-    startDate: "2024-08-20",
-    endDate: "2024-09-05",
-    status: "discontinued",
-    detectedAs: "Opiates",
-    isVerified: true,
-    lastVerified: "2024-09-05",
-    notes: "Post-surgery pain management - completed course",
-    revisions: [
-      {
-        id: "r4",
-        timestamp: "2024-09-05",
-        changes: [
-          { field: "status", oldValue: "active", newValue: "discontinued" },
-          { field: "endDate", oldValue: null, newValue: "2024-09-05" }
-        ],
-        modifiedBy: "Dr. Robert Johnson"
-      }
-    ]
-  }
-]
+import { useClientDashboard } from "@/hooks/useClientDashboard"
+import { AddMedicationDialog, UpdateMedicationDialog } from "./components"
+import { EditMedicationDialog } from "./components/EditMedicationDialog"
+import type { Medication, MedicationStatus } from "./types"
+import { isMedicationEditable, getMedicationAgeDescription } from "./utils/medicationUtils"
+import { toast } from "sonner"
+import { useQueryClient } from "@tanstack/react-query"
 
 const getStatusBadgeVariant = (status: MedicationStatus) => {
   switch (status) {
@@ -169,10 +65,53 @@ const getStatusIcon = (status: MedicationStatus) => {
 }
 
 export default function MedicationsPage() {
-  const [medications] = useState<Medication[]>(mockMedications)
+  const { data: dashboardData, isLoading } = useClientDashboard()
+  const queryClient = useQueryClient()
   const [selectedMedication, setSelectedMedication] = useState<Medication | null>(null)
-  const [showAddDialog, setShowAddDialog] = useState(false)
-  const [showHistoryDialog, setShowHistoryDialog] = useState(false)
+  const [selectedMedicationIndex, setSelectedMedicationIndex] = useState<number>(-1)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showEditDetailsDialog, setShowEditDetailsDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+
+  const medications = (dashboardData?.medications || []) as Medication[]
+
+  const handleDelete = async () => {
+    if (!selectedMedication || selectedMedicationIndex === -1) return
+
+    try {
+      const response = await fetch(`/api/clients/medications?index=${selectedMedicationIndex}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to delete medication')
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['clientDashboard'] })
+      setShowDeleteDialog(false)
+      setSelectedMedication(null)
+      setSelectedMedicationIndex(-1)
+      toast.success('Medication deleted successfully!')
+    } catch (error) {
+      console.error('Error deleting medication:', error)
+      toast.error(
+        error instanceof Error ? error.message : 'Deleting medication failed. Please try again.',
+      )
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+        <div className="px-4 lg:px-6">
+          <h1 className="text-2xl font-bold tracking-tight">Medications</h1>
+          <p className="text-muted-foreground">Loading your medications...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
@@ -184,199 +123,184 @@ export default function MedicationsPage() {
               Manage your documented medications for drug test verification
             </p>
           </div>
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Medication
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[525px]">
-              <DialogHeader>
-                <DialogTitle>Add New Medication</DialogTitle>
-                <DialogDescription>
-                  Add a new medication to your documented list for drug test verification.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="medicationName">Medication Name</Label>
-                    <Input id="medicationName" placeholder="e.g., Adderall XR" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="dosage">Dosage</Label>
-                    <Input id="dosage" placeholder="e.g., 20mg daily" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="prescriber">Prescriber</Label>
-                    <Input id="prescriber" placeholder="Dr. John Smith" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="prescriberPhone">Prescriber Phone</Label>
-                    <Input id="prescriberPhone" placeholder="(555) 123-4567" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="startDate">Start Date</Label>
-                    <Input id="startDate" type="date" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="detectedAs">Detected As</Label>
-                    <Input id="detectedAs" placeholder="e.g., Amphetamine" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea id="notes" placeholder="Additional notes about this medication..." />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">Add Medication</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <AddMedicationDialog />
         </div>
       </div>
 
       <div className="px-4 lg:px-6">
         <div className="grid gap-4">
-          {medications.map((medication) => (
-            <Card key={medication.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <Pill className="w-5 h-5 text-indigo-600" />
-                    <div>
-                      <CardTitle className="text-lg">{medication.medicationName}</CardTitle>
-                      <CardDescription>{medication.dosage}</CardDescription>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge variant={getStatusBadgeVariant(medication.status)}>
-                      {getStatusIcon(medication.status)}
-                      <span className="ml-1 capitalize">{medication.status}</span>
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedMedication(medication)
-                        setShowHistoryDialog(true)
-                      }}
-                    >
-                      <History className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm">
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                  </div>
+          {medications.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <Pill className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No medications documented</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Add your current medications to ensure accurate drug test interpretation.
+                  </p>
+                  <AddMedicationDialog buttonText="Add Your First Medication" />
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Prescriber</p>
-                    <p className="font-medium">{medication.prescriber}</p>
-                    {medication.prescriberPhone && (
-                      <p className="text-xs text-muted-foreground">{medication.prescriberPhone}</p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Start Date</p>
-                    <p className="font-medium">
-                      {new Date(medication.startDate).toLocaleDateString()}
-                    </p>
-                    {medication.endDate && (
-                      <>
-                        <p className="text-muted-foreground mt-1">End Date</p>
-                        <p className="text-sm">
-                          {new Date(medication.endDate).toLocaleDateString()}
-                        </p>
-                      </>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Detected As</p>
-                    <p className="font-medium">
-                      {medication.detectedAs || "Not specified"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Verification</p>
-                    <div className="flex items-center space-x-1">
-                      {medication.isVerified ? (
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <Clock className="w-4 h-4 text-yellow-500" />
-                      )}
-                      <span className="text-sm">
-                        {medication.isVerified ? "Verified" : "Pending"}
-                      </span>
-                    </div>
-                    {medication.lastVerified && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Last verified: {new Date(medication.lastVerified).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {medication.notes && (
-                  <div className="mt-4 p-3 bg-muted rounded-lg">
-                    <p className="text-sm">{medication.notes}</p>
-                  </div>
-                )}
               </CardContent>
             </Card>
-          ))}
+          ) : (
+            medications.map((medication, index) => (
+              <Card key={index}>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-3">
+                      <Pill className="w-5 h-5 text-indigo-600" />
+                      <div>
+                        <CardTitle className="text-lg">{medication.medicationName}</CardTitle>
+                        <CardDescription>
+                          {medication.detectedAs && `Detected as: ${medication.detectedAs}`}
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant={getStatusBadgeVariant(medication.status)}>
+                        {getStatusIcon(medication.status)}
+                        <span className="ml-1 capitalize">{medication.status}</span>
+                      </Badge>
+                      {isMedicationEditable(medication) ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedMedication(medication)
+                              setSelectedMedicationIndex(index)
+                              setShowEditDetailsDialog(true)
+                            }}
+                            title="Edit medication details"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedMedication(medication)
+                              setSelectedMedicationIndex(index)
+                              setShowDeleteDialog(true)
+                            }}
+                            title="Delete medication"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            toast.info('Contact support for changes: (231) 373-6341 or mike@midrugtest.com')
+                          }}
+                          title="Contact support for changes"
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          <Lock className="w-4 h-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedMedication(medication)
+                          setSelectedMedicationIndex(index)
+                          setShowEditDialog(true)
+                        }}
+                        title="Update status"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Start Date</p>
+                      <p className="font-medium">
+                        {medication.startDate
+                          ? new Date(medication.startDate).toLocaleDateString()
+                          : 'Not specified'
+                        }
+                      </p>
+                    </div>
+                    {medication.endDate && (
+                      <div>
+                        <p className="text-muted-foreground">End Date</p>
+                        <p className="font-medium">
+                          {new Date(medication.endDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-muted-foreground">Status</p>
+                      <p className="font-medium capitalize">{medication.status}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Added</p>
+                      <p className={`font-medium text-xs ${
+                        isMedicationEditable(medication)
+                          ? 'text-green-600'
+                          : 'text-muted-foreground'
+                      }`}>
+                        {getMedicationAgeDescription(medication)}
+                        {isMedicationEditable(medication) && (
+                          <span className="block text-green-600">• Editable</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       </div>
 
-      {/* Revision History Dialog */}
-      <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+      <UpdateMedicationDialog
+        showDialog={showEditDialog}
+        setShowDialog={setShowEditDialog}
+        selectedMedication={selectedMedication}
+        setSelectedMedication={setSelectedMedication}
+        selectedMedicationIndex={selectedMedicationIndex}
+      />
+
+      <EditMedicationDialog
+        showDialog={showEditDetailsDialog}
+        setShowDialog={setShowEditDetailsDialog}
+        selectedMedication={selectedMedication}
+        selectedMedicationIndex={selectedMedicationIndex}
+      />
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Medication History</DialogTitle>
+            <DialogTitle>Delete Medication</DialogTitle>
             <DialogDescription>
-              {selectedMedication && `Revision history for ${selectedMedication.medicationName}`}
+              {selectedMedication &&
+                `Are you sure you want to delete "${selectedMedication.medicationName}"? This action cannot be undone.`
+              }
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 max-h-96 overflow-y-auto">
-            {selectedMedication?.revisions.map((revision) => (
-              <div key={revision.id} className="border rounded-lg p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <p className="font-medium text-sm">
-                    {new Date(revision.timestamp).toLocaleString()}
-                  </p>
-                  <Badge variant="outline" className="text-xs">
-                    {revision.modifiedBy}
-                  </Badge>
-                </div>
-                <div className="space-y-2">
-                  {revision.changes.map((change, idx) => (
-                    <div key={idx} className="text-sm">
-                      <span className="font-medium capitalize">{change.field}:</span>
-                      <span className="ml-2 text-muted-foreground line-through">
-                        {change.oldValue || "empty"}
-                      </span>
-                      <span className="mx-2">→</span>
-                      <span className="text-green-600">
-                        {change.newValue || "empty"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setShowHistoryDialog(false)}>Close</Button>
+          <DialogFooter className="flex w-full sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDelete}
+            >
+              Delete Medication
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -391,8 +315,8 @@ export default function MedicationsPage() {
               <div className="flex items-start space-x-2">
                 <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
                 <p>
-                  <strong>Verification:</strong> All medications are verified with prescribing physicians
-                  to ensure accurate drug test interpretation.
+                  <strong>Accuracy:</strong> Keep your medications up to date to ensure accurate
+                  drug test interpretation and avoid false positives.
                 </p>
               </div>
               <div className="flex items-start space-x-2">
@@ -403,10 +327,17 @@ export default function MedicationsPage() {
                 </p>
               </div>
               <div className="flex items-start space-x-2">
-                <History className="w-4 h-4 text-purple-500 mt-0.5" />
+                <Clock className="w-4 h-4 text-purple-500 mt-0.5" />
                 <p>
-                  <strong>History:</strong> All changes to your medications are tracked with timestamps
-                  for compliance and verification purposes.
+                  <strong>Timeline:</strong> Include start and end dates to help determine if positive
+                  results are expected based on your medication schedule.
+                </p>
+              </div>
+              <div className="flex items-start space-x-2">
+                <Edit className="w-4 h-4 text-green-500 mt-0.5" />
+                <p>
+                  <strong>Editing:</strong> You can edit or delete medications for up to 7 days after adding them.
+                  For changes to older medications, contact support: (231) 373-6341 or mike@midrugtest.com
                 </p>
               </div>
             </div>

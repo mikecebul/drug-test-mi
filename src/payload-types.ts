@@ -106,6 +106,7 @@ export interface Config {
     admins: Admin;
     technicians: Technician;
     clients: Client;
+    'drug-tests': DrugTest;
     exports: Export;
     redirects: Redirect;
     'payload-jobs': PayloadJob;
@@ -115,7 +116,8 @@ export interface Config {
   };
   collectionsJoins: {
     clients: {
-      drugScreenResults: 'private-media';
+      drugTests: 'drug-tests';
+      privateDocuments: 'private-media';
     };
   };
   collectionsSelect: {
@@ -128,6 +130,7 @@ export interface Config {
     admins: AdminsSelect<false> | AdminsSelect<true>;
     technicians: TechniciansSelect<false> | TechniciansSelect<true>;
     clients: ClientsSelect<false> | ClientsSelect<true>;
+    'drug-tests': DrugTestsSelect<false> | DrugTestsSelect<true>;
     exports: ExportsSelect<false> | ExportsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
@@ -889,7 +892,7 @@ export interface FormSubmission {
   createdAt: string;
 }
 /**
- * Secure file storage for sensitive documents like drug test results
+ * Secure file storage for sensitive documents
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "private-media".
@@ -899,50 +902,15 @@ export interface PrivateMedia {
   /**
    * Alternative text for SEO and accessibility
    */
-  alt: string;
+  alt?: string | null;
   /**
-   * Type of sensitive document
+   * Type of private document
    */
-  documentType: 'drug-screen' | 'lab-report' | 'other';
+  documentType: 'drug-test-report' | 'client-document';
   /**
    * Client this document belongs to
    */
-  relatedClient: string | Client;
-  /**
-   * Date the test was conducted (if applicable)
-   */
-  testDate?: string | null;
-  /**
-   * Type of drug test panel used
-   */
-  testType?: ('11-panel-lab' | '15-panel-instant') | null;
-  /**
-   * Result of the drug screen test
-   */
-  testResult?: ('negative' | 'expected-positive' | 'unexpected-positive' | 'pending' | 'inconclusive') | null;
-  /**
-   * Current status of the test result
-   */
-  testStatus?: ('verified' | 'under-review' | 'pending-lab' | 'requires-followup') | null;
-  /**
-   * Mark if the test sample was dilute
-   */
-  isDilute?: boolean | null;
-  /**
-   * Mark if this test requires confirmation testing
-   */
-  requiresConfirmation?: boolean | null;
-  /**
-   * Status of the confirmation test
-   */
-  confirmationStatus?:
-    | ('pending-confirmation' | 'confirmed-positive' | 'confirmed-negative' | 'confirmation-inconclusive')
-    | null;
-  /**
-   * Internal notes about this document
-   */
-  notes?: string | null;
-  prefix?: string | null;
+  relatedClient?: (string | null) | Client;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -954,16 +922,6 @@ export interface PrivateMedia {
   height?: number | null;
   focalX?: number | null;
   focalY?: number | null;
-  sizes?: {
-    thumbnail?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-  };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1032,6 +990,14 @@ export interface Client {
     contactEmail: string;
   };
   /**
+   * Drug tests automatically linked to this client
+   */
+  drugTests?: {
+    docs?: (string | DrugTest)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
    * Internal notes about the client
    */
   notes?: string | null;
@@ -1044,18 +1010,6 @@ export interface Client {
          * Brand or generic name of medication
          */
         medicationName: string;
-        /**
-         * Dosage amount and frequency (e.g., "20mg daily")
-         */
-        dosage: string;
-        /**
-         * Prescribing physician name
-         */
-        prescriber: string;
-        /**
-         * Prescriber contact phone for verification
-         */
-        prescriberPhone?: string | null;
         /**
          * Date medication was started
          */
@@ -1073,17 +1027,13 @@ export interface Client {
          */
         detectedAs?: string | null;
         /**
-         * Has this medication been verified with the prescriber?
-         */
-        isVerified?: boolean | null;
-        /**
-         * Date this medication was last verified
-         */
-        lastVerified?: string | null;
-        /**
          * Additional notes about this medication
          */
         notes?: string | null;
+        /**
+         * When this medication was added to the system - editable by super admins only
+         */
+        createdAt?: string | null;
         id?: string | null;
       }[]
     | null;
@@ -1101,9 +1051,9 @@ export interface Client {
     email?: string | null;
   };
   /**
-   * Drug screen result documents automatically linked to this client
+   * Private documents linked to this client
    */
-  drugScreenResults?: {
+  privateDocuments?: {
     docs?: (string | PrivateMedia)[];
     hasNextPage?: boolean;
     totalDocs?: number;
@@ -1185,6 +1135,92 @@ export interface Client {
       }[]
     | null;
   password?: string | null;
+}
+/**
+ * Track drug test results and workflow
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drug-tests".
+ */
+export interface DrugTest {
+  id: string;
+  /**
+   * Client this drug test belongs to
+   */
+  relatedClient: string | Client;
+  /**
+   * Date and time the sample was collected
+   */
+  collectionDate?: string | null;
+  /**
+   * Type of drug test panel used
+   */
+  testType?: ('11-panel-lab' | '15-panel-instant') | null;
+  /**
+   * Result of the initial drug screen
+   */
+  initialScreenResult?: ('negative' | 'expected-positive' | 'unexpected-positive' | 'inconclusive') | null;
+  /**
+   * What substance tested positive (required for positive results)
+   */
+  presumptivePositive?:
+    | (
+        | 'amphetamines'
+        | 'methamphetamines'
+        | 'benzodiazepines'
+        | 'thc'
+        | 'opiates'
+        | 'oxycodone'
+        | 'cocaine'
+        | 'pcp'
+        | 'barbiturates'
+        | 'methadone'
+        | 'propoxyphene'
+        | 'tricyclic_antidepressants'
+        | 'mdma'
+        | 'buprenorphine'
+        | 'tramadol'
+        | 'fentanyl'
+        | 'kratom'
+        | 'other'
+      )
+    | null;
+  /**
+   * Client decision on whether to accept results or request confirmation
+   */
+  confirmationDecision?: ('accept' | 'request-confirmation') | null;
+  /**
+   * Date and time confirmation was requested by client
+   */
+  confirmationRequestedAt?: string | null;
+  /**
+   * Mark if the test sample was dilute
+   */
+  isDilute?: boolean | null;
+  /**
+   * Status of the confirmation test (updated when results come back)
+   */
+  confirmationStatus?:
+    | ('pending-confirmation' | 'confirmed-positive' | 'confirmed-negative' | 'confirmation-inconclusive')
+    | null;
+  /**
+   * Automatically determined: complete when results are accepted or confirmation received
+   */
+  isComplete?: boolean | null;
+  /**
+   * Snapshot of active medications at time of test (auto-populated from client, editable by superAdmin only)
+   */
+  medicationsAtTestTime?: string | null;
+  /**
+   * Internal process notes and status updates
+   */
+  processNotes?: string | null;
+  /**
+   * Drug test report document
+   */
+  testDocument?: (string | null) | PrivateMedia;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1432,6 +1468,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'clients';
         value: string | Client;
+      } | null)
+    | ({
+        relationTo: 'drug-tests';
+        value: string | DrugTest;
       } | null)
     | ({
         relationTo: 'exports';
@@ -2067,15 +2107,6 @@ export interface PrivateMediaSelect<T extends boolean = true> {
   alt?: T;
   documentType?: T;
   relatedClient?: T;
-  testDate?: T;
-  testType?: T;
-  testResult?: T;
-  testStatus?: T;
-  isDilute?: T;
-  requiresConfirmation?: T;
-  confirmationStatus?: T;
-  notes?: T;
-  prefix?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -2087,20 +2118,6 @@ export interface PrivateMediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
-  sizes?:
-    | T
-    | {
-        thumbnail?:
-          | T
-          | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
-      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2176,21 +2193,18 @@ export interface ClientsSelect<T extends boolean = true> {
         contactName?: T;
         contactEmail?: T;
       };
+  drugTests?: T;
   notes?: T;
   medications?:
     | T
     | {
         medicationName?: T;
-        dosage?: T;
-        prescriber?: T;
-        prescriberPhone?: T;
         startDate?: T;
         endDate?: T;
         status?: T;
         detectedAs?: T;
-        isVerified?: T;
-        lastVerified?: T;
         notes?: T;
+        createdAt?: T;
         id?: T;
       };
   alternativeRecipient?:
@@ -2199,7 +2213,7 @@ export interface ClientsSelect<T extends boolean = true> {
         name?: T;
         email?: T;
       };
-  drugScreenResults?: T;
+  privateDocuments?: T;
   totalBookings?: T;
   lastBookingDate?: T;
   firstBookingDate?: T;
@@ -2236,6 +2250,27 @@ export interface ClientsSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drug-tests_select".
+ */
+export interface DrugTestsSelect<T extends boolean = true> {
+  relatedClient?: T;
+  collectionDate?: T;
+  testType?: T;
+  initialScreenResult?: T;
+  presumptivePositive?: T;
+  confirmationDecision?: T;
+  confirmationRequestedAt?: T;
+  isDilute?: T;
+  confirmationStatus?: T;
+  isComplete?: T;
+  medicationsAtTestTime?: T;
+  processNotes?: T;
+  testDocument?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

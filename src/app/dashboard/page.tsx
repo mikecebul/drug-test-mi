@@ -5,6 +5,7 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import { DashboardClient } from './DashboardClient'
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query'
+import { DrugTest } from '@/payload-types'
 
 // Helper functions to format test data
 function formatTestResult(
@@ -85,12 +86,9 @@ async function getDashboardData() {
   // Fetch related data in parallel
   const [drugScreenResults, bookings] = await Promise.all([
     payload.find({
-      collection: 'private-media',
+      collection: 'drug-tests',
       where: {
-        and: [
-          { relatedClient: { equals: client.id } },
-          { documentType: { equals: 'drug-screen' } },
-        ],
+        relatedClient: { equals: client.id },
       },
       sort: '-createdAt',
       limit: 10,
@@ -111,8 +109,8 @@ async function getDashboardData() {
   const activeMedications = client.medications?.filter((med: any) => med.status === 'active').length || 0
 
   // Calculate compliance based on actual test results
-  const compliantTests = drugScreenResults.docs?.filter(test =>
-    test.testResult === 'negative' || test.testResult === 'expected-positive'
+  const compliantTests = drugScreenResults.docs?.filter((test: DrugTest) =>
+    test.initialScreenResult === 'negative' || test.initialScreenResult === 'expected-positive'
   ).length || 0
 
   const complianceRate = totalTests > 0 ? Math.round((compliantTests / totalTests) * 100) : 0
@@ -120,14 +118,14 @@ async function getDashboardData() {
   // Get most recent test result with real data
   const recentTest = drugScreenResults.docs?.[0]
     ? {
-        date: drugScreenResults.docs[0].testDate || drugScreenResults.docs[0].createdAt,
+        date: (drugScreenResults.docs[0] as DrugTest).collectionDate || drugScreenResults.docs[0].createdAt,
         result: formatTestResult(
-          drugScreenResults.docs[0].testResult,
-          drugScreenResults.docs[0].isDilute,
-          drugScreenResults.docs[0].requiresConfirmation,
-          drugScreenResults.docs[0].confirmationStatus
+          (drugScreenResults.docs[0] as DrugTest).initialScreenResult,
+          (drugScreenResults.docs[0] as DrugTest).isDilute,
+          (drugScreenResults.docs[0] as DrugTest).confirmationDecision === 'request-confirmation',
+          (drugScreenResults.docs[0] as DrugTest).confirmationStatus
         ),
-        status: formatTestStatus(drugScreenResults.docs[0].testStatus),
+        status: formatTestStatus((drugScreenResults.docs[0] as DrugTest).isComplete ? 'complete' : 'pending'),
       }
     : undefined
 

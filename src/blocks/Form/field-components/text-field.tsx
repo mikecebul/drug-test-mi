@@ -9,11 +9,13 @@ import { cn } from '@/utilities/cn'
 // UI-only props for text field
 export interface TextFieldUIProps {
   label?: string | null
+  placeholder?: string | null
+  description?: string | null
   colSpan?: '1' | '2'
   required?: boolean | null
 }
 
-export default function TextField({ label, colSpan, required }: TextFieldUIProps) {
+export default function TextField({ label, placeholder, description, colSpan, required }: TextFieldUIProps) {
   const field = useFieldContext<string>()
   const errors = useStore(field.store, (state) => state.meta.errors)
 
@@ -31,7 +33,9 @@ export default function TextField({ label, colSpan, required }: TextFieldUIProps
           value={field.state.value ?? ''}
           onBlur={() => field.handleBlur()}
           onChange={(e) => field.handleChange(e.target.value)}
+          placeholder={placeholder || undefined}
         />
+        {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>
       <div>
         {errors && <em className="text-destructive text-sm first:mt-1">{errors[0]?.message}</em>}

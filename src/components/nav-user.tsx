@@ -70,6 +70,9 @@ export function NavUser() {
         .toUpperCase()
     : '??'
 
+  const avatarImageUrl = getImageThumbnailUrl(user.headshot)
+  const avatarAlt = getImageAlt(user.headshot, 'profile')
+
   // console.log('User Headshot:', user)
 
   return (
@@ -82,10 +85,12 @@ export function NavUser() {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage
-                  src={getImageThumbnailUrl(user.headshot)}
-                  alt={getImageAlt(user.headshot, 'profile')}
-                />
+                {avatarImageUrl && (
+                  <AvatarImage
+                    src={avatarImageUrl}
+                    alt={avatarAlt}
+                  />
+                )}
                 <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
@@ -104,10 +109,12 @@ export function NavUser() {
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage
-                    src={getImageThumbnailUrl(user.headshot)}
-                    alt={getImageAlt(user.headshot, 'profile')}
-                  />
+                  {avatarImageUrl && (
+                    <AvatarImage
+                      src={avatarImageUrl}
+                      alt={avatarAlt}
+                    />
+                  )}
                   <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
@@ -116,7 +123,8 @@ export function NavUser() {
                 </div>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            {/* TODO: Implement dropdown menu items when functionality is ready */}
+            {/* <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem>
                 <UserCircleIcon />
@@ -131,7 +139,7 @@ export function NavUser() {
                 Notifications
               </DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator /> */}
             <DropdownMenuItem>
               <LogOutIcon />
               <ClientLogoutButton />

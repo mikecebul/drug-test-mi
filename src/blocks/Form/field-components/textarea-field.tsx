@@ -9,11 +9,13 @@ import { TextareaFormField } from '@/payload-types'
 
 export interface TextareaFieldUIProps {
   label?: string | null
+  placeholder?: string | null
+  description?: string | null
   colSpan?: '1' | '2'
   required?: boolean | null
 }
 
-export default function TextareaField({ label, colSpan, required }: TextareaFieldUIProps) {
+export default function TextareaField({ label, placeholder, description, colSpan, required }: TextareaFieldUIProps) {
   const field = useFieldContext<string>()
   const errors = useStore(field.store, (state) => state.meta.errors)
 
@@ -26,9 +28,11 @@ export default function TextareaField({ label, colSpan, required }: TextareaFiel
           value={field.state.value ?? ''}
           onBlur={() => field.handleBlur()}
           onChange={(e) => field.handleChange(e.target.value)}
+          placeholder={placeholder || undefined}
           required={!!required}
           autoComplete="off"
         />
+        {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>
       <div>
         {errors && <em className="text-destructive text-sm first:mt-1">{errors[0]?.message}</em>}
