@@ -10,6 +10,7 @@ import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { useMemo } from "react"
 import type { Technician } from "@/payload-types"
+import { useClientDashboard } from "@/hooks/useClientDashboard"
 
 interface DashboardTechnicianDetailProps {
   technician: Technician
@@ -32,6 +33,7 @@ function getTechnicianAvailabilityText(technician: Technician): string {
 
 export function DashboardTechnicianDetail({ technician }: DashboardTechnicianDetailProps) {
   const searchParams = useSearchParams()
+  const { data: dashboardData } = useClientDashboard()
 
   const backNavigation = useMemo(() => {
     const from = searchParams.get('from')
@@ -130,7 +132,14 @@ export function DashboardTechnicianDetail({ technician }: DashboardTechnicianDet
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <CalEmbed calUsername={technician.calComUsername} testerName={technician.name} />
+            <CalEmbed
+              calUsername={technician.calComUsername}
+              testerName={technician.name}
+              userData={dashboardData?.user ? {
+                name: dashboardData.user.name,
+                email: dashboardData.user.email
+              } : undefined}
+            />
           </CardContent>
         </Card>
       </div>
