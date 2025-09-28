@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import {
   ArrowUpCircleIcon,
+  CalendarIcon,
   ClipboardListIcon,
   DatabaseIcon,
   FileIcon,
@@ -35,6 +36,11 @@ const navMainItems = [
     title: 'Dashboard',
     url: '/dashboard',
     icon: LayoutDashboardIcon,
+  },
+  {
+    title: 'Schedule',
+    url: '/dashboard/schedule',
+    icon: CalendarIcon,
   },
   {
     title: 'Test Results',

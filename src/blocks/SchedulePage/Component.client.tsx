@@ -23,7 +23,10 @@ function SchedulePageContent({ technicians }: SchedulePageClientProps) {
     params.set('from', 'schedule')
 
     const queryString = params.toString()
-    const url = `/technicians/${technicianSlug}${queryString ? `?${queryString}` : ''}`
+    // Route to dashboard technician page when used in dashboard context
+    const isDashboard = window.location.pathname.startsWith('/dashboard')
+    const basePath = isDashboard ? '/dashboard/schedule/technicians' : '/technicians'
+    const url = `${basePath}/${technicianSlug}${queryString ? `?${queryString}` : ''}`
 
     router.push(url)
   }
