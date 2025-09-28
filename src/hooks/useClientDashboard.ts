@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { PrivateMedia, Client } from '@/payload-types'
 
 export type ClientDashboardData = {
   user: {
@@ -35,27 +36,119 @@ export type ClientDashboardData = {
   bookings: any[]
 }
 
-// Simple refetch function for client-side updates
+// Helper functions to format test data using Payload types
+function formatTestResult(
+  result: PrivateMedia['testResult'],
+  isDilute?: PrivateMedia['isDilute'],
+  requiresConfirmation?: PrivateMedia['requiresConfirmation'],
+  confirmationStatus?: PrivateMedia['confirmationStatus']
+): string {
+  if (!result) return 'Pending'
+
+  let formattedResult: string
+
+  // If confirmation is required, show confirmation status instead of initial result
+  if (requiresConfirmation && confirmationStatus) {
+    switch (confirmationStatus) {
+      case 'pending-confirmation': formattedResult = 'Pending Confirmation'; break
+      case 'confirmed-positive': formattedResult = 'Confirmed Positive'; break
+      case 'confirmed-negative': formattedResult = 'Confirmed Negative'; break
+      case 'confirmation-inconclusive': formattedResult = 'Confirmation Inconclusive'; break
+      default: formattedResult = 'Pending Confirmation'
+    }
+  } else if (requiresConfirmation && !confirmationStatus) {
+    formattedResult = 'Pending Confirmation'
+  } else {
+    // Standard initial result
+    switch (result) {
+      case 'negative': formattedResult = 'Negative'; break
+      case 'expected-positive': formattedResult = 'Expected Positive'; break
+      case 'unexpected-positive': formattedResult = 'Unexpected Positive'; break
+      case 'pending': formattedResult = 'Pending'; break
+      case 'inconclusive': formattedResult = 'Inconclusive'; break
+      default: formattedResult = 'Unknown'
+    }
+  }
+
+  // Add dilute indicator if present
+  if (isDilute) {
+    formattedResult += ' (Dilute)'
+  }
+
+  return formattedResult
+}
+
+function formatTestStatus(status: PrivateMedia['testStatus']): string {
+  if (!status) return 'Pending'
+
+  switch (status) {
+    case 'verified': return 'Verified'
+    case 'under-review': return 'Under Review'
+    case 'pending-lab': return 'Pending Lab Results'
+    case 'requires-followup': return 'Requires Follow-up'
+    default: return 'Unknown'
+  }
+}
+
+// Real refetch function that gets actual data using Payload types
 async function refetchClientDashboard(): Promise<ClientDashboardData> {
-  const response = await fetch('/api/clients/me', {
+  // Fetch user data
+  const userResponse = await fetch('/api/clients/me', {
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
     },
   })
 
-  if (!response.ok) {
-    throw new Error('Failed to refetch dashboard data')
+  if (!userResponse.ok) {
+    throw new Error('Failed to refetch user data')
   }
 
-  const userData = await response.json()
+  const userData = await userResponse.json()
   if (!userData.user) {
     throw new Error('User not authenticated')
   }
 
-  // For client-side refetches, we can use a simplified version
-  // or create a separate API endpoint for real-time updates
-  const client = userData.user
+  const client = userData.user as Client
+
+  // Fetch private media (test results)
+  const mediaResponse = await fetch('/api/private-media', {
+    credentials: 'include',
+  })
+
+  if (!mediaResponse.ok) {
+    throw new Error('Failed to fetch test results')
+  }
+
+  const mediaResult = await mediaResponse.json()
+  const drugScreenResults = (mediaResult.docs as PrivateMedia[])?.filter(doc =>
+    doc.documentType === 'drug-screen'
+  ) || []
+
+  // Calculate stats from real data
+  const totalTests = drugScreenResults.length
+  const activeMedications = client.medications?.filter((med: any) => med.status === 'active').length || 0
+
+  // Calculate compliance based on actual test results
+  const compliantTests = drugScreenResults.filter(test =>
+    test.testResult === 'negative' || test.testResult === 'expected-positive'
+  ).length
+
+  const complianceRate = totalTests > 0 ? Math.round((compliantTests / totalTests) * 100) : 0
+
+  // Get most recent test result with real data
+  const recentTest = drugScreenResults[0]
+    ? {
+        date: drugScreenResults[0].testDate || drugScreenResults[0].createdAt,
+        result: formatTestResult(
+          drugScreenResults[0].testResult,
+          drugScreenResults[0].isDilute,
+          drugScreenResults[0].requiresConfirmation,
+          drugScreenResults[0].confirmationStatus
+        ),
+        status: formatTestStatus(drugScreenResults[0].testStatus),
+      }
+    : undefined
 
   return {
     user: {
@@ -67,17 +160,29 @@ async function refetchClientDashboard(): Promise<ClientDashboardData> {
       headshot: client.headshot,
     },
     stats: {
-      totalTests: 0, // Would be updated with real data
-      compliantTests: 0,
-      complianceRate: 0,
-      activeMedications: client.medications?.filter((med: any) => med.status === 'active').length || 0,
+      totalTests,
+      compliantTests,
+      complianceRate,
+      activeMedications,
     },
-    nextAppointment: undefined,
-    recentTest: undefined,
-    recurringSubscription: undefined,
+    nextAppointment: client.recurringAppointments?.isRecurring && client.recurringAppointments.nextAppointmentDate
+      ? {
+          date: client.recurringAppointments.nextAppointmentDate,
+          type: `${client.recurringAppointments.frequency || 'Weekly'} Drug Test`,
+        }
+      : undefined,
+    recentTest,
+    recurringSubscription: client.recurringAppointments?.isRecurring && client.recurringAppointments.frequency
+      ? {
+          isActive: client.recurringAppointments.subscriptionStatus === 'active',
+          frequency: client.recurringAppointments.frequency,
+          nextBilling: '2025-09-30',
+          status: client.recurringAppointments.subscriptionStatus || 'inactive',
+        }
+      : undefined,
     medications: client.medications || [],
-    drugScreenResults: [],
-    bookings: [],
+    drugScreenResults: drugScreenResults,
+    bookings: [], // Could fetch bookings separately if needed
   }
 }
 

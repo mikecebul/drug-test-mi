@@ -8,7 +8,6 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   flexRender,
-  createColumnHelper,
   ColumnDef,
 } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
@@ -32,7 +31,7 @@ import {
 import { FileText, AlertCircle, MessageSquare } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { PrivateMedia } from "@/payload-types"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Pagination,
   PaginationContent,
@@ -104,7 +103,6 @@ function formatTestStatus(status: string | null | undefined): string {
   }
 }
 
-const columnHelper = createColumnHelper<DrugTestResult>()
 
 const getResultBadgeVariant = (result: string) => {
   // Handle dilute results
@@ -152,6 +150,7 @@ const getStatusBadgeVariant = (status: string) => {
 export default function TestResultsPage() {
   const [globalFilter, setGlobalFilter] = useState("")
   const { user } = useAuth()
+  const queryClient = useQueryClient()
 
   const { data: testResults, isLoading, error } = useQuery({
     queryKey: ['testResults', user?.id],
@@ -165,23 +164,9 @@ export default function TestResultsPage() {
       }
 
       const result = await response.json()
-      const drugScreens = result.docs?.filter((doc: PrivateMedia) =>
+      return result.docs?.filter((doc: PrivateMedia) =>
         doc.documentType === 'drug-screen'
       ) || []
-
-      // For testing pagination - duplicate the first result 100 times
-      if (drugScreens.length > 0) {
-        const testData = []
-        for (let i = 0; i < 100; i++) {
-          testData.push({
-            ...drugScreens[0],
-            id: `${drugScreens[0].id}-${i}`, // Unique ID for each duplicate
-          })
-        }
-        return testData
-      }
-
-      return drugScreens
     },
     enabled: !!user && user.collection === 'clients',
   })
@@ -204,9 +189,16 @@ export default function TestResultsPage() {
       },
     },
     {
-      accessorKey: "alt",
+      accessorKey: "testType",
       header: "Test Type",
-      cell: ({ getValue }) => getValue() || "Drug Screen",
+      cell: ({ getValue }) => {
+        const testType = getValue()
+        switch (testType) {
+          case '11-panel-lab': return '11-Panel Lab'
+          case '15-panel-instant': return '15-Panel Instant'
+          default: return 'Drug Screen'
+        }
+      },
     },
     {
       id: "result",

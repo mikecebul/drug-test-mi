@@ -913,6 +913,10 @@ export interface PrivateMedia {
    */
   testDate?: string | null;
   /**
+   * Type of drug test panel used
+   */
+  testType?: ('11-panel-lab' | '15-panel-instant') | null;
+  /**
    * Result of the drug screen test
    */
   testResult?: ('negative' | 'expected-positive' | 'unexpected-positive' | 'pending' | 'inconclusive') | null;
@@ -2064,6 +2068,7 @@ export interface PrivateMediaSelect<T extends boolean = true> {
   documentType?: T;
   relatedClient?: T;
   testDate?: T;
+  testType?: T;
   testResult?: T;
   testStatus?: T;
   isDilute?: T;

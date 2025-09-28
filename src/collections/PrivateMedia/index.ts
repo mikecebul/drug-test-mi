@@ -106,6 +106,18 @@ export const PrivateMedia: CollectionConfig = {
       },
     },
     {
+      name: 'testType',
+      type: 'select',
+      options: [
+        { label: '11-Panel Lab', value: '11-panel-lab' },
+        { label: '15-Panel Instant', value: '15-panel-instant' },
+      ],
+      admin: {
+        description: 'Type of drug test panel used',
+        condition: (_, siblingData) => siblingData?.documentType === 'drug-screen',
+      },
+    },
+    {
       name: 'testResult',
       type: 'select',
       options: [
