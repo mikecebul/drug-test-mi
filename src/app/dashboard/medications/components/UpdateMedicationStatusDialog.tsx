@@ -129,7 +129,7 @@ export function UpdateMedicationStatusDialog({
                 const effectiveMinDate = startDate && startDate > minPastDate ? startDate : minPastDate
 
                 return (
-                  <formField.DateField
+                  <formField.DatePickerField
                     label="End Date"
                     placeholder="Select end date"
                     description={
