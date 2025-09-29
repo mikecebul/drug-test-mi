@@ -3,6 +3,7 @@ import { admins } from '@/access/admins'
 import { superAdmin } from '@/access/superAdmin'
 import { baseUrl } from '@/utilities/baseUrl'
 import { anyone } from '@/access/anyone'
+import { notifyNewRegistration } from './hooks/notifyNewRegistration'
 
 export const Clients: CollectionConfig = {
   slug: 'clients',
@@ -150,6 +151,9 @@ export const Clients: CollectionConfig = {
 
       return false
     },
+  },
+  hooks: {
+    afterChange: [notifyNewRegistration],
   },
   admin: {
     defaultColumns: ['headshot', 'name', 'email', 'clientType', 'totalBookings', 'lastBookingDate'],
