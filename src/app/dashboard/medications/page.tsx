@@ -38,6 +38,7 @@ import type { Medication, MedicationStatus } from "./types"
 import { isMedicationEditable, getMedicationAgeDescription } from "./utils/medicationUtils"
 import { toast } from "sonner"
 import { useQueryClient } from "@tanstack/react-query"
+import { deleteMedicationAction } from "./actions"
 
 const getStatusBadgeVariant = (status: MedicationStatus) => {
   switch (status) {
@@ -80,14 +81,13 @@ export default function MedicationsPage() {
     if (!selectedMedication || selectedMedicationIndex === -1) return
 
     try {
-      const response = await fetch(`/api/clients/medications?index=${selectedMedicationIndex}`, {
-        method: 'DELETE',
-        credentials: 'include',
+      // Use server action to delete medication
+      const result = await deleteMedicationAction({
+        medicationIndex: selectedMedicationIndex,
       })
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to delete medication')
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete medication')
       }
 
       queryClient.invalidateQueries({ queryKey: ['clientDashboard'] })

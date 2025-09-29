@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import type { AddMedicationFormType } from '../schemas/medicationSchemas'
 import type { Dispatch, SetStateAction } from 'react'
+import { addMedicationAction } from '../actions'
 
 const defaultValues: AddMedicationFormType = {
   medicationName: '',
@@ -23,21 +24,16 @@ export const useAddMedicationFormOpts = ({
     defaultValues,
     onSubmit: async ({ value: data, formApi }) => {
       try {
-        const response = await fetch('/api/clients/medications', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            medicationName: data.medicationName,
-            status: 'active',
-            detectedAs: data.detectedAs,
-            startDate: data.startDate,
-          }),
+        // Use server action to add medication with proper access controls
+        const result = await addMedicationAction({
+          medicationName: data.medicationName,
+          startDate: data.startDate,
+          status: 'active',
+          ...(data.detectedAs && { detectedAs: data.detectedAs }),
         })
 
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.message || 'Failed to add medication')
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to add medication')
         }
 
         // Refresh dashboard data

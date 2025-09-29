@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { UpdateMedicationFormType } from '../schemas/medicationSchemas'
 import type { Dispatch, SetStateAction } from 'react'
 import type { Medication } from '../types'
+import { updateMedicationAction } from '../actions'
 
 const defaultValues: UpdateMedicationFormType = {
   status: 'active',
@@ -32,20 +33,15 @@ export const useUpdateMedicationFormOpts = ({
     },
     onSubmit: async ({ value: data, formApi }) => {
       try {
-        const response = await fetch('/api/clients/medications', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            medicationIndex: selectedMedicationIndex,
-            status: data.status,
-            endDate: data.status === 'discontinued' ? data.endDate : undefined,
-          }),
+        // Use server action to update medication
+        const result = await updateMedicationAction({
+          medicationIndex: selectedMedicationIndex,
+          status: data.status,
+          endDate: data.status === 'discontinued' ? data.endDate : undefined,
         })
 
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.message || 'Failed to update medication')
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to update medication')
         }
 
         // Refresh dashboard data
