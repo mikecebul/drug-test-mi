@@ -131,7 +131,7 @@ export function DashboardClient() {
                 <div>
                   <p className="text-xs opacity-90">Compliant</p>
                   <p className="text-2xl font-bold mt-1">{stats.compliantTests}</p>
-                  <p className="text-xs opacity-75">Inc. prescribed</p>
+                  <p className="text-xs opacity-75">{stats.pendingTests} still pending</p>
                 </div>
                 <CheckCircle className="h-8 w-8 opacity-80" />
               </div>

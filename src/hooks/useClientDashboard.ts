@@ -15,6 +15,7 @@ export type ClientDashboardData = {
     compliantTests: number
     complianceRate: number
     activeMedications: number
+    pendingTests: number
   }
   nextAppointment?: {
     date: string
@@ -126,12 +127,15 @@ export async function refetchClientDashboard(): Promise<ClientDashboardData> {
   const totalTests = drugScreenResults.length
   const activeMedications = client.medications?.filter((med: any) => med.status === 'active').length || 0
 
-  // Calculate compliance based on actual test results
-  const compliantTests = drugScreenResults.filter(test =>
+  // Only include tests that have completed at least initial screening for compliance calculation
+  const testsWithInitialScreening = drugScreenResults.filter(test => test.initialScreenResult)
+  const pendingTests = drugScreenResults.filter(test => !test.initialScreenResult).length
+  const compliantTests = testsWithInitialScreening.filter(test =>
     test.initialScreenResult === 'negative' || test.initialScreenResult === 'expected-positive'
   ).length
 
-  const complianceRate = totalTests > 0 ? Math.round((compliantTests / totalTests) * 100) : 0
+  // Calculate compliance rate only from tests that have been screened
+  const complianceRate = testsWithInitialScreening.length > 0 ? Math.round((compliantTests / testsWithInitialScreening.length) * 100) : 0
 
   // Get most recent test result with real data
   const recentTest = drugScreenResults[0]
@@ -161,6 +165,7 @@ export async function refetchClientDashboard(): Promise<ClientDashboardData> {
       compliantTests,
       complianceRate,
       activeMedications,
+      pendingTests,
     },
     nextAppointment: client.recurringAppointments?.isRecurring && client.recurringAppointments.nextAppointmentDate
       ? {
