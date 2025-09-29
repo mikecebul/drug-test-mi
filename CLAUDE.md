@@ -63,6 +63,57 @@ Pages are built using a flexible block system (`src/blocks/`):
 
 **Registration Flow**: Clients register so we have info of where durg test reports are sent. This needs to be improved to encourage registration before Calcom embed bookings.
 
+### Dashboard Architecture
+
+The client dashboard (`src/app/dashboard/`) uses a sophisticated async state management pattern combining Next.js server components, TanStack Query, and PayloadCMS.
+
+**Core Pattern**:
+1. Server components prefetch data and hydrate TanStack Query cache
+2. Client components use TanStack Query hooks for reactive data management
+3. Mutations trigger cache invalidation for automatic UI updates
+
+**Data Fetching Strategy**:
+- **Default approach**: Use Payload REST API (`/api/clients/me`, `/api/drug-tests`, etc.) for most operations
+- **Exception**: Use Next.js server actions when admin-level access is required
+  - Example: Adding medications requires setting `createdAt` timestamp, which clients cannot modify directly
+  - Server actions use `overrideAccess: true` to bypass access controls securely
+  - See `src/app/dashboard/medications/actions.ts` for medication CRUD operations
+
+**Implementation Pattern** (see `src/app/dashboard/page.tsx`):
+```typescript
+// Server Component: Prefetch data
+export default async function DashboardPage() {
+  const queryClient = getQueryClient()
+  await queryClient.prefetchQuery({
+    queryKey: ['clientDashboard'],
+    queryFn: refetchClientDashboard, // Shared function
+  })
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <DashboardClient /> {/* Client component */}
+    </HydrationBoundary>
+  )
+}
+
+// Client Component: Use query hook
+function DashboardClient() {
+  const { data } = useClientDashboard() // Same query key & function
+  // Component is reactive to data changes
+}
+```
+
+**Current Dashboard Pages**:
+- `src/app/dashboard/results/` - Drug test results with filtering (REST API)
+- `src/app/dashboard/medications/` - Medication management (Server Actions for mutations, Query for reads)
+- `src/app/dashboard/profile/` - User profile editing (REST API)
+- `src/app/dashboard/appointments/` - Upcoming feature for recurring appointments (see TODO.md)
+
+**Key Considerations**:
+- All mutations must invalidate relevant queries: `queryClient.invalidateQueries({ queryKey: ['clientDashboard'] })`
+- Server actions provide security for privileged operations while maintaining client-side UX
+- The pattern may evolve as recurring appointments and billing features are added
+- **Testing is critical**: The complexity of Payload REST API + server actions + server components + TanStack Query requires comprehensive test coverage (currently lacking)
+
 ## Environment Requirements
 
 - Node.js ^18.20.2 || >=20.9.0
