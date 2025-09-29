@@ -33,7 +33,7 @@ export const addMedicationSchema = z.object({
 
 // Update medication schema with cross-field validation
 export const updateMedicationSchema = z.object({
-  status: z.enum(['active', 'discontinued', 'hold']),
+  status: z.enum(['active', 'discontinued']),
   endDate: z.union([
     z.date(),
     z.string(),

@@ -2,10 +2,16 @@ import type { Medication } from '../types'
 
 /**
  * Check if a medication is less than a week old and can be edited/deleted
+ * Discontinued medications cannot be edited to maintain history integrity
  */
 export function isMedicationEditable(medication: Medication): boolean {
   if (!medication.createdAt) {
     // If no createdAt, assume it's an old medication that can't be edited
+    return false
+  }
+
+  // Discontinued medications are locked to preserve history
+  if (medication.status === 'discontinued') {
     return false
   }
 
@@ -49,4 +55,18 @@ export function getMedicationAgeDescription(medication: Medication): string {
   if (months === 1) return 'Added 1 month ago'
 
   return `Added ${months} months ago`
+}
+
+/**
+ * Check if a medication's status can be updated
+ * Only active medications can be discontinued, discontinued medications are locked
+ */
+export function canUpdateMedicationStatus(medication: Medication): boolean {
+  // Discontinued medications cannot have their status changed
+  if (medication.status === 'discontinued') {
+    return false
+  }
+
+  // Active medications can only be discontinued (within the week limit if applicable)
+  return medication.status === 'active' && isMedicationEditable(medication)
 }

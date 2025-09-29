@@ -60,7 +60,7 @@ export function UpdateMedicationStatusDialog({
             <form.AppField
               name="status"
               validators={{
-                onChange: z.enum(['active', 'discontinued', 'hold']),
+                onChange: z.enum(['active', 'discontinued']),
               }}
             >
               {(formField) => (

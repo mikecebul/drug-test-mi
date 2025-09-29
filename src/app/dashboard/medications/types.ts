@@ -19,7 +19,6 @@ export type UpdateMedicationForm = {
 export const MEDICATION_STATUS_OPTIONS = [
   { label: 'Active', value: 'active' },
   { label: 'Discontinued', value: 'discontinued' },
-  { label: 'Temporary Hold', value: 'hold' },
 ]
 
 // Re-export drug test substances for use in components

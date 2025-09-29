@@ -35,7 +35,7 @@ import { MedicationsSkeleton } from "@/components/MedicationsSkeleton"
 import { AddMedicationDialog, UpdateMedicationStatusDialog } from "./components"
 import { EditMedicationDialog } from "./components/EditMedicationDialog"
 import type { Medication, MedicationStatus } from "./types"
-import { isMedicationEditable, getMedicationAgeDescription } from "./utils/medicationUtils"
+import { isMedicationEditable, getMedicationAgeDescription, canUpdateMedicationStatus } from "./utils/medicationUtils"
 import { toast } from "sonner"
 import { useQueryClient } from "@tanstack/react-query"
 import { deleteMedicationAction } from "./actions"
@@ -46,8 +46,6 @@ const getStatusBadgeVariant = (status: MedicationStatus) => {
       return "default"
     case "discontinued":
       return "secondary"
-    case "hold":
-      return "outline"
     default:
       return "outline"
   }
@@ -59,8 +57,6 @@ const getStatusIcon = (status: MedicationStatus) => {
       return <CheckCircle className="w-4 h-4" />
     case "discontinued":
       return <Clock className="w-4 h-4" />
-    case "hold":
-      return <AlertCircle className="w-4 h-4" />
     default:
       return <Clock className="w-4 h-4" />
   }
@@ -189,26 +185,57 @@ export default function MedicationsPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            toast.info('Contact support for changes: (231) 373-6341 or mike@midrugtest.com')
+                            if (medication.status === 'discontinued') {
+                              toast.info('Discontinued medications cannot be modified to preserve history integrity')
+                            } else {
+                              toast.info('Contact support for changes: (231) 373-6341 or mike@midrugtest.com')
+                            }
                           }}
-                          title="Contact support for changes"
+                          title={
+                            medication.status === 'discontinued'
+                              ? 'Discontinued medications are locked'
+                              : 'Contact support for changes'
+                          }
                           className="text-blue-600 hover:text-blue-700"
                         >
                           <Lock className="w-4 h-4" />
                         </Button>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedMedication(medication)
-                          setSelectedMedicationIndex(index)
-                          setShowEditDialog(true)
-                        }}
-                        title="Update status"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                      </Button>
+                      {canUpdateMedicationStatus(medication) ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedMedication(medication)
+                            setSelectedMedicationIndex(index)
+                            setShowEditDialog(true)
+                          }}
+                          title="Update status"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (medication.status === 'discontinued') {
+                              toast.info('Discontinued medications cannot have their status changed')
+                            } else {
+                              toast.info('Status can only be updated within 7 days of adding medication')
+                            }
+                          }}
+                          title={
+                            medication.status === 'discontinued'
+                              ? 'Status locked'
+                              : 'Status update period expired'
+                          }
+                          className="text-gray-400 hover:text-gray-500"
+                          disabled
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
@@ -240,11 +267,19 @@ export default function MedicationsPage() {
                       <p className={`font-medium text-xs ${
                         isMedicationEditable(medication)
                           ? 'text-green-600'
+                          : medication.status === 'discontinued'
+                          ? 'text-orange-600'
                           : 'text-muted-foreground'
                       }`}>
                         {getMedicationAgeDescription(medication)}
                         {isMedicationEditable(medication) && (
                           <span className="block text-green-600">• Editable</span>
+                        )}
+                        {medication.status === 'discontinued' && (
+                          <span className="block text-orange-600">• Locked (Discontinued)</span>
+                        )}
+                        {!isMedicationEditable(medication) && medication.status !== 'discontinued' && (
+                          <span className="block text-muted-foreground">• Contact Support</span>
                         )}
                       </p>
                     </div>
@@ -333,6 +368,12 @@ export default function MedicationsPage() {
                 <p>
                   <strong>Editing:</strong> You can edit or delete medications for up to 7 days after adding them.
                   For changes to older medications, contact support: (231) 373-6341 or mike@midrugtest.com
+                </p>
+              </div>
+              <div className="flex items-start space-x-2">
+                <AlertCircle className="w-4 h-4 text-orange-500 mt-0.5" />
+                <p>
+                  <strong>Discontinuation:</strong> Once a medication is marked as discontinued, it cannot be modified or deleted to preserve history integrity. If you resume taking the same medication later, add it as a new entry.
                 </p>
               </div>
             </div>

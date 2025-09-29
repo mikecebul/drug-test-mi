@@ -7,7 +7,7 @@ import { headers } from 'next/headers'
 export async function addMedicationAction(data: {
   medicationName: string
   startDate: Date
-  status?: 'active' | 'discontinued' | 'hold'
+  status?: 'active' | 'discontinued'
   detectedAs?: string
 }) {
   const payload = await getPayload({ config: configPromise })
@@ -64,7 +64,7 @@ export async function addMedicationAction(data: {
 
 export async function updateMedicationAction(data: {
   medicationIndex: number
-  status: 'active' | 'discontinued' | 'hold'
+  status: 'active' | 'discontinued'
   endDate?: string | Date
 }) {
   const payload = await getPayload({ config: configPromise })
@@ -92,6 +92,11 @@ export async function updateMedicationAction(data: {
     // Update the specific medication
     const updatedMedications = [...currentMedications]
     const originalMedication = updatedMedications[data.medicationIndex]
+
+    // Prevent changes to discontinued medications
+    if (originalMedication.status === 'discontinued') {
+      throw new Error('Discontinued medications cannot be modified to preserve history integrity')
+    }
 
     const updatedMedication = {
       ...originalMedication,
@@ -168,6 +173,13 @@ export async function deleteMedicationAction(data: {
 
     if (data.medicationIndex < 0 || data.medicationIndex >= currentMedications.length) {
       throw new Error('Invalid medication index')
+    }
+
+    const medicationToDelete = currentMedications[data.medicationIndex]
+
+    // Prevent deletion of discontinued medications to preserve history
+    if (medicationToDelete.status === 'discontinued') {
+      throw new Error('Discontinued medications cannot be deleted to preserve history integrity')
     }
 
     // Remove the medication at the specified index

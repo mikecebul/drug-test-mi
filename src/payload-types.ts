@@ -1019,9 +1019,9 @@ export interface Client {
          */
         endDate?: string | null;
         /**
-         * Current status of this medication
+         * Current status of this medication. If you need to resume a discontinued medication, add it as a new entry to maintain proper history.
          */
-        status: 'active' | 'discontinued' | 'hold';
+        status: 'active' | 'discontinued';
         /**
          * What substance this medication shows as in drug tests (e.g., "Amphetamine", "Benzodiazepine")
          */

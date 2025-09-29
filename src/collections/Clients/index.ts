@@ -374,10 +374,9 @@ export const Clients: CollectionConfig = {
           options: [
             { label: 'Active', value: 'active' },
             { label: 'Discontinued', value: 'discontinued' },
-            { label: 'Temporary Hold', value: 'hold' },
           ],
           admin: {
-            description: 'Current status of this medication',
+            description: 'Current status of this medication. If you need to resume a discontinued medication, add it as a new entry to maintain proper history.',
           },
         },
         {
