@@ -43,7 +43,7 @@ export function DashboardTechnicianDetail({ technician }: DashboardTechnicianDet
       const params = new URLSearchParams(searchParams.toString())
       params.delete('from') // Remove the 'from' parameter
 
-      const scheduleUrl = `/dashboard/schedule${params.toString() ? `?${params.toString()}` : ''}`
+      const scheduleUrl = `/dashboard/technicians${params.toString() ? `?${params.toString()}` : ''}`
 
       return {
         href: scheduleUrl,

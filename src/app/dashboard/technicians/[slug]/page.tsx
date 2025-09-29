@@ -45,7 +45,7 @@ async function getTechnicianData(slug: string) {
   const { user } = await payload.auth({ headers: headersList })
 
   if (!user) {
-    redirect('/sign-in?redirect=/dashboard/schedule/technicians/' + slug)
+    redirect('/sign-in?redirect=/dashboard/technicians/' + slug)
   }
 
   if (user.collection !== 'clients') {

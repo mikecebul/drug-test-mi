@@ -1,16 +1,16 @@
-"use client"
+'use client'
 
-import { PlusCircleIcon, type LucideIcon } from "lucide-react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { PlusCircleIcon, type LucideIcon } from 'lucide-react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import { isActiveRoute } from "@/utilities/isActiveRoute"
+} from '@/components/ui/sidebar'
+import { isActiveRoute } from '@/utilities/isActiveRoute'
 
 export function NavMain({
   items,
@@ -30,15 +30,14 @@ export function NavMain({
           <SidebarMenuItem className="flex items-center gap-2">
             <SidebarMenuButton
               tooltip="Quick Booking"
-              className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground min-w-8 duration-200 ease-linear"
               asChild
             >
-              <Link href="/dashboard/schedule">
+              <Link href="/dashboard/technicians">
                 <PlusCircleIcon />
                 <span>Quick Booking</span>
               </Link>
             </SidebarMenuButton>
-            
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarMenu>

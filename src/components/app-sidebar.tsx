@@ -3,29 +3,20 @@
 import * as React from "react"
 import Link from "next/link"
 import {
-  ArrowUpCircleIcon,
-  BarChartIcon,
-  CameraIcon,
+  ClipboardList,
   ClipboardListIcon,
   DatabaseIcon,
-  FileCodeIcon,
   FileIcon,
-  FileTextIcon,
   FlaskConical,
-  FolderIcon,
-  HelpCircleIcon,
   LayoutDashboardIcon,
-  ListIcon,
-  SearchIcon,
-  SettingsIcon,
+  PillBottle,
+  UserPen,
   UsersIcon,
 } from "lucide-react"
 
-import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
-import { ClientLogoutButton } from "@/components/ClientLogoutButton"
 import {
   Sidebar,
   SidebarContent,
@@ -44,14 +35,19 @@ const data = {
       icon: LayoutDashboardIcon,
     },
     {
+      title: "Technicians",
+      url: "/dashboard/technicians",
+      icon: UsersIcon,
+    },
+    {
       title: "Test Results",
       url: "/dashboard/results",
-      icon: ClipboardListIcon,
+      icon: ClipboardList,
     },
     {
       title: "Medications",
       url: "/dashboard/medications",
-      icon: FileIcon,
+      icon: PillBottle,
     },
     // TODO: Implement appointments page with real data
     // {
@@ -62,7 +58,7 @@ const data = {
     {
       title: "Profile",
       url: "/dashboard/profile",
-      icon: UsersIcon,
+      icon: UserPen,
     },
   ],
   navSecondary: [

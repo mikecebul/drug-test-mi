@@ -12,7 +12,7 @@ async function getScheduleData() {
   const { user } = await payload.auth({ headers: headersList })
 
   if (!user) {
-    redirect('/sign-in?redirect=/dashboard/schedule')
+    redirect('/sign-in?redirect=/dashboard/technicians')
   }
 
   if (user.collection !== 'clients') {
@@ -62,6 +62,6 @@ export default async function SchedulePage() {
     )
   } catch (error) {
     // Handle access denied or other errors
-    redirect('/sign-in?redirect=/dashboard/schedule')
+    redirect('/sign-in?redirect=/dashboard/technicians')
   }
 }
