@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -9,10 +9,10 @@ import {
   getSortedRowModel,
   flexRender,
   ColumnDef,
+  ColumnFiltersState,
 } from '@tanstack/react-table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   Table,
   TableBody,
@@ -22,13 +22,16 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { FileText, AlertCircle, MessageSquare } from 'lucide-react'
+import { FileText, AlertCircle, X, Filter } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { DrugTest, PrivateMedia } from '@/payload-types'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-// Removed unused pagination and popover imports to reduce bundle size
+import { useQuery } from '@tanstack/react-query'
 import { CheckCircle, Circle, Clock, Truck, FlaskConical, FileCheck } from 'lucide-react'
 import { ResultsSkeleton } from '@/components/ResultsSkeleton'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DateRangePicker } from '@/components/date-range-picker'
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'
+import { type DateRange } from 'react-day-picker'
 
 type DrugTestResult = DrugTest & {
   testDocument?: PrivateMedia
@@ -44,16 +47,12 @@ interface CustodyStep {
 
 // Generate chain of custody steps based on test data
 function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
-  const isLabTest = result.testType === '11-panel-lab'
-  const isInstantTest = result.testType === '15-panel-instant'
-
   // Use new workflow fields
   const hasInitialResult = result.initialScreenResult
   const confirmationDecision = result.confirmationDecision
   const isConfirmationRequested = confirmationDecision === 'request-confirmation'
   const confirmationStatus = result.confirmationStatus
   const isConfirmed = confirmationStatus && confirmationStatus !== 'pending-confirmation'
-  const isComplete = result.isComplete
 
   // Simplified workflow for both lab and instant tests
   const baseSteps = [
@@ -159,7 +158,6 @@ function formatTestResult(testData: DrugTestResult): { result: string; substance
   const confirmationDecision = testData.confirmationDecision
   const confirmationStatus = testData.confirmationStatus
   const presumptivePositive = testData.presumptivePositive
-  const isDilute = testData.isDilute
   const isComplete = testData.isComplete
 
   if (!initialResult) return { result: 'Pending' }
@@ -255,9 +253,12 @@ const getResultBadgeVariant = (result: string) => {
 }
 
 export default function TestResultsPage() {
-  const [globalFilter, setGlobalFilter] = useState('')
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [dateRange, setDateRange] = useState<DateRange | undefined>()
+  const [resultFilter, setResultFilter] = useState<string>('')
+  const [testTypeFilter, setTestTypeFilter] = useState<string>('')
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false)
   const { user } = useAuth()
-  const queryClient = useQueryClient()
 
   const {
     data: testResults,
@@ -283,10 +284,62 @@ export default function TestResultsPage() {
     refetchOnWindowFocus: false,
   })
 
-  const data = useMemo(() => {
+  // Custom filter functions
+  const filteredData = useMemo(() => {
     if (!testResults || !Array.isArray(testResults)) return []
-    return testResults.filter((result) => result && typeof result === 'object')
-  }, [testResults])
+
+    let filtered = testResults.filter((result) => result && typeof result === 'object')
+
+    // Apply date filter
+    if (dateRange?.from || dateRange?.to) {
+      filtered = filtered.filter((result) => {
+        const resultDate = new Date(result.collectionDate || result.createdAt)
+        // Reset time to start of day for accurate comparison
+        const resultDateOnly = new Date(resultDate.getFullYear(), resultDate.getMonth(), resultDate.getDate())
+
+        if (dateRange.from) {
+          const fromDateOnly = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate())
+          if (resultDateOnly < fromDateOnly) return false
+        }
+
+        if (dateRange.to) {
+          const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate())
+          if (resultDateOnly > toDateOnly) return false
+        }
+
+        return true
+      })
+    }
+
+    // Apply result filter
+    if (resultFilter && resultFilter !== 'all') {
+      filtered = filtered.filter((result) => {
+        const { result: formattedResult } = formatTestResult(result)
+
+        switch (resultFilter) {
+          case 'negative':
+            return formattedResult.toLowerCase().includes('negative')
+          case 'positive-expected':
+            return formattedResult.toLowerCase().includes('positive') && formattedResult.toLowerCase().includes('expected')
+          case 'positive-unexpected':
+            return formattedResult.toLowerCase().includes('positive') && !formattedResult.toLowerCase().includes('expected')
+          case 'pending':
+            return formattedResult.toLowerCase().includes('pending')
+          case 'inconclusive':
+            return formattedResult.toLowerCase().includes('inconclusive')
+          default:
+            return true
+        }
+      })
+    }
+
+    // Apply test type filter
+    if (testTypeFilter && testTypeFilter !== 'all') {
+      filtered = filtered.filter((result) => result.testType === testTypeFilter)
+    }
+
+    return filtered
+  }, [testResults, dateRange, resultFilter, testTypeFilter])
 
   const columns: ColumnDef<DrugTestResult, any>[] = useMemo(
     () => [
@@ -426,16 +479,16 @@ export default function TestResultsPage() {
   ) // Empty dependency array since columns are static
 
   const table = useReactTable({
-    data,
+    data: filteredData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     state: {
-      globalFilter,
+      columnFilters,
     },
-    onGlobalFilterChange: setGlobalFilter,
+    onColumnFiltersChange: setColumnFilters,
     initialState: {
       pagination: {
         pageSize: 10,
@@ -495,13 +548,241 @@ export default function TestResultsPage() {
             <CardDescription>Complete history of your drug screening results</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center py-4">
-              <Input
-                placeholder="Search results..."
-                value={globalFilter ?? ''}
-                onChange={(event) => setGlobalFilter(String(event.target.value))}
-                className="max-w-sm"
-              />
+            {/* Enhanced Filtering Interface */}
+            <div className="py-4">
+              {/* Desktop Filters */}
+              <div className="hidden md:block space-y-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  {/* Date Range Filter */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Date Range:</span>
+                    <DateRangePicker
+                      value={dateRange}
+                      onChange={setDateRange}
+                      placeholder="Select date range"
+                      className="w-[240px]"
+                    />
+                  </div>
+
+                  {/* Result Status Filter */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Result:</span>
+                    <Select value={resultFilter} onValueChange={setResultFilter}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="All results" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Results</SelectItem>
+                        <SelectItem value="negative">Negative</SelectItem>
+                        <SelectItem value="positive-expected">Positive (Expected)</SelectItem>
+                        <SelectItem value="positive-unexpected">Positive (Unexpected)</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="inconclusive">Inconclusive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Test Type Filter */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Test Type:</span>
+                    <Select value={testTypeFilter} onValueChange={setTestTypeFilter}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="All types" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="11-panel-lab">11-Panel Lab</SelectItem>
+                        <SelectItem value="15-panel-instant">15-Panel Instant</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Clear Filters Button */}
+                  {(dateRange?.from || dateRange?.to || resultFilter || testTypeFilter) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setDateRange(undefined)
+                        setResultFilter('')
+                        setTestTypeFilter('')
+                      }}
+                      className="ml-2"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Clear Filters
+                    </Button>
+                  )}
+                </div>
+
+                {/* Quick Date Presets */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Quick filters:</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date()
+                      const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+                      setDateRange({ from: sevenDaysAgo, to: today })
+                    }}
+                  >
+                    Last 7 days
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date()
+                      const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+                      setDateRange({ from: thirtyDaysAgo, to: today })
+                    }}
+                  >
+                    Last 30 days
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date()
+                      const sixMonthsAgo = new Date(today.getTime() - 6 * 30 * 24 * 60 * 60 * 1000)
+                      setDateRange({ from: sixMonthsAgo, to: today })
+                    }}
+                  >
+                    Last 6 months
+                  </Button>
+                </div>
+              </div>
+
+              {/* Mobile Filter Drawer */}
+              <div className="md:hidden">
+                <Drawer open={isFilterDrawerOpen} onOpenChange={setIsFilterDrawerOpen}>
+                  <DrawerTrigger asChild>
+                    <Button variant="outline" className="w-full">
+                      <Filter className="h-4 w-4 mr-2" />
+                      Filters
+                      {(dateRange?.from || dateRange?.to || resultFilter || testTypeFilter) && (
+                        <span className="ml-2 bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
+                          Active
+                        </span>
+                      )}
+                    </Button>
+                  </DrawerTrigger>
+                  <DrawerContent>
+                    <DrawerHeader>
+                      <DrawerTitle>Filter Results</DrawerTitle>
+                      <DrawerDescription>
+                        Refine your test results by date, result type, or test type.
+                      </DrawerDescription>
+                    </DrawerHeader>
+                    <div className="px-4 pb-4 space-y-6">
+                      {/* Date Range Filter */}
+                      <div className="space-y-2">
+                        <span className="text-sm font-medium">Date Range</span>
+                        <DateRangePicker
+                          value={dateRange}
+                          onChange={setDateRange}
+                          placeholder="Select date range"
+                          className="w-full"
+                        />
+                      </div>
+
+                      {/* Quick Date Presets */}
+                      <div className="space-y-2">
+                        <span className="text-sm font-medium">Quick Presets</span>
+                        <div className="grid grid-cols-1 gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const today = new Date()
+                              const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+                              setDateRange({ from: sevenDaysAgo, to: today })
+                            }}
+                            className="justify-start"
+                          >
+                            Last 7 days
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const today = new Date()
+                              const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+                              setDateRange({ from: thirtyDaysAgo, to: today })
+                            }}
+                            className="justify-start"
+                          >
+                            Last 30 days
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const today = new Date()
+                              const sixMonthsAgo = new Date(today.getTime() - 6 * 30 * 24 * 60 * 60 * 1000)
+                              setDateRange({ from: sixMonthsAgo, to: today })
+                            }}
+                            className="justify-start"
+                          >
+                            Last 6 months
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Result Status Filter */}
+                      <div className="space-y-2">
+                        <span className="text-sm font-medium">Result Status</span>
+                        <Select value={resultFilter} onValueChange={setResultFilter}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="All results" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Results</SelectItem>
+                            <SelectItem value="negative">Negative</SelectItem>
+                            <SelectItem value="positive-expected">Positive (Expected)</SelectItem>
+                            <SelectItem value="positive-unexpected">Positive (Unexpected)</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="inconclusive">Inconclusive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Test Type Filter */}
+                      <div className="space-y-2">
+                        <span className="text-sm font-medium">Test Type</span>
+                        <Select value={testTypeFilter} onValueChange={setTestTypeFilter}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="All types" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Types</SelectItem>
+                            <SelectItem value="11-panel-lab">11-Panel Lab</SelectItem>
+                            <SelectItem value="15-panel-instant">15-Panel Instant</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Clear Filters Button */}
+                      {(dateRange?.from || dateRange?.to || resultFilter || testTypeFilter) && (
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => {
+                            setDateRange(undefined)
+                            setResultFilter('')
+                            setTestTypeFilter('')
+                            setIsFilterDrawerOpen(false)
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Clear All Filters
+                        </Button>
+                      )}
+                    </div>
+                  </DrawerContent>
+                </Drawer>
+              </div>
             </div>
             <div className="rounded-md border">
               <Table>
@@ -549,9 +830,9 @@ export default function TestResultsPage() {
                 {Math.min(
                   (table.getState().pagination.pageIndex + 1) *
                     table.getState().pagination.pageSize,
-                  table.getFilteredRowModel().rows.length,
+                  filteredData.length,
                 )}{' '}
-                of {table.getFilteredRowModel().rows.length} results
+                of {filteredData.length} results
               </div>
               <div className="flex items-center space-x-2">
                 <Button
