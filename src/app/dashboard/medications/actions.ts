@@ -38,7 +38,7 @@ export async function addMedicationAction(data: {
     }
 
     // Update the client with the new medication using local API (bypasses access controls)
-    const updatedClient = await payload.update({
+    await payload.update({
       collection: 'clients',
       id: user.id,
       data: {
@@ -91,16 +91,37 @@ export async function updateMedicationAction(data: {
 
     // Update the specific medication
     const updatedMedications = [...currentMedications]
-    updatedMedications[data.medicationIndex] = {
-      ...updatedMedications[data.medicationIndex],
+    const originalMedication = updatedMedications[data.medicationIndex]
+
+    const updatedMedication = {
+      ...originalMedication,
       status: data.status,
-      ...(data.status === 'discontinued' && data.endDate && {
-        endDate: typeof data.endDate === 'string' ? data.endDate : data.endDate.toISOString()
-      }),
     }
 
+    // Handle endDate for discontinued medications
+    if (data.status === 'discontinued' && data.endDate) {
+      try {
+        if (typeof data.endDate === 'string') {
+          const trimmedDate = data.endDate.trim()
+          if (trimmedDate) {
+            updatedMedication.endDate = trimmedDate
+          }
+        } else {
+          // data.endDate is a Date object
+          updatedMedication.endDate = data.endDate.toISOString()
+        }
+      } catch (dateError) {
+        throw new Error('Invalid end date format')
+      }
+    } else if (data.status !== 'discontinued') {
+      // Remove endDate if status is not discontinued
+      delete updatedMedication.endDate
+    }
+
+    updatedMedications[data.medicationIndex] = updatedMedication
+
     // Update the client using local API (bypasses access controls)
-    const updatedClient = await payload.update({
+    await payload.update({
       collection: 'clients',
       id: user.id,
       data: {
@@ -153,7 +174,7 @@ export async function deleteMedicationAction(data: {
     const updatedMedications = currentMedications.filter((_, index) => index !== data.medicationIndex)
 
     // Update the client using local API (bypasses access controls)
-    const updatedClient = await payload.update({
+    await payload.update({
       collection: 'clients',
       id: user.id,
       data: {

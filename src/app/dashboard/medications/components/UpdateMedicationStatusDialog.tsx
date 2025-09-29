@@ -16,7 +16,7 @@ import type { Medication } from '../types'
 import type { Dispatch, SetStateAction } from 'react'
 import { MEDICATION_STATUS_OPTIONS } from '../types'
 
-interface UpdateMedicationDialogProps {
+interface UpdateMedicationStatusDialogProps {
   showDialog: boolean
   setShowDialog: Dispatch<SetStateAction<boolean>>
   selectedMedication: Medication | null
@@ -24,13 +24,13 @@ interface UpdateMedicationDialogProps {
   selectedMedicationIndex: number
 }
 
-export function UpdateMedicationDialog({
+export function UpdateMedicationStatusDialog({
   showDialog,
   setShowDialog,
   selectedMedication,
   setSelectedMedication,
   selectedMedicationIndex,
-}: UpdateMedicationDialogProps) {
+}: UpdateMedicationStatusDialogProps) {
   const formOpts = useUpdateMedicationFormOpts({
     setShowDialog,
     setSelectedMedication,

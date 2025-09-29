@@ -13,10 +13,8 @@ import { useAppForm } from '@/blocks/Form/hooks/form'
 import { z } from 'zod'
 import type { Medication } from '../types'
 import type { Dispatch, SetStateAction } from 'react'
-import { toast } from 'sonner'
-import { useQueryClient } from '@tanstack/react-query'
-import { formOptions } from '@tanstack/react-form'
 import { DRUG_TEST_SUBSTANCES } from '../types'
+import { useEditMedicationFormOpts } from '../hooks/use-edit-medication-form-opts'
 
 interface EditMedicationDialogProps {
   showDialog: boolean
@@ -31,46 +29,10 @@ export function EditMedicationDialog({
   selectedMedication,
   selectedMedicationIndex,
 }: EditMedicationDialogProps) {
-  const queryClient = useQueryClient()
-
-  const formOpts = formOptions({
-    defaultValues: {
-      medicationName: selectedMedication?.medicationName || '',
-      detectedAs: selectedMedication?.detectedAs || '',
-      startDate: selectedMedication?.startDate || '',
-    },
-    onSubmit: async ({ value: data, formApi }) => {
-      try {
-        const response = await fetch('/api/clients/medications', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            medicationIndex: selectedMedicationIndex,
-            updateType: 'details',
-            medicationName: data.medicationName,
-            startDate: data.startDate,
-            detectedAs: data.detectedAs,
-          }),
-        })
-
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.message || 'Failed to update medication')
-        }
-
-        // Refresh dashboard data
-        queryClient.invalidateQueries({ queryKey: ['clientDashboard'] })
-        setShowDialog(false)
-        formApi.reset()
-        toast.success('Medication updated successfully!')
-      } catch (error) {
-        console.error('Error updating medication:', error)
-        toast.error(
-          error instanceof Error ? error.message : 'Updating medication failed. Please try again.',
-        )
-      }
-    },
+  const formOpts = useEditMedicationFormOpts({
+    setShowDialog,
+    selectedMedicationIndex,
+    selectedMedication,
   })
 
   const form = useAppForm(formOpts)

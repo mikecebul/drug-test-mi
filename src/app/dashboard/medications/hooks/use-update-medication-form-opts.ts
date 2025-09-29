@@ -37,7 +37,7 @@ export const useUpdateMedicationFormOpts = ({
         const result = await updateMedicationAction({
           medicationIndex: selectedMedicationIndex,
           status: data.status,
-          endDate: data.status === 'discontinued' ? data.endDate : undefined,
+          endDate: data.status === 'discontinued' && data.endDate && (typeof data.endDate === 'string' ? data.endDate.trim() !== '' : true) ? data.endDate : undefined,
         })
 
         if (!result.success) {

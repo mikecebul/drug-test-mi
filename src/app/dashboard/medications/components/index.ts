@@ -1,3 +1,3 @@
 export { AddMedicationDialog } from './AddMedicationDialog'
-export { UpdateMedicationDialog } from './UpdateMedicationDialog'
+export { UpdateMedicationStatusDialog } from './UpdateMedicationStatusDialog'
 export { EditMedicationDialog } from './EditMedicationDialog'

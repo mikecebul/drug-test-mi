@@ -32,7 +32,7 @@ import {
 } from "lucide-react"
 import { useClientDashboard } from "@/hooks/useClientDashboard"
 import { MedicationsSkeleton } from "@/components/MedicationsSkeleton"
-import { AddMedicationDialog, UpdateMedicationDialog } from "./components"
+import { AddMedicationDialog, UpdateMedicationStatusDialog } from "./components"
 import { EditMedicationDialog } from "./components/EditMedicationDialog"
 import type { Medication, MedicationStatus } from "./types"
 import { isMedicationEditable, getMedicationAgeDescription } from "./utils/medicationUtils"
@@ -256,7 +256,7 @@ export default function MedicationsPage() {
         </div>
       </div>
 
-      <UpdateMedicationDialog
+      <UpdateMedicationStatusDialog
         showDialog={showEditDialog}
         setShowDialog={setShowEditDialog}
         selectedMedication={selectedMedication}
