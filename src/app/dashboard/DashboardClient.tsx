@@ -63,7 +63,7 @@ const getDaysUntil = (dateString: string) => {
 
 export function DashboardClient() {
   // Data will be available from the prefetched query cache
-  const { data: dashboardData, error } = useClientDashboard()
+  const { data: dashboardData, isLoading, error } = useClientDashboard()
 
   // Show error state
   if (error) {
@@ -91,12 +91,11 @@ export function DashboardClient() {
 
   // Since data is prefetched on the server, it should be immediately available
   // If not available, show skeleton to maintain consistent UI
-  if (!dashboardData) {
+  if (isLoading || !dashboardData) {
     return <DashboardSkeleton />
   }
 
-  const { user, stats, nextAppointment, recentTest, recurringSubscription } = dashboardData
-
+  const { user, stats, nextAppointment, recentTest, recurringSubscription } = dashboardData 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <div className="px-4 lg:px-6">

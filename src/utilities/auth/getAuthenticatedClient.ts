@@ -15,7 +15,7 @@ export async function getAuthenticatedClient(): Promise<Client> {
     redirect('/sign-in?redirect=/dashboard')
   }
 
-  if (user.collection !== 'clients') {
+  if (user.collection === 'admins') {
     redirect('/admin')
   }
 

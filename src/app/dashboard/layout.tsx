@@ -1,16 +1,15 @@
-import { DashboardSidebar } from '@/components/DashboardSidebar'
-import { Sidebar, SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { SiteHeader } from '@/components/site-header'
 import { GeistSans } from 'geist/font/sans'
 import { cn } from '@/utilities/cn'
 import { QueryProvider } from '@/providers/QueryProvider'
 import { Toaster } from '@/components/ui/sonner'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-import { getAuthenticatedClient } from '@/utilities/getAuthenticatedClient'
 import type { Metadata } from 'next'
 
 import './globals.css'
 import { AppSidebar } from '@/components/app-sidebar'
+import { requireClientAuth } from '@/utilities/auth/requireClientAuth'
 
 export const metadata: Metadata = {
   title: 'Client Dashboard - MI Drug Test',
@@ -26,7 +25,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Protect all dashboard routes by checking authentication here
   // This will redirect to sign-in if user is not authenticated
   // or redirect to admin if user is an admin
-  await getAuthenticatedClient()
+  await requireClientAuth()
 
   return (
     <html className={cn(GeistSans.variable)} lang="en" suppressHydrationWarning>
