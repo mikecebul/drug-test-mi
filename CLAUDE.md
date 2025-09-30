@@ -65,54 +65,65 @@ Pages are built using a flexible block system (`src/blocks/`):
 
 ### Dashboard Architecture
 
-The client dashboard (`src/app/dashboard/`) uses a sophisticated async state management pattern combining Next.js server components, TanStack Query, and PayloadCMS.
+The client dashboard (`src/app/dashboard/`) is transitioning from TanStack Query to a simpler Next.js server component pattern using Payload's local API.
 
-**Core Pattern**:
-1. Server components prefetch data and hydrate TanStack Query cache
-2. Client components use TanStack Query hooks for reactive data management
-3. Mutations trigger cache invalidation for automatic UI updates
+**🚧 Migration in Progress**: Moving away from TanStack Query due to hydration mismatches and unnecessary complexity for data that doesn't change frequently.
+
+**New Pattern (Preferred)**:
+1. Server components fetch data directly using Payload's local API (`getPayload()`)
+2. Data is computed and passed as props to client components
+3. Pages use `export const dynamic = 'force-dynamic'` to ensure fresh data on every request
+4. Server actions handle mutations with `revalidatePath()` for automatic updates
 
 **Data Fetching Strategy**:
-- **Default approach**: Use Payload REST API (`/api/clients/me`, `/api/drug-tests`, etc.) for most operations
-- **Exception**: Use Next.js server actions when admin-level access is required
+- **Default approach**: Use Payload local API in server components (`payload.find()`, `payload.findByID()`)
+- **When to use server actions**: For mutations requiring admin-level access or setting restricted fields
   - Example: Adding medications requires setting `createdAt` timestamp, which clients cannot modify directly
   - Server actions use `overrideAccess: true` to bypass access controls securely
   - See `src/app/dashboard/medications/actions.ts` for medication CRUD operations
 
 **Implementation Pattern** (see `src/app/dashboard/page.tsx`):
 ```typescript
-// Server Component: Prefetch data
+// Server Component: Fetch data directly
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardPage() {
-  const queryClient = getQueryClient()
-  await queryClient.prefetchQuery({
-    queryKey: ['clientDashboard'],
-    queryFn: refetchClientDashboard, // Shared function
+  const payload = await getPayload({ config })
+  const client = await getAuthenticatedClient()
+
+  // Fetch data using local API
+  const drugTestsResult = await payload.find({
+    collection: 'drug-tests',
+    where: { relatedClient: { equals: client.id } },
+    sort: '-collectionDate',
+    depth: 1,
   })
-  return (
-    <HydrationBoundary state={dehydrate(queryClient)}>
-      <DashboardClient /> {/* Client component */}
-    </HydrationBoundary>
-  )
+
+  // Compute dashboard data
+  const dashboardData = { /* ... */ }
+
+  return <DashboardView data={dashboardData} />
 }
 
-// Client Component: Use query hook
-function DashboardClient() {
-  const { data } = useClientDashboard() // Same query key & function
-  // Component is reactive to data changes
+// Client Component: Pure presentational
+function DashboardView({ data }: { data: DashboardData }) {
+  // Render UI with received data
 }
 ```
 
 **Current Dashboard Pages**:
-- `src/app/dashboard/results/` - Drug test results with filtering (REST API)
-- `src/app/dashboard/medications/` - Medication management (Server Actions for mutations, Query for reads)
-- `src/app/dashboard/profile/` - User profile editing (REST API)
+- `src/app/dashboard/` - Main dashboard ✅ **Migrated** (uses server components + local API)
+- `src/app/dashboard/results/` - Drug test results with filtering ⏳ **TODO: Migrate**
+- `src/app/dashboard/medications/` - Medication management ⏳ **TODO: Migrate** (Server Actions for mutations, TanStack Query for reads)
+- `src/app/dashboard/profile/` - User profile editing ⏳ **TODO: Migrate**
 - `src/app/dashboard/appointments/` - Upcoming feature for recurring appointments (see TODO.md)
 
 **Key Considerations**:
-- All mutations must invalidate relevant queries: `queryClient.invalidateQueries({ queryKey: ['clientDashboard'] })`
-- Server actions provide security for privileged operations while maintaining client-side UX
-- The pattern may evolve as recurring appointments and billing features are added
-- **Testing is critical**: The complexity of Payload REST API + server actions + server components + TanStack Query requires comprehensive test coverage (currently lacking)
+- Authentication is handled once in the layout (`requireClientAuth()`), child pages don't need to re-check
+- Use `getAuthenticatedClient()` utility to get the current client in server components
+- Server actions should call `revalidatePath('/dashboard')` after mutations to refresh data
+- The simplified pattern eliminates hydration issues and reduces bundle size
+- Data freshness is guaranteed with `force-dynamic` - no stale cache concerns
 
 ## Environment Requirements
 

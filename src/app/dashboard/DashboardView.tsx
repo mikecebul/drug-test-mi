@@ -22,7 +22,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 
-type DashboardData = {
+export type DashboardData = {
   user: {
     id: string
     name: string

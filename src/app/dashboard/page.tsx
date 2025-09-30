@@ -1,8 +1,6 @@
-import { DashboardView } from './DashboardView'
+import { DashboardData, DashboardView } from './DashboardView'
 import { getPayload } from 'payload'
 import config from '@payload-config'
-import { requireClientAuth } from '@/utilities/auth/requireClientAuth'
-import { headers } from 'next/headers'
 import type { Client, DrugTest } from '@/payload-types'
 import { getAuthenticatedClient } from '@/utilities/auth/getAuthenticatedClient'
 
@@ -108,7 +106,7 @@ export default async function DashboardPage() {
     : undefined
 
   // Build dashboard data
-  const dashboardData = {
+  const dashboardData: DashboardData = {
     user: {
       id: client.id,
       name: `${client.firstName} ${client.lastName}`,
