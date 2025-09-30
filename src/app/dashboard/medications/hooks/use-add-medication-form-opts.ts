@@ -2,7 +2,7 @@
 
 import { formOptions } from '@tanstack/react-form'
 import { toast } from 'sonner'
-import { useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import type { AddMedicationFormType } from '../schemas/medicationSchemas'
 import type { Dispatch, SetStateAction } from 'react'
 import { addMedicationAction } from '../actions'
@@ -18,7 +18,7 @@ export const useAddMedicationFormOpts = ({
 }: {
   setShowDialog: Dispatch<SetStateAction<boolean>>
 }) => {
-  const queryClient = useQueryClient()
+  const router = useRouter()
 
   return formOptions({
     defaultValues,
@@ -36,8 +36,8 @@ export const useAddMedicationFormOpts = ({
           throw new Error(result.error || 'Failed to add medication')
         }
 
-        // Refresh dashboard data
-        queryClient.invalidateQueries({ queryKey: ['clientDashboard'] })
+        // Refresh page data
+        router.refresh()
         setShowDialog(false)
         formApi.reset()
         toast.success('Medication added successfully!')

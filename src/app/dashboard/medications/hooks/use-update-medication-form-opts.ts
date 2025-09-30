@@ -2,7 +2,7 @@
 
 import { formOptions } from '@tanstack/react-form'
 import { toast } from 'sonner'
-import { useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import type { UpdateMedicationFormType } from '../schemas/medicationSchemas'
 import type { Dispatch, SetStateAction } from 'react'
 import type { Medication } from '../types'
@@ -24,7 +24,7 @@ export const useUpdateMedicationFormOpts = ({
   selectedMedicationIndex: number
   selectedMedication: Medication | null
 }) => {
-  const queryClient = useQueryClient()
+  const router = useRouter()
 
   return formOptions({
     defaultValues: {
@@ -44,8 +44,8 @@ export const useUpdateMedicationFormOpts = ({
           throw new Error(result.error || 'Failed to update medication')
         }
 
-        // Refresh dashboard data
-        queryClient.invalidateQueries({ queryKey: ['clientDashboard'] })
+        // Refresh page data
+        router.refresh()
         setShowDialog(false)
         setSelectedMedication(null)
         formApi.reset()

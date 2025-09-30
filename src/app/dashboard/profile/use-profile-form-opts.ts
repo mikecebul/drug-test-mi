@@ -1,7 +1,7 @@
 'use client'
 
 import { formOptions } from '@tanstack/react-form'
-import { useQueryClient, useMutation } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
 export type ProfileFormType = {
@@ -35,36 +35,7 @@ export const useProfileFormOpts = ({
 }: {
   user: any
 }) => {
-  const queryClient = useQueryClient()
-
-  // Create mutation for updating profile using Payload's built-in API
-  const updateProfileMutation = useMutation({
-    mutationFn: async (updateData: Partial<ProfileFormType>) => {
-      const response = await fetch(`/api/clients/${user.id}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updateData),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.errors?.[0]?.message || errorData.message || 'Failed to update profile')
-      }
-
-      return response.json()
-    },
-    onSuccess: () => {
-      // Invalidate and refetch user data to ensure consistency
-      queryClient.invalidateQueries({ queryKey: ['currentUser'] })
-      toast.success('Successfully updated profile.')
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Something went wrong. Please try again.')
-    },
-  })
+  const router = useRouter()
 
   return formOptions({
     defaultValues: {
@@ -80,7 +51,7 @@ export const useProfileFormOpts = ({
       employmentInfo: user?.employmentInfo || undefined,
       alternativeRecipient: user?.alternativeRecipient || undefined,
     } as ProfileFormType,
-    onSubmit: async ({ value: data, formApi: form }) => {
+    onSubmit: async ({ value: data }) => {
       if (!user) {
         toast.error('User not found')
         return
@@ -175,38 +146,24 @@ export const useProfileFormOpts = ({
           return
         }
 
-        // Use the mutation to update the profile
-        await new Promise((resolve, reject) => {
-          updateProfileMutation.mutate(updateData, {
-            onSuccess: async () => {
-              // Wait for query to refetch and get fresh user data
-              await queryClient.invalidateQueries({ queryKey: ['currentUser'] })
-              const freshUser = queryClient.getQueryData(['currentUser']) as any
-
-              // Reset the form with the fresh user data
-              const updatedDefaultValues = {
-                firstName: freshUser?.firstName || '',
-                lastName: freshUser?.lastName || '',
-                email: freshUser?.email || '',
-                confirmEmail: '',
-                phone: freshUser?.phone || '',
-                gender: freshUser?.gender || '',
-                dob: freshUser?.dob || '',
-                preferredContactMethod: freshUser?.preferredContactMethod || 'email',
-                courtInfo: freshUser?.courtInfo || undefined,
-                employmentInfo: freshUser?.employmentInfo || undefined,
-                alternativeRecipient: freshUser?.alternativeRecipient || undefined,
-              }
-
-              // Reset form to updated default values
-              form.reset(updatedDefaultValues)
-              resolve(undefined)
-            },
-            onError: (error) => {
-              reject(error)
-            }
-          })
+        // Update the profile using Payload's API
+        const response = await fetch(`/api/clients/${user.id}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updateData),
         })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.errors?.[0]?.message || errorData.message || 'Failed to update profile')
+        }
+
+        // Refresh the page to get fresh data
+        router.refresh()
+        toast.success('Successfully updated profile.')
       } catch (err) {
         console.error('Profile update error:', err)
         toast.error('Something went wrong. Please try again.')
