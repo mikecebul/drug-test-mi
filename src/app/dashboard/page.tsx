@@ -1,6 +1,8 @@
 import { DashboardClient } from './DashboardClient'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import { getQueryClient } from '@/lib/get-query-client'
+import { Suspense } from 'react'
+import { DashboardSkeleton } from '@/components/DashboardSkeleton'
 
 export default async function DashboardPage() {
   const queryClient = getQueryClient()
@@ -16,7 +18,9 @@ export default async function DashboardPage() {
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <DashboardClient />
+      <Suspense fallback={<DashboardSkeleton />}>
+        <DashboardClient />
+      </Suspense>
     </HydrationBoundary>
   )
 }
