@@ -4,7 +4,6 @@ import { formOptions } from '@tanstack/react-form'
 import { getClientSideURL } from '@/utilities/getURL'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { useAuthActions } from '@/hooks/useAuthActions'
 
 export type LoginFormType = {
   email: string
@@ -15,7 +14,6 @@ export const useSignInFormOpts = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect') || '/dashboard'
-  const { invalidateAuth } = useAuthActions()
 
   return formOptions({
     defaultValues: {
@@ -49,9 +47,8 @@ export const useSignInFormOpts = () => {
           return
         }
 
-        // Show success toast, invalidate auth, and redirect
+        // Show success toast and redirect
         toast.success('Logged in successfully!')
-        invalidateAuth() // This will refresh the auth state across the app
         router.push(redirectTo)
         form.reset()
       } catch (err) {
