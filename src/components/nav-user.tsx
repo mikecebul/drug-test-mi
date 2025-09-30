@@ -1,21 +1,16 @@
 'use client'
 
 import {
-  BellIcon,
-  CreditCardIcon,
   LogOutIcon,
   MoreVerticalIcon,
-  UserCircleIcon,
 } from 'lucide-react'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -25,55 +20,25 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar'
 import { ClientLogoutButton } from './ClientLogoutButton'
-import { useClientDashboard } from '@/hooks/useClientDashboard'
-import { Skeleton } from './ui/skeleton'
 import { getImageThumbnailUrl, getImageAlt } from '@/utilities/getImageUrl'
+import type { Client } from '@/payload-types'
 
-export function NavUser() {
+interface NavUserProps {
+  user: Client
+}
+
+export function NavUser({ user }: NavUserProps) {
   const { isMobile } = useSidebar()
-  const { data: dashboardData, isLoading } = useClientDashboard()
 
-  // console.log('Dashboard Data:', dashboardData?.user.)
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center gap-2 p-2">
-        <Skeleton className="h-8 w-8 rounded-full" />
-        <div className="flex-1 space-y-1">
-          <Skeleton className="h-3 w-24" />
-          <Skeleton className="h-2 w-32" />
-        </div>
-      </div>
-    )
-  }
-
-  if (!dashboardData?.user) {
-    return (
-      <div className="flex items-center gap-2 p-2">
-        <Avatar className="h-8 w-8">
-          <AvatarFallback>?</AvatarFallback>
-        </Avatar>
-        <div className="flex-1">
-          <p className="text-sm font-medium">Unknown User</p>
-          <p className="text-muted-foreground text-xs">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  const { user } = dashboardData
-  const initials = user.name
-    ? user.name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-    : '??'
+  const name = `${user.firstName} ${user.lastName}`
+  const initials = name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
 
   const avatarImageUrl = getImageThumbnailUrl(user.headshot)
   const avatarAlt = getImageAlt(user.headshot, 'profile')
-
-  // console.log('User Headshot:', user)
 
   return (
     <SidebarMenu>
@@ -94,7 +59,7 @@ export function NavUser() {
                 <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.name}</span>
+                <span className="truncate font-medium">{name}</span>
                 <span className="text-muted-foreground truncate text-xs">{user.email}</span>
               </div>
               <MoreVerticalIcon className="ml-auto size-4" />
@@ -118,7 +83,7 @@ export function NavUser() {
                   <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{user.name}</span>
+                  <span className="truncate font-medium">{name}</span>
                   <span className="text-muted-foreground truncate text-xs">{user.email}</span>
                 </div>
               </div>

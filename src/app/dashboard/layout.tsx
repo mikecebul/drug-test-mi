@@ -9,7 +9,7 @@ import type { Metadata } from 'next'
 
 import './globals.css'
 import { AppSidebar } from '@/components/app-sidebar'
-import { requireClientAuth } from '@/utilities/auth/requireClientAuth'
+import { getAuthenticatedClient } from '@/utilities/auth/getAuthenticatedClient'
 
 export const metadata: Metadata = {
   title: 'Client Dashboard - MI Drug Test',
@@ -21,19 +21,19 @@ export const metadata: Metadata = {
   },
 }
 
+// Force dynamic rendering for fresh data on every request
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  // Protect all dashboard routes by checking authentication here
-  // This will redirect to sign-in if user is not authenticated
-  // or redirect to admin if user is an admin
-  await requireClientAuth()
+  // Get authenticated client - this will redirect if not authenticated
+  const client = await getAuthenticatedClient()
 
   return (
     <html className={cn(GeistSans.variable)} lang="en" suppressHydrationWarning>
       <body className={cn('antialiased')} suppressHydrationWarning>
         <QueryProvider>
           <SidebarProvider>
-            {/* <DashboardSidebar variant="inset" /> */}
-            <AppSidebar variant="inset" />
+            <AppSidebar variant="inset" user={client} />
             <SidebarInset>
               <SiteHeader />
               <div className="flex flex-1 flex-col">
