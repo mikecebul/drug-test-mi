@@ -1,9 +1,12 @@
-import { headers } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { DashboardTechnicianDetail } from './DashboardTechnicianDetail'
 import { cache } from 'react'
+import { getAuthenticatedClient } from '@/utilities/auth/getAuthenticatedClient'
+
+// Force dynamic rendering for fresh data on every request
+export const dynamic = 'force-dynamic'
 
 type Args = {
   params: Promise<{
@@ -37,44 +40,24 @@ const queryTechnicianBySlug = cache(async ({ slug }: { slug: string }) => {
   return result.docs?.[0] || null
 })
 
-async function getTechnicianData(slug: string) {
-  const headersList = await headers()
-  const payload = await getPayload({ config })
-
-  // Get authenticated user
-  const { user } = await payload.auth({ headers: headersList })
-
-  if (!user) {
-    redirect('/sign-in?redirect=/dashboard/technicians/' + slug)
-  }
-
-  if (user.collection !== 'clients') {
-    redirect('/admin')
-  }
-
-  // Get technician data
-  const technician = await queryTechnicianBySlug({ slug })
-
-  if (!technician) {
-    return null
-  }
-
-  return {
-    technician,
-    user,
-  }
-}
-
 export default async function DashboardTechnicianPage({ params: paramsPromise }: Args) {
   try {
     const { slug } = await paramsPromise
-    const data = await getTechnicianData(slug)
+    const client = await getAuthenticatedClient()
 
-    if (!data) {
+    // Get technician data
+    const technician = await queryTechnicianBySlug({ slug })
+
+    if (!technician) {
       return notFound()
     }
 
-    return <DashboardTechnicianDetail technician={data.technician} />
+    const userData = {
+      name: `${client.firstName} ${client.lastName}`,
+      email: client.email,
+    }
+
+    return <DashboardTechnicianDetail technician={technician} userData={userData} />
   } catch (error) {
     redirect('/sign-in?redirect=/dashboard')
   }
