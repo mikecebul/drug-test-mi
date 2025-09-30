@@ -21,8 +21,39 @@ import {
   Shield,
 } from "lucide-react"
 import Link from "next/link"
-import { useClientDashboard } from "@/hooks/useClientDashboard"
-import { DashboardSkeleton } from "@/components/DashboardSkeleton"
+
+type DashboardData = {
+  user: {
+    id: string
+    name: string
+    email: string
+    clientType: string
+    isActive: boolean
+    headshot?: any
+  }
+  stats: {
+    totalTests: number
+    compliantTests: number
+    complianceRate: number
+    activeMedications: number
+    pendingTests: number
+  }
+  nextAppointment?: {
+    date: string
+    type: string
+  }
+  recentTest?: {
+    date: string
+    result: string
+    status: string
+  }
+  recurringSubscription?: {
+    isActive: boolean
+    frequency: string
+    nextBilling: string
+    status: string
+  }
+}
 
 const getResultBadgeVariant = (result: string) => {
   switch (result) {
@@ -61,41 +92,8 @@ const getDaysUntil = (dateString: string) => {
 }
 
 
-export function DashboardClient() {
-  // Data will be available from the prefetched query cache
-  const { data: dashboardData, isLoading, error } = useClientDashboard()
-
-  // Show error state
-  if (error) {
-    return (
-      <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-        <div className="px-4 lg:px-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-center space-y-4">
-                <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
-                <h2 className="text-lg font-semibold">Error Loading Dashboard</h2>
-                <p className="text-muted-foreground">
-                  There was an error loading your dashboard data. Please try refreshing the page.
-                </p>
-                <Button onClick={() => window.location.reload()}>
-                  Refresh Page
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
-  }
-
-  // Since data is prefetched on the server, it should be immediately available
-  // If not available, show skeleton to maintain consistent UI
-  if (isLoading || !dashboardData) {
-    return <DashboardSkeleton />
-  }
-
-  const { user, stats, nextAppointment, recentTest, recurringSubscription } = dashboardData 
+export function DashboardView({ data }: { data: DashboardData }) {
+  const { user, stats, nextAppointment, recentTest, recurringSubscription } = data 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <div className="px-4 lg:px-6">
@@ -353,8 +351,8 @@ export function DashboardClient() {
               <div>
                 <h4 className="font-medium mb-2">Testing Requirements</h4>
                 <ul className="space-y-1 text-muted-foreground">
-                  <li>• Arrive 15 minutes before your appointment</li>
-                  <li>• Bring a valid photo ID</li>
+                  <li>• Arrive 5 minutes before your appointment</li>
+                  <li>• Photo taken at test time to verify ID</li>
                   <li>• Stay hydrated but avoid excessive fluids</li>
                   <li>• Update profile and inform staff of any new medications</li>
                 </ul>
