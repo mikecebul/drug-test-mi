@@ -1,7 +1,7 @@
-"use client"
+'use client'
 
-import * as React from "react"
-import Link from "next/link"
+import * as React from 'react'
+import Link from 'next/link'
 import {
   ClipboardList,
   ClipboardListIcon,
@@ -12,11 +12,11 @@ import {
   PillBottle,
   UserPen,
   UsersIcon,
-} from "lucide-react"
+} from 'lucide-react'
 
-import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
+import { NavMain } from '@/components/nav-main'
+import { NavSecondary } from '@/components/nav-secondary'
+import { NavUser } from '@/components/nav-user'
 import {
   Sidebar,
   SidebarContent,
@@ -25,29 +25,29 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import type { Client } from "@/payload-types"
+} from '@/components/ui/sidebar'
+import type { Client } from '@/payload-types'
 
 const data = {
   navMain: [
     {
-      title: "Dashboard",
-      url: "/dashboard",
+      title: 'Dashboard',
+      url: '/dashboard',
       icon: LayoutDashboardIcon,
     },
     {
-      title: "Technicians",
-      url: "/dashboard/technicians",
+      title: 'Technicians',
+      url: '/dashboard/technicians',
       icon: UsersIcon,
     },
     {
-      title: "Test Results",
-      url: "/dashboard/results",
+      title: 'Test Results',
+      url: '/dashboard/results',
       icon: ClipboardList,
     },
     {
-      title: "Medications",
-      url: "/dashboard/medications",
+      title: 'Medications',
+      url: '/dashboard/medications',
       icon: PillBottle,
     },
     // TODO: Implement appointments page with real data
@@ -57,9 +57,14 @@ const data = {
     //   icon: DatabaseIcon,
     // },
     {
-      title: "Profile",
-      url: "/dashboard/profile",
+      title: 'Profile',
+      url: '/dashboard/profile',
       icon: UserPen,
+    },
+    {
+      title: 'Enroll',
+      url: '/dashboard/enroll',
+      icon: FileIcon,
     },
   ],
   navSecondary: [
@@ -88,10 +93,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
-            >
+            <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
               <Link href="/dashboard">
                 <FlaskConical className="h-5 w-5" />
                 <span className="text-base font-semibold">MI Drug Test</span>

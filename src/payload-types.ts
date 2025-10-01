@@ -1353,6 +1353,14 @@ export interface Order {
  */
 export interface Product {
   id: string;
+  /**
+   * Product name (e.g., "Weekly Testing Plan")
+   */
+  name: string;
+  /**
+   * Product description shown to clients
+   */
+  description?: string | null;
   inventory?: number | null;
   enableVariants?: boolean | null;
   variantTypes?: (string | VariantType)[] | null;
@@ -1370,7 +1378,7 @@ export interface Product {
   /**
    * How often testing occurs
    */
-  testingFrequency?: ('weekly' | 'biweekly' | 'monthly') | null;
+  testingFrequency: 'weekly' | 'biweekly' | 'monthly';
   updatedAt: string;
   createdAt: string;
   deletedAt?: string | null;
@@ -2844,6 +2852,8 @@ export interface VariantOptionsSelect<T extends boolean = true> {
  * via the `definition` "products_select".
  */
 export interface ProductsSelect<T extends boolean = true> {
+  name?: T;
+  description?: T;
   inventory?: T;
   enableVariants?: T;
   variantTypes?: T;

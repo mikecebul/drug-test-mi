@@ -1,7 +1,13 @@
-import type { StripeWebhookHandler } from '@payloadcms/plugin-stripe/types'
 import type Stripe from 'stripe'
 import type { Order } from '@/payload-types'
+import type { Payload } from 'payload'
 import { APIError } from 'payload'
+
+type WebhookHandler = {
+  event: Stripe.Event
+  payload: Payload
+  stripe: Stripe
+}
 
 /**
  * Map Stripe subscription status to our supported statuses
@@ -43,14 +49,15 @@ const mapSubscriptionStatus = (
  * Handle checkout.session.completed for subscription checkouts
  * This creates the enrollment when a subscription checkout is completed
  */
-export const handleCheckoutSessionCompleted: StripeWebhookHandler<{
-  data: {
-    object: Stripe.Checkout.Session
-  }
-}> = async ({ event, payload, stripe }) => {
-  const session = event.data.object
+export const handleCheckoutSessionCompleted = async ({
+  event,
+  payload,
+  stripe,
+}: WebhookHandler) => {
+  const session = event.data.object as Stripe.Checkout.Session
 
   payload.logger.info(`🪝 Processing subscription checkout completed for session: ${session.id}`)
+  payload.logger.info(`Session metadata:`, session.metadata)
 
   // Only handle subscription mode checkouts
   if (session.mode !== 'subscription') {
@@ -65,20 +72,32 @@ export const handleCheckoutSessionCompleted: StripeWebhookHandler<{
   try {
     // Retrieve the subscription
     const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
+    payload.logger.info(`Retrieved subscription: ${subscription.id}`)
 
     // Get the product from metadata
     const productId = session.metadata?.productId
 
     if (!productId) {
+      payload.logger.error('Missing productId in metadata:', session.metadata)
       throw new APIError('No productId found in session metadata')
     }
+
+    // Get client ID from metadata
+    const clientId = session.metadata?.clientId
+
+    if (!clientId) {
+      payload.logger.error('Missing clientId in metadata:', session.metadata)
+      throw new APIError('No clientId found in session metadata')
+    }
+
+    payload.logger.info(`Creating enrollment for client: ${clientId}, product: ${productId}`)
 
     // Create the enrollment (order)
     const enrollment = await payload.create({
       collection: 'orders',
       data: {
-        customer: session.metadata?.customerId || null,
-        customerEmail: session.customer_email || session.metadata?.customerEmail,
+        customer: clientId,
+        customerEmail: session.customer_email || undefined,
         items: [
           {
             product: productId,
@@ -91,32 +110,30 @@ export const handleCheckoutSessionCompleted: StripeWebhookHandler<{
         stripeSubscriptionId: subscription.id,
         subscriptionStatus: mapSubscriptionStatus(subscription.status, 'orders') as Order['subscriptionStatus'],
         testingType: (session.metadata?.testingType || 'random-1x') as Order['testingType'],
-        preferredDayOfWeek: (session.metadata?.preferredDayOfWeek || null) as Order['preferredDayOfWeek'],
+        preferredDayOfWeek: (session.metadata?.preferredDay || null) as Order['preferredDayOfWeek'],
         preferredTimeSlot: (session.metadata?.preferredTimeSlot || null) as Order['preferredTimeSlot'],
       },
     })
 
     // Update the client record with subscription info
-    if (session.metadata?.customerId) {
-      const client = await payload.findByID({
-        collection: 'clients',
-        id: session.metadata.customerId,
-      })
+    const client = await payload.findByID({
+      collection: 'clients',
+      id: clientId,
+    })
 
-      await payload.update({
-        collection: 'clients',
-        id: session.metadata.customerId,
-        data: {
-          recurringAppointments: {
-            ...client.recurringAppointments,
-            isRecurring: true,
-            stripeSubscriptionId: subscription.id,
-            subscriptionStatus: mapSubscriptionStatus(subscription.status, 'clients') as 'active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete',
-            subscriptionStartDate: new Date().toISOString(),
-          },
+    await payload.update({
+      collection: 'clients',
+      id: clientId,
+      data: {
+        recurringAppointments: {
+          ...client.recurringAppointments,
+          isRecurring: true,
+          stripeSubscriptionId: subscription.id,
+          subscriptionStatus: mapSubscriptionStatus(subscription.status, 'clients') as 'active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete',
+          subscriptionStartDate: new Date().toISOString(),
         },
-      })
-    }
+      },
+    })
 
     payload.logger.info(`✅ Created enrollment ${enrollment.id} for subscription ${subscription.id}`)
   } catch (error) {
@@ -129,12 +146,8 @@ export const handleCheckoutSessionCompleted: StripeWebhookHandler<{
  * Handle customer.subscription.updated
  * Updates enrollment status when subscription status changes
  */
-export const handleSubscriptionUpdated: StripeWebhookHandler<{
-  data: {
-    object: Stripe.Subscription
-  }
-}> = async ({ event, payload }) => {
-  const subscription = event.data.object
+export const handleSubscriptionUpdated = async ({ event, payload }: WebhookHandler) => {
+  const subscription = event.data.object as Stripe.Subscription
 
   payload.logger.info(`🪝 Processing subscription updated: ${subscription.id}`)
 
@@ -203,12 +216,8 @@ export const handleSubscriptionUpdated: StripeWebhookHandler<{
  * Handle customer.subscription.deleted
  * Marks enrollment as cancelled when subscription is deleted
  */
-export const handleSubscriptionDeleted: StripeWebhookHandler<{
-  data: {
-    object: Stripe.Subscription
-  }
-}> = async ({ event, payload }) => {
-  const subscription = event.data.object
+export const handleSubscriptionDeleted = async ({ event, payload }: WebhookHandler) => {
+  const subscription = event.data.object as Stripe.Subscription
 
   payload.logger.info(`🪝 Processing subscription deleted: ${subscription.id}`)
 
@@ -273,12 +282,8 @@ export const handleSubscriptionDeleted: StripeWebhookHandler<{
  * Handle invoice.payment_succeeded
  * Creates a transaction record for each successful subscription payment
  */
-export const handleInvoicePaymentSucceeded: StripeWebhookHandler<{
-  data: {
-    object: Stripe.Invoice
-  }
-}> = async ({ event, payload }) => {
-  const invoice = event.data.object
+export const handleInvoicePaymentSucceeded = async ({ event, payload }: WebhookHandler) => {
+  const invoice = event.data.object as Stripe.Invoice
 
   payload.logger.info(`🪝 Processing invoice payment succeeded: ${invoice.id}`)
 
@@ -338,12 +343,8 @@ export const handleInvoicePaymentSucceeded: StripeWebhookHandler<{
  * Handle invoice.payment_failed
  * Updates enrollment status when payment fails
  */
-export const handleInvoicePaymentFailed: StripeWebhookHandler<{
-  data: {
-    object: Stripe.Invoice
-  }
-}> = async ({ event, payload }) => {
-  const invoice = event.data.object
+export const handleInvoicePaymentFailed = async ({ event, payload }: WebhookHandler) => {
+  const invoice = event.data.object as Stripe.Invoice
 
   payload.logger.info(`🪝 Processing invoice payment failed: ${invoice.id}`)
 

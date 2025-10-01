@@ -2,8 +2,9 @@ import { headers } from 'next/headers'
 import { getPayload } from 'payload'
 import payloadConfig from '@payload-config'
 import { redirect } from 'next/navigation'
+import type { Client } from '@/payload-types'
 
-export const requireClientAuth = async () => {
+export const requireClientAuth = async (): Promise<Client> => {
   const headersList = await headers()
   const payload = await getPayload({ config: payloadConfig })
 
@@ -16,4 +17,6 @@ export const requireClientAuth = async () => {
   if (user.collection === 'admins') {
     redirect('/admin')
   }
+
+  return user as Client
 }

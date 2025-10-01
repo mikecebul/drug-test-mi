@@ -302,8 +302,24 @@ export default buildConfig({
           admin: {
             ...defaultCollection.admin,
             group: 'Ecommerce',
+            useAsTitle: 'name',
           },
           fields: [
+            {
+              name: 'name',
+              type: 'text',
+              required: true,
+              admin: {
+                description: 'Product name (e.g., "Weekly Testing Plan")',
+              },
+            },
+            {
+              name: 'description',
+              type: 'textarea',
+              admin: {
+                description: 'Product description shown to clients',
+              },
+            },
             ...defaultCollection.fields,
             {
               name: 'stripePriceId',
@@ -316,6 +332,7 @@ export default buildConfig({
             {
               name: 'testingFrequency',
               type: 'select',
+              required: true,
               options: [
                 { label: 'Weekly', value: 'weekly' },
                 { label: 'Bi-Weekly', value: 'biweekly' },

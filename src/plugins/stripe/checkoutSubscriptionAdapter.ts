@@ -97,8 +97,8 @@ export const stripeCheckoutSubscriptionAdapter = (
               quantity: 1,
             },
           ],
-          success_url: `${baseUrl}/enrollment/success?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${baseUrl}/enrollment/cancel`,
+          success_url: `${baseUrl}/dashboard/enrollment/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${baseUrl}/dashboard/enrollment/cancel`,
           metadata: {
             productId: productId as string,
             customerId: customerId || '',
@@ -141,58 +141,109 @@ export const stripeCheckoutSubscriptionAdapter = (
       }
     },
 
-    // Confirm order (called from webhook after payment)
-    // Custom confirmOrder implementation (type assertion needed for custom fields)
-    confirmOrder: (async ({ data, ordersSlug = 'enrollments', req }) => {
+    // Confirm order - required by ecommerce plugin
+    // This gets called after checkout, but we also use webhooks for redundancy
+    confirmOrder: (async ({ data, ordersSlug = 'orders', req }) => {
       const payload = req.payload
-      // Custom data fields
-      const { subscriptionId, sessionId } = data as any
+      const { sessionId } = data as any
 
       try {
-        // Retrieve subscription details
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId as string)
+        payload.logger.info(`🔄 confirmOrder called with sessionId: ${sessionId}`)
+
+        if (!sessionId) {
+          throw new Error('No sessionId provided to confirmOrder')
+        }
+
+        // Retrieve the checkout session
         const session = await stripe.checkout.sessions.retrieve(sessionId as string)
 
-        // Get the product
-        const product = await payload.findByID({
-          collection: 'products',
-          id: session.metadata?.productId || '',
+        if (!session.subscription) {
+          throw new Error('No subscription found in checkout session')
+        }
+
+        // Retrieve the subscription
+        const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
+
+        // Get metadata
+        const clientId = session.metadata?.clientId
+        const productId = session.metadata?.productId
+
+        if (!clientId || !productId) {
+          throw new Error('Missing clientId or productId in session metadata')
+        }
+
+        // Check if order already exists (from webhook)
+        const existingOrders = await payload.find({
+          collection: ordersSlug,
+          where: {
+            stripeSubscriptionId: {
+              equals: subscription.id,
+            },
+          },
+          limit: 1,
         })
 
-        // Create enrollment (order)
+        if (existingOrders.docs.length > 0) {
+          payload.logger.info(`✅ Order already exists (created by webhook): ${existingOrders.docs[0].id}`)
+          return {
+            message: 'Order already created by webhook',
+            orderID: existingOrders.docs[0].id,
+          }
+        }
+
+        // Create the order (same logic as webhook handler)
+        payload.logger.info(`Creating order for client: ${clientId}, subscription: ${subscription.id}`)
+
         const order = await payload.create({
-          // ordersSlug is a valid collection
           collection: ordersSlug,
-          // Custom order fields
           data: {
-            customer: session.metadata?.customerId || null,
-            customerEmail: session.customer_email,
+            customer: clientId,
+            customerEmail: session.customer_email || undefined,
             items: [
               {
-                product: product.id,
+                product: productId,
                 quantity: 1,
               },
             ],
             amount: subscription.items.data[0].plan.amount || 0,
-            currency: subscription.currency,
+            currency: 'USD' as const,
             status: 'processing',
             stripeSubscriptionId: subscription.id,
-            subscriptionStatus: subscription.status,
-            testingType: session.metadata?.testingType || '',
-            preferredDayOfWeek: session.metadata?.preferredDayOfWeek || null,
-            preferredTimeSlot: session.metadata?.preferredTimeSlot || null,
+            subscriptionStatus: subscription.status as any,
+            testingType: (session.metadata?.testingType || 'random-1x') as any,
+            preferredDayOfWeek: (session.metadata?.preferredDay || null) as any,
+            preferredTimeSlot: (session.metadata?.preferredTimeSlot || null) as any,
           },
         })
 
-        payload.logger.info(`Created enrollment: ${order.id} for subscription: ${subscription.id}`)
+        // Update client record
+        const client = await payload.findByID({
+          collection: 'clients',
+          id: clientId,
+        })
+
+        await payload.update({
+          collection: 'clients',
+          id: clientId,
+          data: {
+            recurringAppointments: {
+              ...client.recurringAppointments,
+              isRecurring: true,
+              stripeSubscriptionId: subscription.id,
+              subscriptionStatus: subscription.status as any,
+              subscriptionStartDate: new Date().toISOString(),
+            },
+          },
+        })
+
+        payload.logger.info(`✅ Order created via confirmOrder: ${order.id}`)
 
         return {
-          message: 'Enrollment created',
+          message: 'Order created',
           orderID: order.id,
-          transactionID: session.metadata?.transactionId,
         }
       } catch (error) {
-        payload.logger.error('Error confirming order:', error)
+        payload.logger.error('❌ Error in confirmOrder:', error)
         throw error
       }
     }) as any,
