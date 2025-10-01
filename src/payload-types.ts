@@ -112,6 +112,7 @@ export interface Config {
     technicians: Technician;
     clients: Client;
     'drug-tests': DrugTest;
+    'schedule-overrides': ScheduleOverride;
     exports: Export;
     addresses: Address;
     variants: Variant;
@@ -150,6 +151,7 @@ export interface Config {
     technicians: TechniciansSelect<false> | TechniciansSelect<true>;
     clients: ClientsSelect<false> | ClientsSelect<true>;
     'drug-tests': DrugTestsSelect<false> | DrugTestsSelect<true>;
+    'schedule-overrides': ScheduleOverridesSelect<false> | ScheduleOverridesSelect<true>;
     exports: ExportsSelect<false> | ExportsSelect<true>;
     addresses: AddressesSelect<false> | AddressesSelect<true>;
     variants: VariantsSelect<false> | VariantsSelect<true>;
@@ -1192,9 +1194,25 @@ export interface DrugTest {
    */
   relatedClient: string | Client;
   /**
+   * Related subscription enrollment (if applicable)
+   */
+  enrollment?: (string | null) | Order;
+  /**
+   * Auto-assigned technician based on schedule
+   */
+  technician?: (string | null) | Technician;
+  /**
+   * Technician who was notified about this test
+   */
+  notifiedTechnician?: (string | null) | Technician;
+  /**
    * Date and time the sample was collected
    */
   collectionDate?: string | null;
+  /**
+   * Collection time (e.g., 11:10 AM) - used for technician assignment
+   */
+  collectionTime?: string | null;
   /**
    * Type of drug test panel used
    */
@@ -1267,6 +1285,289 @@ export interface DrugTest {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "orders".
+ */
+export interface Order {
+  id: string;
+  items?:
+    | {
+        product?: (string | null) | Product;
+        variant?: (string | null) | Variant;
+        quantity: number;
+        id?: string | null;
+      }[]
+    | null;
+  shippingAddress?: {
+    title?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    company?: string | null;
+    addressLine1?: string | null;
+    addressLine2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+    phone?: string | null;
+  };
+  customer?: (string | null) | Client;
+  customerEmail?: string | null;
+  transactions?: (string | Transaction)[] | null;
+  status?: OrderStatus;
+  amount?: number | null;
+  currency?: 'USD' | null;
+  /**
+   * Stripe subscription ID
+   */
+  stripeSubscriptionId?: string | null;
+  /**
+   * Subscription status from Stripe
+   */
+  subscriptionStatus?: ('active' | 'past_due' | 'canceled' | 'paused' | 'incomplete') | null;
+  /**
+   * Type of testing schedule
+   */
+  testingType: 'fixed-saturday' | 'random-1x' | 'random-2x';
+  /**
+   * Preferred day for testing (not applicable for fixed Saturday)
+   */
+  preferredDayOfWeek?: ('monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday') | null;
+  /**
+   * Preferred time slot (not applicable for fixed Saturday)
+   */
+  preferredTimeSlot?: ('morning' | 'afternoon' | 'late-morning') | null;
+  /**
+   * Next scheduled test date
+   */
+  nextTestDate?: string | null;
+  /**
+   * External Redwood Labs ID for integration
+   */
+  redwoodLabsId?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "products".
+ */
+export interface Product {
+  id: string;
+  inventory?: number | null;
+  enableVariants?: boolean | null;
+  variantTypes?: (string | VariantType)[] | null;
+  variants?: {
+    docs?: (string | Variant)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  priceInUSDEnabled?: boolean | null;
+  priceInUSD?: number | null;
+  /**
+   * Stripe Price ID (price_xxxxx) for subscription billing
+   */
+  stripePriceId: string;
+  /**
+   * How often testing occurs
+   */
+  testingFrequency?: ('weekly' | 'biweekly' | 'monthly') | null;
+  updatedAt: string;
+  createdAt: string;
+  deletedAt?: string | null;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "variantTypes".
+ */
+export interface VariantType {
+  id: string;
+  label: string;
+  name: string;
+  options?: {
+    docs?: (string | VariantOption)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+  deletedAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "variantOptions".
+ */
+export interface VariantOption {
+  id: string;
+  _variantOptions_options_order?: string | null;
+  variantType: string | VariantType;
+  label: string;
+  /**
+   * should be defaulted or dynamic based on label
+   */
+  value: string;
+  updatedAt: string;
+  createdAt: string;
+  deletedAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "variants".
+ */
+export interface Variant {
+  id: string;
+  /**
+   * Used for administrative purposes, not shown to customers. This is populated by default.
+   */
+  title?: string | null;
+  product: string | Product;
+  options: (string | VariantOption)[];
+  inventory?: number | null;
+  priceInUSDEnabled?: boolean | null;
+  priceInUSD?: number | null;
+  updatedAt: string;
+  createdAt: string;
+  deletedAt?: string | null;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions".
+ */
+export interface Transaction {
+  id: string;
+  items?:
+    | {
+        product?: (string | null) | Product;
+        variant?: (string | null) | Variant;
+        quantity: number;
+        id?: string | null;
+      }[]
+    | null;
+  paymentMethod?: 'stripe-checkout-subscription' | null;
+  'stripe-checkout-subscription'?: {
+    sessionId?: string | null;
+    customerId?: string | null;
+    subscriptionId?: string | null;
+  };
+  billingAddress?: {
+    title?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    company?: string | null;
+    addressLine1?: string | null;
+    addressLine2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+    phone?: string | null;
+  };
+  status: 'pending' | 'succeeded' | 'failed' | 'cancelled' | 'expired' | 'refunded';
+  customer?: (string | null) | Client;
+  customerEmail?: string | null;
+  order?: (string | null) | Order;
+  cart?: (string | null) | Cart;
+  amount?: number | null;
+  currency?: 'USD' | null;
+  /**
+   * Billing period for this transaction
+   */
+  subscriptionPeriod?: {
+    /**
+     * Start of billing period
+     */
+    periodStart?: string | null;
+    /**
+     * End of billing period
+     */
+    periodEnd?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "carts".
+ */
+export interface Cart {
+  id: string;
+  items?:
+    | {
+        product?: (string | null) | Product;
+        variant?: (string | null) | Variant;
+        quantity: number;
+        id?: string | null;
+      }[]
+    | null;
+  customer?: (string | null) | Client;
+  purchasedAt?: string | null;
+  status?: ('active' | 'purchased' | 'abandoned') | null;
+  subtotal?: number | null;
+  currency?: 'USD' | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "technicians".
+ */
+export interface Technician {
+  id: string;
+  name: string;
+  /**
+   * Email for notifications about assigned tests
+   */
+  email: string;
+  /**
+   * Phone number for contact
+   */
+  phone?: string | null;
+  bio: string;
+  gender: 'male' | 'female';
+  photo?: (string | null) | Media;
+  /**
+   * Cal.com username for booking appointments
+   */
+  calComUsername: string;
+  location: 'charlevoix';
+  availability?: {
+    mornings?: boolean | null;
+    evenings?: boolean | null;
+    weekdays?: boolean | null;
+    weekends?: boolean | null;
+  };
+  /**
+   * Regular weekly schedule for automated assignment
+   */
+  regularSchedule?:
+    | {
+        dayOfWeek: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+        timeSlot: 'morning' | 'afternoon' | 'late-morning';
+        /**
+         * Start time (e.g., 8:00 AM)
+         */
+        startTime: string;
+        /**
+         * End time (e.g., 12:00 PM)
+         */
+        endTime: string;
+        /**
+         * Uncheck to temporarily disable this schedule slot
+         */
+        isActive?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Inactive technicians will not appear in scheduling
+   */
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "admins".
  */
 export interface Admin {
@@ -1292,30 +1593,37 @@ export interface Admin {
   password?: string | null;
 }
 /**
+ * Manage temporary schedule changes, swaps, and coverage
+ *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "technicians".
+ * via the `definition` "schedule-overrides".
  */
-export interface Technician {
+export interface ScheduleOverride {
   id: string;
-  name: string;
-  bio: string;
-  gender: 'male' | 'female';
-  photo?: (string | null) | Media;
   /**
-   * Cal.com username for booking appointments
+   * Date of the schedule override
    */
-  calComUsername: string;
-  location: 'charlevoix';
-  availability?: {
-    mornings?: boolean | null;
-    evenings?: boolean | null;
-    weekdays?: boolean | null;
-    weekends?: boolean | null;
-  };
+  date: string;
   /**
-   * Inactive technicians will not appear in scheduling
+   * Time slot for the override
    */
-  isActive?: boolean | null;
+  timeSlot: 'morning' | 'afternoon' | 'late-morning';
+  /**
+   * Technician originally scheduled
+   */
+  originalTechnician?: (string | null) | Technician;
+  /**
+   * Technician covering this time slot
+   */
+  coveringTechnician: string | Technician;
+  /**
+   * Reason for the schedule change
+   */
+  reason: 'swap' | 'coverage' | 'vacation' | 'sick' | 'other';
+  /**
+   * Additional notes about this override
+   */
+  notes?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1414,231 +1722,6 @@ export interface Address {
     | 'SE'
     | 'CH';
   phone?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "variants".
- */
-export interface Variant {
-  id: string;
-  /**
-   * Used for administrative purposes, not shown to customers. This is populated by default.
-   */
-  title?: string | null;
-  product: string | Product;
-  options: (string | VariantOption)[];
-  inventory?: number | null;
-  priceInUSDEnabled?: boolean | null;
-  priceInUSD?: number | null;
-  updatedAt: string;
-  createdAt: string;
-  deletedAt?: string | null;
-  _status?: ('draft' | 'published') | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "products".
- */
-export interface Product {
-  id: string;
-  inventory?: number | null;
-  enableVariants?: boolean | null;
-  variantTypes?: (string | VariantType)[] | null;
-  variants?: {
-    docs?: (string | Variant)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  priceInUSDEnabled?: boolean | null;
-  priceInUSD?: number | null;
-  /**
-   * Stripe Price ID (price_xxxxx) for subscription billing
-   */
-  stripePriceId: string;
-  /**
-   * How often testing occurs
-   */
-  testingFrequency?: ('weekly' | 'biweekly' | 'monthly') | null;
-  updatedAt: string;
-  createdAt: string;
-  deletedAt?: string | null;
-  _status?: ('draft' | 'published') | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "variantTypes".
- */
-export interface VariantType {
-  id: string;
-  label: string;
-  name: string;
-  options?: {
-    docs?: (string | VariantOption)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  updatedAt: string;
-  createdAt: string;
-  deletedAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "variantOptions".
- */
-export interface VariantOption {
-  id: string;
-  _variantOptions_options_order?: string | null;
-  variantType: string | VariantType;
-  label: string;
-  /**
-   * should be defaulted or dynamic based on label
-   */
-  value: string;
-  updatedAt: string;
-  createdAt: string;
-  deletedAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "carts".
- */
-export interface Cart {
-  id: string;
-  items?:
-    | {
-        product?: (string | null) | Product;
-        variant?: (string | null) | Variant;
-        quantity: number;
-        id?: string | null;
-      }[]
-    | null;
-  customer?: (string | null) | Client;
-  purchasedAt?: string | null;
-  status?: ('active' | 'purchased' | 'abandoned') | null;
-  subtotal?: number | null;
-  currency?: 'USD' | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "orders".
- */
-export interface Order {
-  id: string;
-  items?:
-    | {
-        product?: (string | null) | Product;
-        variant?: (string | null) | Variant;
-        quantity: number;
-        id?: string | null;
-      }[]
-    | null;
-  shippingAddress?: {
-    title?: string | null;
-    firstName?: string | null;
-    lastName?: string | null;
-    company?: string | null;
-    addressLine1?: string | null;
-    addressLine2?: string | null;
-    city?: string | null;
-    state?: string | null;
-    postalCode?: string | null;
-    country?: string | null;
-    phone?: string | null;
-  };
-  customer?: (string | null) | Client;
-  customerEmail?: string | null;
-  transactions?: (string | Transaction)[] | null;
-  status?: OrderStatus;
-  amount?: number | null;
-  currency?: 'USD' | null;
-  /**
-   * Stripe subscription ID
-   */
-  stripeSubscriptionId?: string | null;
-  /**
-   * Subscription status from Stripe
-   */
-  subscriptionStatus?: ('active' | 'past_due' | 'canceled' | 'paused' | 'incomplete') | null;
-  /**
-   * Type of testing schedule
-   */
-  testingType: 'fixed-saturday' | 'random-1x' | 'random-2x';
-  /**
-   * Preferred day for testing (not applicable for fixed Saturday)
-   */
-  preferredDayOfWeek?: ('monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday') | null;
-  /**
-   * Preferred time slot (not applicable for fixed Saturday)
-   */
-  preferredTimeSlot?: ('morning' | 'afternoon' | 'late-morning') | null;
-  /**
-   * Next scheduled test date
-   */
-  nextTestDate?: string | null;
-  /**
-   * External Redwood Labs ID for integration
-   */
-  redwoodLabsId?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions".
- */
-export interface Transaction {
-  id: string;
-  items?:
-    | {
-        product?: (string | null) | Product;
-        variant?: (string | null) | Variant;
-        quantity: number;
-        id?: string | null;
-      }[]
-    | null;
-  paymentMethod?: 'stripe-checkout-subscription' | null;
-  'stripe-checkout-subscription'?: {
-    sessionId?: string | null;
-    customerId?: string | null;
-    subscriptionId?: string | null;
-  };
-  billingAddress?: {
-    title?: string | null;
-    firstName?: string | null;
-    lastName?: string | null;
-    company?: string | null;
-    addressLine1?: string | null;
-    addressLine2?: string | null;
-    city?: string | null;
-    state?: string | null;
-    postalCode?: string | null;
-    country?: string | null;
-    phone?: string | null;
-  };
-  status: 'pending' | 'succeeded' | 'failed' | 'cancelled' | 'expired' | 'refunded';
-  customer?: (string | null) | Client;
-  customerEmail?: string | null;
-  order?: (string | null) | Order;
-  cart?: (string | null) | Cart;
-  amount?: number | null;
-  currency?: 'USD' | null;
-  /**
-   * Billing period for this transaction
-   */
-  subscriptionPeriod?: {
-    /**
-     * Start of billing period
-     */
-    periodStart?: string | null;
-    /**
-     * End of billing period
-     */
-    periodEnd?: string | null;
-  };
   updatedAt: string;
   createdAt: string;
 }
@@ -1801,6 +1884,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'drug-tests';
         value: string | DrugTest;
+      } | null)
+    | ({
+        relationTo: 'schedule-overrides';
+        value: string | ScheduleOverride;
       } | null)
     | ({
         relationTo: 'exports';
@@ -2510,6 +2597,8 @@ export interface AdminsSelect<T extends boolean = true> {
  */
 export interface TechniciansSelect<T extends boolean = true> {
   name?: T;
+  email?: T;
+  phone?: T;
   bio?: T;
   gender?: T;
   photo?: T;
@@ -2522,6 +2611,16 @@ export interface TechniciansSelect<T extends boolean = true> {
         evenings?: T;
         weekdays?: T;
         weekends?: T;
+      };
+  regularSchedule?:
+    | T
+    | {
+        dayOfWeek?: T;
+        timeSlot?: T;
+        startTime?: T;
+        endTime?: T;
+        isActive?: T;
+        id?: T;
       };
   isActive?: T;
   updatedAt?: T;
@@ -2618,7 +2717,11 @@ export interface ClientsSelect<T extends boolean = true> {
  */
 export interface DrugTestsSelect<T extends boolean = true> {
   relatedClient?: T;
+  enrollment?: T;
+  technician?: T;
+  notifiedTechnician?: T;
   collectionDate?: T;
+  collectionTime?: T;
   testType?: T;
   initialScreenResult?: T;
   presumptivePositive?: T;
@@ -2630,6 +2733,20 @@ export interface DrugTestsSelect<T extends boolean = true> {
   medicationsAtTestTime?: T;
   processNotes?: T;
   testDocument?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "schedule-overrides_select".
+ */
+export interface ScheduleOverridesSelect<T extends boolean = true> {
+  date?: T;
+  timeSlot?: T;
+  originalTechnician?: T;
+  coveringTechnician?: T;
+  reason?: T;
+  notes?: T;
   updatedAt?: T;
   createdAt?: T;
 }

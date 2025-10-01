@@ -58,6 +58,7 @@ import { Technicians } from './collections/Technicians'
 import { Clients } from './collections/Clients'
 import { DrugTests } from './collections/DrugTests'
 import Admins from './collections/Admins'
+import { ScheduleOverrides } from './collections/ScheduleOverrides'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -195,6 +196,7 @@ export default buildConfig({
     Technicians,
     Clients,
     DrugTests,
+    ScheduleOverrides,
   ],
   cors: [baseUrl].filter(Boolean),
   csrf: [baseUrl].filter(Boolean),

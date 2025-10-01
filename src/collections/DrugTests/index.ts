@@ -1,6 +1,8 @@
 import { CollectionConfig } from 'payload'
 import { superAdmin } from '@/access/superAdmin'
 import { admins } from '@/access/admins'
+import { autoAssignTechnician } from './hooks/autoAssignTechnician'
+import { notifyTechnician } from './hooks/notifyTechnician'
 
 export const DrugTests: CollectionConfig = {
   slug: 'drug-tests',
@@ -48,6 +50,34 @@ export const DrugTests: CollectionConfig = {
       },
     },
     {
+      name: 'enrollment',
+      type: 'relationship',
+      relationTo: 'orders',
+      admin: {
+        description: 'Related subscription enrollment (if applicable)',
+        position: 'sidebar',
+      },
+    },
+    {
+      name: 'technician',
+      type: 'relationship',
+      relationTo: 'technicians',
+      admin: {
+        description: 'Auto-assigned technician based on schedule',
+        position: 'sidebar',
+      },
+    },
+    {
+      name: 'notifiedTechnician',
+      type: 'relationship',
+      relationTo: 'technicians',
+      admin: {
+        readOnly: true,
+        description: 'Technician who was notified about this test',
+        position: 'sidebar',
+      },
+    },
+    {
       name: 'collectionDate',
       type: 'date',
       admin: {
@@ -55,6 +85,13 @@ export const DrugTests: CollectionConfig = {
         date: {
           pickerAppearance: 'dayAndTime',
         },
+      },
+    },
+    {
+      name: 'collectionTime',
+      type: 'text',
+      admin: {
+        description: 'Collection time (e.g., 11:10 AM) - used for technician assignment',
       },
     },
     {
@@ -284,4 +321,8 @@ export const DrugTests: CollectionConfig = {
       },
     },
   ],
+  hooks: {
+    beforeChange: [autoAssignTechnician],
+    afterChange: [notifyTechnician],
+  },
 }

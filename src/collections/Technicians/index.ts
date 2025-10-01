@@ -23,6 +23,21 @@ export const Technicians: CollectionConfig = {
       required: true,
     },
     {
+      name: 'email',
+      type: 'email',
+      required: true,
+      admin: {
+        description: 'Email for notifications about assigned tests',
+      },
+    },
+    {
+      name: 'phone',
+      type: 'text',
+      admin: {
+        description: 'Phone number for contact',
+      },
+    },
+    {
       name: 'bio',
       type: 'textarea',
       required: true,
@@ -82,6 +97,64 @@ export const Technicians: CollectionConfig = {
           type: 'checkbox',
           defaultValue: false,
           label: 'Available Weekends',
+        },
+      ],
+    },
+    {
+      name: 'regularSchedule',
+      type: 'array',
+      admin: {
+        description: 'Regular weekly schedule for automated assignment',
+      },
+      fields: [
+        {
+          name: 'dayOfWeek',
+          type: 'select',
+          options: [
+            { label: 'Monday', value: 'monday' },
+            { label: 'Tuesday', value: 'tuesday' },
+            { label: 'Wednesday', value: 'wednesday' },
+            { label: 'Thursday', value: 'thursday' },
+            { label: 'Friday', value: 'friday' },
+            { label: 'Saturday', value: 'saturday' },
+            { label: 'Sunday', value: 'sunday' },
+          ],
+          required: true,
+        },
+        {
+          name: 'timeSlot',
+          type: 'select',
+          options: [
+            { label: 'Morning (8AM-12PM)', value: 'morning' },
+            { label: 'Afternoon (12PM-5PM)', value: 'afternoon' },
+            { label: 'Late Morning (10AM-12PM)', value: 'late-morning' },
+          ],
+          required: true,
+        },
+        {
+          name: 'startTime',
+          type: 'text',
+          required: true,
+          admin: {
+            description: 'Start time (e.g., 8:00 AM)',
+          },
+        },
+        {
+          name: 'endTime',
+          type: 'text',
+          required: true,
+          admin: {
+            description: 'End time (e.g., 12:00 PM)',
+          },
+        },
+        {
+          name: 'isActive',
+          type: 'checkbox',
+          defaultValue: true,
+          label: 'Active Schedule Slot',
+          admin: {
+            description: 'Uncheck to temporarily disable this schedule slot',
+          },
         },
       ],
     },
