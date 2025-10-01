@@ -14,7 +14,14 @@ export const personalInfoFieldSchema = z.object({
   dob: z.union([
     z.string().min(1, { error: 'Date of birth is required' }),
     z.date({ error: 'Date of birth is required' })
-  ]),
+  ]).refine((val) => {
+    const date = typeof val === 'string' ? new Date(val) : val
+    const thirteenYearsAgo = new Date()
+    thirteenYearsAgo.setFullYear(thirteenYearsAgo.getFullYear() - 13)
+    return date <= thirteenYearsAgo
+  }, {
+    message: 'You must be at least 13 years old',
+  }),
   phone: z
     .string()
     .min(1, { error: 'Phone number is required' })
