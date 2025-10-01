@@ -9,7 +9,6 @@ import { Header } from '@/globals/Header/Component'
 import { ThemeProvider } from 'next-themes'
 import { baseUrl } from '@/utilities/baseUrl'
 import Script from 'next/script'
-import { QueryProvider } from '@/providers/QueryProvider'
 import { Toaster } from '@/components/ui/sonner'
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -25,14 +24,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         />
       </head>
       <body className="flex min-h-dvh flex-col bg-background">
-        <QueryProvider>
           <ThemeProvider forcedTheme="light">
             <Header />
             <div className="flex grow flex-col">{children}</div>
             <Footer />
             <Toaster />
           </ThemeProvider>
-        </QueryProvider>
       </body>
     </html>
   )

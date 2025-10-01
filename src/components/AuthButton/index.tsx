@@ -1,20 +1,15 @@
-'use client'
-
 import { cn } from '@/utilities/cn'
 import { CMSLink } from '@/components/Link'
 import { Icons } from '@/components/Icons'
-import { useAuth } from '@/hooks/useAuth'
+import { headers } from 'next/headers'
+import { getPayload } from 'payload'
+import config from '@payload-config'
 
-export function AuthButton() {
-  const { user, isLoading } = useAuth()
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center">
-        <Icons.spinner className="h-4 w-4 animate-spin" />
-      </div>
-    )
-  }
+export async function AuthButton() {
+  // Get authenticated user
+   const headersList = await headers()
+    const payload = await getPayload({ config })
+    const { user } = await payload.auth({ headers: headersList })
 
   if (user) {
     const accountUrl = user.collection === 'clients' ? '/dashboard' : '/admin'

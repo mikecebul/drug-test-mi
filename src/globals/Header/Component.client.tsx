@@ -1,6 +1,7 @@
 'use client'
 
 import type { CompanyInfo, Header } from '@/payload-types'
+import type { ReactNode } from 'react'
 import { cn } from '@/utilities/cn'
 import { buttonVariants } from '@/components/ui/button'
 import { Icons } from '@/components/Icons'
@@ -9,14 +10,17 @@ import { MobileNav } from './MobileNav'
 import { DashboardLogo, Logo } from '@/components/Logo'
 import { PayloadAdminBar } from '@payloadcms/admin-bar'
 import { baseUrl } from '@/utilities/baseUrl'
-import { AuthButton } from '@/components/AuthButton'
 
 export const HeaderClient = ({
   header,
   contact,
+  authButton,
+  mobileAuthButton,
 }: {
   header: Header
   contact: CompanyInfo['contact']
+  authButton: ReactNode
+  mobileAuthButton: ReactNode
 }) => {
   const navItems = header?.navItems || []
   const { phone, name: companyName } = contact || {}
@@ -36,9 +40,9 @@ export const HeaderClient = ({
       <div className="flex w-full items-center px-4 py-3 md:px-8 2xl:container 2xl:mx-auto">
         <Logo name={companyName ?? 'MI Drug Test LLC'} />
         <MainNav navItems={navItems} />
-        <MobileNav navItems={navItems} contact={contact} />
+        <MobileNav navItems={navItems} contact={contact} authButton={mobileAuthButton} />
         <div className="xl:flex flex-col items-center gap-4 hidden">
-          <AuthButton />
+          {authButton}
           <div className="flex flex-col items-center text-lg xl:flex-row 2xl:space-x-2">
             <div
               className={cn(

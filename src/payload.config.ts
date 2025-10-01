@@ -6,7 +6,7 @@ import { sentryPlugin } from '@payloadcms/plugin-sentry'
 import * as Sentry from '@sentry/nextjs'
 
 import { importExportPlugin } from '@payloadcms/plugin-import-export'
-import { stripePlugin } from '@payloadcms/plugin-stripe'
+import { ecommercePlugin, USD } from '@payloadcms/plugin-ecommerce'
 import { redirectsPlugin } from '@payloadcms/plugin-redirects'
 import { seoPlugin } from '@payloadcms/plugin-seo'
 import { s3Storage as s3StoragePlugin } from '@payloadcms/storage-s3'
@@ -39,12 +39,19 @@ import { GenerateTitle, GenerateURL, GenerateImage } from '@payloadcms/plugin-se
 import { Page } from 'src/payload-types'
 import { CompanyInfo } from './globals/CompanyInfo/config'
 import { superAdmin } from './access/superAdmin'
+import {
+  adminOnly,
+  adminOnlyFieldAccess,
+  adminOrCustomerOwner,
+  adminOrPublishedStatus,
+  customerOnlyFieldAccess,
+} from './access/ecommerce'
+import { stripeCheckoutSubscriptionAdapter } from './plugins/stripe/checkoutSubscriptionAdapter'
 import { Bookings } from './collections/Bookings'
 import { Media } from './collections/Media'
 import { PrivateMedia } from './collections/PrivateMedia'
 import { MediaBlock } from './blocks/MediaBlock/config'
 import { baseUrl } from './utilities/baseUrl'
-import { checkoutSessionCompleted } from './plugins/stripe/webhooks/checkoutSessionCompleted'
 import { Forms } from './collections/Forms'
 import { FormSubmissions } from './collections/FormSubmissions'
 import { Technicians } from './collections/Technicians'
@@ -223,6 +230,258 @@ export default buildConfig({
       },
       disableJobsQueue: true,
     }),
+    ecommercePlugin({
+      // Access control
+      access: {
+        adminOnly,
+        adminOnlyFieldAccess,
+        adminOrCustomerOwner,
+        adminOrPublishedStatus,
+        customerOnlyFieldAccess,
+      },
+
+      // Use existing Clients collection as customers
+      customers: {
+        slug: 'clients',
+      },
+
+      // Currency config
+      currencies: {
+        supportedCurrencies: [USD],
+        defaultCurrency: 'USD',
+      },
+
+      // Enable carts (plugin requires it, even though we won't use for direct checkout)
+      carts: {
+        cartsCollectionOverride: ({ defaultCollection }) => ({
+          ...defaultCollection,
+          admin: {
+            ...defaultCollection.admin,
+            group: 'Ecommerce',
+            hidden: true, // Hide from admin menu since we won't use it
+          },
+        }),
+      },
+
+      // Skip addresses - not needed for drug testing
+      addresses: false,
+
+      // Products with subscription-specific fields
+      products: {
+        variants: {
+          // Enable variants but hide them since we won't use them
+          variantsCollectionOverride: ({ defaultCollection }) => ({
+            ...defaultCollection,
+            admin: {
+              ...defaultCollection.admin,
+              group: 'Ecommerce',
+              hidden: true,
+            },
+          }),
+          variantTypesCollectionOverride: ({ defaultCollection }) => ({
+            ...defaultCollection,
+            admin: {
+              ...defaultCollection.admin,
+              group: 'Ecommerce',
+              hidden: true,
+            },
+          }),
+          variantOptionsCollectionOverride: ({ defaultCollection }) => ({
+            ...defaultCollection,
+            admin: {
+              ...defaultCollection.admin,
+              group: 'Ecommerce',
+              hidden: true,
+            },
+          }),
+        },
+        productsCollectionOverride: ({ defaultCollection }) => ({
+          ...defaultCollection,
+          admin: {
+            ...defaultCollection.admin,
+            group: 'Ecommerce',
+          },
+          fields: [
+            ...defaultCollection.fields,
+            {
+              name: 'stripePriceId',
+              type: 'text',
+              required: true,
+              admin: {
+                description: 'Stripe Price ID (price_xxxxx) for subscription billing',
+              },
+            },
+            {
+              name: 'testingFrequency',
+              type: 'select',
+              options: [
+                { label: 'Weekly', value: 'weekly' },
+                { label: 'Bi-Weekly', value: 'biweekly' },
+                { label: 'Monthly', value: 'monthly' },
+              ],
+              admin: {
+                description: 'How often testing occurs',
+              },
+            },
+          ],
+        }),
+      },
+
+      // Orders (renamed to "Enrollments" in UI) with subscription fields
+      orders: {
+        ordersCollectionOverride: ({ defaultCollection }) => ({
+          ...defaultCollection,
+          // Keep slug as 'orders' for internal compatibility
+          labels: {
+            singular: 'Enrollment',
+            plural: 'Enrollments',
+          },
+          admin: {
+            ...defaultCollection.admin,
+            group: 'Ecommerce',
+            useAsTitle: 'id',
+          },
+          fields: [
+            ...defaultCollection.fields,
+            // Subscription-specific fields
+            {
+              name: 'stripeSubscriptionId',
+              type: 'text',
+              admin: {
+                readOnly: true,
+                description: 'Stripe subscription ID',
+                position: 'sidebar',
+              },
+            },
+            {
+              name: 'subscriptionStatus',
+              type: 'select',
+              options: [
+                { label: 'Active', value: 'active' },
+                { label: 'Past Due', value: 'past_due' },
+                { label: 'Canceled', value: 'canceled' },
+                { label: 'Paused', value: 'paused' },
+                { label: 'Incomplete', value: 'incomplete' },
+              ],
+              admin: {
+                readOnly: true,
+                description: 'Subscription status from Stripe',
+                position: 'sidebar',
+              },
+            },
+            {
+              name: 'testingType',
+              type: 'select',
+              required: true,
+              options: [
+                { label: 'Fixed Saturday 11:10am', value: 'fixed-saturday' },
+                { label: 'Random 1x/week', value: 'random-1x' },
+                { label: 'Random 2x/week', value: 'random-2x' },
+              ],
+              admin: {
+                description: 'Type of testing schedule',
+              },
+            },
+            {
+              name: 'preferredDayOfWeek',
+              type: 'select',
+              options: [
+                { label: 'Monday', value: 'monday' },
+                { label: 'Tuesday', value: 'tuesday' },
+                { label: 'Wednesday', value: 'wednesday' },
+                { label: 'Thursday', value: 'thursday' },
+                { label: 'Friday', value: 'friday' },
+                { label: 'Saturday', value: 'saturday' },
+                { label: 'Sunday', value: 'sunday' },
+              ],
+              admin: {
+                condition: (data) => data?.testingType !== 'fixed-saturday',
+                description: 'Preferred day for testing (not applicable for fixed Saturday)',
+              },
+            },
+            {
+              name: 'preferredTimeSlot',
+              type: 'select',
+              options: [
+                { label: 'Morning (8AM-12PM)', value: 'morning' },
+                { label: 'Afternoon (12PM-5PM)', value: 'afternoon' },
+                { label: 'Late Morning (10AM-12PM)', value: 'late-morning' },
+              ],
+              admin: {
+                condition: (data) => data?.testingType !== 'fixed-saturday',
+                description: 'Preferred time slot (not applicable for fixed Saturday)',
+              },
+            },
+            {
+              name: 'nextTestDate',
+              type: 'date',
+              admin: {
+                date: {
+                  pickerAppearance: 'dayAndTime',
+                },
+                description: 'Next scheduled test date',
+              },
+            },
+            {
+              name: 'redwoodLabsId',
+              type: 'text',
+              admin: {
+                description: 'External Redwood Labs ID for integration',
+              },
+            },
+          ],
+        }),
+      },
+
+      // Transactions with subscription period tracking
+      transactions: {
+        transactionsCollectionOverride: ({ defaultCollection }) => ({
+          ...defaultCollection,
+          admin: {
+            ...defaultCollection.admin,
+            group: 'Ecommerce',
+          },
+          fields: [
+            ...defaultCollection.fields,
+            // Add subscription period tracking
+            {
+              name: 'subscriptionPeriod',
+              type: 'group',
+              admin: {
+                description: 'Billing period for this transaction',
+              },
+              fields: [
+                {
+                  name: 'periodStart',
+                  type: 'date',
+                  admin: {
+                    description: 'Start of billing period',
+                  },
+                },
+                {
+                  name: 'periodEnd',
+                  type: 'date',
+                  admin: {
+                    description: 'End of billing period',
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+      },
+
+      // Custom subscription payment adapter
+      payments: {
+        paymentMethods: [
+          stripeCheckoutSubscriptionAdapter({
+            secretKey: process.env.STRIPE_SECRET_KEY || '',
+            publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '',
+            webhookSecret: process.env.STRIPE_WEBHOOKS_SIGNING_SECRET || '',
+          }),
+        ],
+      },
+    }),
     sentryPlugin({
       options: {
         captureErrors: [400, 401, 403],
@@ -237,15 +496,6 @@ export default buildConfig({
         debug: true,
       },
       Sentry,
-    }),
-    stripePlugin({
-      isTestKey: process.env.STRIPE_SECRET_KEY?.includes('sk_test') ?? false,
-      stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
-      stripeWebhooksEndpointSecret: process.env.STRIPE_WEBHOOKS_ENDPOINT_SECRET,
-      webhooks: {
-        'checkout.session.completed': checkoutSessionCompleted,
-      },
-      logs: false,
     }),
     redirectsPlugin({
       collections: ['pages'],

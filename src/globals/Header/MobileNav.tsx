@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Icons } from '../../components/Icons'
@@ -12,11 +12,18 @@ import { CompanyInfo, Header } from '@/payload-types'
 import { CMSLink } from '@/components/Link'
 import { SheetLogo } from '@/components/Logo'
 import Link from 'next/link'
-import { MobileAuthButton } from '@/components/AuthButton/MobileAuthButton'
 
 export type NavItem = NonNullable<Header['navItems']>[number]
 
-export function MobileNav({ navItems, contact }: { navItems: NavItem[]; contact?: CompanyInfo['contact']  }) {
+export function MobileNav({
+  navItems,
+  contact,
+  authButton
+}: {
+  navItems: NavItem[]
+  contact?: CompanyInfo['contact']
+  authButton: ReactNode
+}) {
   const [open, setOpen] = useState(false)
   const currentPathName = usePathname()
 
@@ -46,7 +53,7 @@ export function MobileNav({ navItems, contact }: { navItems: NavItem[]; contact?
           </SheetHeader>
           <ScrollArea className="h-[calc(100vh-9rem)] py-10">
             <nav className="flex flex-col items-center space-y-4">
-              <MobileAuthButton onClose={() => setOpen(false)} />
+              {authButton}
               {navItems.map(({ link }, i) => {
                 const slug =
                   link.type === 'custom' && link.url

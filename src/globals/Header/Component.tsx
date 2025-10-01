@@ -4,6 +4,8 @@ import React from 'react'
 import type { CompanyInfo, Header } from '@/payload-types'
 import { getPayload } from 'payload'
 import payloadConfig from '@payload-config'
+import { AuthButton } from '@/components/AuthButton'
+import { MobileAuthButton } from '@/components/AuthButton/MobileAuthButton'
 
 export async function Header() {
   const payload = await getPayload({ config: payloadConfig })
@@ -18,5 +20,12 @@ export async function Header() {
     depth: 1,
   })
 
-  return <HeaderClient header={header} contact={contact} />
+  return (
+    <HeaderClient
+      header={header}
+      contact={contact}
+      authButton={<AuthButton />}
+      mobileAuthButton={<MobileAuthButton />}
+    />
+  )
 }

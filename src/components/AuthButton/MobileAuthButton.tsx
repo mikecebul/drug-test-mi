@@ -1,24 +1,15 @@
-'use client'
-
 import { cn } from '@/utilities/cn'
 import { CMSLink } from '@/components/Link'
 import { Icons } from '@/components/Icons'
-import { useAuth } from '@/hooks/useAuth'
+import { getPayload } from 'payload'
+import { headers } from 'next/headers'
+import config from '@payload-config'
 
-interface MobileAuthButtonProps {
-  onClose?: () => void
-}
-
-export function MobileAuthButton({ onClose }: MobileAuthButtonProps) {
-  const { user, isLoading } = useAuth()
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-4">
-        <Icons.spinner className="h-4 w-4 animate-spin" />
-      </div>
-    )
-  }
+export async function MobileAuthButton() {
+  // Get authenticated user
+  const headersList = await headers()
+  const payload = await getPayload({ config })
+  const { user } = await payload.auth({ headers: headersList })
 
   if (user) {
     const accountUrl = user.collection === 'clients' ? '/dashboard' : '/admin'
@@ -31,7 +22,6 @@ export function MobileAuthButton({ onClose }: MobileAuthButtonProps) {
           url={accountUrl}
           appearance="default"
           className={cn('w-full justify-center')}
-          onClick={onClose}
         >
           <Icons.user className="mr-2 h-4 w-4" />
           {accountLabel}
@@ -47,7 +37,6 @@ export function MobileAuthButton({ onClose }: MobileAuthButtonProps) {
         url="/sign-in"
         appearance="outline"
         className={cn('w-full justify-center')}
-        onClick={onClose}
       >
         Sign In
       </CMSLink>
@@ -56,7 +45,6 @@ export function MobileAuthButton({ onClose }: MobileAuthButtonProps) {
         url="/register"
         appearance="default"
         className={cn('w-full justify-center')}
-        onClick={onClose}
       >
         Register
       </CMSLink>
