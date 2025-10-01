@@ -5,6 +5,7 @@ import { resendAdapter } from '@payloadcms/email-resend'
 import { sentryPlugin } from '@payloadcms/plugin-sentry'
 import * as Sentry from '@sentry/nextjs'
 
+import { ecommercePlugin } from '@payloadcms/plugin-ecommerce'
 import { importExportPlugin } from '@payloadcms/plugin-import-export'
 import { stripePlugin } from '@payloadcms/plugin-stripe'
 import { redirectsPlugin } from '@payloadcms/plugin-redirects'
@@ -51,6 +52,15 @@ import { Technicians } from './collections/Technicians'
 import { Clients } from './collections/Clients'
 import { DrugTests } from './collections/DrugTests'
 import Admins from './collections/Admins'
+import {
+  adminOnly,
+  adminOnlyFieldAccess,
+  adminOrCustomerOwner,
+  adminOrPublishedStatus,
+  customerOnlyFieldAccess,
+} from './access/ecommerce'
+import { ProductsCollection } from './collections/Products'
+import { seed } from './endpoints/seed'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -80,7 +90,10 @@ export default buildConfig({
     components: {
       beforeDashboard: ['@/components/beforeDashboard/DrugTestStats'],
       afterDashboard: ['@/components/afterDashboard/Analytics'],
-      afterNavLinks: ['@/components/afterNavLinks/LinkToAnalyticsDefaultRootView', '@/components/afterNavLinks/DrugTestTrackerLink'],
+      afterNavLinks: [
+        '@/components/afterNavLinks/LinkToAnalyticsDefaultRootView',
+        '@/components/afterNavLinks/DrugTestTrackerLink',
+      ],
       graphics: {
         Icon: '@/graphics/Icon',
         Logo: '@/components/Logo/Graphic',
@@ -210,10 +223,30 @@ export default buildConfig({
             },
           },
         }),
-  endpoints: [],
+  endpoints: [
+    {
+      path: '/seed',
+      method: 'get',
+      handler: seed,
+    },
+  ],
   globals: [Header, Footer, CompanyInfo],
   graphQL: { disable: true },
   plugins: [
+    ecommercePlugin({
+      // You must add your access control functions here
+      access: {
+        adminOnly,
+        adminOnlyFieldAccess,
+        adminOrCustomerOwner,
+        adminOrPublishedStatus,
+        customerOnlyFieldAccess,
+      },
+      customers: { slug: 'clients' },
+      products: {
+        productsCollectionOverride: ProductsCollection,
+      },
+    }),
     importExportPlugin({
       collections: ['form-submissions'],
       overrideExportCollection: (collection) => {
