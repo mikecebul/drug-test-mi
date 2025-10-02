@@ -26,3 +26,5 @@ dump.sql
 
 # exports
 src/uploads
+
+tsconfig.tsbuildinfo

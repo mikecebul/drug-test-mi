@@ -564,6 +564,9 @@ export const Clients: CollectionConfig = {
             { label: 'Canceled', value: 'canceled' },
             { label: 'Unpaid', value: 'unpaid' },
             { label: 'Incomplete', value: 'incomplete' },
+            { label: 'Incomplete Expired', value: 'incomplete_expired' },
+            { label: 'Trialing', value: 'trialing' },
+            { label: 'Paused', value: 'paused' },
           ],
           admin: {
             condition: (data, siblingData) => siblingData?.isRecurring === true,

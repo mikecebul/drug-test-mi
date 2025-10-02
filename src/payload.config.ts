@@ -45,12 +45,19 @@ import { PrivateMedia } from './collections/PrivateMedia'
 import { MediaBlock } from './blocks/MediaBlock/config'
 import { baseUrl } from './utilities/baseUrl'
 import { checkoutSessionCompleted } from './plugins/stripe/webhooks/checkoutSessionCompleted'
+import { customerSubscriptionCreated } from './plugins/stripe/webhooks/customerSubscriptionCreated'
+import { customerSubscriptionUpdated } from './plugins/stripe/webhooks/customerSubscriptionUpdated'
+import { customerSubscriptionDeleted } from './plugins/stripe/webhooks/customerSubscriptionDeleted'
+import { invoicePaymentSucceeded } from './plugins/stripe/webhooks/invoicePaymentSucceeded'
+import { invoicePaymentFailed } from './plugins/stripe/webhooks/invoicePaymentFailed'
 import { Forms } from './collections/Forms'
 import { FormSubmissions } from './collections/FormSubmissions'
 import { Technicians } from './collections/Technicians'
 import { Clients } from './collections/Clients'
 import { DrugTests } from './collections/DrugTests'
 import Admins from './collections/Admins'
+import { SubscriptionProducts } from './collections/SubscriptionProducts'
+import { Payments } from './collections/Payments'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -188,6 +195,8 @@ export default buildConfig({
     Technicians,
     Clients,
     DrugTests,
+    SubscriptionProducts,
+    Payments,
   ],
   cors: [baseUrl].filter(Boolean),
   csrf: [baseUrl].filter(Boolean),
@@ -244,8 +253,13 @@ export default buildConfig({
       stripeWebhooksEndpointSecret: process.env.STRIPE_WEBHOOKS_ENDPOINT_SECRET,
       webhooks: {
         'checkout.session.completed': checkoutSessionCompleted,
+        'customer.subscription.created': customerSubscriptionCreated,
+        'customer.subscription.updated': customerSubscriptionUpdated,
+        'customer.subscription.deleted': customerSubscriptionDeleted,
+        'invoice.payment_succeeded': invoicePaymentSucceeded,
+        'invoice.payment_failed': invoicePaymentFailed,
       },
-      logs: false,
+      logs: true,
     }),
     redirectsPlugin({
       collections: ['pages'],

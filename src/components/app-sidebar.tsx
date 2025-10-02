@@ -5,6 +5,7 @@ import Link from "next/link"
 import {
   ClipboardList,
   ClipboardListIcon,
+  CreditCard,
   DatabaseIcon,
   FileIcon,
   FlaskConical,
@@ -49,6 +50,11 @@ const data = {
       title: "Medications",
       url: "/dashboard/medications",
       icon: PillBottle,
+    },
+    {
+      title: "Subscription",
+      url: "/dashboard/subscription",
+      icon: CreditCard,
     },
     // TODO: Implement appointments page with real data
     // {

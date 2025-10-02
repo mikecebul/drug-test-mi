@@ -107,6 +107,8 @@ export interface Config {
     technicians: Technician;
     clients: Client;
     'drug-tests': DrugTest;
+    'subscription-products': SubscriptionProduct;
+    payments: Payment;
     exports: Export;
     redirects: Redirect;
     'payload-jobs': PayloadJob;
@@ -131,6 +133,8 @@ export interface Config {
     technicians: TechniciansSelect<false> | TechniciansSelect<true>;
     clients: ClientsSelect<false> | ClientsSelect<true>;
     'drug-tests': DrugTestsSelect<false> | DrugTestsSelect<true>;
+    'subscription-products': SubscriptionProductsSelect<false> | SubscriptionProductsSelect<true>;
+    payments: PaymentsSelect<false> | PaymentsSelect<true>;
     exports: ExportsSelect<false> | ExportsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
@@ -1101,7 +1105,9 @@ export interface Client {
     /**
      * Current subscription status from Stripe
      */
-    subscriptionStatus?: ('active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete') | null;
+    subscriptionStatus?:
+      | ('active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'incomplete_expired' | 'trialing' | 'paused')
+      | null;
     /**
      * Next scheduled appointment date
      */
@@ -1273,6 +1279,84 @@ export interface Technician {
    * Inactive technicians will not appear in scheduling
    */
   isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Manage subscription plans synced with Stripe
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscription-products".
+ */
+export interface SubscriptionProduct {
+  id: string;
+  /**
+   * Plan name (e.g., "Weekly Testing", "Bi-Monthly Testing")
+   */
+  name: string;
+  /**
+   * Plan description shown to clients
+   */
+  description?: string | null;
+  /**
+   * Stripe Price ID (e.g., price_xxxxx) - create in Stripe Dashboard first
+   */
+  stripePriceId: string;
+  /**
+   * Stripe Product ID (e.g., prod_xxxxx)
+   */
+  stripeProductId: string;
+  /**
+   * Number of tests included per month (e.g., 2, 4, 8)
+   */
+  testsPerMonth: number;
+  /**
+   * Monthly price in cents (e.g., 15000 = $150.00)
+   */
+  pricePerMonth: number;
+  /**
+   * Whether this plan is available for new subscriptions
+   */
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Track subscription payments from Stripe
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payments".
+ */
+export interface Payment {
+  id: string;
+  /**
+   * Stripe Invoice ID
+   */
+  stripeInvoiceId: string;
+  /**
+   * Client who made this payment
+   */
+  relatedClient: string | Client;
+  /**
+   * Stripe Subscription ID
+   */
+  stripeSubscriptionId?: string | null;
+  /**
+   * Amount in cents
+   */
+  amount: number;
+  /**
+   * Payment status
+   */
+  status: 'paid' | 'failed';
+  /**
+   * Date of billing
+   */
+  billingDate: string;
+  /**
+   * URL to Stripe invoice PDF
+   */
+  invoicePdf?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1472,6 +1556,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'drug-tests';
         value: string | DrugTest;
+      } | null)
+    | ({
+        relationTo: 'subscription-products';
+        value: string | SubscriptionProduct;
+      } | null)
+    | ({
+        relationTo: 'payments';
+        value: string | Payment;
       } | null)
     | ({
         relationTo: 'exports';
@@ -2269,6 +2361,36 @@ export interface DrugTestsSelect<T extends boolean = true> {
   medicationsAtTestTime?: T;
   processNotes?: T;
   testDocument?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscription-products_select".
+ */
+export interface SubscriptionProductsSelect<T extends boolean = true> {
+  name?: T;
+  description?: T;
+  stripePriceId?: T;
+  stripeProductId?: T;
+  testsPerMonth?: T;
+  pricePerMonth?: T;
+  isActive?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payments_select".
+ */
+export interface PaymentsSelect<T extends boolean = true> {
+  stripeInvoiceId?: T;
+  relatedClient?: T;
+  stripeSubscriptionId?: T;
+  amount?: T;
+  status?: T;
+  billingDate?: T;
+  invoicePdf?: T;
   updatedAt?: T;
   createdAt?: T;
 }
