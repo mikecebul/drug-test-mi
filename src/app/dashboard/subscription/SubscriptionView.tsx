@@ -23,8 +23,16 @@ import {
   Clock,
 } from 'lucide-react'
 import { createCheckoutSessionAction, cancelSubscriptionAction } from './actions'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useMemo } from 'react'
 import { toast } from 'sonner'
+import {
+  useReactTable,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  flexRender,
+  ColumnDef,
+} from '@tanstack/react-table'
 
 type SubscriptionViewProps = {
   client: any
@@ -113,13 +121,13 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
       {/* Stats Cards - Only show if subscribed */}
       {isSubscribed && (
         <div className="px-4 lg:px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <Card className="bg-gradient-to-br from-green-400 to-green-600 text-white">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs opacity-90">Status</p>
-                    <p className="text-xl font-bold mt-1 capitalize">
+                    <p className="mt-1 text-xl font-bold capitalize">
                       {subscriptionStatus?.replace('_', ' ')}
                     </p>
                   </div>
@@ -133,7 +141,7 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs opacity-90">Total Paid</p>
-                    <p className="text-xl font-bold mt-1">{formatCurrency(totalPaid)}</p>
+                    <p className="mt-1 text-xl font-bold">{formatCurrency(totalPaid)}</p>
                   </div>
                   <DollarSign className="h-8 w-8 opacity-80" />
                 </div>
@@ -145,7 +153,7 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs opacity-90">Payments</p>
-                    <p className="text-xl font-bold mt-1">{payments.length}</p>
+                    <p className="mt-1 text-xl font-bold">{payments.length}</p>
                   </div>
                   <FileText className="h-8 w-8 opacity-80" />
                 </div>
@@ -157,7 +165,7 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs opacity-90">Next Billing</p>
-                    <p className="text-xl font-bold mt-1">
+                    <p className="mt-1 text-xl font-bold">
                       {daysUntilNext !== null ? `${daysUntilNext} days` : 'N/A'}
                     </p>
                   </div>
@@ -175,14 +183,14 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5" />
+                <CreditCard className="h-5 w-5" />
                 Current Subscription
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className="space-y-3 flex-1">
-                  <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-center max-sm:justify-between sm:space-x-8">
                     <span className="text-sm font-medium">Status:</span>
                     <Badge variant={getStatusBadgeVariant(subscriptionStatus)}>
                       {subscriptionStatus?.replace('_', ' ').toUpperCase()}
@@ -190,9 +198,9 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
                   </div>
 
                   {client.recurringAppointments?.subscriptionStartDate && (
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center max-sm:justify-between sm:space-x-8">
                       <span className="text-sm font-medium">Started:</span>
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-muted-foreground text-sm">
                         {new Date(
                           client.recurringAppointments.subscriptionStartDate,
                         ).toLocaleDateString('en-US', {
@@ -208,7 +216,7 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
                   {client.recurringAppointments?.nextAppointmentDate && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Next Test:</span>
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-muted-foreground text-sm">
                         {new Date(
                           client.recurringAppointments.nextAppointmentDate,
                         ).toLocaleDateString('en-US', {
@@ -253,12 +261,12 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
         <div className="px-4 lg:px-6">
           <div className="mb-4">
             <h2 className="text-xl font-semibold">Available Plans</h2>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-1 text-sm">
               Choose a subscription plan that fits your testing needs
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {availableProducts.map((product, index) => {
               const isPopular = index === 1 // Middle plan is popular
               return (
@@ -273,7 +281,9 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
                   )}
                   <CardHeader>
                     <CardTitle className="text-lg">{product.name}</CardTitle>
-                    <CardDescription className="line-clamp-2">{product.description}</CardDescription>
+                    <CardDescription className="line-clamp-2">
+                      {product.description}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div>
@@ -287,19 +297,19 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
 
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm">
-                        <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
+                        <CheckCircle className="text-primary h-4 w-4 flex-shrink-0" />
                         <span>{product.testsPerMonth} tests per month</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
-                        <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
+                        <CheckCircle className="text-primary h-4 w-4 flex-shrink-0" />
                         <span>Flexible scheduling</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
-                        <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
+                        <CheckCircle className="text-primary h-4 w-4 flex-shrink-0" />
                         <span>Cancel anytime</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
-                        <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
+                        <CheckCircle className="text-primary h-4 w-4 flex-shrink-0" />
                         <span>Email notifications</span>
                       </div>
                     </div>
@@ -321,89 +331,18 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
       )}
 
       {/* Payment History */}
-      {payments.length > 0 && (
-        <div className="px-4 lg:px-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Payment History
-              </CardTitle>
-              <CardDescription>View all your subscription payments and invoices</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Invoice</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {payments.map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell className="font-medium">
-                          {new Date(payment.billingDate).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            timeZone: 'UTC',
-                          })}
-                        </TableCell>
-                        <TableCell className="font-semibold">
-                          {formatCurrency(payment.amount)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={payment.status === 'paid' ? 'default' : 'destructive'}
-                            className="flex items-center gap-1 w-fit"
-                          >
-                            {payment.status === 'paid' ? (
-                              <CheckCircle className="w-3 h-3" />
-                            ) : (
-                              <XCircle className="w-3 h-3" />
-                            )}
-                            {payment.status.toUpperCase()}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {payment.invoicePdf ? (
-                            <a
-                              href={payment.invoicePdf}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-primary hover:underline inline-flex items-center gap-1"
-                            >
-                              View PDF
-                              <FileText className="w-3 h-3" />
-                            </a>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">N/A</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <PaymentHistory payments={payments} />
 
       {/* Empty State */}
       {!isSubscribed && availableProducts.length === 0 && payments.length === 0 && (
         <div className="px-4 lg:px-6">
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16">
-              <div className="rounded-full bg-muted p-4 mb-4">
-                <Calendar className="w-8 h-8 text-muted-foreground" />
+              <div className="bg-muted mb-4 rounded-full p-4">
+                <Calendar className="text-muted-foreground h-8 w-8" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">No Subscriptions Available</h3>
-              <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
+              <h3 className="mb-2 text-lg font-semibold">No Subscriptions Available</h3>
+              <p className="text-muted-foreground mb-6 max-w-md text-center text-sm">
                 There are currently no subscription plans available. Please contact support for
                 assistance.
               </p>
@@ -414,6 +353,177 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
           </Card>
         </div>
       )}
+    </div>
+  )
+}
+
+// Payment History Component with Pagination
+function PaymentHistory({ payments }: { payments: any[] }) {
+  const columns: ColumnDef<any, any>[] = useMemo(
+    () => [
+      {
+        accessorKey: 'billingDate',
+        header: 'Date',
+        cell: ({ getValue }) => {
+          return new Date(getValue()).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            timeZone: 'UTC',
+          })
+        },
+      },
+      {
+        accessorKey: 'amount',
+        header: 'Amount',
+        cell: ({ getValue }) => {
+          return <span className="font-semibold">{formatCurrency(getValue())}</span>
+        },
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ getValue }) => {
+          const status = getValue()
+          return (
+            <Badge
+              variant={status === 'paid' ? 'default' : 'destructive'}
+              className="flex w-fit items-center gap-1"
+            >
+              {status === 'paid' ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+              {status.toUpperCase()}
+            </Badge>
+          )
+        },
+      },
+      {
+        accessorKey: 'invoicePdf',
+        header: 'Invoice',
+        cell: ({ getValue }) => {
+          const invoicePdf = getValue()
+          return (
+            <div className="text-right">
+              {invoicePdf ? (
+                <a
+                  href={invoicePdf}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary inline-flex items-center gap-1 text-sm hover:underline"
+                >
+                  View PDF
+                  <FileText className="h-3 w-3" />
+                </a>
+              ) : (
+                <span className="text-muted-foreground text-sm">N/A</span>
+              )}
+            </div>
+          )
+        },
+      },
+    ],
+    [],
+  )
+
+  const table = useReactTable({
+    data: payments,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    initialState: {
+      pagination: {
+        pageSize: 10,
+      },
+    },
+  })
+
+  if (payments.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="px-4 lg:px-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Payment History
+          </CardTitle>
+          <CardDescription>View all your subscription payments and invoices</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => {
+                      return (
+                        <TableHead key={header.id} className={header.id === 'invoicePdf' ? 'text-right' : ''}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </TableHead>
+                      )
+                    })}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow key={row.id}>
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                      No payment history found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="flex items-center justify-between py-4">
+            <div className="text-muted-foreground text-sm">
+              Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}{' '}
+              to{' '}
+              {Math.min(
+                (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+                payments.length,
+              )}{' '}
+              of {payments.length} payments
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                Previous
+              </Button>
+              <div className="text-sm">
+                Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
