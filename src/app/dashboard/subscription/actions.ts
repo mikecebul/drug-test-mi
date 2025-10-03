@@ -7,6 +7,8 @@ import Stripe from 'stripe'
 import { revalidatePath } from 'next/cache'
 import { baseUrl } from '@/utilities/baseUrl'
 
+import { calculateProratedRefund } from './utils/calculateProratedRefund'
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2022-08-01',
 })
@@ -94,13 +96,43 @@ export async function cancelSubscriptionAction() {
       return { success: false, error: 'No active subscription found' }
     }
 
-    // Cancel subscription in Stripe
+    // Calculate prorated refund
+    const { refundAmount, daysRemaining, latestChargeId } = await calculateProratedRefund(
+      stripe,
+      subscriptionId,
+    )
+
+    // Issue refund if there's money to refund and a charge exists
+    let refundIssued = false
+    if (refundAmount > 0 && latestChargeId) {
+      await stripe.refunds.create({
+        charge: latestChargeId,
+        amount: refundAmount,
+        reason: 'requested_by_customer',
+        metadata: {
+          type: 'prorated_cancellation',
+          days_remaining: daysRemaining.toString(),
+          client_id: user.id,
+        },
+      })
+      refundIssued = true
+    }
+
+    // Cancel subscription immediately
     await stripe.subscriptions.cancel(subscriptionId)
 
     // Revalidate the subscription page
     revalidatePath('/dashboard/subscription')
 
-    return { success: true, message: 'Subscription canceled successfully' }
+    const message = refundIssued
+      ? `Subscription canceled. A refund of $${(refundAmount / 100).toFixed(2)} for ${daysRemaining} unused ${daysRemaining === 1 ? 'day' : 'days'} will be processed to your payment method within 5-10 business days.`
+      : 'Subscription canceled successfully'
+
+    return {
+      success: true,
+      message,
+      refundAmount: refundIssued ? refundAmount : 0,
+    }
   } catch (error) {
     console.error('Error canceling subscription:', error)
     return {

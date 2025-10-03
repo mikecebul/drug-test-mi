@@ -2,7 +2,14 @@
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardDescriptionDiv,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -35,6 +42,7 @@ import {
 import { createCheckoutSessionAction, cancelSubscriptionAction } from './actions'
 import { useState, useTransition, useMemo } from 'react'
 import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
 import {
   useReactTable,
   getCoreRowModel,
@@ -71,6 +79,7 @@ const formatCurrency = (cents: number) => {
 }
 
 export function SubscriptionView({ client, availableProducts, payments }: SubscriptionViewProps) {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [cancelingSubscription, setCancelingSubscription] = useState(false)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
@@ -109,8 +118,10 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
       const result = await cancelSubscriptionAction()
 
       if (result.success) {
-        toast.success('Subscription canceled successfully')
+        toast.success(result.message || 'Subscription canceled successfully')
         setShowCancelDialog(false)
+        // Refresh to show available product cards
+        router.refresh()
       } else {
         toast.error(result.error || 'Failed to cancel subscription')
       }
@@ -367,16 +378,22 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Subscription</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to cancel your subscription? This action will:
-              <ul className="mt-2 list-inside list-disc space-y-1">
-                <li>Cancel your recurring monthly payments</li>
-                <li>End your subscription at the end of the current billing period</li>
-                <li>Remove access to scheduled drug testing appointments</li>
-              </ul>
-              <p className="mt-3 font-medium">This action cannot be undone.</p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+            <CardDescriptionDiv>
+              Are you sure you want to cancel your subscription?
+              <div className="bg-muted mt-3 space-y-2 rounded-md p-3 text-sm">
+                <p className="font-medium">What happens next:</p>
+                <ul className="list-inside list-disc space-y-1">
+                  <li>Your subscription will be canceled immediately</li>
+                  <li>
+                    You'll receive a prorated refund (up to 85% of monthly cost) for unused days
+                  </li>
+                  <li>Refunds are processed to your original payment method within 5-10 days</li>
+                  <li>You'll lose access to scheduled appointments</li>
+                </ul>
+              </div>
+              <p className="text-destructive mt-3 font-medium">This action cannot be undone.</p>
+            </CardDescriptionDiv>
+          </AlertDialogHeader>{' '}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={cancelingSubscription}>Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -426,7 +443,11 @@ function PaymentHistory({ payments }: { payments: any[] }) {
               variant={status === 'paid' ? 'default' : 'destructive'}
               className="flex w-fit items-center gap-1"
             >
-              {status === 'paid' ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+              {status === 'paid' ? (
+                <CheckCircle className="h-3 w-3" />
+              ) : (
+                <XCircle className="h-3 w-3" />
+              )}
               {status.toUpperCase()}
             </Badge>
           )
@@ -495,7 +516,10 @@ function PaymentHistory({ payments }: { payments: any[] }) {
                   <TableRow key={headerGroup.id}>
                     {headerGroup.headers.map((header) => {
                       return (
-                        <TableHead key={header.id} className={header.id === 'invoicePdf' ? 'text-right' : ''}>
+                        <TableHead
+                          key={header.id}
+                          className={header.id === 'invoicePdf' ? 'text-right' : ''}
+                        >
                           {header.isPlaceholder
                             ? null
                             : flexRender(header.column.columnDef.header, header.getContext())}
@@ -528,8 +552,8 @@ function PaymentHistory({ payments }: { payments: any[] }) {
           </div>
           <div className="flex items-center justify-between py-4">
             <div className="text-muted-foreground text-sm">
-              Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}{' '}
-              to{' '}
+              Showing{' '}
+              {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{' '}
               {Math.min(
                 (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
                 payments.length,
