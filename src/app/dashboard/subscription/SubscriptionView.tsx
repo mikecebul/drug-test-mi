@@ -13,6 +13,16 @@ import {
 } from '@/components/ui/table'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   CreditCard,
   CheckCircle,
   XCircle,
@@ -63,6 +73,7 @@ const formatCurrency = (cents: number) => {
 export function SubscriptionView({ client, availableProducts, payments }: SubscriptionViewProps) {
   const [isPending, startTransition] = useTransition()
   const [cancelingSubscription, setCancelingSubscription] = useState(false)
+  const [showCancelDialog, setShowCancelDialog] = useState(false)
 
   const isSubscribed = client.recurringAppointments?.isRecurring
   const subscriptionStatus = client.recurringAppointments?.subscriptionStatus
@@ -92,10 +103,6 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
   }
 
   const handleCancelSubscription = async () => {
-    if (!confirm('Are you sure you want to cancel your subscription?')) {
-      return
-    }
-
     setCancelingSubscription(true)
 
     try {
@@ -103,6 +110,7 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
 
       if (result.success) {
         toast.success('Subscription canceled successfully')
+        setShowCancelDialog(false)
       } else {
         toast.error(result.error || 'Failed to cancel subscription')
       }
@@ -232,12 +240,12 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
 
                 <div className="flex items-center gap-2">
                   <Button
-                    onClick={handleCancelSubscription}
+                    onClick={() => setShowCancelDialog(true)}
                     variant="destructive"
                     disabled={cancelingSubscription}
                     size="sm"
                   >
-                    {cancelingSubscription ? 'Canceling...' : 'Cancel Subscription'}
+                    Cancel Subscription
                   </Button>
                 </div>
               </div>
@@ -353,6 +361,34 @@ export function SubscriptionView({ client, availableProducts, payments }: Subscr
           </Card>
         </div>
       )}
+
+      {/* Cancel Subscription Alert Dialog */}
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Subscription</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel your subscription? This action will:
+              <ul className="mt-2 list-inside list-disc space-y-1">
+                <li>Cancel your recurring monthly payments</li>
+                <li>End your subscription at the end of the current billing period</li>
+                <li>Remove access to scheduled drug testing appointments</li>
+              </ul>
+              <p className="mt-3 font-medium">This action cannot be undone.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelingSubscription}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelSubscription}
+              disabled={cancelingSubscription}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {cancelingSubscription ? 'Canceling...' : 'Yes, Cancel Subscription'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
