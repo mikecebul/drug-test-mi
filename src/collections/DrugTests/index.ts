@@ -1,6 +1,8 @@
 import { CollectionConfig } from 'payload'
 import { superAdmin } from '@/access/superAdmin'
 import { admins } from '@/access/admins'
+import { computeTestResults } from './hooks/computeTestResults'
+import { allSubstanceOptions } from '@/fields/substanceOptions'
 
 export const DrugTests: CollectionConfig = {
   slug: 'drug-tests',
@@ -33,7 +35,13 @@ export const DrugTests: CollectionConfig = {
     update: admins,
   },
   admin: {
-    defaultColumns: ['relatedClient', 'testType', 'initialScreenResult', 'collectionDate', 'isComplete'],
+    defaultColumns: [
+      'relatedClient',
+      'testType',
+      'initialScreenResult',
+      'collectionDate',
+      'isComplete',
+    ],
     group: 'Admin',
     description: 'Track drug test results and workflow',
   },
@@ -64,54 +72,76 @@ export const DrugTests: CollectionConfig = {
         { label: '11-Panel Lab', value: '11-panel-lab' },
         { label: '15-Panel Instant', value: '15-panel-instant' },
       ],
+      required: true,
       admin: {
         description: 'Type of drug test panel used',
       },
     },
+    // Raw test results - what substances were detected
+    {
+      name: 'detectedSubstances',
+      type: 'select',
+      hasMany: true,
+      options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
+      admin: {
+        description:
+          'RAW TEST RESULTS: Which substances tested positive? Leave empty if all negative. Select only substances that appear on your specific test panel.',
+      },
+      hooks: {
+        beforeChange: [computeTestResults],
+      },
+    },
+    // Computed fields - automatically populated by business logic hook
+    {
+      name: 'expectedPositives',
+      type: 'select',
+      hasMany: true,
+      options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
+      admin: {
+        description:
+          'AUTO-COMPUTED: Substances expected to be positive based on client medications',
+        readOnly: true,
+      },
+    },
+    {
+      name: 'unexpectedPositives',
+      type: 'select',
+      hasMany: true,
+      options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
+      admin: {
+        description: 'AUTO-COMPUTED: Substances that tested positive but were NOT expected (FAIL)',
+        readOnly: true,
+      },
+    },
+    {
+      name: 'unexpectedNegatives',
+      type: 'select',
+      hasMany: true,
+      options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
+      admin: {
+        description:
+          "AUTO-COMPUTED: Medications that should show positive but DIDN'T (FAIL - Red Flag)",
+        readOnly: true,
+      },
+    },
+    // Overall result classification
     {
       name: 'initialScreenResult',
       type: 'select',
       options: [
-        { label: 'Negative', value: 'negative' },
-        { label: 'Expected Positive', value: 'expected-positive' },
-        { label: 'Unexpected Positive', value: 'unexpected-positive' },
+        { label: 'Negative (PASS)', value: 'negative' },
+        { label: 'Expected Positive (PASS)', value: 'expected-positive' },
+        { label: 'Unexpected Positive (FAIL)', value: 'unexpected-positive' },
+        { label: 'Unexpected Negative (FAIL - Red Flag)', value: 'unexpected-negative' },
+        { label: 'Mixed Unexpected (FAIL)', value: 'mixed-unexpected' },
         { label: 'Inconclusive', value: 'inconclusive' },
       ],
       admin: {
-        description: 'Result of the initial drug screen',
+        description: 'AUTO-COMPUTED: Overall test result classification based on business logic',
+        readOnly: true,
       },
     },
-    {
-      name: 'presumptivePositive',
-      type: 'select',
-      options: [
-        { label: 'Amphetamines', value: 'amphetamines' },
-        { label: 'Methamphetamines', value: 'methamphetamines' },
-        { label: 'Benzodiazepines', value: 'benzodiazepines' },
-        { label: 'THC (Marijuana)', value: 'thc' },
-        { label: 'Opiates', value: 'opiates' },
-        { label: 'Oxycodone', value: 'oxycodone' },
-        { label: 'Cocaine', value: 'cocaine' },
-        { label: 'Phencyclidine (PCP)', value: 'pcp' },
-        { label: 'Barbiturates', value: 'barbiturates' },
-        { label: 'Methadone', value: 'methadone' },
-        { label: 'Propoxyphene', value: 'propoxyphene' },
-        { label: 'Tricyclic Antidepressants', value: 'tricyclic_antidepressants' },
-        { label: 'MDMA (Ecstasy)', value: 'mdma' },
-        { label: 'Buprenorphine', value: 'buprenorphine' },
-        { label: 'Tramadol', value: 'tramadol' },
-        { label: 'Fentanyl', value: 'fentanyl' },
-        { label: 'Kratom', value: 'kratom' },
-        { label: 'Other', value: 'other' },
-      ],
-      admin: {
-        description: 'What substance tested positive (required for positive results)',
-        condition: (_, siblingData) =>
-          siblingData?.initialScreenResult &&
-          ['expected-positive', 'unexpected-positive'].includes(siblingData.initialScreenResult),
-      },
-    },
-    // Confirmation workflow - shows for positive results
+    // Confirmation workflow - shows for ANY positive or unexpected results
     {
       name: 'confirmationDecision',
       type: 'radio',
@@ -123,7 +153,12 @@ export const DrugTests: CollectionConfig = {
         description: 'Client decision on whether to accept results or request confirmation',
         condition: (_, siblingData) =>
           siblingData?.initialScreenResult &&
-          ['expected-positive', 'unexpected-positive'].includes(siblingData.initialScreenResult),
+          [
+            'expected-positive',
+            'unexpected-positive',
+            'unexpected-negative',
+            'mixed-unexpected',
+          ].includes(siblingData.initialScreenResult),
       },
     },
     {
@@ -131,12 +166,31 @@ export const DrugTests: CollectionConfig = {
       type: 'date',
       admin: {
         description: 'Date and time confirmation was requested by client',
-        condition: (_, siblingData) =>
-          siblingData?.confirmationDecision === 'request-confirmation',
+        condition: (_, siblingData) => siblingData?.confirmationDecision === 'request-confirmation',
         date: {
-          pickerAppearance: 'dayAndTime',
+          pickerAppearance: 'default',
         },
-        readOnly: true, // Set automatically when client requests
+      },
+      hooks: {
+        beforeChange: [
+          ({ siblingData, value }) => {
+            // Auto-set timestamp when confirmation is requested for the first time
+            if (siblingData?.confirmationDecision === 'request-confirmation' && !value) {
+              return new Date().toISOString()
+            }
+            return value
+          },
+        ],
+      },
+    },
+    {
+      name: 'confirmationSubstances',
+      type: 'select',
+      options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
+      hasMany: true,
+      admin: {
+        description: 'Which substances require confirmation testing',
+        condition: (_, siblingData) => siblingData?.confirmationDecision === 'request-confirmation',
       },
     },
     {
@@ -147,19 +201,46 @@ export const DrugTests: CollectionConfig = {
       },
     },
     {
-      name: 'confirmationStatus',
-      type: 'select',
-      options: [
-        { label: 'Pending Confirmation', value: 'pending-confirmation' },
-        { label: 'Confirmed Positive', value: 'confirmed-positive' },
-        { label: 'Confirmed Negative', value: 'confirmed-negative' },
-        { label: 'Confirmation Inconclusive', value: 'confirmation-inconclusive' },
-      ],
+      name: 'confirmationResults',
+      type: 'array',
       admin: {
-        description: 'Status of the confirmation test (updated when results come back)',
+        description: 'Individual confirmation test results for each substance',
         condition: (_, siblingData) =>
-          siblingData?.confirmationDecision === 'request-confirmation',
+          siblingData?.confirmationDecision === 'request-confirmation' &&
+          Array.isArray(siblingData?.confirmationSubstances) &&
+          siblingData.confirmationSubstances.length > 0,
       },
+      fields: [
+        {
+          name: 'substance',
+          type: 'select',
+          required: true,
+          options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
+          admin: {
+            description: 'Which substance was tested in the confirmation',
+          },
+        },
+        {
+          name: 'result',
+          type: 'select',
+          required: true,
+          options: [
+            { label: 'Confirmed Positive', value: 'confirmed-positive' },
+            { label: 'Confirmed Negative', value: 'confirmed-negative' },
+            { label: 'Inconclusive', value: 'inconclusive' },
+          ],
+          admin: {
+            description: 'Lab confirmation result for this specific substance',
+          },
+        },
+        {
+          name: 'notes',
+          type: 'textarea',
+          admin: {
+            description: 'Optional notes about this confirmation result',
+          },
+        },
+      ],
     },
     // Virtual field - automatically determines if test is complete
     {
@@ -175,31 +256,40 @@ export const DrugTests: CollectionConfig = {
           ({ siblingData }) => {
             const initialResult = siblingData?.initialScreenResult
             const confirmationDecision = siblingData?.confirmationDecision
-            const confirmationStatus = siblingData?.confirmationStatus
+            const confirmationResults = siblingData?.confirmationResults
 
             // Complete if:
-            // 1. Negative or inconclusive result (no decision needed)
-            // 2. Positive result and client accepted
-            // 3. Positive result, confirmation requested, and confirmation received
+            // 1. Negative or inconclusive (no decision needed)
+            // 2. Expected positive and client accepted (PASS with meds)
+            // 3. Any result with confirmation requested and ALL results received
             if (!initialResult) return false
 
-            // Negative or inconclusive = complete
+            // Negative or inconclusive = automatically complete (PASS)
             if (['negative', 'inconclusive'].includes(initialResult)) {
               return true
             }
 
-            // Positive results
-            if (['expected-positive', 'unexpected-positive'].includes(initialResult)) {
-              // If client accepted results
+            // Expected positive (PASS) or any unexpected results
+            if (
+              [
+                'expected-positive',
+                'unexpected-positive',
+                'unexpected-negative',
+                'mixed-unexpected',
+              ].includes(initialResult)
+            ) {
+              // If client accepted results without confirmation
               if (confirmationDecision === 'accept') {
                 return true
               }
 
-              // If confirmation requested and results received
+              // If confirmation requested and ALL results received
               if (
                 confirmationDecision === 'request-confirmation' &&
-                confirmationStatus &&
-                confirmationStatus !== 'pending-confirmation'
+                Array.isArray(confirmationResults) &&
+                Array.isArray(siblingData?.confirmationSubstances) &&
+                confirmationResults.length === siblingData.confirmationSubstances.length &&
+                confirmationResults.every((result: any) => result.result) // All have results
               ) {
                 return true
               }
@@ -227,10 +317,7 @@ export const DrugTests: CollectionConfig = {
         beforeChange: [
           async ({ value, siblingData, req, operation }) => {
             // Only auto-populate on create for drug tests
-            if (
-              operation === 'create' &&
-              siblingData?.relatedClient
-            ) {
+            if (operation === 'create' && siblingData?.relatedClient) {
               try {
                 const payload = req.payload
                 const client = await payload.findByID({

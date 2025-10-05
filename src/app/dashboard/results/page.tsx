@@ -25,7 +25,12 @@ export default async function TestResultsPage() {
       depth: 1,
     })
 
-    return <ResultsView testResults={drugTestsResult.docs} />
+    // Fetch company contact info for confirmation notice
+    const companyInfo = await payload.findGlobal({
+      slug: 'company-info',
+    })
+
+    return <ResultsView testResults={drugTestsResult.docs} contactPhone={companyInfo.contact?.phone || undefined} />
   } catch (error) {
     redirect('/sign-in?redirect=/dashboard/results')
   }

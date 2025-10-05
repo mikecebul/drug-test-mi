@@ -43,53 +43,127 @@ interface CustodyStep {
 // Generate chain of custody steps based on test data
 function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
   // Use new workflow fields
-  const hasInitialResult = result.initialScreenResult
+  const hasInitialResult = !!result.initialScreenResult
   const confirmationDecision = result.confirmationDecision
   const isConfirmationRequested = confirmationDecision === 'request-confirmation'
-  const confirmationStatus = result.confirmationStatus
-  const isConfirmed = confirmationStatus && confirmationStatus !== 'pending-confirmation'
+  const confirmationResults = result.confirmationResults
+  const confirmationSubstances = result.confirmationSubstances || []
+  const isConfirmed = Array.isArray(confirmationResults) &&
+    confirmationResults.length === confirmationSubstances.length &&
+    confirmationResults.every((r: any) => r.result)
+  const isComplete = result.isComplete
+  const testType = result.testType
+  const is15Panel = testType === '15-panel-instant'
+  const is11PanelLab = testType === '11-panel-lab'
 
-  // Simplified workflow for both lab and instant tests
-  const baseSteps = [
+  // If test is marked as complete, show all steps as complete
+  if (isComplete) {
+    const completeSteps: CustodyStep[] = [
+      {
+        label: 'Collected',
+        icon: Circle,
+        completed: true,
+      },
+    ]
+
+    // Add shipping for 11-panel lab before screening
+    if (is11PanelLab) {
+      completeSteps.push({
+        label: 'Shipped',
+        icon: Truck,
+        completed: true,
+      })
+    }
+
+    completeSteps.push({
+      label: 'Screened',
+      icon: FlaskConical,
+      completed: true,
+    })
+
+    // Add shipping for 15-panel instant before complete (if confirmation exists)
+    if (is15Panel && confirmationResults && confirmationResults.length > 0) {
+      completeSteps.push({
+        label: 'Shipped',
+        icon: Truck,
+        completed: true,
+      })
+    }
+
+    completeSteps.push({
+      label: 'Complete',
+      icon: CheckCircle,
+      completed: true,
+    })
+
+    return completeSteps
+  }
+
+  // Build steps based on test type and current state
+  const steps: CustodyStep[] = [
     {
       label: 'Collected',
       icon: Circle,
       completed: true, // If we have the record, it was collected
     },
-    {
-      label: 'Screened',
-      icon: FlaskConical,
-      completed: !!hasInitialResult,
-      current: !hasInitialResult,
-    },
   ]
 
-  // Add confirmation steps if positive result and confirmation requested
-  if (hasInitialResult && ['expected-positive', 'unexpected-positive'].includes(hasInitialResult)) {
+  // For 11-panel lab, add shipping BEFORE screening
+  if (is11PanelLab) {
+    steps.push({
+      label: 'Shipped',
+      icon: Truck,
+      completed: !!hasInitialResult, // Shipped if we have results back
+      current: !hasInitialResult,
+    })
+  }
+
+  steps.push({
+    label: 'Screened',
+    icon: FlaskConical,
+    completed: !!hasInitialResult,
+    current: !hasInitialResult && !is11PanelLab, // Current only if not waiting for shipping
+  })
+
+  // Add confirmation steps if unexpected results
+  const hasUnexpectedResults = result.initialScreenResult &&
+    ['unexpected-positive', 'unexpected-negative', 'mixed-unexpected'].includes(result.initialScreenResult)
+
+  if (hasUnexpectedResults) {
     if (isConfirmationRequested) {
-      baseSteps.push(
+      // For 15-panel instant with confirmation, add shipping before confirmation
+      if (is15Panel) {
+        steps.push({
+          label: 'Shipped',
+          icon: Truck,
+          completed: !!isConfirmed,
+          current: !isConfirmed,
+        })
+      }
+
+      steps.push(
         {
           label: 'Confirmation Requested',
           icon: FileCheck,
-          completed: !!confirmationStatus,
-          current: !confirmationStatus,
+          completed: !!isConfirmed,
+          current: false,
         },
         {
           label: 'Confirmed',
           icon: CheckCircle,
           completed: !!isConfirmed,
-          current: confirmationStatus === 'pending-confirmation',
+          current: Array.isArray(confirmationResults) && confirmationResults.length > 0 && !isConfirmed,
         },
       )
     } else if (confirmationDecision === 'accept') {
-      baseSteps.push({
+      steps.push({
         label: 'Results Accepted',
         icon: CheckCircle,
         completed: true,
       })
     } else {
       // Awaiting client decision
-      baseSteps.push({
+      steps.push({
         label: 'Awaiting Decision',
         icon: Clock,
         completed: false,
@@ -98,14 +172,14 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
     }
   } else if (hasInitialResult) {
     // Negative or inconclusive - complete
-    baseSteps.push({
+    steps.push({
       label: 'Complete',
       icon: CheckCircle,
       completed: true,
     })
   }
 
-  return baseSteps
+  return steps
 }
 
 // Chain of custody component - memoized to prevent unnecessary re-renders
@@ -150,49 +224,100 @@ const ChainOfCustody = React.memo(({ result }: { result: DrugTestResult }) => {
 ChainOfCustody.displayName = 'ChainOfCustody'
 
 // Helper function to format test results based on new workflow
-function formatTestResult(testData: DrugTestResult): { result: string; substance?: string } {
+function formatTestResult(testData: DrugTestResult): {
+  result: string;
+  unexpectedPositives?: string[];
+  unexpectedNegatives?: string[];
+  confirmationResults?: Array<{ substance: string; result: string; notes?: string }>;
+} {
   const initialResult = testData.initialScreenResult
   const confirmationDecision = testData.confirmationDecision
-  const confirmationStatus = testData.confirmationStatus
-  const presumptivePositive = testData.presumptivePositive
+  const confirmationResults = testData.confirmationResults
+  const unexpectedPositives = testData.unexpectedPositives
+  const unexpectedNegatives = testData.unexpectedNegatives
   const isComplete = testData.isComplete
 
   if (!initialResult) return { result: 'Pending' }
 
   let formattedResult: string
-  let substance: string | undefined
 
-  // If confirmation was requested and we have confirmation results
-  if (confirmationDecision === 'request-confirmation' && confirmationStatus) {
-    switch (confirmationStatus) {
-      case 'pending-confirmation':
-        formattedResult = 'Pending Confirmation'
-        break
-      case 'confirmed-positive':
-        formattedResult = 'Positive'
-        break
-      case 'confirmed-negative':
-        formattedResult = 'Negative'
-        break
-      case 'confirmation-inconclusive':
-        formattedResult = 'Inconclusive'
-        break
-      default:
-        formattedResult = 'Pending Confirmation'
-    }
-  } else if (confirmationDecision === 'request-confirmation' && !confirmationStatus) {
+  // Substance map for display
+  const substanceMap: { [key: string]: string } = {
+    '6-mam': 'Heroin',
+    amphetamines: 'Amphetamines',
+    methamphetamines: 'Methamphetamines',
+    benzodiazepines: 'Benzodiazepines',
+    thc: 'THC',
+    opiates: 'Opiates',
+    oxycodone: 'Oxycodone',
+    cocaine: 'Cocaine',
+    pcp: 'PCP',
+    barbiturates: 'Barbiturates',
+    methadone: 'Methadone',
+    propoxyphene: 'Propoxyphene',
+    tricyclic_antidepressants: 'Tricyclic Antidepressants',
+    mdma: 'MDMA (Ecstasy)',
+    buprenorphine: 'Buprenorphine',
+    tramadol: 'Tramadol',
+    fentanyl: 'Fentanyl',
+    kratom: 'Kratom',
+    etg: 'EtG (Alcohol)',
+    synthetic_cannabinoids: 'Synthetic Cannabinoids',
+    other: 'Other',
+  }
+
+  // Check if confirmation was requested and completed
+  const confirmationSubstances = testData.confirmationSubstances || []
+  const hasAllConfirmationResults = confirmationDecision === 'request-confirmation' &&
+    Array.isArray(confirmationResults) &&
+    confirmationResults.length === confirmationSubstances.length &&
+    confirmationResults.every((r: any) => r.result)
+
+  // If confirmation is pending, show pending status
+  if (confirmationDecision === 'request-confirmation' && !hasAllConfirmationResults) {
     formattedResult = 'Pending Confirmation'
-  } else {
-    // Show initial result (final for negative/inconclusive, or accepted positive)
+  } else if (hasAllConfirmationResults) {
+    // Confirmation is complete - merge confirmed results with original results
+    // Show initial result status (will show confirmed results in substance badges)
     switch (initialResult) {
       case 'negative':
         formattedResult = 'Negative'
         break
       case 'expected-positive':
-        formattedResult = isComplete ? 'Positive' : 'Presumptive Positive'
+        formattedResult = 'Expected Positive'
+        break
+      case 'unexpected-positive':
+        formattedResult = 'Confirmed Results'
+        break
+      case 'unexpected-negative':
+        formattedResult = 'Confirmed Results'
+        break
+      case 'mixed-unexpected':
+        formattedResult = 'Confirmed Results'
+        break
+      case 'inconclusive':
+        formattedResult = 'Inconclusive'
+        break
+      default:
+        formattedResult = 'Unknown'
+    }
+  } else {
+    // No confirmation requested - show initial result
+    switch (initialResult) {
+      case 'negative':
+        formattedResult = 'Negative'
+        break
+      case 'expected-positive':
+        formattedResult = 'Expected Positive'
         break
       case 'unexpected-positive':
         formattedResult = isComplete ? 'Positive' : 'Presumptive Positive'
+        break
+      case 'unexpected-negative':
+        formattedResult = isComplete ? 'Negative (Unexpected)' : 'Presumptive Negative (Unexpected)'
+        break
+      case 'mixed-unexpected':
+        formattedResult = isComplete ? 'Mixed Results' : 'Presumptive Mixed Results'
         break
       case 'inconclusive':
         formattedResult = 'Inconclusive'
@@ -202,47 +327,61 @@ function formatTestResult(testData: DrugTestResult): { result: string; substance
     }
   }
 
-  // Add substance information for positive results
-  if (presumptivePositive && ['expected-positive', 'unexpected-positive'].includes(initialResult)) {
-    // Format substance name for display
-    const substanceMap: { [key: string]: string } = {
-      amphetamines: 'Amphetamines',
-      methamphetamines: 'Methamphetamines',
-      benzodiazepines: 'Benzodiazepines',
-      thc: 'THC',
-      opiates: 'Opiates',
-      oxycodone: 'Oxycodone',
-      cocaine: 'Cocaine',
-      pcp: 'PCP',
-      barbiturates: 'Barbiturates',
-      methadone: 'Methadone',
-      propoxyphene: 'Propoxyphene',
-      tricyclic_antidepressants: 'Tricyclic Antidepressants',
-      mdma: 'MDMA',
-      buprenorphine: 'Buprenorphine',
-      tramadol: 'Tramadol',
-      fentanyl: 'Fentanyl',
-      kratom: 'Kratom',
-      other: 'Other',
-    }
-    substance = substanceMap[presumptivePositive] || presumptivePositive
+  // Merge confirmation results with original results
+  // If confirmation is complete, override confirmed substances, keep others from original
+  let finalUnexpectedPositives = unexpectedPositives
+  let finalUnexpectedNegatives = unexpectedNegatives
+
+  if (hasAllConfirmationResults) {
+    // Create a map of confirmed substances to their results
+    const confirmedMap = new Map<string, string>()
+    confirmationResults.forEach((conf: any) => {
+      confirmedMap.set(conf.substance, conf.result)
+    })
+
+    // Filter out confirmed substances from unexpectedPositives/negatives
+    // Only keep substances that were NOT confirmed (weren't contested)
+    finalUnexpectedPositives = unexpectedPositives?.filter(
+      sub => !confirmationSubstances.includes(sub)
+    )
+    finalUnexpectedNegatives = unexpectedNegatives?.filter(
+      sub => !confirmationSubstances.includes(sub)
+    )
   }
 
-  // Don't add dilute indicator - it has its own column
-  return { result: formattedResult, substance }
+  // Format substances for display
+  const formattedUnexpectedPositives = Array.isArray(finalUnexpectedPositives) && finalUnexpectedPositives.length > 0
+    ? finalUnexpectedPositives.map(sub => substanceMap[sub] || sub)
+    : undefined
+
+  const formattedUnexpectedNegatives = Array.isArray(finalUnexpectedNegatives) && finalUnexpectedNegatives.length > 0
+    ? finalUnexpectedNegatives.map(sub => substanceMap[sub] || sub)
+    : undefined
+
+  return {
+    result: formattedResult,
+    unexpectedPositives: formattedUnexpectedPositives,
+    unexpectedNegatives: formattedUnexpectedNegatives,
+    confirmationResults: hasAllConfirmationResults ? (confirmationResults as any) : undefined,
+  }
 }
 
 const getResultBadgeVariant = (result: string) => {
   // Color scheme: Red (destructive), Blue (secondary), White (outline)
 
-  // Red - Unexpected positive results
-  if (result.includes('Positive') && !result.includes('Expected')) {
-    return 'destructive'
+  // Blue - PASS results (Negative and Expected Positive)
+  if (result === 'Negative' || result === 'Expected Positive') {
+    return 'secondary'
   }
 
-  // Blue - Negative results and expected positive
-  if (result.includes('Negative') || result.includes('Expected')) {
-    return 'secondary'
+  // Confirmed Results - neutral color (will show detail in badges below)
+  if (result === 'Confirmed Results') {
+    return 'outline'
+  }
+
+  // Red - Any unexpected results, mixed results
+  if (result.includes('Positive') || result.includes('Mixed') || result.includes('Unexpected')) {
+    return 'destructive'
   }
 
   // White - Pending, inconclusive, or unknown
@@ -251,9 +390,10 @@ const getResultBadgeVariant = (result: string) => {
 
 interface ResultsViewProps {
   testResults: DrugTestResult[]
+  contactPhone?: string
 }
 
-export function ResultsView({ testResults }: ResultsViewProps) {
+export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [dateRange, setDateRange] = useState<DateRange | undefined>()
   const [resultFilter, setResultFilter] = useState<string>('')
@@ -322,42 +462,127 @@ export function ResultsView({ testResults }: ResultsViewProps) {
       {
         accessorKey: 'collectionDate',
         header: 'Date',
+        size: 100,
         cell: ({ row }) => {
           const collectionDate = row.original.collectionDate
           const createdAt = row.original.createdAt
           const date = new Date(collectionDate || createdAt)
-          return date.toLocaleDateString('en-US', {
-            month: '2-digit',
-            day: '2-digit',
-            year: 'numeric',
-          })
+          return (
+            <div className="whitespace-nowrap text-sm">
+              {date.toLocaleDateString('en-US', {
+                month: '2-digit',
+                day: '2-digit',
+                year: '2-digit',
+              })}
+            </div>
+          )
         },
       },
       {
         accessorKey: 'testType',
         header: 'Test Type',
+        size: 120,
         cell: ({ getValue }) => {
           const testType = getValue()
+          let label = 'Drug Screen'
           switch (testType) {
             case '11-panel-lab':
-              return '11-Panel Lab'
+              label = '11-Panel Lab'
+              break
             case '15-panel-instant':
-              return '15-Panel Instant'
-            default:
-              return 'Drug Screen'
+              label = '15-Panel Instant'
+              break
           }
+          return <div className="whitespace-nowrap text-sm">{label}</div>
         },
       },
       {
         id: 'result',
         header: 'Result',
+        size: 200,
         cell: ({ row }) => {
-          const { result, substance } = formatTestResult(row.original)
+          const { result, unexpectedPositives, unexpectedNegatives, confirmationResults } = formatTestResult(row.original)
+
+          // Substance map for display - full names
+          const substanceMap: { [key: string]: string } = {
+            '6-mam': '6-MAM (Heroin)',
+            amphetamines: 'Amphetamines',
+            methamphetamines: 'Methamphetamines',
+            benzodiazepines: 'Benzodiazepines',
+            thc: 'THC',
+            opiates: 'Opiates',
+            oxycodone: 'Oxycodone',
+            cocaine: 'Cocaine',
+            pcp: 'PCP',
+            barbiturates: 'Barbiturates',
+            methadone: 'Methadone',
+            propoxyphene: 'Propoxyphene',
+            tricyclic_antidepressants: 'Tricyclic Antidepressants',
+            mdma: 'MDMA (Ecstasy)',
+            buprenorphine: 'Buprenorphine',
+            tramadol: 'Tramadol',
+            fentanyl: 'Fentanyl',
+            kratom: 'Kratom',
+            etg: 'EtG (Alcohol)',
+            synthetic_cannabinoids: 'Synthetic Cannabinoids',
+            other: 'Other',
+          }
+
           return (
-            <div className="space-y-1">
-              <Badge variant={getResultBadgeVariant(result)}>{result}</Badge>
-              {substance && (
-                <div className="text-muted-foreground text-xs font-medium">{substance}</div>
+            <div className="space-y-2 py-2">
+              <Badge variant={getResultBadgeVariant(result)} className="font-medium">
+                {result}
+              </Badge>
+              {/* Show confirmation results FIRST */}
+              {confirmationResults && confirmationResults.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wide">
+                    Confirmed:
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {confirmationResults.map((conf: any, idx: number) => {
+                      const substanceName = substanceMap[conf.substance] || conf.substance
+                      const variant = conf.result === 'confirmed-positive' ? 'destructive' :
+                                     conf.result === 'confirmed-negative' ? 'secondary' : 'outline'
+                      const symbol = conf.result === 'confirmed-positive' ? ' (Positive)' :
+                                    conf.result === 'confirmed-negative' ? ' (Negative)' : ' (Inconclusive)'
+                      return (
+                        <Badge key={idx} variant={variant} className="text-[10px] px-1.5 py-0">
+                          {substanceName}{symbol}
+                        </Badge>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+              {/* Then show presumptive results that weren't confirmed */}
+              {unexpectedPositives && unexpectedPositives.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wide">
+                    Unexpected Positive:
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {unexpectedPositives.map((substance, idx) => (
+                      <Badge key={idx} variant="destructive" className="text-[10px] px-1.5 py-0">
+                        {substance}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {unexpectedNegatives && unexpectedNegatives.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wide">
+                    Unexpected Negative:
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {unexpectedNegatives.map((substance, idx) => (
+                      <Badge key={idx} variant="destructive" className="text-[10px] px-1.5 py-0">
+                        {substance}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )
@@ -365,10 +590,11 @@ export function ResultsView({ testResults }: ResultsViewProps) {
       },
       {
         id: 'chain-of-custody',
-        header: 'Chain of Custody',
+        header: 'Status',
+        size: 240,
         cell: ({ row }) => {
           return (
-            <div className="min-w-[200px]">
+            <div className="min-w-[200px] py-1">
               <ChainOfCustody result={row.original} />
             </div>
           )
@@ -377,28 +603,30 @@ export function ResultsView({ testResults }: ResultsViewProps) {
       {
         id: 'dilute',
         header: 'Dilute',
+        size: 80,
         cell: ({ row }) => {
           return row.original.isDilute ? (
-            <Badge variant="destructive">Dilute</Badge>
+            <Badge variant="destructive" className="text-xs">Dilute</Badge>
           ) : (
-            <span className="text-muted-foreground text-sm">-</span>
+            <span className="text-muted-foreground text-xs">—</span>
           )
         },
       },
       {
         id: 'actions',
         header: 'Actions',
+        size: 100,
         cell: ({ row }) => {
           const result = row.original
           const initialResult = result.initialScreenResult
           const confirmationDecision = result.confirmationDecision
           const needsDecision =
             initialResult &&
-            ['expected-positive', 'unexpected-positive'].includes(initialResult) &&
+            ['unexpected-positive', 'unexpected-negative', 'mixed-unexpected'].includes(initialResult) &&
             !confirmationDecision
 
           return (
-            <div className="flex space-x-2">
+            <div className="flex flex-col gap-1.5">
               <Button
                 variant="ghost"
                 size="sm"
@@ -417,34 +645,26 @@ export function ResultsView({ testResults }: ResultsViewProps) {
                   !result.testDocument.url
                 }
                 title="View test result"
+                className="h-8 px-2"
               >
-                <FileText className="h-4 w-4" />
+                <FileText className="h-3.5 w-3.5 mr-1" />
+                <span className="text-xs">View</span>
               </Button>
               {needsDecision && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      // TODO: Implement accept results functionality
-                      console.log('Accept results for:', result.id)
-                    }}
-                    title="Accept results without confirmation"
-                  >
-                    Accept
-                  </Button>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => {
-                      // TODO: Implement request confirmation functionality
-                      console.log('Request confirmation for:', result.id)
-                    }}
-                    title="Request confirmation testing"
-                  >
-                    Request Confirmation
-                  </Button>
-                </>
+                <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                  <p className="font-semibold">Confirmation Available</p>
+                  <p>You have 30 days to request confirmation testing.</p>
+                  {contactPhone ? (
+                    <a
+                      href={`tel:${contactPhone.replace(/\D/g, '')}`}
+                      className="text-blue-600 hover:underline font-medium"
+                    >
+                      Call {contactPhone} to request
+                    </a>
+                  ) : (
+                    <p>Please call us to request confirmation.</p>
+                  )}
+                </div>
               )}
             </div>
           )
@@ -728,14 +948,14 @@ export function ResultsView({ testResults }: ResultsViewProps) {
                 </Drawer>
               </div>
             </div>
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow key={headerGroup.id}>
+                    <TableRow key={headerGroup.id} className="bg-muted/50">
                       {headerGroup.headers.map((header) => {
                         return (
-                          <TableHead key={header.id}>
+                          <TableHead key={header.id} className="font-semibold text-xs uppercase tracking-wide">
                             {header.isPlaceholder
                               ? null
                               : flexRender(header.column.columnDef.header, header.getContext())}
@@ -748,9 +968,13 @@ export function ResultsView({ testResults }: ResultsViewProps) {
                 <TableBody>
                   {table.getRowModel().rows?.length ? (
                     table.getRowModel().rows.map((row) => (
-                      <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
+                      <TableRow
+                        key={row.id}
+                        data-state={row.getIsSelected() && 'selected'}
+                        className="border-b last:border-b-0 hover:bg-muted/30"
+                      >
                         {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id}>
+                          <TableCell key={cell.id} className="py-3 align-top">
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </TableCell>
                         ))}
@@ -812,47 +1036,55 @@ export function ResultsView({ testResults }: ResultsViewProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                {/* Blue - Negative & Expected Results */}
+                {/* Green - PASS Results */}
                 <div>
-                  <h4 className="mb-3 text-sm font-medium text-blue-700">
-                    Blue - Negative & Expected Results
+                  <h4 className="mb-3 text-sm font-medium text-green-700">
+                    Green - PASS Results
                   </h4>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <Badge variant="secondary">Negative</Badge>
-                      <span className="text-muted-foreground text-sm">No substances detected</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant="secondary">Presumptive Positive (Expected)</Badge>
                       <span className="text-muted-foreground text-sm">
-                        Expected positive result (prescribed medication)
+                        All substances negative as expected
                       </span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Badge variant="secondary">Positive (Expected)</Badge>
+                      <Badge variant="secondary">Expected Positive</Badge>
                       <span className="text-muted-foreground text-sm">
-                        Final expected positive result
+                        Only prescribed medications detected
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Red - Unexpected Positive & Dilute */}
+                {/* Red - Unexpected Results */}
                 <div>
                   <h4 className="mb-3 text-sm font-medium text-red-700">
-                    Red - Unexpected Positive & Dilute
+                    Red - Unexpected Results & Issues
                   </h4>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <Badge variant="destructive">Presumptive Positive</Badge>
                       <span className="text-muted-foreground text-sm">
-                        Unexpected positive result (not prescribed)
+                        Substance detected that was not expected
                       </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="destructive">Positive</Badge>
                       <span className="text-muted-foreground text-sm">
-                        Final unexpected positive result
+                        Final confirmed unexpected positive
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="destructive">Negative (Unexpected)</Badge>
+                      <span className="text-muted-foreground text-sm">
+                        Expected substance (medication) not detected
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="destructive">Mixed Results</Badge>
+                      <span className="text-muted-foreground text-sm">
+                        Both unexpected positives and negatives
                       </span>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -885,6 +1117,25 @@ export function ResultsView({ testResults }: ResultsViewProps) {
                     <div className="flex items-center space-x-2">
                       <Badge variant="outline">Inconclusive</Badge>
                       <span className="text-muted-foreground text-sm">Unclear result</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Substance Badges */}
+                <div className="border-t pt-4">
+                  <h4 className="mb-3 text-sm font-medium">Substance Labels</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="destructive" className="text-xs">*Substance</Badge>
+                      <span className="text-muted-foreground text-sm">
+                        Red badges = Unexpected positive substances
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="destructive" className="text-xs">*Substance</Badge>
+                      <span className="text-muted-foreground text-sm">
+                        Red badges = Unexpected negative substances (missed medications)
+                      </span>
                     </div>
                   </div>
                 </div>

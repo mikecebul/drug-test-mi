@@ -56,23 +56,42 @@ export type DashboardData = {
 }
 
 const getResultBadgeVariant = (result: string) => {
-  switch (result) {
-    case "Negative":
-      return "default"
-    case "Expected Positive":
-      return "secondary"
-    case "Unexpected Positive":
-      return "destructive"
-    default:
-      return "outline"
+  // Blue (secondary): PASS results
+  if (result === "Negative" || result === "Expected Positive") {
+    return "secondary"
   }
+
+  // White (outline): Confirmed Results, Pending, Inconclusive
+  if (
+    result.includes("Confirmed") ||
+    result === "Pending" ||
+    result === "Pending Confirmation" ||
+    result === "Inconclusive" ||
+    result === "Confirmation Inconclusive"
+  ) {
+    return "outline"
+  }
+
+  // Red (destructive): Any unexpected results or mixed results
+  if (
+    result === "Unexpected Positive" ||
+    result === "Unexpected Negative" ||
+    result === "Mixed Results" ||
+    result === "Confirmed Mixed Results"
+  ) {
+    return "destructive"
+  }
+
+  return "outline"
 }
 
 const getStatusBadgeVariant = (status: string) => {
   switch (status) {
-    case "Verified":
+    case "Complete":
       return "default"
-    case "Under Review":
+    case "Pending Lab Results":
+      return "outline"
+    case "Awaiting Decision":
       return "secondary"
     case "Active":
       return "default"

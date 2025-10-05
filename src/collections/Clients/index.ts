@@ -4,6 +4,7 @@ import { superAdmin } from '@/access/superAdmin'
 import { baseUrl } from '@/utilities/baseUrl'
 import { anyone } from '@/access/anyone'
 import { notifyNewRegistration } from './hooks/notifyNewRegistration'
+import { allSubstanceOptions } from '@/fields/substanceOptions'
 
 export const Clients: CollectionConfig = {
   slug: 'clients',
@@ -385,10 +386,12 @@ export const Clients: CollectionConfig = {
         },
         {
           name: 'detectedAs',
-          type: 'text',
+          type: 'select',
+          hasMany: true,
+          options: allSubstanceOptions as any,
           admin: {
             description:
-              'What substance this medication shows as in drug tests (e.g., "Amphetamine", "Benzodiazepine")',
+              'What substance(s) this medication shows as in drug tests. Select all that apply.',
           },
         },
         {

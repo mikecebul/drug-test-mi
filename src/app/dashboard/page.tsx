@@ -1,7 +1,7 @@
 import { DashboardData, DashboardView } from './DashboardView'
 import { getPayload } from 'payload'
 import config from '@payload-config'
-import type { Client, DrugTest } from '@/payload-types'
+import type { DrugTest } from '@/payload-types'
 import { getAuthenticatedClient } from '@/utilities/auth/getAuthenticatedClient'
 
 // Force dynamic rendering for fresh dashboard data on every request
@@ -12,29 +12,46 @@ function formatTestResult(
   result: DrugTest['initialScreenResult'],
   isDilute?: DrugTest['isDilute'],
   requiresConfirmation?: boolean,
-  confirmationStatus?: DrugTest['confirmationStatus']
+  confirmationResults?: DrugTest['confirmationResults'],
+  confirmationSubstances?: DrugTest['confirmationSubstances']
 ): string {
   if (!result) return 'Pending'
 
   let formattedResult: string
 
-  // If confirmation is required, show confirmation status instead of initial result
-  if (requiresConfirmation && confirmationStatus) {
-    switch (confirmationStatus) {
-      case 'pending-confirmation': formattedResult = 'Pending Confirmation'; break
-      case 'confirmed-positive': formattedResult = 'Confirmed Positive'; break
-      case 'confirmed-negative': formattedResult = 'Confirmed Negative'; break
-      case 'confirmation-inconclusive': formattedResult = 'Confirmation Inconclusive'; break
-      default: formattedResult = 'Pending Confirmation'
+  // If confirmation is required, check confirmation results
+  if (requiresConfirmation) {
+    const confirmationSubstancesArray = confirmationSubstances || []
+    const hasAllResults = Array.isArray(confirmationResults) &&
+      confirmationResults.length === confirmationSubstancesArray.length &&
+      confirmationResults.every((r: any) => r.result)
+
+    if (!hasAllResults) {
+      formattedResult = 'Pending Confirmation'
+    } else {
+      // Determine overall result from individual substance results
+      const allPositive = confirmationResults.every((r: any) => r.result === 'confirmed-positive')
+      const allNegative = confirmationResults.every((r: any) => r.result === 'confirmed-negative')
+      const anyInconclusive = confirmationResults.some((r: any) => r.result === 'inconclusive')
+
+      if (allNegative) {
+        formattedResult = 'Confirmed Negative'
+      } else if (allPositive) {
+        formattedResult = 'Confirmed Positive'
+      } else if (anyInconclusive) {
+        formattedResult = 'Confirmation Inconclusive'
+      } else {
+        formattedResult = 'Confirmed Mixed Results'
+      }
     }
-  } else if (requiresConfirmation && !confirmationStatus) {
-    formattedResult = 'Pending Confirmation'
   } else {
     // Standard initial result
     switch (result) {
       case 'negative': formattedResult = 'Negative'; break
       case 'expected-positive': formattedResult = 'Expected Positive'; break
       case 'unexpected-positive': formattedResult = 'Unexpected Positive'; break
+      case 'unexpected-negative': formattedResult = 'Unexpected Negative'; break
+      case 'mixed-unexpected': formattedResult = 'Mixed Results'; break
       case 'inconclusive': formattedResult = 'Inconclusive'; break
       default: formattedResult = 'Unknown'
     }
@@ -48,16 +65,16 @@ function formatTestResult(
   return formattedResult
 }
 
-function formatTestStatus(status: string): string {
-  if (!status) return 'Pending'
-
-  switch (status) {
-    case 'verified': return 'Verified'
-    case 'under-review': return 'Under Review'
-    case 'pending-lab': return 'Pending Lab Results'
-    case 'requires-followup': return 'Requires Follow-up'
-    default: return 'Unknown'
+function formatTestStatus(isComplete: boolean, hasInitialResult: boolean): string {
+  if (isComplete) {
+    return 'Complete'
   }
+
+  if (!hasInitialResult) {
+    return 'Pending Lab Results'
+  }
+
+  return 'Awaiting Decision'
 }
 
 export default async function DashboardPage() {
@@ -85,7 +102,7 @@ export default async function DashboardPage() {
   const testsWithInitialScreening = drugScreenResults.filter(test => test.initialScreenResult)
   const pendingTests = drugScreenResults.filter(test => !test.initialScreenResult).length
   const compliantTests = testsWithInitialScreening.filter(test =>
-    test.initialScreenResult === 'negative' || test.initialScreenResult === 'expected-positive'
+    test.initialScreenResult === 'negative'
   ).length
   const complianceRate = testsWithInitialScreening.length > 0
     ? Math.round((compliantTests / testsWithInitialScreening.length) * 100)
@@ -99,9 +116,13 @@ export default async function DashboardPage() {
           drugScreenResults[0].initialScreenResult,
           drugScreenResults[0].isDilute,
           drugScreenResults[0].confirmationDecision === 'request-confirmation',
-          drugScreenResults[0].confirmationStatus
+          drugScreenResults[0].confirmationResults,
+          drugScreenResults[0].confirmationSubstances
         ),
-        status: formatTestStatus(drugScreenResults[0].isComplete ? 'complete' : 'pending'),
+        status: formatTestStatus(
+          drugScreenResults[0].isComplete || false,
+          !!drugScreenResults[0].initialScreenResult
+        ),
       }
     : undefined
 

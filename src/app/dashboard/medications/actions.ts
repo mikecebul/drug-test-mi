@@ -3,12 +3,13 @@
 import { getPayload } from 'payload'
 import configPromise from '@payload-config'
 import { headers } from 'next/headers'
+import type { SubstanceValue } from '@/fields/substanceOptions'
 
 export async function addMedicationAction(data: {
   medicationName: string
   startDate: Date
   status?: 'active' | 'discontinued'
-  detectedAs?: string
+  detectedAs?: SubstanceValue[]
 }) {
   const payload = await getPayload({ config: configPromise })
 

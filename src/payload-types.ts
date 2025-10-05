@@ -1023,9 +1023,33 @@ export interface Client {
          */
         status: 'active' | 'discontinued';
         /**
-         * What substance this medication shows as in drug tests (e.g., "Amphetamine", "Benzodiazepine")
+         * What substance(s) this medication shows as in drug tests. Select all that apply.
          */
-        detectedAs?: string | null;
+        detectedAs?:
+          | (
+              | '6-mam'
+              | 'amphetamines'
+              | 'barbiturates'
+              | 'benzodiazepines'
+              | 'buprenorphine'
+              | 'cocaine'
+              | 'etg'
+              | 'fentanyl'
+              | 'kratom'
+              | 'mdma'
+              | 'methadone'
+              | 'methamphetamines'
+              | 'opiates'
+              | 'oxycodone'
+              | 'pcp'
+              | 'propoxyphene'
+              | 'synthetic_cannabinoids'
+              | 'thc'
+              | 'tramadol'
+              | 'tricyclic_antidepressants'
+              | 'none'
+            )[]
+          | null;
         /**
          * Additional notes about this medication
          */
@@ -1155,34 +1179,126 @@ export interface DrugTest {
   /**
    * Type of drug test panel used
    */
-  testType?: ('11-panel-lab' | '15-panel-instant') | null;
+  testType: '11-panel-lab' | '15-panel-instant';
   /**
-   * Result of the initial drug screen
+   * RAW TEST RESULTS: Which substances tested positive? Leave empty if all negative. Select only substances that appear on your specific test panel.
    */
-  initialScreenResult?: ('negative' | 'expected-positive' | 'unexpected-positive' | 'inconclusive') | null;
-  /**
-   * What substance tested positive (required for positive results)
-   */
-  presumptivePositive?:
+  detectedSubstances?:
     | (
+        | '6-mam'
         | 'amphetamines'
-        | 'methamphetamines'
-        | 'benzodiazepines'
-        | 'thc'
-        | 'opiates'
-        | 'oxycodone'
-        | 'cocaine'
-        | 'pcp'
         | 'barbiturates'
-        | 'methadone'
-        | 'propoxyphene'
-        | 'tricyclic_antidepressants'
-        | 'mdma'
+        | 'benzodiazepines'
         | 'buprenorphine'
-        | 'tramadol'
+        | 'cocaine'
+        | 'etg'
         | 'fentanyl'
         | 'kratom'
-        | 'other'
+        | 'mdma'
+        | 'methadone'
+        | 'methamphetamines'
+        | 'opiates'
+        | 'oxycodone'
+        | 'pcp'
+        | 'propoxyphene'
+        | 'synthetic_cannabinoids'
+        | 'thc'
+        | 'tramadol'
+        | 'tricyclic_antidepressants'
+      )[]
+    | null;
+  /**
+   * AUTO-COMPUTED: Substances expected to be positive based on client medications
+   */
+  expectedPositives?:
+    | (
+        | '6-mam'
+        | 'amphetamines'
+        | 'barbiturates'
+        | 'benzodiazepines'
+        | 'buprenorphine'
+        | 'cocaine'
+        | 'etg'
+        | 'fentanyl'
+        | 'kratom'
+        | 'mdma'
+        | 'methadone'
+        | 'methamphetamines'
+        | 'opiates'
+        | 'oxycodone'
+        | 'pcp'
+        | 'propoxyphene'
+        | 'synthetic_cannabinoids'
+        | 'thc'
+        | 'tramadol'
+        | 'tricyclic_antidepressants'
+      )[]
+    | null;
+  /**
+   * AUTO-COMPUTED: Substances that tested positive but were NOT expected (FAIL)
+   */
+  unexpectedPositives?:
+    | (
+        | '6-mam'
+        | 'amphetamines'
+        | 'barbiturates'
+        | 'benzodiazepines'
+        | 'buprenorphine'
+        | 'cocaine'
+        | 'etg'
+        | 'fentanyl'
+        | 'kratom'
+        | 'mdma'
+        | 'methadone'
+        | 'methamphetamines'
+        | 'opiates'
+        | 'oxycodone'
+        | 'pcp'
+        | 'propoxyphene'
+        | 'synthetic_cannabinoids'
+        | 'thc'
+        | 'tramadol'
+        | 'tricyclic_antidepressants'
+      )[]
+    | null;
+  /**
+   * AUTO-COMPUTED: Medications that should show positive but DIDN'T (FAIL - Red Flag)
+   */
+  unexpectedNegatives?:
+    | (
+        | '6-mam'
+        | 'amphetamines'
+        | 'barbiturates'
+        | 'benzodiazepines'
+        | 'buprenorphine'
+        | 'cocaine'
+        | 'etg'
+        | 'fentanyl'
+        | 'kratom'
+        | 'mdma'
+        | 'methadone'
+        | 'methamphetamines'
+        | 'opiates'
+        | 'oxycodone'
+        | 'pcp'
+        | 'propoxyphene'
+        | 'synthetic_cannabinoids'
+        | 'thc'
+        | 'tramadol'
+        | 'tricyclic_antidepressants'
+      )[]
+    | null;
+  /**
+   * AUTO-COMPUTED: Overall test result classification based on business logic
+   */
+  initialScreenResult?:
+    | (
+        | 'negative'
+        | 'expected-positive'
+        | 'unexpected-positive'
+        | 'unexpected-negative'
+        | 'mixed-unexpected'
+        | 'inconclusive'
       )
     | null;
   /**
@@ -1194,14 +1310,75 @@ export interface DrugTest {
    */
   confirmationRequestedAt?: string | null;
   /**
+   * Which substances require confirmation testing
+   */
+  confirmationSubstances?:
+    | (
+        | '6-mam'
+        | 'amphetamines'
+        | 'barbiturates'
+        | 'benzodiazepines'
+        | 'buprenorphine'
+        | 'cocaine'
+        | 'etg'
+        | 'fentanyl'
+        | 'kratom'
+        | 'mdma'
+        | 'methadone'
+        | 'methamphetamines'
+        | 'opiates'
+        | 'oxycodone'
+        | 'pcp'
+        | 'propoxyphene'
+        | 'synthetic_cannabinoids'
+        | 'thc'
+        | 'tramadol'
+        | 'tricyclic_antidepressants'
+      )[]
+    | null;
+  /**
    * Mark if the test sample was dilute
    */
   isDilute?: boolean | null;
   /**
-   * Status of the confirmation test (updated when results come back)
+   * Individual confirmation test results for each substance
    */
-  confirmationStatus?:
-    | ('pending-confirmation' | 'confirmed-positive' | 'confirmed-negative' | 'confirmation-inconclusive')
+  confirmationResults?:
+    | {
+        /**
+         * Which substance was tested in the confirmation
+         */
+        substance:
+          | '6-mam'
+          | 'amphetamines'
+          | 'barbiturates'
+          | 'benzodiazepines'
+          | 'buprenorphine'
+          | 'cocaine'
+          | 'etg'
+          | 'fentanyl'
+          | 'kratom'
+          | 'mdma'
+          | 'methadone'
+          | 'methamphetamines'
+          | 'opiates'
+          | 'oxycodone'
+          | 'pcp'
+          | 'propoxyphene'
+          | 'synthetic_cannabinoids'
+          | 'thc'
+          | 'tramadol'
+          | 'tricyclic_antidepressants';
+        /**
+         * Lab confirmation result for this specific substance
+         */
+        result: 'confirmed-positive' | 'confirmed-negative' | 'inconclusive';
+        /**
+         * Optional notes about this confirmation result
+         */
+        notes?: string | null;
+        id?: string | null;
+      }[]
     | null;
   /**
    * Automatically determined: complete when results are accepted or confirmation received
@@ -2259,12 +2436,23 @@ export interface DrugTestsSelect<T extends boolean = true> {
   relatedClient?: T;
   collectionDate?: T;
   testType?: T;
+  detectedSubstances?: T;
+  expectedPositives?: T;
+  unexpectedPositives?: T;
+  unexpectedNegatives?: T;
   initialScreenResult?: T;
-  presumptivePositive?: T;
   confirmationDecision?: T;
   confirmationRequestedAt?: T;
+  confirmationSubstances?: T;
   isDilute?: T;
-  confirmationStatus?: T;
+  confirmationResults?:
+    | T
+    | {
+        substance?: T;
+        result?: T;
+        notes?: T;
+        id?: T;
+      };
   isComplete?: T;
   medicationsAtTestTime?: T;
   processNotes?: T;
