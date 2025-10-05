@@ -249,7 +249,6 @@ export const DrugTests: CollectionConfig = {
       admin: {
         description:
           'Automatically determined: complete when results are accepted or confirmation received',
-        readOnly: true,
       },
       hooks: {
         beforeChange: [
