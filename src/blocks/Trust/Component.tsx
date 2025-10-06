@@ -60,7 +60,7 @@ export function TrustBlock({ heading, description, features }: TrustBlockType) {
                 <div className="flex items-center space-x-2">
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <span className="text-foreground font-medium">
-                    90th District Court, Charlevoix County
+                    90th District Court, Charlevoix and Emmet County
                   </span>
                 </div>
               </div>
