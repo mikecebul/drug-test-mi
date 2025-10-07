@@ -10,6 +10,9 @@ export const DrugTests: CollectionConfig = {
     singular: 'Drug Test',
     plural: 'Drug Tests',
   },
+  hooks: {
+    beforeChange: [computeTestResults],
+  },
   access: {
     create: admins,
     delete: superAdmin,
@@ -44,6 +47,7 @@ export const DrugTests: CollectionConfig = {
     ],
     group: 'Admin',
     description: 'Track drug test results and workflow',
+    useAsTitle: 'relatedClient',
   },
   fields: [
     {
@@ -86,9 +90,6 @@ export const DrugTests: CollectionConfig = {
       admin: {
         description:
           'RAW TEST RESULTS: Which substances tested positive? Leave empty if all negative. Select only substances that appear on your specific test panel.',
-      },
-      hooks: {
-        beforeChange: [computeTestResults],
       },
     },
     // Computed fields - automatically populated by business logic hook
@@ -139,9 +140,10 @@ export const DrugTests: CollectionConfig = {
       admin: {
         description: 'AUTO-COMPUTED: Overall test result classification based on business logic',
         readOnly: true,
+        position: 'sidebar',
       },
     },
-    // Confirmation workflow - shows for ANY positive or unexpected results
+    // Confirmation workflow - always visible for one-save workflow
     {
       name: 'confirmationDecision',
       type: 'radio',
@@ -150,22 +152,15 @@ export const DrugTests: CollectionConfig = {
         { label: 'Request Confirmation Testing', value: 'request-confirmation' },
       ],
       admin: {
-        description: 'Client decision on whether to accept results or request confirmation',
-        condition: (_, siblingData) =>
-          siblingData?.initialScreenResult &&
-          [
-            'expected-positive',
-            'unexpected-positive',
-            'unexpected-negative',
-            'mixed-unexpected',
-          ].includes(siblingData.initialScreenResult),
+        description: 'AUTO-SELECTED as "accept" for negative/expected-positive results. REQUIRED CHOICE for unexpected results.',
+        position: 'sidebar',
       },
     },
     {
       name: 'confirmationRequestedAt',
       type: 'date',
       admin: {
-        description: 'Date and time confirmation was requested by client',
+        description: 'Date and time confirmation was requested',
         condition: (_, siblingData) => siblingData?.confirmationDecision === 'request-confirmation',
         date: {
           pickerAppearance: 'default',
@@ -242,61 +237,15 @@ export const DrugTests: CollectionConfig = {
         },
       ],
     },
-    // Virtual field - automatically determines if test is complete
+    // Auto-computed field - determines if test is complete
     {
       name: 'isComplete',
       type: 'checkbox',
       admin: {
         description:
-          'Automatically determined: complete when results are accepted or confirmation received',
-      },
-      hooks: {
-        beforeChange: [
-          ({ siblingData }) => {
-            const initialResult = siblingData?.initialScreenResult
-            const confirmationDecision = siblingData?.confirmationDecision
-            const confirmationResults = siblingData?.confirmationResults
-
-            // Complete if:
-            // 1. Negative or inconclusive (no decision needed)
-            // 2. Expected positive and client accepted (PASS with meds)
-            // 3. Any result with confirmation requested and ALL results received
-            if (!initialResult) return false
-
-            // Negative or inconclusive = automatically complete (PASS)
-            if (['negative', 'inconclusive'].includes(initialResult)) {
-              return true
-            }
-
-            // Expected positive (PASS) or any unexpected results
-            if (
-              [
-                'expected-positive',
-                'unexpected-positive',
-                'unexpected-negative',
-                'mixed-unexpected',
-              ].includes(initialResult)
-            ) {
-              // If client accepted results without confirmation
-              if (confirmationDecision === 'accept') {
-                return true
-              }
-
-              // If confirmation requested and ALL results received
-              if (
-                confirmationDecision === 'request-confirmation' &&
-                Array.isArray(confirmationResults) &&
-                Array.isArray(siblingData?.confirmationSubstances) &&
-                confirmationResults.length === siblingData.confirmationSubstances.length &&
-                confirmationResults.every((result: any) => result.result) // All have results
-              ) {
-                return true
-              }
-            }
-
-            return false
-          },
-        ],
+          'AUTO-COMPUTED: Complete when auto-accepted, manually accepted, or all confirmation results received',
+        readOnly: true,
+        position: 'sidebar',
       },
     },
     {
@@ -361,7 +310,8 @@ export const DrugTests: CollectionConfig = {
       relationTo: 'private-media',
       required: false,
       admin: {
-        description: 'Drug test report document',
+        description: 'Drug test report document (PDF)',
+        position: 'sidebar',
       },
       filterOptions: {
         documentType: {

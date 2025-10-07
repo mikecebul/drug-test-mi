@@ -1302,11 +1302,11 @@ export interface DrugTest {
       )
     | null;
   /**
-   * Client decision on whether to accept results or request confirmation
+   * AUTO-SELECTED as "accept" for negative/expected-positive results. REQUIRED CHOICE for unexpected results.
    */
   confirmationDecision?: ('accept' | 'request-confirmation') | null;
   /**
-   * Date and time confirmation was requested by client
+   * Date and time confirmation was requested
    */
   confirmationRequestedAt?: string | null;
   /**
@@ -1381,7 +1381,7 @@ export interface DrugTest {
       }[]
     | null;
   /**
-   * Automatically determined: complete when results are accepted or confirmation received
+   * AUTO-COMPUTED: Complete when auto-accepted, manually accepted, or all confirmation results received
    */
   isComplete?: boolean | null;
   /**
@@ -1393,7 +1393,7 @@ export interface DrugTest {
    */
   processNotes?: string | null;
   /**
-   * Drug test report document
+   * Drug test report document (PDF)
    */
   testDocument?: (string | null) | PrivateMedia;
   updatedAt: string;

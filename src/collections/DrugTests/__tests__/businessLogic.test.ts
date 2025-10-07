@@ -35,13 +35,14 @@ describe('Drug Test Business Logic', () => {
         data,
         req: req as any,
         operation: 'create',
-        value: undefined,
       } as any)
 
       expect(data.expectedPositives).toEqual([])
       expect(data.unexpectedPositives).toEqual([])
       expect(data.unexpectedNegatives).toEqual([])
       expect(data.initialScreenResult).toBe('negative')
+      expect(data.confirmationDecision).toBe('accept')
+      expect(data.isComplete).toBe(true)
     })
 
     test('Scenario 2: Expected Positive - Client on Oxycodone, test shows Oxycodone', async () => {
@@ -64,13 +65,14 @@ describe('Drug Test Business Logic', () => {
         data,
         req: req as any,
         operation: 'create',
-        value: undefined,
       } as any)
 
       expect(data.expectedPositives).toEqual(['oxycodone'])
       expect(data.unexpectedPositives).toEqual([])
       expect(data.unexpectedNegatives).toEqual([])
       expect(data.initialScreenResult).toBe('expected-positive')
+      expect(data.confirmationDecision).toBe('accept')
+      expect(data.isComplete).toBe(true)
     })
 
     test('Scenario 3: Expected Positive - Multiple medications all showing correctly', async () => {
@@ -98,13 +100,14 @@ describe('Drug Test Business Logic', () => {
         data,
         req: req as any,
         operation: 'create',
-        value: undefined,
       } as any)
 
       expect(data.expectedPositives).toEqual(['oxycodone', 'benzodiazepines'])
       expect(data.unexpectedPositives).toEqual([])
       expect(data.unexpectedNegatives).toEqual([])
       expect(data.initialScreenResult).toBe('expected-positive')
+      expect(data.confirmationDecision).toBe('accept')
+      expect(data.isComplete).toBe(true)
     })
   })
 
@@ -121,13 +124,14 @@ describe('Drug Test Business Logic', () => {
         data,
         req: req as any,
         operation: 'create',
-        value: undefined,
       } as any)
 
       expect(data.expectedPositives).toEqual([])
       expect(data.unexpectedPositives).toEqual(['thc'])
       expect(data.unexpectedNegatives).toEqual([])
       expect(data.initialScreenResult).toBe('unexpected-positive')
+      expect(data.confirmationDecision).toBeUndefined() // Should NOT auto-accept
+      expect(data.isComplete).toBe(false) // Should NOT be complete
     })
 
     test('Scenario 2: Unexpected Negative (Red Flag) - Client on Oxycodone but NOT detected', async () => {
@@ -150,7 +154,6 @@ describe('Drug Test Business Logic', () => {
         data,
         req: req as any,
         operation: 'create',
-        value: undefined,
       } as any)
 
       expect(data.expectedPositives).toEqual([])
@@ -179,7 +182,6 @@ describe('Drug Test Business Logic', () => {
         data,
         req: req as any,
         operation: 'create',
-        value: undefined,
       } as any)
 
       expect(data.expectedPositives).toEqual([])
@@ -208,7 +210,6 @@ describe('Drug Test Business Logic', () => {
         data,
         req: req as any,
         operation: 'create',
-        value: undefined,
       } as any)
 
       expect(data.expectedPositives).toEqual(['oxycodone'])
@@ -244,7 +245,6 @@ describe('Drug Test Business Logic', () => {
         data,
         req: req as any,
         operation: 'create',
-        value: undefined,
       } as any)
 
       // Oxycodone should be unexpected because the active med is discontinued
@@ -273,7 +273,6 @@ describe('Drug Test Business Logic', () => {
         data,
         req: req as any,
         operation: 'create',
-        value: undefined,
       } as any)
 
       expect(data.expectedPositives).toEqual([])
@@ -302,7 +301,6 @@ describe('Drug Test Business Logic', () => {
         data,
         req: req as any,
         operation: 'create',
-        value: undefined,
       } as any)
 
       expect(data.expectedPositives).toEqual(['opiates', 'oxycodone'])
@@ -325,17 +323,15 @@ describe('Drug Test Business Logic', () => {
         },
       }
 
-      const originalValue = undefined
-
       const result = await computeTestResults({
         data,
         req: req as any,
         operation: 'create',
-        value: originalValue,
       } as any)
 
-      // Should return original value without modifying data
-      expect(result).toBe(originalValue)
+      // Should return data unchanged when client not found
+      expect(result).toEqual(data)
+      expect(result.initialScreenResult).toBeUndefined()
     })
 
     test('Should handle missing detectedSubstances', async () => {
@@ -345,16 +341,16 @@ describe('Drug Test Business Logic', () => {
 
       const req = createMockReq([])
 
-      const originalValue = undefined
-
       const result = await computeTestResults({
         data,
         req: req as any,
         operation: 'create',
-        value: originalValue,
       } as any)
 
-      expect(result).toBe(originalValue)
+      // Should still compute results with empty detected substances
+      expect(result.initialScreenResult).toBe('negative')
+      expect(result.confirmationDecision).toBe('accept')
+      expect(result.isComplete).toBe(true)
     })
   })
 
@@ -375,7 +371,6 @@ describe('Drug Test Business Logic', () => {
         data,
         req: req as any,
         operation: 'create',
-        value: undefined,
       } as any)
 
       // Test should classify correctly
@@ -401,7 +396,6 @@ describe('Drug Test Business Logic', () => {
         data,
         req: req as any,
         operation: 'create',
-        value: undefined,
       } as any)
 
       expect(data.initialScreenResult).toBe('unexpected-positive')
@@ -429,7 +423,6 @@ describe('Drug Test Business Logic', () => {
         data,
         req: req as any,
         operation: 'create',
-        value: undefined,
       } as any)
 
       // Initial result should still classify as unexpected positive
