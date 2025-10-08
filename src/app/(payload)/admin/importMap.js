@@ -39,12 +39,14 @@ import { default as default_1ceaa075bd8323ee72a35f935e6cfcf1 } from '@/component
 import { default as default_6b85bbe5b07dcbb6e3a8e43e51c14a0b } from '@/components/afterDashboard/Analytics'
 import { default as default_95a1304f99d4385400076a6aaa04a867 } from '@/components/afterNavLinks/LinkToAnalyticsDefaultRootView'
 import { default as default_ce08b44c907c5aa8a66fdb021e5a1d10 } from '@/components/afterNavLinks/DrugTestTrackerLink'
+import { default as default_5295e6df504883b263a0e6cf996ea8e7 } from '@/components/afterNavLinks/BookingTrackerLink'
 import { default as default_181555c9d7be037008e574c68fb01617 } from '@/components/beforeDashboard/DrugTestStats'
 import { ImportExportProvider as ImportExportProvider_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { AdminErrorBoundary as AdminErrorBoundary_e5a9e14bdbe97e70ba60697217fe7688 } from '@payloadcms/plugin-sentry/client'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 import { default as default_562672c6d49401890858663241518d7e } from '@/components/views/Analytics'
 import { default as default_cd10ba55e3928e2da95a1a9c2ec66168 } from '@/components/views/DrugTestTracker'
+import { default as default_a6fc0dae3209e62d69d2330c0102bf6e } from '@/components/views/BookingTracker'
 
 export const importMap = {
   "@/fields/link/LinkRowLabel#default": default_88a731f1ba0e751fb9249907ce942610,
@@ -88,10 +90,12 @@ export const importMap = {
   "@/components/afterDashboard/Analytics#default": default_6b85bbe5b07dcbb6e3a8e43e51c14a0b,
   "@/components/afterNavLinks/LinkToAnalyticsDefaultRootView#default": default_95a1304f99d4385400076a6aaa04a867,
   "@/components/afterNavLinks/DrugTestTrackerLink#default": default_ce08b44c907c5aa8a66fdb021e5a1d10,
+  "@/components/afterNavLinks/BookingTrackerLink#default": default_5295e6df504883b263a0e6cf996ea8e7,
   "@/components/beforeDashboard/DrugTestStats#default": default_181555c9d7be037008e574c68fb01617,
   "@payloadcms/plugin-import-export/rsc#ImportExportProvider": ImportExportProvider_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-sentry/client#AdminErrorBoundary": AdminErrorBoundary_e5a9e14bdbe97e70ba60697217fe7688,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
   "@/components/views/Analytics#default": default_562672c6d49401890858663241518d7e,
-  "@/components/views/DrugTestTracker#default": default_cd10ba55e3928e2da95a1a9c2ec66168
+  "@/components/views/DrugTestTracker#default": default_cd10ba55e3928e2da95a1a9c2ec66168,
+  "@/components/views/BookingTracker#default": default_a6fc0dae3209e62d69d2330c0102bf6e
 }

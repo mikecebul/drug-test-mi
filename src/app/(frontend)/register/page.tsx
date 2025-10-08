@@ -21,7 +21,11 @@ export const metadata: Metadata = {
   },
 }
 
-export default async function Register() {
+export default async function Register({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const headers = await getHeaders()
   const payload = await getPayload({ config })
   const { user } = await payload.auth({ headers })
@@ -34,5 +38,9 @@ export default async function Register() {
     )
   }
 
-  return <RegistrationForm />
+  const params = await searchParams
+  const email = typeof params.email === 'string' ? params.email : undefined
+  const name = typeof params.name === 'string' ? params.name : undefined
+
+  return <RegistrationForm initialEmail={email} initialName={name} />
 }

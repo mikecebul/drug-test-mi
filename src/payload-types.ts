@@ -98,6 +98,7 @@ export interface Config {
   blocks: {};
   collections: {
     pages: Page;
+    appointments: Appointment;
     bookings: Booking;
     forms: Form;
     'form-submissions': FormSubmission;
@@ -117,11 +118,13 @@ export interface Config {
   collectionsJoins: {
     clients: {
       drugTests: 'drug-tests';
+      bookings: 'bookings';
       privateDocuments: 'private-media';
     };
   };
   collectionsSelect: {
     pages: PagesSelect<false> | PagesSelect<true>;
+    appointments: AppointmentsSelect<false> | AppointmentsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
@@ -810,118 +813,75 @@ export interface SchedulePageBlock {
   blockType: 'schedulePage';
 }
 /**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "bookings".
- */
-export interface Booking {
-  id: string;
-  title: string;
-  /**
-   * Event type duration (e.g., 60min, 30min)
-   */
-  type: string;
-  description?: string | null;
-  additionalNotes?: string | null;
-  startTime: string;
-  endTime: string;
-  status: 'confirmed' | 'cancelled' | 'rescheduled' | 'pending' | 'rejected';
-  organizer: {
-    id?: number | null;
-    name: string;
-    email: string;
-    username?: string | null;
-    timeZone?: string | null;
-    timeFormat?: string | null;
-  };
-  attendeeName: string;
-  attendeeEmail: string;
-  location?: string | null;
-  /**
-   * Cal.com booking UID
-   */
-  calcomBookingId?: string | null;
-  eventTypeId?: number | null;
-  /**
-   * Additional form responses from Cal.com
-   */
-  customInputs?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  /**
-   * Raw webhook payload for debugging
-   */
-  webhookData?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  /**
-   * Whether this booking was created via Cal.com webhook
-   */
-  createdViaWebhook?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "form-submissions".
- */
-export interface FormSubmission {
-  id: string;
-  form: string | Form;
-  data:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Secure file storage for sensitive documents
+ * Recurring appointments for clients
  *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "private-media".
+ * via the `definition` "appointments".
  */
-export interface PrivateMedia {
+export interface Appointment {
   id: string;
   /**
-   * Alternative text for SEO and accessibility
+   * Appointment title (e.g., "Weekly Drug Test")
    */
-  alt?: string | null;
+  title: string;
   /**
-   * Type of private document
+   * Client this recurring appointment is for
    */
-  documentType: 'drug-test-report' | 'client-document';
+  client: string | Client;
   /**
-   * Client this document belongs to
+   * How often does this appointment recur?
    */
-  relatedClient?: (string | null) | Client;
+  frequency: 'weekly' | 'biweekly' | 'monthly' | 'custom';
+  /**
+   * Which day of the week?
+   */
+  dayOfWeek?: ('monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday') | null;
+  /**
+   * Which day of the month (1-31)?
+   */
+  dayOfMonth?: number | null;
+  /**
+   * Appointment time (e.g., "10:00 AM")
+   */
+  time: string;
+  /**
+   * Duration in minutes
+   */
+  duration?: number | null;
+  /**
+   * When does this recurring appointment start?
+   */
+  startDate: string;
+  /**
+   * When does this recurring appointment end? (leave empty for indefinite)
+   */
+  endDate?: string | null;
+  /**
+   * Next scheduled occurrence of this appointment
+   */
+  nextOccurrence?: string | null;
+  /**
+   * Has the client prepaid for these recurring appointments?
+   */
+  isPrepaid?: boolean | null;
+  /**
+   * Current payment status
+   */
+  paymentStatus?: ('active' | 'past_due' | 'canceled' | 'pending') | null;
+  /**
+   * Stripe subscription ID if using recurring billing
+   */
+  stripeSubscriptionId?: string | null;
+  /**
+   * Is this recurring appointment currently active?
+   */
+  isActive?: boolean | null;
+  /**
+   * Additional notes about this recurring appointment
+   */
+  notes?: string | null;
   updatedAt: string;
   createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -935,6 +895,7 @@ export interface Client {
   name?: string | null;
   firstName: string;
   lastName: string;
+  email: string;
   /**
    * Phone number for contact
    */
@@ -990,13 +951,23 @@ export interface Client {
     contactEmail: string;
   };
   /**
-   * Drug tests automatically linked to this client
+   * Alternative recipient for test results (self-pay clients only)
    */
-  drugTests?: {
-    docs?: (string | DrugTest)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
+  alternativeRecipient?: {
+    /**
+     * Name of alternative recipient
+     */
+    name?: string | null;
+    /**
+     * Email of alternative recipient
+     */
+    email?: string | null;
   };
+  preferredContactMethod?: ('email' | 'phone' | 'sms') | null;
+  /**
+   * Whether this client is active
+   */
+  isActive?: boolean | null;
   /**
    * Internal notes about the client
    */
@@ -1062,23 +1033,18 @@ export interface Client {
       }[]
     | null;
   /**
-   * Alternative recipient for test results (self-pay clients only)
+   * Drug tests automatically linked to this client
    */
-  alternativeRecipient?: {
-    /**
-     * Name of alternative recipient
-     */
-    name?: string | null;
-    /**
-     * Email of alternative recipient
-     */
-    email?: string | null;
+  drugTests?: {
+    docs?: (string | DrugTest)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
   };
   /**
-   * Private documents linked to this client
+   * Bookings automatically linked to this client
    */
-  privateDocuments?: {
-    docs?: (string | PrivateMedia)[];
+  bookings?: {
+    docs?: (string | Booking)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
@@ -1135,14 +1101,16 @@ export interface Client {
      */
     subscriptionStartDate?: string | null;
   };
-  preferredContactMethod?: ('email' | 'phone' | 'sms') | null;
   /**
-   * Whether this client is active
+   * Private documents linked to this client
    */
-  isActive?: boolean | null;
+  privateDocuments?: {
+    docs?: (string | PrivateMedia)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   updatedAt: string;
   createdAt: string;
-  email: string;
   resetPasswordToken?: string | null;
   resetPasswordExpiration?: string | null;
   salt?: string | null;
@@ -1400,6 +1368,128 @@ export interface DrugTest {
   createdAt: string;
 }
 /**
+ * Secure file storage for sensitive documents
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "private-media".
+ */
+export interface PrivateMedia {
+  id: string;
+  /**
+   * Alternative text for SEO and accessibility
+   */
+  alt?: string | null;
+  /**
+   * Type of private document
+   */
+  documentType: 'drug-test-report' | 'client-document';
+  /**
+   * Client this document belongs to
+   */
+  relatedClient?: (string | null) | Client;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings".
+ */
+export interface Booking {
+  id: string;
+  /**
+   * Client associated with this booking (auto-populated from email)
+   */
+  relatedClient?: (string | null) | Client;
+  attendeeName: string;
+  attendeeEmail: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  status: 'confirmed' | 'cancelled' | 'rescheduled' | 'pending' | 'rejected';
+  /**
+   * Whether this appointment was prepaid
+   */
+  isPrepaid?: boolean | null;
+  /**
+   * Booked via CalCom
+   */
+  createdViaWebhook?: boolean | null;
+  /**
+   * Event type duration (e.g., 60min, 30min)
+   */
+  type: string;
+  location?: string | null;
+  description?: string | null;
+  additionalNotes?: string | null;
+  /**
+   * Cal.com booking UID
+   */
+  calcomBookingId?: string | null;
+  eventTypeId?: number | null;
+  organizer: {
+    id?: number | null;
+    name: string;
+    email: string;
+    username?: string | null;
+    timeZone?: string | null;
+    timeFormat?: string | null;
+  };
+  /**
+   * Additional form responses from Cal.com
+   */
+  customInputs?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Raw webhook payload for debugging
+   */
+  webhookData?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-submissions".
+ */
+export interface FormSubmission {
+  id: string;
+  form: string | Form;
+  data:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "admins".
  */
@@ -1613,6 +1703,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'pages';
         value: string | Page;
+      } | null)
+    | ({
+        relationTo: 'appointments';
+        value: string | Appointment;
       } | null)
     | ({
         relationTo: 'bookings';
@@ -1961,16 +2055,47 @@ export interface SchedulePageBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "appointments_select".
+ */
+export interface AppointmentsSelect<T extends boolean = true> {
+  title?: T;
+  client?: T;
+  frequency?: T;
+  dayOfWeek?: T;
+  dayOfMonth?: T;
+  time?: T;
+  duration?: T;
+  startDate?: T;
+  endDate?: T;
+  nextOccurrence?: T;
+  isPrepaid?: T;
+  paymentStatus?: T;
+  stripeSubscriptionId?: T;
+  isActive?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "bookings_select".
  */
 export interface BookingsSelect<T extends boolean = true> {
+  relatedClient?: T;
+  attendeeName?: T;
+  attendeeEmail?: T;
   title?: T;
-  type?: T;
-  description?: T;
-  additionalNotes?: T;
   startTime?: T;
   endTime?: T;
   status?: T;
+  isPrepaid?: T;
+  createdViaWebhook?: T;
+  type?: T;
+  location?: T;
+  description?: T;
+  additionalNotes?: T;
+  calcomBookingId?: T;
+  eventTypeId?: T;
   organizer?:
     | T
     | {
@@ -1981,14 +2106,8 @@ export interface BookingsSelect<T extends boolean = true> {
         timeZone?: T;
         timeFormat?: T;
       };
-  attendeeName?: T;
-  attendeeEmail?: T;
-  location?: T;
-  calcomBookingId?: T;
-  eventTypeId?: T;
   customInputs?: T;
   webhookData?: T;
-  createdViaWebhook?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2351,6 +2470,7 @@ export interface ClientsSelect<T extends boolean = true> {
   name?: T;
   firstName?: T;
   lastName?: T;
+  email?: T;
   phone?: T;
   gender?: T;
   dob?: T;
@@ -2370,7 +2490,14 @@ export interface ClientsSelect<T extends boolean = true> {
         contactName?: T;
         contactEmail?: T;
       };
-  drugTests?: T;
+  alternativeRecipient?:
+    | T
+    | {
+        name?: T;
+        email?: T;
+      };
+  preferredContactMethod?: T;
+  isActive?: T;
   notes?: T;
   medications?:
     | T
@@ -2384,13 +2511,8 @@ export interface ClientsSelect<T extends boolean = true> {
         createdAt?: T;
         id?: T;
       };
-  alternativeRecipient?:
-    | T
-    | {
-        name?: T;
-        email?: T;
-      };
-  privateDocuments?: T;
+  drugTests?: T;
+  bookings?: T;
   totalBookings?: T;
   lastBookingDate?: T;
   firstBookingDate?: T;
@@ -2407,11 +2529,9 @@ export interface ClientsSelect<T extends boolean = true> {
         nextAppointmentDate?: T;
         subscriptionStartDate?: T;
       };
-  preferredContactMethod?: T;
-  isActive?: T;
+  privateDocuments?: T;
   updatedAt?: T;
   createdAt?: T;
-  email?: T;
   resetPasswordToken?: T;
   resetPasswordExpiration?: T;
   salt?: T;

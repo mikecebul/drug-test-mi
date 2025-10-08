@@ -23,7 +23,7 @@ const serverFunctions: ServerFunctionClient = async function (args) {
 }
 
 const Layout = ({ children }: Args) => (
-  <RootLayout importMap={importMap} config={configPromise} serverFunction={serverFunctions}>
+  <RootLayout importMap={importMap} config={configPromise} serverFunction={serverFunctions} >
     {children}
   </RootLayout>
 )

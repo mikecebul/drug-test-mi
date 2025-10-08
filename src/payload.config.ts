@@ -39,6 +39,7 @@ import { GenerateTitle, GenerateURL, GenerateImage } from '@payloadcms/plugin-se
 import { Page } from 'src/payload-types'
 import { CompanyInfo } from './globals/CompanyInfo/config'
 import { superAdmin } from './access/superAdmin'
+import { Appointments } from './collections/Appointments'
 import { Bookings } from './collections/Bookings'
 import { Media } from './collections/Media'
 import { PrivateMedia } from './collections/PrivateMedia'
@@ -80,7 +81,7 @@ export default buildConfig({
     components: {
       beforeDashboard: ['@/components/beforeDashboard/DrugTestStats'],
       afterDashboard: ['@/components/afterDashboard/Analytics'],
-      afterNavLinks: ['@/components/afterNavLinks/LinkToAnalyticsDefaultRootView', '@/components/afterNavLinks/DrugTestTrackerLink'],
+      afterNavLinks: ['@/components/afterNavLinks/LinkToAnalyticsDefaultRootView', '@/components/afterNavLinks/DrugTestTrackerLink', '@/components/afterNavLinks/BookingTrackerLink'],
       graphics: {
         Icon: '@/graphics/Icon',
         Logo: '@/components/Logo/Graphic',
@@ -93,6 +94,10 @@ export default buildConfig({
         DrugTestTracker: {
           Component: '@/components/views/DrugTestTracker',
           path: '/drug-test-tracker',
+        },
+        BookingTracker: {
+          Component: '@/components/views/BookingTracker',
+          path: '/booking-tracker',
         },
       },
     },
@@ -179,6 +184,7 @@ export default buildConfig({
   }),
   collections: [
     Pages,
+    Appointments,
     Bookings,
     Forms,
     FormSubmissions,

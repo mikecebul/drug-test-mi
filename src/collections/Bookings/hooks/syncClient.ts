@@ -1,10 +1,58 @@
-import { CollectionAfterChangeHook } from 'payload'
+import { CollectionBeforeChangeHook, CollectionAfterChangeHook } from 'payload'
 
+// Helper to parse name into firstName and lastName
+function parseName(fullName: string): { firstName: string; lastName: string } {
+  const parts = fullName.trim().split(' ')
+  const firstName = parts[0] || 'Unknown'
+  const lastName = parts.slice(1).join(' ') || 'Unknown'
+  return { firstName, lastName }
+}
+
+// Before change hook to set relatedClient and isPrepaid
+export const setClientRelationship: CollectionBeforeChangeHook = async ({
+  data,
+  req,
+}) => {
+  // Only process if we have attendee information
+  if (!data.attendeeName || !data.attendeeEmail) {
+    return data
+  }
+
+  try {
+    const { payload } = req
+
+    // Check if client already exists
+    const existingClients = await payload.find({
+      collection: 'clients',
+      where: {
+        email: {
+          equals: data.attendeeEmail,
+        },
+      },
+      limit: 1,
+    })
+
+    if (existingClients.docs.length > 0) {
+      // Set the client relationship
+      data.relatedClient = existingClients.docs[0].id
+    }
+
+    // Set prepaid status for webhook-created bookings
+    if (data.createdViaWebhook === true) {
+      data.isPrepaid = true
+    }
+
+  } catch (error) {
+    req.payload.logger.error(`Failed to set client relationship: ${error}`)
+  }
+
+  return data
+}
+
+// After change hook to sync client stats
 export const syncClient: CollectionAfterChangeHook = async ({
   doc,
-  operation,
   req,
-  previousDoc,
 }) => {
   // Only sync if we have attendee information
   if (!doc.attendeeName || !doc.attendeeEmail) {
@@ -25,12 +73,12 @@ export const syncClient: CollectionAfterChangeHook = async ({
       limit: 1,
     })
 
-    let clientId: string
+    const { firstName, lastName } = parseName(doc.attendeeName)
 
     if (existingClients.docs.length > 0) {
-      // Update existing client
+      // Update existing client stats only (don't update name - email is the unique identifier)
       const existingClient = existingClients.docs[0]
-      
+
       // Get all bookings for this client to calculate stats
       const allBookings = await payload.find({
         collection: 'bookings',
@@ -50,33 +98,16 @@ export const syncClient: CollectionAfterChangeHook = async ({
         collection: 'clients',
         id: existingClient.id,
         data: {
-          name: doc.attendeeName,// Update name in case it changed
-          firstName: doc.attendeeName.split(' ')[0],
-          lastName: doc.attendeeName.split(' ').slice(1).join(' '),
           totalBookings,
           lastBookingDate,
           firstBookingDate,
         },
       })
-
-      clientId = existingClient.id
     } else {
-      // Create new client
-      const newClient = await payload.create({
-        collection: 'clients',
-        data: {
-          name: doc.attendeeName,
-          firstName: doc.attendeeName.split(' ')[0],
-          lastName: doc.attendeeName.split(' ').slice(1).join(' '),
-          email: doc.attendeeEmail,
-          totalBookings: 1,
-          lastBookingDate: doc.startTime,
-          firstBookingDate: doc.startTime,
-          isActive: true,
-        },
-      })
-
-      clientId = newClient.id
+      // Don't auto-create clients - they need to register themselves
+      // This booking will remain unlinked until the client registers
+      req.payload.logger.info(`Booking ${doc.id} created for unregistered email ${doc.attendeeEmail}. Client needs to register.`)
+      return doc
     }
 
     // Log the sync for debugging

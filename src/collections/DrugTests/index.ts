@@ -45,7 +45,6 @@ export const DrugTests: CollectionConfig = {
       'collectionDate',
       'isComplete',
     ],
-    group: 'Admin',
     description: 'Track drug test results and workflow',
     useAsTitle: 'relatedClient',
   },
@@ -152,7 +151,8 @@ export const DrugTests: CollectionConfig = {
         { label: 'Request Confirmation Testing', value: 'request-confirmation' },
       ],
       admin: {
-        description: 'AUTO-SELECTED as "accept" for negative/expected-positive results. REQUIRED CHOICE for unexpected results.',
+        description:
+          'AUTO-SELECTED as "accept" for negative/expected-positive results. REQUIRED CHOICE for unexpected results.',
         position: 'sidebar',
       },
     },

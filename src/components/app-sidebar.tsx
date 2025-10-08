@@ -51,11 +51,11 @@ const data = {
       icon: PillBottle,
     },
     // TODO: Implement appointments page with real data
-    // {
-    //   title: "Appointments",
-    //   url: "/dashboard/appointments",
-    //   icon: DatabaseIcon,
-    // },
+    {
+      title: 'Appointments',
+      url: '/dashboard/appointments',
+      icon: DatabaseIcon,
+    },
     {
       title: 'Profile',
       url: '/dashboard/profile',

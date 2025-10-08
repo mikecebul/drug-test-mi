@@ -162,462 +162,494 @@ export const Clients: CollectionConfig = {
   },
   fields: [
     {
-      name: 'name',
-      type: 'text',
-      required: false, // Keep for migration purposes
-      index: true,
-      admin: {
-        description: 'Legacy full name field - will be removed after migration',
-      },
-    },
-    {
-      name: 'firstName',
-      type: 'text',
-      required: true,
-      index: true,
-    },
-    {
-      name: 'lastName',
-      type: 'text',
-      required: true,
-      index: true,
-    },
-    {
-      name: 'email',
-      type: 'email',
-      required: true,
-      unique: true,
-      index: true,
-    },
-    {
-      name: 'phone',
-      type: 'text',
-      admin: {
-        description: 'Phone number for contact',
-      },
-    },
-    {
-      name: 'gender',
-      type: 'select',
-      options: [
-        { label: 'Male', value: 'male' },
-        { label: 'Female', value: 'female' },
-        { label: 'Other', value: 'other' },
-        { label: 'Prefer not to say', value: 'prefer-not-to-say' },
-      ],
-      admin: {
-        description: 'Client gender identity',
-      },
-    },
-    {
-      name: 'dob',
-      type: 'date',
-      admin: {
-        description: 'Date of birth',
-        date: {
-          pickerAppearance: 'dayOnly',
-          displayFormat: 'MM/dd/yyyy',
-        },
-      },
-    },
-    {
-      name: 'headshot',
-      type: 'upload',
-      relationTo: 'media',
-      admin: {
-        description: 'Client headshot photo for identification during testing',
-      },
-      filterOptions: {
-        mimeType: {
-          contains: 'image',
-        },
-      },
-    },
-    {
-      name: 'clientType',
-      type: 'select',
-      options: [
-        { label: 'Probation/Court', value: 'probation' },
-        { label: 'Employment', value: 'employment' },
-        { label: 'Self-Pay/Individual', value: 'self' },
-      ],
-      admin: {
-        description: 'Type of client - determines required fields',
-      },
-    },
-    // Probation/Court specific fields
-    {
-      name: 'courtInfo',
-      type: 'group',
-      admin: {
-        condition: (_data, siblingData) => siblingData?.clientType === 'probation',
-        description: 'Court and probation officer information',
-      },
-      fields: [
+      type: 'tabs',
+      tabs: [
         {
-          name: 'courtName',
-          type: 'text',
-          required: true,
-          admin: {
-            description: 'Name of the court',
-          },
-        },
-        {
-          name: 'probationOfficerName',
-          type: 'text',
-          required: true,
-          admin: {
-            description: 'Name of probation officer',
-          },
-        },
-        {
-          name: 'probationOfficerEmail',
-          type: 'email',
-          required: true,
-          admin: {
-            description: 'Email of probation officer',
-          },
-        },
-      ],
-    },
-    // Employment specific fields
-    {
-      name: 'employmentInfo',
-      type: 'group',
-      admin: {
-        condition: (_data, siblingData) => siblingData?.clientType === 'employment',
-        description: 'Employer and contact information',
-      },
-      fields: [
-        {
-          name: 'employerName',
-          type: 'text',
-          required: true,
-          admin: {
-            description: 'Name of employer/company',
-          },
-        },
-        {
-          name: 'contactName',
-          type: 'text',
-          required: true,
-          admin: {
-            description: 'Name of HR contact or hiring manager',
-          },
-        },
-        {
-          name: 'contactEmail',
-          type: 'email',
-          required: true,
-          admin: {
-            description: 'Email of HR contact or hiring manager',
-          },
-        },
-      ],
-    },
-    // Drug tests (auto-populated via join)
-    {
-      name: 'drugTests',
-      type: 'join',
-      collection: 'drug-tests',
-      on: 'relatedClient',
-      admin: {
-        description: 'Drug tests automatically linked to this client',
-      },
-    },
-    {
-      name: 'notes',
-      type: 'textarea',
-      admin: {
-        description: 'Internal notes about the client',
-      },
-    },
-    // Medications management with revision history
-    {
-      name: 'medications',
-      type: 'array',
-      admin: {
-        description: 'Current and historical medications for drug test verification',
-      },
-      fields: [
-        {
-          name: 'medicationName',
-          type: 'text',
-          required: true,
-          admin: {
-            description: 'Brand or generic name of medication',
-          },
-        },
-        {
-          name: 'startDate',
-          type: 'date',
-          required: true,
-          admin: {
-            description: 'Date medication was started',
-            date: {
-              pickerAppearance: 'dayOnly',
-              displayFormat: 'MM/dd/yyyy',
+          label: 'Profile',
+          fields: [
+            {
+              name: 'name',
+              type: 'text',
+              required: false, // Keep for migration purposes
+              index: true,
+              admin: {
+                description: 'Legacy full name field - will be removed after migration',
+              },
             },
-          },
-        },
-        {
-          name: 'endDate',
-          type: 'date',
-          admin: {
-            description: 'Date medication was discontinued (leave empty if current)',
-            date: {
-              pickerAppearance: 'dayOnly',
-              displayFormat: 'MM/dd/yyyy',
+            {
+              name: 'firstName',
+              type: 'text',
+              required: true,
+              index: true,
             },
-          },
-        },
-        {
-          name: 'status',
-          type: 'select',
-          required: true,
-          defaultValue: 'active',
-          options: [
-            { label: 'Active', value: 'active' },
-            { label: 'Discontinued', value: 'discontinued' },
+            {
+              name: 'lastName',
+              type: 'text',
+              required: true,
+              index: true,
+            },
+            {
+              name: 'email',
+              type: 'email',
+              required: true,
+              unique: true,
+              index: true,
+            },
+            {
+              name: 'phone',
+              type: 'text',
+              admin: {
+                description: 'Phone number for contact',
+              },
+            },
+            {
+              name: 'gender',
+              type: 'select',
+              options: [
+                { label: 'Male', value: 'male' },
+                { label: 'Female', value: 'female' },
+                { label: 'Other', value: 'other' },
+                { label: 'Prefer not to say', value: 'prefer-not-to-say' },
+              ],
+              admin: {
+                description: 'Client gender identity',
+              },
+            },
+            {
+              name: 'dob',
+              type: 'date',
+              admin: {
+                description: 'Date of birth',
+                date: {
+                  pickerAppearance: 'dayOnly',
+                  displayFormat: 'MM/dd/yyyy',
+                },
+              },
+            },
+            {
+              name: 'headshot',
+              type: 'upload',
+              relationTo: 'media',
+              admin: {
+                description: 'Client headshot photo for identification during testing',
+              },
+              filterOptions: {
+                mimeType: {
+                  contains: 'image',
+                },
+              },
+            },
+            {
+              name: 'clientType',
+              type: 'select',
+              options: [
+                { label: 'Probation/Court', value: 'probation' },
+                { label: 'Employment', value: 'employment' },
+                { label: 'Self-Pay/Individual', value: 'self' },
+              ],
+              admin: {
+                description: 'Type of client - determines required fields',
+              },
+            },
+            {
+              name: 'courtInfo',
+              type: 'group',
+              admin: {
+                condition: (_data, siblingData) => siblingData?.clientType === 'probation',
+                description: 'Court and probation officer information',
+              },
+              fields: [
+                {
+                  name: 'courtName',
+                  type: 'text',
+                  required: true,
+                  admin: {
+                    description: 'Name of the court',
+                  },
+                },
+                {
+                  name: 'probationOfficerName',
+                  type: 'text',
+                  required: true,
+                  admin: {
+                    description: 'Name of probation officer',
+                  },
+                },
+                {
+                  name: 'probationOfficerEmail',
+                  type: 'email',
+                  required: true,
+                  admin: {
+                    description: 'Email of probation officer',
+                  },
+                },
+              ],
+            },
+            {
+              name: 'employmentInfo',
+              type: 'group',
+              admin: {
+                condition: (_data, siblingData) => siblingData?.clientType === 'employment',
+                description: 'Employer and contact information',
+              },
+              fields: [
+                {
+                  name: 'employerName',
+                  type: 'text',
+                  required: true,
+                  admin: {
+                    description: 'Name of employer/company',
+                  },
+                },
+                {
+                  name: 'contactName',
+                  type: 'text',
+                  required: true,
+                  admin: {
+                    description: 'Name of HR contact or hiring manager',
+                  },
+                },
+                {
+                  name: 'contactEmail',
+                  type: 'email',
+                  required: true,
+                  admin: {
+                    description: 'Email of HR contact or hiring manager',
+                  },
+                },
+              ],
+            },
+            {
+              name: 'alternativeRecipient',
+              type: 'group',
+              admin: {
+                condition: (_data, siblingData) => siblingData?.clientType === 'self',
+                description: 'Alternative recipient for test results (self-pay clients only)',
+              },
+              fields: [
+                {
+                  name: 'name',
+                  type: 'text',
+                  admin: {
+                    description: 'Name of alternative recipient',
+                  },
+                },
+                {
+                  name: 'email',
+                  type: 'email',
+                  admin: {
+                    description: 'Email of alternative recipient',
+                  },
+                },
+              ],
+            },
+            {
+              name: 'preferredContactMethod',
+              type: 'select',
+              options: [
+                { label: 'Email', value: 'email' },
+                { label: 'Phone', value: 'phone' },
+                { label: 'Text/SMS', value: 'sms' },
+              ],
+              defaultValue: 'email',
+            },
+            {
+              name: 'isActive',
+              type: 'checkbox',
+              defaultValue: true,
+              admin: {
+                description: 'Whether this client is active',
+              },
+            },
+            {
+              name: 'notes',
+              type: 'textarea',
+              admin: {
+                description: 'Internal notes about the client',
+              },
+            },
           ],
-          admin: {
-            description: 'Current status of this medication. If you need to resume a discontinued medication, add it as a new entry to maintain proper history.',
-          },
         },
         {
-          name: 'detectedAs',
-          type: 'select',
-          hasMany: true,
-          options: allSubstanceOptions as any,
-          admin: {
-            description:
-              'What substance(s) this medication shows as in drug tests. Select all that apply.',
-          },
-        },
-        {
-          name: 'notes',
-          type: 'textarea',
-          admin: {
-            description: 'Additional notes about this medication',
-          },
-        },
-        {
-          name: 'createdAt',
-          type: 'date',
-          access: {
-            update: ({ req }) => {
-              // Only super admins can update createdAt
-              return req?.user?.collection === 'admins' ? req?.user?.role === 'superAdmin' : false
+          label: 'Medications',
+          fields: [
+            {
+              name: 'medications',
+              type: 'array',
+              admin: {
+                description: 'Current and historical medications for drug test verification',
+              },
+              fields: [
+                {
+                  name: 'medicationName',
+                  type: 'text',
+                  required: true,
+                  admin: {
+                    description: 'Brand or generic name of medication',
+                  },
+                },
+                {
+                  name: 'startDate',
+                  type: 'date',
+                  required: true,
+                  admin: {
+                    description: 'Date medication was started',
+                    date: {
+                      pickerAppearance: 'dayOnly',
+                      displayFormat: 'MM/dd/yyyy',
+                    },
+                  },
+                },
+                {
+                  name: 'endDate',
+                  type: 'date',
+                  admin: {
+                    description: 'Date medication was discontinued (leave empty if current)',
+                    date: {
+                      pickerAppearance: 'dayOnly',
+                      displayFormat: 'MM/dd/yyyy',
+                    },
+                  },
+                },
+                {
+                  name: 'status',
+                  type: 'select',
+                  required: true,
+                  defaultValue: 'active',
+                  options: [
+                    { label: 'Active', value: 'active' },
+                    { label: 'Discontinued', value: 'discontinued' },
+                  ],
+                  admin: {
+                    description: 'Current status of this medication. If you need to resume a discontinued medication, add it as a new entry to maintain proper history.',
+                  },
+                },
+                {
+                  name: 'detectedAs',
+                  type: 'select',
+                  hasMany: true,
+                  options: allSubstanceOptions as any,
+                  admin: {
+                    description:
+                      'What substance(s) this medication shows as in drug tests. Select all that apply.',
+                  },
+                },
+                {
+                  name: 'notes',
+                  type: 'textarea',
+                  admin: {
+                    description: 'Additional notes about this medication',
+                  },
+                },
+                {
+                  name: 'createdAt',
+                  type: 'date',
+                  access: {
+                    update: ({ req }) => {
+                      return req?.user?.collection === 'admins' ? req?.user?.role === 'superAdmin' : false
+                    },
+                  },
+                  admin: {
+                    description: 'When this medication was added to the system - editable by super admins only',
+                    readOnly: false,
+                  },
+                },
+              ],
             },
-          },
-          admin: {
-            description:
-              'When this medication was added to the system - editable by super admins only',
-            readOnly: false,
-          },
+          ],
+        },
+        {
+          label: 'Drug Tests',
+          fields: [
+            {
+              name: 'drugTests',
+              type: 'join',
+              collection: 'drug-tests',
+              on: 'relatedClient',
+              admin: {
+                description: 'Drug tests automatically linked to this client',
+              },
+            },
+          ],
+        },
+        {
+          label: 'Bookings',
+          fields: [
+            {
+              name: 'bookings',
+              type: 'join',
+              collection: 'bookings',
+              on: 'relatedClient',
+              admin: {
+                description: 'Bookings automatically linked to this client',
+              },
+            },
+            {
+              name: 'totalBookings',
+              type: 'number',
+              defaultValue: 0,
+              admin: {
+                description: 'Total number of bookings made by this client',
+                readOnly: true,
+              },
+            },
+            {
+              name: 'lastBookingDate',
+              type: 'date',
+              admin: {
+                description: 'Date of most recent booking',
+                readOnly: true,
+              },
+            },
+            {
+              name: 'firstBookingDate',
+              type: 'date',
+              admin: {
+                description: 'Date of first booking',
+                readOnly: true,
+              },
+            },
+          ],
+        },
+        {
+          label: 'Recurring Appointments',
+          fields: [
+            {
+              name: 'recurringAppointments',
+              type: 'group',
+              admin: {
+                description: 'Recurring appointment subscription settings',
+              },
+              fields: [
+                {
+                  name: 'isRecurring',
+                  type: 'checkbox',
+                  defaultValue: false,
+                  admin: {
+                    description: 'Is this client subscribed to recurring appointments?',
+                  },
+                },
+                {
+                  name: 'frequency',
+                  type: 'select',
+                  options: [
+                    { label: 'Weekly', value: 'weekly' },
+                    { label: 'Bi-weekly', value: 'biweekly' },
+                    { label: 'Monthly', value: 'monthly' },
+                    { label: 'Quarterly', value: 'quarterly' },
+                  ],
+                  admin: {
+                    condition: (data, siblingData) => siblingData?.isRecurring === true,
+                    description: 'How often should appointments be scheduled?',
+                  },
+                },
+                {
+                  name: 'preferredDayOfWeek',
+                  type: 'select',
+                  options: [
+                    { label: 'Monday', value: 'monday' },
+                    { label: 'Tuesday', value: 'tuesday' },
+                    { label: 'Wednesday', value: 'wednesday' },
+                    { label: 'Thursday', value: 'thursday' },
+                    { label: 'Friday', value: 'friday' },
+                    { label: 'Saturday', value: 'saturday' },
+                    { label: 'Sunday', value: 'sunday' },
+                  ],
+                  admin: {
+                    condition: (data, siblingData) => siblingData?.isRecurring === true,
+                    description: 'Preferred day of the week for appointments',
+                  },
+                },
+                {
+                  name: 'preferredTimeSlot',
+                  type: 'select',
+                  options: [
+                    { label: 'Morning (8AM-12PM)', value: 'morning' },
+                    { label: 'Afternoon (12PM-5PM)', value: 'afternoon' },
+                    { label: 'Evening (5PM-8PM)', value: 'evening' },
+                  ],
+                  admin: {
+                    condition: (data, siblingData) => siblingData?.isRecurring === true,
+                    description: 'Preferred time slot for appointments',
+                  },
+                },
+                {
+                  name: 'stripeCustomerId',
+                  type: 'text',
+                  admin: {
+                    condition: (data, siblingData) => siblingData?.isRecurring === true,
+                    description: 'Stripe customer ID for subscription billing',
+                    readOnly: true,
+                  },
+                },
+                {
+                  name: 'stripeSubscriptionId',
+                  type: 'text',
+                  admin: {
+                    condition: (data, siblingData) => siblingData?.isRecurring === true,
+                    description: 'Stripe subscription ID',
+                    readOnly: true,
+                  },
+                },
+                {
+                  name: 'subscriptionStatus',
+                  type: 'select',
+                  options: [
+                    { label: 'Active', value: 'active' },
+                    { label: 'Past Due', value: 'past_due' },
+                    { label: 'Canceled', value: 'canceled' },
+                    { label: 'Unpaid', value: 'unpaid' },
+                    { label: 'Incomplete', value: 'incomplete' },
+                  ],
+                  admin: {
+                    condition: (data, siblingData) => siblingData?.isRecurring === true,
+                    description: 'Current subscription status from Stripe',
+                    readOnly: true,
+                  },
+                },
+                {
+                  name: 'nextAppointmentDate',
+                  type: 'date',
+                  admin: {
+                    condition: (data, siblingData) => siblingData?.isRecurring === true,
+                    description: 'Next scheduled appointment date',
+                    date: {
+                      pickerAppearance: 'dayAndTime',
+                      displayFormat: 'MM/dd/yyyy h:mm a',
+                    },
+                  },
+                },
+                {
+                  name: 'subscriptionStartDate',
+                  type: 'date',
+                  admin: {
+                    condition: (data, siblingData) => siblingData?.isRecurring === true,
+                    description: 'Date the subscription started',
+                    date: {
+                      pickerAppearance: 'dayOnly',
+                      displayFormat: 'MM/dd/yyyy',
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        {
+          label: 'Documents',
+          fields: [
+            {
+              name: 'privateDocuments',
+              type: 'join',
+              collection: 'private-media',
+              on: 'relatedClient',
+              admin: {
+                description: 'Private documents linked to this client',
+              },
+            },
+          ],
         },
       ],
-    },
-    // Alternative recipient for self-pay clients
-    {
-      name: 'alternativeRecipient',
-      type: 'group',
-      admin: {
-        condition: (_data, siblingData) => siblingData?.clientType === 'self',
-        description: 'Alternative recipient for test results (self-pay clients only)',
-      },
-      fields: [
-        {
-          name: 'name',
-          type: 'text',
-          admin: {
-            description: 'Name of alternative recipient',
-          },
-        },
-        {
-          name: 'email',
-          type: 'email',
-          admin: {
-            description: 'Email of alternative recipient',
-          },
-        },
-      ],
-    },
-
-    // Private documents (auto-populated via join)
-    {
-      name: 'privateDocuments',
-      type: 'join',
-      collection: 'private-media',
-      on: 'relatedClient',
-      admin: {
-        description: 'Private documents linked to this client',
-      },
-    },
-    // Calculated fields updated by hooks
-    {
-      name: 'totalBookings',
-      type: 'number',
-      defaultValue: 0,
-      admin: {
-        description: 'Total number of bookings made by this client',
-        readOnly: true,
-      },
-    },
-    {
-      name: 'lastBookingDate',
-      type: 'date',
-      admin: {
-        description: 'Date of most recent booking',
-        readOnly: true,
-      },
-    },
-    {
-      name: 'firstBookingDate',
-      type: 'date',
-      admin: {
-        description: 'Date of first booking',
-        readOnly: true,
-      },
-    },
-    // Recurring appointments and Stripe subscription management
-    {
-      name: 'recurringAppointments',
-      type: 'group',
-      admin: {
-        description: 'Recurring appointment subscription settings',
-      },
-      fields: [
-        {
-          name: 'isRecurring',
-          type: 'checkbox',
-          defaultValue: false,
-          admin: {
-            description: 'Is this client subscribed to recurring appointments?',
-          },
-        },
-        {
-          name: 'frequency',
-          type: 'select',
-          options: [
-            { label: 'Weekly', value: 'weekly' },
-            { label: 'Bi-weekly', value: 'biweekly' },
-            { label: 'Monthly', value: 'monthly' },
-            { label: 'Quarterly', value: 'quarterly' },
-          ],
-          admin: {
-            condition: (data, siblingData) => siblingData?.isRecurring === true,
-            description: 'How often should appointments be scheduled?',
-          },
-        },
-        {
-          name: 'preferredDayOfWeek',
-          type: 'select',
-          options: [
-            { label: 'Monday', value: 'monday' },
-            { label: 'Tuesday', value: 'tuesday' },
-            { label: 'Wednesday', value: 'wednesday' },
-            { label: 'Thursday', value: 'thursday' },
-            { label: 'Friday', value: 'friday' },
-            { label: 'Saturday', value: 'saturday' },
-            { label: 'Sunday', value: 'sunday' },
-          ],
-          admin: {
-            condition: (data, siblingData) => siblingData?.isRecurring === true,
-            description: 'Preferred day of the week for appointments',
-          },
-        },
-        {
-          name: 'preferredTimeSlot',
-          type: 'select',
-          options: [
-            { label: 'Morning (8AM-12PM)', value: 'morning' },
-            { label: 'Afternoon (12PM-5PM)', value: 'afternoon' },
-            { label: 'Evening (5PM-8PM)', value: 'evening' },
-          ],
-          admin: {
-            condition: (data, siblingData) => siblingData?.isRecurring === true,
-            description: 'Preferred time slot for appointments',
-          },
-        },
-        {
-          name: 'stripeCustomerId',
-          type: 'text',
-          admin: {
-            condition: (data, siblingData) => siblingData?.isRecurring === true,
-            description: 'Stripe customer ID for subscription billing',
-            readOnly: true,
-          },
-        },
-        {
-          name: 'stripeSubscriptionId',
-          type: 'text',
-          admin: {
-            condition: (data, siblingData) => siblingData?.isRecurring === true,
-            description: 'Stripe subscription ID',
-            readOnly: true,
-          },
-        },
-        {
-          name: 'subscriptionStatus',
-          type: 'select',
-          options: [
-            { label: 'Active', value: 'active' },
-            { label: 'Past Due', value: 'past_due' },
-            { label: 'Canceled', value: 'canceled' },
-            { label: 'Unpaid', value: 'unpaid' },
-            { label: 'Incomplete', value: 'incomplete' },
-          ],
-          admin: {
-            condition: (data, siblingData) => siblingData?.isRecurring === true,
-            description: 'Current subscription status from Stripe',
-            readOnly: true,
-          },
-        },
-        {
-          name: 'nextAppointmentDate',
-          type: 'date',
-          admin: {
-            condition: (data, siblingData) => siblingData?.isRecurring === true,
-            description: 'Next scheduled appointment date',
-            date: {
-              pickerAppearance: 'dayAndTime',
-              displayFormat: 'MM/dd/yyyy h:mm a',
-            },
-          },
-        },
-        {
-          name: 'subscriptionStartDate',
-          type: 'date',
-          admin: {
-            condition: (data, siblingData) => siblingData?.isRecurring === true,
-            description: 'Date the subscription started',
-            date: {
-              pickerAppearance: 'dayOnly',
-              displayFormat: 'MM/dd/yyyy',
-            },
-          },
-        },
-      ],
-    },
-    // Contact preferences
-    {
-      name: 'preferredContactMethod',
-      type: 'select',
-      options: [
-        { label: 'Email', value: 'email' },
-        { label: 'Phone', value: 'phone' },
-        { label: 'Text/SMS', value: 'sms' },
-      ],
-      defaultValue: 'email',
-    },
-    {
-      name: 'isActive',
-      type: 'checkbox',
-      defaultValue: true,
-      admin: {
-        description: 'Whether this client is active',
-      },
     },
   ],
 }
