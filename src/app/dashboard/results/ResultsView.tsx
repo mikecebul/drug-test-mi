@@ -42,7 +42,8 @@ interface CustodyStep {
 
 // Generate chain of custody steps based on test data
 function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
-  // Use new workflow fields
+  // Use screeningStatus for accurate workflow tracking
+  const screeningStatus = result.screeningStatus || (result.initialScreenResult ? 'screened' : 'collected')
   const hasInitialResult = !!result.initialScreenResult
   const confirmationDecision = result.confirmationDecision
   const isConfirmationRequested = confirmationDecision === 'request-confirmation'
@@ -55,6 +56,9 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
   const testType = result.testType
   const is15Panel = testType === '15-panel-instant'
   const is11PanelLab = testType === '11-panel-lab'
+
+  // Determine if screening is complete
+  const isScreened = screeningStatus === 'screened' || screeningStatus === 'confirmation-pending' || screeningStatus === 'complete'
 
   // If test is marked as complete, show all steps as complete
   if (isComplete) {
@@ -113,16 +117,16 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
     steps.push({
       label: 'Shipped',
       icon: Truck,
-      completed: !!hasInitialResult, // Shipped if we have results back
-      current: !hasInitialResult,
+      completed: isScreened, // Shipped if screened (results are back)
+      current: screeningStatus === 'collected', // Current if waiting for lab results
     })
   }
 
   steps.push({
     label: 'Screened',
     icon: FlaskConical,
-    completed: !!hasInitialResult,
-    current: !hasInitialResult && !is11PanelLab, // Current only if not waiting for shipping
+    completed: isScreened,
+    current: screeningStatus === 'collected' && !is11PanelLab, // Current only for instant tests that need screening
   })
 
   // Add confirmation steps if unexpected results

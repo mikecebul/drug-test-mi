@@ -1181,6 +1181,14 @@ export interface DrugTest {
    */
   testType: '11-panel-lab' | '15-panel-instant';
   /**
+   * Current workflow status. Set to "Screened" when entering test results.
+   */
+  screeningStatus: 'collected' | 'screened' | 'confirmation-pending' | 'complete';
+  /**
+   * Date and time when screening was completed
+   */
+  screeningCompletedAt?: string | null;
+  /**
    * RAW TEST RESULTS: Which substances tested positive? Leave empty if all negative. Select only substances that appear on your specific test panel.
    */
   detectedSubstances?:
@@ -2436,6 +2444,8 @@ export interface DrugTestsSelect<T extends boolean = true> {
   relatedClient?: T;
   collectionDate?: T;
   testType?: T;
+  screeningStatus?: T;
+  screeningCompletedAt?: T;
   detectedSubstances?: T;
   expectedPositives?: T;
   unexpectedPositives?: T;

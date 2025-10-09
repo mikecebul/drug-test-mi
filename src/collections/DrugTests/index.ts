@@ -81,6 +81,55 @@ export const DrugTests: CollectionConfig = {
         description: 'Type of drug test panel used',
       },
     },
+    // Workflow status tracking
+    {
+      name: 'screeningStatus',
+      type: 'select',
+      options: [
+        { label: 'Collected (Awaiting Screening)', value: 'collected' },
+        { label: 'Screened (Results Entered)', value: 'screened' },
+        { label: 'Confirmation Pending', value: 'confirmation-pending' },
+        { label: 'Complete', value: 'complete' },
+      ],
+      required: true,
+      defaultValue: 'collected',
+      admin: {
+        description: 'Current workflow status. Set to "Screened" when entering test results.',
+      },
+      hooks: {
+        beforeChange: [
+          ({ value, siblingData }) => {
+            // Auto-upgrade existing records without screeningStatus
+            if (!value) {
+              return siblingData?.initialScreenResult ? 'screened' : 'collected'
+            }
+            return value
+          },
+        ],
+      },
+    },
+    {
+      name: 'screeningCompletedAt',
+      type: 'date',
+      admin: {
+        description: 'Date and time when screening was completed',
+        condition: (_, siblingData) => siblingData?.screeningStatus && siblingData.screeningStatus !== 'collected',
+        date: {
+          pickerAppearance: 'dayAndTime',
+        },
+      },
+      hooks: {
+        beforeChange: [
+          ({ siblingData, value }) => {
+            // Auto-set timestamp when status changes to screened for the first time
+            if (siblingData?.screeningStatus === 'screened' && !value) {
+              return new Date().toISOString()
+            }
+            return value
+          },
+        ],
+      },
+    },
     // Raw test results - what substances were detected
     {
       name: 'detectedSubstances',
@@ -90,6 +139,7 @@ export const DrugTests: CollectionConfig = {
       admin: {
         description:
           'RAW TEST RESULTS: Which substances tested positive? Leave empty if all negative. Select only substances that appear on your specific test panel.',
+        condition: (_, siblingData) => siblingData?.screeningStatus === 'screened',
       },
     },
     // Computed fields - automatically populated by business logic hook

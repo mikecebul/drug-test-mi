@@ -23,7 +23,16 @@ import type { CollectionBeforeChangeHook } from 'payload'
 export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req, operation }) => {
   if (!data) return data
 
-  const { detectedSubstances, relatedClient } = data
+  const { detectedSubstances, relatedClient, screeningStatus } = data
+
+  // Auto-upgrade existing records without screeningStatus
+  const currentStatus = screeningStatus || (data.initialScreenResult ? 'screened' : 'collected')
+
+  // Only compute results if screening is complete
+  // This prevents setting results for lab tests that haven't been screened yet
+  if (currentStatus !== 'screened') {
+    return data
+  }
 
   // Default to empty array if not set (handles both undefined and null)
   const detected = detectedSubstances && Array.isArray(detectedSubstances) ? detectedSubstances : []
