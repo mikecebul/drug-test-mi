@@ -81,7 +81,7 @@ export default buildConfig({
     components: {
       beforeDashboard: ['@/components/beforeDashboard/DrugTestStats'],
       afterDashboard: ['@/components/afterDashboard/Analytics'],
-      afterNavLinks: ['@/components/afterNavLinks/LinkToAnalyticsDefaultRootView', '@/components/afterNavLinks/DrugTestTrackerLink', '@/components/afterNavLinks/BookingTrackerLink'],
+      afterNavLinks: ['@/components/afterNavLinks/LinkToAnalyticsDefaultRootView', '@/components/afterNavLinks/DrugTestTrackerLink', '@/components/afterNavLinks/BookingTrackerLink', '@/components/afterNavLinks/ScheduleCalendarLink'],
       graphics: {
         Icon: '@/graphics/Icon',
         Logo: '@/components/Logo/Graphic',
@@ -98,6 +98,10 @@ export default buildConfig({
         BookingTracker: {
           Component: '@/components/views/BookingTracker',
           path: '/booking-tracker',
+        },
+        ScheduleCalendar: {
+          Component: '@/components/views/ScheduleCalendar',
+          path: '/schedule-calendar',
         },
       },
     },

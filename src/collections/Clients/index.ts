@@ -515,10 +515,19 @@ export const Clients: CollectionConfig = {
           label: 'Recurring Appointments',
           fields: [
             {
+              name: 'appointments',
+              type: 'join',
+              collection: 'appointments',
+              on: 'client',
+              admin: {
+                description: 'Recurring appointments linked to this client',
+              },
+            },
+            {
               name: 'recurringAppointments',
               type: 'group',
               admin: {
-                description: 'Recurring appointment subscription settings',
+                description: 'Legacy recurring appointment subscription settings - use Appointments collection instead',
               },
               fields: [
                 {

@@ -119,6 +119,7 @@ export interface Config {
     clients: {
       drugTests: 'drug-tests';
       bookings: 'bookings';
+      appointments: 'appointments';
       privateDocuments: 'private-media';
     };
   };
@@ -1061,7 +1062,15 @@ export interface Client {
    */
   firstBookingDate?: string | null;
   /**
-   * Recurring appointment subscription settings
+   * Recurring appointments linked to this client
+   */
+  appointments?: {
+    docs?: (string | Appointment)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Legacy recurring appointment subscription settings - use Appointments collection instead
    */
   recurringAppointments?: {
     /**
@@ -2516,6 +2525,7 @@ export interface ClientsSelect<T extends boolean = true> {
   totalBookings?: T;
   lastBookingDate?: T;
   firstBookingDate?: T;
+  appointments?: T;
   recurringAppointments?:
     | T
     | {

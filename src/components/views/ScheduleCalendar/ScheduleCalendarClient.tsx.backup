@@ -1,0 +1,372 @@
+'use client'
+
+import React, { useState, useMemo } from 'react'
+import { Calendar, CalendarDayButton } from '@/components/ui/calendar'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Calendar as CalendarIcon, Clock, CreditCard, User, Filter } from 'lucide-react'
+import { format, startOfMonth, endOfMonth, isSameMonth } from 'date-fns'
+import type { CalendarEvent } from './types'
+import { getEventsForDay, groupEventsByDate } from './utils'
+
+interface ScheduleCalendarClientProps {
+  events: CalendarEvent[]
+}
+
+export function ScheduleCalendarClient({ events }: ScheduleCalendarClientProps) {
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [filterType, setFilterType] = useState<'all' | 'booking' | 'recurring'>('all')
+  const [filterPrepaid, setFilterPrepaid] = useState<'all' | 'prepaid' | 'unpaid'>('all')
+
+  // Filter events
+  const filteredEvents = useMemo(() => {
+    return events.filter((event) => {
+      if (filterType !== 'all' && event.type !== filterType) return false
+      if (filterPrepaid === 'prepaid' && !event.isPrepaid) return false
+      if (filterPrepaid === 'unpaid' && event.isPrepaid) return false
+      return true
+    })
+  }, [events, filterType, filterPrepaid])
+
+  // Get events for the selected month
+  const monthStart = startOfMonth(selectedDate)
+  const monthEnd = endOfMonth(selectedDate)
+  const monthEvents = filteredEvents.filter(
+    (event) => event.date >= monthStart && event.date <= monthEnd
+  )
+
+  // Group events by date for the calendar
+  const eventsByDate = useMemo(() => groupEventsByDate(monthEvents), [monthEvents])
+
+  // Get events for selected day
+  const selectedDayEvents = useMemo(
+    () => getEventsForDay(filteredEvents, selectedDate).sort((a, b) => {
+      // Parse time strings for sorting (e.g., "10:00 AM")
+      const timeA = a.time.toLowerCase()
+      const timeB = b.time.toLowerCase()
+      return timeA.localeCompare(timeB)
+    }),
+    [filteredEvents, selectedDate]
+  )
+
+  // Count different types for stats
+  const stats = useMemo(() => {
+    const currentMonth = monthEvents.filter(event => isSameMonth(event.date, selectedDate))
+    return {
+      total: currentMonth.length,
+      oneTime: currentMonth.filter((e) => e.type === 'booking').length,
+      recurring: currentMonth.filter((e) => e.type === 'recurring').length,
+      prepaid: currentMonth.filter((e) => e.isPrepaid).length,
+    }
+  }, [monthEvents, selectedDate])
+
+  // Get event counts for a specific date
+  const getEventCounts = (date: Date) => {
+    const dateKey = format(date, 'yyyy-MM-dd')
+    const dayEvents = eventsByDate.get(dateKey) || []
+    return {
+      total: dayEvents.length,
+      recurring: dayEvents.filter(e => e.type === 'recurring').length,
+      booking: dayEvents.filter(e => e.type === 'booking').length,
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6 p-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Schedule Calendar</h1>
+        <p className="text-muted-foreground">View all bookings and recurring appointments</p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Total This Month</CardDescription>
+            <CardTitle className="text-3xl">{stats.total}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>One-Time Bookings</CardDescription>
+            <CardTitle className="text-3xl">{stats.oneTime}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Recurring Appointments</CardDescription>
+            <CardTitle className="text-3xl">{stats.recurring}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Prepaid</CardDescription>
+            <CardTitle className="text-3xl">{stats.prepaid}</CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            Filters
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <div className="flex gap-2">
+            <Button
+              variant={filterType === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterType('all')}
+            >
+              All Types
+            </Button>
+            <Button
+              variant={filterType === 'booking' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterType('booking')}
+            >
+              One-Time Only
+            </Button>
+            <Button
+              variant={filterType === 'recurring' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterType('recurring')}
+            >
+              Recurring Only
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant={filterPrepaid === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterPrepaid('all')}
+            >
+              All Payment
+            </Button>
+            <Button
+              variant={filterPrepaid === 'prepaid' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterPrepaid('prepaid')}
+            >
+              Prepaid Only
+            </Button>
+            <Button
+              variant={filterPrepaid === 'unpaid' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterPrepaid('unpaid')}
+            >
+              Unpaid Only
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_500px]">
+        {/* Calendar with appointment counts on each day */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Calendar View</CardTitle>
+            <CardDescription>
+              {format(selectedDate, 'MMMM yyyy')} • Click a date to view appointments
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={(date) => date && setSelectedDate(date)}
+              month={selectedDate}
+              onMonthChange={setSelectedDate}
+              captionLayout="dropdown"
+              className="rounded-lg border shadow-sm [--cell-size:theme(spacing.14)] md:[--cell-size:theme(spacing.16)]"
+              formatters={{
+                formatMonthDropdown: (date) => {
+                  return date.toLocaleString('default', { month: 'long' })
+                },
+              }}
+              components={{
+                DayButton: ({ children, modifiers, day, ...props }) => {
+                  const counts = getEventCounts(day.date)
+
+                  return (
+                    <CalendarDayButton day={day} modifiers={modifiers} {...props}>
+                      {children}
+                      {!modifiers.outside && counts.total > 0 && (
+                        <div className="flex flex-col gap-0.5 text-[10px] leading-tight">
+                          {counts.recurring > 0 && (
+                            <span className="text-blue-600 dark:text-blue-400 font-medium">
+                              {counts.recurring} recurring
+                            </span>
+                          )}
+                          {counts.booking > 0 && (
+                            <span className="text-green-600 dark:text-green-400 font-medium">
+                              {counts.booking} booking{counts.booking > 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </CalendarDayButton>
+                  )
+                },
+              }}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Selected Day Events */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+            </CardTitle>
+            <CardDescription>
+              {selectedDayEvents.length === 0
+                ? 'No appointments scheduled'
+                : `${selectedDayEvents.length} appointment${selectedDayEvents.length === 1 ? '' : 's'}`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 max-h-[700px] overflow-y-auto">
+            {selectedDayEvents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                <CalendarIcon className="h-12 w-12 mb-2 opacity-50" />
+                <p>No appointments this day</p>
+              </div>
+            ) : (
+              selectedDayEvents.map((event) => (
+                <Card key={event.id} className="border-l-4 border-l-primary">
+                  <CardContent className="pt-4">
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <h4 className="font-semibold">{event.title}</h4>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                            <User className="h-3 w-3" />
+                            <span>{event.clientName}</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-1 justify-end">
+                          {event.isRecurring ? (
+                            <Badge variant="outline" className="text-xs">
+                              {event.frequency === 'weekly' && 'Weekly'}
+                              {event.frequency === 'biweekly' && 'Bi-weekly'}
+                              {event.frequency === 'monthly' && 'Monthly'}
+                              {event.frequency === 'custom' && 'Custom'}
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">
+                              One-Time
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          <span>
+                            {event.time} ({event.duration || 30} min)
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5">
+                        {event.isPrepaid ? (
+                          <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                            <CreditCard className="h-3 w-3" />
+                            Prepaid
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs">
+                            Payment Required
+                          </Badge>
+                        )}
+
+                        {event.status && (
+                          <Badge
+                            variant={
+                              event.status === 'confirmed'
+                                ? 'secondary'
+                                : event.status === 'cancelled'
+                                  ? 'destructive'
+                                  : 'outline'
+                            }
+                            className="text-xs"
+                          >
+                            {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+                          </Badge>
+                        )}
+
+                        {event.paymentStatus && (
+                          <Badge
+                            variant={
+                              event.paymentStatus === 'active'
+                                ? 'secondary'
+                                : event.paymentStatus === 'past_due'
+                                  ? 'destructive'
+                                  : 'outline'
+                            }
+                            className="text-xs"
+                          >
+                            {event.paymentStatus === 'active' && 'Active'}
+                            {event.paymentStatus === 'past_due' && 'Past Due'}
+                            {event.paymentStatus === 'canceled' && 'Canceled'}
+                            {event.paymentStatus === 'pending' && 'Pending'}
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="pt-2 border-t">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => {
+                            const collection = event.type === 'booking' ? 'bookings' : 'appointments'
+                            const id = event.type === 'booking' ? event.id : event.id.split('-')[0]
+                            window.open(`/admin/collections/${collection}/${id}`, '_blank')
+                          }}
+                        >
+                          View Details →
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Legend */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Legend</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">recurring</span>
+            <span className="text-sm">Recurring appointments from Appointments collection</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-green-600 dark:text-green-400 font-medium">bookings</span>
+            <span className="text-sm">One-time CalCom bookings from Bookings collection</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-xs flex items-center gap-1">
+              <CreditCard className="h-3 w-3" />
+              Prepaid
+            </Badge>
+            <span className="text-sm">Payment received</span>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
