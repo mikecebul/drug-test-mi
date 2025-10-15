@@ -8,18 +8,18 @@ const defaultFeatures = [
   {
     title: 'Certified Professionals',
     description:
-      'All our testers are certified and experienced in professional drug screening procedures.',
+      'All our testers are certified in recovery and experienced in professional drug screening procedures.',
     icon: 'Shield',
   },
   {
-    title: 'Flexible Scheduling',
-    description: 'Morning and evening appointments available 7 days a week to fit your schedule.',
+    title: 'Always Available',
+    description: 'Evening appointments available on weekdays and late morning appointments on weekends. Just call if you need special accomadation.',
     icon: 'Calendar',
   },
   {
-    title: 'Gender Options',
+    title: 'Observed Testing',
     description:
-      'Choose a male or female technician for your screening to support trauma-informed care and comply with court requirements.',
+      'All male tests are observed and women are encouraged to schedule for Saturday mornings to ensure a famale can be available for observation.',
     icon: 'Users',
   },
 ]
