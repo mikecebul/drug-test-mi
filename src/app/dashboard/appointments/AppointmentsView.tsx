@@ -68,8 +68,15 @@ function getNextOccurrence(appointment: Appointment): Date | null {
   return nextDate
 }
 
-export function AppointmentsView({ bookings, recurringAppointments, contactPhone }: AppointmentsViewProps) {
+export function AppointmentsView({
+  bookings,
+  recurringAppointments,
+  contactPhone,
+}: AppointmentsViewProps) {
   // Combine and sort all appointments
+
+  console.log('Bookings:', bookings)
+  
   const allAppointments = useMemo(() => {
     const combined: Array<{
       id: string
@@ -92,8 +99,8 @@ export function AppointmentsView({ bookings, recurringAppointments, contactPhone
         date: new Date(booking.startTime),
         time: formatDateTime(booking.startTime).time,
         duration: parseInt(booking.type.replace(/\D/g, '')) || 30,
-        isPrepaid: booking.isPrepaid || false,
-        isRecurring: false,
+        isPrepaid: false, // Removed - pre-payment no longer supported
+        isRecurring: !!booking.recurringBookingUid,
         status: booking.status,
       })
     })
@@ -107,11 +114,11 @@ export function AppointmentsView({ bookings, recurringAppointments, contactPhone
           title: appointment.title,
           date: nextOccurrence,
           time: appointment.time,
-          duration: appointment.duration,
+          duration: appointment.duration || 10,
           isPrepaid: appointment.isPrepaid || false,
           isRecurring: true,
           frequency: appointment.frequency,
-          paymentStatus: appointment.paymentStatus,
+          paymentStatus: appointment.paymentStatus || 'pending',
         })
       }
     })
@@ -144,11 +151,9 @@ export function AppointmentsView({ bookings, recurringAppointments, contactPhone
           <CardContent>
             {allAppointments.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+                <Calendar className="text-muted-foreground mb-4 h-12 w-12" />
                 <p className="text-muted-foreground mb-2">No upcoming appointments</p>
-                <p className="text-sm text-muted-foreground">
-                  Book an appointment to get started
-                </p>
+                <p className="text-muted-foreground text-sm">Book an appointment to get started</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -156,20 +161,20 @@ export function AppointmentsView({ bookings, recurringAppointments, contactPhone
                   const { date, time } = formatDateTime(appointment.date)
 
                   return (
-                    <Card key={appointment.id} className="border-l-4 border-l-primary">
+                    <Card key={appointment.id} className="border-l-primary border-l-4">
                       <CardContent className="pt-6">
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                           <div className="flex-1">
                             <div className="flex items-start gap-3">
-                              <Calendar className="h-5 w-5 text-primary mt-0.5" />
+                              <Calendar className="text-primary mt-0.5 h-5 w-5" />
                               <div className="flex-1">
-                                <h3 className="font-semibold text-lg">{appointment.title}</h3>
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <h3 className="text-lg font-semibold">{appointment.title}</h3>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  <div className="text-muted-foreground flex items-center gap-1 text-sm">
                                     <Calendar className="h-3.5 w-3.5" />
                                     <span>{date}</span>
                                   </div>
-                                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                  <div className="text-muted-foreground flex items-center gap-1 text-sm">
                                     <Clock className="h-3.5 w-3.5" />
                                     <span>
                                       {appointment.time} ({appointment.duration || 30} min)
@@ -215,7 +220,8 @@ export function AppointmentsView({ bookings, recurringAppointments, contactPhone
                                       : 'outline'
                                 }
                               >
-                                {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                                {appointment.status.charAt(0).toUpperCase() +
+                                  appointment.status.slice(1)}
                               </Badge>
                             )}
 
@@ -241,19 +247,20 @@ export function AppointmentsView({ bookings, recurringAppointments, contactPhone
 
                         {/* Payment warning for unprepaid appointments */}
                         {!appointment.isPrepaid && (
-                          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                          <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3">
                             <div className="flex items-start gap-2">
-                              <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
+                              <AlertCircle className="mt-0.5 h-4 w-4 text-amber-600" />
                               <div className="text-sm">
                                 <p className="font-medium text-amber-900">Payment required</p>
-                                <p className="text-amber-700 mt-0.5">
+                                <p className="mt-0.5 text-amber-700">
                                   Please arrange payment before your appointment.
                                   {contactPhone && (
                                     <>
-                                      {' '}Call{' '}
+                                      {' '}
+                                      Call{' '}
                                       <a
                                         href={`tel:${contactPhone.replace(/\D/g, '')}`}
-                                        className="underline font-medium"
+                                        className="font-medium underline"
                                       >
                                         {contactPhone}
                                       </a>{' '}
@@ -284,10 +291,10 @@ export function AppointmentsView({ bookings, recurringAppointments, contactPhone
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <div className="flex items-start gap-2">
-                <CreditCard className="h-4 w-4 text-primary mt-1" />
+                <CreditCard className="text-primary mt-1 h-4 w-4" />
                 <div>
                   <p className="font-medium">Prepaid Appointments</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     Appointments booked through our online system are prepaid via Stripe.
                   </p>
                 </div>
@@ -295,18 +302,19 @@ export function AppointmentsView({ bookings, recurringAppointments, contactPhone
             </div>
             <div className="space-y-2">
               <div className="flex items-start gap-2">
-                <Calendar className="h-4 w-4 text-primary mt-1" />
+                <Calendar className="text-primary mt-1 h-4 w-4" />
                 <div>
                   <p className="font-medium">Recurring Appointments</p>
-                  <p className="text-sm text-muted-foreground">
-                    Recurring appointments are set up by our staff. Contact us to set up or modify recurring appointments.
+                  <p className="text-muted-foreground text-sm">
+                    Recurring appointments are set up by our staff. Contact us to set up or modify
+                    recurring appointments.
                   </p>
                 </div>
               </div>
             </div>
             {contactPhone && (
-              <div className="pt-4 border-t">
-                <p className="text-sm text-muted-foreground">
+              <div className="border-t pt-4">
+                <p className="text-muted-foreground text-sm">
                   Questions? Call us at{' '}
                   <a
                     href={`tel:${contactPhone.replace(/\D/g, '')}`}

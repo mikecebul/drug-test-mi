@@ -1,4 +1,5 @@
 import type { Block } from 'payload'
+import { linkGroup } from '@/fields/link/linkGroup'
 
 export const TechniciansBlock: Block = {
   slug: 'techniciansBlock',
@@ -28,5 +29,21 @@ export const TechniciansBlock: Block = {
       min: 1,
       max: 20,
     },
+    {
+      name: 'schedulingInfo',
+      type: 'richText',
+      label: 'Scheduling Information',
+      admin: {
+        description: 'Information about appointment availability and scheduling guidelines',
+      },
+    },
+    linkGroup({
+      overrides: {
+        label: 'Call to Action',
+        admin: {
+          description: 'Add button(s) for scheduling appointments',
+        },
+      },
+    }),
   ],
 }

@@ -198,9 +198,35 @@ export const Clients: CollectionConfig = {
             {
               name: 'phone',
               type: 'text',
+              required: true,
               admin: {
-                description: 'Phone number for contact',
+                description: 'Phone number for contact (auto-synced from bookings)',
               },
+            },
+            {
+              name: 'phoneHistory',
+              type: 'array',
+              admin: {
+                description: 'Historical phone numbers (auto-tracked for typo detection)',
+                readOnly: true,
+              },
+              fields: [
+                {
+                  name: 'number',
+                  type: 'text',
+                  required: true,
+                },
+                {
+                  name: 'changedAt',
+                  type: 'date',
+                  required: true,
+                  admin: {
+                    date: {
+                      pickerAppearance: 'dayAndTime',
+                    },
+                  },
+                },
+              ],
             },
             {
               name: 'gender',
@@ -508,139 +534,6 @@ export const Clients: CollectionConfig = {
                 description: 'Date of first booking',
                 readOnly: true,
               },
-            },
-          ],
-        },
-        {
-          label: 'Recurring Appointments',
-          fields: [
-            {
-              name: 'appointments',
-              type: 'join',
-              collection: 'appointments',
-              on: 'client',
-              admin: {
-                description: 'Recurring appointments linked to this client',
-              },
-            },
-            {
-              name: 'recurringAppointments',
-              type: 'group',
-              admin: {
-                description: 'Legacy recurring appointment subscription settings - use Appointments collection instead',
-              },
-              fields: [
-                {
-                  name: 'isRecurring',
-                  type: 'checkbox',
-                  defaultValue: false,
-                  admin: {
-                    description: 'Is this client subscribed to recurring appointments?',
-                  },
-                },
-                {
-                  name: 'frequency',
-                  type: 'select',
-                  options: [
-                    { label: 'Weekly', value: 'weekly' },
-                    { label: 'Bi-weekly', value: 'biweekly' },
-                    { label: 'Monthly', value: 'monthly' },
-                    { label: 'Quarterly', value: 'quarterly' },
-                  ],
-                  admin: {
-                    condition: (data, siblingData) => siblingData?.isRecurring === true,
-                    description: 'How often should appointments be scheduled?',
-                  },
-                },
-                {
-                  name: 'preferredDayOfWeek',
-                  type: 'select',
-                  options: [
-                    { label: 'Monday', value: 'monday' },
-                    { label: 'Tuesday', value: 'tuesday' },
-                    { label: 'Wednesday', value: 'wednesday' },
-                    { label: 'Thursday', value: 'thursday' },
-                    { label: 'Friday', value: 'friday' },
-                    { label: 'Saturday', value: 'saturday' },
-                    { label: 'Sunday', value: 'sunday' },
-                  ],
-                  admin: {
-                    condition: (data, siblingData) => siblingData?.isRecurring === true,
-                    description: 'Preferred day of the week for appointments',
-                  },
-                },
-                {
-                  name: 'preferredTimeSlot',
-                  type: 'select',
-                  options: [
-                    { label: 'Morning (8AM-12PM)', value: 'morning' },
-                    { label: 'Afternoon (12PM-5PM)', value: 'afternoon' },
-                    { label: 'Evening (5PM-8PM)', value: 'evening' },
-                  ],
-                  admin: {
-                    condition: (data, siblingData) => siblingData?.isRecurring === true,
-                    description: 'Preferred time slot for appointments',
-                  },
-                },
-                {
-                  name: 'stripeCustomerId',
-                  type: 'text',
-                  admin: {
-                    condition: (data, siblingData) => siblingData?.isRecurring === true,
-                    description: 'Stripe customer ID for subscription billing',
-                    readOnly: true,
-                  },
-                },
-                {
-                  name: 'stripeSubscriptionId',
-                  type: 'text',
-                  admin: {
-                    condition: (data, siblingData) => siblingData?.isRecurring === true,
-                    description: 'Stripe subscription ID',
-                    readOnly: true,
-                  },
-                },
-                {
-                  name: 'subscriptionStatus',
-                  type: 'select',
-                  options: [
-                    { label: 'Active', value: 'active' },
-                    { label: 'Past Due', value: 'past_due' },
-                    { label: 'Canceled', value: 'canceled' },
-                    { label: 'Unpaid', value: 'unpaid' },
-                    { label: 'Incomplete', value: 'incomplete' },
-                  ],
-                  admin: {
-                    condition: (data, siblingData) => siblingData?.isRecurring === true,
-                    description: 'Current subscription status from Stripe',
-                    readOnly: true,
-                  },
-                },
-                {
-                  name: 'nextAppointmentDate',
-                  type: 'date',
-                  admin: {
-                    condition: (data, siblingData) => siblingData?.isRecurring === true,
-                    description: 'Next scheduled appointment date',
-                    date: {
-                      pickerAppearance: 'dayAndTime',
-                      displayFormat: 'MM/dd/yyyy h:mm a',
-                    },
-                  },
-                },
-                {
-                  name: 'subscriptionStartDate',
-                  type: 'date',
-                  admin: {
-                    condition: (data, siblingData) => siblingData?.isRecurring === true,
-                    description: 'Date the subscription started',
-                    date: {
-                      pickerAppearance: 'dayOnly',
-                      displayFormat: 'MM/dd/yyyy',
-                    },
-                  },
-                },
-              ],
             },
           ],
         },

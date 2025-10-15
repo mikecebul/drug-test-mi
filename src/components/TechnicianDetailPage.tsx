@@ -1,79 +1,83 @@
-"use client"
+'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ArrowLeft, Calendar, Clock, MapPin } from "lucide-react"
-import { CalEmbed } from "@/components/cal-embed"
-import Link from "next/link"
-import { useSearchParams } from "next/navigation"
-import { useMemo } from "react"
-import type { Technician } from "@/payload-types"
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { ArrowLeft, Calendar, Clock, MapPin } from 'lucide-react'
+import { CalEmbed } from '@/components/cal-embed'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { useMemo } from 'react'
+import type { Technician } from '@/payload-types'
 
 interface TechnicianDetailPageProps {
   technician: Technician
+  userData?: {
+    name: string
+    email: string
+  }
 }
 
 function getTechnicianAvailabilityText(technician: Technician): string {
   const times: string[] = []
-  if (technician.availability?.mornings) times.push("mornings")
-  if (technician.availability?.evenings) times.push("evenings")
-  
+  if (technician.availability?.mornings) times.push('mornings')
+  if (technician.availability?.evenings) times.push('evenings')
+
   const days: string[] = []
-  if (technician.availability?.weekdays) days.push("weekdays")
-  if (technician.availability?.weekends) days.push("weekends")
-  
-  const timeText = times.length > 0 ? times.join(" & ") : "flexible hours"
-  const dayText = days.length > 0 ? days.join(" & ") : "any day"
-  
+  if (technician.availability?.weekdays) days.push('weekdays')
+  if (technician.availability?.weekends) days.push('weekends')
+
+  const timeText = times.length > 0 ? times.join(' & ') : 'flexible hours'
+  const dayText = days.length > 0 ? days.join(' & ') : 'any day'
+
   return `Available ${timeText} on ${dayText}`
 }
 
-export function TechnicianDetailPage({ technician }: TechnicianDetailPageProps) {
+export function TechnicianDetailPage({ technician, userData }: TechnicianDetailPageProps) {
   const searchParams = useSearchParams()
-  
+
   const backNavigation = useMemo(() => {
     const from = searchParams.get('from')
-    
+
     if (from === 'schedule') {
       // Reconstruct the schedule URL with preserved filters
       const params = new URLSearchParams(searchParams.toString())
       params.delete('from') // Remove the 'from' parameter
-      
+
       const scheduleUrl = `/schedule${params.toString() ? `?${params.toString()}` : ''}`
-      
+
       return {
         href: scheduleUrl,
-        label: 'Back to Schedule & Filters'
+        label: 'Back to Schedule & Filters',
       }
     }
-    
+
     // Default to technicians directory
     return {
       href: '/technicians',
-      label: 'Back to All Technicians'
+      label: 'Back to All Technicians',
     }
   }, [searchParams])
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
+    <div className="bg-muted/30 min-h-screen">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-12">
         <div className="mb-6 sm:mb-8 lg:mb-10">
           <Link href={backNavigation.href}>
             <Button
               variant="outline"
-              className="bg-background hover:bg-muted transition-colors mb-4"
+              className="bg-background hover:bg-muted mb-4 transition-colors"
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className="mr-2 h-4 w-4" />
               {backNavigation.label}
             </Button>
           </Link>
 
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2 sm:mb-3">
+          <h1 className="text-foreground mb-2 text-2xl font-bold sm:mb-3 sm:text-3xl lg:text-4xl">
             Schedule with {technician.name}
           </h1>
-          <p className="text-muted-foreground text-sm sm:text-base max-w-2xl">
+          <p className="text-muted-foreground max-w-2xl text-sm sm:text-base">
             Book your drug test appointment with {technician.name.split(' ')[0]}.
           </p>
         </div>
@@ -81,36 +85,41 @@ export function TechnicianDetailPage({ technician }: TechnicianDetailPageProps) 
         <div className="space-y-6 lg:space-y-8">
           <Card className="border-2">
             <CardContent className="p-6 lg:p-8">
-              <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                <Avatar className="h-20 w-20 lg:h-24 lg:w-24 mx-auto sm:mx-0">
-                  <AvatarImage 
-                    src={typeof technician.photo === 'object' && technician.photo?.url || "/placeholder.svg"} 
-                    alt={technician.name} 
+              <div className="flex flex-col items-start gap-4 sm:flex-row sm:gap-6">
+                <Avatar className="mx-auto h-20 w-20 sm:mx-0 lg:h-24 lg:w-24">
+                  <AvatarImage
+                    src={
+                      (typeof technician.photo === 'object' && technician.photo?.url) ||
+                      '/placeholder.svg'
+                    }
+                    alt={technician.name}
                   />
                   <AvatarFallback className="text-lg lg:text-xl">
                     {technician.name
-                      .split(" ")
+                      .split(' ')
                       .map((n) => n[0])
-                      .join("")}
+                      .join('')}
                   </AvatarFallback>
                 </Avatar>
 
                 <div className="flex-1 text-center sm:text-left">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3">
-                    <h2 className="text-xl lg:text-2xl font-semibold">{technician.name}</h2>
-                    <Badge variant="secondary" className="capitalize w-fit mx-auto sm:mx-0">
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                    <h2 className="text-xl font-semibold lg:text-2xl">{technician.name}</h2>
+                    <Badge variant="secondary" className="mx-auto w-fit capitalize sm:mx-0">
                       {technician.gender}
                     </Badge>
                   </div>
 
-                  <p className="text-muted-foreground text-sm lg:text-base mb-4 max-w-md">{technician.bio}</p>
+                  <p className="text-muted-foreground mb-4 max-w-md text-sm lg:text-base">
+                    {technician.bio}
+                  </p>
 
-                  <div className="flex flex-col sm:flex-row gap-4 text-sm lg:text-base text-muted-foreground">
-                    <div className="flex items-center justify-center sm:justify-start gap-2">
+                  <div className="text-muted-foreground flex flex-col gap-4 text-sm sm:flex-row lg:text-base">
+                    <div className="flex items-center justify-center gap-2 sm:justify-start">
                       <Clock className="h-4 w-4 lg:h-5 lg:w-5" />
                       <span>{getTechnicianAvailabilityText(technician)}</span>
                     </div>
-                    <div className="flex items-center justify-center sm:justify-start gap-2">
+                    <div className="flex items-center justify-center gap-2 sm:justify-start">
                       <MapPin className="h-4 w-4 lg:h-5 lg:w-5" />
                       <span className="capitalize">{technician.location}</span>
                     </div>
@@ -128,7 +137,7 @@ export function TechnicianDetailPage({ technician }: TechnicianDetailPageProps) 
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              <CalEmbed calUsername={technician.calComUsername} testerName={technician.name} />
+              <CalEmbed calLink={technician.calComUsername} userData={userData} />
             </CardContent>
           </Card>
         </div>

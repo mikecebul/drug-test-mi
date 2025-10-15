@@ -143,21 +143,9 @@ export default async function DashboardPage() {
       activeMedications,
       pendingTests,
     },
-    nextAppointment: client.recurringAppointments?.isRecurring && client.recurringAppointments.nextAppointmentDate
-      ? {
-          date: client.recurringAppointments.nextAppointmentDate,
-          type: `${client.recurringAppointments.frequency || 'Weekly'} Drug Test`,
-        }
-      : undefined,
+    nextAppointment: undefined, // Removed - now handled via bookings with recurringBookingUid
     recentTest,
-    recurringSubscription: client.recurringAppointments?.isRecurring && client.recurringAppointments.frequency
-      ? {
-          isActive: client.recurringAppointments.subscriptionStatus === 'active',
-          frequency: client.recurringAppointments.frequency,
-          nextBilling: '2025-09-30',
-          status: client.recurringAppointments.subscriptionStatus || 'inactive',
-        }
-      : undefined,
+    recurringSubscription: undefined, // Removed - pre-payment no longer supported
   }
 
   return <DashboardView data={dashboardData} />

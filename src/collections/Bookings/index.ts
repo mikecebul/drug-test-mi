@@ -3,6 +3,7 @@ import { admins } from '@/access/admins'
 import { revalidatePath } from 'next/cache'
 import { CollectionConfig } from 'payload'
 import { setClientRelationship, syncClient } from './hooks/syncClient'
+import { syncPhoneWithClient } from './hooks/syncPhoneWithClient'
 
 export const Bookings: CollectionConfig = {
   slug: 'bookings',
@@ -59,6 +60,46 @@ export const Bookings: CollectionConfig = {
               ],
             },
             {
+              type: 'row',
+              fields: [
+                {
+                  name: 'phone',
+                  type: 'text',
+                  required: true,
+                  admin: {
+                    description: 'Phone number from booking (auto-synced with client)',
+                    width: '50%',
+                  },
+                },
+                {
+                  name: 'phoneHistory',
+                  type: 'array',
+                  admin: {
+                    description: 'Historical phone numbers for this client (for detecting typos)',
+                    width: '50%',
+                    readOnly: true,
+                  },
+                  fields: [
+                    {
+                      name: 'number',
+                      type: 'text',
+                      required: true,
+                    },
+                    {
+                      name: 'changedAt',
+                      type: 'date',
+                      required: true,
+                      admin: {
+                        date: {
+                          pickerAppearance: 'dayAndTime',
+                        },
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+            {
               name: 'title',
               type: 'text',
               required: true,
@@ -106,16 +147,7 @@ export const Bookings: CollectionConfig = {
                   defaultValue: 'confirmed',
                   required: true,
                   admin: {
-                    width: '33%',
-                  },
-                },
-                {
-                  name: 'isPrepaid',
-                  type: 'checkbox',
-                  defaultValue: false,
-                  admin: {
-                    description: 'Whether this appointment was prepaid',
-                    width: '33%',
+                    width: '50%',
                   },
                 },
                 {
@@ -125,10 +157,26 @@ export const Bookings: CollectionConfig = {
                   admin: {
                     description: 'Booked via CalCom',
                     readOnly: true,
-                    width: '34%',
+                    width: '50%',
                   },
                 },
               ],
+            },
+            {
+              name: 'recurringBookingUid',
+              type: 'text',
+              admin: {
+                description: 'Cal.com recurring booking UID (links all occurrences in a series)',
+                readOnly: true,
+              },
+            },
+            {
+              name: 'calcomEventSlug',
+              type: 'text',
+              admin: {
+                description: 'Cal.com event slug used for this booking (for rescheduling)',
+                readOnly: true,
+              },
             },
             {
               name: 'type',
@@ -222,6 +270,6 @@ export const Bookings: CollectionConfig = {
   ],
   hooks: {
     beforeChange: [setClientRelationship],
-    afterChange: [syncClient],
+    afterChange: [syncClient, syncPhoneWithClient],
   },
 }

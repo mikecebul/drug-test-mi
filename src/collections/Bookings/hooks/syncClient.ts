@@ -37,11 +37,6 @@ export const setClientRelationship: CollectionBeforeChangeHook = async ({
       data.relatedClient = existingClients.docs[0].id
     }
 
-    // Set prepaid status for webhook-created bookings
-    if (data.createdViaWebhook === true) {
-      data.isPrepaid = true
-    }
-
   } catch (error) {
     req.payload.logger.error(`Failed to set client relationship: ${error}`)
   }

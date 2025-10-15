@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getPayload } from 'payload'
 import configPromise from '@payload-config'
 import crypto from 'crypto'
+import {
+  extractPhoneFromCalcomWebhook,
+  normalizePhoneNumber,
+  phoneNumbersMatch,
+} from '@/lib/calcom'
 
 interface CalcomWebhookPayload {
   triggerEvent: 'BOOKING_CREATED' | 'BOOKING_CANCELLED' | 'BOOKING_RESCHEDULED' | 'BOOKING_REJECTED' | 'BOOKING_REQUESTED' | 'BOOKING_PAID' | 'MEETING_STARTED' | 'MEETING_ENDED' | 'RECORDING_READY' | 'FORM_SUBMITTED' | 'INSTANT_MEETING_CREATED'
@@ -59,6 +64,7 @@ interface CalcomWebhookPayload {
     iCalUID?: string
     iCalSequence?: number
     conferenceData?: any
+    recurringBookingUid?: string
   }
 }
 
@@ -82,12 +88,17 @@ export async function POST(req: NextRequest) {
     const signature = req.headers.get('x-cal-signature-256')
     const secret = process.env.CALCOM_WEBHOOK_SECRET
 
-    if (secret && signature) {
+    // Skip signature verification in development
+    const isDevelopment = process.env.NODE_ENV === 'development'
+
+    if (secret && signature && !isDevelopment) {
       const isValid = verifyWebhookSignature(rawBody, signature, secret)
       if (!isValid) {
         console.error('Invalid Cal.com webhook signature')
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
       }
+    } else if (!isDevelopment && !secret) {
+      console.warn('⚠️ CALCOM_WEBHOOK_SECRET not set - webhook security disabled')
     }
 
     const webhookData: CalcomWebhookPayload = JSON.parse(rawBody)
@@ -104,11 +115,41 @@ export async function POST(req: NextRequest) {
     const attendeeName = payload.responses?.name?.value || 'Unknown'
     const attendeeEmail = payload.responses?.email?.value || ''
     const locationValue = payload.responses?.location?.value
-    const location = typeof locationValue === 'string' 
-      ? locationValue 
-      : typeof locationValue === 'object' 
+    const location = typeof locationValue === 'string'
+      ? locationValue
+      : typeof locationValue === 'object'
       ? locationValue.value || locationValue.optionValue
       : ''
+
+    // Extract phone number from webhook
+    const rawPhone = extractPhoneFromCalcomWebhook(payload)
+    const phone = rawPhone ? normalizePhoneNumber(rawPhone) : null
+
+    if (!phone) {
+      console.warn('⚠️ No phone number found in Cal.com webhook. Phone is required.')
+      return NextResponse.json(
+        { error: 'Phone number is required for bookings' },
+        { status: 400 }
+      )
+    }
+
+    // Get recurring booking UID from Cal.com (if part of recurring series)
+    const recurringBookingUid = payload.recurringBookingUid || null
+
+    // Try to extract event slug from bookerUrl (e.g., "https://cal.com/username/event-slug")
+    let calcomEventSlug: string | null = null
+    if (payload.bookerUrl) {
+      try {
+        const url = new URL(payload.bookerUrl)
+        const pathParts = url.pathname.split('/').filter(Boolean)
+        // Usually format is: /username/event-slug or /team/username/event-slug
+        if (pathParts.length >= 2) {
+          calcomEventSlug = pathParts[pathParts.length - 1] || null // Get the last part
+        }
+      } catch (error) {
+        console.warn('Failed to parse bookerUrl:', payload.bookerUrl)
+      }
+    }
 
     const bookingData = {
       title: payload.title,
@@ -128,12 +169,15 @@ export async function POST(req: NextRequest) {
       },
       attendeeName,
       attendeeEmail,
+      phone,
       location: location || null,
       calcomBookingId: payload.uid || null,
       eventTypeId: payload.eventTypeId || null,
       customInputs: payload.customInputs || null,
       webhookData: webhookData as any,
       createdViaWebhook: true,
+      recurringBookingUid,
+      calcomEventSlug,
     }
 
     if (triggerEvent === 'BOOKING_CREATED') {

@@ -3,7 +3,7 @@
 import Cal from '@calcom/embed-react'
 
 interface CalEmbedProps {
-  calUsername: string
+  calLink: string
   testerName?: string
   userData?: {
     name: string
@@ -11,7 +11,7 @@ interface CalEmbedProps {
   }
 }
 
-export function CalEmbed({ calUsername, userData }: CalEmbedProps) {
+export function CalEmbed({ calLink, userData }: CalEmbedProps) {
   const config: any = {
     theme: 'light',
   }
@@ -25,7 +25,7 @@ export function CalEmbed({ calUsername, userData }: CalEmbedProps) {
   return (
     <div className="w-full">
       <Cal
-        calLink={calUsername}
+        calLink={calLink}
         config={config}
         style={{ width: '100%', height: '600px', overflow: 'scroll' }}
       />

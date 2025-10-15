@@ -211,5 +211,122 @@ export const CompanyInfo: GlobalConfig = {
         },
       ],
     },
+    {
+      name: 'tests',
+      type: 'array',
+      label: 'Drug Test Types',
+      admin: {
+        description: 'Available drug test types with Cal.com booking integration',
+        components: {
+          RowLabel: '@/globals/CompanyInfo/TestsRowLabel',
+        },
+      },
+      fields: [
+        {
+          name: 'name',
+          type: 'text',
+          required: true,
+          admin: {
+            description: 'Test name (e.g., "Instant 15-Panel")',
+          },
+        },
+        {
+          name: 'description',
+          type: 'textarea',
+          admin: {
+            description: 'Description of the test type and when to use it',
+          },
+        },
+        {
+          type: 'row',
+          fields: [
+            {
+              name: 'price',
+              type: 'number',
+              required: true,
+              admin: {
+                description: 'Price per test in dollars',
+                width: '50%',
+              },
+            },
+            {
+              name: 'panelCount',
+              type: 'number',
+              admin: {
+                description: 'Number of substances tested (e.g., 11 or 15)',
+                width: '50%',
+              },
+            },
+          ],
+        },
+        {
+          name: 'courtLocation',
+          type: 'text',
+          admin: {
+            description: 'Which court/jurisdiction this test is for (e.g., "Charlevoix County" or "Other Courts")',
+          },
+        },
+        {
+          type: 'row',
+          fields: [
+            {
+              name: 'allowOneTime',
+              type: 'checkbox',
+              defaultValue: true,
+              label: 'Allow One-Time Appointments',
+              admin: {
+                description: 'Enable one-time appointments for this test type',
+                width: '50%',
+              },
+            },
+            {
+              name: 'allowRecurring',
+              type: 'checkbox',
+              defaultValue: true,
+              label: 'Allow Recurring Appointments',
+              admin: {
+                description: 'Enable recurring appointments for this test type',
+                width: '50%',
+              },
+            },
+          ],
+        },
+        {
+          name: 'calcomEventSlugOneTime',
+          type: 'text',
+          admin: {
+            description: 'Cal.com event slug for one-time appointments (e.g., "instant-35-single")',
+            condition: (_, siblingData) => siblingData?.allowOneTime === true,
+          },
+        },
+        {
+          name: 'calcomEventSlugRecurring',
+          type: 'text',
+          admin: {
+            description: 'Cal.com event slug for recurring appointments (e.g., "instant-35-recurring")',
+            condition: (_, siblingData) => siblingData?.allowRecurring === true,
+          },
+        },
+        {
+          name: 'icon',
+          type: 'select',
+          options: [
+            { label: 'Instant Test', value: 'instant' },
+            { label: 'Lab Test', value: 'lab' },
+          ],
+          admin: {
+            description: 'Icon to display for this test type',
+          },
+        },
+        {
+          name: 'isActive',
+          type: 'checkbox',
+          defaultValue: true,
+          admin: {
+            description: 'Whether this test type is currently available for booking',
+          },
+        },
+      ],
+    },
   ],
 }

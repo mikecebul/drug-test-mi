@@ -119,7 +119,6 @@ export interface Config {
     clients: {
       drugTests: 'drug-tests';
       bookings: 'bookings';
-      appointments: 'appointments';
       privateDocuments: 'private-media';
     };
   };
@@ -372,6 +371,25 @@ export interface TechniciansBlock {
   heading?: string | null;
   description?: string | null;
   maxTechnicians?: number | null;
+  /**
+   * Information about appointment availability and scheduling guidelines
+   */
+  schedulingInfo?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  links?: LinkGroup;
   id?: string | null;
   blockName?: string | null;
   blockType: 'techniciansBlock';
@@ -898,9 +916,19 @@ export interface Client {
   lastName: string;
   email: string;
   /**
-   * Phone number for contact
+   * Phone number for contact (auto-synced from bookings)
    */
-  phone?: string | null;
+  phone: string;
+  /**
+   * Historical phone numbers (auto-tracked for typo detection)
+   */
+  phoneHistory?:
+    | {
+        number: string;
+        changedAt: string;
+        id?: string | null;
+      }[]
+    | null;
   /**
    * Client gender identity
    */
@@ -1061,55 +1089,6 @@ export interface Client {
    * Date of first booking
    */
   firstBookingDate?: string | null;
-  /**
-   * Recurring appointments linked to this client
-   */
-  appointments?: {
-    docs?: (string | Appointment)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Legacy recurring appointment subscription settings - use Appointments collection instead
-   */
-  recurringAppointments?: {
-    /**
-     * Is this client subscribed to recurring appointments?
-     */
-    isRecurring?: boolean | null;
-    /**
-     * How often should appointments be scheduled?
-     */
-    frequency?: ('weekly' | 'biweekly' | 'monthly' | 'quarterly') | null;
-    /**
-     * Preferred day of the week for appointments
-     */
-    preferredDayOfWeek?: ('monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday') | null;
-    /**
-     * Preferred time slot for appointments
-     */
-    preferredTimeSlot?: ('morning' | 'afternoon' | 'evening') | null;
-    /**
-     * Stripe customer ID for subscription billing
-     */
-    stripeCustomerId?: string | null;
-    /**
-     * Stripe subscription ID
-     */
-    stripeSubscriptionId?: string | null;
-    /**
-     * Current subscription status from Stripe
-     */
-    subscriptionStatus?: ('active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete') | null;
-    /**
-     * Next scheduled appointment date
-     */
-    nextAppointmentDate?: string | null;
-    /**
-     * Date the subscription started
-     */
-    subscriptionStartDate?: string | null;
-  };
   /**
    * Private documents linked to this client
    */
@@ -1420,18 +1399,36 @@ export interface Booking {
   relatedClient?: (string | null) | Client;
   attendeeName: string;
   attendeeEmail: string;
+  /**
+   * Phone number from booking (auto-synced with client)
+   */
+  phone: string;
+  /**
+   * Historical phone numbers for this client (for detecting typos)
+   */
+  phoneHistory?:
+    | {
+        number: string;
+        changedAt: string;
+        id?: string | null;
+      }[]
+    | null;
   title: string;
   startTime: string;
   endTime: string;
   status: 'confirmed' | 'cancelled' | 'rescheduled' | 'pending' | 'rejected';
   /**
-   * Whether this appointment was prepaid
-   */
-  isPrepaid?: boolean | null;
-  /**
    * Booked via CalCom
    */
   createdViaWebhook?: boolean | null;
+  /**
+   * Cal.com recurring booking UID (links all occurrences in a series)
+   */
+  recurringBookingUid?: string | null;
+  /**
+   * Cal.com event slug used for this booking (for rescheduling)
+   */
+  calcomEventSlug?: string | null;
   /**
    * Event type duration (e.g., 60min, 30min)
    */
@@ -1937,6 +1934,8 @@ export interface TechniciansBlockSelect<T extends boolean = true> {
   heading?: T;
   description?: T;
   maxTechnicians?: T;
+  schedulingInfo?: T;
+  links?: T | LinkGroupSelect<T>;
   id?: T;
   blockName?: T;
 }
@@ -2093,12 +2092,21 @@ export interface BookingsSelect<T extends boolean = true> {
   relatedClient?: T;
   attendeeName?: T;
   attendeeEmail?: T;
+  phone?: T;
+  phoneHistory?:
+    | T
+    | {
+        number?: T;
+        changedAt?: T;
+        id?: T;
+      };
   title?: T;
   startTime?: T;
   endTime?: T;
   status?: T;
-  isPrepaid?: T;
   createdViaWebhook?: T;
+  recurringBookingUid?: T;
+  calcomEventSlug?: T;
   type?: T;
   location?: T;
   description?: T;
@@ -2481,6 +2489,13 @@ export interface ClientsSelect<T extends boolean = true> {
   lastName?: T;
   email?: T;
   phone?: T;
+  phoneHistory?:
+    | T
+    | {
+        number?: T;
+        changedAt?: T;
+        id?: T;
+      };
   gender?: T;
   dob?: T;
   headshot?: T;
@@ -2525,20 +2540,6 @@ export interface ClientsSelect<T extends boolean = true> {
   totalBookings?: T;
   lastBookingDate?: T;
   firstBookingDate?: T;
-  appointments?: T;
-  recurringAppointments?:
-    | T
-    | {
-        isRecurring?: T;
-        frequency?: T;
-        preferredDayOfWeek?: T;
-        preferredTimeSlot?: T;
-        stripeCustomerId?: T;
-        stripeSubscriptionId?: T;
-        subscriptionStatus?: T;
-        nextAppointmentDate?: T;
-        subscriptionStartDate?: T;
-      };
   privateDocuments?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -2776,6 +2777,58 @@ export interface CompanyInfo {
         id?: string | null;
       }[]
     | null;
+  /**
+   * Available drug test types with Cal.com booking integration
+   */
+  tests?:
+    | {
+        /**
+         * Test name (e.g., "Instant 15-Panel")
+         */
+        name: string;
+        /**
+         * Description of the test type and when to use it
+         */
+        description?: string | null;
+        /**
+         * Price per test in dollars
+         */
+        price: number;
+        /**
+         * Number of substances tested (e.g., 11 or 15)
+         */
+        panelCount?: number | null;
+        /**
+         * Which court/jurisdiction this test is for (e.g., "Charlevoix County" or "Other Courts")
+         */
+        courtLocation?: string | null;
+        /**
+         * Enable one-time appointments for this test type
+         */
+        allowOneTime?: boolean | null;
+        /**
+         * Enable recurring appointments for this test type
+         */
+        allowRecurring?: boolean | null;
+        /**
+         * Cal.com event slug for one-time appointments (e.g., "instant-35-single")
+         */
+        calcomEventSlugOneTime?: string | null;
+        /**
+         * Cal.com event slug for recurring appointments (e.g., "instant-35-recurring")
+         */
+        calcomEventSlugRecurring?: string | null;
+        /**
+         * Icon to display for this test type
+         */
+        icon?: ('instant' | 'lab') | null;
+        /**
+         * Whether this test type is currently available for booking
+         */
+        isActive?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -2852,6 +2905,22 @@ export interface CompanyInfoSelect<T extends boolean = true> {
         day?: T;
         hours?: T;
         note?: T;
+        id?: T;
+      };
+  tests?:
+    | T
+    | {
+        name?: T;
+        description?: T;
+        price?: T;
+        panelCount?: T;
+        courtLocation?: T;
+        allowOneTime?: T;
+        allowRecurring?: T;
+        calcomEventSlugOneTime?: T;
+        calcomEventSlugRecurring?: T;
+        icon?: T;
+        isActive?: T;
         id?: T;
       };
   updatedAt?: T;

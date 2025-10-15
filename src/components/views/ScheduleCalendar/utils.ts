@@ -133,7 +133,7 @@ export function bookingsToEvents(bookings: Booking[]): CalendarEvent[] {
       clientId: client?.id || '',
       clientName: client ? `${client.firstName} ${client.lastName}` : booking.attendeeName,
       clientEmail: client?.email || booking.attendeeEmail,
-      isPrepaid: booking.isPrepaid || false,
+      isPrepaid: false, // Removed - pre-payment no longer supported
       isRecurring: false,
       status: booking.status as CalendarEvent['status'],
       type: 'booking' as const,
@@ -165,11 +165,11 @@ export function appointmentsToEvents(
         title: appointment.title,
         date: occurrence,
         time: appointment.time,
-        duration: appointment.duration,
+        duration: appointment.duration || 30,
         clientId: client.id,
         clientName: `${client.firstName} ${client.lastName}`,
         clientEmail: client.email,
-        isPrepaid: appointment.isPrepaid || false,
+        isPrepaid: false, // Removed - pre-payment no longer supported
         isRecurring: true,
         frequency: appointment.frequency as CalendarEvent['frequency'],
         paymentStatus: appointment.paymentStatus as CalendarEvent['paymentStatus'],

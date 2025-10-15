@@ -10,6 +10,8 @@ export default async function TechniciansBlockComponent({
   heading,
   description,
   maxTechnicians,
+  schedulingInfo,
+  links,
 }: TechniciansBlock) {
   const payload = await getPayload({ config: configPromise })
 
@@ -25,6 +27,8 @@ export default async function TechniciansBlockComponent({
     limit: maxTechnicians || 6,
   })
 
+  console.log("Schedule:", schedulingInfo)
+
   return (
     <Container className="space-y-16">
       <HeroMedium
@@ -35,7 +39,11 @@ export default async function TechniciansBlockComponent({
         }
       />
 
-      <TechniciansGrid technicians={technicians.docs} />
+      <TechniciansGrid
+        technicians={technicians.docs}
+        schedulingInfo={schedulingInfo}
+        links={links}
+      />
     </Container>
   )
 }

@@ -5,6 +5,7 @@ import { getPayload } from 'payload'
 import { notFound } from 'next/navigation'
 import { TechnicianDetailPage } from '@/components/TechnicianDetailPage'
 import { TechnicianDetailSkeleton } from '@/components/TechnicianDetailSkeleton'
+import { getAuthenticatedClient } from '@/utilities/auth/getAuthenticatedClient'
 
 export async function generateStaticParams() {
   const payload = await getPayload({ config: configPromise })
@@ -40,7 +41,7 @@ type Args = {
 
 export default async function Page({ params: paramsPromise }: Args) {
   const { name } = await paramsPromise
-  
+
   const technician = await queryTechnicianByName({
     name: name.replace(/-/g, ' '),
   })
@@ -49,9 +50,23 @@ export default async function Page({ params: paramsPromise }: Args) {
     return notFound()
   }
 
+  // Try to get authenticated client (optional)
+  let userData: { name: string; email: string } | undefined
+  try {
+    const client = await getAuthenticatedClient()
+    if (client) {
+      userData = {
+        name: client.name || '',
+        email: client.email || '',
+      }
+    }
+  } catch {
+    // User not authenticated, continue without userData
+  }
+
   return (
     <Suspense fallback={<TechnicianDetailSkeleton />}>
-      <TechnicianDetailPage technician={technician} />
+      <TechnicianDetailPage technician={technician} userData={userData} />
     </Suspense>
   )
 }

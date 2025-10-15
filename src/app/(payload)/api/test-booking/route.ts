@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
               status: 'confirmed',
               attendeeName: 'Sarah Johnson',
               attendeeEmail: 'sarah.johnson@company.com',
+              phone: '(231) 555-0123',
               location: 'Charlevoix Office',
               organizer: {
                 id: 123,
