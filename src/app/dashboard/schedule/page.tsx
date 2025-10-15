@@ -23,7 +23,7 @@ export default async function SchedulePage() {
           </div>
         </div>
 
-        <CalEmbed calUsername="mike-midrugtest" />
+        <CalEmbed calUsername="midrugtest" />
       </div>
     )
   } catch (error) {

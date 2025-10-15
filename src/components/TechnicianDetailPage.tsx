@@ -128,7 +128,7 @@ export function TechnicianDetailPage({ technician }: TechnicianDetailPageProps) 
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              <CalEmbed calUsername={technician.calComUsername} testerName={technician.name} />
+              <CalEmbed calUsername='midrugtest' testerName={technician.name} />
             </CardContent>
           </Card>
         </div>

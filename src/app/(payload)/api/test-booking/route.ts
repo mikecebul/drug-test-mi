@@ -161,8 +161,6 @@ export async function POST(request: NextRequest) {
         id: client.docs[0].id,
         name: client.docs[0].name,
         email: client.docs[0].email,
-        totalBookings: client.docs[0].totalBookings,
-        lastBookingDate: client.docs[0].lastBookingDate,
       } : null,
       type: testType,
     })

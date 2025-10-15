@@ -9,7 +9,6 @@ import { Header } from '@/globals/Header/Component'
 import { ThemeProvider } from 'next-themes'
 import { baseUrl } from '@/utilities/baseUrl'
 import Script from 'next/script'
-import { QueryProvider } from '@/providers/QueryProvider'
 import { Toaster } from '@/components/ui/sonner'
 
 export default async function RootLayout({ children }: { children: ReactNode }) {

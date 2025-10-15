@@ -11,7 +11,7 @@ interface CalEmbedProps {
   }
 }
 
-export function CalEmbed({ calUsername, userData }: CalEmbedProps) {
+export function CalEmbed({ calUsername = 'midrugtest', userData }: CalEmbedProps) {
   const config: any = {
     theme: 'light',
   }
