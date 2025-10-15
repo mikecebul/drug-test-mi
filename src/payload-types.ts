@@ -117,6 +117,7 @@ export interface Config {
   collectionsJoins: {
     clients: {
       drugTests: 'drug-tests';
+      bookings: 'bookings';
       privateDocuments: 'private-media';
     };
   };
@@ -835,6 +836,10 @@ export interface Booking {
   };
   attendeeName: string;
   attendeeEmail: string;
+  /**
+   * Client linked to this booking (auto-populated via email match)
+   */
+  relatedClient?: (string | null) | Client;
   location?: string | null;
   /**
    * Cal.com booking UID
@@ -874,63 +879,12 @@ export interface Booking {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "form-submissions".
- */
-export interface FormSubmission {
-  id: string;
-  form: string | Form;
-  data:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Secure file storage for sensitive documents
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "private-media".
- */
-export interface PrivateMedia {
-  id: string;
-  /**
-   * Alternative text for SEO and accessibility
-   */
-  alt?: string | null;
-  /**
-   * Type of private document
-   */
-  documentType: 'drug-test-report' | 'client-document';
-  /**
-   * Client this document belongs to
-   */
-  relatedClient?: (string | null) | Client;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "clients".
  */
 export interface Client {
   id: string;
   /**
-   * Legacy full name field - will be removed after migration
+   * Full name (computed from first and last name)
    */
   name?: string | null;
   firstName: string;
@@ -971,6 +925,10 @@ export interface Client {
      * Email of probation officer
      */
     probationOfficerEmail: string;
+    /**
+     * Additional email to CC on test results
+     */
+    ccEmail?: string | null;
   };
   /**
    * Employer and contact information
@@ -994,6 +952,14 @@ export interface Client {
    */
   drugTests?: {
     docs?: (string | DrugTest)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Bookings automatically linked to this client
+   */
+  bookings?: {
+    docs?: (string | Booking)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
@@ -1081,59 +1047,6 @@ export interface Client {
     docs?: (string | PrivateMedia)[];
     hasNextPage?: boolean;
     totalDocs?: number;
-  };
-  /**
-   * Total number of bookings made by this client
-   */
-  totalBookings?: number | null;
-  /**
-   * Date of most recent booking
-   */
-  lastBookingDate?: string | null;
-  /**
-   * Date of first booking
-   */
-  firstBookingDate?: string | null;
-  /**
-   * Recurring appointment subscription settings
-   */
-  recurringAppointments?: {
-    /**
-     * Is this client subscribed to recurring appointments?
-     */
-    isRecurring?: boolean | null;
-    /**
-     * How often should appointments be scheduled?
-     */
-    frequency?: ('weekly' | 'biweekly' | 'monthly' | 'quarterly') | null;
-    /**
-     * Preferred day of the week for appointments
-     */
-    preferredDayOfWeek?: ('monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday') | null;
-    /**
-     * Preferred time slot for appointments
-     */
-    preferredTimeSlot?: ('morning' | 'afternoon' | 'evening') | null;
-    /**
-     * Stripe customer ID for subscription billing
-     */
-    stripeCustomerId?: string | null;
-    /**
-     * Stripe subscription ID
-     */
-    stripeSubscriptionId?: string | null;
-    /**
-     * Current subscription status from Stripe
-     */
-    subscriptionStatus?: ('active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete') | null;
-    /**
-     * Next scheduled appointment date
-     */
-    nextAppointmentDate?: string | null;
-    /**
-     * Date the subscription started
-     */
-    subscriptionStartDate?: string | null;
   };
   preferredContactMethod?: ('email' | 'phone' | 'sms') | null;
   /**
@@ -1404,6 +1317,57 @@ export interface DrugTest {
    * Drug test report document (PDF)
    */
   testDocument?: (string | null) | PrivateMedia;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Secure file storage for sensitive documents
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "private-media".
+ */
+export interface PrivateMedia {
+  id: string;
+  /**
+   * Alternative text for SEO and accessibility
+   */
+  alt?: string | null;
+  /**
+   * Type of private document
+   */
+  documentType: 'drug-test-report' | 'client-document';
+  /**
+   * Client this document belongs to
+   */
+  relatedClient?: (string | null) | Client;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-submissions".
+ */
+export interface FormSubmission {
+  id: string;
+  form: string | Form;
+  data:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1991,6 +1955,7 @@ export interface BookingsSelect<T extends boolean = true> {
       };
   attendeeName?: T;
   attendeeEmail?: T;
+  relatedClient?: T;
   location?: T;
   calcomBookingId?: T;
   eventTypeId?: T;
@@ -2370,6 +2335,7 @@ export interface ClientsSelect<T extends boolean = true> {
         courtName?: T;
         probationOfficerName?: T;
         probationOfficerEmail?: T;
+        ccEmail?: T;
       };
   employmentInfo?:
     | T
@@ -2379,6 +2345,7 @@ export interface ClientsSelect<T extends boolean = true> {
         contactEmail?: T;
       };
   drugTests?: T;
+  bookings?: T;
   notes?: T;
   medications?:
     | T
@@ -2399,22 +2366,6 @@ export interface ClientsSelect<T extends boolean = true> {
         email?: T;
       };
   privateDocuments?: T;
-  totalBookings?: T;
-  lastBookingDate?: T;
-  firstBookingDate?: T;
-  recurringAppointments?:
-    | T
-    | {
-        isRecurring?: T;
-        frequency?: T;
-        preferredDayOfWeek?: T;
-        preferredTimeSlot?: T;
-        stripeCustomerId?: T;
-        stripeSubscriptionId?: T;
-        subscriptionStatus?: T;
-        nextAppointmentDate?: T;
-        subscriptionStartDate?: T;
-      };
   preferredContactMethod?: T;
   isActive?: T;
   updatedAt?: T;

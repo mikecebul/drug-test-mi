@@ -157,17 +157,28 @@ export const Clients: CollectionConfig = {
     afterChange: [notifyNewRegistration],
   },
   admin: {
-    defaultColumns: ['headshot', 'name', 'email', 'clientType', 'totalBookings', 'lastBookingDate'],
+    defaultColumns: ['headshot', 'name', 'email', 'clientType'],
     useAsTitle: 'name',
   },
   fields: [
     {
       name: 'name',
       type: 'text',
-      required: false, // Keep for migration purposes
-      index: true,
+      virtual: true,
       admin: {
-        description: 'Legacy full name field - will be removed after migration',
+        description: 'Full name (computed from first and last name)',
+        position: 'sidebar',
+        readOnly: true,
+      },
+      hooks: {
+        beforeValidate: [
+          ({ data }) => {
+            if (data?.firstName && data?.lastName) {
+              return `${data.firstName} ${data.lastName}`
+            }
+            return data?.firstName || data?.lastName || ''
+          },
+        ],
       },
     },
     {
@@ -332,6 +343,16 @@ export const Clients: CollectionConfig = {
         description: 'Drug tests automatically linked to this client',
       },
     },
+    // Bookings (auto-populated via join)
+    {
+      name: 'bookings',
+      type: 'join',
+      collection: 'bookings',
+      on: 'relatedClient',
+      admin: {
+        description: 'Bookings automatically linked to this client',
+      },
+    },
     {
       name: 'notes',
       type: 'textarea',
@@ -461,33 +482,6 @@ export const Clients: CollectionConfig = {
         description: 'Private documents linked to this client',
       },
     },
-    // Calculated fields updated by hooks
-    {
-      name: 'totalBookings',
-      type: 'number',
-      defaultValue: 0,
-      admin: {
-        description: 'Total number of bookings made by this client',
-        readOnly: true,
-      },
-    },
-    {
-      name: 'lastBookingDate',
-      type: 'date',
-      admin: {
-        description: 'Date of most recent booking',
-        readOnly: true,
-      },
-    },
-    {
-      name: 'firstBookingDate',
-      type: 'date',
-      admin: {
-        description: 'Date of first booking',
-        readOnly: true,
-      },
-    },
-   
     // Contact preferences
     {
       name: 'preferredContactMethod',

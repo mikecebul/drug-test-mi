@@ -33,11 +33,6 @@ const data = {
       icon: LayoutDashboardIcon,
     },
     {
-      title: 'Schedule',
-      url: '/dashboard/schedule',
-      icon: Calendar,
-    },
-    {
       title: 'Test Results',
       url: '/dashboard/results',
       icon: ClipboardList,

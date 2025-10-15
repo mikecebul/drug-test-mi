@@ -41,7 +41,7 @@ export function NavMain({
               className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground min-w-8 duration-200 ease-linear"
               asChild
             >
-              <Link href="/dashboard/technicians" onClick={handleLinkClick}>
+              <Link href="/dashboard/schedule" onClick={handleLinkClick}>
                 <PlusCircleIcon />
                 <span>Quick Booking</span>
               </Link>

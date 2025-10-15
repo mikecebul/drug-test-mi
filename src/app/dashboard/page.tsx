@@ -96,6 +96,28 @@ export default async function DashboardPage() {
 
   const drugScreenResults = drugTestsResult.docs
 
+  // Fetch next upcoming booking for this client
+  const now = new Date()
+  const upcomingBookingsResult = await payload.find({
+    collection: 'bookings',
+    where: {
+      relatedClient: {
+        equals: client.id,
+      },
+      startTime: {
+        greater_than: now.toISOString(),
+      },
+      status: {
+        not_equals: 'cancelled',
+      },
+    },
+    sort: 'startTime',
+    limit: 1,
+    depth: 0,
+  })
+
+  const nextBooking = upcomingBookingsResult.docs[0]
+
   // Calculate stats
   const totalTests = drugScreenResults.length
   const activeMedications = client.medications?.filter((med) => med.status === 'active').length || 0
@@ -143,12 +165,13 @@ export default async function DashboardPage() {
       activeMedications,
       pendingTests,
     },
-    nextAppointment: client.recurringAppointments?.isRecurring && client.recurringAppointments.nextAppointmentDate
+    nextAppointment: nextBooking
       ? {
-          date: client.recurringAppointments.nextAppointmentDate,
-          type: `${client.recurringAppointments.frequency || 'Weekly'} Drug Test`,
+          date: nextBooking.startTime,
+          type: nextBooking.title || 'Drug Test Appointment',
         }
       : undefined,
+    recentTest,
   }
 
   return <DashboardView data={dashboardData} />

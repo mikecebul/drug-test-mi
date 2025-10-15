@@ -1,11 +1,6 @@
 import { CollectionAfterChangeHook } from 'payload'
 
-export const syncClient: CollectionAfterChangeHook = async ({
-  doc,
-  operation,
-  req,
-  previousDoc,
-}) => {
+export const syncClient: CollectionAfterChangeHook = async ({ doc, req }) => {
   // Only sync if we have attendee information
   if (!doc.attendeeName || !doc.attendeeEmail) {
     return doc
@@ -28,38 +23,21 @@ export const syncClient: CollectionAfterChangeHook = async ({
     let clientId: string
 
     if (existingClients.docs.length > 0) {
-      // Update existing client
+      // Update existing client name if it changed
       const existingClient = existingClients.docs[0]
-      
-      // Get all bookings for this client to calculate stats
-      const allBookings = await payload.find({
-        collection: 'bookings',
-        where: {
-          attendeeEmail: {
-            equals: doc.attendeeEmail,
-          },
-        },
-        sort: '-startTime',
-      })
-
-      const totalBookings = allBookings.docs.length
-      const lastBookingDate = allBookings.docs[0]?.startTime
-      const firstBookingDate = allBookings.docs[totalBookings - 1]?.startTime
+      clientId = existingClient.id
 
       await payload.update({
         collection: 'clients',
         id: existingClient.id,
         data: {
-          name: doc.attendeeName,// Update name in case it changed
+          name: doc.attendeeName,
           firstName: doc.attendeeName.split(' ')[0],
           lastName: doc.attendeeName.split(' ').slice(1).join(' '),
-          totalBookings,
-          lastBookingDate,
-          firstBookingDate,
         },
       })
 
-      clientId = existingClient.id
+      req.payload.logger.info(`Updated client ${doc.attendeeEmail} from booking ${doc.id}`)
     } else {
       // Create new client
       const newClient = await payload.create({
@@ -69,18 +47,25 @@ export const syncClient: CollectionAfterChangeHook = async ({
           firstName: doc.attendeeName.split(' ')[0],
           lastName: doc.attendeeName.split(' ').slice(1).join(' '),
           email: doc.attendeeEmail,
-          totalBookings: 1,
-          lastBookingDate: doc.startTime,
-          firstBookingDate: doc.startTime,
           isActive: true,
         },
       })
 
       clientId = newClient.id
+      req.payload.logger.info(`Created new client ${doc.attendeeEmail} from booking ${doc.id}`)
     }
 
-    // Log the sync for debugging
-    req.payload.logger.info(`Synced client ${doc.attendeeEmail} with booking ${doc.id}`)
+    // Update the booking with the client relationship if not already set
+    if (!doc.relatedClient || (typeof doc.relatedClient === 'object' && doc.relatedClient.id !== clientId) || (typeof doc.relatedClient === 'string' && doc.relatedClient !== clientId)) {
+      await payload.update({
+        collection: 'bookings',
+        id: doc.id,
+        data: {
+          relatedClient: clientId,
+        },
+      })
+      req.payload.logger.info(`Linked booking ${doc.id} to client ${clientId}`)
+    }
 
   } catch (error) {
     // Log error but don't fail the booking creation

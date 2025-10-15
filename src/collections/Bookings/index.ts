@@ -120,6 +120,14 @@ export const Bookings: CollectionConfig = {
       required: true,
     },
     {
+      name: 'relatedClient',
+      type: 'relationship',
+      relationTo: 'clients',
+      admin: {
+        description: 'Client linked to this booking (auto-populated via email match)',
+      },
+    },
+    {
       name: 'location',
       type: 'text',
     },
