@@ -13,7 +13,7 @@ function formatTestResult(
   isDilute?: DrugTest['isDilute'],
   requiresConfirmation?: boolean,
   confirmationResults?: DrugTest['confirmationResults'],
-  confirmationSubstances?: DrugTest['confirmationSubstances']
+  confirmationSubstances?: DrugTest['confirmationSubstances'],
 ): string {
   if (!result) return 'Pending'
 
@@ -22,7 +22,8 @@ function formatTestResult(
   // If confirmation is required, check confirmation results
   if (requiresConfirmation) {
     const confirmationSubstancesArray = confirmationSubstances || []
-    const hasAllResults = Array.isArray(confirmationResults) &&
+    const hasAllResults =
+      Array.isArray(confirmationResults) &&
       confirmationResults.length === confirmationSubstancesArray.length &&
       confirmationResults.every((r: any) => r.result)
 
@@ -47,13 +48,26 @@ function formatTestResult(
   } else {
     // Standard initial result
     switch (result) {
-      case 'negative': formattedResult = 'Negative'; break
-      case 'expected-positive': formattedResult = 'Expected Positive'; break
-      case 'unexpected-positive': formattedResult = 'Unexpected Positive'; break
-      case 'unexpected-negative': formattedResult = 'Unexpected Negative'; break
-      case 'mixed-unexpected': formattedResult = 'Mixed Results'; break
-      case 'inconclusive': formattedResult = 'Inconclusive'; break
-      default: formattedResult = 'Unknown'
+      case 'negative':
+        formattedResult = 'Negative'
+        break
+      case 'expected-positive':
+        formattedResult = 'Expected Positive'
+        break
+      case 'unexpected-positive':
+        formattedResult = 'Unexpected Positive'
+        break
+      case 'unexpected-negative':
+        formattedResult = 'Unexpected Negative'
+        break
+      case 'mixed-unexpected':
+        formattedResult = 'Mixed Results'
+        break
+      case 'inconclusive':
+        formattedResult = 'Inconclusive'
+        break
+      default:
+        formattedResult = 'Unknown'
     }
   }
 
@@ -121,14 +135,16 @@ export default async function DashboardPage() {
   // Calculate stats
   const totalTests = drugScreenResults.length
   const activeMedications = client.medications?.filter((med) => med.status === 'active').length || 0
-  const testsWithInitialScreening = drugScreenResults.filter(test => test.initialScreenResult)
-  const pendingTests = drugScreenResults.filter(test => !test.initialScreenResult).length
-  const compliantTests = testsWithInitialScreening.filter(test =>
-    test.initialScreenResult === 'negative'
+  const testsWithInitialScreening = drugScreenResults.filter((test) => test.initialScreenResult)
+  const pendingTests = drugScreenResults.filter((test) => !test.initialScreenResult).length
+  const compliantTests = testsWithInitialScreening.filter(
+    (test) =>
+      test.initialScreenResult === 'negative' || test.initialScreenResult === 'expected-positive',
   ).length
-  const complianceRate = testsWithInitialScreening.length > 0
-    ? Math.round((compliantTests / testsWithInitialScreening.length) * 100)
-    : 0
+  const complianceRate =
+    testsWithInitialScreening.length > 0
+      ? Math.round((compliantTests / (testsWithInitialScreening.length - pendingTests)) * 100)
+      : 0
 
   // Get most recent test
   const recentTest = drugScreenResults[0]
@@ -139,11 +155,11 @@ export default async function DashboardPage() {
           drugScreenResults[0].isDilute,
           drugScreenResults[0].confirmationDecision === 'request-confirmation',
           drugScreenResults[0].confirmationResults,
-          drugScreenResults[0].confirmationSubstances
+          drugScreenResults[0].confirmationSubstances,
         ),
         status: formatTestStatus(
           drugScreenResults[0].isComplete || false,
-          !!drugScreenResults[0].initialScreenResult
+          !!drugScreenResults[0].initialScreenResult,
         ),
       }
     : undefined
