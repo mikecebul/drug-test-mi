@@ -3,15 +3,12 @@
 import * as React from 'react'
 import Link from 'next/link'
 import {
+  Calendar,
   ClipboardList,
-  ClipboardListIcon,
-  DatabaseIcon,
-  FileIcon,
   FlaskConical,
   LayoutDashboardIcon,
   PillBottle,
   UserPen,
-  UsersIcon,
 } from 'lucide-react'
 
 import { NavMain } from '@/components/nav-main'
@@ -35,11 +32,11 @@ const data = {
       url: '/dashboard',
       icon: LayoutDashboardIcon,
     },
-    // {
-    //   title: "Technicians",
-    //   url: "/dashboard/technicians",
-    //   icon: UsersIcon,
-    // },
+    {
+      title: 'Schedule',
+      url: '/dashboard/schedule',
+      icon: Calendar,
+    },
     {
       title: 'Test Results',
       url: '/dashboard/results',

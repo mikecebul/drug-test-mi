@@ -1,8 +1,7 @@
 import { redirect } from 'next/navigation'
-import { getPayload } from 'payload'
-import config from '@payload-config'
 import { SchedulePageClient } from '@/blocks/SchedulePage/Component.client'
 import { getAuthenticatedClient } from '@/utilities/auth/getAuthenticatedClient'
+import { CalEmbed } from '@/components/cal-embed'
 
 // Force dynamic rendering for fresh data on every request
 export const dynamic = 'force-dynamic'
@@ -10,20 +9,6 @@ export const dynamic = 'force-dynamic'
 export default async function SchedulePage() {
   try {
     await getAuthenticatedClient()
-    const payload = await getPayload({ config })
-
-    // Fetch all active technicians
-    const techniciansResult = await payload.find({
-      collection: 'technicians',
-      where: {
-        isActive: {
-          equals: true,
-        },
-      },
-      depth: 2,
-    })
-
-    const technicians = techniciansResult.docs
 
     return (
       <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
@@ -38,12 +23,7 @@ export default async function SchedulePage() {
           </div>
         </div>
 
-        <div className="px-4 lg:px-6">
-          <SchedulePageClient
-            title="Select Your Technician"
-            technicians={technicians}
-          />
-        </div>
+        <CalEmbed calUsername="mike-midrugtest" />
       </div>
     )
   } catch (error) {
