@@ -1183,7 +1183,7 @@ export interface DrugTest {
       )[]
     | null;
   /**
-   * AUTO-COMPUTED: Medications that should show positive but DIDN'T (FAIL - Red Flag)
+   * AUTO-COMPUTED: Medications that should show positive but DIDN'T (Warning - Yellow Flag)
    */
   unexpectedNegatives?:
     | (

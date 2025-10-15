@@ -371,7 +371,7 @@ function formatTestResult(testData: DrugTestResult): {
 }
 
 const getResultBadgeVariant = (result: string) => {
-  // Color scheme: Red (destructive), Blue (secondary), White (outline)
+  // Color scheme: Red (destructive), Yellow (warning), Blue (secondary), White (outline)
 
   // Blue - PASS results (Negative and Expected Positive)
   if (result === 'Negative' || result === 'Expected Positive') {
@@ -383,8 +383,13 @@ const getResultBadgeVariant = (result: string) => {
     return 'outline'
   }
 
-  // Red - Any unexpected results, mixed results
-  if (result.includes('Positive') || result.includes('Mixed') || result.includes('Unexpected')) {
+  // Yellow - Unexpected negatives (missed medications)
+  if (result.includes('Negative (Unexpected)')) {
+    return 'warning'
+  }
+
+  // Red - Any unexpected positives, mixed results
+  if (result.includes('Positive') || result.includes('Mixed')) {
     return 'destructive'
   }
 
@@ -581,7 +586,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {unexpectedNegatives.map((substance, idx) => (
-                      <Badge key={idx} variant="destructive" className="text-[10px] px-1.5 py-0">
+                      <Badge key={idx} variant="warning" className="text-[10px] px-1.5 py-0">
                         {substance}
                       </Badge>
                     ))}
@@ -626,7 +631,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
           const confirmationDecision = result.confirmationDecision
           const needsDecision =
             initialResult &&
-            ['unexpected-positive', 'unexpected-negative', 'mixed-unexpected'].includes(initialResult) &&
+            ['unexpected-positive', 'mixed-unexpected'].includes(initialResult) &&
             !confirmationDecision
 
           return (
@@ -1061,10 +1066,10 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                   </div>
                 </div>
 
-                {/* Red - Unexpected Results */}
+                {/* Red - Unexpected Positive Results */}
                 <div>
                   <h4 className="mb-3 text-sm font-medium text-red-700">
-                    Red - Unexpected Results & Issues
+                    Red - Unexpected Positive Results & Issues
                   </h4>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
@@ -1080,12 +1085,6 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                       </span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Badge variant="destructive">Negative (Unexpected)</Badge>
-                      <span className="text-muted-foreground text-sm">
-                        Expected substance (medication) not detected
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
                       <Badge variant="destructive">Mixed Results</Badge>
                       <span className="text-muted-foreground text-sm">
                         Both unexpected positives and negatives
@@ -1095,6 +1094,21 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                       <Badge variant="destructive">Dilute</Badge>
                       <span className="text-muted-foreground text-sm">
                         Sample was dilute (shown in separate column)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Yellow - Unexpected Negative Results */}
+                <div>
+                  <h4 className="mb-3 text-sm font-medium text-yellow-700">
+                    Yellow - Unexpected Negative Results
+                  </h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="warning">Negative (Unexpected)</Badge>
+                      <span className="text-muted-foreground text-sm">
+                        Expected substance (medication) not detected
                       </span>
                     </div>
                   </div>
@@ -1136,9 +1150,9 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                       </span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Badge variant="destructive" className="text-xs">*Substance</Badge>
+                      <Badge variant="warning" className="text-xs">*Substance</Badge>
                       <span className="text-muted-foreground text-sm">
-                        Red badges = Unexpected negative substances (missed medications)
+                        Yellow badges = Unexpected negative substances (missed medications)
                       </span>
                     </div>
                   </div>

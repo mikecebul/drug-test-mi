@@ -182,7 +182,7 @@ export const DrugTests: CollectionConfig = {
       options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
       admin: {
         description:
-          "AUTO-COMPUTED: Medications that should show positive but DIDN'T (FAIL - Red Flag)",
+          "AUTO-COMPUTED: Medications that should show positive but DIDN'T (Warning - Yellow Flag)",
         readOnly: true,
       },
     },
@@ -194,7 +194,7 @@ export const DrugTests: CollectionConfig = {
         { label: 'Negative (PASS)', value: 'negative' },
         { label: 'Expected Positive (PASS)', value: 'expected-positive' },
         { label: 'Unexpected Positive (FAIL)', value: 'unexpected-positive' },
-        { label: 'Unexpected Negative (FAIL - Red Flag)', value: 'unexpected-negative' },
+        { label: 'Unexpected Negative (Warning)', value: 'unexpected-negative' },
         { label: 'Mixed Unexpected (FAIL)', value: 'mixed-unexpected' },
         { label: 'Inconclusive', value: 'inconclusive' },
       ],
