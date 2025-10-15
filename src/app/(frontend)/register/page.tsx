@@ -12,7 +12,8 @@ export const metadata: Metadata = {
   description: 'Create your account for faster booking and easy access to your drug test results.',
   openGraph: {
     title: 'Register | MI Drug Test',
-    description: 'Create your account for faster booking and easy access to your drug test results.',
+    description:
+      'Create your account for faster booking and easy access to your drug test results.',
     images: [
       {
         url: '/api/og/register',
@@ -22,17 +23,5 @@ export const metadata: Metadata = {
 }
 
 export default async function Register() {
-  const headers = await getHeaders()
-  const payload = await getPayload({ config })
-  const { user } = await payload.auth({ headers })
-
-  if (user) {
-    redirect(
-      `/dashboard?message=${encodeURIComponent(
-        'You are already logged in. Please log out to register a new account.',
-      )}`,
-    )
-  }
-
   return <RegistrationForm />
 }

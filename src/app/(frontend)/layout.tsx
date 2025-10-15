@@ -24,15 +24,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           strategy="lazyOnload"
         />
       </head>
-      <body className="flex min-h-dvh flex-col bg-background">
-        <QueryProvider>
-          <ThemeProvider forcedTheme="light">
-            <Header />
-            <div className="flex grow flex-col">{children}</div>
-            <Footer />
-            <Toaster />
-          </ThemeProvider>
-        </QueryProvider>
+      <body className="bg-background flex min-h-dvh flex-col">
+        <ThemeProvider forcedTheme="light">
+          <Header />
+          <div className="flex grow flex-col">{children}</div>
+          <Footer />
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   )

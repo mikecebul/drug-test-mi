@@ -3,22 +3,14 @@
 import { cn } from '@/utilities/cn'
 import { CMSLink } from '@/components/Link'
 import { Icons } from '@/components/Icons'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@payloadcms/ui'
 
 interface MobileAuthButtonProps {
   onClose?: () => void
 }
 
 export function MobileAuthButton({ onClose }: MobileAuthButtonProps) {
-  const { user, isLoading } = useAuth()
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-4">
-        <Icons.spinner className="h-4 w-4 animate-spin" />
-      </div>
-    )
-  }
+  const { user } = useAuth()
 
   if (user) {
     const accountUrl = user.collection === 'clients' ? '/dashboard' : '/admin'
