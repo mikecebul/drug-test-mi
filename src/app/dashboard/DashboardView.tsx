@@ -112,7 +112,7 @@ const getDaysUntil = (dateString: string) => {
 
 
 export function DashboardView({ data }: { data: DashboardData }) {
-  const { user, stats, nextAppointment, recentTest, recurringSubscription } = data 
+  const { user, stats, nextAppointment, recentTest } = data 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <div className="px-4 lg:px-6">
@@ -276,42 +276,6 @@ export function DashboardView({ data }: { data: DashboardData }) {
                       View All Results
                     </Button>
                   </Link>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Recurring Subscription Status */}
-          {recurringSubscription && (
-            <Card className="md:col-span-2 lg:col-span-1">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <CreditCard className="w-5 h-5 mr-2" />
-                  Subscription Status
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Frequency:</span>
-                    <Badge variant="secondary">
-                      {recurringSubscription.frequency}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Status:</span>
-                    <Badge variant={getStatusBadgeVariant(recurringSubscription.status)}>
-                      {recurringSubscription.status}
-                    </Badge>
-                  </div>
-                  <div className="text-sm">
-                    <p className="text-muted-foreground">Next billing:</p>
-                    <p className="font-medium">
-                      {new Date(recurringSubscription.nextBilling).toLocaleDateString("en-US", {
-                        timeZone: "UTC"
-                      })}
-                    </p>
-                  </div>
                 </div>
               </CardContent>
             </Card>

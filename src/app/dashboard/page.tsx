@@ -149,15 +149,6 @@ export default async function DashboardPage() {
           type: `${client.recurringAppointments.frequency || 'Weekly'} Drug Test`,
         }
       : undefined,
-    recentTest,
-    recurringSubscription: client.recurringAppointments?.isRecurring && client.recurringAppointments.frequency
-      ? {
-          isActive: client.recurringAppointments.subscriptionStatus === 'active',
-          frequency: client.recurringAppointments.frequency,
-          nextBilling: '2025-09-30',
-          status: client.recurringAppointments.subscriptionStatus || 'inactive',
-        }
-      : undefined,
   }
 
   return <DashboardView data={dashboardData} />

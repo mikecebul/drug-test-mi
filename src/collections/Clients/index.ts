@@ -278,6 +278,13 @@ export const Clients: CollectionConfig = {
             description: 'Email of probation officer',
           },
         },
+        {
+          name: 'ccEmail',
+          type: 'email',
+          admin: {
+            description: 'Additional email to CC on test results',
+          },
+        }
       ],
     },
     // Employment specific fields
@@ -480,126 +487,7 @@ export const Clients: CollectionConfig = {
         readOnly: true,
       },
     },
-    // Recurring appointments and Stripe subscription management
-    {
-      name: 'recurringAppointments',
-      type: 'group',
-      admin: {
-        description: 'Recurring appointment subscription settings',
-      },
-      fields: [
-        {
-          name: 'isRecurring',
-          type: 'checkbox',
-          defaultValue: false,
-          admin: {
-            description: 'Is this client subscribed to recurring appointments?',
-          },
-        },
-        {
-          name: 'frequency',
-          type: 'select',
-          options: [
-            { label: 'Weekly', value: 'weekly' },
-            { label: 'Bi-weekly', value: 'biweekly' },
-            { label: 'Monthly', value: 'monthly' },
-            { label: 'Quarterly', value: 'quarterly' },
-          ],
-          admin: {
-            condition: (data, siblingData) => siblingData?.isRecurring === true,
-            description: 'How often should appointments be scheduled?',
-          },
-        },
-        {
-          name: 'preferredDayOfWeek',
-          type: 'select',
-          options: [
-            { label: 'Monday', value: 'monday' },
-            { label: 'Tuesday', value: 'tuesday' },
-            { label: 'Wednesday', value: 'wednesday' },
-            { label: 'Thursday', value: 'thursday' },
-            { label: 'Friday', value: 'friday' },
-            { label: 'Saturday', value: 'saturday' },
-            { label: 'Sunday', value: 'sunday' },
-          ],
-          admin: {
-            condition: (data, siblingData) => siblingData?.isRecurring === true,
-            description: 'Preferred day of the week for appointments',
-          },
-        },
-        {
-          name: 'preferredTimeSlot',
-          type: 'select',
-          options: [
-            { label: 'Morning (8AM-12PM)', value: 'morning' },
-            { label: 'Afternoon (12PM-5PM)', value: 'afternoon' },
-            { label: 'Evening (5PM-8PM)', value: 'evening' },
-          ],
-          admin: {
-            condition: (data, siblingData) => siblingData?.isRecurring === true,
-            description: 'Preferred time slot for appointments',
-          },
-        },
-        {
-          name: 'stripeCustomerId',
-          type: 'text',
-          admin: {
-            condition: (data, siblingData) => siblingData?.isRecurring === true,
-            description: 'Stripe customer ID for subscription billing',
-            readOnly: true,
-          },
-        },
-        {
-          name: 'stripeSubscriptionId',
-          type: 'text',
-          admin: {
-            condition: (data, siblingData) => siblingData?.isRecurring === true,
-            description: 'Stripe subscription ID',
-            readOnly: true,
-          },
-        },
-        {
-          name: 'subscriptionStatus',
-          type: 'select',
-          options: [
-            { label: 'Active', value: 'active' },
-            { label: 'Past Due', value: 'past_due' },
-            { label: 'Canceled', value: 'canceled' },
-            { label: 'Unpaid', value: 'unpaid' },
-            { label: 'Incomplete', value: 'incomplete' },
-          ],
-          admin: {
-            condition: (data, siblingData) => siblingData?.isRecurring === true,
-            description: 'Current subscription status from Stripe',
-            readOnly: true,
-          },
-        },
-        {
-          name: 'nextAppointmentDate',
-          type: 'date',
-          admin: {
-            condition: (data, siblingData) => siblingData?.isRecurring === true,
-            description: 'Next scheduled appointment date',
-            date: {
-              pickerAppearance: 'dayAndTime',
-              displayFormat: 'MM/dd/yyyy h:mm a',
-            },
-          },
-        },
-        {
-          name: 'subscriptionStartDate',
-          type: 'date',
-          admin: {
-            condition: (data, siblingData) => siblingData?.isRecurring === true,
-            description: 'Date the subscription started',
-            date: {
-              pickerAppearance: 'dayOnly',
-              displayFormat: 'MM/dd/yyyy',
-            },
-          },
-        },
-      ],
-    },
+   
     // Contact preferences
     {
       name: 'preferredContactMethod',
