@@ -30,7 +30,7 @@ export default function DrugTestStats() {
           fetch('/api/clients?limit=0'),
           fetch('/api/drug-tests?limit=0'),
           fetch('/api/drug-tests?where[isComplete][equals]=false&limit=0'),
-          fetch('/api/drug-tests?where[confirmationStatus][equals]=pending-confirmation&limit=0'),
+          fetch('/api/drug-tests?where[confirmationDecision][equals]=request-confirmation&where[isComplete][equals]=false&limit=0'),
         ])
 
         const [clients, drugTests, incomplete, pending] = await Promise.all([

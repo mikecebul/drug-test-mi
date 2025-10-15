@@ -28,9 +28,10 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
   // Auto-upgrade existing records without screeningStatus
   const currentStatus = screeningStatus || (data.initialScreenResult ? 'screened' : 'collected')
 
-  // Only compute results if screening is complete
-  // This prevents setting results for lab tests that haven't been screened yet
+  // For collected tests (not yet screened), set isComplete = false so they appear in tracker
+  // Collected tests need to be tracked for screening
   if (currentStatus !== 'screened') {
+    data.isComplete = false
     return data
   }
 

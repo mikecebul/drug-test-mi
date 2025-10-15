@@ -45,7 +45,6 @@ export const DrugTests: CollectionConfig = {
       'collectionDate',
       'isComplete',
     ],
-    group: 'Admin',
     description: 'Track drug test results and workflow',
     useAsTitle: 'relatedClient',
   },
@@ -113,7 +112,8 @@ export const DrugTests: CollectionConfig = {
       type: 'date',
       admin: {
         description: 'Date and time when screening was completed',
-        condition: (_, siblingData) => siblingData?.screeningStatus && siblingData.screeningStatus !== 'collected',
+        condition: (_, siblingData) =>
+          siblingData?.screeningStatus && siblingData.screeningStatus !== 'collected',
         date: {
           pickerAppearance: 'dayAndTime',
         },
@@ -121,10 +121,21 @@ export const DrugTests: CollectionConfig = {
       hooks: {
         beforeChange: [
           ({ siblingData, value }) => {
-            // Auto-set timestamp when status changes to screened for the first time
+            // For 15-panel instant tests, auto-set to collectionDate since screening happens at collection time
+            if (
+              siblingData?.testType === '15-panel-instant' &&
+              siblingData?.collectionDate &&
+              siblingData?.screeningStatus === 'screened' &&
+              !value
+            ) {
+              return siblingData.collectionDate
+            }
+
+            // Auto-set timestamp when status changes to screened for the first time (for lab tests)
             if (siblingData?.screeningStatus === 'screened' && !value) {
               return new Date().toISOString()
             }
+
             return value
           },
         ],
@@ -202,7 +213,8 @@ export const DrugTests: CollectionConfig = {
         { label: 'Request Confirmation Testing', value: 'request-confirmation' },
       ],
       admin: {
-        description: 'AUTO-SELECTED as "accept" for negative/expected-positive results. REQUIRED CHOICE for unexpected results.',
+        description:
+          'AUTO-SELECTED as "accept" for negative/expected-positive results. REQUIRED CHOICE for unexpected results.',
         position: 'sidebar',
       },
     },

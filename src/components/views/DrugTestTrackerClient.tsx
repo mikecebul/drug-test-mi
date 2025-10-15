@@ -17,7 +17,11 @@ interface DrugTest {
   testType: string
   initialScreenResult?: string
   confirmationDecision?: string
-  confirmationStatus?: string
+  confirmationResults?: Array<{
+    substance: string
+    result?: string
+  }>
+  confirmationSubstances?: string[]
   isComplete: boolean
   processNotes?: string
 }
@@ -45,14 +49,20 @@ const getTestStage = (test: DrugTest) => {
     }
 
     if (test.confirmationDecision === 'request-confirmation') {
-      if (test.confirmationStatus === 'pending-confirmation') {
+      // Check if all confirmation results are in
+      const hasAllResults = test.confirmationResults &&
+        test.confirmationSubstances &&
+        test.confirmationResults.length === test.confirmationSubstances.length &&
+        test.confirmationResults.every(r => r.result)
+
+      if (!hasAllResults) {
         return { stage: 'Pending Confirmation', color: 'bg-yellow-500', priority: 3 }
       }
-      if (test.confirmationStatus && test.confirmationStatus !== 'pending-confirmation') {
-        return test.isComplete
-          ? { stage: 'Complete', color: 'bg-green-500', priority: 5 }
-          : { stage: 'Ready to Complete', color: 'bg-blue-500', priority: 4 }
-      }
+
+      // All results are in
+      return test.isComplete
+        ? { stage: 'Complete', color: 'bg-green-500', priority: 5 }
+        : { stage: 'Ready to Complete', color: 'bg-blue-500', priority: 4 }
     }
   }
 
@@ -160,11 +170,17 @@ export function DrugTestTrackerClient() {
                           </div>
                         )}
 
-                        {test.confirmationStatus && (
+                        {test.confirmationDecision === 'request-confirmation' && (
                           <div>
                             <span className="text-xs font-medium text-gray-500">Confirmation:</span>
-                            <p className="text-sm capitalize">
-                              {test.confirmationStatus.replace('-', ' ')}
+                            <p className="text-sm">
+                              {test.confirmationResults &&
+                               test.confirmationSubstances &&
+                               test.confirmationResults.length === test.confirmationSubstances.length &&
+                               test.confirmationResults.every(r => r.result)
+                                ? 'All results received'
+                                : `Pending (${test.confirmationResults?.filter(r => r.result).length || 0}/${test.confirmationSubstances?.length || 0})`
+                              }
                             </p>
                           </div>
                         )}
