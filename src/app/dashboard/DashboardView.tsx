@@ -36,6 +36,7 @@ export type DashboardData = {
   nextAppointment?: {
     date: string
     type: string
+    calcomBookingId?: string
   }
   recentTest?: {
     date: string
@@ -236,10 +237,24 @@ export function DashboardView({ data }: { data: DashboardData }) {
                       })}
                     </p>
                   </div>
-                  <Badge variant="outline" className="inline-flex items-center">
-                    <Clock className="mr-1 h-3 w-3" />
-                    In {getDaysUntil(nextAppointment.date)} days
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="inline-flex items-center">
+                      <Clock className="mr-1 h-3 w-3" />
+                      In {getDaysUntil(nextAppointment.date)} days
+                    </Badge>
+                  </div>
+                  {nextAppointment.calcomBookingId && (
+                    <a
+                      href={`https://cal.com/reschedule/${nextAppointment.calcomBookingId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button variant="outline" size="sm" className="w-full">
+                        <Calendar className="mr-2 h-4 w-4" />
+                        Reschedule Appointment
+                      </Button>
+                    </a>
+                  )}
                 </div>
               </CardContent>
             </Card>

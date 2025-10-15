@@ -185,6 +185,7 @@ export default async function DashboardPage() {
       ? {
           date: nextBooking.startTime,
           type: nextBooking.title || 'Drug Test Appointment',
+          calcomBookingId: nextBooking.calcomBookingId || undefined,
         }
       : undefined,
     recentTest,
