@@ -161,6 +161,7 @@ export const Clients: CollectionConfig = {
     useAsTitle: 'name',
   },
   fields: [
+    // Sidebar fields - always visible
     {
       name: 'name',
       type: 'text',
@@ -182,16 +183,18 @@ export const Clients: CollectionConfig = {
       },
     },
     {
-      name: 'firstName',
-      type: 'text',
-      required: true,
-      index: true,
-    },
-    {
-      name: 'lastName',
-      type: 'text',
-      required: true,
-      index: true,
+      name: 'headshot',
+      type: 'upload',
+      relationTo: 'media',
+      admin: {
+        description: 'Client headshot photo for identification during testing',
+        position: 'sidebar',
+      },
+      filterOptions: {
+        mimeType: {
+          contains: 'image',
+        },
+      },
     },
     {
       name: 'email',
@@ -199,49 +202,8 @@ export const Clients: CollectionConfig = {
       required: true,
       unique: true,
       index: true,
-    },
-    {
-      name: 'phone',
-      type: 'text',
       admin: {
-        description: 'Phone number for contact',
-      },
-    },
-    {
-      name: 'gender',
-      type: 'select',
-      options: [
-        { label: 'Male', value: 'male' },
-        { label: 'Female', value: 'female' },
-        { label: 'Other', value: 'other' },
-        { label: 'Prefer not to say', value: 'prefer-not-to-say' },
-      ],
-      admin: {
-        description: 'Client gender identity',
-      },
-    },
-    {
-      name: 'dob',
-      type: 'date',
-      admin: {
-        description: 'Date of birth',
-        date: {
-          pickerAppearance: 'dayOnly',
-          displayFormat: 'MM/dd/yyyy',
-        },
-      },
-    },
-    {
-      name: 'headshot',
-      type: 'upload',
-      relationTo: 'media',
-      admin: {
-        description: 'Client headshot photo for identification during testing',
-      },
-      filterOptions: {
-        mimeType: {
-          contains: 'image',
-        },
+        position: 'sidebar',
       },
     },
     {
@@ -254,244 +216,8 @@ export const Clients: CollectionConfig = {
       ],
       admin: {
         description: 'Type of client - determines required fields',
+        position: 'sidebar',
       },
-    },
-    // Probation/Court specific fields
-    {
-      name: 'courtInfo',
-      type: 'group',
-      admin: {
-        condition: (_data, siblingData) => siblingData?.clientType === 'probation',
-        description: 'Court and probation officer information',
-      },
-      fields: [
-        {
-          name: 'courtName',
-          type: 'text',
-          required: true,
-          admin: {
-            description: 'Name of the court',
-          },
-        },
-        {
-          name: 'probationOfficerName',
-          type: 'text',
-          required: true,
-          admin: {
-            description: 'Name of probation officer',
-          },
-        },
-        {
-          name: 'probationOfficerEmail',
-          type: 'email',
-          required: true,
-          admin: {
-            description: 'Email of probation officer',
-          },
-        },
-        {
-          name: 'ccEmail',
-          type: 'email',
-          admin: {
-            description: 'Additional email to CC on test results',
-          },
-        }
-      ],
-    },
-    // Employment specific fields
-    {
-      name: 'employmentInfo',
-      type: 'group',
-      admin: {
-        condition: (_data, siblingData) => siblingData?.clientType === 'employment',
-        description: 'Employer and contact information',
-      },
-      fields: [
-        {
-          name: 'employerName',
-          type: 'text',
-          required: true,
-          admin: {
-            description: 'Name of employer/company',
-          },
-        },
-        {
-          name: 'contactName',
-          type: 'text',
-          required: true,
-          admin: {
-            description: 'Name of HR contact or hiring manager',
-          },
-        },
-        {
-          name: 'contactEmail',
-          type: 'email',
-          required: true,
-          admin: {
-            description: 'Email of HR contact or hiring manager',
-          },
-        },
-      ],
-    },
-    // Drug tests (auto-populated via join)
-    {
-      name: 'drugTests',
-      type: 'join',
-      collection: 'drug-tests',
-      on: 'relatedClient',
-      admin: {
-        description: 'Drug tests automatically linked to this client',
-      },
-    },
-    // Bookings (auto-populated via join)
-    {
-      name: 'bookings',
-      type: 'join',
-      collection: 'bookings',
-      on: 'relatedClient',
-      admin: {
-        description: 'Bookings automatically linked to this client',
-      },
-    },
-    {
-      name: 'notes',
-      type: 'textarea',
-      admin: {
-        description: 'Internal notes about the client',
-      },
-    },
-    // Medications management with revision history
-    {
-      name: 'medications',
-      type: 'array',
-      admin: {
-        description: 'Current and historical medications for drug test verification',
-      },
-      fields: [
-        {
-          name: 'medicationName',
-          type: 'text',
-          required: true,
-          admin: {
-            description: 'Brand or generic name of medication',
-          },
-        },
-        {
-          name: 'startDate',
-          type: 'date',
-          required: true,
-          admin: {
-            description: 'Date medication was started',
-            date: {
-              pickerAppearance: 'dayOnly',
-              displayFormat: 'MM/dd/yyyy',
-            },
-          },
-        },
-        {
-          name: 'endDate',
-          type: 'date',
-          admin: {
-            description: 'Date medication was discontinued (leave empty if current)',
-            date: {
-              pickerAppearance: 'dayOnly',
-              displayFormat: 'MM/dd/yyyy',
-            },
-          },
-        },
-        {
-          name: 'status',
-          type: 'select',
-          required: true,
-          defaultValue: 'active',
-          options: [
-            { label: 'Active', value: 'active' },
-            { label: 'Discontinued', value: 'discontinued' },
-          ],
-          admin: {
-            description: 'Current status of this medication. If you need to resume a discontinued medication, add it as a new entry to maintain proper history.',
-          },
-        },
-        {
-          name: 'detectedAs',
-          type: 'select',
-          hasMany: true,
-          options: allSubstanceOptions as any,
-          admin: {
-            description:
-              'What substance(s) this medication shows as in drug tests. Select all that apply.',
-          },
-        },
-        {
-          name: 'notes',
-          type: 'textarea',
-          admin: {
-            description: 'Additional notes about this medication',
-          },
-        },
-        {
-          name: 'createdAt',
-          type: 'date',
-          access: {
-            update: ({ req }) => {
-              // Only super admins can update createdAt
-              return req?.user?.collection === 'admins' ? req?.user?.role === 'superAdmin' : false
-            },
-          },
-          admin: {
-            description:
-              'When this medication was added to the system - editable by super admins only',
-            readOnly: false,
-          },
-        },
-      ],
-    },
-    // Alternative recipient for self-pay clients
-    {
-      name: 'alternativeRecipient',
-      type: 'group',
-      admin: {
-        condition: (_data, siblingData) => siblingData?.clientType === 'self',
-        description: 'Alternative recipient for test results (self-pay clients only)',
-      },
-      fields: [
-        {
-          name: 'name',
-          type: 'text',
-          admin: {
-            description: 'Name of alternative recipient',
-          },
-        },
-        {
-          name: 'email',
-          type: 'email',
-          admin: {
-            description: 'Email of alternative recipient',
-          },
-        },
-      ],
-    },
-
-    // Private documents (auto-populated via join)
-    {
-      name: 'privateDocuments',
-      type: 'join',
-      collection: 'private-media',
-      on: 'relatedClient',
-      admin: {
-        description: 'Private documents linked to this client',
-      },
-    },
-    // Contact preferences
-    {
-      name: 'preferredContactMethod',
-      type: 'select',
-      options: [
-        { label: 'Email', value: 'email' },
-        { label: 'Phone', value: 'phone' },
-        { label: 'Text/SMS', value: 'sms' },
-      ],
-      defaultValue: 'email',
     },
     {
       name: 'isActive',
@@ -499,7 +225,342 @@ export const Clients: CollectionConfig = {
       defaultValue: true,
       admin: {
         description: 'Whether this client is active',
+        position: 'sidebar',
       },
+    },
+
+    // Main content organized in tabs
+    {
+      type: 'tabs',
+      tabs: [
+        // Tab 1: Personal Information
+        {
+          label: 'Personal Information',
+          description: 'Basic client details and contact information',
+          fields: [
+            {
+              name: 'firstName',
+              type: 'text',
+              required: true,
+              index: true,
+            },
+            {
+              name: 'lastName',
+              type: 'text',
+              required: true,
+              index: true,
+            },
+            {
+              name: 'dob',
+              type: 'date',
+              admin: {
+                description: 'Date of birth',
+                date: {
+                  pickerAppearance: 'dayOnly',
+                  displayFormat: 'MM/dd/yyyy',
+                },
+              },
+            },
+            {
+              name: 'gender',
+              type: 'select',
+              options: [
+                { label: 'Male', value: 'male' },
+                { label: 'Female', value: 'female' },
+                { label: 'Other', value: 'other' },
+                { label: 'Prefer not to say', value: 'prefer-not-to-say' },
+              ],
+              admin: {
+                description: 'Client gender identity',
+              },
+            },
+            {
+              name: 'phone',
+              type: 'text',
+              admin: {
+                description: 'Phone number for contact',
+              },
+            },
+            {
+              name: 'preferredContactMethod',
+              type: 'select',
+              options: [
+                { label: 'Email', value: 'email' },
+                { label: 'Phone', value: 'phone' },
+                { label: 'Text/SMS', value: 'sms' },
+              ],
+              defaultValue: 'email',
+            },
+          ],
+        },
+
+        // Tab 2: Service Details
+        {
+          label: 'Service Details',
+          description: 'Information about who is requesting services',
+          fields: [
+            // Probation/Court specific fields
+            {
+              name: 'courtInfo',
+              type: 'group',
+              admin: {
+                condition: (_data, siblingData) => siblingData?.clientType === 'probation',
+                description: 'Court and probation officer information',
+              },
+              fields: [
+                {
+                  name: 'courtName',
+                  type: 'text',
+                  required: true,
+                  admin: {
+                    description: 'Name of the court',
+                  },
+                },
+                {
+                  name: 'probationOfficerName',
+                  type: 'text',
+                  required: true,
+                  admin: {
+                    description: 'Name of probation officer',
+                  },
+                },
+                {
+                  name: 'probationOfficerEmail',
+                  type: 'email',
+                  required: true,
+                  admin: {
+                    description: 'Email of probation officer',
+                  },
+                },
+                {
+                  name: 'ccEmail',
+                  type: 'email',
+                  admin: {
+                    description: 'Additional email to CC on test results',
+                  },
+                },
+              ],
+            },
+            // Employment specific fields
+            {
+              name: 'employmentInfo',
+              type: 'group',
+              admin: {
+                condition: (_data, siblingData) => siblingData?.clientType === 'employment',
+                description: 'Employer and contact information',
+              },
+              fields: [
+                {
+                  name: 'employerName',
+                  type: 'text',
+                  required: true,
+                  admin: {
+                    description: 'Name of employer/company',
+                  },
+                },
+                {
+                  name: 'contactName',
+                  type: 'text',
+                  required: true,
+                  admin: {
+                    description: 'Name of HR contact or hiring manager',
+                  },
+                },
+                {
+                  name: 'contactEmail',
+                  type: 'email',
+                  required: true,
+                  admin: {
+                    description: 'Email of HR contact or hiring manager',
+                  },
+                },
+              ],
+            },
+            // Alternative recipient for self-pay clients
+            {
+              name: 'alternativeRecipient',
+              type: 'group',
+              admin: {
+                condition: (_data, siblingData) => siblingData?.clientType === 'self',
+                description: 'Alternative recipient for test results (self-pay clients only)',
+              },
+              fields: [
+                {
+                  name: 'name',
+                  type: 'text',
+                  admin: {
+                    description: 'Name of alternative recipient',
+                  },
+                },
+                {
+                  name: 'email',
+                  type: 'email',
+                  admin: {
+                    description: 'Email of alternative recipient',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+
+        // Tab 3: Testing History
+        {
+          label: 'Testing History',
+          description: 'Drug tests and appointment bookings',
+          fields: [
+            // Drug tests (auto-populated via join)
+            {
+              name: 'drugTests',
+              type: 'join',
+              collection: 'drug-tests',
+              on: 'relatedClient',
+              admin: {
+                description: 'Drug tests automatically linked to this client',
+              },
+            },
+            // Bookings (auto-populated via join)
+            {
+              name: 'bookings',
+              type: 'join',
+              collection: 'bookings',
+              on: 'relatedClient',
+              admin: {
+                description: 'Bookings automatically linked to this client',
+              },
+            },
+          ],
+        },
+
+        // Tab 4: Medications
+        {
+          label: 'Medications',
+          description: 'Current and historical medications for drug test verification',
+          fields: [
+            {
+              name: 'medications',
+              type: 'array',
+              admin: {
+                description: 'Track medications that may affect drug test results',
+              },
+              fields: [
+                {
+                  name: 'medicationName',
+                  type: 'text',
+                  required: true,
+                  admin: {
+                    description: 'Brand or generic name of medication',
+                  },
+                },
+                {
+                  name: 'startDate',
+                  type: 'date',
+                  required: true,
+                  admin: {
+                    description: 'Date medication was started',
+                    date: {
+                      pickerAppearance: 'dayOnly',
+                      displayFormat: 'MM/dd/yyyy',
+                    },
+                  },
+                },
+                {
+                  name: 'endDate',
+                  type: 'date',
+                  admin: {
+                    description: 'Date medication was discontinued (leave empty if current)',
+                    date: {
+                      pickerAppearance: 'dayOnly',
+                      displayFormat: 'MM/dd/yyyy',
+                    },
+                  },
+                },
+                {
+                  name: 'status',
+                  type: 'select',
+                  required: true,
+                  defaultValue: 'active',
+                  options: [
+                    { label: 'Active', value: 'active' },
+                    { label: 'Discontinued', value: 'discontinued' },
+                  ],
+                  admin: {
+                    description:
+                      'Current status of this medication. If you need to resume a discontinued medication, add it as a new entry to maintain proper history.',
+                  },
+                },
+                {
+                  name: 'detectedAs',
+                  type: 'select',
+                  hasMany: true,
+                  options: allSubstanceOptions as any,
+                  admin: {
+                    description:
+                      'What substance(s) this medication shows as in drug tests. Select all that apply.',
+                  },
+                },
+                {
+                  name: 'notes',
+                  type: 'textarea',
+                  admin: {
+                    description: 'Additional notes about this medication',
+                  },
+                },
+                {
+                  name: 'createdAt',
+                  type: 'date',
+                  access: {
+                    update: ({ req }) => {
+                      // Only super admins can update createdAt
+                      return req?.user?.collection === 'admins'
+                        ? req?.user?.role === 'superAdmin'
+                        : false
+                    },
+                  },
+                  admin: {
+                    description:
+                      'When this medication was added to the system - editable by super admins only',
+                    readOnly: false,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+
+        // Tab 5: Documents
+        {
+          label: 'Documents',
+          description: 'Private documents and test results',
+          fields: [
+            // Private documents (auto-populated via join)
+            {
+              name: 'privateDocuments',
+              type: 'join',
+              collection: 'private-media',
+              on: 'relatedClient',
+              admin: {
+                description: 'Private documents linked to this client',
+              },
+            },
+          ],
+        },
+
+        // Tab 6: Notes
+        {
+          label: 'Notes',
+          description: 'Internal notes and comments',
+          fields: [
+            {
+              name: 'notes',
+              type: 'textarea',
+              admin: {
+                description: 'Internal notes about the client (not visible to client)',
+              },
+            },
+          ],
+        },
+      ],
     },
   ],
 }

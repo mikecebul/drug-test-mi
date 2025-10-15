@@ -887,20 +887,6 @@ export interface Client {
    * Full name (computed from first and last name)
    */
   name?: string | null;
-  firstName: string;
-  lastName: string;
-  /**
-   * Phone number for contact
-   */
-  phone?: string | null;
-  /**
-   * Client gender identity
-   */
-  gender?: ('male' | 'female' | 'other' | 'prefer-not-to-say') | null;
-  /**
-   * Date of birth
-   */
-  dob?: string | null;
   /**
    * Client headshot photo for identification during testing
    */
@@ -909,6 +895,25 @@ export interface Client {
    * Type of client - determines required fields
    */
   clientType?: ('probation' | 'employment' | 'self') | null;
+  /**
+   * Whether this client is active
+   */
+  isActive?: boolean | null;
+  firstName: string;
+  lastName: string;
+  /**
+   * Date of birth
+   */
+  dob?: string | null;
+  /**
+   * Client gender identity
+   */
+  gender?: ('male' | 'female' | 'other' | 'prefer-not-to-say') | null;
+  /**
+   * Phone number for contact
+   */
+  phone?: string | null;
+  preferredContactMethod?: ('email' | 'phone' | 'sms') | null;
   /**
    * Court and probation officer information
    */
@@ -948,6 +953,19 @@ export interface Client {
     contactEmail: string;
   };
   /**
+   * Alternative recipient for test results (self-pay clients only)
+   */
+  alternativeRecipient?: {
+    /**
+     * Name of alternative recipient
+     */
+    name?: string | null;
+    /**
+     * Email of alternative recipient
+     */
+    email?: string | null;
+  };
+  /**
    * Drug tests automatically linked to this client
    */
   drugTests?: {
@@ -964,11 +982,7 @@ export interface Client {
     totalDocs?: number;
   };
   /**
-   * Internal notes about the client
-   */
-  notes?: string | null;
-  /**
-   * Current and historical medications for drug test verification
+   * Track medications that may affect drug test results
    */
   medications?:
     | {
@@ -1028,19 +1042,6 @@ export interface Client {
       }[]
     | null;
   /**
-   * Alternative recipient for test results (self-pay clients only)
-   */
-  alternativeRecipient?: {
-    /**
-     * Name of alternative recipient
-     */
-    name?: string | null;
-    /**
-     * Email of alternative recipient
-     */
-    email?: string | null;
-  };
-  /**
    * Private documents linked to this client
    */
   privateDocuments?: {
@@ -1048,11 +1049,10 @@ export interface Client {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
-  preferredContactMethod?: ('email' | 'phone' | 'sms') | null;
   /**
-   * Whether this client is active
+   * Internal notes about the client (not visible to client)
    */
-  isActive?: boolean | null;
+  notes?: string | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -2322,13 +2322,15 @@ export interface TechniciansSelect<T extends boolean = true> {
  */
 export interface ClientsSelect<T extends boolean = true> {
   name?: T;
-  firstName?: T;
-  lastName?: T;
-  phone?: T;
-  gender?: T;
-  dob?: T;
   headshot?: T;
   clientType?: T;
+  isActive?: T;
+  firstName?: T;
+  lastName?: T;
+  dob?: T;
+  gender?: T;
+  phone?: T;
+  preferredContactMethod?: T;
   courtInfo?:
     | T
     | {
@@ -2344,9 +2346,14 @@ export interface ClientsSelect<T extends boolean = true> {
         contactName?: T;
         contactEmail?: T;
       };
+  alternativeRecipient?:
+    | T
+    | {
+        name?: T;
+        email?: T;
+      };
   drugTests?: T;
   bookings?: T;
-  notes?: T;
   medications?:
     | T
     | {
@@ -2359,15 +2366,8 @@ export interface ClientsSelect<T extends boolean = true> {
         createdAt?: T;
         id?: T;
       };
-  alternativeRecipient?:
-    | T
-    | {
-        name?: T;
-        email?: T;
-      };
   privateDocuments?: T;
-  preferredContactMethod?: T;
-  isActive?: T;
+  notes?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
