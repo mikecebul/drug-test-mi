@@ -13,6 +13,7 @@ import { HeroBlock } from './Hero/Component'
 import { SchedulePageBlock } from './SchedulePage/Component'
 import { TrustBlock } from './Trust/Component'
 import TechniciansBlockComponent from './TechniciansBlock/Component'
+import { AboutBlock } from './About/Component'
 
 const blockComponents = {
   richText: RichTextBlock,
@@ -26,6 +27,7 @@ const blockComponents = {
   schedulePage: SchedulePageBlock,
   trust: TrustBlock,
   techniciansBlock: TechniciansBlockComponent,
+  about: AboutBlock,
 }
 
 export const RenderBlocks: React.FC<{
@@ -54,7 +56,9 @@ export const RenderBlocks: React.FC<{
                   className={
                     blockType === 'hero' && (block as any).type === 'highImpact'
                       ? 'space-y-16 pt-24 last:pb-36'
-                      : 'space-y-16 py-24 last:pb-36'
+                      : blockType === 'about'
+                        ? 'space-y-16 pt-8 last:pb-36'
+                        : 'space-y-16 py-24 last:pb-36'
                   }
                 >
                   <Block {...(block as any)} nested={nested} />

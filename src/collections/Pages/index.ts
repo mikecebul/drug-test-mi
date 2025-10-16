@@ -26,6 +26,7 @@ import { Hero } from '@/blocks/Hero/config'
 import { SchedulePage } from '@/blocks/SchedulePage/config'
 import { Trust } from '@/blocks/Trust/config'
 import { TechniciansBlock } from '@/blocks/TechniciansBlock/config'
+import { About } from '@/blocks/About/config'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
@@ -73,6 +74,7 @@ export const Pages: CollectionConfig = {
               blocks: [
                 CalendarEmbedBlock,
                 Hero,
+                About,
                 Trust,
                 TechniciansBlock,
                 RichText,
