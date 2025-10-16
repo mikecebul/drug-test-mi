@@ -24,6 +24,7 @@ import { SlugComponent as SlugComponent_92cc057d0a2abb4f6cf0307edf59f986 } from 
 import { ExportListMenuItem as ExportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { default as default_bca575eca602f69aa53c5f42e11636da } from '@/collections/Admins/RoleCell'
 import { RoleSelectClient as RoleSelectClient_538158afd69a55f062cbf2533bebd38f } from '@/collections/Admins/RoleSelect.client'
+import { HeadshotCell as HeadshotCell_3ea19a1384191dda76166cb5d7b6da49 } from '@/collections/Clients/components/HeadshotCell'
 import { Page as Page_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { SortBy as SortBy_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { SortOrder as SortOrder_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
@@ -73,6 +74,7 @@ export const importMap = {
   "@payloadcms/plugin-import-export/rsc#ExportListMenuItem": ExportListMenuItem_cdf7e044479f899a31f804427d568b36,
   "@/collections/Admins/RoleCell#default": default_bca575eca602f69aa53c5f42e11636da,
   "@/collections/Admins/RoleSelect.client#RoleSelectClient": RoleSelectClient_538158afd69a55f062cbf2533bebd38f,
+  "@/collections/Clients/components/HeadshotCell#HeadshotCell": HeadshotCell_3ea19a1384191dda76166cb5d7b6da49,
   "@payloadcms/plugin-import-export/rsc#Page": Page_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#SortBy": SortBy_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#SortOrder": SortOrder_cdf7e044479f899a31f804427d568b36,

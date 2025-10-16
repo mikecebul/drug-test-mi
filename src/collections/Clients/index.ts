@@ -5,6 +5,7 @@ import { baseUrl } from '@/utilities/baseUrl'
 import { anyone } from '@/access/anyone'
 import { notifyNewRegistration } from './hooks/notifyNewRegistration'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
+import { HeadshotCell } from './components/HeadshotCell'
 
 export const Clients: CollectionConfig = {
   slug: 'clients',
@@ -159,6 +160,7 @@ export const Clients: CollectionConfig = {
   admin: {
     defaultColumns: ['headshot', 'name', 'email', 'clientType'],
     useAsTitle: 'name',
+    listSearchableFields: ['email', 'firstName', 'lastName'],
   },
   fields: [
     // Sidebar fields - always visible
@@ -172,7 +174,7 @@ export const Clients: CollectionConfig = {
         readOnly: true,
       },
       hooks: {
-        beforeValidate: [
+        afterRead: [
           ({ data }) => {
             if (data?.firstName && data?.lastName) {
               return `${data.firstName} ${data.lastName}`
@@ -189,6 +191,9 @@ export const Clients: CollectionConfig = {
       admin: {
         description: 'Client headshot photo for identification during testing',
         position: 'sidebar',
+        components: {
+          Cell: "@/collections/Clients/components/HeadshotCell#HeadshotCell",
+        },
       },
       filterOptions: {
         mimeType: {
