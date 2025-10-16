@@ -1,9 +1,9 @@
 import React from 'react'
 import type { DefaultServerCellComponentProps } from 'payload'
-import type { Media } from '@/payload-types'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export const HeadshotCell = async ({ cellData, rowData }: DefaultServerCellComponentProps) => {
   // cellData is just the media ID string
@@ -30,7 +30,7 @@ export const HeadshotCell = async ({ cellData, rowData }: DefaultServerCellCompo
   return (
     <div className="flex items-center justify-center">
       <Link href={editUrl} className="">
-        <img
+        <Image
           src={media.thumbnailURL}
           alt={media.alt || 'Client headshot'}
           className="size-14 rounded-full object-cover transition-opacity hover:opacity-80"

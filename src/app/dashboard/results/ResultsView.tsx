@@ -680,8 +680,8 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
         },
       },
     ],
-    [],
-  ) // Empty dependency array since columns are static
+    [contactPhone],
+  )
 
   const table = useReactTable({
     data: filteredData,

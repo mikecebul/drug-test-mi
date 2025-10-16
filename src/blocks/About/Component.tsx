@@ -47,8 +47,8 @@ export function AboutBlock() {
               </div>
               <Card className="border-l-primary border-l-4 p-6">
                 <p className="text-foreground text-lg leading-relaxed">
-                  MI Drug Test was founded to continue serving our community's drug screening needs
-                  after BASES concluded their 26-year legacy of service. We're committed to
+                  MI Drug Test was founded to continue serving our community&apos;s drug screening needs
+                  after BASES concluded their 26-year legacy of service. We&apos;re committed to
                   providing affordable, reliable drug testing for individuals with court
                   requirements, employment obligations, or those seeking personal accountability.
                 </p>
@@ -354,7 +354,7 @@ export function AboutBlock() {
 
                   <div className="border-border/50 border-t pt-6">
                     <p className="text-muted-foreground text-sm">
-                      Questions about registration? Contact us and we'll help you get started.
+                      Questions about registration? Contact us and we&apos;ll help you get started.
                     </p>
                   </div>
                 </div>
@@ -375,7 +375,7 @@ export function AboutBlock() {
               <Card className="from-primary/5 to-accent/5 bg-gradient-to-br p-8">
                 <div className="space-y-6">
                   <p className="text-lg leading-relaxed">
-                    Need to reschedule or have questions? Contact us directly. We're here to make
+                    Need to reschedule or have questions? Contact us directly. We&apos;re here to make
                     the process as smooth and professional as possible.
                   </p>
 

@@ -2,10 +2,17 @@ import { headers as getHeaders, cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getPayload } from 'payload'
 import React from 'react'
+import type { Metadata } from 'next'
 
 import config from '@payload-config'
 import { LoginForm } from './LoginForm'
 import { baseUrl } from '@/utilities/baseUrl'
+
+export const metadata: Metadata = {
+  title: 'Sign In | MI Drug Test',
+  description:
+    'Sign in to your account to view your drug test results and manage your appointments.',
+}
 
 export default async function Login() {
   const headers = await getHeaders()
@@ -27,7 +34,7 @@ export default async function Login() {
       // Try to fetch user data directly using the token
       const response = await fetch(`${baseUrl}/api/clients/me`, {
         headers: {
-          'Authorization': `JWT ${generalToken}`,
+          Authorization: `JWT ${generalToken}`,
           'Content-Type': 'application/json',
         },
       })
@@ -53,9 +60,7 @@ export default async function Login() {
       <div className="space-y-6">
         <div className="space-y-2 text-center">
           <h1 className="text-3xl font-bold">Sign in</h1>
-          <p className="text-muted-foreground">
-            Enter your credentials to access your account
-          </p>
+          <p className="text-muted-foreground">Enter your credentials to access your account</p>
         </div>
         <LoginForm />
       </div>
