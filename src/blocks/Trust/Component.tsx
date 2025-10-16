@@ -53,13 +53,13 @@ export function TrustBlock({ heading, description, features }: TrustBlockType) {
                 services
               </p>
               <div className="flex flex-col items-center justify-center gap-6 text-sm sm:flex-row">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
+                <div className="flex items-start space-x-2">
+                  <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600 mt-0.5" />
                   <span className="text-foreground font-medium">33rd Circuit Court</span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-foreground font-medium">
+                <div className="flex items-start space-x-2">
+                  <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600 mt-0.5" />
+                  <span className="text-foreground font-medium text-center sm:text-left">
                     90th District Court, Charlevoix and Emmet County
                   </span>
                 </div>
