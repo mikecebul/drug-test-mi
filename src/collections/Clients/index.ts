@@ -158,7 +158,7 @@ export const Clients: CollectionConfig = {
     afterChange: [notifyNewRegistration],
   },
   admin: {
-    defaultColumns: ['headshot', 'name', 'email', 'clientType'],
+    defaultColumns: ['headshot', 'lastName', 'email', 'clientType'],
     useAsTitle: 'name',
     listSearchableFields: ['email', 'firstName', 'lastName'],
   },
@@ -192,7 +192,7 @@ export const Clients: CollectionConfig = {
         description: 'Client headshot photo for identification during testing',
         position: 'sidebar',
         components: {
-          Cell: "@/collections/Clients/components/HeadshotCell#HeadshotCell",
+          Cell: '@/collections/Clients/components/HeadshotCell#HeadshotCell',
         },
       },
       filterOptions: {

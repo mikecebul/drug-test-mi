@@ -44,19 +44,6 @@ export const Media: CollectionConfig = {
           return `${originalName}-thumbnail`
         },
       },
-      {
-        name: 'meta',
-        width: 1200,
-        height: 630,
-        position: 'top',
-        fit: 'inside',
-        formatOptions: {
-          format: 'webp',
-        },
-        generateImageName: ({ originalName }) => {
-          return `${originalName}-meta`
-        },
-      },
     ],
     adminThumbnail: 'thumbnail',
     staticDir: path.resolve(dirname, '../../../public/media'),
