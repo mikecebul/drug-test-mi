@@ -1,11 +1,9 @@
 import type { CollectionConfig } from 'payload'
-import { admins } from '@/access/admins'
 import { superAdmin } from '@/access/superAdmin'
 import { baseUrl } from '@/utilities/baseUrl'
 import { anyone } from '@/access/anyone'
 import { notifyNewRegistration } from './hooks/notifyNewRegistration'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
-import { HeadshotCell } from './components/HeadshotCell'
 
 export const Clients: CollectionConfig = {
   slug: 'clients',
@@ -167,19 +165,18 @@ export const Clients: CollectionConfig = {
     {
       name: 'name',
       type: 'text',
-      virtual: true,
       admin: {
         description: 'Full name (computed from first and last name)',
         position: 'sidebar',
         readOnly: true,
       },
       hooks: {
-        afterRead: [
-          ({ data }) => {
-            if (data?.firstName && data?.lastName) {
-              return `${data.firstName} ${data.lastName}`
+        beforeChange: [
+          ({ siblingData }) => {
+            if (siblingData?.firstName && siblingData?.lastName) {
+              return `${siblingData.firstName} ${siblingData.lastName}`
             }
-            return data?.firstName || data?.lastName || ''
+            return siblingData?.firstName || siblingData?.lastName || ''
           },
         ],
       },
@@ -187,13 +184,10 @@ export const Clients: CollectionConfig = {
     {
       name: 'headshot',
       type: 'upload',
-      relationTo: 'media',
+      relationTo: 'private-media',
       admin: {
         description: 'Client headshot photo for identification during testing',
         position: 'sidebar',
-        components: {
-          Cell: '@/collections/Clients/components/HeadshotCell#HeadshotCell',
-        },
       },
       filterOptions: {
         mimeType: {

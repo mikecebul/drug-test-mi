@@ -333,6 +333,14 @@ export interface Media {
       filesize?: number | null;
       filename?: string | null;
     };
+    meta?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
   };
 }
 /**
@@ -896,7 +904,7 @@ export interface Client {
   /**
    * Client headshot photo for identification during testing
    */
-  headshot?: (string | null) | Media;
+  headshot?: (string | null) | PrivateMedia;
   /**
    * Type of client - determines required fields
    */
@@ -1078,6 +1086,48 @@ export interface Client {
       }[]
     | null;
   password?: string | null;
+}
+/**
+ * Secure file storage for sensitive documents
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "private-media".
+ */
+export interface PrivateMedia {
+  id: string;
+  /**
+   * Alternative text for SEO and accessibility
+   */
+  alt?: string | null;
+  /**
+   * Type of private document
+   */
+  documentType: 'drug-test-report' | 'client-document' | 'headshot';
+  /**
+   * Client this document belongs to
+   */
+  relatedClient?: (string | null) | Client;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+  sizes?: {
+    thumbnail?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+  };
 }
 /**
  * Track drug test results and workflow
@@ -1325,38 +1375,6 @@ export interface DrugTest {
   testDocument?: (string | null) | PrivateMedia;
   updatedAt: string;
   createdAt: string;
-}
-/**
- * Secure file storage for sensitive documents
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "private-media".
- */
-export interface PrivateMedia {
-  id: string;
-  /**
-   * Alternative text for SEO and accessibility
-   */
-  alt?: string | null;
-  /**
-   * Type of private document
-   */
-  documentType: 'drug-test-report' | 'client-document';
-  /**
-   * Client this document belongs to
-   */
-  relatedClient?: (string | null) | Client;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2253,6 +2271,16 @@ export interface MediaSelect<T extends boolean = true> {
               filesize?: T;
               filename?: T;
             };
+        meta?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
       };
 }
 /**
@@ -2274,6 +2302,20 @@ export interface PrivateMediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+  sizes?:
+    | T
+    | {
+        thumbnail?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

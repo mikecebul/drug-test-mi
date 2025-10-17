@@ -46,6 +46,27 @@ export const PrivateMedia: CollectionConfig = {
     staticDir: path.resolve(dirname, '../../../private-media'),
     mimeTypes: ['application/pdf', 'image/*'],
     disableLocalStorage: false,
+    formatOptions: {
+      format: 'webp',
+    },
+    resizeOptions: {
+      width: 1600,
+      height: undefined,
+    },
+    imageSizes: [
+      {
+        name: 'thumbnail',
+        width: 300,
+        height: 300,
+        formatOptions: {
+          format: 'webp',
+        },
+        generateImageName: ({ originalName }) => {
+          return `${originalName}-thumbnail`
+        },
+      },
+    ],
+    adminThumbnail: 'thumbnail',
   },
   fields: [
     {
@@ -64,6 +85,7 @@ export const PrivateMedia: CollectionConfig = {
       options: [
         { label: 'Drug Test Report', value: 'drug-test-report' },
         { label: 'Client Document', value: 'client-document' },
+        { label: 'Client Headshot', value: 'headshot' },
       ],
       admin: {
         description: 'Type of private document',

@@ -294,32 +294,6 @@ export default buildConfig({
             return `https://${process.env.NEXT_PUBLIC_S3_HOSTNAME}/${prefix}/${filename}`
           },
           prefix: process.env.NEXT_PUBLIC_UPLOAD_PREFIX,
-          imageSizes: [
-            {
-              name: 'thumbnail',
-              width: 300,
-              height: 300,
-              formatOptions: {
-                format: 'webp',
-              },
-              generateImageName: ({ originalName }) => {
-                return `${originalName}-thumbnail`
-              },
-            },
-            {
-              name: 'meta',
-              width: 1200,
-              height: 630,
-              position: 'top',
-              fit: 'inside',
-              formatOptions: {
-                format: 'webp',
-              },
-              generateImageName: ({ originalName }) => {
-                return `${originalName}-meta`
-              },
-            },
-          ],
         },
         'private-media': {
           disableLocalStorage: true,
