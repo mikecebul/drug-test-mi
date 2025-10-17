@@ -33,7 +33,9 @@ export const HeadshotCell = async ({ cellData, rowData }: DefaultServerCellCompo
         <Image
           src={media.thumbnailURL}
           alt={media.alt || 'Client headshot'}
-          className="size-14 rounded-full object-cover transition-opacity hover:opacity-80"
+          className="size-12 rounded-full object-cover transition-opacity hover:opacity-80"
+          height={100}
+          width={100}
         />
       </Link>
     </div>
