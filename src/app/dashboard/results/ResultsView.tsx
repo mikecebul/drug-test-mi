@@ -56,6 +56,8 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
   const testType = result.testType
   const is15Panel = testType === '15-panel-instant'
   const is11PanelLab = testType === '11-panel-lab'
+  const is17PanelLab = testType === '17-panel-sos-lab'
+  const isLabTest = is11PanelLab || is17PanelLab
 
   // Determine if screening is complete
   const isScreened = screeningStatus === 'screened' || screeningStatus === 'confirmation-pending' || screeningStatus === 'complete'
@@ -70,8 +72,8 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
       },
     ]
 
-    // Add shipping for 11-panel lab before screening
-    if (is11PanelLab) {
+    // Add shipping for lab tests before screening
+    if (isLabTest) {
       completeSteps.push({
         label: 'Shipped',
         icon: Truck,
@@ -112,8 +114,8 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
     },
   ]
 
-  // For 11-panel lab, add shipping BEFORE screening
-  if (is11PanelLab) {
+  // For lab tests, add shipping BEFORE screening
+  if (isLabTest) {
     steps.push({
       label: 'Shipped',
       icon: Truck,
@@ -126,7 +128,7 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
     label: 'Screened',
     icon: FlaskConical,
     completed: isScreened,
-    current: screeningStatus === 'collected' && !is11PanelLab, // Current only for instant tests that need screening
+    current: screeningStatus === 'collected' && !isLabTest, // Current only for instant tests that need screening
   })
 
   // Add confirmation steps if unexpected results
@@ -501,6 +503,9 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
             case '15-panel-instant':
               label = '15-Panel Instant'
               break
+            case '17-panel-sos-lab':
+              label = '17-Panel SOS Lab'
+              break
           }
           return <div className="whitespace-nowrap text-sm">{label}</div>
         },
@@ -759,13 +764,14 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">Test Type:</span>
                     <Select value={testTypeFilter} onValueChange={setTestTypeFilter}>
-                      <SelectTrigger className="w-[160px]">
+                      <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="All types" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Types</SelectItem>
                         <SelectItem value="11-panel-lab">11-Panel Lab</SelectItem>
                         <SelectItem value="15-panel-instant">15-Panel Instant</SelectItem>
+                        <SelectItem value="17-panel-sos-lab">17-Panel SOS Lab</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -932,6 +938,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                             <SelectItem value="all">All Types</SelectItem>
                             <SelectItem value="11-panel-lab">11-Panel Lab</SelectItem>
                             <SelectItem value="15-panel-instant">15-Panel Instant</SelectItem>
+                            <SelectItem value="17-panel-sos-lab">17-Panel SOS Lab</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
