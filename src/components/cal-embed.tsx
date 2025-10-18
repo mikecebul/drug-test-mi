@@ -24,11 +24,7 @@ export function CalEmbed({ calUsername = 'midrugtest', userData }: CalEmbedProps
 
   return (
     <div className="w-full">
-      <Cal
-        calLink={calUsername}
-        config={config}
-        style={{ width: '100%', height: '600px', overflow: 'scroll' }}
-      />
+      <Cal calLink={calUsername} config={config} style={{ width: '100%', overflow: 'scroll' }} />
     </div>
   )
 }
