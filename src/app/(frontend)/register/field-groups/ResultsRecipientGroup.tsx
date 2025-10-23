@@ -5,72 +5,15 @@ import { FileText } from 'lucide-react'
 import { z } from 'zod'
 import { useStore } from '@tanstack/react-form'
 import type { RegistrationFormType } from '../schemas/registrationSchemas'
-
-// Employer configuration with pre-configured recipients
-export const EMPLOYER_CONFIGS = {
-  'lcems': {
-    label: 'LCEMS (Lake Charlevoix EMS)',
-    recipients: [
-      { name: 'Melanie Kroll', email: 'melaniek@lcemsami.gov' },
-    ],
-  },
-  'other': {
-    label: 'Other',
-    recipients: [],
-  },
-} as const
-
-type EmployerType = keyof typeof EMPLOYER_CONFIGS
-
-export const COURT_CONFIGS = {
-  'charlevoix-district': {
-    label: 'Charlevoix District',
-    recipients: [
-      { name: 'Maria Shrift', email: 'shriftm@charlevoixcounty.org' },
-      { name: 'Zach Shepard', email: 'shepardz@charlevoixcounty.org' },
-    ],
-  },
-  'charlevoix-circuit': {
-    label: 'Charlevoix Circuit Court',
-    officers: [
-      { name: 'Patrick Stoner', email: 'stonerp@michigan.gov' },
-      { name: 'Derek Hofbauer', email: 'hofbauerd1@michigan.gov' },
-    ],
-  },
-  'charlevoix-circuit-bond': {
-    label: 'Charlevoix Circuit Bond',
-    recipients: [
-      { name: 'Assignment Clerk', email: 'petersa@charlevoixcounty.org'}
-    ],
-  },
-  'charlevoix-drug-court': {
-    label: 'Charlevoix Drug Court',
-    recipients: [
-      { name: 'Kerry Zahner', email: 'zahnerk2@charlevoixcounty.org' },
-      { name: 'Patrick Stoner', email: 'stonerp@michigan.gov' },
-      { name: 'Scott Kelly', email: 'scott@basesmi.org' },
-    ],
-  },
-  'emmet-district': {
-    label: 'Emmet District',
-    recipients: [
-      { name: 'Olivia Tackett', email: 'otackett@emmetcounty.org' },
-      { name: 'Heather McCreery', email: 'hmccreery@emmetcounty.org' },
-    ],
-  },
-  'otsego-district': {
-    label: 'Otsego District',
-    recipients: [
-      { name: 'Otsego Probation', email: 'otcprobation@otsegocountymi.gov ' },
-    ],
-  },
-  'other': {
-    label: 'Other',
-    recipients: [],
-  },
-} as const
-
-type CourtType = keyof typeof COURT_CONFIGS
+import {
+  EMPLOYER_CONFIGS,
+  COURT_CONFIGS,
+  isValidEmployerType,
+  isValidCourtType,
+  type EmployerType,
+  type CourtType,
+} from '../configs/recipient-configs'
+import type { RecipientInfo } from '../types/recipient-types'
 
 const defaultValues: RegistrationFormType['resultsRecipient'] = {
   useSelfAsRecipient: true,
@@ -81,7 +24,6 @@ const defaultValues: RegistrationFormType['resultsRecipient'] = {
   contactName: '',
   contactEmail: '',
   selectedCourt: '',
-  selectedCircuitOfficer: '',
   courtName: '',
   probationOfficerName: '',
   probationOfficerEmail: '',
@@ -97,9 +39,12 @@ export const ResultsRecipientGroup = withFieldGroup({
 
   render: function Render({ group, title, requestedBy }) {
     const useSelfAsRecipient = useStore(group.store, (state) => state.values.useSelfAsRecipient)
-    const selectedEmployer = useStore(group.store, (state) => state.values.selectedEmployer) as EmployerType | ''
-    const selectedCourt = useStore(group.store, (state) => state.values.selectedCourt) as CourtType | ''
-    const selectedCircuitOfficer = useStore(group.store, (state) => state.values.selectedCircuitOfficer)
+    const selectedEmployerValue = useStore(group.store, (state) => state.values.selectedEmployer)
+    const selectedCourtValue = useStore(group.store, (state) => state.values.selectedCourt)
+
+    // Type-safe access with runtime validation
+    const selectedEmployer = isValidEmployerType(selectedEmployerValue) ? selectedEmployerValue : null
+    const selectedCourt = isValidCourtType(selectedCourtValue) ? selectedCourtValue : null
 
     const renderSelfPayFields = () => (
       <>
@@ -181,10 +126,11 @@ export const ResultsRecipientGroup = withFieldGroup({
           >
             {(field) => (
               <div className="space-y-2">
-                <label className="text-foreground block text-sm font-medium">
+                <label htmlFor="employer-select" className="text-foreground block text-sm font-medium">
                   Select Employer <span className="text-destructive">*</span>
                 </label>
                 <select
+                  id="employer-select"
                   value={field.state.value || ''}
                   onChange={(e) => {
                     field.handleChange(e.target.value)
@@ -206,11 +152,11 @@ export const ResultsRecipientGroup = withFieldGroup({
           </group.AppField>
 
           {/* Display pre-configured recipients for selected employers */}
-          {employerConfig && 'recipients' in employerConfig && employerConfig.recipients.length > 0 && (
+          {employerConfig && employerConfig.recipients.length > 0 && (
             <div className="bg-primary/10 border-primary/20 rounded-lg border p-4">
               <p className="text-foreground mb-2 text-sm font-medium">Results will be sent to:</p>
               <ul className="space-y-1">
-                {employerConfig.recipients.map((recipient: { name: string; email: string }) => (
+                {employerConfig.recipients.map((recipient: RecipientInfo) => (
                   <li key={recipient.email} className="text-muted-foreground text-sm">
                     • {recipient.name} ({recipient.email})
                   </li>
@@ -260,7 +206,6 @@ export const ResultsRecipientGroup = withFieldGroup({
     const renderProbationFields = () => {
       const courtConfig = selectedCourt ? COURT_CONFIGS[selectedCourt] : null
       const requiresManualEntry = selectedCourt === 'other'
-      const isCircuitCourt = selectedCourt === 'charlevoix-circuit'
 
       return (
         <>
@@ -273,10 +218,11 @@ export const ResultsRecipientGroup = withFieldGroup({
           >
             {(field) => (
               <div className="space-y-2">
-                <label className="text-foreground block text-sm font-medium">
+                <label htmlFor="court-select" className="text-foreground block text-sm font-medium">
                   Select Court <span className="text-destructive">*</span>
                 </label>
                 <select
+                  id="court-select"
                   value={field.state.value || ''}
                   onChange={(e) => {
                     field.handleChange(e.target.value)
@@ -297,72 +243,12 @@ export const ResultsRecipientGroup = withFieldGroup({
             )}
           </group.AppField>
 
-          {/* Charlevoix Circuit Court - Officer Selection */}
-          {isCircuitCourt && (
-            <>
-              <group.AppField
-                name="selectedCircuitOfficer"
-                validators={{
-                  onChange: z.string().min(1, 'Please select a probation officer'),
-                }}
-              >
-                {(field) => (
-                  <div className="space-y-3">
-                    <label className="text-foreground block text-sm font-medium">
-                      Select Probation Officer <span className="text-destructive">*</span>
-                    </label>
-                    <div className="space-y-2">
-                      {COURT_CONFIGS['charlevoix-circuit'].officers.map((officer) => (
-                        <label
-                          key={officer.email}
-                          className={`hover:bg-accent/50 flex cursor-pointer items-center rounded-lg border-2 p-3 transition-all ${
-                            selectedCircuitOfficer === officer.email
-                              ? 'border-primary bg-primary/10'
-                              : 'border-border'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name={field.name}
-                            checked={selectedCircuitOfficer === officer.email}
-                            onChange={() => field.handleChange(officer.email)}
-                            className="text-primary border-border focus:ring-primary h-4 w-4"
-                          />
-                          <span className="text-foreground ml-3 text-sm font-medium">{officer.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {field.state.meta.errors.length > 0 && (
-                      <p className="text-destructive text-sm">{String(field.state.meta.errors[0])}</p>
-                    )}
-                  </div>
-                )}
-              </group.AppField>
-
-              {/* Show selected officer info */}
-              {selectedCircuitOfficer && (
-                <div className="bg-primary/10 border-primary/20 rounded-lg border p-4">
-                  <p className="text-foreground mb-2 text-sm font-medium">Results will be sent to:</p>
-                  <ul className="space-y-1">
-                    {COURT_CONFIGS['charlevoix-circuit'].officers
-                      .filter((officer) => officer.email === selectedCircuitOfficer)
-                      .map((officer) => (
-                        <li key={officer.email} className="text-muted-foreground text-sm">
-                          • {officer.name} ({officer.email})
-                        </li>
-                      ))}
-                  </ul>
-                </div>
-              )}
-            </>
-          )}
-
           {/* Display pre-configured recipients for selected courts */}
-          {courtConfig && 'recipients' in courtConfig && courtConfig.recipients.length > 0 && (
+          {courtConfig && courtConfig.recipients.length > 0 && (
             <div className="bg-primary/10 border-primary/20 rounded-lg border p-4">
               <p className="text-foreground mb-2 text-sm font-medium">Results will be sent to:</p>
               <ul className="space-y-1">
-                {courtConfig.recipients.map((recipient: { name: string; email: string }) => (
+                {courtConfig.recipients.map((recipient: RecipientInfo) => (
                   <li key={recipient.email} className="text-muted-foreground text-sm">
                     • {recipient.name} ({recipient.email})
                   </li>

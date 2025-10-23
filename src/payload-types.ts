@@ -953,11 +953,11 @@ export interface Client {
         }[]
       | null;
     /**
-     * Legacy field - Name of probation officer (use recipients array instead)
+     * LEGACY (pre-2025-01): Single probation officer name. New registrations use recipients array. Kept for backwards compatibility with existing records.
      */
     probationOfficerName?: string | null;
     /**
-     * Legacy field - Email of probation officer (use recipients array instead)
+     * LEGACY (pre-2025-01): Single probation officer email. New registrations use recipients array. Kept for backwards compatibility with existing records.
      */
     probationOfficerEmail?: string | null;
     /**
@@ -990,11 +990,11 @@ export interface Client {
         }[]
       | null;
     /**
-     * Legacy field - Name of HR contact (use recipients array instead)
+     * LEGACY (pre-2025-01): Single HR contact name. New registrations use recipients array. Kept for backwards compatibility with existing records.
      */
     contactName?: string | null;
     /**
-     * Legacy field - Email of HR contact (use recipients array instead)
+     * LEGACY (pre-2025-01): Single HR contact email. New registrations use recipients array. Kept for backwards compatibility with existing records.
      */
     contactEmail?: string | null;
   };

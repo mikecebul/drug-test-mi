@@ -46,7 +46,6 @@ export const RegistrationForm = (props?: any) => {
   }
 
   const handleResendEmail = () => {
-    console.log('Resending verification email to:', formValues.accountInfo?.email)
     toast.success(`Verification email resent to ${formValues.accountInfo?.email}`)
   }
 

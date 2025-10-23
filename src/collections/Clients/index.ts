@@ -341,18 +341,22 @@ export const Clients: CollectionConfig = {
                   ],
                 },
                 // Legacy fields for backwards compatibility
+                // MIGRATION STRATEGY: These fields are retained for existing client records
+                // New registrations use the 'recipients' array instead
+                // When displaying data, check recipients first, then fall back to legacy fields
+                // These can be removed once all existing clients are migrated to recipients format
                 {
                   name: 'probationOfficerName',
                   type: 'text',
                   admin: {
-                    description: 'Legacy field - Name of probation officer (use recipients array instead)',
+                    description: 'LEGACY (pre-2025-01): Single probation officer name. New registrations use recipients array. Kept for backwards compatibility with existing records.',
                   },
                 },
                 {
                   name: 'probationOfficerEmail',
                   type: 'email',
                   admin: {
-                    description: 'Legacy field - Email of probation officer (use recipients array instead)',
+                    description: 'LEGACY (pre-2025-01): Single probation officer email. New registrations use recipients array. Kept for backwards compatibility with existing records.',
                   },
                 },
                 {
@@ -407,18 +411,22 @@ export const Clients: CollectionConfig = {
                   ],
                 },
                 // Legacy fields for backwards compatibility
+                // MIGRATION STRATEGY: These fields are retained for existing client records
+                // New registrations use the 'recipients' array instead
+                // When displaying data, check recipients first, then fall back to legacy fields
+                // These can be removed once all existing clients are migrated to recipients format
                 {
                   name: 'contactName',
                   type: 'text',
                   admin: {
-                    description: 'Legacy field - Name of HR contact (use recipients array instead)',
+                    description: 'LEGACY (pre-2025-01): Single HR contact name. New registrations use recipients array. Kept for backwards compatibility with existing records.',
                   },
                 },
                 {
                   name: 'contactEmail',
                   type: 'email',
                   admin: {
-                    description: 'Legacy field - Email of HR contact (use recipients array instead)',
+                    description: 'LEGACY (pre-2025-01): Single HR contact email. New registrations use recipients array. Kept for backwards compatibility with existing records.',
                   },
                 },
               ],

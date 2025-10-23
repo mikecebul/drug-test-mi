@@ -38,7 +38,6 @@ export const resultsRecipientSchema = z.object({
 
     // Probation/Court recipient fields
     selectedCourt: z.string().optional(),
-    selectedCircuitOfficer: z.string().optional(),
     courtName: z.string().optional(),
     probationOfficerName: z.string().optional(),
     probationOfficerEmail: z.union([z.email(), z.literal('')]).optional(),
@@ -109,17 +108,8 @@ export const resultsRecipientSchema = z.object({
       });
     }
 
-    // Charlevoix Circuit Court requires officer selection
-    if (resultsRecipient.selectedCourt === 'charlevoix-circuit' && !resultsRecipient.selectedCircuitOfficer) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Please select a probation officer',
-        path: ['resultsRecipient', 'selectedCircuitOfficer'],
-      });
-    }
-
-    // "Other" or courts without pre-configured recipients require manual entry
-    const requiresManualEntry = ['other', 'charlevoix-circuit-bond'].includes(resultsRecipient.selectedCourt || '');
+    // "Other" court requires manual entry
+    const requiresManualEntry = resultsRecipient.selectedCourt === 'other';
     if (requiresManualEntry) {
       if (!resultsRecipient.courtName) {
         ctx.addIssue({

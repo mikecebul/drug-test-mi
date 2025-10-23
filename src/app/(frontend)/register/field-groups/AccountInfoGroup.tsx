@@ -49,22 +49,17 @@ export const AccountInfoGroup = withFieldGroup({
               if (!value || !z.email().safeParse(value).success) {
                 return undefined // Skip validation if email is empty or invalid format
               }
-              console.log('Checking if email exists:', value)
 
               try {
                 const emailExists = await checkEmailExists(value)
-                console.log('Email exists result:', emailExists)
                 if (emailExists) {
                   const errorMessage = 'An account with this email already exists'
-                  console.log('Returning error message:', errorMessage)
                   return errorMessage
                 }
               } catch (error) {
                 console.warn('Failed to check email existence:', error)
                 // Don't block registration if the check fails
               }
-
-              console.log('No error, returning undefined')
               return undefined
             },
           }}
