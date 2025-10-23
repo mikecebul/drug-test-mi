@@ -73,6 +73,18 @@ export function ProfileView({ user }: ProfileViewProps) {
 
     if (type === 'court') {
       subject = encodeURIComponent(`Referral Information Update Request - ${clientName}`)
+
+      // Build recipients list for email
+      let recipientsList = 'Not provided'
+      if (user?.courtInfo?.recipients && user?.courtInfo?.recipients.length > 0) {
+        recipientsList = user.courtInfo.recipients
+          .map((r: { name: string; email: string }) => `${r.name} (${r.email})`)
+          .join(', ')
+      } else if (user?.courtInfo?.probationOfficerName) {
+        // Legacy format
+        recipientsList = `${user.courtInfo.probationOfficerName} (${user.courtInfo.probationOfficerEmail || 'N/A'})`
+      }
+
       body = encodeURIComponent(`Dear MI Drug Test Team,
 
 I would like to request an update to my court/probation referral information in my profile.
@@ -83,8 +95,7 @@ Client Information:
 
 Current Court Information:
 - Court Name: ${user?.courtInfo?.courtName || 'Not provided'}
-- Probation Officer: ${user?.courtInfo?.probationOfficerName || 'Not provided'}
-- Officer Email: ${user?.courtInfo?.probationOfficerEmail || 'Not provided'}
+- Recipients: ${recipientsList}
 
 Please contact me to update this information.
 
@@ -192,19 +203,35 @@ ${clientName}`)
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-3 gap-4 text-sm">
+            <div className="space-y-4 text-sm">
               <div>
                 <p className="font-medium">Court Name</p>
                 <p className="text-muted-foreground">{user.courtInfo.courtName}</p>
               </div>
-              <div>
-                <p className="font-medium">Probation Officer</p>
-                <p className="text-muted-foreground">{user.courtInfo.probationOfficerName}</p>
-              </div>
-              <div>
-                <p className="font-medium">Officer Email</p>
-                <p className="text-muted-foreground">{user.courtInfo.probationOfficerEmail}</p>
-              </div>
+
+              {/* New format - recipients array */}
+              {user.courtInfo.recipients && user.courtInfo.recipients.length > 0 ? (
+                <div>
+                  <p className="font-medium mb-2">Results sent to:</p>
+                  <ul className="text-muted-foreground space-y-1">
+                    {user.courtInfo.recipients.map((recipient: { name: string; email: string }, idx: number) => (
+                      <li key={idx} className="pl-4">
+                        • {recipient.name} <span className="text-xs">({recipient.email})</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                /* Legacy format - single officer (backwards compatibility) */
+                user.courtInfo.probationOfficerName && (
+                  <div>
+                    <p className="font-medium mb-2">Results sent to:</p>
+                    <div className="text-muted-foreground pl-4">
+                      • {user.courtInfo.probationOfficerName} <span className="text-xs">({user.courtInfo.probationOfficerEmail})</span>
+                    </div>
+                  </div>
+                )
+              )}
             </div>
           </CardContent>
         </Card>

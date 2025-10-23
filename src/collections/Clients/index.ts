@@ -316,19 +316,43 @@ export const Clients: CollectionConfig = {
                   },
                 },
                 {
+                  name: 'recipients',
+                  type: 'array',
+                  admin: {
+                    description: 'Recipients who will receive test results',
+                  },
+                  fields: [
+                    {
+                      name: 'name',
+                      type: 'text',
+                      required: true,
+                      admin: {
+                        description: 'Name of recipient (probation officer, court clerk, etc.)',
+                      },
+                    },
+                    {
+                      name: 'email',
+                      type: 'email',
+                      required: true,
+                      admin: {
+                        description: 'Email address of recipient',
+                      },
+                    },
+                  ],
+                },
+                // Legacy fields for backwards compatibility
+                {
                   name: 'probationOfficerName',
                   type: 'text',
-                  required: true,
                   admin: {
-                    description: 'Name of probation officer',
+                    description: 'Legacy field - Name of probation officer (use recipients array instead)',
                   },
                 },
                 {
                   name: 'probationOfficerEmail',
                   type: 'email',
-                  required: true,
                   admin: {
-                    description: 'Email of probation officer',
+                    description: 'Legacy field - Email of probation officer (use recipients array instead)',
                   },
                 },
                 {

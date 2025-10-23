@@ -5,6 +5,9 @@ import { toast } from 'sonner'
 import type { Dispatch, SetStateAction } from 'react'
 import type { RegistrationFormType } from './schemas/registrationSchemas'
 import { Client } from '@/payload-types'
+import { COURT_CONFIGS } from './field-groups/ResultsRecipientGroup'
+
+type CourtType = keyof typeof COURT_CONFIGS
 
 const defaultValues: RegistrationFormType = {
   personalInfo: {
@@ -29,6 +32,8 @@ const defaultValues: RegistrationFormType = {
     employerName: '',
     contactName: '',
     contactEmail: '',
+    selectedCourt: '',
+    selectedCircuitOfficer: '',
     courtName: '',
     probationOfficerName: '',
     probationOfficerEmail: '',
@@ -79,10 +84,57 @@ export const useRegistrationFormOpts = ({
             contactEmail: value.resultsRecipient.contactEmail,
           }
         } else if (clientType === 'probation') {
-          payload.courtInfo = {
+          const selectedCourt = value.resultsRecipient.selectedCourt as CourtType
+          let courtName = ''
+          let recipients: Array<{ name: string; email: string }> = []
+
+          console.log('📋 Court Registration Debug:', {
+            selectedCourt,
+            selectedCircuitOfficer: value.resultsRecipient.selectedCircuitOfficer,
             courtName: value.resultsRecipient.courtName,
             probationOfficerName: value.resultsRecipient.probationOfficerName,
             probationOfficerEmail: value.resultsRecipient.probationOfficerEmail,
+          })
+
+          if (selectedCourt && COURT_CONFIGS[selectedCourt]) {
+            const courtConfig = COURT_CONFIGS[selectedCourt]
+            courtName = courtConfig.label
+
+            // Handle Charlevoix Circuit Court - only selected officer
+            if (selectedCourt === 'charlevoix-circuit') {
+              if (value.resultsRecipient.selectedCircuitOfficer && 'officers' in courtConfig) {
+                const selectedOfficer = courtConfig.officers.find(
+                  (o) => o.email === value.resultsRecipient.selectedCircuitOfficer
+                )
+                console.log('🏛️ Circuit Court - Selected Officer:', selectedOfficer)
+                if (selectedOfficer) {
+                  recipients = [selectedOfficer]
+                }
+              }
+            }
+            // Handle pre-configured courts with recipients array
+            else if ('recipients' in courtConfig && courtConfig.recipients.length > 0) {
+              recipients = [...courtConfig.recipients]
+              console.log('📧 Pre-configured recipients:', recipients)
+            }
+            // Handle "Other" or courts without pre-configured recipients
+            else if (selectedCourt === 'other') {
+              courtName = value.resultsRecipient.courtName || ''
+              recipients = [
+                {
+                  name: value.resultsRecipient.probationOfficerName || '',
+                  email: value.resultsRecipient.probationOfficerEmail || '',
+                },
+              ]
+              console.log('✏️ Manual entry recipients:', recipients)
+            }
+          }
+
+          console.log('✅ Final courtInfo payload:', { courtName, recipients })
+
+          payload.courtInfo = {
+            courtName,
+            recipients,
           }
         } else if (clientType === 'self' && !value.resultsRecipient.useSelfAsRecipient) {
           // Add alternative recipient info for self-pay clients
@@ -92,6 +144,13 @@ export const useRegistrationFormOpts = ({
           }
         }
 
+        console.log('🚀 Sending payload to /api/clients:', JSON.stringify(payload, null, 2))
+        console.log('🔍 courtInfo details:', {
+          courtName: payload.courtInfo?.courtName,
+          recipients: payload.courtInfo?.recipients,
+          recipientsLength: payload.courtInfo?.recipients?.length,
+        })
+
         const response = await fetch('/api/clients', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -99,6 +158,7 @@ export const useRegistrationFormOpts = ({
         })
 
         const result = await response.json()
+        console.log('📥 Server response:', result)
 
         if (!response.ok) {
           throw new Error(result.errors?.[0]?.message || 'Registration failed')

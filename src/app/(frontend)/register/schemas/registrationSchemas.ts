@@ -36,6 +36,8 @@ export const resultsRecipientSchema = z.object({
     contactEmail: z.union([z.email(), z.literal('')]).optional(),
 
     // Probation/Court recipient fields
+    selectedCourt: z.string().optional(),
+    selectedCircuitOfficer: z.string().optional(),
     courtName: z.string().optional(),
     probationOfficerName: z.string().optional(),
     probationOfficerEmail: z.union([z.email(), z.literal('')]).optional(),
@@ -87,26 +89,47 @@ export const resultsRecipientSchema = z.object({
       });
     }
   } else if (requestedBy === 'probation') {
-    if (!resultsRecipient.courtName) {
+    if (!resultsRecipient.selectedCourt) {
       ctx.addIssue({
         code: 'custom',
-        message: 'Court name is required',
-        path: ['resultsRecipient', 'courtName'],
+        message: 'Please select a court',
+        path: ['resultsRecipient', 'selectedCourt'],
       });
     }
-    if (!resultsRecipient.probationOfficerName) {
+
+    // Charlevoix Circuit Court requires officer selection
+    if (resultsRecipient.selectedCourt === 'charlevoix-circuit' && !resultsRecipient.selectedCircuitOfficer) {
       ctx.addIssue({
         code: 'custom',
-        message: 'Probation officer name is required',
-        path: ['resultsRecipient', 'probationOfficerName'],
+        message: 'Please select a probation officer',
+        path: ['resultsRecipient', 'selectedCircuitOfficer'],
       });
     }
-    if (!resultsRecipient.probationOfficerEmail) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Probation officer email is required',
-        path: ['resultsRecipient', 'probationOfficerEmail'],
-      });
+
+    // "Other" or courts without pre-configured recipients require manual entry
+    const requiresManualEntry = ['other', 'charlevoix-circuit-bond'].includes(resultsRecipient.selectedCourt || '');
+    if (requiresManualEntry) {
+      if (!resultsRecipient.courtName) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Court name is required',
+          path: ['resultsRecipient', 'courtName'],
+        });
+      }
+      if (!resultsRecipient.probationOfficerName) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Probation officer name is required',
+          path: ['resultsRecipient', 'probationOfficerName'],
+        });
+      }
+      if (!resultsRecipient.probationOfficerEmail) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Probation officer email is required',
+          path: ['resultsRecipient', 'probationOfficerEmail'],
+        });
+      }
     }
   }
 });

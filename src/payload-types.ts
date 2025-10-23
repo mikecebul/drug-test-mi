@@ -937,13 +937,29 @@ export interface Client {
      */
     courtName: string;
     /**
-     * Name of probation officer
+     * Recipients who will receive test results
      */
-    probationOfficerName: string;
+    recipients?:
+      | {
+          /**
+           * Name of recipient (probation officer, court clerk, etc.)
+           */
+          name: string;
+          /**
+           * Email address of recipient
+           */
+          email: string;
+          id?: string | null;
+        }[]
+      | null;
     /**
-     * Email of probation officer
+     * Legacy field - Name of probation officer (use recipients array instead)
      */
-    probationOfficerEmail: string;
+    probationOfficerName?: string | null;
+    /**
+     * Legacy field - Email of probation officer (use recipients array instead)
+     */
+    probationOfficerEmail?: string | null;
     /**
      * Additional email to CC on test results
      */
@@ -2383,6 +2399,13 @@ export interface ClientsSelect<T extends boolean = true> {
     | T
     | {
         courtName?: T;
+        recipients?:
+          | T
+          | {
+              name?: T;
+              email?: T;
+              id?: T;
+            };
         probationOfficerName?: T;
         probationOfficerEmail?: T;
         ccEmail?: T;

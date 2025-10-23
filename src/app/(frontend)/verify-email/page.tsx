@@ -63,8 +63,8 @@ function VerifyEmailContent() {
       case 'loading':
         return (
           <div className="text-center">
-            <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-primary" />
-            <h1 className="mb-2 text-2xl font-bold text-foreground">Verifying your email...</h1>
+            <Loader2 className="text-primary mx-auto mb-4 h-12 w-12 animate-spin" />
+            <h1 className="text-foreground mb-2 text-2xl font-bold">Verifying your email...</h1>
             <p className="text-muted-foreground">Please wait while we verify your account.</p>
           </div>
         )
@@ -73,16 +73,16 @@ function VerifyEmailContent() {
         return (
           <div className="text-center">
             <CheckCircle className="mx-auto mb-4 h-12 w-12 text-green-500" />
-            <h1 className="mb-2 text-2xl font-bold text-foreground">Email Verified Successfully!</h1>
-            <p className="mb-6 text-muted-foreground">
-              Your account has been verified. You can now sign in and schedule your drug screening appointment.
+            <h1 className="text-foreground mb-2 text-2xl font-bold">
+              Email Verified Successfully!
+            </h1>
+            <p className="text-muted-foreground mb-6">
+              Your account has been verified. You can now sign in and schedule your drug screening
+              appointment.
             </p>
             <div className="space-y-3">
               <Button asChild className="w-full">
                 <Link href="/sign-in">Sign In to Your Account</Link>
-              </Button>
-              <Button asChild variant="outline" className="w-full">
-                <Link href="/schedule">Schedule Appointment</Link>
               </Button>
             </div>
           </div>
@@ -91,16 +91,14 @@ function VerifyEmailContent() {
       case 'invalid':
         return (
           <div className="text-center">
-            <XCircle className="mx-auto mb-4 h-12 w-12 text-destructive" />
-            <h1 className="mb-2 text-2xl font-bold text-foreground">Invalid Verification Link</h1>
-            <p className="mb-6 text-muted-foreground">
-              The verification link is missing or invalid. Please check your email for the correct link.
+            <XCircle className="text-destructive mx-auto mb-4 h-12 w-12" />
+            <h1 className="text-foreground mb-2 text-2xl font-bold">Invalid Verification Link</h1>
+            <p className="text-muted-foreground mb-6">
+              The verification link is missing or invalid. Please check your email for the correct
+              link.
             </p>
             <div className="space-y-3">
-              <Button
-                onClick={() => setState('resend')}
-                className="w-full"
-              >
+              <Button onClick={() => setState('resend')} className="w-full">
                 Resend Verification Email
               </Button>
               <Button asChild variant="outline" className="w-full">
@@ -113,16 +111,14 @@ function VerifyEmailContent() {
       case 'error':
         return (
           <div className="text-center">
-            <XCircle className="mx-auto mb-4 h-12 w-12 text-destructive" />
-            <h1 className="mb-2 text-2xl font-bold text-foreground">Verification Failed</h1>
-            <p className="mb-6 text-muted-foreground">
-              {errorMessage || 'We couldn\'t verify your email. The link may have expired or already been used.'}
+            <XCircle className="text-destructive mx-auto mb-4 h-12 w-12" />
+            <h1 className="text-foreground mb-2 text-2xl font-bold">Verification Failed</h1>
+            <p className="text-muted-foreground mb-6">
+              {errorMessage ||
+                "We couldn't verify your email. The link may have expired or already been used."}
             </p>
             <div className="space-y-3">
-              <Button
-                onClick={() => setState('resend')}
-                className="w-full"
-              >
+              <Button onClick={() => setState('resend')} className="w-full">
                 Resend Verification Email
               </Button>
               <Button asChild variant="outline" className="w-full">
@@ -141,9 +137,9 @@ function VerifyEmailContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background py-12 px-4">
+    <div className="bg-background min-h-screen px-4 py-12">
       <div className="mx-auto max-w-md">
-        <div className="bg-card rounded-2xl border border-border p-8 shadow-xl">
+        <div className="bg-card border-border rounded-2xl border p-8 shadow-xl">
           {renderContent()}
         </div>
       </div>
@@ -155,12 +151,12 @@ export default function VerifyEmailPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-background py-12 px-4">
+        <div className="bg-background min-h-screen px-4 py-12">
           <div className="mx-auto max-w-md">
-            <div className="bg-card rounded-2xl border border-border p-8 shadow-xl">
+            <div className="bg-card border-border rounded-2xl border p-8 shadow-xl">
               <div className="text-center">
-                <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-primary" />
-                <h1 className="mb-2 text-2xl font-bold text-foreground">Loading...</h1>
+                <Loader2 className="text-primary mx-auto mb-4 h-12 w-12 animate-spin" />
+                <h1 className="text-foreground mb-2 text-2xl font-bold">Loading...</h1>
               </div>
             </div>
           </div>
