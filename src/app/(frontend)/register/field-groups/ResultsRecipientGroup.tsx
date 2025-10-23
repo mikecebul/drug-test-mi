@@ -6,6 +6,22 @@ import { z } from 'zod'
 import { useStore } from '@tanstack/react-form'
 import type { RegistrationFormType } from '../schemas/registrationSchemas'
 
+// Employer configuration with pre-configured recipients
+export const EMPLOYER_CONFIGS = {
+  'lcems': {
+    label: 'LCEMS (Lake Charlevoix EMS)',
+    recipients: [
+      { name: 'Melanie Kroll', email: 'melaniek@lcemsami.gov' },
+    ],
+  },
+  'other': {
+    label: 'Other',
+    recipients: [],
+  },
+} as const
+
+type EmployerType = keyof typeof EMPLOYER_CONFIGS
+
 export const COURT_CONFIGS = {
   'charlevoix-district': {
     label: 'Charlevoix District',
@@ -60,6 +76,7 @@ const defaultValues: RegistrationFormType['resultsRecipient'] = {
   useSelfAsRecipient: true,
   alternativeRecipientName: '',
   alternativeRecipientEmail: '',
+  selectedEmployer: '',
   employerName: '',
   contactName: '',
   contactEmail: '',
@@ -80,6 +97,7 @@ export const ResultsRecipientGroup = withFieldGroup({
 
   render: function Render({ group, title, requestedBy }) {
     const useSelfAsRecipient = useStore(group.store, (state) => state.values.useSelfAsRecipient)
+    const selectedEmployer = useStore(group.store, (state) => state.values.selectedEmployer) as EmployerType | ''
     const selectedCourt = useStore(group.store, (state) => state.values.selectedCourt) as CourtType | ''
     const selectedCircuitOfficer = useStore(group.store, (state) => state.values.selectedCircuitOfficer)
 
@@ -148,39 +166,96 @@ export const ResultsRecipientGroup = withFieldGroup({
       </>
     )
 
-    const renderEmploymentFields = () => (
-      <>
-        <group.AppField
-          name="employerName"
-          validators={{
-            onChange: z.string().min(1, 'Employer name is required'),
-          }}
-        >
-          {(field) => <field.TextField label="Employer/Company Name" required />}
-        </group.AppField>
+    const renderEmploymentFields = () => {
+      const employerConfig = selectedEmployer ? EMPLOYER_CONFIGS[selectedEmployer] : null
+      const requiresManualEntry = selectedEmployer === 'other'
 
-        <group.AppField
-          name="contactName"
-          validators={{
-            onChange: z.string().min(1, 'Contact name is required'),
-          }}
-        >
-          {(field) => <field.TextField label="HR Contact or Hiring Manager Name" required />}
-        </group.AppField>
+      return (
+        <>
+          {/* Employer Selection Dropdown */}
+          <group.AppField
+            name="selectedEmployer"
+            validators={{
+              onChange: z.string().min(1, 'Please select an employer'),
+            }}
+          >
+            {(field) => (
+              <div className="space-y-2">
+                <label className="text-foreground block text-sm font-medium">
+                  Select Employer <span className="text-destructive">*</span>
+                </label>
+                <select
+                  value={field.state.value || ''}
+                  onChange={(e) => {
+                    field.handleChange(e.target.value)
+                  }}
+                  className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2"
+                >
+                  <option value="">-- Select an employer --</option>
+                  {Object.entries(EMPLOYER_CONFIGS).map(([key, config]) => (
+                    <option key={key} value={key}>
+                      {config.label}
+                    </option>
+                  ))}
+                </select>
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-destructive text-sm">{String(field.state.meta.errors[0])}</p>
+                )}
+              </div>
+            )}
+          </group.AppField>
 
-        <group.AppField
-          name="contactEmail"
-          validators={{
-            onChange: z
-              .string()
-              .min(1, 'Contact email is required')
-              .email('Please enter a valid email address'),
-          }}
-        >
-          {(field) => <field.EmailField label="HR Contact or Hiring Manager Email" required />}
-        </group.AppField>
-      </>
-    )
+          {/* Display pre-configured recipients for selected employers */}
+          {employerConfig && 'recipients' in employerConfig && employerConfig.recipients.length > 0 && (
+            <div className="bg-primary/10 border-primary/20 rounded-lg border p-4">
+              <p className="text-foreground mb-2 text-sm font-medium">Results will be sent to:</p>
+              <ul className="space-y-1">
+                {employerConfig.recipients.map((recipient: { name: string; email: string }) => (
+                  <li key={recipient.email} className="text-muted-foreground text-sm">
+                    • {recipient.name} ({recipient.email})
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Manual entry fields for "Other" employers */}
+          {requiresManualEntry && (
+            <>
+              <group.AppField
+                name="employerName"
+                validators={{
+                  onChange: z.string().min(1, 'Employer name is required'),
+                }}
+              >
+                {(field) => <field.TextField label="Employer/Company Name" required />}
+              </group.AppField>
+
+              <group.AppField
+                name="contactName"
+                validators={{
+                  onChange: z.string().min(1, 'Contact name is required'),
+                }}
+              >
+                {(field) => <field.TextField label="HR Contact or Hiring Manager Name" required />}
+              </group.AppField>
+
+              <group.AppField
+                name="contactEmail"
+                validators={{
+                  onChange: z
+                    .string()
+                    .min(1, 'Contact email is required')
+                    .email('Please enter a valid email address'),
+                }}
+              >
+                {(field) => <field.EmailField label="HR Contact or Hiring Manager Email" required />}
+              </group.AppField>
+            </>
+          )}
+        </>
+      )
+    }
 
     const renderProbationFields = () => {
       const courtConfig = selectedCourt ? COURT_CONFIGS[selectedCourt] : null

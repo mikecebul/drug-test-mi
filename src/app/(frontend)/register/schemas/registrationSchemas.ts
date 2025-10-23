@@ -31,6 +31,7 @@ export const resultsRecipientSchema = z.object({
     alternativeRecipientEmail: z.union([z.email(), z.literal('')]).optional(),
 
     // Employment recipient fields
+    selectedEmployer: z.string().optional(),
     employerName: z.string().optional(),
     contactName: z.string().optional(),
     contactEmail: z.union([z.email(), z.literal('')]).optional(),
@@ -67,26 +68,37 @@ export const resultsRecipientSchema = z.object({
       }
     }
   } else if (requestedBy === 'employment') {
-    if (!resultsRecipient.employerName) {
+    if (!resultsRecipient.selectedEmployer) {
       ctx.addIssue({
         code: 'custom',
-        message: 'Employer name is required',
-        path: ['resultsRecipient', 'employerName'],
+        message: 'Please select an employer',
+        path: ['resultsRecipient', 'selectedEmployer'],
       });
     }
-    if (!resultsRecipient.contactName) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Contact name is required',
-        path: ['resultsRecipient', 'contactName'],
-      });
-    }
-    if (!resultsRecipient.contactEmail) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Contact email is required',
-        path: ['resultsRecipient', 'contactEmail'],
-      });
+
+    // "Other" employer requires manual entry
+    if (resultsRecipient.selectedEmployer === 'other') {
+      if (!resultsRecipient.employerName) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Employer name is required',
+          path: ['resultsRecipient', 'employerName'],
+        });
+      }
+      if (!resultsRecipient.contactName) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Contact name is required',
+          path: ['resultsRecipient', 'contactName'],
+        });
+      }
+      if (!resultsRecipient.contactEmail) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Contact email is required',
+          path: ['resultsRecipient', 'contactEmail'],
+        });
+      }
     }
   } else if (requestedBy === 'probation') {
     if (!resultsRecipient.selectedCourt) {

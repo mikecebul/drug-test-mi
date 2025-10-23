@@ -5,9 +5,10 @@ import { toast } from 'sonner'
 import type { Dispatch, SetStateAction } from 'react'
 import type { RegistrationFormType } from './schemas/registrationSchemas'
 import { Client } from '@/payload-types'
-import { COURT_CONFIGS } from './field-groups/ResultsRecipientGroup'
+import { COURT_CONFIGS, EMPLOYER_CONFIGS } from './field-groups/ResultsRecipientGroup'
 
 type CourtType = keyof typeof COURT_CONFIGS
+type EmployerType = keyof typeof EMPLOYER_CONFIGS
 
 const defaultValues: RegistrationFormType = {
   personalInfo: {
@@ -29,6 +30,7 @@ const defaultValues: RegistrationFormType = {
     useSelfAsRecipient: true,
     alternativeRecipientName: '',
     alternativeRecipientEmail: '',
+    selectedEmployer: '',
     employerName: '',
     contactName: '',
     contactEmail: '',
@@ -78,10 +80,44 @@ export const useRegistrationFormOpts = ({
 
         // Add type-specific information for employment and probation
         if (clientType === 'employment') {
-          payload.employmentInfo = {
+          const selectedEmployer = value.resultsRecipient.selectedEmployer as EmployerType
+          let employerName = ''
+          let recipients: Array<{ name: string; email: string }> = []
+
+          console.log('💼 Employment Registration Debug:', {
+            selectedEmployer,
             employerName: value.resultsRecipient.employerName,
             contactName: value.resultsRecipient.contactName,
             contactEmail: value.resultsRecipient.contactEmail,
+          })
+
+          if (selectedEmployer && EMPLOYER_CONFIGS[selectedEmployer]) {
+            const employerConfig = EMPLOYER_CONFIGS[selectedEmployer]
+            employerName = employerConfig.label
+
+            // Handle pre-configured employers with recipients array
+            if ('recipients' in employerConfig && employerConfig.recipients.length > 0) {
+              recipients = [...employerConfig.recipients]
+              console.log('📧 Pre-configured employer recipients:', recipients)
+            }
+            // Handle "Other" employer - manual entry
+            else if (selectedEmployer === 'other') {
+              employerName = value.resultsRecipient.employerName || ''
+              recipients = [
+                {
+                  name: value.resultsRecipient.contactName || '',
+                  email: value.resultsRecipient.contactEmail || '',
+                },
+              ]
+              console.log('✏️ Manual entry employer recipients:', recipients)
+            }
+          }
+
+          console.log('✅ Final employmentInfo payload:', { employerName, recipients })
+
+          payload.employmentInfo = {
+            employerName,
+            recipients,
           }
         } else if (clientType === 'probation') {
           const selectedCourt = value.resultsRecipient.selectedCourt as CourtType

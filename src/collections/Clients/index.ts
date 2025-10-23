@@ -382,19 +382,43 @@ export const Clients: CollectionConfig = {
                   },
                 },
                 {
+                  name: 'recipients',
+                  type: 'array',
+                  admin: {
+                    description: 'Recipients who will receive test results',
+                  },
+                  fields: [
+                    {
+                      name: 'name',
+                      type: 'text',
+                      required: true,
+                      admin: {
+                        description: 'Name of recipient (HR contact, hiring manager, etc.)',
+                      },
+                    },
+                    {
+                      name: 'email',
+                      type: 'email',
+                      required: true,
+                      admin: {
+                        description: 'Email address of recipient',
+                      },
+                    },
+                  ],
+                },
+                // Legacy fields for backwards compatibility
+                {
                   name: 'contactName',
                   type: 'text',
-                  required: true,
                   admin: {
-                    description: 'Name of HR contact or hiring manager',
+                    description: 'Legacy field - Name of HR contact (use recipients array instead)',
                   },
                 },
                 {
                   name: 'contactEmail',
                   type: 'email',
-                  required: true,
                   admin: {
-                    description: 'Email of HR contact or hiring manager',
+                    description: 'Legacy field - Email of HR contact (use recipients array instead)',
                   },
                 },
               ],

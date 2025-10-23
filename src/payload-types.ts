@@ -974,13 +974,29 @@ export interface Client {
      */
     employerName: string;
     /**
-     * Name of HR contact or hiring manager
+     * Recipients who will receive test results
      */
-    contactName: string;
+    recipients?:
+      | {
+          /**
+           * Name of recipient (HR contact, hiring manager, etc.)
+           */
+          name: string;
+          /**
+           * Email address of recipient
+           */
+          email: string;
+          id?: string | null;
+        }[]
+      | null;
     /**
-     * Email of HR contact or hiring manager
+     * Legacy field - Name of HR contact (use recipients array instead)
      */
-    contactEmail: string;
+    contactName?: string | null;
+    /**
+     * Legacy field - Email of HR contact (use recipients array instead)
+     */
+    contactEmail?: string | null;
   };
   /**
    * Alternative recipient for test results (self-pay clients only)
@@ -2414,6 +2430,13 @@ export interface ClientsSelect<T extends boolean = true> {
     | T
     | {
         employerName?: T;
+        recipients?:
+          | T
+          | {
+              name?: T;
+              email?: T;
+              id?: T;
+            };
         contactName?: T;
         contactEmail?: T;
       };

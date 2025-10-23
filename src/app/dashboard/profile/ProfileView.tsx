@@ -103,6 +103,18 @@ Thank you,
 ${clientName}`)
     } else if (type === 'employment') {
       subject = encodeURIComponent(`Referral Information Update Request - ${clientName}`)
+
+      // Build recipients list for email
+      let recipientsList = 'Not provided'
+      if (user?.employmentInfo?.recipients && user?.employmentInfo?.recipients.length > 0) {
+        recipientsList = user.employmentInfo.recipients
+          .map((r: { name: string; email: string }) => `${r.name} (${r.email})`)
+          .join(', ')
+      } else if (user?.employmentInfo?.contactName) {
+        // Legacy format
+        recipientsList = `${user.employmentInfo.contactName} (${user.employmentInfo.contactEmail || 'N/A'})`
+      }
+
       body = encodeURIComponent(`Dear MI Drug Test Team,
 
 I would like to request an update to my employment referral information in my profile.
@@ -113,8 +125,7 @@ Client Information:
 
 Current Employment Information:
 - Employer: ${user?.employmentInfo?.employerName || 'Not provided'}
-- HR Contact: ${user?.employmentInfo?.contactName || 'Not provided'}
-- Contact Email: ${user?.employmentInfo?.contactEmail || 'Not provided'}
+- Recipients: ${recipientsList}
 
 Please contact me to update this information.
 
@@ -259,19 +270,35 @@ ${clientName}`)
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-3 gap-4 text-sm">
+            <div className="space-y-4 text-sm">
               <div>
                 <p className="font-medium">Employer</p>
                 <p className="text-muted-foreground">{user.employmentInfo.employerName}</p>
               </div>
-              <div>
-                <p className="font-medium">HR Contact</p>
-                <p className="text-muted-foreground">{user.employmentInfo.contactName}</p>
-              </div>
-              <div>
-                <p className="font-medium">Contact Email</p>
-                <p className="text-muted-foreground">{user.employmentInfo.contactEmail}</p>
-              </div>
+
+              {/* New format - recipients array */}
+              {user.employmentInfo.recipients && user.employmentInfo.recipients.length > 0 ? (
+                <div>
+                  <p className="font-medium mb-2">Results sent to:</p>
+                  <ul className="text-muted-foreground space-y-1">
+                    {user.employmentInfo.recipients.map((recipient: { name: string; email: string }, idx: number) => (
+                      <li key={idx} className="pl-4">
+                        • {recipient.name} <span className="text-xs">({recipient.email})</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                /* Legacy format - single contact */
+                user.employmentInfo.contactName && (
+                  <div>
+                    <p className="font-medium mb-2">Results sent to:</p>
+                    <div className="text-muted-foreground pl-4">
+                      • {user.employmentInfo.contactName} <span className="text-xs">({user.employmentInfo.contactEmail})</span>
+                    </div>
+                  </div>
+                )
+              )}
             </div>
           </CardContent>
         </Card>
