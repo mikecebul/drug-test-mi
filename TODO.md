@@ -3,9 +3,12 @@
 This file tracks incomplete features and future enhancements that need to be implemented.
 
 ## ✅ Recently Completed
-- Profile page with tabs for view/edit modes
-- Form integration with proper validation
-- API endpoints for client data management
+- **Dashboard Migration**: Successfully migrated all core dashboard pages from TanStack Query to server components + Payload local API pattern
+- **Profile Page**: Full implementation with view/edit modes, tabs, form validation, and TanStack Form integration
+- **Medications Management**: Complete CRUD operations with status tracking (active/discontinued), 7-day edit windows, and server actions
+- **Results Page**: Drug test results display with advanced filtering (date range, result status, test type), chain of custody visualization
+- **Main Dashboard**: Stats display and recent test overview with proper data fetching
+- **Schedule Page**: Cal.com booking integration with pre-filled user data
 
 ## Profile Page Features
 - [ ] **Security Section Buttons**: Implement functionality for Change Password, Download My Data, and Privacy Settings buttons in the profile page security section
@@ -13,13 +16,18 @@ This file tracks incomplete features and future enhancements that need to be imp
 - [ ] **Account Settings**: Create account settings page and implement proper navigation
 
 ## Dashboard Features
-- [ ] **Appointments Page**: Replace mock data with real appointment data from Payload CMS
+- [ ] **Appointments Page**: Implement recurring appointments management page
   - *Currently shows "Coming Soon" placeholder*
-  - *Sidebar navigation link commented out*
+  - Replace placeholder with real appointment data and management features
+  - Consider integration with Cal.com bookings
 - [ ] **Settings Page**: Create settings page with user preferences and configuration options
-  - *Sidebar navigation link commented out*
+  - Email preferences
+  - Notification settings
+  - Display preferences
 - [ ] **Get Help Page**: Create help/support page with documentation and contact information
-  - *Sidebar navigation link commented out*
+  - FAQs
+  - Contact form
+  - Support resources
 
 ## Navigation & UI
 - [ ] **UserNav Menu Items**: Implement functionality for Account, Billing, and Notifications buttons in the user navigation dropdown (logout currently works)
@@ -51,11 +59,13 @@ This file tracks incomplete features and future enhancements that need to be imp
   - Consider PDF viewer integration or secure download links
 
 ## Email System Enhancement
-- [ ] **Email Templates**: Create professional email templates for different notification types
-  - Probation officer notifications
-  - Employer notifications
-  - Self-pay client result notifications
-  - Admin notifications for test completions
+- [ ] **Email Templates**: Expand email templates for different notification types
+  - ✅ Client registration notifications (implemented)
+  - ✅ Form submission notifications (implemented)
+  - 🔲 Probation officer notifications for test results
+  - 🔲 Employer notifications for test results
+  - 🔲 Self-pay client result notifications
+  - 🔲 Admin notifications for test completions
 
 - [ ] **Email Queue System**: Implement reliable email delivery system with retry logic
 - [ ] **Email Preferences**: Allow users to configure which notifications they receive
@@ -64,11 +74,6 @@ This file tracks incomplete features and future enhancements that need to be imp
 - [ ] **Password Change Functionality**: Implement secure password change process
 - [ ] **Data Export**: Create user data export functionality for GDPR compliance
 - [ ] **Privacy Settings**: Build privacy preferences management
-
-## Email System
-- [ ] **Email Templates**: Create professional email templates for different notification types
-- [ ] **Email Queue**: Implement reliable email delivery system with retry logic
-- [ ] **Email Preferences**: Allow users to configure which notifications they receive
 
 ## File Management
 - [ ] **Document Storage**: Implement secure document upload and storage for test reports
@@ -83,5 +88,20 @@ This file tracks incomplete features and future enhancements that need to be imp
 
 ---
 
-*Last Updated: $(date)*
+## Notes
+
+### Dashboard Architecture
+All core dashboard pages have been successfully migrated to the new server component pattern:
+- Uses `export const dynamic = 'force-dynamic'` for fresh data
+- Server actions with `overrideAccess: true` for mutations
+- TanStack Query removed to eliminate hydration issues
+- Pattern documented in CLAUDE.md
+
+### Email System Status
+Basic email functionality is working:
+- Client registration triggers admin notification
+- Form submissions send emails with template support
+- Uses Payload's `sendEmail()` with dynamic field substitution
+
+*Last Updated: January 2025*
 *Priority: High priority items should be tackled first*

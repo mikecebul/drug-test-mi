@@ -39,16 +39,17 @@ Pages are built using a flexible block system (`src/blocks/`):
 ### Collections & Globals
 
 **Collections** (`src/collections/`):
+- `DrugTests` - Drug test results, workflow tracking, and chain of custody
+- `Clients` - Auth collection for clients receiving services
+- `Admins` - Role-based access (super admin, admin)
+- `Technicians` - Employees who observe the test collection
+- `Bookings` - Cal.com bookings from webhook
 - `Pages` - Dynamic page content
 - `Forms` - Dynamic form builder with Stripe integration
 - `FormSubmissions` - Form response storage
 - `Media` - S3-hosted media files
-- `Admins` - Role-based access (super admin, admin)
-- `Bookings` - Calcom bookings from webhook
-- `Clients` - Auth collection for clients receiving services
-- `PrivateMedia` - mostly drug test results as PDf
-- `Technicians` - Employees who observe the test collection
-- `Resources` - Not yet utilized, but will be link cards for outside recources
+- `PrivateMedia` - Secure storage for drug test result PDFs
+- `Resources` - Collection exists but not yet utilized (planned for link cards to outside resources)
 
 **Globals** (`src/globals/`):
 - `Header` - Navigation configuration
@@ -61,13 +62,27 @@ Pages are built using a flexible block system (`src/blocks/`):
 
 **Media Storage**: S3/Cloudflare R2 storage with PayloadCMS integration.
 
-**Registration Flow**: Clients register so we have info of where durg test reports are sent. This needs to be improved to encourage registration before Calcom embed bookings.
+**Cal.com Integration**: Booking system embedded in scheduling pages and dashboard (`src/components/cal-embed.tsx`)
+- Supports pre-filling user data (name, email)
+- Configured with username `midrugtest`
+- Webhook integration stores bookings in Bookings collection
+
+**Email Notifications**:
+- Form submission notifications with template support
+- Automated admin notifications on client registration
+- Uses Payload's `sendEmail()` method with dynamic field substitution
+
+**Payment Processing**: Stripe integration in Forms collection for payment fields
+- Supports conditional pricing based on form field values
+- Integrated directly into form builder
+
+**Registration Flow**: Clients register so we have info of where drug test reports are sent. This needs to be improved to encourage registration before Cal.com embed bookings.
 
 ### Dashboard Architecture
 
-The client dashboard (`src/app/dashboard/`) is transitioning from TanStack Query to a simpler Next.js server component pattern using Payload's local API.
+The client dashboard (`src/app/dashboard/`) has been fully migrated from TanStack Query to a simpler Next.js server component pattern using Payload's local API.
 
-**🚧 Migration in Progress**: Moving away from TanStack Query due to hydration mismatches and unnecessary complexity for data that doesn't change frequently.
+**✅ Migration Complete**: Successfully moved away from TanStack Query to eliminate hydration mismatches and reduce complexity. All core dashboard pages now use the server component pattern.
 
 **New Pattern (Preferred)**:
 1. Server components fetch data directly using Payload's local API (`getPayload()`)
@@ -112,11 +127,12 @@ function DashboardView({ data }: { data: DashboardData }) {
 ```
 
 **Current Dashboard Pages**:
-- `src/app/dashboard/` - Main dashboard ✅ **Migrated** (uses server components + local API)
-- `src/app/dashboard/results/` - Drug test results with filtering ⏳ **TODO: Migrate**
-- `src/app/dashboard/medications/` - Medication management ⏳ **TODO: Migrate** (Server Actions for mutations, TanStack Query for reads)
-- `src/app/dashboard/profile/` - User profile editing ⏳ **TODO: Migrate**
-- `src/app/dashboard/appointments/` - Upcoming feature for recurring appointments (see TODO.md)
+- `src/app/dashboard/` - Main dashboard ✅ **Migrated** (server components + local API, displays stats and recent tests)
+- `src/app/dashboard/results/` - Drug test results with filtering ✅ **Migrated** (server component + ResultsView client component)
+- `src/app/dashboard/medications/` - Medication management ✅ **Migrated** (server component + server actions for CRUD)
+- `src/app/dashboard/profile/` - User profile editing ✅ **Migrated** (server component + ProfileView with TanStack Form)
+- `src/app/dashboard/schedule/` - Cal.com booking embed ✅ **Implemented** (Cal.com integration)
+- `src/app/dashboard/appointments/` - Recurring appointments management ⏳ **Placeholder** (shows "Coming Soon")
 
 **Key Considerations**:
 - Authentication is handled once in the layout (`requireClientAuth()`), child pages don't need to re-check

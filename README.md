@@ -1,12 +1,17 @@
 # MI Drug Test
 
-This website is built using PayloadCMS and Next.js 15, designed for managing and showcasing a junior golf league.
+This website is built using PayloadCMS and Next.js 15, designed for managing drug testing operations and client services.
 
 ## Features
 
+- **Client Dashboard**: Secure portal for clients to view test results, manage medications, schedule appointments, and update profile information
+- **Drug Test Management**: Comprehensive tracking of drug tests with chain of custody, result status, and secure document storage
+- **Cal.com Integration**: Seamless appointment booking with pre-filled client information
+- **Medication Tracking**: Client medication history with status management and edit windows
 - **Content Management**: Create and manage pages, events, resources, and more through the admin panel
-- **User Management**: Role-based access with super admin, admin, and editor privileges
+- **User Management**: Role-based access with super admin, admin, technician, and client roles
 - **Image Management**: Store media files to Cloudflare R2
+- **Email Notifications**: Automated notifications for client registration and form submissions
 - **URL Management**: Custom redirects and URL handling
 - **Sitemap**: sitemap.xml file is revalidated with changes to the pages collection
 - **Advanced Form Builder**:
