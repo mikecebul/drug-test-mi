@@ -73,7 +73,7 @@ export default function DobPicker({ label, colSpan, required }: DobFieldUIProps)
           id={field.name}
           value={inputValue}
           placeholder="01/01/1900"
-          className="bg-background pr-10"
+          className="pr-10"
           onChange={(e) => {
             const value = e.target.value
             setInputValue(value)
