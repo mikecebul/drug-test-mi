@@ -1180,7 +1180,7 @@ export interface DrugTest {
   /**
    * Type of drug test panel used
    */
-  testType: '11-panel-lab' | '15-panel-instant' | '17-panel-sos-lab';
+  testType: '11-panel-lab' | '15-panel-instant' | '17-panel-sos-lab' | 'etg-lab';
   /**
    * Current workflow status. Set to "Screened" when entering test results.
    */

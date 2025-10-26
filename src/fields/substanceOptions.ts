@@ -68,6 +68,15 @@ export const panel11LabSubstances = [
 ] as const
 
 /**
+ * EtG Lab Test Substances
+ * Single-panel test for alcohol metabolite
+ * Sent to lab for confirmation
+ */
+export const etgLabSubstances = [
+  { label: 'EtG (Alcohol)', value: 'etg' },
+] as const
+
+/**
  * All possible substances (union of all test types)
  * Used for medication "detectedAs" field
  */
@@ -104,6 +113,8 @@ export function getSubstanceOptions(testType?: string) {
       return panel15InstantSubstances
     case '11-panel-lab':
       return panel11LabSubstances
+    case 'etg-lab':
+      return etgLabSubstances
     default:
       return allSubstanceOptions.filter(s => s.value !== 'none')
   }
