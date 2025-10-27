@@ -1298,9 +1298,22 @@ export interface DrugTest {
       )[]
     | null;
   /**
-   * AUTO-COMPUTED: Overall test result classification based on business logic
+   * AUTO-COMPUTED: Initial screening result based on business logic
    */
   initialScreenResult?:
+    | (
+        | 'negative'
+        | 'expected-positive'
+        | 'unexpected-positive'
+        | 'unexpected-negative'
+        | 'mixed-unexpected'
+        | 'inconclusive'
+      )
+    | null;
+  /**
+   * AUTO-COMPUTED: Final result after confirmation testing
+   */
+  finalStatus?:
     | (
         | 'negative'
         | 'expected-positive'
@@ -1405,6 +1418,30 @@ export interface DrugTest {
    * Drug test report document (PDF)
    */
   testDocument?: (string | null) | PrivateMedia;
+  /**
+   * Uncheck to skip sending email notifications when saving (useful for testing or manual corrections)
+   */
+  sendNotifications?: boolean | null;
+  /**
+   * History of email notifications sent for this test
+   */
+  notificationsSent?:
+    | {
+        /**
+         * Workflow stage (collected, screened, complete)
+         */
+        stage?: string | null;
+        /**
+         * When the notification was sent
+         */
+        sentAt?: string | null;
+        /**
+         * Who received the notification
+         */
+        recipients?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2496,6 +2533,7 @@ export interface DrugTestsSelect<T extends boolean = true> {
   unexpectedPositives?: T;
   unexpectedNegatives?: T;
   initialScreenResult?: T;
+  finalStatus?: T;
   confirmationDecision?: T;
   confirmationRequestedAt?: T;
   confirmationSubstances?: T;
@@ -2512,6 +2550,15 @@ export interface DrugTestsSelect<T extends boolean = true> {
   medicationsAtTestTime?: T;
   processNotes?: T;
   testDocument?: T;
+  sendNotifications?: T;
+  notificationsSent?:
+    | T
+    | {
+        stage?: T;
+        sentAt?: T;
+        recipients?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }

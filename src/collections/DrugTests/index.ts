@@ -2,6 +2,7 @@ import { CollectionConfig } from 'payload'
 import { superAdmin } from '@/access/superAdmin'
 import { admins } from '@/access/admins'
 import { computeTestResults } from './hooks/computeTestResults'
+import { sendNotificationEmails } from './hooks/sendNotificationEmails'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
 
 export const DrugTests: CollectionConfig = {
@@ -12,6 +13,7 @@ export const DrugTests: CollectionConfig = {
   },
   hooks: {
     beforeChange: [computeTestResults],
+    afterChange: [sendNotificationEmails],
   },
   access: {
     create: admins,
@@ -201,9 +203,48 @@ export const DrugTests: CollectionConfig = {
         { label: 'Inconclusive', value: 'inconclusive' },
       ],
       admin: {
-        description: 'AUTO-COMPUTED: Overall test result classification based on business logic',
+        description: 'AUTO-COMPUTED: Initial screening result based on business logic',
         readOnly: true,
         position: 'sidebar',
+        condition: (_, siblingData) => {
+          // Hide when confirmation is complete (finalStatus will show instead)
+          const hadConfirmation = siblingData?.confirmationDecision === 'request-confirmation'
+          const confirmationComplete =
+            hadConfirmation &&
+            Array.isArray(siblingData?.confirmationResults) &&
+            siblingData.confirmationResults.length > 0 &&
+            Array.isArray(siblingData?.confirmationSubstances) &&
+            siblingData.confirmationResults.length === siblingData.confirmationSubstances.length
+          return !confirmationComplete
+        },
+      },
+    },
+    {
+      name: 'finalStatus',
+      type: 'select',
+      options: [
+        { label: 'Negative (PASS)', value: 'negative' },
+        { label: 'Expected Positive (PASS)', value: 'expected-positive' },
+        { label: 'Unexpected Positive (FAIL)', value: 'unexpected-positive' },
+        { label: 'Unexpected Negative (Warning)', value: 'unexpected-negative' },
+        { label: 'Mixed Unexpected (FAIL)', value: 'mixed-unexpected' },
+        { label: 'Inconclusive', value: 'inconclusive' },
+      ],
+      admin: {
+        description: 'AUTO-COMPUTED: Final result after confirmation testing',
+        readOnly: true,
+        position: 'sidebar',
+        condition: (_, siblingData) => {
+          // Only show when confirmation is complete
+          const hadConfirmation = siblingData?.confirmationDecision === 'request-confirmation'
+          const confirmationComplete =
+            hadConfirmation &&
+            Array.isArray(siblingData?.confirmationResults) &&
+            siblingData.confirmationResults.length > 0 &&
+            Array.isArray(siblingData?.confirmationSubstances) &&
+            siblingData.confirmationResults.length === siblingData.confirmationSubstances.length
+          return confirmationComplete
+        },
       },
     },
     // Confirmation workflow - always visible for one-save workflow
@@ -382,6 +423,63 @@ export const DrugTests: CollectionConfig = {
           equals: 'drug-test-report',
         },
       },
+    },
+    // Email Notification Controls
+    {
+      type: 'collapsible',
+      label: 'Email Notifications',
+      admin: {
+        initCollapsed: false,
+        position: 'sidebar',
+      },
+      fields: [
+        {
+          name: 'sendNotifications',
+          type: 'checkbox',
+          defaultValue: true,
+          admin: {
+            description:
+              'Uncheck to skip sending email notifications when saving (useful for testing or manual corrections)',
+          },
+        },
+        {
+          name: 'notificationsSent',
+          type: 'array',
+          admin: {
+            readOnly: true,
+            description: 'History of email notifications sent for this test',
+          },
+          fields: [
+            {
+              name: 'stage',
+              type: 'text',
+              admin: {
+                readOnly: true,
+                description: 'Workflow stage (collected, screened, complete)',
+              },
+            },
+            {
+              name: 'sentAt',
+              type: 'date',
+              admin: {
+                readOnly: true,
+                description: 'When the notification was sent',
+                date: {
+                  pickerAppearance: 'dayAndTime',
+                },
+              },
+            },
+            {
+              name: 'recipients',
+              type: 'textarea',
+              admin: {
+                readOnly: true,
+                description: 'Who received the notification',
+              },
+            },
+          ],
+        },
+      ],
     },
   ],
 }

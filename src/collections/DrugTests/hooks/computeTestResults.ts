@@ -30,7 +30,8 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
 
   // For collected tests (not yet screened), set isComplete = false so they appear in tracker
   // Collected tests need to be tracked for screening
-  if (currentStatus !== 'screened') {
+  // Allow processing for screened, confirmation-pending, and complete statuses
+  if (currentStatus === 'collected') {
     data.isComplete = false
     return data
   }
@@ -143,6 +144,49 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
       data.confirmationDecision = 'accept'
     }
 
+    // Compute finalStatus if confirmation testing is complete
+    const hadConfirmation = data.confirmationDecision === 'request-confirmation'
+    const confirmationSubstances = Array.isArray(data.confirmationSubstances)
+      ? data.confirmationSubstances
+      : []
+    const confirmationResults = Array.isArray(data.confirmationResults) ? data.confirmationResults : []
+
+    const confirmationComplete =
+      hadConfirmation &&
+      confirmationResults.length > 0 &&
+      confirmationSubstances.length > 0 &&
+      confirmationResults.length === confirmationSubstances.length &&
+      confirmationResults.every((result: any) => result.result && result.substance)
+
+    if (confirmationComplete) {
+      // Check if any confirmation came back positive
+      const hasConfirmedPositive = data.confirmationResults!.some(
+        (result: any) => result.result === 'confirmed-positive',
+      )
+
+      if (hasConfirmedPositive) {
+        // If any unexpected positive was confirmed, it's still a fail
+        if (unexpectedNegatives.length > 0) {
+          data.finalStatus = 'mixed-unexpected'
+        } else {
+          data.finalStatus = 'unexpected-positive'
+        }
+      } else {
+        // All unexpected positives were confirmed negative
+        // Check what's left
+        if (unexpectedNegatives.length > 0) {
+          // Only unexpected negatives remain (yellow warning)
+          data.finalStatus = 'unexpected-negative'
+        } else if (expectedPositives.length > 0) {
+          // Nothing unexpected - expected positives only
+          data.finalStatus = 'expected-positive'
+        } else {
+          // Nothing detected at all after confirmations ruled out false positives
+          data.finalStatus = 'negative'
+        }
+      }
+    }
+
     // Auto-complete logic
     // Complete if:
     // 1. Auto-accepted (negative or expected-positive)
@@ -150,14 +194,7 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
     // 3. Confirmation requested and ALL results received
     if (autoAccept || data.confirmationDecision === 'accept') {
       data.isComplete = true
-    } else if (
-      data.confirmationDecision === 'request-confirmation' &&
-      Array.isArray(data.confirmationResults) &&
-      Array.isArray(data.confirmationSubstances) &&
-      data.confirmationResults.length === data.confirmationSubstances.length &&
-      data.confirmationResults.length > 0 &&
-      data.confirmationResults.every((result: any) => result.result)
-    ) {
+    } else if (confirmationComplete) {
       data.isComplete = true
     } else {
       data.isComplete = false
