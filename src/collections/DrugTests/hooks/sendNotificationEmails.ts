@@ -2,7 +2,7 @@ import type { CollectionAfterChangeHook } from 'payload'
 import type { DrugTest } from '@/payload-types'
 import { getRecipients } from '../email/recipients'
 import { buildCollectedEmail, buildScreenedEmail, buildCompleteEmail } from '../email/templates'
-import fs from 'fs'
+import { promises as fsPromises } from 'fs'
 import path from 'path'
 
 const TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
@@ -27,7 +27,13 @@ const TEST_EMAIL = 'mike@midrugtest.com'
 export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async ({
   doc,
   req,
+  context,
 }) => {
+  // Skip if we're just updating notification history (prevent infinite loop)
+  if (context?.skipNotificationHook) {
+    return doc
+  }
+
   // Check if sendNotifications checkbox is checked
   if (doc.sendNotifications === false) {
     req.payload.logger.info(`Email notifications skipped for drug test ${doc.id} (checkbox unchecked)`)
@@ -77,13 +83,27 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
       return doc
     }
 
-    // For screened and complete stages, require test document before sending ANY emails
-    if (emailStage === 'screened' || emailStage === 'complete') {
+    // For screened and complete stages, require appropriate document before sending ANY emails
+    if (emailStage === 'screened') {
       const testDocumentId = typeof doc.testDocument === 'string' ? doc.testDocument : doc.testDocument?.id
 
       if (!testDocumentId) {
         payload.logger.warn(
-          `Email notifications pending for drug test ${doc.id}: Upload test document to send ${emailStage === 'screened' ? 'results' : 'final'} emails to client and referrals`,
+          `Email notifications pending for drug test ${doc.id}: Upload screening test document to send results emails`,
+        )
+        return doc
+      }
+    } else if (emailStage === 'complete') {
+      // For complete stage, need either confirmation document OR test document
+      const confirmationDocId =
+        typeof doc.confirmationDocument === 'string'
+          ? doc.confirmationDocument
+          : doc.confirmationDocument?.id
+      const testDocId = typeof doc.testDocument === 'string' ? doc.testDocument : doc.testDocument?.id
+
+      if (!confirmationDocId && !testDocId) {
+        payload.logger.warn(
+          `Email notifications pending for drug test ${doc.id}: Upload confirmation document (or test document) to send final emails`,
         )
         return doc
       }
@@ -177,36 +197,50 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
         }
       }
     } else {
-      // For screened/complete stages, attach test document to both client and referral emails
-      const testDocumentId =
-        typeof doc.testDocument === 'string' ? doc.testDocument : doc.testDocument?.id
+      // For screened/complete stages, attach appropriate document to both client and referral emails
+      // For "screened" stage: use testDocument (initial screening results)
+      // For "complete" stage: use confirmationDocument if exists, otherwise testDocument
+      let documentId: string | null | undefined = null
 
-      if (!testDocumentId) {
+      if (emailStage === 'screened') {
+        documentId = typeof doc.testDocument === 'string' ? doc.testDocument : doc.testDocument?.id
+      } else if (emailStage === 'complete') {
+        // Prefer confirmation document if it exists (includes both initial and confirmation results)
+        const confirmationDocId =
+          typeof doc.confirmationDocument === 'string'
+            ? doc.confirmationDocument
+            : doc.confirmationDocument?.id
+        const testDocId = typeof doc.testDocument === 'string' ? doc.testDocument : doc.testDocument?.id
+
+        documentId = confirmationDocId || testDocId
+      }
+
+      if (!documentId) {
         payload.logger.warn(
-          `No test document attached for drug test ${doc.id} - skipping all emails`,
+          `No document attached for drug test ${doc.id} (stage: ${emailStage}) - skipping all emails`,
         )
       } else {
-        // Fetch the test document using local API with overrideAccess
+        // Fetch the document using local API with overrideAccess
         const testDocument = await payload.findByID({
           collection: 'private-media',
-          id: testDocumentId,
+          id: documentId,
           overrideAccess: true,
         })
 
         if (!testDocument || !testDocument.filename) {
           payload.logger.warn(
-            `Test document ${testDocumentId} not found or has no filename - skipping all emails`,
+            `Document ${documentId} not found or has no filename - skipping all emails`,
           )
         } else {
           // Since disableLocalStorage: false, files are stored in staticDir
           const localPath = path.join(process.cwd(), 'private-media', testDocument.filename)
 
-          if (!fs.existsSync(localPath)) {
-            payload.logger.warn(
-              `Test document file not found at ${localPath} - skipping all emails`,
-            )
-          } else {
-            const fileBuffer = fs.readFileSync(localPath)
+          try {
+            // Check if file exists (async)
+            await fsPromises.access(localPath)
+
+            // Read file (async)
+            const fileBuffer = await fsPromises.readFile(localPath)
             payload.logger.info(`Attaching test document: ${testDocument.filename}`)
 
             // Send to client with attachment
@@ -253,6 +287,10 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
                 sentTo.push(`Referral: ${email}${TEST_MODE ? ' (TEST MODE)' : ''}`)
               }
             }
+          } catch (fileError) {
+            payload.logger.warn(
+              `Test document file not found or unreadable at ${localPath} - skipping all emails`,
+            )
           }
         }
       }
@@ -273,6 +311,9 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
       id: doc.id,
       data: {
         notificationsSent: updatedNotifications,
+      },
+      context: {
+        skipNotificationHook: true, // Prevent infinite loop
       },
     })
 

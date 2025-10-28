@@ -30,7 +30,7 @@ function formatTestType(testType: string): string {
 
 // Helper: Get result color based on test result
 function getResultColor(result: string): string {
-  if (result === 'negative' || result === 'expected-positive') return '#22c55e' // green
+  if (result === 'negative' || result === 'expected-positive' || result === 'confirmed-negative') return '#22c55e' // green
   if (result === 'unexpected-negative') return '#eab308' // yellow
   return '#ef4444' // red (unexpected-positive, mixed-unexpected)
 }
@@ -40,6 +40,7 @@ function getResultLabel(result: string): string {
   const labels: Record<string, string> = {
     negative: 'NEGATIVE (PASS)',
     'expected-positive': 'EXPECTED POSITIVE (PASS)',
+    'confirmed-negative': 'CONFIRMED NEGATIVE (PASS)',
     'unexpected-positive': 'UNEXPECTED POSITIVE (FAIL)',
     'unexpected-negative': 'UNEXPECTED NEGATIVE (Warning)',
     'mixed-unexpected': 'MIXED UNEXPECTED (FAIL)',
@@ -448,7 +449,6 @@ export function buildCompleteEmail(data: CompleteEmailData): EmailOutput {
     collectionDate,
     testType,
     initialScreenResult,
-    detectedSubstances,
     confirmationResults,
     finalStatus,
     isDilute,
@@ -457,7 +457,7 @@ export function buildCompleteEmail(data: CompleteEmailData): EmailOutput {
   const resultColor = getResultColor(finalStatus)
   const resultLabel = getResultLabel(finalStatus)
 
-  // Client email - simple notification
+  // Client email - full results with confirmation data
   const clientEmail = {
     subject: `Final Drug Test Results - ${clientName}`,
     html: `
@@ -466,12 +466,28 @@ export function buildCompleteEmail(data: CompleteEmailData): EmailOutput {
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1">
-          <title>Final Results</title>
+          <title>Final Drug Test Results</title>
           <style>
             body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
             .header { background-color: ${resultColor}; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
             .content { background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 5px 5px; }
+            .result-badge { display: inline-block; padding: 8px 16px; background-color: ${resultColor}; color: white; border-radius: 5px; font-weight: bold; margin: 15px 0; }
+            .detail-row { margin: 10px 0; padding: 10px; background-color: white; border-radius: 3px; }
+            .label { font-weight: bold; color: #3b82f6; }
+            .substances-section { margin: 15px 0; padding: 15px; background-color: white; border-left: 4px solid #ccc; border-radius: 3px; }
+            .substances-section.green { border-left-color: #22c55e; }
+            .substances-section.red { border-left-color: #ef4444; }
+            .substances-section.yellow { border-left-color: #eab308; }
+            .substances-section.blue { border-left-color: #3b82f6; }
+            .substance-list { list-style: none; padding-left: 0; margin: 10px 0 0 0; }
+            .substance-item { padding: 5px 0; }
+            .dilute-warning { background-color: #fee2e2; border-left: 4px solid #ef4444; padding: 15px; margin: 15px 0; border-radius: 3px; }
+            .confirmation-section { margin: 15px 0; padding: 15px; background-color: white; border: 2px solid #3b82f6; border-radius: 5px; }
+            .confirmation-item { padding: 10px; margin: 5px 0; background-color: #f0f9ff; border-radius: 3px; }
+            .cta-button { display: inline-block; padding: 14px 32px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; text-align: center; }
+            .cta-button:hover { background-color: #2563eb; }
+            .button-container { text-align: center; margin: 25px 0; }
             .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 14px; color: #666; text-align: center; }
           </style>
         </head>
@@ -479,13 +495,57 @@ export function buildCompleteEmail(data: CompleteEmailData): EmailOutput {
           <div class="container">
             <div class="header">
               <h1>Final Drug Test Results</h1>
+              <div class="result-badge">${resultLabel}</div>
             </div>
             <div class="content">
-              <p>Your final drug test results from ${formatDate(collectionDate)} are now complete.</p>
-              <p>All testing has been completed and final results have been sent to your designated recipient.</p>
+              <div class="detail-row">
+                <span class="label">Collection Date:</span> ${formatDate(collectionDate)}
+              </div>
+              <div class="detail-row">
+                <span class="label">Test Type:</span> ${formatTestType(testType)}
+              </div>
+              <div class="detail-row">
+                <span class="label">Initial Screen Result:</span> ${getResultLabel(initialScreenResult)}
+              </div>
+
+              ${
+                isDilute
+                  ? `
+                <div class="dilute-warning">
+                  <strong>⚠️ DILUTE SAMPLE</strong>
+                  <p style="margin: 5px 0 0 0;">This sample was dilute and may affect result accuracy.</p>
+                </div>
+              `
+                  : ''
+              }
+
+              ${
+                confirmationResults && confirmationResults.length > 0
+                  ? `
+                <div class="confirmation-section">
+                  <strong>✓ Confirmation Test Results:</strong>
+                  ${confirmationResults
+                    .map(
+                      (conf) => `
+                    <div class="confirmation-item">
+                      <strong>${formatSubstance(conf.substance)}:</strong> ${conf.result.replace(/-/g, ' ').toUpperCase()}
+                      ${conf.notes ? `<br><em style="color: #666; font-size: 14px;">${conf.notes}</em>` : ''}
+                    </div>
+                  `,
+                    )
+                    .join('')}
+                </div>
+              `
+                  : ''
+              }
+
+              <div class="button-container">
+                <a href="${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard/results" class="cta-button">View Full Results</a>
+              </div>
 
               <div class="footer">
-                <p><small>If you have questions, please contact MI Drug Test.</small></p>
+                <p><strong>Your complete test report is attached to this email.</strong></p>
+                <p><small>All testing is now complete. If you have questions, please contact MI Drug Test.</small></p>
                 <p><small>Notification sent: ${new Date().toLocaleString()}</small></p>
               </div>
             </div>

@@ -1170,6 +1170,49 @@ export interface PrivateMedia {
 export interface DrugTest {
   id: string;
   /**
+   * AUTO-UPDATED: Current workflow status based on entered data
+   */
+  screeningStatus: 'collected' | 'screened' | 'confirmation-pending' | 'complete';
+  /**
+   * AUTO-COMPUTED: Initial screening result based on business logic
+   */
+  initialScreenResult?:
+    | (
+        | 'negative'
+        | 'expected-positive'
+        | 'unexpected-positive'
+        | 'unexpected-negative'
+        | 'mixed-unexpected'
+        | 'inconclusive'
+      )
+    | null;
+  /**
+   * AUTO-COMPUTED: Final result after confirmation testing
+   */
+  finalStatus?:
+    | (
+        | 'negative'
+        | 'expected-positive'
+        | 'confirmed-negative'
+        | 'unexpected-positive'
+        | 'unexpected-negative'
+        | 'mixed-unexpected'
+        | 'inconclusive'
+      )
+    | null;
+  /**
+   * AUTO-COMPUTED: Complete when auto-accepted, manually accepted, or all confirmation results received
+   */
+  isComplete?: boolean | null;
+  /**
+   * AUTO-SELECTED as "accept" for negative/expected-positive results. REQUIRED CHOICE for unexpected results.
+   */
+  confirmationDecision?: ('accept' | 'request-confirmation') | null;
+  /**
+   * Uncheck to skip sending email notifications when saving (useful for testing or manual corrections)
+   */
+  sendNotifications?: boolean | null;
+  /**
    * Client this drug test belongs to
    */
   relatedClient: string | Client;
@@ -1182,15 +1225,23 @@ export interface DrugTest {
    */
   testType: '11-panel-lab' | '15-panel-instant' | '17-panel-sos-lab' | 'etg-lab';
   /**
-   * Current workflow status. Set to "Screened" when entering test results.
+   * Snapshot of active medications at time of test (auto-populated from client, editable by superAdmin only)
    */
-  screeningStatus: 'collected' | 'screened' | 'confirmation-pending' | 'complete';
+  medicationsAtTestTime?: string | null;
   /**
-   * Date and time when screening was completed
+   * Internal process notes and status updates
    */
-  screeningCompletedAt?: string | null;
+  processNotes?: string | null;
   /**
-   * RAW TEST RESULTS: Which substances tested positive? Leave empty if all negative. Select only substances that appear on your specific test panel.
+   * Initial screening test report (PDF). Uploading this will trigger test computation and mark status as "screened".
+   */
+  testDocument?: (string | null) | PrivateMedia;
+  /**
+   * Mark if the test sample was dilute
+   */
+  isDilute?: boolean | null;
+  /**
+   * RAW TEST RESULTS: Which substances tested positive? Leave empty if all negative.
    */
   detectedSubstances?:
     | (
@@ -1298,39 +1349,13 @@ export interface DrugTest {
       )[]
     | null;
   /**
-   * AUTO-COMPUTED: Initial screening result based on business logic
-   */
-  initialScreenResult?:
-    | (
-        | 'negative'
-        | 'expected-positive'
-        | 'unexpected-positive'
-        | 'unexpected-negative'
-        | 'mixed-unexpected'
-        | 'inconclusive'
-      )
-    | null;
-  /**
-   * AUTO-COMPUTED: Final result after confirmation testing
-   */
-  finalStatus?:
-    | (
-        | 'negative'
-        | 'expected-positive'
-        | 'unexpected-positive'
-        | 'unexpected-negative'
-        | 'mixed-unexpected'
-        | 'inconclusive'
-      )
-    | null;
-  /**
-   * AUTO-SELECTED as "accept" for negative/expected-positive results. REQUIRED CHOICE for unexpected results.
-   */
-  confirmationDecision?: ('accept' | 'request-confirmation') | null;
-  /**
    * Date and time confirmation was requested
    */
   confirmationRequestedAt?: string | null;
+  /**
+   * Confirmation test report (PDF). Shows both initial screen and confirmation results. Required before final emails are sent.
+   */
+  confirmationDocument?: (string | null) | PrivateMedia;
   /**
    * Which substances require confirmation testing
    */
@@ -1358,10 +1383,6 @@ export interface DrugTest {
         | 'tricyclic_antidepressants'
       )[]
     | null;
-  /**
-   * Mark if the test sample was dilute
-   */
-  isDilute?: boolean | null;
   /**
    * Individual confirmation test results for each substance
    */
@@ -1403,27 +1424,7 @@ export interface DrugTest {
       }[]
     | null;
   /**
-   * AUTO-COMPUTED: Complete when auto-accepted, manually accepted, or all confirmation results received
-   */
-  isComplete?: boolean | null;
-  /**
-   * Snapshot of active medications at time of test (auto-populated from client, editable by superAdmin only)
-   */
-  medicationsAtTestTime?: string | null;
-  /**
-   * Internal process notes and status updates
-   */
-  processNotes?: string | null;
-  /**
-   * Drug test report document (PDF)
-   */
-  testDocument?: (string | null) | PrivateMedia;
-  /**
-   * Uncheck to skip sending email notifications when saving (useful for testing or manual corrections)
-   */
-  sendNotifications?: boolean | null;
-  /**
-   * History of email notifications sent for this test
+   * Complete history of all email notifications sent for this test
    */
   notificationsSent?:
     | {
@@ -2523,21 +2524,26 @@ export interface ClientsSelect<T extends boolean = true> {
  * via the `definition` "drug-tests_select".
  */
 export interface DrugTestsSelect<T extends boolean = true> {
+  screeningStatus?: T;
+  initialScreenResult?: T;
+  finalStatus?: T;
+  isComplete?: T;
+  confirmationDecision?: T;
+  sendNotifications?: T;
   relatedClient?: T;
   collectionDate?: T;
   testType?: T;
-  screeningStatus?: T;
-  screeningCompletedAt?: T;
+  medicationsAtTestTime?: T;
+  processNotes?: T;
+  testDocument?: T;
+  isDilute?: T;
   detectedSubstances?: T;
   expectedPositives?: T;
   unexpectedPositives?: T;
   unexpectedNegatives?: T;
-  initialScreenResult?: T;
-  finalStatus?: T;
-  confirmationDecision?: T;
   confirmationRequestedAt?: T;
+  confirmationDocument?: T;
   confirmationSubstances?: T;
-  isDilute?: T;
   confirmationResults?:
     | T
     | {
@@ -2546,11 +2552,6 @@ export interface DrugTestsSelect<T extends boolean = true> {
         notes?: T;
         id?: T;
       };
-  isComplete?: T;
-  medicationsAtTestTime?: T;
-  processNotes?: T;
-  testDocument?: T;
-  sendNotifications?: T;
   notificationsSent?:
     | T
     | {

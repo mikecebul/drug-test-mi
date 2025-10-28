@@ -43,7 +43,7 @@ export const DrugTests: CollectionConfig = {
     defaultColumns: [
       'relatedClient',
       'testType',
-      'initialScreenResult',
+      'screeningStatus',
       'collectionDate',
       'isComplete',
     ],
@@ -51,40 +51,7 @@ export const DrugTests: CollectionConfig = {
     useAsTitle: 'relatedClient',
   },
   fields: [
-    {
-      name: 'relatedClient',
-      type: 'relationship',
-      relationTo: 'clients',
-      required: true,
-      admin: {
-        description: 'Client this drug test belongs to',
-      },
-    },
-    {
-      name: 'collectionDate',
-      type: 'date',
-      admin: {
-        description: 'Date and time the sample was collected',
-        date: {
-          pickerAppearance: 'dayAndTime',
-        },
-      },
-    },
-    {
-      name: 'testType',
-      type: 'select',
-      options: [
-        { label: '11-Panel Lab', value: '11-panel-lab' },
-        { label: '15-Panel Instant', value: '15-panel-instant' },
-        { label: '17-Panel SOS Lab', value: '17-panel-sos-lab' },
-        { label: 'EtG Lab', value: 'etg-lab' },
-      ],
-      required: true,
-      admin: {
-        description: 'Type of drug test panel used',
-      },
-    },
-    // Workflow status tracking
+    // Sidebar fields - workflow status and controls
     {
       name: 'screeningStatus',
       type: 'select',
@@ -97,7 +64,9 @@ export const DrugTests: CollectionConfig = {
       required: true,
       defaultValue: 'collected',
       admin: {
-        description: 'Current workflow status. Set to "Screened" when entering test results.',
+        description: 'AUTO-UPDATED: Current workflow status based on entered data',
+        readOnly: true,
+        position: 'sidebar',
       },
       hooks: {
         beforeChange: [
@@ -111,86 +80,6 @@ export const DrugTests: CollectionConfig = {
         ],
       },
     },
-    {
-      name: 'screeningCompletedAt',
-      type: 'date',
-      admin: {
-        description: 'Date and time when screening was completed',
-        condition: (_, siblingData) =>
-          siblingData?.screeningStatus && siblingData.screeningStatus !== 'collected',
-        date: {
-          pickerAppearance: 'dayAndTime',
-        },
-      },
-      hooks: {
-        beforeChange: [
-          ({ siblingData, value }) => {
-            // For 15-panel instant tests, auto-set to collectionDate since screening happens at collection time
-            if (
-              siblingData?.testType === '15-panel-instant' &&
-              siblingData?.collectionDate &&
-              siblingData?.screeningStatus === 'screened' &&
-              !value
-            ) {
-              return siblingData.collectionDate
-            }
-
-            // Auto-set timestamp when status changes to screened for the first time (for lab tests)
-            if (siblingData?.screeningStatus === 'screened' && !value) {
-              return new Date().toISOString()
-            }
-
-            return value
-          },
-        ],
-      },
-    },
-    // Raw test results - what substances were detected
-    {
-      name: 'detectedSubstances',
-      type: 'select',
-      hasMany: true,
-      options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
-      admin: {
-        description:
-          'RAW TEST RESULTS: Which substances tested positive? Leave empty if all negative. Select only substances that appear on your specific test panel.',
-        condition: (_, siblingData) => siblingData?.screeningStatus === 'screened',
-      },
-    },
-    // Computed fields - automatically populated by business logic hook
-    {
-      name: 'expectedPositives',
-      type: 'select',
-      hasMany: true,
-      options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
-      admin: {
-        description:
-          'AUTO-COMPUTED: Substances expected to be positive based on client medications',
-        readOnly: true,
-      },
-    },
-    {
-      name: 'unexpectedPositives',
-      type: 'select',
-      hasMany: true,
-      options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
-      admin: {
-        description: 'AUTO-COMPUTED: Substances that tested positive but were NOT expected (FAIL)',
-        readOnly: true,
-      },
-    },
-    {
-      name: 'unexpectedNegatives',
-      type: 'select',
-      hasMany: true,
-      options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
-      admin: {
-        description:
-          "AUTO-COMPUTED: Medications that should show positive but DIDN'T (Warning - Yellow Flag)",
-        readOnly: true,
-      },
-    },
-    // Overall result classification
     {
       name: 'initialScreenResult',
       type: 'select',
@@ -225,6 +114,7 @@ export const DrugTests: CollectionConfig = {
       options: [
         { label: 'Negative (PASS)', value: 'negative' },
         { label: 'Expected Positive (PASS)', value: 'expected-positive' },
+        { label: 'Confirmed Negative (PASS)', value: 'confirmed-negative' },
         { label: 'Unexpected Positive (FAIL)', value: 'unexpected-positive' },
         { label: 'Unexpected Negative (Warning)', value: 'unexpected-negative' },
         { label: 'Mixed Unexpected (FAIL)', value: 'mixed-unexpected' },
@@ -247,7 +137,16 @@ export const DrugTests: CollectionConfig = {
         },
       },
     },
-    // Confirmation workflow - always visible for one-save workflow
+    {
+      name: 'isComplete',
+      type: 'checkbox',
+      admin: {
+        description:
+          'AUTO-COMPUTED: Complete when auto-accepted, manually accepted, or all confirmation results received',
+        readOnly: true,
+        position: 'sidebar',
+      },
+    },
     {
       name: 'confirmationDecision',
       type: 'radio',
@@ -262,220 +161,347 @@ export const DrugTests: CollectionConfig = {
       },
     },
     {
-      name: 'confirmationRequestedAt',
-      type: 'date',
-      admin: {
-        description: 'Date and time confirmation was requested',
-        condition: (_, siblingData) => siblingData?.confirmationDecision === 'request-confirmation',
-        date: {
-          pickerAppearance: 'default',
-        },
-      },
-      hooks: {
-        beforeChange: [
-          ({ siblingData, value }) => {
-            // Auto-set timestamp when confirmation is requested for the first time
-            if (siblingData?.confirmationDecision === 'request-confirmation' && !value) {
-              return new Date().toISOString()
-            }
-            return value
-          },
-        ],
-      },
-    },
-    {
-      name: 'confirmationSubstances',
-      type: 'select',
-      options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
-      hasMany: true,
-      admin: {
-        description: 'Which substances require confirmation testing',
-        condition: (_, siblingData) => siblingData?.confirmationDecision === 'request-confirmation',
-      },
-    },
-    {
-      name: 'isDilute',
+      name: 'sendNotifications',
       type: 'checkbox',
-      admin: {
-        description: 'Mark if the test sample was dilute',
-      },
-    },
-    {
-      name: 'confirmationResults',
-      type: 'array',
-      admin: {
-        description: 'Individual confirmation test results for each substance',
-        condition: (_, siblingData) =>
-          siblingData?.confirmationDecision === 'request-confirmation' &&
-          Array.isArray(siblingData?.confirmationSubstances) &&
-          siblingData.confirmationSubstances.length > 0,
-      },
-      fields: [
-        {
-          name: 'substance',
-          type: 'select',
-          required: true,
-          options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
-          admin: {
-            description: 'Which substance was tested in the confirmation',
-          },
-        },
-        {
-          name: 'result',
-          type: 'select',
-          required: true,
-          options: [
-            { label: 'Confirmed Positive', value: 'confirmed-positive' },
-            { label: 'Confirmed Negative', value: 'confirmed-negative' },
-            { label: 'Inconclusive', value: 'inconclusive' },
-          ],
-          admin: {
-            description: 'Lab confirmation result for this specific substance',
-          },
-        },
-        {
-          name: 'notes',
-          type: 'textarea',
-          admin: {
-            description: 'Optional notes about this confirmation result',
-          },
-        },
-      ],
-    },
-    // Auto-computed field - determines if test is complete
-    {
-      name: 'isComplete',
-      type: 'checkbox',
+      defaultValue: true,
       admin: {
         description:
-          'AUTO-COMPUTED: Complete when auto-accepted, manually accepted, or all confirmation results received',
-        readOnly: true,
+          'Uncheck to skip sending email notifications when saving (useful for testing or manual corrections)',
         position: 'sidebar',
       },
     },
+    // Main content organized in tabs
     {
-      name: 'medicationsAtTestTime',
-      type: 'text',
-      access: {
-        update: ({ req }) => {
-          // Only superAdmin can modify medication snapshots after creation
-          return req.user?.collection === 'admins' && req.user?.role === 'superAdmin'
-        },
-      },
-      admin: {
-        description:
-          'Snapshot of active medications at time of test (auto-populated from client, editable by superAdmin only)',
-      },
-      hooks: {
-        beforeChange: [
-          async ({ value, siblingData, req, operation }) => {
-            // Only auto-populate on create for drug tests
-            if (operation === 'create' && siblingData?.relatedClient) {
-              try {
-                const payload = req.payload
-                const client = await payload.findByID({
-                  collection: 'clients',
-                  id: siblingData.relatedClient,
-                  depth: 0,
-                })
-
-                if (client?.medications) {
-                  // Get active medications and format as comma-separated string
-                  const activeMeds = client.medications
-                    .filter((med: any) => med.status === 'active')
-                    .map((med: any) => med.medicationName)
-                    .join(', ')
-
-                  return activeMeds || 'No active medications'
-                }
-
-                return 'No medications on file'
-              } catch (error) {
-                console.error('Error fetching client medications:', error)
-                return 'Error fetching medications'
-              }
-            }
-
-            // Return existing value if already set
-            return value
-          },
-        ],
-      },
-    },
-    {
-      name: 'processNotes',
-      type: 'textarea',
-      admin: {
-        description: 'Internal process notes and status updates',
-      },
-    },
-    {
-      name: 'testDocument',
-      type: 'relationship',
-      relationTo: 'private-media',
-      required: false,
-      admin: {
-        description: 'Drug test report document (PDF)',
-        position: 'sidebar',
-      },
-      filterOptions: {
-        documentType: {
-          equals: 'drug-test-report',
-        },
-      },
-    },
-    // Email Notification Controls
-    {
-      type: 'collapsible',
-      label: 'Email Notifications',
-      admin: {
-        initCollapsed: false,
-        position: 'sidebar',
-      },
-      fields: [
+      type: 'tabs',
+      tabs: [
+        // Tab 1: Basic Info
         {
-          name: 'sendNotifications',
-          type: 'checkbox',
-          defaultValue: true,
-          admin: {
-            description:
-              'Uncheck to skip sending email notifications when saving (useful for testing or manual corrections)',
-          },
-        },
-        {
-          name: 'notificationsSent',
-          type: 'array',
-          admin: {
-            readOnly: true,
-            description: 'History of email notifications sent for this test',
-          },
+          label: 'Basic Info',
+          description: 'Client information, collection details, and test type',
           fields: [
             {
-              name: 'stage',
-              type: 'text',
+              name: 'relatedClient',
+              type: 'relationship',
+              relationTo: 'clients',
+              required: true,
               admin: {
-                readOnly: true,
-                description: 'Workflow stage (collected, screened, complete)',
+                description: 'Client this drug test belongs to',
               },
             },
             {
-              name: 'sentAt',
+              name: 'collectionDate',
               type: 'date',
               admin: {
-                readOnly: true,
-                description: 'When the notification was sent',
+                description: 'Date and time the sample was collected',
                 date: {
                   pickerAppearance: 'dayAndTime',
                 },
               },
             },
             {
-              name: 'recipients',
+              name: 'testType',
+              type: 'select',
+              options: [
+                { label: '11-Panel Lab', value: '11-panel-lab' },
+                { label: '15-Panel Instant', value: '15-panel-instant' },
+                { label: '17-Panel SOS Lab', value: '17-panel-sos-lab' },
+                { label: 'EtG Lab', value: 'etg-lab' },
+              ],
+              required: true,
+              admin: {
+                description: 'Type of drug test panel used',
+              },
+            },
+            {
+              name: 'medicationsAtTestTime',
+              type: 'text',
+              access: {
+                update: ({ req }) => {
+                  // Only superAdmin can modify medication snapshots after creation
+                  return req.user?.collection === 'admins' && req.user?.role === 'superAdmin'
+                },
+              },
+              admin: {
+                description:
+                  'Snapshot of active medications at time of test (auto-populated from client, editable by superAdmin only)',
+              },
+              hooks: {
+                beforeChange: [
+                  async ({ value, siblingData, req, operation }) => {
+                    // Only auto-populate on create for drug tests
+                    if (operation === 'create' && siblingData?.relatedClient) {
+                      try {
+                        const payload = req.payload
+                        const client = await payload.findByID({
+                          collection: 'clients',
+                          id: siblingData.relatedClient,
+                          depth: 0,
+                        })
+
+                        if (client?.medications) {
+                          // Get active medications and format as comma-separated string
+                          const activeMeds = client.medications
+                            .filter((med: any) => med.status === 'active')
+                            .map((med: any) => med.medicationName)
+                            .join(', ')
+
+                          return activeMeds || 'No active medications'
+                        }
+
+                        return 'No medications on file'
+                      } catch (error) {
+                        console.error('Error fetching client medications:', error)
+                        return 'Error fetching medications'
+                      }
+                    }
+
+                    // Return existing value if already set
+                    return value
+                  },
+                ],
+              },
+            },
+            {
+              name: 'processNotes',
               type: 'textarea',
               admin: {
-                readOnly: true,
-                description: 'Who received the notification',
+                description: 'Internal process notes and status updates',
               },
+            },
+          ],
+        },
+        // Tab 2: Screening Results
+        {
+          label: 'Screening',
+          description: 'Initial screening results and detected substances',
+          fields: [
+            {
+              name: 'testDocument',
+              type: 'relationship',
+              relationTo: 'private-media',
+              required: false,
+              admin: {
+                description:
+                  'Initial screening test report (PDF). Uploading this will trigger test computation and mark status as "screened".',
+              },
+              filterOptions: {
+                documentType: {
+                  equals: 'drug-test-report',
+                },
+              },
+            },
+            {
+              name: 'isDilute',
+              type: 'checkbox',
+              admin: {
+                description: 'Mark if the test sample was dilute',
+              },
+            },
+            {
+              type: 'row',
+              fields: [
+                {
+                  name: 'detectedSubstances',
+                  type: 'select',
+                  hasMany: true,
+                  options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
+                  admin: {
+                    width: '100%',
+                    description:
+                      'RAW TEST RESULTS: Which substances tested positive? Leave empty if all negative.',
+                  },
+                },
+              ],
+            },
+            {
+              type: 'collapsible',
+              label: 'Computed Results (Auto-Generated)',
+              admin: {
+                initCollapsed: false,
+                description:
+                  'These fields are automatically calculated based on client medications',
+              },
+              fields: [
+                {
+                  name: 'expectedPositives',
+                  type: 'select',
+                  hasMany: true,
+                  options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
+                  admin: {
+                    description:
+                      'AUTO-COMPUTED: Substances expected to be positive based on client medications',
+                    readOnly: true,
+                  },
+                },
+                {
+                  name: 'unexpectedPositives',
+                  type: 'select',
+                  hasMany: true,
+                  options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
+                  admin: {
+                    description:
+                      'AUTO-COMPUTED: Substances that tested positive but were NOT expected (FAIL)',
+                    readOnly: true,
+                  },
+                },
+                {
+                  name: 'unexpectedNegatives',
+                  type: 'select',
+                  hasMany: true,
+                  options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
+                  admin: {
+                    description:
+                      "AUTO-COMPUTED: Medications that should show positive but DIDN'T (Warning - Yellow Flag)",
+                    readOnly: true,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        // Tab 3: Confirmation Testing
+        {
+          label: 'Confirmation',
+          description: 'Confirmation testing workflow and results',
+          fields: [
+            {
+              name: 'confirmationRequestedAt',
+              type: 'date',
+              admin: {
+                description: 'Date and time confirmation was requested',
+                condition: (_, siblingData) =>
+                  siblingData?.confirmationDecision === 'request-confirmation',
+                date: {
+                  pickerAppearance: 'default',
+                },
+              },
+              hooks: {
+                beforeChange: [
+                  ({ siblingData, value }) => {
+                    // Auto-set timestamp when confirmation is requested for the first time
+                    if (siblingData?.confirmationDecision === 'request-confirmation' && !value) {
+                      return new Date().toISOString()
+                    }
+                    return value
+                  },
+                ],
+              },
+            },
+            {
+              name: 'confirmationDocument',
+              type: 'relationship',
+              relationTo: 'private-media',
+              required: false,
+              admin: {
+                description:
+                  'Confirmation test report (PDF). Shows both initial screen and confirmation results. Required before final emails are sent.',
+                condition: (_, siblingData) =>
+                  siblingData?.confirmationDecision === 'request-confirmation' &&
+                  Array.isArray(siblingData?.confirmationResults) &&
+                  siblingData.confirmationResults.length > 0,
+              },
+              filterOptions: {
+                documentType: {
+                  equals: 'drug-test-report',
+                },
+              },
+            },
+            {
+              name: 'confirmationSubstances',
+              type: 'select',
+              options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
+              hasMany: true,
+              admin: {
+                description: 'Which substances require confirmation testing',
+                condition: (_, siblingData) =>
+                  siblingData?.confirmationDecision === 'request-confirmation',
+              },
+            },
+            {
+              name: 'confirmationResults',
+              type: 'array',
+              admin: {
+                description: 'Individual confirmation test results for each substance',
+                condition: (_, siblingData) =>
+                  siblingData?.confirmationDecision === 'request-confirmation' &&
+                  Array.isArray(siblingData?.confirmationSubstances) &&
+                  siblingData.confirmationSubstances.length > 0,
+              },
+              fields: [
+                {
+                  name: 'substance',
+                  type: 'select',
+                  required: true,
+                  options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
+                  admin: {
+                    description: 'Which substance was tested in the confirmation',
+                  },
+                },
+                {
+                  name: 'result',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { label: 'Confirmed Positive', value: 'confirmed-positive' },
+                    { label: 'Confirmed Negative', value: 'confirmed-negative' },
+                    { label: 'Inconclusive', value: 'inconclusive' },
+                  ],
+                  admin: {
+                    description: 'Lab confirmation result for this specific substance',
+                  },
+                },
+                {
+                  name: 'notes',
+                  type: 'textarea',
+                  admin: {
+                    description: 'Optional notes about this confirmation result',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        // Tab 4: Notification History
+        {
+          label: 'Notification History',
+          description: 'Email notification history and audit trail',
+          fields: [
+            {
+              name: 'notificationsSent',
+              type: 'array',
+              admin: {
+                readOnly: true,
+                description: 'Complete history of all email notifications sent for this test',
+              },
+              fields: [
+                {
+                  name: 'stage',
+                  type: 'text',
+                  admin: {
+                    readOnly: true,
+                    description: 'Workflow stage (collected, screened, complete)',
+                  },
+                },
+                {
+                  name: 'sentAt',
+                  type: 'date',
+                  admin: {
+                    readOnly: true,
+                    description: 'When the notification was sent',
+                    date: {
+                      pickerAppearance: 'dayAndTime',
+                    },
+                  },
+                },
+                {
+                  name: 'recipients',
+                  type: 'textarea',
+                  admin: {
+                    readOnly: true,
+                    description: 'Who received the notification',
+                  },
+                },
+              ],
             },
           ],
         },

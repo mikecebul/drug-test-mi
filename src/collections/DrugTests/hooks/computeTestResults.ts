@@ -23,10 +23,15 @@ import type { CollectionBeforeChangeHook } from 'payload'
 export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req, operation }) => {
   if (!data) return data
 
-  const { detectedSubstances, relatedClient, screeningStatus } = data
+  const { detectedSubstances, relatedClient, screeningStatus, testDocument } = data
+
+  // Auto-upgrade screeningStatus to 'screened' when test document is uploaded
+  if (testDocument && screeningStatus === 'collected') {
+    data.screeningStatus = 'screened'
+  }
 
   // Auto-upgrade existing records without screeningStatus
-  const currentStatus = screeningStatus || (data.initialScreenResult ? 'screened' : 'collected')
+  const currentStatus = data.screeningStatus || (data.initialScreenResult ? 'screened' : 'collected')
 
   // For collected tests (not yet screened), set isComplete = false so they appear in tracker
   // Collected tests need to be tracked for screening
@@ -164,6 +169,9 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
         (result: any) => result.result === 'confirmed-positive',
       )
 
+      // Check if initial screen had unexpected positives
+      const hadUnexpectedPositives = initialScreenResult === 'unexpected-positive' || initialScreenResult === 'mixed-unexpected'
+
       if (hasConfirmedPositive) {
         // If any unexpected positive was confirmed, it's still a fail
         if (unexpectedNegatives.length > 0) {
@@ -172,19 +180,32 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
           data.finalStatus = 'unexpected-positive'
         }
       } else {
-        // All unexpected positives were confirmed negative
-        // Check what's left
-        if (unexpectedNegatives.length > 0) {
+        // All confirmations came back negative (false positives ruled out)
+        if (hadUnexpectedPositives && unexpectedNegatives.length === 0) {
+          // Initial screen showed unexpected positives, but confirmations ruled them out = PASS
+          if (expectedPositives.length > 0) {
+            data.finalStatus = 'expected-positive'
+          } else {
+            data.finalStatus = 'confirmed-negative'
+          }
+        } else if (unexpectedNegatives.length > 0) {
           // Only unexpected negatives remain (yellow warning)
           data.finalStatus = 'unexpected-negative'
         } else if (expectedPositives.length > 0) {
           // Nothing unexpected - expected positives only
           data.finalStatus = 'expected-positive'
         } else {
-          // Nothing detected at all after confirmations ruled out false positives
+          // Nothing detected at all
           data.finalStatus = 'negative'
         }
       }
+    }
+
+    // Auto-update screeningStatus based on confirmation workflow
+    if (confirmationComplete) {
+      data.screeningStatus = 'complete'
+    } else if (hadConfirmation) {
+      data.screeningStatus = 'confirmation-pending'
     }
 
     // Auto-complete logic

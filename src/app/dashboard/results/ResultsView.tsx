@@ -376,8 +376,8 @@ function formatTestResult(testData: DrugTestResult): {
 const getResultBadgeVariant = (result: string) => {
   // Color scheme: Red (destructive), Yellow (warning), Blue (secondary), White (outline)
 
-  // Blue - PASS results (Negative and Expected Positive)
-  if (result === 'Negative' || result === 'Expected Positive') {
+  // Blue - PASS results (Negative, Expected Positive, and Confirmed Negative)
+  if (result === 'Negative' || result === 'Expected Positive' || result === 'Confirmed Negative') {
     return 'secondary'
   }
 
@@ -643,25 +643,29 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
             ['unexpected-positive', 'mixed-unexpected'].includes(initialResult) &&
             !confirmationDecision
 
+          // Prefer confirmation document if it exists (includes both initial and final results)
+          const documentToView =
+            result.confirmationDocument &&
+            typeof result.confirmationDocument === 'object' &&
+            result.confirmationDocument.url
+              ? result.confirmationDocument
+              : result.testDocument &&
+                  typeof result.testDocument === 'object' &&
+                  result.testDocument.url
+                ? result.testDocument
+                : null
+
           return (
             <div className="flex flex-col gap-1.5">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  if (
-                    result.testDocument &&
-                    typeof result.testDocument === 'object' &&
-                    result.testDocument.url
-                  ) {
-                    window.open(result.testDocument.url, '_blank')
+                  if (documentToView?.url) {
+                    window.open(documentToView.url, '_blank')
                   }
                 }}
-                disabled={
-                  !result.testDocument ||
-                  typeof result.testDocument !== 'object' ||
-                  !result.testDocument.url
-                }
+                disabled={!documentToView}
                 title="View test result"
                 className="h-8 px-2"
               >
