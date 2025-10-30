@@ -1,9 +1,4 @@
-import type {
-  CollectedEmailData,
-  ScreenedEmailData,
-  CompleteEmailData,
-  EmailOutput,
-} from './types'
+import type { CollectedEmailData, ScreenedEmailData, CompleteEmailData, EmailOutput } from './types'
 
 // Helper: Format date for display
 function formatDate(dateString: string): string {
@@ -30,7 +25,8 @@ function formatTestType(testType: string): string {
 
 // Helper: Get result color based on test result
 function getResultColor(result: string): string {
-  if (result === 'negative' || result === 'expected-positive' || result === 'confirmed-negative') return '#22c55e' // green
+  if (result === 'negative' || result === 'expected-positive' || result === 'confirmed-negative')
+    return '#22c55e' // green
   if (result === 'unexpected-negative') return '#eab308' // yellow
   return '#ef4444' // red (unexpected-positive, mixed-unexpected)
 }
@@ -178,7 +174,7 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
             .header { background-color: ${resultColor}; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
             .content { background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 5px 5px; }
-            .result-badge { display: inline-block; padding: 8px 16px; background-color: ${resultColor}; color: white; border-radius: 5px; font-weight: bold; margin: 15px 0; }
+            .result-badge { display: inline-block; padding: 8px 16px; background-color: ${resultColor}; color: white; border-radius: 5px; font-weight: bold; margin: 10px 0; }
             .detail-row { margin: 10px 0; padding: 10px; background-color: white; border-radius: 3px; }
             .label { font-weight: bold; color: #3b82f6; }
             .substances-section { margin: 15px 0; padding: 15px; background-color: white; border-left: 4px solid #ccc; border-radius: 3px; }
@@ -238,7 +234,7 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                 expectedPositives.length > 0
                   ? `
                 <div class="substances-section green">
-                  <strong>✓ Expected Positives (from documented medications):</strong>
+                  <strong>✓ Expected Positives (from Reported medications):</strong>
                   <ul class="substance-list">
                     ${expectedPositives.map((s) => `<li class="substance-item">✓ ${formatSubstance(s)}</li>`).join('')}
                   </ul>
@@ -251,7 +247,7 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                 unexpectedPositives.length > 0
                   ? `
                 <div class="substances-section red">
-                  <strong>✗ Unexpected Positives (not from documented medications):</strong>
+                  <strong>✗ Unexpected Positives (not from reported medications):</strong>
                   <ul class="substance-list">
                     ${unexpectedPositives.map((s) => `<li class="substance-item">✗ ${formatSubstance(s)}</li>`).join('')}
                   </ul>
@@ -265,7 +261,7 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                 unexpectedNegatives.length > 0
                   ? `
                 <div class="substances-section yellow">
-                  <strong>⚠ Unexpected Negatives (documented medications not detected):</strong>
+                  <strong>⚠ Unexpected Negatives (reported medications not detected):</strong>
                   <ul class="substance-list">
                     ${unexpectedNegatives.map((s) => `<li class="substance-item">⚠ ${formatSubstance(s)}</li>`).join('')}
                   </ul>
@@ -276,7 +272,7 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
               }
 
               <div class="button-container">
-                <a href="${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard/results" class="cta-button">View Full Results</a>
+                <a href="${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard/results" class="cta-button">View Test Results</a>
               </div>
 
               ${
@@ -288,7 +284,8 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                   <p style="margin: 10px 0 0 0;"><strong>Note:</strong> Confirmation testing is rarely necessary for missing medications. Any decisions about further testing should be made between you and your referral source.</p>
                 </div>
               `
-                  : initialScreenResult === 'unexpected-positive' || initialScreenResult === 'mixed-unexpected'
+                  : initialScreenResult === 'unexpected-positive' ||
+                      initialScreenResult === 'mixed-unexpected'
                     ? `
                 <div class="info-box">
                   <p style="margin: 0; font-weight: bold;">Confirmation Testing Available</p>
@@ -384,7 +381,7 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                 expectedPositives.length > 0
                   ? `
                 <div class="substances-section green">
-                  <strong>✓ Expected Positives (from documented medications):</strong>
+                  <strong>✓ Expected Positives (from reported medications):</strong>
                   <ul class="substance-list">
                     ${expectedPositives.map((s) => `<li class="substance-item">✓ ${formatSubstance(s)}</li>`).join('')}
                   </ul>
@@ -397,7 +394,7 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                 unexpectedPositives.length > 0
                   ? `
                 <div class="substances-section red">
-                  <strong>✗ Unexpected Positives (not from documented medications):</strong>
+                  <strong>✗ Unexpected Positives (not from reported medications):</strong>
                   <ul class="substance-list">
                     ${unexpectedPositives.map((s) => `<li class="substance-item">✗ ${formatSubstance(s)}</li>`).join('')}
                   </ul>
@@ -411,7 +408,7 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                 unexpectedNegatives.length > 0
                   ? `
                 <div class="substances-section yellow">
-                  <strong>⚠ Unexpected Negatives (documented medications not detected):</strong>
+                  <strong>⚠ Unexpected Negatives (reported medications not detected):</strong>
                   <ul class="substance-list">
                     ${unexpectedNegatives.map((s) => `<li class="substance-item">⚠ ${formatSubstance(s)}</li>`).join('')}
                   </ul>
@@ -472,7 +469,7 @@ export function buildCompleteEmail(data: CompleteEmailData): EmailOutput {
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
             .header { background-color: ${resultColor}; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
             .content { background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 5px 5px; }
-            .result-badge { display: inline-block; padding: 8px 16px; background-color: ${resultColor}; color: white; border-radius: 5px; font-weight: bold; margin: 15px 0; }
+            .result-badge { display: inline-block; padding: 8px 16px; background-color: ${resultColor}; color: white; border-radius: 5px; font-weight: bold; margin: 10px 0; }
             .detail-row { margin: 10px 0; padding: 10px; background-color: white; border-radius: 3px; }
             .label { font-weight: bold; color: #3b82f6; }
             .substances-section { margin: 15px 0; padding: 15px; background-color: white; border-left: 4px solid #ccc; border-radius: 3px; }
@@ -540,7 +537,7 @@ export function buildCompleteEmail(data: CompleteEmailData): EmailOutput {
               }
 
               <div class="button-container">
-                <a href="${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard/results" class="cta-button">View Full Results</a>
+                <a href="${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard/results" class="cta-button">View Test Results</a>
               </div>
 
               <div class="footer">

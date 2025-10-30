@@ -320,7 +320,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
                 </div>
                 <div className="space-y-3">
                   <div>
-                    <p className="text-muted-foreground text-sm">Documented Medications</p>
+                    <p className="text-muted-foreground text-sm">Reported Medications</p>
                     <p className="text-sm font-medium">{stats.activeMedications} active</p>
                   </div>
                   <Link href="/dashboard/profile">
