@@ -57,7 +57,8 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
   const is15Panel = testType === '15-panel-instant'
   const is11PanelLab = testType === '11-panel-lab'
   const is17PanelLab = testType === '17-panel-sos-lab'
-  const isLabTest = is11PanelLab || is17PanelLab
+  const isEtgLab = testType === 'etg-lab'
+  const isLabTest = is11PanelLab || is17PanelLab || isEtgLab
 
   // Determine if screening is complete
   const isScreened = screeningStatus === 'screened' || screeningStatus === 'confirmation-pending' || screeningStatus === 'complete'
@@ -506,6 +507,9 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
             case '17-panel-sos-lab':
               label = '17-Panel SOS Lab'
               break
+            case 'etg-lab':
+              label = 'EtG Lab'
+              break
           }
           return <div className="whitespace-nowrap text-sm">{label}</div>
         },
@@ -772,6 +776,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                         <SelectItem value="11-panel-lab">11-Panel Lab</SelectItem>
                         <SelectItem value="15-panel-instant">15-Panel Instant</SelectItem>
                         <SelectItem value="17-panel-sos-lab">17-Panel SOS Lab</SelectItem>
+                        <SelectItem value="etg-lab">EtG Lab</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -939,6 +944,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                             <SelectItem value="11-panel-lab">11-Panel Lab</SelectItem>
                             <SelectItem value="15-panel-instant">15-Panel Instant</SelectItem>
                             <SelectItem value="17-panel-sos-lab">17-Panel SOS Lab</SelectItem>
+                            <SelectItem value="etg-lab">EtG Lab</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

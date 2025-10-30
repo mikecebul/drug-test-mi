@@ -94,24 +94,24 @@ export async function Footer() {
                     )}
                   >
                     <Navigation className="mr-2 shrink-0" size={20} />
-                    <ul>
+                    <div>
                       {contact.physicalAddress?.street && (
-                        <li>
+                        <div>
                           <span>
                             <strong>Physical: </strong>
                             {`${contact.physicalAddress.street}, ${contact.physicalAddress.cityStateZip}`}
                           </span>
-                        </li>
+                        </div>
                       )}
                       {contact.mailingAddress?.street && (
-                        <li>
+                        <div>
                           <span>
                             <strong>Mailing: </strong>
                             {`${contact.mailingAddress.street}, ${contact.mailingAddress.cityStateZip}`}
                           </span>
-                        </li>
+                        </div>
                       )}
-                    </ul>
+                    </div>
                   </li>
                 )}
                 {/* Social Links */}
@@ -140,9 +140,9 @@ export async function Footer() {
                     )}
                   >
                     <Clock className="mr-2" size={20} />
-                    <ul>
+                    <div>
                       {hours?.map(({ day, hours, id, note, type }) => (
-                        <li key={id}>
+                        <div key={id}>
                           {type === 'default' ? (
                             <span>
                               <strong>{`${day}: `}</strong>
@@ -151,9 +151,9 @@ export async function Footer() {
                           ) : (
                             <span>{note}</span>
                           )}
-                        </li>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   </li>
                 )}
               </ul>
