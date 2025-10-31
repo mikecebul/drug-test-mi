@@ -960,10 +960,6 @@ export interface Client {
      * LEGACY (pre-2025-01): Single probation officer email. New registrations use recipients array. Kept for backwards compatibility with existing records.
      */
     probationOfficerEmail?: string | null;
-    /**
-     * Additional email to CC on test results
-     */
-    ccEmail?: string | null;
   };
   /**
    * Employer and contact information
@@ -1077,6 +1073,10 @@ export interface Client {
             )[]
           | null;
         /**
+         * If checked, missing this medication will FAIL the test and require confirmation. Use this for MAT medications (e.g., buprenorphine, methadone) that must show on every test. If unchecked, missing this medication will only show as a WARNING.
+         */
+        requireConfirmation?: boolean | null;
+        /**
          * Additional notes about this medication
          */
         notes?: string | null;
@@ -1174,6 +1174,10 @@ export interface DrugTest {
    */
   screeningStatus: 'collected' | 'screened' | 'confirmation-pending' | 'complete';
   /**
+   * ⚠️ CRITICAL WARNING: Check this ONLY if the sample is INVALID (leaked during transport, damaged, or unable to produce results). This will immediately mark the test as COMPLETE with an INCONCLUSIVE result and send notification emails to client and referral. A new test must be scheduled.
+   */
+  isInconclusive?: boolean | null;
+  /**
    * AUTO-COMPUTED: Initial screening result based on business logic
    */
   initialScreenResult?:
@@ -1181,9 +1185,9 @@ export interface DrugTest {
         | 'negative'
         | 'expected-positive'
         | 'unexpected-positive'
-        | 'unexpected-negative'
+        | 'unexpected-negative-critical'
+        | 'unexpected-negative-warning'
         | 'mixed-unexpected'
-        | 'inconclusive'
       )
     | null;
   /**
@@ -1195,7 +1199,8 @@ export interface DrugTest {
         | 'expected-positive'
         | 'confirmed-negative'
         | 'unexpected-positive'
-        | 'unexpected-negative'
+        | 'unexpected-negative-critical'
+        | 'unexpected-negative-warning'
         | 'mixed-unexpected'
         | 'inconclusive'
       )
@@ -1429,7 +1434,7 @@ export interface DrugTest {
   notificationsSent?:
     | {
         /**
-         * Workflow stage (collected, screened, complete)
+         * Workflow stage (collected, screened, complete, inconclusive)
          */
         stage?: string | null;
         /**
@@ -2462,7 +2467,6 @@ export interface ClientsSelect<T extends boolean = true> {
             };
         probationOfficerName?: T;
         probationOfficerEmail?: T;
-        ccEmail?: T;
       };
   employmentInfo?:
     | T
@@ -2494,6 +2498,7 @@ export interface ClientsSelect<T extends boolean = true> {
         endDate?: T;
         status?: T;
         detectedAs?: T;
+        requireConfirmation?: T;
         notes?: T;
         createdAt?: T;
         id?: T;
@@ -2525,6 +2530,7 @@ export interface ClientsSelect<T extends boolean = true> {
  */
 export interface DrugTestsSelect<T extends boolean = true> {
   screeningStatus?: T;
+  isInconclusive?: T;
   initialScreenResult?: T;
   finalStatus?: T;
   isComplete?: T;

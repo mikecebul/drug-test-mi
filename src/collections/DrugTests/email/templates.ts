@@ -1,4 +1,10 @@
-import type { CollectedEmailData, ScreenedEmailData, CompleteEmailData, EmailOutput } from './types'
+import type {
+  CollectedEmailData,
+  ScreenedEmailData,
+  CompleteEmailData,
+  InconclusiveEmailData,
+  EmailOutput,
+} from './types'
 
 // Helper: Format date for display
 function formatDate(dateString: string): string {
@@ -27,8 +33,8 @@ function formatTestType(testType: string): string {
 function getResultColor(result: string): string {
   if (result === 'negative' || result === 'expected-positive' || result === 'confirmed-negative')
     return '#22c55e' // green
-  if (result === 'unexpected-negative') return '#eab308' // yellow
-  return '#ef4444' // red (unexpected-positive, mixed-unexpected)
+  if (result === 'unexpected-negative-warning') return '#eab308' // yellow (soft warning)
+  return '#ef4444' // red (unexpected-positive, unexpected-negative-critical, mixed-unexpected)
 }
 
 // Helper: Get result label for display
@@ -38,7 +44,8 @@ function getResultLabel(result: string): string {
     'expected-positive': 'EXPECTED POSITIVE (PASS)',
     'confirmed-negative': 'CONFIRMED NEGATIVE (PASS)',
     'unexpected-positive': 'UNEXPECTED POSITIVE (FAIL)',
-    'unexpected-negative': 'UNEXPECTED NEGATIVE (Warning)',
+    'unexpected-negative-critical': 'UNEXPECTED NEGATIVE - CRITICAL (FAIL)',
+    'unexpected-negative-warning': 'UNEXPECTED NEGATIVE - WARNING',
     'mixed-unexpected': 'MIXED UNEXPECTED (FAIL)',
     inconclusive: 'INCONCLUSIVE',
   }
@@ -71,6 +78,132 @@ function formatSubstance(substance: string): string {
     other: 'Other',
   }
   return substanceMap[substance] || substance
+}
+
+/**
+ * Inconclusive Test Email
+ * Sent when a test sample is invalid and cannot be screened
+ */
+export function buildInconclusiveEmail(data: InconclusiveEmailData): EmailOutput {
+  const { clientName, collectionDate, testType, reason } = data
+
+  const clientEmail = {
+    subject: `Drug Test - Inconclusive Result - ${clientName}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Test Inconclusive</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #f59e0b; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+            .content { background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 5px 5px; }
+            .warning-box { background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 15px 0; border-radius: 3px; }
+            .detail-row { margin: 10px 0; padding: 10px; background-color: white; border-radius: 3px; }
+            .label { font-weight: bold; color: #f59e0b; }
+            .cta-button { display: inline-block; padding: 14px 32px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; text-align: center; }
+            .button-container { text-align: center; margin: 25px 0; }
+            .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 14px; color: #666; text-align: center; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>⚠️ Test Inconclusive</h1>
+            </div>
+            <div class="content">
+              <div class="warning-box">
+                <p style="margin: 0; font-weight: bold;">Your drug test sample could not be screened.</p>
+                <p style="margin: 10px 0 0 0;">The sample was invalid and unable to produce test results. ${reason ? `Reason: ${reason}` : 'This may occur if the sample leaked during transport, was damaged, or was otherwise compromised.'}</p>
+              </div>
+
+              <div class="detail-row">
+                <span class="label">Collection Date:</span> ${formatDate(collectionDate)}
+              </div>
+              <div class="detail-row">
+                <span class="label">Test Type:</span> ${formatTestType(testType)}
+              </div>
+
+              <p>A new test will need to be scheduled to obtain valid results. Please contact MI Drug Test to schedule a replacement test.</p>
+
+              <div class="button-container">
+                <a href="${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard/results" class="cta-button">View Test History</a>
+              </div>
+
+              <div class="footer">
+                <p><strong>Please call us to schedule a replacement test.</strong></p>
+                <p><small>This is an automated notification from MI Drug Test.</small></p>
+                <p><small>Notification sent: ${new Date().toLocaleString()}</small></p>
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+  }
+
+  const referralEmail = {
+    subject: `Drug Test - Inconclusive Result - ${clientName}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Test Inconclusive</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #f59e0b; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+            .content { background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 5px 5px; }
+            .warning-box { background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 15px 0; border-radius: 3px; }
+            .detail-row { margin: 10px 0; padding: 10px; background-color: white; border-radius: 3px; }
+            .label { font-weight: bold; color: #f59e0b; }
+            .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 14px; color: #666; text-align: center; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>⚠️ Test Inconclusive</h1>
+            </div>
+            <div class="content">
+              <div class="warning-box">
+                <p style="margin: 0; font-weight: bold;">Drug test sample could not be screened.</p>
+                <p style="margin: 10px 0 0 0;">The sample was invalid and unable to produce test results. ${reason ? `Reason: ${reason}` : 'This may occur if the sample leaked during transport, was damaged, or was otherwise compromised.'}</p>
+              </div>
+
+              <div class="detail-row">
+                <span class="label">Client:</span> ${clientName}
+              </div>
+              <div class="detail-row">
+                <span class="label">Collection Date:</span> ${formatDate(collectionDate)}
+              </div>
+              <div class="detail-row">
+                <span class="label">Test Type:</span> ${formatTestType(testType)}
+              </div>
+
+              <p><strong>Action Required:</strong> A new test will need to be scheduled for this client to obtain valid results.</p>
+
+              <div class="footer">
+                <p><strong>This test is marked as complete with an inconclusive result.</strong></p>
+                <p><small>This is an automated notification from MI Drug Test.</small></p>
+                <p><small>Notification sent: ${new Date().toLocaleString()}</small></p>
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+  }
+
+  return {
+    client: clientEmail,
+    referrals: referralEmail,
+  }
 }
 
 /**
@@ -234,9 +367,9 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                 expectedPositives.length > 0
                   ? `
                 <div class="substances-section green">
-                  <strong>✓ Expected Positives (from Reported medications):</strong>
+                  <strong>✅ Expected Positives (from reported medications):</strong>
                   <ul class="substance-list">
-                    ${expectedPositives.map((s) => `<li class="substance-item">✓ ${formatSubstance(s)}</li>`).join('')}
+                    ${expectedPositives.map((s) => `<li class="substance-item">✅ ${formatSubstance(s)}</li>`).join('')}
                   </ul>
                 </div>
               `
@@ -247,9 +380,9 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                 unexpectedPositives.length > 0
                   ? `
                 <div class="substances-section red">
-                  <strong>✗ Unexpected Positives (not from reported medications):</strong>
+                  <strong>❌ Unexpected Positives (not from reported medications):</strong>
                   <ul class="substance-list">
-                    ${unexpectedPositives.map((s) => `<li class="substance-item">✗ ${formatSubstance(s)}</li>`).join('')}
+                    ${unexpectedPositives.map((s) => `<li class="substance-item">❌ ${formatSubstance(s)}</li>`).join('')}
                   </ul>
                   <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Confirmation testing available within 30 days.</p>
                 </div>
@@ -260,12 +393,18 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
               ${
                 unexpectedNegatives.length > 0
                   ? `
-                <div class="substances-section yellow">
-                  <strong>⚠ Unexpected Negatives (reported medications not detected):</strong>
+                <div class="substances-section ${initialScreenResult === 'unexpected-negative-critical' ? 'red' : 'yellow'}">
+                  <strong>${initialScreenResult === 'unexpected-negative-critical' ? '❌' : '⚠️'} Unexpected Negatives (reported medications not detected):</strong>
                   <ul class="substance-list">
-                    ${unexpectedNegatives.map((s) => `<li class="substance-item">⚠ ${formatSubstance(s)}</li>`).join('')}
+                    ${unexpectedNegatives.map((s) => `<li class="substance-item">${initialScreenResult === 'unexpected-negative-critical' ? '❌' : '⚠️'} ${formatSubstance(s)}</li>`).join('')}
                   </ul>
-                  <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Expected medications were not detected in this test.</p>
+                  <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">
+                    ${
+                      initialScreenResult === 'unexpected-negative-critical'
+                        ? 'CRITICAL: Required medications were not detected. This requires immediate review and confirmation testing.'
+                        : 'Expected medications were not detected. This is being monitored for patterns but does not automatically fail the test.'
+                    }
+                  </p>
                 </div>
               `
                   : ''
@@ -276,24 +415,32 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
               </div>
 
               ${
-                initialScreenResult === 'unexpected-negative'
+                initialScreenResult === 'unexpected-negative-warning'
                   ? `
                 <div class="info-box warning">
-                  <p style="margin: 0; font-weight: bold;">About Your Results</p>
-                  <p style="margin: 10px 0 0 0;">Your test shows that some of your prescribed medications were not detected. This is uncommon and may indicate timing or other factors.</p>
-                  <p style="margin: 10px 0 0 0;"><strong>Note:</strong> Confirmation testing is rarely necessary for missing medications. Any decisions about further testing should be made between you and your referral source.</p>
+                  <p style="margin: 0; font-weight: bold;">⚠️ About Your Results</p>
+                  <p style="margin: 10px 0 0 0;">Your test shows that some of your prescribed medications were not detected. This is being monitored for patterns but does not automatically fail your test.</p>
+                  <p style="margin: 10px 0 0 0;"><strong>Note:</strong> One-off missed medications are not uncommon and can be due to timing or other factors. Your referral source will review this as part of your ongoing monitoring.</p>
                 </div>
               `
-                  : initialScreenResult === 'unexpected-positive' ||
-                      initialScreenResult === 'mixed-unexpected'
+                  : initialScreenResult === 'unexpected-negative-critical'
                     ? `
+                <div class="info-box error">
+                  <p style="margin: 0; font-weight: bold;">❌ Critical: Required Medication Missing</p>
+                  <p style="margin: 10px 0 0 0;">Your test shows that required medications (marked for strict monitoring) were not detected. This requires immediate review.</p>
+                  <p style="margin: 10px 0 0 0;"><strong>Action Required:</strong> Your referral source has been notified and may request confirmation testing. Please contact them directly if you have questions.</p>
+                </div>
+              `
+                    : initialScreenResult === 'unexpected-positive' ||
+                        initialScreenResult === 'mixed-unexpected'
+                      ? `
                 <div class="info-box">
                   <p style="margin: 0; font-weight: bold;">Confirmation Testing Available</p>
                   <p style="margin: 10px 0 0 0;">Your initial screening detected unexpected substances. Confirmation testing is available for <strong>$45</strong> within <strong>30 days</strong> to verify these results.</p>
                   <p style="margin: 10px 0 0 0;">Please call us at your earliest convenience to discuss your results.</p>
                 </div>
               `
-                    : ''
+                      : ''
               }
 
               <div class="footer">
@@ -381,9 +528,9 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                 expectedPositives.length > 0
                   ? `
                 <div class="substances-section green">
-                  <strong>✓ Expected Positives (from reported medications):</strong>
+                  <strong>✅ Expected Positives (from reported medications):</strong>
                   <ul class="substance-list">
-                    ${expectedPositives.map((s) => `<li class="substance-item">✓ ${formatSubstance(s)}</li>`).join('')}
+                    ${expectedPositives.map((s) => `<li class="substance-item">✅ ${formatSubstance(s)}</li>`).join('')}
                   </ul>
                 </div>
               `
@@ -394,9 +541,9 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                 unexpectedPositives.length > 0
                   ? `
                 <div class="substances-section red">
-                  <strong>✗ Unexpected Positives (not from reported medications):</strong>
+                  <strong>❌ Unexpected Positives (not from reported medications):</strong>
                   <ul class="substance-list">
-                    ${unexpectedPositives.map((s) => `<li class="substance-item">✗ ${formatSubstance(s)}</li>`).join('')}
+                    ${unexpectedPositives.map((s) => `<li class="substance-item">❌ ${formatSubstance(s)}</li>`).join('')}
                   </ul>
                   <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Confirmation testing available within 30 days.</p>
                 </div>
@@ -407,12 +554,18 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
               ${
                 unexpectedNegatives.length > 0
                   ? `
-                <div class="substances-section yellow">
-                  <strong>⚠ Unexpected Negatives (reported medications not detected):</strong>
+                <div class="substances-section ${initialScreenResult === 'unexpected-negative-critical' ? 'red' : 'yellow'}">
+                  <strong>${initialScreenResult === 'unexpected-negative-critical' ? '❌' : '⚠️'} Unexpected Negatives (reported medications not detected):</strong>
                   <ul class="substance-list">
-                    ${unexpectedNegatives.map((s) => `<li class="substance-item">⚠ ${formatSubstance(s)}</li>`).join('')}
+                    ${unexpectedNegatives.map((s) => `<li class="substance-item">${initialScreenResult === 'unexpected-negative-critical' ? '❌' : '⚠️'} ${formatSubstance(s)}</li>`).join('')}
                   </ul>
-                  <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Expected medications were not detected in this test.</p>
+                  <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">
+                    ${
+                      initialScreenResult === 'unexpected-negative-critical'
+                        ? 'CRITICAL: Required medications (marked for strict monitoring) were not detected. Immediate review recommended.'
+                        : 'Expected medications were not detected. Monitor for patterns - one-off occurrences are not uncommon.'
+                    }
+                  </p>
                 </div>
               `
                   : ''

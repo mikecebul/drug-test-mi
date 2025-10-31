@@ -1,7 +1,7 @@
 import type { CollectionAfterChangeHook } from 'payload'
 import type { DrugTest } from '@/payload-types'
 import { getRecipients } from '../email/recipients'
-import { buildCollectedEmail, buildScreenedEmail, buildCompleteEmail } from '../email/templates'
+import { buildCollectedEmail, buildScreenedEmail, buildCompleteEmail, buildInconclusiveEmail } from '../email/templates'
 import { promises as fsPromises } from 'fs'
 import path from 'path'
 
@@ -48,8 +48,15 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
       (doc.notificationsSent || []).map((n: any) => n.stage)
     )
 
+    // Log existing notification history for debugging
+    if (doc.notificationsSent && doc.notificationsSent.length > 0) {
+      payload.logger.info(
+        `Drug test ${doc.id} has existing notifications for stages: ${Array.from(sentStages).join(', ')}`
+      )
+    }
+
     // Determine which email stage to send based on current state
-    let emailStage: 'collected' | 'screened' | 'complete' | null = null
+    let emailStage: 'collected' | 'screened' | 'complete' | 'inconclusive' | null = null
 
     const isLabTest =
       doc.testType === '11-panel-lab' ||
@@ -65,8 +72,21 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
       confirmationResults.length > 0 &&
       confirmationResults.length === confirmationSubstances.length
 
+    // Stage: Inconclusive (sample invalid - cannot be screened)
+    if (doc.isInconclusive) {
+      if (sentStages.has('inconclusive')) {
+        payload.logger.info(
+          `Drug test ${doc.id} is marked inconclusive but notification already sent - skipping`
+        )
+      } else {
+        payload.logger.info(
+          `Drug test ${doc.id} is marked inconclusive and no notification sent yet - will send`
+        )
+        emailStage = 'inconclusive'
+      }
+    }
     // Stage 1: For lab tests in collected state (sample sent to lab)
-    if (isLabTest && doc.screeningStatus === 'collected' && !sentStages.has('collected')) {
+    else if (isLabTest && doc.screeningStatus === 'collected' && !sentStages.has('collected')) {
       emailStage = 'collected'
     }
     // Stage 2: Screening is done (results entered) - send regardless of isComplete
@@ -80,8 +100,12 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
 
     // No email needed at this stage
     if (!emailStage) {
+      payload.logger.info(`Drug test ${doc.id}: No email stage determined, skipping notifications`)
       return doc
     }
+
+    payload.logger.info(`Drug test ${doc.id}: Email stage determined as "${emailStage}"`)
+    payload.logger.info(`Drug test ${doc.id}: isInconclusive=${doc.isInconclusive}, screeningStatus=${doc.screeningStatus}, isComplete=${doc.isComplete}`)
 
     // For screened and complete stages, require appropriate document before sending ANY emails
     if (emailStage === 'screened') {
@@ -111,14 +135,25 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
 
     // Fetch client and recipients
     const clientId = typeof doc.relatedClient === 'string' ? doc.relatedClient : doc.relatedClient.id
-    const client = await payload.findByID({
-      collection: 'clients',
-      id: clientId,
-      depth: 0,
-    })
+    let client: any
+    try {
+      client = await payload.findByID({
+        collection: 'clients',
+        id: clientId,
+        depth: 0,
+      })
 
-    if (!client) {
-      payload.logger.warn(`Client not found for drug test ${doc.id}`)
+      if (!client) {
+        payload.logger.error(
+          `Cannot send notifications: Client ${clientId} not found for drug test ${doc.id}`,
+        )
+        return doc
+      }
+    } catch (dbError) {
+      payload.logger.error(
+        `Database error fetching client ${clientId} for drug test ${doc.id}:`,
+        dbError,
+      )
       return doc
     }
 
@@ -144,6 +179,18 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
         testType: doc.testType,
       })
       referralEmailData = emailData
+    } else if (emailStage === 'inconclusive') {
+      // Both client and referrals get inconclusive notifications
+      payload.logger.info(`Drug test ${doc.id}: Building inconclusive email for client and referrals`)
+      const emails = buildInconclusiveEmail({
+        clientName,
+        collectionDate: doc.collectionDate!,
+        testType: doc.testType,
+        reason: doc.processNotes || undefined,
+      })
+      clientEmailData = emails.client
+      referralEmailData = emails.referrals
+      payload.logger.info(`Drug test ${doc.id}: Inconclusive emails built successfully`)
     } else if (emailStage === 'screened') {
       const emails = buildScreenedEmail({
         clientName,
@@ -179,22 +226,57 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
     // Send emails and track recipients
     const sentTo: string[] = []
 
-    // For "collected" stage, send simple notification to referrals only (no results yet)
-    if (emailStage === 'collected') {
-      if (referralEmailData && referralEmails.length > 0) {
-        const recipients = TEST_MODE ? [TEST_EMAIL] : referralEmails
+    // For "collected" and "inconclusive" stages, send notification without attachment
+    if (emailStage === 'collected' || emailStage === 'inconclusive') {
+      payload.logger.info(`Drug test ${doc.id}: Sending ${emailStage} emails without attachment`)
 
-        for (const email of recipients) {
+      // Send to client (for inconclusive only)
+      if (emailStage === 'inconclusive' && clientEmailData && clientEmail) {
+        const toAddress = TEST_MODE ? TEST_EMAIL : clientEmail
+        payload.logger.info(`Drug test ${doc.id}: Sending inconclusive email to client ${toAddress}`)
+        try {
           await payload.sendEmail({
-            to: email,
+            to: toAddress,
             from: payload.email.defaultFromAddress,
             subject: TEST_MODE
-              ? `[TEST MODE] ${referralEmailData.subject}`
-              : referralEmailData.subject,
-            html: referralEmailData.html,
+              ? `[TEST MODE] ${clientEmailData.subject}`
+              : clientEmailData.subject,
+            html: clientEmailData.html,
           })
-          sentTo.push(`Referral: ${email}${TEST_MODE ? ' (TEST MODE)' : ''}`)
+          sentTo.push(`Client: ${toAddress}${TEST_MODE ? ' (TEST MODE)' : ''}`)
+          payload.logger.info(`Drug test ${doc.id}: Successfully sent inconclusive email to client`)
+        } catch (emailError) {
+          payload.logger.error(`Failed to send email to client ${toAddress}:`, emailError)
+          sentTo.push(`Client: ${toAddress} (FAILED)`)
         }
+      } else if (emailStage === 'inconclusive') {
+        payload.logger.warn(`Drug test ${doc.id}: Inconclusive email to client NOT sent - clientEmailData: ${!!clientEmailData}, clientEmail: ${!!clientEmail}`)
+      }
+
+      // Send to referrals
+      if (referralEmailData && referralEmails.length > 0) {
+        const recipients = TEST_MODE ? [TEST_EMAIL] : referralEmails
+        payload.logger.info(`Drug test ${doc.id}: Sending ${emailStage} email to ${recipients.length} referral(s)`)
+
+        for (const email of recipients) {
+          try {
+            await payload.sendEmail({
+              to: email,
+              from: payload.email.defaultFromAddress,
+              subject: TEST_MODE
+                ? `[TEST MODE] ${referralEmailData.subject}`
+                : referralEmailData.subject,
+              html: referralEmailData.html,
+            })
+            sentTo.push(`Referral: ${email}${TEST_MODE ? ' (TEST MODE)' : ''}`)
+          } catch (emailError) {
+            payload.logger.error(`Failed to send email to ${email}:`, emailError)
+            sentTo.push(`Referral: ${email} (FAILED)`)
+          }
+        }
+        payload.logger.info(`Drug test ${doc.id}: Completed sending ${emailStage} emails to referrals`)
+      } else {
+        payload.logger.warn(`Drug test ${doc.id}: ${emailStage} email to referrals NOT sent - referralEmailData: ${!!referralEmailData}, referralEmails.length: ${referralEmails.length}`)
       }
     } else {
       // For screened/complete stages, attach appropriate document to both client and referral emails
@@ -228,8 +310,8 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
         })
 
         if (!testDocument || !testDocument.filename) {
-          payload.logger.warn(
-            `Document ${documentId} not found or has no filename - skipping all emails`,
+          payload.logger.error(
+            `CRITICAL: Document ${documentId} not found in database or has no filename for drug test ${doc.id} - cannot send notifications. This indicates a data integrity issue.`,
           )
         } else {
           // Since disableLocalStorage: false, files are stored in staticDir
@@ -246,36 +328,14 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
             // Send to client with attachment
             if (clientEmailData && clientEmail) {
               const toAddress = TEST_MODE ? TEST_EMAIL : clientEmail
-              await payload.sendEmail({
-                to: toAddress,
-                from: payload.email.defaultFromAddress,
-                subject: TEST_MODE
-                  ? `[TEST MODE] ${clientEmailData.subject}`
-                  : clientEmailData.subject,
-                html: clientEmailData.html,
-                attachments: [
-                  {
-                    filename: testDocument.filename || 'drug-test-report.pdf',
-                    content: fileBuffer,
-                    contentType: testDocument.mimeType || 'application/pdf',
-                  },
-                ],
-              })
-              sentTo.push(`Client: ${toAddress}${TEST_MODE ? ' (TEST MODE)' : ''}`)
-            }
-
-            // Send to referrals with attachment
-            if (referralEmailData && referralEmails.length > 0) {
-              const recipients = TEST_MODE ? [TEST_EMAIL] : referralEmails
-
-              for (const email of recipients) {
+              try {
                 await payload.sendEmail({
-                  to: email,
+                  to: toAddress,
                   from: payload.email.defaultFromAddress,
                   subject: TEST_MODE
-                    ? `[TEST MODE] ${referralEmailData.subject}`
-                    : referralEmailData.subject,
-                  html: referralEmailData.html,
+                    ? `[TEST MODE] ${clientEmailData.subject}`
+                    : clientEmailData.subject,
+                  html: clientEmailData.html,
                   attachments: [
                     {
                       filename: testDocument.filename || 'drug-test-report.pdf',
@@ -284,12 +344,45 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
                     },
                   ],
                 })
-                sentTo.push(`Referral: ${email}${TEST_MODE ? ' (TEST MODE)' : ''}`)
+                sentTo.push(`Client: ${toAddress}${TEST_MODE ? ' (TEST MODE)' : ''}`)
+              } catch (emailError) {
+                payload.logger.error(`Failed to send email to client ${toAddress}:`, emailError)
+                sentTo.push(`Client: ${toAddress} (FAILED)`)
+              }
+            }
+
+            // Send to referrals with attachment
+            if (referralEmailData && referralEmails.length > 0) {
+              const recipients = TEST_MODE ? [TEST_EMAIL] : referralEmails
+
+              for (const email of recipients) {
+                try {
+                  await payload.sendEmail({
+                    to: email,
+                    from: payload.email.defaultFromAddress,
+                    subject: TEST_MODE
+                      ? `[TEST MODE] ${referralEmailData.subject}`
+                      : referralEmailData.subject,
+                    html: referralEmailData.html,
+                    attachments: [
+                      {
+                        filename: testDocument.filename || 'drug-test-report.pdf',
+                        content: fileBuffer,
+                        contentType: testDocument.mimeType || 'application/pdf',
+                      },
+                    ],
+                  })
+                  sentTo.push(`Referral: ${email}${TEST_MODE ? ' (TEST MODE)' : ''}`)
+                } catch (emailError) {
+                  payload.logger.error(`Failed to send email to ${email}:`, emailError)
+                  sentTo.push(`Referral: ${email} (FAILED)`)
+                }
               }
             }
           } catch (fileError) {
-            payload.logger.warn(
-              `Test document file not found or unreadable at ${localPath} - skipping all emails`,
+            payload.logger.error(
+              `CRITICAL: Cannot send notifications for drug test ${doc.id} - test document file not found or unreadable at ${localPath}. Database record exists but file is missing.`,
+              fileError,
             )
           }
         }
@@ -306,20 +399,27 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
       },
     ]
 
-    await payload.update({
-      collection: 'drug-tests',
-      id: doc.id,
-      data: {
-        notificationsSent: updatedNotifications,
-      },
-      context: {
-        skipNotificationHook: true, // Prevent infinite loop
-      },
-    })
+    try {
+      await payload.update({
+        collection: 'drug-tests',
+        id: doc.id,
+        data: {
+          notificationsSent: updatedNotifications,
+        },
+        context: {
+          skipNotificationHook: true, // Prevent infinite loop
+        },
+      })
 
-    payload.logger.info(
-      `Email notifications sent for drug test ${doc.id} (${emailStage}): ${sentTo.join(', ')}`,
-    )
+      payload.logger.info(
+        `Email notifications sent for drug test ${doc.id} (${emailStage}): ${sentTo.join(', ')}`,
+      )
+    } catch (updateError) {
+      payload.logger.error(
+        `CRITICAL: Emails sent to ${sentTo.join(', ')} but failed to update notification history for drug test ${doc.id}:`,
+        updateError,
+      )
+    }
   } catch (error) {
     // Log error but don't fail the save
     payload.logger.error(`Failed to send email notifications for drug test ${doc.id}:`, error)

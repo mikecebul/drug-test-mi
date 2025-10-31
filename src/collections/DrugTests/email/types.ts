@@ -1,9 +1,13 @@
-export type EmailStage = 'collected' | 'screened' | 'complete'
+export type EmailStage = 'collected' | 'screened' | 'complete' | 'inconclusive'
 
 export type CollectedEmailData = {
   clientName: string
   collectionDate: string
   testType: string
+}
+
+export type InconclusiveEmailData = CollectedEmailData & {
+  reason?: string
 }
 
 export type ScreenedEmailData = CollectedEmailData & {

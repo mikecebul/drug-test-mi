@@ -14,7 +14,11 @@ function formatTestResult(
   requiresConfirmation?: boolean,
   confirmationResults?: DrugTest['confirmationResults'],
   confirmationSubstances?: DrugTest['confirmationSubstances'],
+  isInconclusive?: DrugTest['isInconclusive'],
 ): string {
+  // If test is marked as inconclusive (sample leaked, damaged, etc.)
+  if (isInconclusive) return 'Inconclusive'
+
   if (!result) return 'Pending'
 
   let formattedResult: string
@@ -57,14 +61,14 @@ function formatTestResult(
       case 'unexpected-positive':
         formattedResult = 'Unexpected Positive'
         break
-      case 'unexpected-negative':
-        formattedResult = 'Unexpected Negative'
+      case 'unexpected-negative-critical':
+        formattedResult = 'Unexpected Negative (Critical)'
+        break
+      case 'unexpected-negative-warning':
+        formattedResult = 'Unexpected Negative (Warning)'
         break
       case 'mixed-unexpected':
         formattedResult = 'Mixed Results'
-        break
-      case 'inconclusive':
-        formattedResult = 'Inconclusive'
         break
       default:
         formattedResult = 'Unknown'
@@ -156,6 +160,7 @@ export default async function DashboardPage() {
           drugScreenResults[0].confirmationDecision === 'request-confirmation',
           drugScreenResults[0].confirmationResults,
           drugScreenResults[0].confirmationSubstances,
+          drugScreenResults[0].isInconclusive,
         ),
         status: formatTestStatus(
           drugScreenResults[0].isComplete || false,

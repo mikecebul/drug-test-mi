@@ -81,22 +81,33 @@ export const DrugTests: CollectionConfig = {
       },
     },
     {
+      name: 'isInconclusive',
+      type: 'checkbox',
+      admin: {
+        description:
+          '⚠️ CRITICAL WARNING: Check this ONLY if the sample is INVALID (leaked during transport, damaged, or unable to produce results). This will immediately mark the test as COMPLETE with an INCONCLUSIVE result and send notification emails to client and referral. A new test must be scheduled.',
+        position: 'sidebar',
+      },
+    },
+    {
       name: 'initialScreenResult',
       type: 'select',
       options: [
         { label: 'Negative (PASS)', value: 'negative' },
         { label: 'Expected Positive (PASS)', value: 'expected-positive' },
         { label: 'Unexpected Positive (FAIL)', value: 'unexpected-positive' },
-        { label: 'Unexpected Negative (Warning)', value: 'unexpected-negative' },
+        { label: 'Unexpected Negative - Critical (FAIL)', value: 'unexpected-negative-critical' },
+        { label: 'Unexpected Negative - Warning', value: 'unexpected-negative-warning' },
         { label: 'Mixed Unexpected (FAIL)', value: 'mixed-unexpected' },
-        { label: 'Inconclusive', value: 'inconclusive' },
       ],
       admin: {
         description: 'AUTO-COMPUTED: Initial screening result based on business logic',
         readOnly: true,
         position: 'sidebar',
         condition: (_, siblingData) => {
-          // Hide when confirmation is complete (finalStatus will show instead)
+          // Hide if test is marked inconclusive or when confirmation is complete
+          if (siblingData?.isInconclusive) return false
+
           const hadConfirmation = siblingData?.confirmationDecision === 'request-confirmation'
           const confirmationComplete =
             hadConfirmation &&
@@ -116,7 +127,8 @@ export const DrugTests: CollectionConfig = {
         { label: 'Expected Positive (PASS)', value: 'expected-positive' },
         { label: 'Confirmed Negative (PASS)', value: 'confirmed-negative' },
         { label: 'Unexpected Positive (FAIL)', value: 'unexpected-positive' },
-        { label: 'Unexpected Negative (Warning)', value: 'unexpected-negative' },
+        { label: 'Unexpected Negative - Critical (FAIL)', value: 'unexpected-negative-critical' },
+        { label: 'Unexpected Negative - Warning', value: 'unexpected-negative-warning' },
         { label: 'Mixed Unexpected (FAIL)', value: 'mixed-unexpected' },
         { label: 'Inconclusive', value: 'inconclusive' },
       ],
@@ -125,6 +137,9 @@ export const DrugTests: CollectionConfig = {
         readOnly: true,
         position: 'sidebar',
         condition: (_, siblingData) => {
+          // Hide if test is marked inconclusive
+          if (siblingData?.isInconclusive) return false
+
           // Only show when confirmation is complete
           const hadConfirmation = siblingData?.confirmationDecision === 'request-confirmation'
           const confirmationComplete =
@@ -479,7 +494,7 @@ export const DrugTests: CollectionConfig = {
                   type: 'text',
                   admin: {
                     readOnly: true,
-                    description: 'Workflow stage (collected, screened, complete)',
+                    description: 'Workflow stage (collected, screened, complete, inconclusive)',
                   },
                 },
                 {

@@ -67,7 +67,8 @@ RUN --mount=type=secret,id=DATABASE_URI \
   echo "S3_SECRET_ACCESS_KEY=$(cat /run/secrets/S3_SECRET_ACCESS_KEY)" && \
   echo "SENTRY_AUTH_TOKEN=$(cat /run/secrets/SENTRY_AUTH_TOKEN)" && \
   echo "UNSPLASH_ACCESS_KEY=$(cat /run/secrets/UNSPLASH_ACCESS_KEY)" && \
-  echo "UNSPLASH_URL=$(cat /run/secrets/UNSPLASH_URL)" \
+  echo "UNSPLASH_URL=$(cat /run/secrets/UNSPLASH_URL)" && \
+  echo "EMAIL_TEST_MODE=true" \
   ) > .env.production'
 
 ENV NEXT_TELEMETRY_DISABLED=1
