@@ -104,6 +104,7 @@ export interface Config {
     media: Media;
     'private-media': PrivateMedia;
     admins: Admin;
+    'admin-alerts': AdminAlert;
     technicians: Technician;
     clients: Client;
     'drug-tests': DrugTest;
@@ -129,6 +130,7 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     'private-media': PrivateMediaSelect<false> | PrivateMediaSelect<true>;
     admins: AdminsSelect<false> | AdminsSelect<true>;
+    'admin-alerts': AdminAlertsSelect<false> | AdminAlertsSelect<true>;
     technicians: TechniciansSelect<false> | TechniciansSelect<true>;
     clients: ClientsSelect<false> | ClientsSelect<true>;
     'drug-tests': DrugTestsSelect<false> | DrugTestsSelect<true>;
@@ -1497,6 +1499,67 @@ export interface Admin {
   password?: string | null;
 }
 /**
+ * Business-critical alerts requiring admin attention
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-alerts".
+ */
+export interface AdminAlert {
+  id: string;
+  /**
+   * Brief description of the alert
+   */
+  title: string;
+  /**
+   * Severity level of the alert
+   */
+  severity: 'critical' | 'high' | 'medium';
+  /**
+   * Category of the alert
+   */
+  alertType:
+    | 'email-failure'
+    | 'recipient-fetch-failure'
+    | 'document-missing'
+    | 'notification-history-failure'
+    | 'data-integrity'
+    | 'other';
+  /**
+   * Detailed description of the issue and recommended action
+   */
+  message: string;
+  /**
+   * Additional context (client ID, drug test ID, error details, etc.)
+   */
+  context?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Mark as resolved once the issue has been addressed
+   */
+  resolved?: boolean | null;
+  /**
+   * When this alert was resolved
+   */
+  resolvedAt?: string | null;
+  /**
+   * Admin who resolved this alert
+   */
+  resolvedBy?: (string | null) | Admin;
+  /**
+   * Resolution notes or actions taken
+   */
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "technicians".
  */
@@ -1708,6 +1771,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'admins';
         value: string | Admin;
+      } | null)
+    | ({
+        relationTo: 'admin-alerts';
+        value: string | AdminAlert;
       } | null)
     | ({
         relationTo: 'technicians';
@@ -2415,6 +2482,23 @@ export interface AdminsSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-alerts_select".
+ */
+export interface AdminAlertsSelect<T extends boolean = true> {
+  title?: T;
+  severity?: T;
+  alertType?: T;
+  message?: T;
+  context?: T;
+  resolved?: T;
+  resolvedAt?: T;
+  resolvedBy?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

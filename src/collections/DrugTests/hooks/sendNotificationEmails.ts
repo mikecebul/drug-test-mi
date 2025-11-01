@@ -4,6 +4,7 @@ import { getRecipients } from '../email/recipients'
 import { buildCollectedEmail, buildScreenedEmail, buildCompleteEmail, buildInconclusiveEmail } from '../email/templates'
 import { promises as fsPromises } from 'fs'
 import path from 'path'
+import { createAdminAlert } from '@/lib/admin-alerts'
 
 const TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
 const TEST_EMAIL = 'mike@midrugtest.com'
@@ -164,6 +165,23 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
       payload.logger.warn(
         `No referral recipients found for drug test ${doc.id} - client type: ${client.clientType}`,
       )
+
+      // Alert for business-critical client types that should have referrals
+      if (client.clientType === 'probation' || client.clientType === 'employment') {
+        await createAdminAlert(payload, {
+          severity: 'high',
+          alertType: 'recipient-fetch-failure',
+          title: `No referral emails for ${client.clientType} client`,
+          message: `Drug test ${doc.id} for ${clientName} (client type: ${client.clientType}) has no referral email addresses configured. ${client.clientType === 'probation' ? 'Court officers' : 'Employers'} will not receive test results notifications.`,
+          context: {
+            drugTestId: doc.id,
+            clientId: clientId,
+            clientName: clientName,
+            clientType: client.clientType,
+            emailStage: emailStage,
+          },
+        })
+      }
     }
 
     // Build email content based on stage
@@ -272,6 +290,24 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
           } catch (emailError) {
             payload.logger.error(`Failed to send email to ${email}:`, emailError)
             sentTo.push(`Referral: ${email} (FAILED)`)
+
+            // CRITICAL: Alert admin immediately when referral email fails
+            await createAdminAlert(payload, {
+              severity: 'critical',
+              alertType: 'email-failure',
+              title: `Referral email failed - ${clientName}`,
+              message: `URGENT: Failed to send ${emailStage} results email to referral.\n\nIMMEDIATE ACTION REQUIRED: Manually send results to this referral.\n\nClient: ${clientName}\nReferral Email: ${email}\nStage: ${emailStage}\nDrug Test ID: ${doc.id}\nError: ${emailError instanceof Error ? emailError.message : String(emailError)}\n\nThis referral is expecting these results. Please send manually ASAP.`,
+              context: {
+                drugTestId: doc.id,
+                clientId: clientId,
+                clientName: clientName,
+                recipientEmail: email,
+                recipientType: 'referral',
+                emailStage: emailStage,
+                errorMessage: emailError instanceof Error ? emailError.message : String(emailError),
+                errorStack: emailError instanceof Error ? emailError.stack : undefined,
+              },
+            })
           }
         }
         payload.logger.info(`Drug test ${doc.id}: Completed sending ${emailStage} emails to referrals`)
@@ -313,6 +349,22 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
           payload.logger.error(
             `CRITICAL: Document ${documentId} not found in database or has no filename for drug test ${doc.id} - cannot send notifications. This indicates a data integrity issue.`,
           )
+
+          // Alert admin about missing document
+          await createAdminAlert(payload, {
+            severity: 'critical',
+            alertType: 'document-missing',
+            title: `Missing test document - ${clientName}`,
+            message: `CRITICAL: Cannot send ${emailStage} results emails because test document is missing from database.\n\nDocument ID: ${documentId}\nDrug Test ID: ${doc.id}\nClient: ${clientName}\nStage: ${emailStage}\n\nThis is a data integrity issue. The document record may exist but has no filename, or the document was deleted. Client and referrals cannot receive results until document is uploaded.`,
+            context: {
+              drugTestId: doc.id,
+              clientId: clientId,
+              clientName: clientName,
+              documentId: documentId,
+              emailStage: emailStage,
+              issueType: 'document-not-found-in-database',
+            },
+          })
         } else {
           // Since disableLocalStorage: false, files are stored in staticDir
           const localPath = path.join(process.cwd(), 'private-media', testDocument.filename)
@@ -376,6 +428,25 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
                 } catch (emailError) {
                   payload.logger.error(`Failed to send email to ${email}:`, emailError)
                   sentTo.push(`Referral: ${email} (FAILED)`)
+
+                  // CRITICAL: Alert admin immediately when referral email fails
+                  await createAdminAlert(payload, {
+                    severity: 'critical',
+                    alertType: 'email-failure',
+                    title: `Referral email failed - ${clientName}`,
+                    message: `URGENT: Failed to send ${emailStage} results email with attachment to referral.\n\nIMMEDIATE ACTION REQUIRED: Manually send results to this referral.\n\nClient: ${clientName}\nReferral Email: ${email}\nStage: ${emailStage}\nDrug Test ID: ${doc.id}\nDocument: ${testDocument.filename}\nError: ${emailError instanceof Error ? emailError.message : String(emailError)}\n\nThis referral is expecting these results with the test report PDF. Please send manually ASAP.`,
+                    context: {
+                      drugTestId: doc.id,
+                      clientId: clientId,
+                      clientName: clientName,
+                      recipientEmail: email,
+                      recipientType: 'referral',
+                      emailStage: emailStage,
+                      documentFilename: testDocument.filename,
+                      errorMessage: emailError instanceof Error ? emailError.message : String(emailError),
+                      errorStack: emailError instanceof Error ? emailError.stack : undefined,
+                    },
+                  })
                 }
               }
             }
@@ -384,6 +455,26 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
               `CRITICAL: Cannot send notifications for drug test ${doc.id} - test document file not found or unreadable at ${localPath}. Database record exists but file is missing.`,
               fileError,
             )
+
+            // Alert admin about missing file on disk
+            await createAdminAlert(payload, {
+              severity: 'critical',
+              alertType: 'document-missing',
+              title: `Test document file missing - ${clientName}`,
+              message: `CRITICAL: Cannot send ${emailStage} results emails because test document file is missing from disk.\n\nFile Path: ${localPath}\nFilename: ${testDocument.filename}\nDrug Test ID: ${doc.id}\nClient: ${clientName}\nStage: ${emailStage}\n\nDatabase record exists but the file is not on disk. This may indicate a file system issue, deployment problem, or manual file deletion. Client and referrals cannot receive results until file is restored.`,
+              context: {
+                drugTestId: doc.id,
+                clientId: clientId,
+                clientName: clientName,
+                documentId: documentId,
+                documentFilename: testDocument.filename,
+                filePath: localPath,
+                emailStage: emailStage,
+                issueType: 'file-not-found-on-disk',
+                errorMessage: fileError instanceof Error ? fileError.message : String(fileError),
+                errorStack: fileError instanceof Error ? fileError.stack : undefined,
+              },
+            })
           }
         }
       }
@@ -419,6 +510,23 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
         `CRITICAL: Emails sent to ${sentTo.join(', ')} but failed to update notification history for drug test ${doc.id}:`,
         updateError,
       )
+
+      // Alert admin about notification history update failure
+      await createAdminAlert(payload, {
+        severity: 'high',
+        alertType: 'notification-history-failure',
+        title: `Notification history update failed - ${clientName}`,
+        message: `HIGH: Emails were sent successfully but failed to update notification history.\n\nDrug Test ID: ${doc.id}\nClient: ${clientName}\nStage: ${emailStage}\nRecipients: ${sentTo.join(', ')}\n\nRISK: On next save, the system may try to resend these emails because it has no record they were sent. This could result in duplicate notifications to clients and referrals.\n\nACTION: Manually verify the notification history for this drug test and update if needed to prevent duplicates.`,
+        context: {
+          drugTestId: doc.id,
+          clientId: clientId,
+          clientName: clientName,
+          emailStage: emailStage,
+          recipients: sentTo,
+          errorMessage: updateError instanceof Error ? updateError.message : String(updateError),
+          errorStack: updateError instanceof Error ? updateError.stack : undefined,
+        },
+      })
     }
   } catch (error) {
     // Log error but don't fail the save
