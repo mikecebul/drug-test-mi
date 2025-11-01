@@ -1,8 +1,6 @@
 'use client'
 
-import { Button } from '@/components/ui/button'
-
-export function ClientLogoutButton() {
+export function ClientLogoutButton({ children }: { children: React.ReactNode }) {
   const handleLogout = async () => {
     try {
       // Use Payload's built-in logout endpoint
@@ -21,8 +19,8 @@ export function ClientLogoutButton() {
   }
 
   return (
-    <Button onClick={handleLogout} variant="ghost" size="sm" className="w-full justify-start pl-0">
-      Sign Out
-    </Button>
+    <span onClick={handleLogout} className="w-full">
+      {children}
+    </span>
   )
 }

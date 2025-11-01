@@ -105,10 +105,12 @@ export function NavUser({ user }: NavUserProps) {
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator /> */}
-            <DropdownMenuItem>
-              <LogOutIcon />
-              <ClientLogoutButton />
-            </DropdownMenuItem>
+            <ClientLogoutButton>
+              <DropdownMenuItem>
+                <LogOutIcon />
+                Sign Out
+              </DropdownMenuItem>
+            </ClientLogoutButton>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
