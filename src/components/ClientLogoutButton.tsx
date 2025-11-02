@@ -1,8 +1,6 @@
 'use client'
 
-import { Button } from '@/components/ui/button'
-
-export function ClientLogoutButton() {
+export function ClientLogoutButton({ children }: { children: React.ReactNode }) {
   const handleLogout = async () => {
     try {
       // Use Payload's built-in logout endpoint
@@ -11,18 +9,19 @@ export function ClientLogoutButton() {
         credentials: 'include',
       })
 
-      if (response.ok) {
-        // Redirect to home
-        window.location.href = '/'
-      }
+      // Always redirect to home, regardless of response
+      // If no user is logged in, we still want to redirect
+      window.location.href = '/'
     } catch (error) {
       console.error('Logout failed:', error)
+      // Still redirect to home even if there's an error
+      window.location.href = '/'
     }
   }
 
   return (
-    <Button onClick={handleLogout} variant="ghost" size="sm" className="w-full justify-start pl-0">
-      Sign Out
-    </Button>
+    <span onClick={handleLogout} className="w-full">
+      {children}
+    </span>
   )
 }

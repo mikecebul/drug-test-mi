@@ -25,10 +25,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { FileText, X, Filter } from 'lucide-react'
 import { DrugTest } from '@/payload-types'
 import { CheckCircle, Circle, Clock, Truck, FlaskConical, FileCheck } from 'lucide-react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { DateRangePicker } from '@/components/date-range-picker'
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer'
 import { type DateRange } from 'react-day-picker'
+import { SUBSTANCE_MAP, formatSubstances } from '@/lib/substances'
+import { getLastNDays, getLastNMonths } from '@/lib/date-presets'
 
 type DrugTestResult = DrugTest
 
@@ -43,16 +58,19 @@ interface CustodyStep {
 // Generate chain of custody steps based on test data
 function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
   // Use screeningStatus for accurate workflow tracking
-  const screeningStatus = result.screeningStatus || (result.initialScreenResult ? 'screened' : 'collected')
+  const screeningStatus =
+    result.screeningStatus || (result.initialScreenResult ? 'screened' : 'collected')
   const hasInitialResult = !!result.initialScreenResult
   const confirmationDecision = result.confirmationDecision
   const isConfirmationRequested = confirmationDecision === 'request-confirmation'
   const confirmationResults = result.confirmationResults
   const confirmationSubstances = result.confirmationSubstances || []
-  const isConfirmed = Array.isArray(confirmationResults) &&
+  const isConfirmed =
+    Array.isArray(confirmationResults) &&
     confirmationResults.length === confirmationSubstances.length &&
     confirmationResults.every((r: any) => r.result)
   const isComplete = result.isComplete
+  const isInconclusive = result.isInconclusive
   const testType = result.testType
   const is15Panel = testType === '15-panel-instant'
   const is11PanelLab = testType === '11-panel-lab'
@@ -61,9 +79,41 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
   const isLabTest = is11PanelLab || is17PanelLab || isEtgLab
 
   // Determine if screening is complete
-  const isScreened = screeningStatus === 'screened' || screeningStatus === 'confirmation-pending' || screeningStatus === 'complete'
+  const isScreened =
+    screeningStatus === 'screened' ||
+    screeningStatus === 'confirmation-pending' ||
+    screeningStatus === 'complete'
 
-  // If test is marked as complete, show all steps as complete
+  // Handle inconclusive tests separately - they were never actually screened
+  if (isInconclusive && isComplete) {
+    const inconclusiveSteps: CustodyStep[] = [
+      {
+        label: 'Collected',
+        icon: Circle,
+        completed: true,
+      },
+    ]
+
+    // Add shipping for lab tests
+    if (isLabTest) {
+      inconclusiveSteps.push({
+        label: 'Shipped',
+        icon: Truck,
+        completed: true,
+      })
+    }
+
+    // Show Invalid instead of Screened (sample was invalid)
+    inconclusiveSteps.push({
+      label: 'Invalid Sample',
+      icon: X,
+      completed: true,
+    })
+
+    return inconclusiveSteps
+  }
+
+  // If test is marked as complete (and not inconclusive), show all steps as complete
   if (isComplete) {
     const completeSteps: CustodyStep[] = [
       {
@@ -132,9 +182,12 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
     current: screeningStatus === 'collected' && !isLabTest, // Current only for instant tests that need screening
   })
 
-  // Add confirmation steps if unexpected results
-  const hasUnexpectedResults = result.initialScreenResult &&
-    ['unexpected-positive', 'unexpected-negative', 'mixed-unexpected'].includes(result.initialScreenResult)
+  // Add confirmation steps if unexpected results (but NOT for warnings)
+  const hasUnexpectedResults =
+    result.initialScreenResult &&
+    ['unexpected-positive', 'unexpected-negative-critical', 'mixed-unexpected'].includes(
+      result.initialScreenResult,
+    )
 
   if (hasUnexpectedResults) {
     if (isConfirmationRequested) {
@@ -159,7 +212,8 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
           label: 'Confirmed',
           icon: CheckCircle,
           completed: !!isConfirmed,
-          current: Array.isArray(confirmationResults) && confirmationResults.length > 0 && !isConfirmed,
+          current:
+            Array.isArray(confirmationResults) && confirmationResults.length > 0 && !isConfirmed,
         },
       )
     } else if (confirmationDecision === 'accept') {
@@ -232,10 +286,10 @@ ChainOfCustody.displayName = 'ChainOfCustody'
 
 // Helper function to format test results based on new workflow
 function formatTestResult(testData: DrugTestResult): {
-  result: string;
-  unexpectedPositives?: string[];
-  unexpectedNegatives?: string[];
-  confirmationResults?: Array<{ substance: string; result: string; notes?: string }>;
+  result: string
+  unexpectedPositives?: string[]
+  unexpectedNegatives?: string[]
+  confirmationResults?: Array<{ substance: string; result: string; notes?: string }>
 } {
   const initialResult = testData.initialScreenResult
   const confirmationDecision = testData.confirmationDecision
@@ -243,39 +297,19 @@ function formatTestResult(testData: DrugTestResult): {
   const unexpectedPositives = testData.unexpectedPositives
   const unexpectedNegatives = testData.unexpectedNegatives
   const isComplete = testData.isComplete
+  const isInconclusive = testData.isInconclusive
+
+  // If test is marked as inconclusive (sample leaked, damaged, etc.)
+  if (isInconclusive) return { result: 'Inconclusive' }
 
   if (!initialResult) return { result: 'Pending' }
 
   let formattedResult: string
 
-  // Substance map for display
-  const substanceMap: { [key: string]: string } = {
-    '6-mam': 'Heroin',
-    amphetamines: 'Amphetamines',
-    methamphetamines: 'Methamphetamines',
-    benzodiazepines: 'Benzodiazepines',
-    thc: 'THC',
-    opiates: 'Opiates',
-    oxycodone: 'Oxycodone',
-    cocaine: 'Cocaine',
-    pcp: 'PCP',
-    barbiturates: 'Barbiturates',
-    methadone: 'Methadone',
-    propoxyphene: 'Propoxyphene',
-    tricyclic_antidepressants: 'Tricyclic Antidepressants',
-    mdma: 'MDMA (Ecstasy)',
-    buprenorphine: 'Buprenorphine',
-    tramadol: 'Tramadol',
-    fentanyl: 'Fentanyl',
-    kratom: 'Kratom',
-    etg: 'EtG (Alcohol)',
-    synthetic_cannabinoids: 'Synthetic Cannabinoids',
-    other: 'Other',
-  }
-
   // Check if confirmation was requested and completed
   const confirmationSubstances = testData.confirmationSubstances || []
-  const hasAllConfirmationResults = confirmationDecision === 'request-confirmation' &&
+  const hasAllConfirmationResults =
+    confirmationDecision === 'request-confirmation' &&
     Array.isArray(confirmationResults) &&
     confirmationResults.length === confirmationSubstances.length &&
     confirmationResults.every((r: any) => r.result)
@@ -296,14 +330,14 @@ function formatTestResult(testData: DrugTestResult): {
       case 'unexpected-positive':
         formattedResult = 'Confirmed Results'
         break
-      case 'unexpected-negative':
+      case 'unexpected-negative-critical':
+        formattedResult = 'Confirmed Results'
+        break
+      case 'unexpected-negative-warning':
         formattedResult = 'Confirmed Results'
         break
       case 'mixed-unexpected':
         formattedResult = 'Confirmed Results'
-        break
-      case 'inconclusive':
-        formattedResult = 'Inconclusive'
         break
       default:
         formattedResult = 'Unknown'
@@ -320,14 +354,14 @@ function formatTestResult(testData: DrugTestResult): {
       case 'unexpected-positive':
         formattedResult = isComplete ? 'Positive' : 'Presumptive Positive'
         break
-      case 'unexpected-negative':
-        formattedResult = isComplete ? 'Negative (Unexpected)' : 'Presumptive Negative (Unexpected)'
+      case 'unexpected-negative-critical':
+        formattedResult = isComplete ? 'Negative (Critical)' : 'Presumptive Negative (Critical)'
+        break
+      case 'unexpected-negative-warning':
+        formattedResult = isComplete ? 'Negative (Warning)' : 'Presumptive Negative (Warning)'
         break
       case 'mixed-unexpected':
         formattedResult = isComplete ? 'Mixed Results' : 'Presumptive Mixed Results'
-        break
-      case 'inconclusive':
-        formattedResult = 'Inconclusive'
         break
       default:
         formattedResult = 'Unknown'
@@ -349,21 +383,23 @@ function formatTestResult(testData: DrugTestResult): {
     // Filter out confirmed substances from unexpectedPositives/negatives
     // Only keep substances that were NOT confirmed (weren't contested)
     finalUnexpectedPositives = unexpectedPositives?.filter(
-      sub => !confirmationSubstances.includes(sub)
+      (sub) => !confirmationSubstances.includes(sub),
     )
     finalUnexpectedNegatives = unexpectedNegatives?.filter(
-      sub => !confirmationSubstances.includes(sub)
+      (sub) => !confirmationSubstances.includes(sub),
     )
   }
 
   // Format substances for display
-  const formattedUnexpectedPositives = Array.isArray(finalUnexpectedPositives) && finalUnexpectedPositives.length > 0
-    ? finalUnexpectedPositives.map(sub => substanceMap[sub] || sub)
-    : undefined
+  const formattedUnexpectedPositives =
+    Array.isArray(finalUnexpectedPositives) && finalUnexpectedPositives.length > 0
+      ? formatSubstances(finalUnexpectedPositives, true)
+      : undefined
 
-  const formattedUnexpectedNegatives = Array.isArray(finalUnexpectedNegatives) && finalUnexpectedNegatives.length > 0
-    ? finalUnexpectedNegatives.map(sub => substanceMap[sub] || sub)
-    : undefined
+  const formattedUnexpectedNegatives =
+    Array.isArray(finalUnexpectedNegatives) && finalUnexpectedNegatives.length > 0
+      ? formatSubstances(finalUnexpectedNegatives, true)
+      : undefined
 
   return {
     result: formattedResult,
@@ -373,11 +409,14 @@ function formatTestResult(testData: DrugTestResult): {
   }
 }
 
-const getResultBadgeVariant = (result: string) => {
+const getResultBadgeVariant = (
+  result: string,
+): 'secondary' | 'warning' | 'destructive' | 'outline' => {
   // Color scheme: Red (destructive), Yellow (warning), Blue (secondary), White (outline)
 
-  // Blue - PASS results (Negative and Expected Positive)
-  if (result === 'Negative' || result === 'Expected Positive') {
+  // Use map pattern for exact matches (Blue - PASS results)
+  const passResults = new Set(['Negative', 'Expected Positive', 'Confirmed Negative'])
+  if (passResults.has(result)) {
     return 'secondary'
   }
 
@@ -386,17 +425,22 @@ const getResultBadgeVariant = (result: string) => {
     return 'outline'
   }
 
-  // Yellow - Unexpected negatives (missed medications)
-  if (result.includes('Negative (Unexpected)')) {
+  // Yellow - Unexpected negatives (missed medications) - WARNINGS ONLY
+  if (result.includes('Negative (Warning)')) {
     return 'warning'
   }
 
-  // Red - Any unexpected positives, mixed results
-  if (result.includes('Positive') || result.includes('Mixed')) {
+  // Red - Critical unexpected negatives, unexpected positives, mixed results
+  if (
+    result.includes('Negative (Critical)') ||
+    result.includes('Positive') ||
+    result.includes('Mixed')
+  ) {
     return 'destructive'
   }
 
   // White - Pending, inconclusive, or unknown
+  // Inconclusive is neutral - not pass or fail
   return 'outline'
 }
 
@@ -423,15 +467,27 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
       filtered = filtered.filter((result) => {
         const resultDate = new Date(result.collectionDate || result.createdAt)
         // Reset time to start of day for accurate comparison
-        const resultDateOnly = new Date(resultDate.getFullYear(), resultDate.getMonth(), resultDate.getDate())
+        const resultDateOnly = new Date(
+          resultDate.getFullYear(),
+          resultDate.getMonth(),
+          resultDate.getDate(),
+        )
 
         if (dateRange.from) {
-          const fromDateOnly = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate())
+          const fromDateOnly = new Date(
+            dateRange.from.getFullYear(),
+            dateRange.from.getMonth(),
+            dateRange.from.getDate(),
+          )
           if (resultDateOnly < fromDateOnly) return false
         }
 
         if (dateRange.to) {
-          const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate())
+          const toDateOnly = new Date(
+            dateRange.to.getFullYear(),
+            dateRange.to.getMonth(),
+            dateRange.to.getDate(),
+          )
           if (resultDateOnly > toDateOnly) return false
         }
 
@@ -448,9 +504,15 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
           case 'negative':
             return formattedResult.toLowerCase().includes('negative')
           case 'positive-expected':
-            return formattedResult.toLowerCase().includes('positive') && formattedResult.toLowerCase().includes('expected')
+            return (
+              formattedResult.toLowerCase().includes('positive') &&
+              formattedResult.toLowerCase().includes('expected')
+            )
           case 'positive-unexpected':
-            return formattedResult.toLowerCase().includes('positive') && !formattedResult.toLowerCase().includes('expected')
+            return (
+              formattedResult.toLowerCase().includes('positive') &&
+              !formattedResult.toLowerCase().includes('expected')
+            )
           case 'pending':
             return formattedResult.toLowerCase().includes('pending')
           case 'inconclusive':
@@ -519,32 +581,8 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
         header: 'Result',
         size: 200,
         cell: ({ row }) => {
-          const { result, unexpectedPositives, unexpectedNegatives, confirmationResults } = formatTestResult(row.original)
-
-          // Substance map for display - full names
-          const substanceMap: { [key: string]: string } = {
-            '6-mam': '6-MAM (Heroin)',
-            amphetamines: 'Amphetamines',
-            methamphetamines: 'Methamphetamines',
-            benzodiazepines: 'Benzodiazepines',
-            thc: 'THC',
-            opiates: 'Opiates',
-            oxycodone: 'Oxycodone',
-            cocaine: 'Cocaine',
-            pcp: 'PCP',
-            barbiturates: 'Barbiturates',
-            methadone: 'Methadone',
-            propoxyphene: 'Propoxyphene',
-            tricyclic_antidepressants: 'Tricyclic Antidepressants',
-            mdma: 'MDMA (Ecstasy)',
-            buprenorphine: 'Buprenorphine',
-            tramadol: 'Tramadol',
-            fentanyl: 'Fentanyl',
-            kratom: 'Kratom',
-            etg: 'EtG (Alcohol)',
-            synthetic_cannabinoids: 'Synthetic Cannabinoids',
-            other: 'Other',
-          }
+          const { result, unexpectedPositives, unexpectedNegatives, confirmationResults } =
+            formatTestResult(row.original)
 
           return (
             <div className="space-y-2 py-2">
@@ -559,14 +597,23 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {confirmationResults.map((conf: any, idx: number) => {
-                      const substanceName = substanceMap[conf.substance] || conf.substance
-                      const variant = conf.result === 'confirmed-positive' ? 'destructive' :
-                                     conf.result === 'confirmed-negative' ? 'secondary' : 'outline'
-                      const symbol = conf.result === 'confirmed-positive' ? ' (Positive)' :
-                                    conf.result === 'confirmed-negative' ? ' (Negative)' : ' (Inconclusive)'
+                      const substanceName = SUBSTANCE_MAP[conf.substance] || conf.substance
+                      const variant =
+                        conf.result === 'confirmed-positive'
+                          ? 'destructive'
+                          : conf.result === 'confirmed-negative'
+                            ? 'secondary'
+                            : 'outline'
+                      const symbol =
+                        conf.result === 'confirmed-positive'
+                          ? ' (Positive)'
+                          : conf.result === 'confirmed-negative'
+                            ? ' (Negative)'
+                            : ' (Inconclusive)'
                       return (
-                        <Badge key={idx} variant={variant} className="text-[10px] px-1.5 py-0">
-                          {substanceName}{symbol}
+                        <Badge key={idx} variant={variant} className="px-1.5 py-0 text-[10px]">
+                          {substanceName}
+                          {symbol}
                         </Badge>
                       )
                     })}
@@ -581,7 +628,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {unexpectedPositives.map((substance, idx) => (
-                      <Badge key={idx} variant="destructive" className="text-[10px] px-1.5 py-0">
+                      <Badge key={idx} variant="destructive" className="px-1.5 py-0 text-[10px]">
                         {substance}
                       </Badge>
                     ))}
@@ -595,7 +642,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {unexpectedNegatives.map((substance, idx) => (
-                      <Badge key={idx} variant="warning" className="text-[10px] px-1.5 py-0">
+                      <Badge key={idx} variant="warning" className="px-1.5 py-0 text-[10px]">
                         {substance}
                       </Badge>
                     ))}
@@ -624,7 +671,9 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
         size: 80,
         cell: ({ row }) => {
           return row.original.isDilute ? (
-            <Badge variant="destructive" className="text-xs">Dilute</Badge>
+            <Badge variant="destructive" className="text-xs">
+              Dilute
+            </Badge>
           ) : (
             <span className="text-muted-foreground text-xs">—</span>
           )
@@ -643,39 +692,43 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
             ['unexpected-positive', 'mixed-unexpected'].includes(initialResult) &&
             !confirmationDecision
 
+          // Prefer confirmation document if it exists (includes both initial and final results)
+          const documentToView =
+            result.confirmationDocument &&
+            typeof result.confirmationDocument === 'object' &&
+            result.confirmationDocument.url
+              ? result.confirmationDocument
+              : result.testDocument &&
+                  typeof result.testDocument === 'object' &&
+                  result.testDocument.url
+                ? result.testDocument
+                : null
+
           return (
             <div className="flex flex-col gap-1.5">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  if (
-                    result.testDocument &&
-                    typeof result.testDocument === 'object' &&
-                    result.testDocument.url
-                  ) {
-                    window.open(result.testDocument.url, '_blank')
+                  if (documentToView?.url) {
+                    window.open(documentToView.url, '_blank')
                   }
                 }}
-                disabled={
-                  !result.testDocument ||
-                  typeof result.testDocument !== 'object' ||
-                  !result.testDocument.url
-                }
+                disabled={!documentToView}
                 title="View test result"
                 className="h-8 px-2"
               >
-                <FileText className="h-3.5 w-3.5 mr-1" />
+                <FileText className="mr-1 h-3.5 w-3.5" />
                 <span className="text-xs">View</span>
               </Button>
               {needsDecision && (
-                <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                <div className="text-muted-foreground flex flex-col gap-1 text-xs">
                   <p className="font-semibold">Confirmation Available</p>
                   <p>You have 30 days to request confirmation testing.</p>
                   {contactPhone ? (
                     <a
                       href={`tel:${contactPhone.replace(/\D/g, '')}`}
-                      className="text-blue-600 hover:underline font-medium"
+                      className="font-medium text-blue-600 hover:underline"
                     >
                       Call {contactPhone} to request
                     </a>
@@ -733,7 +786,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
             {/* Enhanced Filtering Interface */}
             <div className="py-4">
               {/* Desktop Filters */}
-              <div className="hidden md:block space-y-4">
+              <div className="hidden space-y-4 md:block">
                 <div className="flex flex-wrap items-center gap-4">
                   {/* Date Range Filter */}
                   <div className="flex items-center gap-2">
@@ -793,7 +846,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                       }}
                       className="ml-2"
                     >
-                      <X className="h-4 w-4 mr-1" />
+                      <X className="mr-1 h-4 w-4" />
                       Clear Filters
                     </Button>
                   )}
@@ -801,38 +854,14 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
 
                 {/* Quick Date Presets */}
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Quick filters:</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const today = new Date()
-                      const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
-                      setDateRange({ from: sevenDaysAgo, to: today })
-                    }}
-                  >
+                  <span className="text-muted-foreground text-sm">Quick filters:</span>
+                  <Button variant="ghost" size="sm" onClick={() => setDateRange(getLastNDays(7))}>
                     Last 7 days
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const today = new Date()
-                      const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
-                      setDateRange({ from: thirtyDaysAgo, to: today })
-                    }}
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => setDateRange(getLastNDays(30))}>
                     Last 30 days
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const today = new Date()
-                      const sixMonthsAgo = new Date(today.getTime() - 6 * 30 * 24 * 60 * 60 * 1000)
-                      setDateRange({ from: sixMonthsAgo, to: today })
-                    }}
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => setDateRange(getLastNMonths(6))}>
                     Last 6 months
                   </Button>
                 </div>
@@ -843,10 +872,10 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                 <Drawer open={isFilterDrawerOpen} onOpenChange={setIsFilterDrawerOpen}>
                   <DrawerTrigger asChild>
                     <Button variant="outline" className="w-full">
-                      <Filter className="h-4 w-4 mr-2" />
+                      <Filter className="mr-2 h-4 w-4" />
                       Filters
                       {(dateRange?.from || dateRange?.to || resultFilter || testTypeFilter) && (
-                        <span className="ml-2 bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
+                        <span className="bg-primary text-primary-foreground ml-2 rounded-full px-2 py-0.5 text-xs">
                           Active
                         </span>
                       )}
@@ -859,7 +888,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                         Refine your test results by date, result type, or test type.
                       </DrawerDescription>
                     </DrawerHeader>
-                    <div className="px-4 pb-4 space-y-6">
+                    <div className="space-y-6 px-4 pb-4">
                       {/* Date Range Filter */}
                       <div className="space-y-2">
                         <span className="text-sm font-medium">Date Range</span>
@@ -878,11 +907,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              const today = new Date()
-                              const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
-                              setDateRange({ from: sevenDaysAgo, to: today })
-                            }}
+                            onClick={() => setDateRange(getLastNDays(7))}
                             className="justify-start"
                           >
                             Last 7 days
@@ -890,11 +915,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              const today = new Date()
-                              const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
-                              setDateRange({ from: thirtyDaysAgo, to: today })
-                            }}
+                            onClick={() => setDateRange(getLastNDays(30))}
                             className="justify-start"
                           >
                             Last 30 days
@@ -902,11 +923,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              const today = new Date()
-                              const sixMonthsAgo = new Date(today.getTime() - 6 * 30 * 24 * 60 * 60 * 1000)
-                              setDateRange({ from: sixMonthsAgo, to: today })
-                            }}
+                            onClick={() => setDateRange(getLastNMonths(6))}
                             className="justify-start"
                           >
                             Last 6 months
@@ -925,7 +942,9 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                             <SelectItem value="all">All Results</SelectItem>
                             <SelectItem value="negative">Negative</SelectItem>
                             <SelectItem value="positive-expected">Positive (Expected)</SelectItem>
-                            <SelectItem value="positive-unexpected">Positive (Unexpected)</SelectItem>
+                            <SelectItem value="positive-unexpected">
+                              Positive (Unexpected)
+                            </SelectItem>
                             <SelectItem value="pending">Pending</SelectItem>
                             <SelectItem value="inconclusive">Inconclusive</SelectItem>
                           </SelectContent>
@@ -961,7 +980,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                             setIsFilterDrawerOpen(false)
                           }}
                         >
-                          <X className="h-4 w-4 mr-2" />
+                          <X className="mr-2 h-4 w-4" />
                           Clear All Filters
                         </Button>
                       )}
@@ -970,14 +989,17 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                 </Drawer>
               </div>
             </div>
-            <div className="rounded-md border overflow-x-auto">
+            <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
                     <TableRow key={headerGroup.id} className="bg-muted/50">
                       {headerGroup.headers.map((header) => {
                         return (
-                          <TableHead key={header.id} className="font-semibold text-xs uppercase tracking-wide">
+                          <TableHead
+                            key={header.id}
+                            className="text-xs font-semibold uppercase tracking-wide"
+                          >
                             {header.isPlaceholder
                               ? null
                               : flexRender(header.column.columnDef.header, header.getContext())}
@@ -993,7 +1015,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                       <TableRow
                         key={row.id}
                         data-state={row.getIsSelected() && 'selected'}
-                        className="border-b last:border-b-0 hover:bg-muted/30"
+                        className="hover:bg-muted/30 border-b last:border-b-0"
                       >
                         {row.getVisibleCells().map((cell) => (
                           <TableCell key={cell.id} className="py-3 align-top">
@@ -1060,9 +1082,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
               <div className="space-y-6">
                 {/* Green - PASS Results */}
                 <div>
-                  <h4 className="mb-3 text-sm font-medium text-green-700">
-                    Green - PASS Results
-                  </h4>
+                  <h4 className="mb-3 text-sm font-medium text-green-700">Green - PASS Results</h4>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <Badge variant="secondary">Negative</Badge>
@@ -1147,7 +1167,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="outline">Inconclusive</Badge>
-                      <span className="text-muted-foreground text-sm">Unclear result</span>
+                      <span className="text-muted-foreground text-sm">Invalid sample - could not be screened</span>
                     </div>
                   </div>
                 </div>
@@ -1157,13 +1177,17 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                   <h4 className="mb-3 text-sm font-medium">Substance Labels</h4>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
-                      <Badge variant="destructive" className="text-xs">*Substance</Badge>
+                      <Badge variant="destructive" className="text-xs">
+                        *Substance
+                      </Badge>
                       <span className="text-muted-foreground text-sm">
                         Red badges = Unexpected positive substances
                       </span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Badge variant="warning" className="text-xs">*Substance</Badge>
+                      <Badge variant="warning" className="text-xs">
+                        *Substance
+                      </Badge>
                       <span className="text-muted-foreground text-sm">
                         Yellow badges = Unexpected negative substances (missed medications)
                       </span>
@@ -1216,6 +1240,10 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                     <div className="flex items-center space-x-2">
                       <FileCheck className="h-4 w-4" />
                       <span>Confirmation</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <X className="h-4 w-4 text-red-500" />
+                      <span>Invalid Sample</span>
                     </div>
                   </div>
                 </div>

@@ -359,13 +359,6 @@ export const Clients: CollectionConfig = {
                     description: 'LEGACY (pre-2025-01): Single probation officer email. New registrations use recipients array. Kept for backwards compatibility with existing records.',
                   },
                 },
-                {
-                  name: 'ccEmail',
-                  type: 'email',
-                  admin: {
-                    description: 'Additional email to CC on test results',
-                  },
-                },
               ],
             },
             // Employment specific fields
@@ -552,6 +545,15 @@ export const Clients: CollectionConfig = {
                   admin: {
                     description:
                       'What substance(s) this medication shows as in drug tests. Select all that apply.',
+                  },
+                },
+                {
+                  name: 'requireConfirmation',
+                  type: 'checkbox',
+                  defaultValue: false,
+                  admin: {
+                    description:
+                      'If checked, missing this medication will FAIL the test and require confirmation. Use this for MAT medications (e.g., buprenorphine, methadone) that must show on every test. If unchecked, missing this medication will only show as a WARNING.',
                   },
                 },
                 {

@@ -104,6 +104,7 @@ export interface Config {
     media: Media;
     'private-media': PrivateMedia;
     admins: Admin;
+    'admin-alerts': AdminAlert;
     technicians: Technician;
     clients: Client;
     'drug-tests': DrugTest;
@@ -129,6 +130,7 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     'private-media': PrivateMediaSelect<false> | PrivateMediaSelect<true>;
     admins: AdminsSelect<false> | AdminsSelect<true>;
+    'admin-alerts': AdminAlertsSelect<false> | AdminAlertsSelect<true>;
     technicians: TechniciansSelect<false> | TechniciansSelect<true>;
     clients: ClientsSelect<false> | ClientsSelect<true>;
     'drug-tests': DrugTestsSelect<false> | DrugTestsSelect<true>;
@@ -960,10 +962,6 @@ export interface Client {
      * LEGACY (pre-2025-01): Single probation officer email. New registrations use recipients array. Kept for backwards compatibility with existing records.
      */
     probationOfficerEmail?: string | null;
-    /**
-     * Additional email to CC on test results
-     */
-    ccEmail?: string | null;
   };
   /**
    * Employer and contact information
@@ -1077,6 +1075,10 @@ export interface Client {
             )[]
           | null;
         /**
+         * If checked, missing this medication will FAIL the test and require confirmation. Use this for MAT medications (e.g., buprenorphine, methadone) that must show on every test. If unchecked, missing this medication will only show as a WARNING.
+         */
+        requireConfirmation?: boolean | null;
+        /**
          * Additional notes about this medication
          */
         notes?: string | null;
@@ -1170,6 +1172,54 @@ export interface PrivateMedia {
 export interface DrugTest {
   id: string;
   /**
+   * AUTO-UPDATED: Current workflow status based on entered data
+   */
+  screeningStatus: 'collected' | 'screened' | 'confirmation-pending' | 'complete';
+  /**
+   * ⚠️ CRITICAL WARNING: Check this ONLY if the sample is INVALID (leaked during transport, damaged, or unable to produce results). This will immediately mark the test as COMPLETE with an INCONCLUSIVE result and send notification emails to client and referral. A new test must be scheduled.
+   */
+  isInconclusive?: boolean | null;
+  /**
+   * AUTO-COMPUTED: Initial screening result based on business logic
+   */
+  initialScreenResult?:
+    | (
+        | 'negative'
+        | 'expected-positive'
+        | 'unexpected-positive'
+        | 'unexpected-negative-critical'
+        | 'unexpected-negative-warning'
+        | 'mixed-unexpected'
+      )
+    | null;
+  /**
+   * AUTO-COMPUTED: Final result after confirmation testing
+   */
+  finalStatus?:
+    | (
+        | 'negative'
+        | 'expected-positive'
+        | 'confirmed-negative'
+        | 'unexpected-positive'
+        | 'unexpected-negative-critical'
+        | 'unexpected-negative-warning'
+        | 'mixed-unexpected'
+        | 'inconclusive'
+      )
+    | null;
+  /**
+   * AUTO-COMPUTED: Complete when auto-accepted, manually accepted, or all confirmation results received
+   */
+  isComplete?: boolean | null;
+  /**
+   * AUTO-SELECTED as "accept" for negative/expected-positive results. REQUIRED CHOICE for unexpected results.
+   */
+  confirmationDecision?: ('accept' | 'request-confirmation') | null;
+  /**
+   * Uncheck to skip sending email notifications when saving (useful for testing or manual corrections)
+   */
+  sendNotifications?: boolean | null;
+  /**
    * Client this drug test belongs to
    */
   relatedClient: string | Client;
@@ -1182,15 +1232,23 @@ export interface DrugTest {
    */
   testType: '11-panel-lab' | '15-panel-instant' | '17-panel-sos-lab' | 'etg-lab';
   /**
-   * Current workflow status. Set to "Screened" when entering test results.
+   * Snapshot of active medications at time of test (auto-populated from client, editable by superAdmin only)
    */
-  screeningStatus: 'collected' | 'screened' | 'confirmation-pending' | 'complete';
+  medicationsAtTestTime?: string | null;
   /**
-   * Date and time when screening was completed
+   * Internal process notes and status updates
    */
-  screeningCompletedAt?: string | null;
+  processNotes?: string | null;
   /**
-   * RAW TEST RESULTS: Which substances tested positive? Leave empty if all negative. Select only substances that appear on your specific test panel.
+   * Initial screening test report (PDF). Uploading this will trigger test computation and mark status as "screened".
+   */
+  testDocument?: (string | null) | PrivateMedia;
+  /**
+   * Mark if the test sample was dilute
+   */
+  isDilute?: boolean | null;
+  /**
+   * RAW TEST RESULTS: Which substances tested positive? Leave empty if all negative.
    */
   detectedSubstances?:
     | (
@@ -1298,26 +1356,13 @@ export interface DrugTest {
       )[]
     | null;
   /**
-   * AUTO-COMPUTED: Overall test result classification based on business logic
-   */
-  initialScreenResult?:
-    | (
-        | 'negative'
-        | 'expected-positive'
-        | 'unexpected-positive'
-        | 'unexpected-negative'
-        | 'mixed-unexpected'
-        | 'inconclusive'
-      )
-    | null;
-  /**
-   * AUTO-SELECTED as "accept" for negative/expected-positive results. REQUIRED CHOICE for unexpected results.
-   */
-  confirmationDecision?: ('accept' | 'request-confirmation') | null;
-  /**
    * Date and time confirmation was requested
    */
   confirmationRequestedAt?: string | null;
+  /**
+   * Confirmation test report (PDF). Shows both initial screen and confirmation results. Required before final emails are sent.
+   */
+  confirmationDocument?: (string | null) | PrivateMedia;
   /**
    * Which substances require confirmation testing
    */
@@ -1345,10 +1390,6 @@ export interface DrugTest {
         | 'tricyclic_antidepressants'
       )[]
     | null;
-  /**
-   * Mark if the test sample was dilute
-   */
-  isDilute?: boolean | null;
   /**
    * Individual confirmation test results for each substance
    */
@@ -1390,21 +1431,25 @@ export interface DrugTest {
       }[]
     | null;
   /**
-   * AUTO-COMPUTED: Complete when auto-accepted, manually accepted, or all confirmation results received
+   * Complete history of all email notifications sent for this test
    */
-  isComplete?: boolean | null;
-  /**
-   * Snapshot of active medications at time of test (auto-populated from client, editable by superAdmin only)
-   */
-  medicationsAtTestTime?: string | null;
-  /**
-   * Internal process notes and status updates
-   */
-  processNotes?: string | null;
-  /**
-   * Drug test report document (PDF)
-   */
-  testDocument?: (string | null) | PrivateMedia;
+  notificationsSent?:
+    | {
+        /**
+         * Workflow stage (collected, screened, complete, inconclusive)
+         */
+        stage?: string | null;
+        /**
+         * When the notification was sent
+         */
+        sentAt?: string | null;
+        /**
+         * Who received the notification
+         */
+        recipients?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1452,6 +1497,67 @@ export interface Admin {
       }[]
     | null;
   password?: string | null;
+}
+/**
+ * Business-critical alerts requiring admin attention
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-alerts".
+ */
+export interface AdminAlert {
+  id: string;
+  /**
+   * Brief description of the alert
+   */
+  title: string;
+  /**
+   * Severity level of the alert
+   */
+  severity: 'critical' | 'high' | 'medium';
+  /**
+   * Category of the alert
+   */
+  alertType:
+    | 'email-failure'
+    | 'recipient-fetch-failure'
+    | 'document-missing'
+    | 'notification-history-failure'
+    | 'data-integrity'
+    | 'other';
+  /**
+   * Detailed description of the issue and recommended action
+   */
+  message: string;
+  /**
+   * Additional context (client ID, drug test ID, error details, etc.)
+   */
+  context?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Mark as resolved once the issue has been addressed
+   */
+  resolved?: boolean | null;
+  /**
+   * When this alert was resolved
+   */
+  resolvedAt?: string | null;
+  /**
+   * Admin who resolved this alert
+   */
+  resolvedBy?: (string | null) | Admin;
+  /**
+   * Resolution notes or actions taken
+   */
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1665,6 +1771,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'admins';
         value: string | Admin;
+      } | null)
+    | ({
+        relationTo: 'admin-alerts';
+        value: string | AdminAlert;
       } | null)
     | ({
         relationTo: 'technicians';
@@ -2375,6 +2485,23 @@ export interface AdminsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-alerts_select".
+ */
+export interface AdminAlertsSelect<T extends boolean = true> {
+  title?: T;
+  severity?: T;
+  alertType?: T;
+  message?: T;
+  context?: T;
+  resolved?: T;
+  resolvedAt?: T;
+  resolvedBy?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "technicians_select".
  */
 export interface TechniciansSelect<T extends boolean = true> {
@@ -2424,7 +2551,6 @@ export interface ClientsSelect<T extends boolean = true> {
             };
         probationOfficerName?: T;
         probationOfficerEmail?: T;
-        ccEmail?: T;
       };
   employmentInfo?:
     | T
@@ -2456,6 +2582,7 @@ export interface ClientsSelect<T extends boolean = true> {
         endDate?: T;
         status?: T;
         detectedAs?: T;
+        requireConfirmation?: T;
         notes?: T;
         createdAt?: T;
         id?: T;
@@ -2486,20 +2613,27 @@ export interface ClientsSelect<T extends boolean = true> {
  * via the `definition` "drug-tests_select".
  */
 export interface DrugTestsSelect<T extends boolean = true> {
+  screeningStatus?: T;
+  isInconclusive?: T;
+  initialScreenResult?: T;
+  finalStatus?: T;
+  isComplete?: T;
+  confirmationDecision?: T;
+  sendNotifications?: T;
   relatedClient?: T;
   collectionDate?: T;
   testType?: T;
-  screeningStatus?: T;
-  screeningCompletedAt?: T;
+  medicationsAtTestTime?: T;
+  processNotes?: T;
+  testDocument?: T;
+  isDilute?: T;
   detectedSubstances?: T;
   expectedPositives?: T;
   unexpectedPositives?: T;
   unexpectedNegatives?: T;
-  initialScreenResult?: T;
-  confirmationDecision?: T;
   confirmationRequestedAt?: T;
+  confirmationDocument?: T;
   confirmationSubstances?: T;
-  isDilute?: T;
   confirmationResults?:
     | T
     | {
@@ -2508,10 +2642,14 @@ export interface DrugTestsSelect<T extends boolean = true> {
         notes?: T;
         id?: T;
       };
-  isComplete?: T;
-  medicationsAtTestTime?: T;
-  processNotes?: T;
-  testDocument?: T;
+  notificationsSent?:
+    | T
+    | {
+        stage?: T;
+        sentAt?: T;
+        recipients?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }

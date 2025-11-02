@@ -167,7 +167,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
                 <div>
                   <p className="text-xs opacity-90">Active Meds</p>
                   <p className="mt-1 text-2xl font-bold">{stats.activeMedications}</p>
-                  <p className="text-xs opacity-75">Documented</p>
+                  <p className="text-xs opacity-75">Reported</p>
                 </div>
                 <Pill className="h-8 w-8 opacity-80" />
               </div>
@@ -320,7 +320,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
                 </div>
                 <div className="space-y-3">
                   <div>
-                    <p className="text-muted-foreground text-sm">Documented Medications</p>
+                    <p className="text-muted-foreground text-sm">Reported Medications</p>
                     <p className="text-sm font-medium">{stats.activeMedications} active</p>
                   </div>
                   <Link href="/dashboard/profile">

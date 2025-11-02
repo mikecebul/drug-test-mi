@@ -79,10 +79,25 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
               <div class="detail-row">
                 <span class="label">Employer:</span> ${doc.employmentInfo.employerName || 'N/A'}
               </div>
-              <div class="detail-row">
-                <span class="label">Contact:</span> ${doc.employmentInfo.contactName || 'N/A'} (${doc.employmentInfo.contactEmail || 'N/A'})
-              </div>
       `
+
+      // Display all recipients
+      if (doc.employmentInfo.recipients && doc.employmentInfo.recipients.length > 0) {
+        emailBody += `
+              <div class="detail-row">
+                <span class="label">Recipients:</span>
+                <ul style="margin: 5px 0; padding-left: 20px;">
+        `
+        doc.employmentInfo.recipients.forEach((recipient: { name: string; email: string }) => {
+          emailBody += `
+                  <li>${recipient.name} (${recipient.email})</li>
+          `
+        })
+        emailBody += `
+                </ul>
+              </div>
+        `
+      }
     }
 
     if (doc.clientType === 'probation' && doc.courtInfo) {
@@ -90,10 +105,25 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
               <div class="detail-row">
                 <span class="label">Court:</span> ${doc.courtInfo.courtName || 'N/A'}
               </div>
-              <div class="detail-row">
-                <span class="label">Probation Officer:</span> ${doc.courtInfo.probationOfficerName || 'N/A'} (${doc.courtInfo.probationOfficerEmail || 'N/A'})
-              </div>
       `
+
+      // Display all recipients
+      if (doc.courtInfo.recipients && doc.courtInfo.recipients.length > 0) {
+        emailBody += `
+              <div class="detail-row">
+                <span class="label">Recipients:</span>
+                <ul style="margin: 5px 0; padding-left: 20px;">
+        `
+        doc.courtInfo.recipients.forEach((recipient: { name: string; email: string }) => {
+          emailBody += `
+                  <li>${recipient.name} (${recipient.email})</li>
+          `
+        })
+        emailBody += `
+                </ul>
+              </div>
+        `
+      }
     }
 
     if (doc.clientType === 'self' && doc.alternativeRecipient?.name) {

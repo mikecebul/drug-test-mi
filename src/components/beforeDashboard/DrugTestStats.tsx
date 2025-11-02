@@ -9,6 +9,7 @@ interface StatsData {
   totalDrugTests: number
   incompleteDrugTests: number
   pendingConfirmation: number
+  unresolvedAlerts: number
 }
 
 export default function DrugTestStats() {
@@ -18,6 +19,7 @@ export default function DrugTestStats() {
     totalDrugTests: 0,
     incompleteDrugTests: 0,
     pendingConfirmation: 0,
+    unresolvedAlerts: 0,
   })
   const [loading, setLoading] = useState(true)
 
@@ -26,18 +28,20 @@ export default function DrugTestStats() {
       if (!user) return
 
       try {
-        const [clientsRes, drugTestsRes, incompleteRes, pendingRes] = await Promise.all([
+        const [clientsRes, drugTestsRes, incompleteRes, pendingRes, alertsRes] = await Promise.all([
           fetch('/api/clients?limit=0'),
           fetch('/api/drug-tests?limit=0'),
           fetch('/api/drug-tests?where[isComplete][equals]=false&limit=0'),
           fetch('/api/drug-tests?where[confirmationDecision][equals]=request-confirmation&where[isComplete][equals]=false&limit=0'),
+          fetch('/api/admin-alerts?where[resolved][equals]=false&limit=0'),
         ])
 
-        const [clients, drugTests, incomplete, pending] = await Promise.all([
+        const [clients, drugTests, incomplete, pending, alerts] = await Promise.all([
           clientsRes.json(),
           drugTestsRes.json(),
           incompleteRes.json(),
           pendingRes.json(),
+          alertsRes.json(),
         ])
 
         setStats({
@@ -45,6 +49,7 @@ export default function DrugTestStats() {
           totalDrugTests: drugTests.totalDocs || 0,
           incompleteDrugTests: incomplete.totalDocs || 0,
           pendingConfirmation: pending.totalDocs || 0,
+          unresolvedAlerts: alerts.totalDocs || 0,
         })
       } catch (error) {
         console.error('Error fetching stats:', error)
@@ -62,8 +67,8 @@ export default function DrugTestStats() {
 
   if (loading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-        {[...Array(4)].map((_, i) => (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-6">
+        {[...Array(5)].map((_, i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Loading...</CardTitle>
@@ -78,7 +83,7 @@ export default function DrugTestStats() {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-6">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
@@ -177,6 +182,36 @@ export default function DrugTestStats() {
           {stats.pendingConfirmation > 0 && (
             <p className="text-xs text-muted-foreground">
               Awaiting lab results
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Unresolved Alerts</CardTitle>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            className="h-4 w-4 text-muted-foreground text-red-500"
+          >
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+            <path d="M12 9v4" />
+            <path d="m12 17 .01 0" />
+          </svg>
+        </CardHeader>
+        <CardContent>
+          <div className={`text-2xl font-bold ${stats.unresolvedAlerts > 0 ? 'text-red-600' : ''}`}>
+            {stats.unresolvedAlerts}
+          </div>
+          {stats.unresolvedAlerts > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Require immediate attention
             </p>
           )}
         </CardContent>

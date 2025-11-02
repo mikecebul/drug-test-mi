@@ -102,7 +102,7 @@ export function MedicationsView({ medications }: MedicationsViewProps) {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Medications</h1>
             <p className="text-muted-foreground">
-              Manage your documented medications for drug test verification
+              Manage your reported medications for drug test verification
             </p>
           </div>
           <AddMedicationDialog />
