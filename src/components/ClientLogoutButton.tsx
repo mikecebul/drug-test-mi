@@ -9,12 +9,13 @@ export function ClientLogoutButton({ children }: { children: React.ReactNode }) 
         credentials: 'include',
       })
 
-      if (response.ok) {
-        // Redirect to home
-        window.location.href = '/'
-      }
+      // Always redirect to home, regardless of response
+      // If no user is logged in, we still want to redirect
+      window.location.href = '/'
     } catch (error) {
       console.error('Logout failed:', error)
+      // Still redirect to home even if there's an error
+      window.location.href = '/'
     }
   }
 
