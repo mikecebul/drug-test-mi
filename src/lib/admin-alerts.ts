@@ -64,7 +64,7 @@ export async function createAdminAlert(
   } catch (error) {
     // If alert creation fails, at least log it
     // Don't throw - we don't want alert failures to crash the main operation
-    payload.logger.error('Failed to create admin alert:', error)
-    payload.logger.error('Original alert details:', params)
+    payload.logger.error(`Failed to create admin alert: ${error}`)
+    payload.logger.error(`Original alert details: ${JSON.stringify(params, null, 2)}`)
   }
 }

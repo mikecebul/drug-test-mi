@@ -223,11 +223,10 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
 
     return data
   } catch (error) {
-    req.payload.logger.error(`Failed to compute test results for drug test:`, {
-      relatedClient,
-      detectedSubstances,
+    req.payload.logger.error(
+      `Failed to compute test results for drug test - Client: ${relatedClient}, Detected: ${JSON.stringify(detectedSubstances)}`,
       error,
-    })
+    )
 
     // Set safe fallback values
     data.initialScreenResult = 'inconclusive'
