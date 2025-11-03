@@ -13,21 +13,9 @@ export type ProfileFormType = {
   gender?: 'male' | 'female' | 'other' | 'prefer-not-to-say'
   dob?: string
   preferredContactMethod: 'email' | 'phone' | 'sms'
-  // Client type specific fields
-  courtInfo?: {
-    courtName: string
-    probationOfficerName: string
-    probationOfficerEmail: string
-  }
-  employmentInfo?: {
-    employerName: string
-    contactName: string
-    contactEmail: string
-  }
-  alternativeRecipient?: {
-    name: string
-    email: string
-  }
+  // Note: Client type specific fields (courtInfo, employmentInfo, selfInfo)
+  // are read-only in the profile and cannot be edited here.
+  // Users must request updates via the "Request Update" button.
 }
 
 export const useProfileFormOpts = ({
@@ -47,9 +35,6 @@ export const useProfileFormOpts = ({
       gender: user?.gender || '',
       dob: user?.dob || '',
       preferredContactMethod: user?.preferredContactMethod || 'email',
-      courtInfo: user?.courtInfo || undefined,
-      employmentInfo: user?.employmentInfo || undefined,
-      alternativeRecipient: user?.alternativeRecipient || undefined,
     } as ProfileFormType,
     onSubmit: async ({ value: data }) => {
       if (!user) {
@@ -104,41 +89,8 @@ export const useProfileFormOpts = ({
           updateData.preferredContactMethod = data.preferredContactMethod
         }
 
-        // Include client type specific fields if they're different
-        if (user.clientType === 'probation' && data.courtInfo) {
-          const currentCourtInfo = user.courtInfo || {}
-          const hasCourtChanges =
-            data.courtInfo.courtName !== currentCourtInfo.courtName ||
-            data.courtInfo.probationOfficerName !== currentCourtInfo.probationOfficerName ||
-            data.courtInfo.probationOfficerEmail !== currentCourtInfo.probationOfficerEmail
-
-          if (hasCourtChanges) {
-            updateData.courtInfo = data.courtInfo
-          }
-        }
-
-        if (user.clientType === 'employment' && data.employmentInfo) {
-          const currentEmploymentInfo = user.employmentInfo || {}
-          const hasEmploymentChanges =
-            data.employmentInfo.employerName !== currentEmploymentInfo.employerName ||
-            data.employmentInfo.contactName !== currentEmploymentInfo.contactName ||
-            data.employmentInfo.contactEmail !== currentEmploymentInfo.contactEmail
-
-          if (hasEmploymentChanges) {
-            updateData.employmentInfo = data.employmentInfo
-          }
-        }
-
-        if (user.clientType === 'self' && data.alternativeRecipient) {
-          const currentAlternativeRecipient = user.alternativeRecipient || {}
-          const hasAlternativeRecipientChanges =
-            data.alternativeRecipient.name !== currentAlternativeRecipient.name ||
-            data.alternativeRecipient.email !== currentAlternativeRecipient.email
-
-          if (hasAlternativeRecipientChanges) {
-            updateData.alternativeRecipient = data.alternativeRecipient
-          }
-        }
+        // Note: Client type specific fields (courtInfo, employmentInfo, selfInfo)
+        // are not editable through this form. Users must use the "Request Update" button.
 
         // Check if there's actually something to update
         if (Object.keys(updateData).length === 0) {

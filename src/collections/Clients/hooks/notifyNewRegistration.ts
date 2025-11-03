@@ -126,10 +126,19 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
       }
     }
 
-    if (doc.clientType === 'self' && doc.alternativeRecipient?.name) {
+    if (doc.clientType === 'self' && doc.selfInfo?.recipients && doc.selfInfo.recipients.length > 0) {
       emailBody += `
               <div class="detail-row">
-                <span class="label">Alternative Recipient:</span> ${doc.alternativeRecipient.name} (${doc.alternativeRecipient.email || 'N/A'})
+                <span class="label">Additional Recipients:</span>
+                <ul style="margin: 5px 0; padding-left: 20px;">
+      `
+      doc.selfInfo.recipients.forEach((recipient: { name: string; email: string }) => {
+        emailBody += `
+                  <li>${recipient.name} (${recipient.email})</li>
+        `
+      })
+      emailBody += `
+                </ul>
               </div>
       `
     }

@@ -162,10 +162,14 @@ export const useRegistrationFormOpts = ({
             recipients,
           }
         } else if (clientType === 'self' && !value.resultsRecipient.useSelfAsRecipient) {
-          // Add alternative recipient info for self-pay clients
-          payload.alternativeRecipient = {
-            name: value.resultsRecipient.alternativeRecipientName,
-            email: value.resultsRecipient.alternativeRecipientEmail,
+          // Add additional recipients for self-pay clients
+          payload.selfInfo = {
+            recipients: [
+              {
+                name: value.resultsRecipient.alternativeRecipientName,
+                email: value.resultsRecipient.alternativeRecipientEmail,
+              }
+            ],
           }
         }
 
