@@ -319,7 +319,7 @@ export const Clients: CollectionConfig = {
                   name: 'recipients',
                   type: 'array',
                   admin: {
-                    description: 'Recipients who will receive test results',
+                    description: 'Recipients who will receive test results (probation officers, court clerks, etc.)',
                   },
                   fields: [
                     {
@@ -339,25 +339,6 @@ export const Clients: CollectionConfig = {
                       },
                     },
                   ],
-                },
-                // Legacy fields for backwards compatibility
-                // MIGRATION STRATEGY: These fields are retained for existing client records
-                // New registrations use the 'recipients' array instead
-                // When displaying data, check recipients first, then fall back to legacy fields
-                // These can be removed once all existing clients are migrated to recipients format
-                {
-                  name: 'probationOfficerName',
-                  type: 'text',
-                  admin: {
-                    description: 'LEGACY (pre-2025-01): Single probation officer name. New registrations use recipients array. Kept for backwards compatibility with existing records.',
-                  },
-                },
-                {
-                  name: 'probationOfficerEmail',
-                  type: 'email',
-                  admin: {
-                    description: 'LEGACY (pre-2025-01): Single probation officer email. New registrations use recipients array. Kept for backwards compatibility with existing records.',
-                  },
                 },
               ],
             },
@@ -382,7 +363,7 @@ export const Clients: CollectionConfig = {
                   name: 'recipients',
                   type: 'array',
                   admin: {
-                    description: 'Recipients who will receive test results',
+                    description: 'Recipients who will receive test results (HR contacts, hiring managers, etc.)',
                   },
                   fields: [
                     {
@@ -403,49 +384,41 @@ export const Clients: CollectionConfig = {
                     },
                   ],
                 },
-                // Legacy fields for backwards compatibility
-                // MIGRATION STRATEGY: These fields are retained for existing client records
-                // New registrations use the 'recipients' array instead
-                // When displaying data, check recipients first, then fall back to legacy fields
-                // These can be removed once all existing clients are migrated to recipients format
-                {
-                  name: 'contactName',
-                  type: 'text',
-                  admin: {
-                    description: 'LEGACY (pre-2025-01): Single HR contact name. New registrations use recipients array. Kept for backwards compatibility with existing records.',
-                  },
-                },
-                {
-                  name: 'contactEmail',
-                  type: 'email',
-                  admin: {
-                    description: 'LEGACY (pre-2025-01): Single HR contact email. New registrations use recipients array. Kept for backwards compatibility with existing records.',
-                  },
-                },
               ],
             },
-            // Alternative recipient for self-pay clients
+            // Self-pay client recipients
             {
-              name: 'alternativeRecipient',
+              name: 'selfInfo',
               type: 'group',
               admin: {
                 condition: (_data, siblingData) => siblingData?.clientType === 'self',
-                description: 'Alternative recipient for test results (self-pay clients only)',
+                description: 'Self-pay client information and additional recipients',
               },
               fields: [
                 {
-                  name: 'name',
-                  type: 'text',
+                  name: 'recipients',
+                  type: 'array',
                   admin: {
-                    description: 'Name of alternative recipient',
+                    description: 'Optional additional recipients who will receive test results (family members, personal contacts, etc.). The client will always receive their own results.',
                   },
-                },
-                {
-                  name: 'email',
-                  type: 'email',
-                  admin: {
-                    description: 'Email of alternative recipient',
-                  },
+                  fields: [
+                    {
+                      name: 'name',
+                      type: 'text',
+                      required: true,
+                      admin: {
+                        description: 'Name of recipient',
+                      },
+                    },
+                    {
+                      name: 'email',
+                      type: 'email',
+                      required: true,
+                      admin: {
+                        description: 'Email address of recipient',
+                      },
+                    },
+                  ],
                 },
               ],
             },

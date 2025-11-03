@@ -941,7 +941,7 @@ export interface Client {
      */
     courtName: string;
     /**
-     * Recipients who will receive test results
+     * Recipients who will receive test results (probation officers, court clerks, etc.)
      */
     recipients?:
       | {
@@ -956,14 +956,6 @@ export interface Client {
           id?: string | null;
         }[]
       | null;
-    /**
-     * LEGACY (pre-2025-01): Single probation officer name. New registrations use recipients array. Kept for backwards compatibility with existing records.
-     */
-    probationOfficerName?: string | null;
-    /**
-     * LEGACY (pre-2025-01): Single probation officer email. New registrations use recipients array. Kept for backwards compatibility with existing records.
-     */
-    probationOfficerEmail?: string | null;
   };
   /**
    * Employer and contact information
@@ -974,7 +966,7 @@ export interface Client {
      */
     employerName: string;
     /**
-     * Recipients who will receive test results
+     * Recipients who will receive test results (HR contacts, hiring managers, etc.)
      */
     recipients?:
       | {
@@ -989,27 +981,27 @@ export interface Client {
           id?: string | null;
         }[]
       | null;
-    /**
-     * LEGACY (pre-2025-01): Single HR contact name. New registrations use recipients array. Kept for backwards compatibility with existing records.
-     */
-    contactName?: string | null;
-    /**
-     * LEGACY (pre-2025-01): Single HR contact email. New registrations use recipients array. Kept for backwards compatibility with existing records.
-     */
-    contactEmail?: string | null;
   };
   /**
-   * Alternative recipient for test results (self-pay clients only)
+   * Self-pay client information and additional recipients
    */
-  alternativeRecipient?: {
+  selfInfo?: {
     /**
-     * Name of alternative recipient
+     * Optional additional recipients who will receive test results (family members, personal contacts, etc.). The client will always receive their own results.
      */
-    name?: string | null;
-    /**
-     * Email of alternative recipient
-     */
-    email?: string | null;
+    recipients?:
+      | {
+          /**
+           * Name of recipient
+           */
+          name: string;
+          /**
+           * Email address of recipient
+           */
+          email: string;
+          id?: string | null;
+        }[]
+      | null;
   };
   /**
    * Drug tests automatically linked to this client
@@ -2572,8 +2564,6 @@ export interface ClientsSelect<T extends boolean = true> {
               email?: T;
               id?: T;
             };
-        probationOfficerName?: T;
-        probationOfficerEmail?: T;
       };
   employmentInfo?:
     | T
@@ -2586,14 +2576,17 @@ export interface ClientsSelect<T extends boolean = true> {
               email?: T;
               id?: T;
             };
-        contactName?: T;
-        contactEmail?: T;
       };
-  alternativeRecipient?:
+  selfInfo?:
     | T
     | {
-        name?: T;
-        email?: T;
+        recipients?:
+          | T
+          | {
+              name?: T;
+              email?: T;
+              id?: T;
+            };
       };
   drugTests?: T;
   bookings?: T;

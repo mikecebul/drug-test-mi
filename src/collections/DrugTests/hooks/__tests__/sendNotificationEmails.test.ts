@@ -53,6 +53,7 @@ vi.mock('../../email/templates', () => ({
 describe('sendNotificationEmails - Email Stage Determination', () => {
   let mockPayload: any
   let mockReq: any
+  let mockCollection: any
 
   beforeEach(() => {
     // Set default mock implementation for getRecipients
@@ -102,6 +103,10 @@ describe('sendNotificationEmails - Email Stage Determination', () => {
       payload: mockPayload,
     }
 
+    mockCollection = {
+      slug: 'drug-tests',
+    } as any
+
     // Reset all mocks
     vi.clearAllMocks()
   })
@@ -122,10 +127,12 @@ describe('sendNotificationEmails - Email Stage Determination', () => {
     }
 
     await sendNotificationEmails({
+      collection: mockCollection,
       doc: doc as DrugTest,
       req: mockReq,
       operation: 'update',
       previousDoc: {} as DrugTest,
+      data: doc,
       context: {},
     })
 
@@ -166,10 +173,12 @@ describe('sendNotificationEmails - Email Stage Determination', () => {
     }
 
     await sendNotificationEmails({
+      collection: mockCollection,
       doc: doc as DrugTest,
       req: mockReq,
       operation: 'update',
       previousDoc: {} as DrugTest,
+      data: doc,
       context: {},
     })
 
@@ -192,10 +201,12 @@ describe('sendNotificationEmails - Email Stage Determination', () => {
     }
 
     await sendNotificationEmails({
+      collection: mockCollection,
       doc: labDoc as DrugTest,
       req: mockReq,
       operation: 'update',
       previousDoc: {} as DrugTest,
+      data: labDoc,
       context: {},
     })
 
@@ -220,10 +231,12 @@ describe('sendNotificationEmails - Email Stage Determination', () => {
     }
 
     await sendNotificationEmails({
+      collection: mockCollection,
       doc: instantDoc as DrugTest,
       req: mockReq,
       operation: 'update',
       previousDoc: {} as DrugTest,
+      data: instantDoc,
       context: {},
     })
 
@@ -245,10 +258,12 @@ describe('sendNotificationEmails - Email Stage Determination', () => {
     }
 
     await sendNotificationEmails({
+      collection: mockCollection,
       doc: doc as DrugTest,
       req: mockReq,
       operation: 'update',
       previousDoc: {} as DrugTest,
+      data: doc,
       context: {},
     })
 
@@ -275,10 +290,12 @@ describe('sendNotificationEmails - Email Stage Determination', () => {
     }
 
     await sendNotificationEmails({
+      collection: mockCollection,
       doc: doc as DrugTest,
       req: mockReq,
       operation: 'update',
       previousDoc: {} as DrugTest,
+      data: doc,
       context: {},
     })
 
@@ -317,10 +334,12 @@ describe('sendNotificationEmails - Email Stage Determination', () => {
     }
 
     await sendNotificationEmails({
+      collection: mockCollection,
       doc: docWithoutConfirmation as DrugTest,
       req: mockReq,
       operation: 'update',
       previousDoc: {} as DrugTest,
+      data: docWithoutConfirmation,
       context: {},
     })
 
@@ -390,10 +409,12 @@ describe('sendNotificationEmails - Email Stage Determination', () => {
     })
 
     await sendNotificationEmails({
+      collection: mockCollection,
       doc: doc as DrugTest,
       req: mockReq,
       operation: 'update',
       previousDoc: {} as DrugTest,
+      data: doc,
       context: {},
     })
 
@@ -424,6 +445,7 @@ describe('sendNotificationEmails - Email Stage Determination', () => {
 describe('sendNotificationEmails - Early Exit Conditions', () => {
   let mockPayload: any
   let mockReq: any
+  let mockCollection: any
 
   beforeEach(() => {
     mockPayload = {
@@ -442,6 +464,10 @@ describe('sendNotificationEmails - Early Exit Conditions', () => {
       payload: mockPayload,
     }
 
+    mockCollection = {
+      slug: 'drug-tests',
+    } as any
+
     vi.clearAllMocks()
   })
 
@@ -456,10 +482,12 @@ describe('sendNotificationEmails - Early Exit Conditions', () => {
     }
 
     await sendNotificationEmails({
+      collection: mockCollection,
       doc: doc as DrugTest,
       req: mockReq,
       operation: 'update',
       previousDoc: {} as DrugTest,
+      data: doc,
       context: {},
     })
 
@@ -481,10 +509,12 @@ describe('sendNotificationEmails - Early Exit Conditions', () => {
     }
 
     await sendNotificationEmails({
+      collection: mockCollection,
       doc: doc as DrugTest,
       req: mockReq,
       operation: 'update',
       previousDoc: {} as DrugTest,
+      data: doc,
       context: {
         skipNotificationHook: true,
       },
@@ -500,7 +530,7 @@ describe('sendNotificationEmails - Early Exit Conditions', () => {
   test('Should skip if no email stage can be determined', async () => {
     const doc: Partial<DrugTest> = {
       id: 'test-1',
-      screeningStatus: 'pending',
+      screeningStatus: 'collected',
       notificationsSent: [],
       sendNotifications: true,
       relatedClient: 'client-1',
@@ -515,10 +545,12 @@ describe('sendNotificationEmails - Early Exit Conditions', () => {
     }))
 
     await sendNotificationEmails({
+      collection: mockCollection,
       doc: doc as DrugTest,
       req: mockReq,
       operation: 'update',
       previousDoc: {} as DrugTest,
+      data: doc,
       context: {},
     })
 
@@ -532,9 +564,167 @@ describe('sendNotificationEmails - Early Exit Conditions', () => {
   })
 })
 
+describe('sendNotificationEmails - Self Client Type', () => {
+  let mockPayload: any
+  let mockReq: any
+  let mockCollection: any
+
+  beforeEach(() => {
+    // Set default mock implementation for getRecipients
+    vi.mocked(getRecipients).mockResolvedValue({
+      clientEmail: 'selfclient@test.com',
+      referralEmails: ['selfclient@test.com'], // Self clients receive their own email
+    })
+
+    // Set default mock implementation for fs.promises
+    vi.mocked(fs.promises.access).mockResolvedValue(undefined)
+    vi.mocked(fs.promises.readFile).mockResolvedValue(Buffer.from('fake pdf content'))
+
+    mockPayload = {
+      findByID: vi.fn(async ({ id, collection }: { id: string; collection: string }) => {
+        if (collection === 'clients') {
+          return {
+            id: 'client-1',
+            email: 'selfclient@test.com',
+            firstName: 'Self',
+            lastName: 'Client',
+            clientType: 'self',
+          }
+        }
+        if (collection === 'private-media') {
+          return {
+            id: 'doc-1',
+            filename: 'test-results.pdf',
+            mimeType: 'application/pdf',
+          }
+        }
+        return null
+      }),
+      sendEmail: vi.fn(),
+      update: vi.fn(),
+      create: vi.fn(),
+      logger: {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      },
+      email: {
+        defaultFromAddress: 'test@midrugtest.com',
+      },
+    }
+
+    mockReq = {
+      payload: mockPayload,
+    }
+
+    mockCollection = {
+      slug: 'drug-tests',
+    } as any
+
+    // Reset all mocks
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  test('Should send screened email to self client (client receives their own results)', async () => {
+    const doc: Partial<DrugTest> = {
+      id: 'test-1',
+      screeningStatus: 'screened',
+      initialScreenResult: 'negative',
+      collectionDate: '2024-01-15T10:00:00Z',
+      testType: '15-panel-instant',
+      testDocument: { id: 'doc-1' } as any,
+      relatedClient: 'client-1',
+      notificationsSent: [],
+      sendNotifications: true,
+    }
+
+    await sendNotificationEmails({
+      collection: mockCollection,
+      doc: doc as DrugTest,
+      req: mockReq,
+      operation: 'update',
+      previousDoc: {} as DrugTest,
+      data: doc,
+      context: {},
+    })
+
+    // Self client should receive email (sent to referralEmails which includes their own email)
+    expect(mockPayload.sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'selfclient@test.com',
+      }),
+    )
+
+    // Should update notification history
+    expect(mockPayload.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'drug-tests',
+        id: 'test-1',
+        data: expect.objectContaining({
+          notificationsSent: expect.arrayContaining([
+            expect.objectContaining({
+              stage: 'screened',
+            }),
+          ]),
+        }),
+      }),
+    )
+  })
+
+  test('Should send to self client AND additional recipients when configured', async () => {
+    // Mock getRecipients to return self email + alternative recipient
+    vi.mocked(getRecipients).mockResolvedValueOnce({
+      clientEmail: 'selfclient@test.com',
+      referralEmails: ['selfclient@test.com', 'family@test.com'],
+    })
+
+    const doc: Partial<DrugTest> = {
+      id: 'test-1',
+      screeningStatus: 'screened',
+      initialScreenResult: 'negative',
+      collectionDate: '2024-01-15T10:00:00Z',
+      testType: '15-panel-instant',
+      testDocument: { id: 'doc-1' } as any,
+      relatedClient: 'client-1',
+      notificationsSent: [],
+      sendNotifications: true,
+    }
+
+    await sendNotificationEmails({
+      collection: mockCollection,
+      doc: doc as DrugTest,
+      req: mockReq,
+      operation: 'update',
+      previousDoc: {} as DrugTest,
+      data: doc,
+      context: {},
+    })
+
+    // Should send to both self client and alternative recipient
+    expect(mockPayload.sendEmail).toHaveBeenCalledTimes(2)
+
+    expect(mockPayload.sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'selfclient@test.com',
+      }),
+    )
+
+    expect(mockPayload.sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'family@test.com',
+      }),
+    )
+  })
+})
+
 describe('sendNotificationEmails - Test Mode', () => {
   let mockPayload: any
   let mockReq: any
+  let mockCollection: any
   let originalTestMode: string | undefined
 
   beforeEach(() => {
@@ -571,6 +761,10 @@ describe('sendNotificationEmails - Test Mode', () => {
       payload: mockPayload,
     }
 
+    mockCollection = {
+      slug: 'drug-tests',
+    } as any
+
     vi.clearAllMocks()
   })
 
@@ -604,10 +798,12 @@ describe('sendNotificationEmails - Test Mode', () => {
     }
 
     await sendNotificationEmails({
+      collection: mockCollection,
       doc: doc as DrugTest,
       req: mockReq,
       operation: 'update',
       previousDoc: {} as DrugTest,
+      data: doc,
       context: {},
     })
 
@@ -636,6 +832,7 @@ describe('sendNotificationEmails - Test Mode', () => {
 describe('sendNotificationEmails - Error Handling', () => {
   let mockPayload: any
   let mockReq: any
+  let mockCollection: any
 
   beforeEach(() => {
     mockPayload = {
@@ -654,6 +851,10 @@ describe('sendNotificationEmails - Error Handling', () => {
       payload: mockPayload,
     }
 
+    mockCollection = {
+      slug: 'drug-tests',
+    } as any
+
     vi.clearAllMocks()
   })
 
@@ -671,10 +872,12 @@ describe('sendNotificationEmails - Error Handling', () => {
     }
 
     const result = await sendNotificationEmails({
+      collection: mockCollection,
       doc: doc as DrugTest,
       req: mockReq,
       operation: 'update',
       previousDoc: {} as DrugTest,
+      data: doc,
       context: {},
     })
 
@@ -720,10 +923,12 @@ describe('sendNotificationEmails - Error Handling', () => {
     }
 
     await sendNotificationEmails({
+      collection: mockCollection,
       doc: doc as DrugTest,
       req: mockReq,
       operation: 'update',
       previousDoc: {} as DrugTest,
+      data: doc,
       context: {},
     })
 
@@ -778,10 +983,12 @@ describe('sendNotificationEmails - Error Handling', () => {
     }
 
     await sendNotificationEmails({
+      collection: mockCollection,
       doc: doc as DrugTest,
       req: mockReq,
       operation: 'update',
       previousDoc: {} as DrugTest,
+      data: doc,
       context: {},
     })
 

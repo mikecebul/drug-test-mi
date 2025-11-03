@@ -391,19 +391,52 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
             },
           })
         } else {
-          // Since disableLocalStorage: false, files are stored in staticDir
-          const localPath = path.join(process.cwd(), 'private-media', testDocument.filename)
+          // Fetch file buffer - handle both S3 (production) and local storage (development)
+          let fileBuffer: Buffer
 
           try {
-            // Check if file exists (async)
-            await fsPromises.access(localPath)
+            // Check if S3 storage is enabled (production)
+            const isS3Enabled = Boolean(process.env.NEXT_PUBLIC_S3_HOSTNAME)
 
-            // Read file (async)
-            const fileBuffer = await fsPromises.readFile(localPath)
+            if (isS3Enabled && testDocument.url) {
+              // Production: Fetch from S3 using signed URL
+              payload.logger.info(
+                `Fetching test document from S3: ${testDocument.filename}`,
+              )
+
+              const response = await fetch(testDocument.url)
+
+              if (!response.ok) {
+                throw new Error(
+                  `Failed to fetch file from S3: ${response.status} ${response.statusText}`,
+                )
+              }
+
+              // Convert response to buffer
+              const arrayBuffer = await response.arrayBuffer()
+              fileBuffer = Buffer.from(arrayBuffer)
+
+              payload.logger.info(
+                `Successfully fetched test document from S3: ${testDocument.filename}`,
+              )
+            } else {
+              // Development: Read directly from local disk
+              // Don't use the URL because it's an API endpoint requiring auth
+              const localPath = path.join(process.cwd(), 'private-media', testDocument.filename)
+              payload.logger.info(`Reading test document from local disk: ${localPath}`)
+
+              await fsPromises.access(localPath)
+              fileBuffer = await fsPromises.readFile(localPath)
+
+              payload.logger.info(`Successfully read test document from disk: ${testDocument.filename}`)
+            }
+
             payload.logger.info(`Attaching test document: ${testDocument.filename}`)
 
             // Send to client with attachment
-            if (clientEmailData && clientEmail) {
+            // For "self" clients: skip sending to clientEmail separately since it's already in referralEmails
+            const isClientInReferralList = referralEmails.includes(clientEmail)
+            if (clientEmailData && clientEmail && !isClientInReferralList) {
               const toAddress = TEST_MODE ? TEST_EMAIL : clientEmail
               try {
                 await payload.sendEmail({
@@ -477,26 +510,30 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
               }
             }
           } catch (fileError) {
+            const errorLocation = testDocument.url ? 'S3' : 'local disk'
+            const errorPath = testDocument.url || path.join(process.cwd(), 'private-media', testDocument.filename)
+
             payload.logger.error(
-              `CRITICAL: Cannot send notifications for drug test ${doc.id} - test document file not found or unreadable at ${localPath}. Database record exists but file is missing.`,
+              `CRITICAL: Cannot send notifications for drug test ${doc.id} - test document not accessible from ${errorLocation} at ${errorPath}`,
               fileError,
             )
 
-            // Alert admin about missing file on disk
+            // Alert admin about file access failure
             await createAdminAlert(payload, {
               severity: 'critical',
               alertType: 'document-missing',
-              title: `Test document file missing - ${clientName}`,
-              message: `CRITICAL: Cannot send ${emailStage} results emails because test document file is missing from disk.\n\nFile Path: ${localPath}\nFilename: ${testDocument.filename}\nDrug Test ID: ${doc.id}\nClient: ${clientName}\nStage: ${emailStage}\n\nDatabase record exists but the file is not on disk. This may indicate a file system issue, deployment problem, or manual file deletion. Client and referrals cannot receive results until file is restored.`,
+              title: `Test document not accessible - ${clientName}`,
+              message: `CRITICAL: Cannot send ${emailStage} results emails because test document is not accessible.\n\nStorage: ${errorLocation}\nLocation: ${errorPath}\nFilename: ${testDocument.filename}\nDrug Test ID: ${doc.id}\nClient: ${clientName}\nStage: ${emailStage}\n\nThe document may be missing, the S3 signed URL may have expired, or there may be a network/permissions issue. Client and referrals cannot receive results until this is resolved.`,
               context: {
                 drugTestId: doc.id,
                 clientId: clientId,
                 clientName: clientName,
                 documentId: documentId,
                 documentFilename: testDocument.filename,
-                filePath: localPath,
+                storageLocation: errorLocation,
+                accessPath: errorPath,
                 emailStage: emailStage,
-                issueType: 'file-not-found-on-disk',
+                issueType: testDocument.url ? 's3-fetch-failed' : 'file-not-found-on-disk',
                 errorMessage: fileError instanceof Error ? fileError.message : String(fileError),
                 errorStack: fileError instanceof Error ? fileError.stack : undefined,
               },
