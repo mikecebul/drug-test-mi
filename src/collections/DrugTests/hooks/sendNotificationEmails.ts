@@ -10,6 +10,7 @@ import {
 import { promises as fsPromises } from 'fs'
 import path from 'path'
 import { createAdminAlert } from '@/lib/admin-alerts'
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 
 const TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
 const TEST_EMAIL = 'mike@midrugtest.com'
@@ -398,23 +399,41 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
             // Check if S3 storage is enabled (production)
             const isS3Enabled = Boolean(process.env.NEXT_PUBLIC_S3_HOSTNAME)
 
-            if (isS3Enabled && testDocument.url) {
-              // Production: Fetch from S3 using signed URL
+            if (isS3Enabled) {
+              // Production: Fetch from S3 using AWS SDK
               payload.logger.info(
                 `Fetching test document from S3: ${testDocument.filename}`,
               )
 
-              const response = await fetch(testDocument.url)
+              // Initialize S3 client with credentials
+              const s3Client = new S3Client({
+                credentials: {
+                  accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+                  secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+                },
+                endpoint: process.env.S3_ENDPOINT,
+                forcePathStyle: true,
+                region: process.env.S3_REGION,
+              })
 
-              if (!response.ok) {
-                throw new Error(
-                  `Failed to fetch file from S3: ${response.status} ${response.statusText}`,
-                )
+              // Fetch file from S3
+              const command = new GetObjectCommand({
+                Bucket: process.env.S3_BUCKET!,
+                Key: `private/${testDocument.filename}`,
+              })
+
+              const response = await s3Client.send(command)
+
+              if (!response.Body) {
+                throw new Error('S3 response body is empty')
               }
 
-              // Convert response to buffer
-              const arrayBuffer = await response.arrayBuffer()
-              fileBuffer = Buffer.from(arrayBuffer)
+              // Convert stream to buffer
+              const chunks: Uint8Array[] = []
+              for await (const chunk of response.Body as any) {
+                chunks.push(chunk)
+              }
+              fileBuffer = Buffer.concat(chunks)
 
               payload.logger.info(
                 `Successfully fetched test document from S3: ${testDocument.filename}`,
@@ -510,8 +529,11 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
               }
             }
           } catch (fileError) {
-            const errorLocation = testDocument.url ? 'S3' : 'local disk'
-            const errorPath = testDocument.url || path.join(process.cwd(), 'private-media', testDocument.filename)
+            const isS3Enabled = Boolean(process.env.NEXT_PUBLIC_S3_HOSTNAME)
+            const errorLocation = isS3Enabled ? 'S3' : 'local disk'
+            const errorPath = isS3Enabled
+              ? `s3://${process.env.S3_BUCKET}/private/${testDocument.filename}`
+              : path.join(process.cwd(), 'private-media', testDocument.filename)
 
             payload.logger.error(
               `CRITICAL: Cannot send notifications for drug test ${doc.id} - test document not accessible from ${errorLocation} at ${errorPath}`,
@@ -523,7 +545,7 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
               severity: 'critical',
               alertType: 'document-missing',
               title: `Test document not accessible - ${clientName}`,
-              message: `CRITICAL: Cannot send ${emailStage} results emails because test document is not accessible.\n\nStorage: ${errorLocation}\nLocation: ${errorPath}\nFilename: ${testDocument.filename}\nDrug Test ID: ${doc.id}\nClient: ${clientName}\nStage: ${emailStage}\n\nThe document may be missing, the S3 signed URL may have expired, or there may be a network/permissions issue. Client and referrals cannot receive results until this is resolved.`,
+              message: `CRITICAL: Cannot send ${emailStage} results emails because test document is not accessible.\n\nStorage: ${errorLocation}\nLocation: ${errorPath}\nFilename: ${testDocument.filename}\nDrug Test ID: ${doc.id}\nClient: ${clientName}\nStage: ${emailStage}\n\nThe document may be missing from storage, or there may be a network/permissions issue. Client and referrals cannot receive results until this is resolved.`,
               context: {
                 drugTestId: doc.id,
                 clientId: clientId,
@@ -533,7 +555,7 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
                 storageLocation: errorLocation,
                 accessPath: errorPath,
                 emailStage: emailStage,
-                issueType: testDocument.url ? 's3-fetch-failed' : 'file-not-found-on-disk',
+                issueType: isS3Enabled ? 's3-fetch-failed' : 'file-not-found-on-disk',
                 errorMessage: fileError instanceof Error ? fileError.message : String(fileError),
                 errorStack: fileError instanceof Error ? fileError.stack : undefined,
               },
