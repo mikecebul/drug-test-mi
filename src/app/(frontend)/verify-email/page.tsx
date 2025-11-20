@@ -163,20 +163,20 @@ function VerifyEmailContent() {
         return (
           <div className="text-center">
             <XCircle className="text-destructive mx-auto mb-4 h-12 w-12" />
-            <h1 className="text-foreground mb-2 text-2xl font-bold">Verification Failed</h1>
-            <p className="text-muted-foreground mb-6">
+            <h1 className="text-foreground mb-2 text-2xl font-bold">Verification Link Issue</h1>
+            <p className="text-muted-foreground mb-2">
               {errorMessage ||
-                "We couldn't verify your email. The link may have expired or already been used."}
+                "This verification link has expired or is no longer valid."}
+            </p>
+            <p className="text-muted-foreground mb-6 text-sm">
+              If you've already verified your email, you can sign in directly. Otherwise, request a new verification link.
             </p>
             <div className="space-y-3">
-              <Button onClick={() => setState('resend')} className="w-full">
+              <Button asChild className="w-full">
+                <Link href="/sign-in">Sign In to Your Account</Link>
+              </Button>
+              <Button onClick={() => setState('resend')} variant="outline" className="w-full">
                 Resend Verification Email
-              </Button>
-              <Button asChild variant="outline" className="w-full">
-                <Link href="/register">Try Registration Again</Link>
-              </Button>
-              <Button asChild variant="ghost" className="w-full">
-                <Link href="/sign-in">Already have an account? Sign In</Link>
               </Button>
             </div>
           </div>
