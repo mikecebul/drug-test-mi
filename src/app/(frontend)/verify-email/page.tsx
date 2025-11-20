@@ -169,7 +169,7 @@ function VerifyEmailContent() {
                 "This verification link has expired or is no longer valid."}
             </p>
             <p className="text-muted-foreground mb-6 text-sm">
-              If you've already verified your email, you can sign in directly. Otherwise, request a new verification link.
+              If you&apos;ve already verified your email, you can sign in directly. Otherwise, request a new verification link.
             </p>
             <div className="space-y-3">
               <Button asChild className="w-full">

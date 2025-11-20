@@ -8,8 +8,7 @@ import Container from '@/components/Container'
 import { CMSLink } from '@/components/Link'
 import { getPayload } from 'payload'
 import payloadConfig from '@payload-config'
-import { GoogleMap } from './GoogleMap'
-import { Copyright } from './Copyright'
+import { GoogleMapDynamic as GoogleMap, CopyrightDynamic as Copyright } from './ClientComponents'
 
 export async function Footer() {
   const payload = await getPayload({ config: payloadConfig })
