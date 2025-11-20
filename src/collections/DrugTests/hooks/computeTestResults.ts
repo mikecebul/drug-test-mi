@@ -23,7 +23,7 @@ import { isConfirmationComplete } from '../helpers/confirmationStatus'
  * - mixed-unexpected: Both unexpected positives AND negatives (FAIL - REQUIRES DECISION)
  * - inconclusive: Unable to determine
  */
-export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req, operation }) => {
+export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req }) => {
   if (!data) return data
 
   // Handle inconclusive tests FIRST - skip all other computation
@@ -156,47 +156,56 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
     )
 
     if (confirmationComplete) {
-      // Check if any confirmation came back positive
-      const hasConfirmedPositive =
-        data.confirmationResults?.some((result: any) => result.result === 'confirmed-positive') ??
-        false
+      // Determine finalStatus based on confirmation results
+      // This should NOT depend on current medications (which may have changed)
+      // It should only depend on: initial screen result + confirmation outcomes
 
-      // Check if initial screen had unexpected positives
-      const hadUnexpectedPositives =
-        initialScreenResult === 'unexpected-positive' || initialScreenResult === 'mixed-unexpected'
+      const confirmationResults = data.confirmationResults || []
 
-      if (hasConfirmedPositive) {
-        // If any unexpected positive was confirmed, it's still a fail
-        if (unexpectedNegatives.length > 0) {
+      // Count the types of confirmation results
+      const confirmedPositiveCount = confirmationResults.filter(
+        (r: any) => r.result === 'confirmed-positive'
+      ).length
+      const inconclusiveCount = confirmationResults.filter(
+        (r: any) => r.result === 'inconclusive'
+      ).length
+
+      // Determine final status based on what was confirmed
+      if (inconclusiveCount > 0) {
+        // If any confirmation came back inconclusive, overall result is inconclusive
+        data.finalStatus = 'inconclusive'
+      } else if (confirmedPositiveCount > 0) {
+        // At least one substance confirmed positive = FAIL
+        // Check if there are also unexpected negatives (from initial screen)
+        if (
+          initialScreenResult === 'mixed-unexpected' ||
+          initialScreenResult === 'unexpected-negative-critical' ||
+          initialScreenResult === 'unexpected-negative-warning'
+        ) {
           data.finalStatus = 'mixed-unexpected'
         } else {
           data.finalStatus = 'unexpected-positive'
         }
       } else {
         // All confirmations came back negative (false positives ruled out)
+        // The initial "unexpected positive" was a false alarm
+
+        // Check if there were unexpected negatives from initial screen
         if (
-          hadUnexpectedPositives &&
-          unexpectedNegatives.length === 0 &&
-          criticalNegatives.length === 0
+          initialScreenResult === 'unexpected-negative-critical' ||
+          initialScreenResult === 'mixed-unexpected'
         ) {
-          // Initial screen showed unexpected positives, but confirmations ruled them out = PASS
-          if (expectedPositives.length > 0) {
-            data.finalStatus = 'expected-positive'
-          } else {
-            data.finalStatus = 'confirmed-negative'
-          }
-        } else if (criticalNegatives.length > 0) {
-          // Critical unexpected negatives remain
+          // Critical medications missing = still FAIL
           data.finalStatus = 'unexpected-negative-critical'
-        } else if (unexpectedNegatives.length > 0) {
-          // Only non-critical unexpected negatives remain (warning)
+        } else if (initialScreenResult === 'unexpected-negative-warning') {
+          // Only warning-level medications missing = WARNING (still technically compliant)
           data.finalStatus = 'unexpected-negative-warning'
         } else if (expectedPositives.length > 0) {
-          // Nothing unexpected - expected positives only
+          // Had expected positives and confirmations ruled out false positives = PASS
           data.finalStatus = 'expected-positive'
         } else {
-          // Nothing detected at all
-          data.finalStatus = 'negative'
+          // All negative, confirmations ruled out false positives = PASS
+          data.finalStatus = 'confirmed-negative'
         }
       }
     }

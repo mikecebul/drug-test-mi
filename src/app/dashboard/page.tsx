@@ -139,15 +139,26 @@ export default async function DashboardPage() {
   // Calculate stats
   const totalTests = drugScreenResults.length
   const activeMedications = client.medications?.filter((med) => med.status === 'active').length || 0
-  const testsWithInitialScreening = drugScreenResults.filter((test) => test.initialScreenResult)
+  const completedTests = drugScreenResults.filter((test) => test.isComplete)
   const pendingTests = drugScreenResults.filter((test) => !test.initialScreenResult).length
-  const compliantTests = testsWithInitialScreening.filter(
-    (test) =>
-      test.initialScreenResult === 'negative' || test.initialScreenResult === 'expected-positive',
-  ).length
+
+  // Count compliant tests using finalStatus (if confirmation was done) or initialScreenResult
+  const compliantTests = completedTests.filter((test) => {
+    // Use finalStatus if available (means confirmation testing was completed)
+    const resultToCheck = test.finalStatus || test.initialScreenResult
+
+    // Compliant statuses: negative, expected-positive, confirmed-negative, unexpected-negative-warning
+    return (
+      resultToCheck === 'negative' ||
+      resultToCheck === 'expected-positive' ||
+      resultToCheck === 'confirmed-negative' ||
+      resultToCheck === 'unexpected-negative-warning'
+    )
+  }).length
+
   const complianceRate =
-    testsWithInitialScreening.length > 0
-      ? Math.round((compliantTests / (testsWithInitialScreening.length - pendingTests)) * 100)
+    completedTests.length > 0
+      ? Math.round((compliantTests / completedTests.length) * 100)
       : 0
 
   // Get most recent test
