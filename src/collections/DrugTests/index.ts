@@ -48,9 +48,37 @@ export const DrugTests: CollectionConfig = {
       'isComplete',
     ],
     description: 'Track drug test results and workflow',
-    useAsTitle: 'relatedClient',
+    useAsTitle: 'clientName',
   },
   fields: [
+    // Computed field for display title (stored in DB)
+    {
+      name: 'clientName',
+      type: 'text',
+      admin: {
+        hidden: true,
+        readOnly: true,
+      },
+      hooks: {
+        beforeChange: [
+          async ({ req, data }) => {
+            if (data?.relatedClient) {
+              const clientId = typeof data.relatedClient === 'string' ? data.relatedClient : data.relatedClient.id
+              const client = await req.payload.findByID({
+                collection: 'clients',
+                id: clientId,
+                depth: 0,
+              })
+              if (client) {
+                const middleInitial = client.middleInitial ? `${client.middleInitial}. ` : ''
+                return `${client.firstName} ${middleInitial}${client.lastName}`
+              }
+            }
+            return 'Drug Test'
+          },
+        ],
+      },
+    },
     // Sidebar fields - workflow status and controls
     {
       name: 'screeningStatus',
