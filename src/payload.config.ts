@@ -6,6 +6,7 @@ import { sentryPlugin } from '@payloadcms/plugin-sentry'
 import * as Sentry from '@sentry/nextjs'
 
 import { importExportPlugin } from '@payloadcms/plugin-import-export'
+import { searchPlugin } from '@payloadcms/plugin-search'
 import { stripePlugin } from '@payloadcms/plugin-stripe'
 import { redirectsPlugin } from '@payloadcms/plugin-redirects'
 import { seoPlugin } from '@payloadcms/plugin-seo'
@@ -81,7 +82,11 @@ export default buildConfig({
     components: {
       beforeDashboard: ['@/components/beforeDashboard/DrugTestStats'],
       afterDashboard: ['@/components/afterDashboard/Analytics'],
-      afterNavLinks: ['@/components/afterNavLinks/LinkToAnalyticsDefaultRootView', '@/components/afterNavLinks/DrugTestTrackerLink'],
+      afterNavLinks: [
+        '@/components/afterNavLinks/LinkToAnalyticsDefaultRootView',
+        '@/components/afterNavLinks/DrugTestTrackerLink',
+        '@/components/afterNavLinks/PDFUploadLink',
+      ],
       graphics: {
         Icon: '@/graphics/Icon',
         Logo: '@/components/Logo/Graphic',
@@ -94,6 +99,10 @@ export default buildConfig({
         DrugTestTracker: {
           Component: '@/components/views/DrugTestTracker',
           path: '/drug-test-tracker',
+        },
+        PDFUploadWizard: {
+          Component: '@/components/views/PDFUploadWizard',
+          path: '/drug-test-upload',
         },
       },
     },
@@ -216,6 +225,24 @@ export default buildConfig({
   globals: [Header, Footer, CompanyInfo],
   graphQL: { disable: true },
   plugins: [
+    searchPlugin({
+      collections: ['clients'],
+      defaultPriorities: {
+        clients: 10,
+      },
+      beforeSync: ({ originalDoc, searchDoc }) => {
+        // Sync client name fields to search title for better searching
+        const firstName = originalDoc?.firstName || ''
+        const middleInitial = originalDoc?.middleInitial || ''
+        const lastName = originalDoc?.lastName || ''
+        const fullName = [firstName, middleInitial, lastName].filter(Boolean).join(' ')
+
+        return {
+          ...searchDoc,
+          title: fullName,
+        }
+      },
+    }),
     importExportPlugin({
       collections: ['form-submissions'],
       overrideExportCollection: (collection) => {

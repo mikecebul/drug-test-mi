@@ -27,14 +27,14 @@ export async function POST(request: NextRequest) {
       case 'existing':
         // Test with existing client email
         mockBookingData = {
-          title: 'Follow-up Drug Test Appointment',
-          type: '30min',
-          description: 'Follow-up drug testing appointment',
+          title: 'Instant Drug Test',
+          type: 'Instant Drug Test',
+          description: '15 panel drug test',
           startTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
-          endTime: new Date(Date.now() + 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(), // Tomorrow + 30min
+          endTime: new Date(Date.now() + 24 * 60 * 60 * 1000 + 10 * 60 * 1000).toISOString(), // Tomorrow + 10min
           status: 'confirmed',
-          attendeeName: 'John Smith',
-          attendeeEmail: 'john.smith@example.com', // Same email as previous booking
+          attendeeName: 'Michael Cebulski',
+          attendeeEmail: 'dev4@mikecebul.dev', // Same email as previous booking
           location: 'Charlevoix Office',
           organizer: {
             id: 123,
