@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { AnyFormApi } from '@tanstack/react-form';
 import type { ZodObject } from 'zod';
+import { toast } from 'sonner';
 
 /**
  * Options for handling cancel/back actions
@@ -67,7 +68,15 @@ export function useFormStepper(schemas: ZodObject<any>[]) {
 
     const result = currentValidator.safeParse(stepValues);
     if (!result.success) {
-      await form.handleSubmit({ step: String(currentStep) });
+      // Show validation errors but don't submit the form
+      // Display the first validation error as a toast
+      console.log('Validation failed:', { stepValues, errors: result.error });
+      const firstError = result.error?.errors?.[0];
+      if (firstError) {
+        toast.error(firstError.message || 'Please complete all required fields');
+      } else {
+        toast.error('Please complete all required fields');
+      }
       return result;
     }
 

@@ -1,0 +1,127 @@
+'use client'
+
+import React from 'react'
+import { useFieldContext } from '../hooks/form-context'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { XCircle } from 'lucide-react'
+import {
+  FileUpload,
+  FileUploadDropzone,
+  FileUploadList,
+  FileUploadItem,
+  FileUploadItemPreview,
+  FileUploadItemMetadata,
+  FileUploadItemDelete,
+} from '@/components/ui/file-upload'
+
+interface FileUploadFieldProps {
+  label?: string
+  description?: string
+  accept?: string
+  maxFiles?: number
+  maxSize?: number
+  required?: boolean
+}
+
+export default function FileUploadField({
+  label,
+  description,
+  accept = 'application/pdf',
+  maxFiles = 1,
+  maxSize = 10 * 1024 * 1024, // 10MB default
+  required = false,
+}: FileUploadFieldProps) {
+  const field = useFieldContext<File | null>()
+  const [error, setError] = React.useState<string>('')
+
+  const files = field.state.value ? [field.state.value] : []
+
+  const handleFileValidate = (file: File): string | null => {
+    // Validate file type
+    if (accept && file.type !== accept) {
+      return `Please select a ${accept} file`
+    }
+
+    // Validate file size
+    if (maxSize && file.size > maxSize) {
+      return `File size must be less than ${(maxSize / 1024 / 1024).toFixed(0)}MB`
+    }
+
+    return null
+  }
+
+  const handleFileReject = (_file: File, message: string) => {
+    setError(message)
+  }
+
+  const handleFileAccept = (_file: File) => {
+    setError('')
+  }
+
+  const handleValueChange = (newFiles: File[]) => {
+    if (newFiles.length === 0) {
+      setError('')
+      field.handleChange(null)
+    } else {
+      field.handleChange(newFiles[0])
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {label && (
+        <label className="text-sm font-medium text-foreground">
+          {label}
+          {required && <span className="text-destructive ml-1">*</span>}
+        </label>
+      )}
+      {description && <p className="text-sm text-muted-foreground">{description}</p>}
+
+      <FileUpload
+        value={files}
+        onValueChange={handleValueChange}
+        onFileValidate={handleFileValidate}
+        onFileReject={handleFileReject}
+        onFileAccept={handleFileAccept}
+        accept={accept}
+        maxFiles={maxFiles}
+        maxSize={maxSize}
+      >
+        <FileUploadDropzone>
+          <div className="space-y-2 text-center">
+            <p className="text-sm font-medium">Click to upload or drag and drop</p>
+            <p className="text-xs text-muted-foreground">
+              {accept.includes('pdf') ? 'PDF files' : 'Files'} up to{' '}
+              {(maxSize / 1024 / 1024).toFixed(0)}MB
+            </p>
+          </div>
+        </FileUploadDropzone>
+
+        <FileUploadList>
+          {files.map((file) => (
+            <FileUploadItem key={file.name} value={file}>
+              <FileUploadItemPreview />
+              <FileUploadItemMetadata />
+              <FileUploadItemDelete asChild>
+                <Button type="button" variant="ghost" size="icon">
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </FileUploadItemDelete>
+            </FileUploadItem>
+          ))}
+        </FileUploadList>
+      </FileUpload>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {field.state.meta.errors.length > 0 && (
+        <p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>
+      )}
+    </div>
+  )
+}
