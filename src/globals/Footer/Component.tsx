@@ -8,7 +8,8 @@ import Container from '@/components/Container'
 import { CMSLink } from '@/components/Link'
 import { getPayload } from 'payload'
 import payloadConfig from '@payload-config'
-import { GoogleMapDynamic as GoogleMap, CopyrightDynamic as Copyright } from './ClientComponents'
+import { GoogleMap } from './GoogleMap'
+import { Copyright } from './Copyright'
 
 export async function Footer() {
   const payload = await getPayload({ config: payloadConfig })
@@ -22,6 +23,8 @@ export async function Footer() {
     slug: 'company-info',
     depth: 1,
   })
+
+  const currentYear = new Date().getFullYear()
 
   return (
     <footer>
@@ -177,7 +180,7 @@ export async function Footer() {
 
         <Separator />
         <div className="flex items-center justify-center">
-          <Copyright>
+          <Copyright year={currentYear}>
             <Link href="/" className={cn(buttonVariants({ variant: 'ghost' }), 'p-0 text-balance')}>
               {contact.name ?? 'MI Drug Test'}
             </Link>
