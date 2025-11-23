@@ -1,9 +1,4 @@
-import { getAuthenticatedClient } from '@/utilities/auth/getAuthenticatedClient'
-import { CalInline } from '@/components/cal-inline'
 import type { Client } from '@/payload-types'
-
-// Force dynamic rendering for fresh data on every request
-export const dynamic = 'force-dynamic'
 
 // Helper: Extract referral organization name based on client type
 function getReferralName(client: Client): string | undefined {
@@ -39,43 +34,39 @@ function formatPhone(phone?: string | null): string | undefined {
   return undefined
 }
 
-export default async function SchedulePage() {
-  const client = await getAuthenticatedClient()
-
-  // Build Cal.com config with client data
-  const calConfig: Record<string, any> = {
-    name: `${client.firstName} ${client.lastName}`,
-    email: client.email,
+export function buildCalConfig(client: Client): Record<string, any> {
+  // Validate required fields
+  if (!client.firstName?.trim() || !client.lastName?.trim()) {
+    console.error('Client missing required name fields:', {
+      hasFirstName: !!client.firstName,
+      hasLastName: !!client.lastName,
+    })
+    throw new Error('Client profile incomplete. Please update your profile before booking.')
   }
 
-  // Add phone if available
+  if (!client.email?.trim() || !client.email.includes('@')) {
+    console.error('Client has invalid email:', client.email)
+    throw new Error('Invalid email address. Please update your profile before booking.')
+  }
+
+  const calConfig: Record<string, any> = {
+    name: `${client.firstName.trim()} ${client.lastName.trim()}`,
+    email: client.email.trim(),
+  }
+
+  // Add phone if available and valid
   const formattedPhone = formatPhone(client.phone)
   if (formattedPhone) {
     calConfig.attendeePhoneNumber = formattedPhone
+  } else if (client.phone) {
+    console.warn('Invalid phone number format, excluding from Cal.com booking:', client.phone)
   }
 
   // Add referral as title if available
   const referralName = getReferralName(client)
   if (referralName) {
-    calConfig.title = referralName
+    calConfig.title = referralName.trim()
   }
 
-  return (
-    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <div className="px-4 lg:px-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Schedule Appointment</h1>
-            <p className="text-muted-foreground">
-              Select your preferred technician and schedule your drug test
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="px-4 lg:px-6">
-        <CalInline calUsername="midrugtest" config={calConfig} />
-      </div>
-    </div>
-  )
+  return calConfig
 }

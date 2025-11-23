@@ -190,6 +190,7 @@ export default async function DashboardPage() {
       isActive: client.isActive || false,
       headshot: client.headshot,
     },
+    client,
     stats: {
       totalTests,
       compliantTests,
