@@ -163,7 +163,13 @@ ${clientName}`)
           {user?.phone && (
             <div className="flex items-center space-x-2">
               <Phone className="w-4 h-4 text-muted-foreground" />
-              <span>{user?.phone}</span>
+              <a
+                href={`tel:${user.phone.replace(/\D/g, '')}`}
+                onClick={(e) => e.preventDefault()}
+                className="pointer-events-none select-text cursor-text"
+              >
+                {user.phone}
+              </a>
             </div>
           )}
           {user?.dob && (
@@ -358,7 +364,19 @@ ${clientName}`)
                     </div>
                     <div>
                       <p className="text-sm font-medium">Phone</p>
-                      <p className="text-sm text-muted-foreground mt-1">{user?.phone || 'Not provided'}</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {user?.phone ? (
+                          <a
+                            href={`tel:${user.phone.replace(/\D/g, '')}`}
+                            onClick={(e) => e.preventDefault()}
+                            className="pointer-events-none select-text cursor-text"
+                          >
+                            {user.phone}
+                          </a>
+                        ) : (
+                          'Not provided'
+                        )}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm font-medium">Date of Birth</p>

@@ -79,10 +79,16 @@ export async function Footer() {
                 )}
                 {typeof contact.fax === 'string' && contact.fax.length > 0 && (
                   <li key={contact.fax} className="group">
-                    <div className={cn(buttonVariants({ variant: 'text' }), 'text-gray-500')}>
+                    <a
+                      href={`tel:${contact.fax.replace(/\D/g, '')}`}
+                      className={cn(
+                        buttonVariants({ variant: 'text' }),
+                        'text-gray-500 pointer-events-none select-text cursor-text'
+                      )}
+                    >
                       <Printer className="mr-2" size={20} />
                       {contact.fax}
-                    </div>
+                    </a>
                   </li>
                 )}
                 {(contact.physicalAddress?.street || contact.mailingAddress?.street) && (

@@ -11,8 +11,8 @@ import { isActiveRoute } from '@/utilities/isActiveRoute'
 import { CompanyInfo, Header } from '@/payload-types'
 import { CMSLink } from '@/components/Link'
 import { SheetLogo } from '@/components/Logo'
-import Link from 'next/link'
 import { MobileAuthButton } from '@/components/AuthButton/MobileAuthButton'
+import Link from 'next/link'
 
 export type NavItem = NonNullable<Header['navItems']>[number]
 
@@ -80,7 +80,7 @@ export function MobileNav({ navItems, contact }: { navItems: NavItem[]; contact?
           {/* Fixed Footer with Call and Directions */}
           <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border bg-background">
             <div className="flex flex-col space-y-2">
-              <Link
+              <a
                 href={cleanedPhone ? `tel:${cleanedPhone}` : '#'}
                 className={cn(
                   buttonVariants({ variant: 'default', size: 'default' }),
@@ -90,18 +90,20 @@ export function MobileNav({ navItems, contact }: { navItems: NavItem[]; contact?
               >
                 <Icons.phone className="mr-2 size-4" />
                 Call Now
-              </Link>
-              <Link
+              </a>
+              <a
                 href={contact?.physicalAddress?.googleMapLink ?? '#'}
                 className={cn(
                   buttonVariants({ variant: 'outline', size: 'default' }),
                   'w-full justify-center'
                 )}
                 onClick={() => setOpen(false)}
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 <Icons.navigation className="mr-2 size-4" />
                 Get Directions
-              </Link>
+              </a>
             </div>
           </div>
         </SheetContent>
