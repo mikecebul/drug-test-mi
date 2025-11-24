@@ -16,6 +16,9 @@ import {
   Shield,
 } from 'lucide-react'
 import Link from 'next/link'
+import { CalPopupButton } from '@/components/cal-popup-button'
+import { buildCalConfig } from '@/utilities/calcom-config'
+import type { Client } from '@/payload-types'
 
 export type DashboardData = {
   user: {
@@ -26,6 +29,7 @@ export type DashboardData = {
     isActive: boolean
     headshot?: any
   }
+  client: Client
   stats: {
     totalTests: number
     compliantTests: number
@@ -187,12 +191,14 @@ export function DashboardView({ data }: { data: DashboardData }) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Link href="/dashboard/schedule">
-                <Button className="w-full justify-start" variant="outline">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Schedule Appointment
-                </Button>
-              </Link>
+              <CalPopupButton
+                config={buildCalConfig(data.client)}
+                className="w-full justify-start"
+                variant="outline"
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                Schedule Appointment
+              </CalPopupButton>
               <Link href="/dashboard/results">
                 <Button className="w-full justify-start" variant="outline">
                   <FileText className="mr-2 h-4 w-4" />

@@ -20,6 +20,7 @@ export const HeaderClient = ({
 }) => {
   const navItems = header?.navItems || []
   const { phone, name: companyName } = contact || {}
+  const cleanedPhone = phone ? phone.replace(/\D/g, '') : null
 
   return (
     <header className="bg-background/50 sticky top-0 z-40 flex w-full flex-col overflow-clip backdrop-blur-xs">
@@ -40,7 +41,8 @@ export const HeaderClient = ({
         <div className="xl:flex flex-col items-center gap-4 hidden">
           <AuthButton />
           <div className="flex flex-col items-center text-lg xl:flex-row 2xl:space-x-2">
-            <div
+            <a
+              href={cleanedPhone ? `tel:${cleanedPhone}` : '#'}
               className={cn(
                 buttonVariants({ variant: 'text' }),
                 'text-primary pr-0 md:text-lg',
@@ -48,7 +50,7 @@ export const HeaderClient = ({
             >
               <Icons.phone className="mr-2 size-4 shrink-0 md:size-5 xl:size-4" />
               {phone}
-            </div>
+            </a>
           </div>
         </div>
       </div>

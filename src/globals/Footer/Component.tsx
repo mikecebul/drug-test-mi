@@ -24,6 +24,8 @@ export async function Footer() {
     depth: 1,
   })
 
+  const currentYear = new Date().getFullYear()
+
   return (
     <footer>
       <Container className="py-0">
@@ -80,10 +82,16 @@ export async function Footer() {
                 )}
                 {typeof contact.fax === 'string' && contact.fax.length > 0 && (
                   <li key={contact.fax} className="group">
-                    <div className={cn(buttonVariants({ variant: 'text' }), 'text-gray-500')}>
+                    <a
+                      href={`tel:${contact.fax.replace(/\D/g, '')}`}
+                      className={cn(
+                        buttonVariants({ variant: 'text' }),
+                        'text-gray-500 pointer-events-none select-text cursor-text'
+                      )}
+                    >
                       <Printer className="mr-2" size={20} />
                       {contact.fax}
-                    </div>
+                    </a>
                   </li>
                 )}
                 {(contact.physicalAddress?.street || contact.mailingAddress?.street) && (
@@ -172,7 +180,7 @@ export async function Footer() {
 
         <Separator />
         <div className="flex items-center justify-center">
-          <Copyright>
+          <Copyright year={currentYear}>
             <Link href="/" className={cn(buttonVariants({ variant: 'ghost' }), 'p-0 text-balance')}>
               {contact.name ?? 'MI Drug Test'}
             </Link>
