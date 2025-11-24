@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ArrowLeft, Calendar, Clock, MapPin } from 'lucide-react'
-import { CalEmbed } from '@/components/cal-embed'
+import { CalPopupButton } from '@/components/cal-popup-button'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useMemo } from 'react'
@@ -133,7 +133,16 @@ export function TechnicianDetailPage({ technician }: TechnicianDetailPageProps) 
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              <CalEmbed calUsername="midrugtest" />
+              <div className="space-y-4">
+                <p className="text-muted-foreground text-sm">
+                  Click the button below to open the booking calendar and schedule your appointment
+                  with {technician.name.split(' ')[0]}.
+                </p>
+                <CalPopupButton className="w-full" variant="default">
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Open Booking Calendar
+                </CalPopupButton>
+              </div>
             </CardContent>
           </Card>
         </div>
