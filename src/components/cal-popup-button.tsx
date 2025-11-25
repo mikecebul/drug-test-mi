@@ -30,11 +30,17 @@ export function CalPopupButton({
 
     ;(async function () {
       try {
-        const cal = await getCalApi()
+        // IMPORTANT: namespace is required to properly initialize the iframe
+        // Without it, iframe name is malformed and causes race condition errors
+        // See: https://github.com/calcom/cal.com/issues/15357
+        const cal = await getCalApi({ namespace: 'booking-modal' })
+
+        // Configure UI theme
         cal('ui', {
           theme: 'light',
           ...config,
         })
+
         if (mounted) {
           setIsReady(true)
         }
@@ -60,7 +66,8 @@ export function CalPopupButton({
     setError(null)
 
     try {
-      const cal = await getCalApi()
+      const cal = await getCalApi({ namespace: 'booking-modal' })
+
       cal('modal', {
         calLink: calUsername,
         config,
