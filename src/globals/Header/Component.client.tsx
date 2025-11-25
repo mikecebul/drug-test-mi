@@ -38,9 +38,9 @@ export const HeaderClient = ({
         <Logo name={companyName ?? 'MI Drug Test LLC'} />
         <MainNav navItems={navItems} />
         <MobileNav navItems={navItems} contact={contact} />
-        <div className="xl:flex flex-col items-center gap-4 hidden">
+        <div className="lg:flex flex-col items-center gap-4 hidden">
           <AuthButton />
-          <div className="flex flex-col items-center text-lg xl:flex-row 2xl:space-x-2">
+          <div className="flex flex-col items-center text-lg lg:flex-row 2xl:space-x-2">
             <a
               href={cleanedPhone ? `tel:${cleanedPhone}` : '#'}
               className={cn(
@@ -48,7 +48,7 @@ export const HeaderClient = ({
                 'text-primary pr-0 md:text-lg',
               )}
             >
-              <Icons.phone className="mr-2 size-4 shrink-0 md:size-5 xl:size-4" />
+              <Icons.phone className="mr-2 size-4 shrink-0 md:size-5 lg:size-4" />
               {phone}
             </a>
           </div>
