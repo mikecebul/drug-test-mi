@@ -179,7 +179,11 @@ export function MedicationsView({ medications }: MedicationsViewProps) {
                             if (medication.status === 'discontinued') {
                               toast.info('Discontinued medications cannot be modified to preserve history integrity')
                             } else {
-                              toast.info('Contact support for changes: (231) 373-6341 or mike@midrugtest.com')
+                              toast.info(
+                                <span>
+                                  Contact support for changes: <a href="tel:+12313736341" className="underline">(231) 373-6341</a> or <a href="mailto:mike@midrugtest.com" className="underline">mike@midrugtest.com</a>
+                                </span>
+                              )
                             }
                           }}
                           title={
@@ -358,7 +362,7 @@ export function MedicationsView({ medications }: MedicationsViewProps) {
                 <Edit className="w-4 h-4 text-green-500 mt-0.5" />
                 <p>
                   <strong>Editing:</strong> You can edit or delete medications for up to 7 days after adding them.
-                  For changes to older medications, contact support: (231) 373-6341 or mike@midrugtest.com
+                  For changes to older medications, contact support: <a href="tel:+12313736341" className="underline">(231) 373-6341</a> or <a href="mailto:mike@midrugtest.com" className="underline">mike@midrugtest.com</a>
                 </p>
               </div>
               <div className="flex items-start space-x-2">
