@@ -163,7 +163,7 @@ export function AboutBlock() {
 
               <Card className="bg-muted/50 p-6">
                 <h4 className="mb-4 text-lg font-semibold">Available Test Panels</h4>
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="space-y-1">
                     <div className="text-primary font-semibold">15-Panel Test</div>
                     <p className="text-muted-foreground text-sm">Charlevoix County approved</p>
@@ -176,6 +176,12 @@ export function AboutBlock() {
                     <div className="text-primary font-semibold">17-Panel SOS</div>
                     <p className="text-muted-foreground text-sm">
                       Secretary of State approved for license reinstatement
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-primary font-semibold">EtG Alcohol Test</div>
+                    <p className="text-muted-foreground text-sm">
+                      Ideal for ignition interlock compliance
                     </p>
                   </div>
                 </div>
@@ -264,7 +270,7 @@ export function AboutBlock() {
                       </div>
                     </div>
                     <p className="text-muted-foreground text-sm">
-                      Our most popular and comprehensive option
+                      For all Charlevoix court clients
                     </p>
                   </div>
                 </Card>
@@ -272,13 +278,14 @@ export function AboutBlock() {
                 <Card className="p-6">
                   <div className="space-y-4">
                     <div>
-                      <h3 className="mb-1 text-lg font-semibold">11-Panel Lab Test</h3>
+                      <h3 className="mb-1 text-lg font-semibold">11-Panel Lab Test & EtG</h3>
                       <div className="flex items-baseline gap-2">
                         <span className="text-foreground text-4xl font-bold">$40</span>
                       </div>
                     </div>
                     <p className="text-muted-foreground text-sm">
-                      For court requirements outside Charlevoix County
+                      For court requirements outside Charlevoix County, or EtG alcohol testing for
+                      ignition interlock compliance
                     </p>
                   </div>
                 </Card>
