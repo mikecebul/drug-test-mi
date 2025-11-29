@@ -53,6 +53,9 @@ export function useFormStepper(schemas: ZodObject<any>[]) {
   const isLastStep = currentStep === stepCount;
 
   const triggerFormGroup = async (form: AnyFormApi) => {
+    // Validate all fields to trigger field-level error display
+    await form.validateAllFields('change');
+
     // Get all form values
     const allValues = form.baseStore.state.values;
 

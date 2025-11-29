@@ -113,14 +113,12 @@ export default function FileUploadField({
         </FileUploadList>
       </FileUpload>
 
-      {error && (
+      {(error || field.state.meta.errors.length > 0) && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            {error || String(field.state.meta.errors[0])}
+          </AlertDescription>
         </Alert>
-      )}
-
-      {field.state.meta.errors.length > 0 && (
-        <p className="text-destructive text-sm">{String(field.state.meta.errors[0])}</p>
       )}
     </div>
   )

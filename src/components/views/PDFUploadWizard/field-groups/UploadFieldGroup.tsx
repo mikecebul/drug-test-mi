@@ -30,7 +30,18 @@ export const UploadFieldGroup = withFieldGroup({
           <p className="text-muted-foreground">{description}</p>
         </div>
 
-        <group.AppField name="file">
+        <group.AppField
+          name="file"
+          validators={{
+            onChange: ({ value }) => {
+              const result = uploadFieldSchema.shape.file.safeParse(value)
+              if (!result.success) {
+                return result.error.issues[0]?.message || 'Please upload a PDF file'
+              }
+              return undefined
+            },
+          }}
+        >
           {(field) => (
             <field.FileUploadField
               label="Drug Test PDF"
