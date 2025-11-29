@@ -123,7 +123,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
 
             <group.AppField name="collectionDate">
               {(field) => (
-                <div className="space-y-2">
+                <div className="space-y-2 max-w-sm">
                   <InputDateTimePicker
                     id="collection-date"
                     label="Collection Date & Time"

@@ -90,7 +90,7 @@ export function RecipientEditor({
   const missingRequired = required && validRecipients.length === 0
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-2xl">
       <div className="flex items-center justify-between">
         <Label className="text-base font-semibold">
           {label}

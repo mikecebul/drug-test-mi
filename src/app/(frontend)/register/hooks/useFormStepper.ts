@@ -114,6 +114,7 @@ export function useFormStepper(schemas: ZodObject<any>[]) {
   return {
     step, // Current step state
     currentStep, // Current step number (1-based)
+    setCurrentStep, // Set current step directly (1-based)
     isFirstStep, // Whether current step is the first step
     isLastStep, // Whether current step is the last step
     currentValidator, // Zod schema for current step

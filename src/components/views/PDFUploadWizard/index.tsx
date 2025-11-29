@@ -24,7 +24,7 @@ export default function PDFUploadWizard({ initPageResult, params, searchParams }
       visibleEntities={initPageResult.visibleEntities}
     >
       <SetStepNav nav={navItem} />
-      <div className="-mx-[var(--gutter-h)] px-8 py-6 max-w-full" style={{ fontSize: '16px', transform: 'scale(1.15)', transformOrigin: 'top center', marginBottom: '15%' }}>
+      <div className="max-w-full px-2 py-6 sm:px-6 md:px-8">
         <PDFUploadWizardClient />
       </div>
     </DefaultTemplate>

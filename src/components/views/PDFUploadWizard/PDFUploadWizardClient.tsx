@@ -18,7 +18,13 @@ import { VerifyDataFieldGroup } from './field-groups/VerifyDataFieldGroup'
 import { ConfirmFieldGroup } from './field-groups/ConfirmFieldGroup'
 import { ReviewEmailsFieldGroup } from './field-groups/ReviewEmailsFieldGroup'
 
-type WizardStep = 'upload' | 'extract' | 'verify-client' | 'verify-data' | 'confirm' | 'review-emails'
+type WizardStep =
+  | 'upload'
+  | 'extract'
+  | 'verify-client'
+  | 'verify-data'
+  | 'confirm'
+  | 'review-emails'
 
 export function PDFUploadWizardClient() {
   const router = useRouter()
@@ -37,6 +43,7 @@ export function PDFUploadWizardClient() {
     isLastStep,
     handleNextStepOrSubmit,
     handleCancelOrBack,
+    setCurrentStep,
   } = useFormStepper(stepSchemas)
 
   // Get form values for display
@@ -44,12 +51,22 @@ export function PDFUploadWizardClient() {
 
   const handleNext = async () => {
     await handleNextStepOrSubmit(form)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handlePrevious = () => {
     handleCancelOrBack({
       onBack: () => {},
     })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleStepClick = (stepId: string) => {
+    const stepIndex = steps.findIndex((s) => s.id === stepId)
+    if (stepIndex !== -1 && stepIndex < currentStep - 1) {
+      setCurrentStep(stepIndex + 1)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
   }
 
   const steps: Step[] = [
@@ -58,7 +75,7 @@ export function PDFUploadWizardClient() {
     { id: 'verify-client', label: 'Client' },
     { id: 'verify-data', label: 'Verify' },
     { id: 'confirm', label: 'Confirm' },
-    { id: 'review-emails', label: 'Review Emails' },
+    { id: 'review-emails', label: 'Emails' },
   ]
 
   const stepMapping: Record<number, WizardStep> = {
@@ -111,7 +128,7 @@ export function PDFUploadWizardClient() {
   }
 
   return (
-    <ShadcnWrapper className="mx-auto max-w-5xl px-6 py-8">
+    <ShadcnWrapper className="mx-auto my-32 flex max-w-sm scale-125 flex-col md:max-w-2xl lg:mx-auto lg:max-w-4xl">
       <div className="mb-8">
         <h1 className="mb-2 text-3xl font-bold tracking-tight">Drug Test Upload Wizard</h1>
         <p className="text-muted-foreground">
@@ -120,7 +137,7 @@ export function PDFUploadWizardClient() {
       </div>
 
       <div className="mb-8">
-        <Stepper steps={steps} currentStepId={currentStepId} />
+        <Stepper steps={steps} currentStepId={currentStepId} onStepClick={handleStepClick} />
       </div>
 
       <form
@@ -128,8 +145,9 @@ export function PDFUploadWizardClient() {
           e.preventDefault()
           e.stopPropagation()
         }}
+        className="flex flex-1 flex-col"
       >
-        <div className="wizard-content mb-8">{stepComponents[currentStep]}</div>
+        <div className="wizard-content mb-8 flex-1">{stepComponents[currentStep]}</div>
 
         {/* Navigation Buttons */}
         <div className="flex justify-between">

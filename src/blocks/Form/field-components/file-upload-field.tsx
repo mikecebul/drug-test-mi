@@ -69,14 +69,14 @@ export default function FileUploadField({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="min-h-48 max-w-3xl space-y-2">
       {label && (
-        <label className="text-sm font-medium text-foreground">
+        <label className="text-foreground text-sm font-medium">
           {label}
           {required && <span className="text-destructive ml-1">*</span>}
         </label>
       )}
-      {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      {description && <p className="text-muted-foreground text-sm">{description}</p>}
 
       <FileUpload
         value={files}
@@ -89,9 +89,9 @@ export default function FileUploadField({
         maxSize={maxSize}
       >
         <FileUploadDropzone>
-          <div className="space-y-2 text-center">
+          <div className="min-h-32 flex flex-col items-center justify-center space-y-2 text-center">
             <p className="text-sm font-medium">Click to upload or drag and drop</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               {accept.includes('pdf') ? 'PDF files' : 'Files'} up to{' '}
               {(maxSize / 1024 / 1024).toFixed(0)}MB
             </p>
@@ -120,7 +120,7 @@ export default function FileUploadField({
       )}
 
       {field.state.meta.errors.length > 0 && (
-        <p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>
+        <p className="text-destructive text-sm">{String(field.state.meta.errors[0])}</p>
       )}
     </div>
   )
