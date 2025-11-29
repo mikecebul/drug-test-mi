@@ -71,7 +71,7 @@ export function useFormStepper(schemas: ZodObject<any>[]) {
       // Show validation errors but don't submit the form
       // Display the first validation error as a toast
       console.log('Validation failed:', { stepValues, errors: result.error });
-      const firstError = result.error?.errors?.[0];
+      const firstError = result.error?.issues?.[0];
       if (firstError) {
         toast.error(firstError.message || 'Please complete all required fields');
       } else {

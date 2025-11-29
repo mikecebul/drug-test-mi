@@ -1,82 +1,39 @@
 import { z } from 'zod'
+import { uploadFieldSchema } from '../field-groups/UploadFieldGroup'
+import { extractFieldSchema } from '../field-groups/ExtractFieldGroup'
+import { verifyClientFieldSchema } from '../field-groups/VerifyClientFieldGroup'
+import { verifyDataFieldSchema } from '../field-groups/VerifyDataFieldGroup'
+import { confirmFieldSchema } from '../field-groups/ConfirmFieldGroup'
+import { reviewEmailsFieldSchema } from '../field-groups/ReviewEmailsFieldGroup'
 
-// Step 1: Upload
+// Step 1: Upload - reusing field group schema
 export const uploadSchema = z.object({
-  uploadData: z.object({
-    file: z.instanceof(File, { message: 'Please upload a PDF file' }),
-  }),
+  uploadData: uploadFieldSchema,
 })
 
-// Step 2: Extract
+// Step 2: Extract - reusing field group schema
 export const extractSchema = z.object({
-  extractData: z.object({
-    donorName: z.string().nullable(),
-    collectionDate: z.date().nullable(),
-    detectedSubstances: z.array(z.string()),
-    isDilute: z.boolean(),
-    rawText: z.string(),
-    confidence: z.enum(['high', 'medium', 'low']),
-    extractedFields: z.array(z.string()),
-  }),
+  extractData: extractFieldSchema,
 })
 
-// Step 3: Verify Client
+// Step 3: Verify Client - reusing field group schema
 export const verifyClientSchema = z.object({
-  clientData: z.object({
-    id: z.string().min(1, 'Please select a client'),
-    firstName: z.string(),
-    lastName: z.string(),
-    middleInitial: z.string().nullable(),
-    email: z.string().email(),
-    dob: z.string().nullable(),
-    matchType: z.enum(['exact', 'fuzzy']),
-    score: z.number().optional(),
-  }),
+  clientData: verifyClientFieldSchema,
 })
 
-// Step 4: Verify Data
+// Step 4: Verify Data - reusing field group schema
 export const verifyDataSchema = z.object({
-  verifyData: z.object({
-    testType: z.enum(['15-panel-instant', '11-panel-lab', '17-panel-sos-lab', 'etg-lab']),
-    collectionDate: z.string().min(1, 'Collection date is required'),
-    detectedSubstances: z.array(z.string()),
-    isDilute: z.boolean(),
-  }),
+  verifyData: verifyDataFieldSchema,
 })
 
-// Step 5: Confirm
+// Step 5: Confirm - reusing field group schema
 export const confirmSchema = z.object({
-  confirmData: z.object({
-    previewComputed: z.boolean(),
-  }),
+  confirmData: confirmFieldSchema,
 })
 
-// Step 6: Review Emails
+// Step 6: Review Emails - reusing field group schema
 export const reviewEmailsSchema = z.object({
-  reviewEmailsData: z.object({
-    clientEmailEnabled: z.boolean(),
-    clientRecipients: z.array(z.string().email()),
-    referralEmailEnabled: z.boolean(),
-    referralRecipients: z.array(z.string().email()),
-    previewsLoaded: z.boolean(),
-  }).refine((data) => {
-    // At least one email type must be enabled
-    return data.clientEmailEnabled || data.referralEmailEnabled
-  }, {
-    message: 'At least one email type must be enabled'
-  }).refine((data) => {
-    // If client email enabled, must have at least one recipient
-    if (data.clientEmailEnabled && data.clientRecipients.length === 0) {
-      return false
-    }
-    // If referral email enabled, must have at least one recipient
-    if (data.referralEmailEnabled && data.referralRecipients.length === 0) {
-      return false
-    }
-    return true
-  }, {
-    message: 'Enabled email types must have at least one recipient'
-  }),
+  reviewEmailsData: reviewEmailsFieldSchema,
 })
 
 // Step schemas array for the stepper hook

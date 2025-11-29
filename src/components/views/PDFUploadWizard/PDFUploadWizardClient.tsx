@@ -74,12 +74,40 @@ export function PDFUploadWizardClient() {
 
   // Step component mapping
   const stepComponents: Record<number, React.ReactNode> = {
-    1: <UploadFieldGroup form={form} fields="uploadData" title="Upload Drug Test PDF" />,
+    1: (
+      <UploadFieldGroup
+        form={form}
+        fields="uploadData"
+        title="Upload Drug Test PDF"
+        description="Select a PDF file from your 15-panel instant test"
+      />
+    ),
     2: <ExtractFieldGroup form={form} fields="extractData" title="Extract Data" />,
     3: <VerifyClientFieldGroup form={form} fields="clientData" title="Verify Client" />,
-    4: <VerifyDataFieldGroup form={form} fields="verifyData" title="Verify Test Data" />,
-    5: <ConfirmFieldGroup form={form} fields="confirmData" title="Confirm and Create" />,
-    6: <ReviewEmailsFieldGroup form={form} fields="reviewEmailsData" title="Review Emails" />,
+    4: (
+      <VerifyDataFieldGroup
+        form={form}
+        fields="verifyData"
+        title="Verify Test Data"
+        description="Review and adjust the extracted data before creating the test record"
+      />
+    ),
+    5: (
+      <ConfirmFieldGroup
+        form={form}
+        fields="confirmData"
+        title="Confirm and Create"
+        description="Review the final data before creating the drug test record"
+      />
+    ),
+    6: (
+      <ReviewEmailsFieldGroup
+        form={form}
+        fields="reviewEmailsData"
+        title="Review Emails"
+        description="Review and customize the emails that will be sent for this drug test"
+      />
+    ),
   }
 
   return (

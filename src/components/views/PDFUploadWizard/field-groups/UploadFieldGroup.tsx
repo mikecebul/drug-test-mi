@@ -2,9 +2,16 @@
 
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { Upload as UploadIcon } from 'lucide-react'
+import { z } from 'zod'
+import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 
-const defaultValues = {
-  file: null as File | null,
+// Export the schema for reuse in step validation
+export const uploadFieldSchema = z.object({
+  file: z.instanceof(File, { message: 'Please upload a PDF file' }),
+})
+
+const defaultValues: PdfUploadFormType['uploadData'] = {
+  file: null as any,
 }
 
 export const UploadFieldGroup = withFieldGroup({

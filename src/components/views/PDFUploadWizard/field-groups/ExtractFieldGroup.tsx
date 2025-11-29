@@ -9,16 +9,29 @@ import { Loader2, FileX2 } from 'lucide-react'
 import { extractPdfData } from '../actions'
 import ParsedDataDisplayField from '@/blocks/Form/field-components/parsed-data-display-field'
 import type { ParsedPDFData } from '../types'
+import { z } from 'zod'
+import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 
-const defaultValues = {
-  donorName: null as string | null,
-  collectionDate: null as Date | null,
-  detectedSubstances: [] as SubstanceValue[],
+// Export the schema for reuse in step validation
+export const extractFieldSchema = z.object({
+  donorName: z.string().nullable(),
+  collectionDate: z.date().nullable(),
+  detectedSubstances: z.array(z.string()),
+  isDilute: z.boolean(),
+  rawText: z.string(),
+  confidence: z.enum(['high', 'medium', 'low']),
+  extractedFields: z.array(z.string()),
+})
+
+const defaultValues: PdfUploadFormType['extractData'] = {
+  donorName: null,
+  collectionDate: null,
+  detectedSubstances: [],
   isDilute: false,
   rawText: '',
-  confidence: 'low' as 'high' | 'medium' | 'low',
-  extractedFields: [] as string[],
+  confidence: 'low',
+  extractedFields: [],
 }
 
 export const ExtractFieldGroup = withFieldGroup({
@@ -69,6 +82,7 @@ export const ExtractFieldGroup = withFieldGroup({
       }
 
       parseFile()
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [uploadedFile])
 
     const extractData = useStore(group.store, (state) => state.values)
@@ -121,7 +135,7 @@ export const ExtractFieldGroup = withFieldGroup({
     const parsedData: ParsedPDFData = {
       donorName: extractData.donorName,
       collectionDate: extractData.collectionDate,
-      detectedSubstances: extractData.detectedSubstances,
+      detectedSubstances: extractData.detectedSubstances as SubstanceValue[],
       isDilute: extractData.isDilute,
       rawText: extractData.rawText,
       confidence: extractData.confidence,

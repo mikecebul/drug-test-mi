@@ -7,13 +7,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import InputDateTimePicker from '@/components/input-datetime-picker'
 import MedicationDisplayField from '@/blocks/Form/field-components/medication-display-field'
 import { getClientMedications } from '../actions'
-import type { SubstanceValue } from '@/fields/substanceOptions'
 import type { TestType } from '../types'
+import { z } from 'zod'
+import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 
-const defaultValues = {
-  testType: '15-panel-instant' as TestType,
+// Export the schema for reuse in step validation
+export const verifyDataFieldSchema = z.object({
+  testType: z.enum(['15-panel-instant', '11-panel-lab', '17-panel-sos-lab', 'etg-lab']),
+  collectionDate: z.string().min(1, 'Collection date is required'),
+  detectedSubstances: z.array(z.string()),
+  isDilute: z.boolean(),
+})
+
+const defaultValues: PdfUploadFormType['verifyData'] = {
+  testType: '15-panel-instant',
   collectionDate: '',
-  detectedSubstances: [] as SubstanceValue[],
+  detectedSubstances: [],
   isDilute: false,
 }
 
@@ -57,6 +66,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
         setMedications(result.medications)
       }
       fetchMedications()
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [client?.id])
 
     const collectionDateValue = useStore(group.store, (state) => state.values.collectionDate)

@@ -18,15 +18,29 @@ import {
 import { Loader2, AlertCircle, UserCheck, Mail, CheckCircle2 } from 'lucide-react'
 import { findMatchingClients, getAllClients } from '../actions'
 import type { ClientMatch } from '../types'
+import { z } from 'zod'
+import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 
-const defaultValues = {
+// Export the schema for reuse in step validation
+export const verifyClientFieldSchema = z.object({
+  id: z.string().min(1, 'Please select a client'),
+  firstName: z.string(),
+  lastName: z.string(),
+  middleInitial: z.string().nullable(),
+  email: z.string().email(),
+  dob: z.string().nullable(),
+  matchType: z.enum(['exact', 'fuzzy']),
+  score: z.number().optional(),
+})
+
+const defaultValues: PdfUploadFormType['clientData'] = {
   id: '',
   firstName: '',
   lastName: '',
-  middleInitial: null as string | null,
+  middleInitial: null,
   email: '',
-  dob: null as string | null,
-  matchType: 'fuzzy' as 'exact' | 'fuzzy',
+  dob: null,
+  matchType: 'fuzzy',
   score: 0,
 }
 
@@ -81,12 +95,14 @@ export const VerifyClientFieldGroup = withFieldGroup({
       }
 
       searchForClient()
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [donorName])
 
     useEffect(() => {
       if (showAllClients && allClients.length === 0) {
         loadAllClients()
       }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showAllClients])
 
     const loadAllClients = async () => {
@@ -133,7 +149,7 @@ export const VerifyClientFieldGroup = withFieldGroup({
             <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <AlertDescription>
               <p className="text-blue-900 dark:text-blue-100">
-                No matches found for "{donorName}". Please select the correct client from the
+                No matches found for &quot;{donorName}&quot;. Please select the correct client from the
                 dropdown below.
               </p>
             </AlertDescription>

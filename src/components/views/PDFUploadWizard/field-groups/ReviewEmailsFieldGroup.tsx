@@ -13,6 +13,8 @@ import { useStore } from '@tanstack/react-form'
 import { RecipientEditor } from '../components/RecipientEditor'
 import { EmailPreviewModal } from '../components/EmailPreviewModal'
 import { getEmailPreview } from '../actions'
+import { z } from 'zod'
+import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 
 type EmailPreviewData = {
   clientEmail: string
@@ -24,11 +26,37 @@ type EmailPreviewData = {
   referralSubject: string
 }
 
-const defaultValues = {
+// Export the schema for reuse in step validation
+export const reviewEmailsFieldSchema = z.object({
+  clientEmailEnabled: z.boolean(),
+  clientRecipients: z.array(z.string().email()),
+  referralEmailEnabled: z.boolean(),
+  referralRecipients: z.array(z.string().email()),
+  previewsLoaded: z.boolean(),
+}).refine((data) => {
+  // At least one email type must be enabled
+  return data.clientEmailEnabled || data.referralEmailEnabled
+}, {
+  message: 'At least one email type must be enabled'
+}).refine((data) => {
+  // If client email enabled, must have at least one recipient
+  if (data.clientEmailEnabled && data.clientRecipients.length === 0) {
+    return false
+  }
+  // If referral email enabled, must have at least one recipient
+  if (data.referralEmailEnabled && data.referralRecipients.length === 0) {
+    return false
+  }
+  return true
+}, {
+  message: 'Enabled email types must have at least one recipient'
+})
+
+const defaultValues: PdfUploadFormType['reviewEmailsData'] = {
   clientEmailEnabled: false,
-  clientRecipients: [] as string[],
+  clientRecipients: [],
   referralEmailEnabled: true,
-  referralRecipients: [] as string[],
+  referralRecipients: [],
   previewsLoaded: false,
 }
 
@@ -96,6 +124,7 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
       }
 
       loadEmailPreview()
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [clientData?.id, verifyData])
 
     if (isLoading) {

@@ -17,8 +17,15 @@ import {
   Loader2,
 } from 'lucide-react'
 import { computeTestResultPreview } from '../actions'
+import { z } from 'zod'
+import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 
-const defaultValues = {
+// Export the schema for reuse in step validation
+export const confirmFieldSchema = z.object({
+  previewComputed: z.boolean(),
+})
+
+const defaultValues: PdfUploadFormType['confirmData'] = {
   previewComputed: false,
 }
 
@@ -179,7 +186,7 @@ export const ConfirmFieldGroup = withFieldGroup({
                             Expected Positive (Pass)
                           </p>
                           <p className="mt-1 text-sm text-green-800 dark:text-green-200">
-                            All detected substances match client's prescribed medications.
+                            All detected substances match client&apos;s prescribed medications.
                           </p>
                           {preview.expectedPositives.length > 0 && (
                             <div className="mt-2">
@@ -209,7 +216,7 @@ export const ConfirmFieldGroup = withFieldGroup({
                         <AlertDescription>
                           <p className="font-semibold">Unexpected Positive (Fail)</p>
                           <p className="mt-1 text-sm">
-                            Detected substances that are NOT in client's prescribed medications.
+                            Detected substances that are NOT in client&apos;s prescribed medications.
                           </p>
                           {preview.unexpectedPositives.length > 0 && (
                             <div className="mt-2">
@@ -318,7 +325,7 @@ export const ConfirmFieldGroup = withFieldGroup({
             <ul className="space-y-1.5 text-sm text-blue-800 dark:text-blue-200">
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-                Compare detected substances with client's medications
+                Compare detected substances with client&apos;s medications
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
