@@ -253,6 +253,7 @@ export default buildConfig({
       disableJobsQueue: true,
     }),
     sentryPlugin({
+      enabled: false,
       options: {
         captureErrors: [400, 401, 403],
         context: ({ defaultContext, req }) => {

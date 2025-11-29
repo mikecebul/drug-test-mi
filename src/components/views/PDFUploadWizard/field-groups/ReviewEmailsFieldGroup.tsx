@@ -1,0 +1,320 @@
+'use client'
+
+import React, { useEffect, useState } from 'react'
+import { withFieldGroup } from '@/blocks/Form/hooks/form'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Loader2, Eye, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { useStore } from '@tanstack/react-form'
+import { RecipientEditor } from '../components/RecipientEditor'
+import { EmailPreviewModal } from '../components/EmailPreviewModal'
+import { getEmailPreview } from '../actions'
+
+type EmailPreviewData = {
+  clientEmail: string
+  referralEmails: string[]
+  clientHtml: string
+  referralHtml: string
+  smartGrouping: 'separate' | 'combined'
+  clientSubject: string
+  referralSubject: string
+}
+
+const defaultValues = {
+  clientEmailEnabled: false,
+  clientRecipients: [] as string[],
+  referralEmailEnabled: true,
+  referralRecipients: [] as string[],
+  previewsLoaded: false,
+}
+
+export const ReviewEmailsFieldGroup = withFieldGroup({
+  defaultValues,
+
+  props: {
+    title: 'Review Emails',
+    description: 'Review and customize the emails that will be sent for this drug test',
+  },
+
+  render: function Render({ group, title, description }) {
+    const [isLoading, setIsLoading] = useState(true)
+    const [previewData, setPreviewData] = useState<EmailPreviewData | null>(null)
+    const [showClientPreview, setShowClientPreview] = useState(false)
+    const [showReferralPreview, setShowReferralPreview] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
+    // Get data from previous steps
+    const formValues = useStore(group.form.store, (state: any) => state.values)
+    const clientData = formValues.clientData
+    const verifyData = formValues.verifyData
+
+    useEffect(() => {
+      async function loadEmailPreview() {
+        if (!clientData?.id || !verifyData) {
+          setError('Missing client or test data')
+          setIsLoading(false)
+          return
+        }
+
+        try {
+          setIsLoading(true)
+          const result = await getEmailPreview({
+            clientId: clientData.id,
+            detectedSubstances: verifyData.detectedSubstances,
+            testType: verifyData.testType,
+            collectionDate: verifyData.collectionDate,
+            isDilute: verifyData.isDilute,
+          })
+
+          if (!result.success || !result.data) {
+            throw new Error(result.error || 'Failed to load email preview')
+          }
+
+          setPreviewData(result.data)
+
+          // Initialize form fields with fetched data
+          group.setFieldValue('clientEmailEnabled', result.data.smartGrouping === 'separate')
+          group.setFieldValue(
+            'clientRecipients',
+            result.data.smartGrouping === 'separate' ? [result.data.clientEmail] : [],
+          )
+          group.setFieldValue('referralEmailEnabled', true)
+          group.setFieldValue('referralRecipients', result.data.referralEmails)
+          group.setFieldValue('previewsLoaded', true)
+
+          setIsLoading(false)
+        } catch (err) {
+          console.error('Failed to load email preview:', err)
+          setError(err instanceof Error ? err.message : 'Failed to load email preview')
+          setIsLoading(false)
+          toast.error('Failed to load email preview')
+        }
+      }
+
+      loadEmailPreview()
+    }, [clientData?.id, verifyData])
+
+    if (isLoading) {
+      return (
+        <div className="space-y-6">
+          <div>
+            <h2 className="mb-2 text-2xl font-bold">{title}</h2>
+            <p className="text-muted-foreground">{description}</p>
+          </div>
+          <Card>
+            <CardContent className="flex items-center justify-center py-12">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="text-primary h-8 w-8 animate-spin" />
+                <p className="text-muted-foreground">Loading email preview...</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )
+    }
+
+    if (error || !previewData) {
+      return (
+        <div className="space-y-6">
+          <div>
+            <h2 className="mb-2 text-2xl font-bold">{title}</h2>
+            <p className="text-muted-foreground">{description}</p>
+          </div>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error || 'Failed to load email preview'}</AlertDescription>
+          </Alert>
+        </div>
+      )
+    }
+
+    const { smartGrouping } = previewData
+    const currentValues = group.state.values
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="mb-2 text-2xl font-bold">{title}</h2>
+          <p className="text-muted-foreground">{description}</p>
+        </div>
+
+        {/* Client Email Section (for probation/employment only) */}
+        {smartGrouping === 'separate' && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Client Email</CardTitle>
+                  <CardDescription>
+                    Email sent to {clientData.firstName} {clientData.lastName}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="client-enabled"
+                    checked={currentValues.clientEmailEnabled}
+                    onCheckedChange={(checked) =>
+                      group.setFieldValue('clientEmailEnabled', checked === true)
+                    }
+                  />
+                  <Label htmlFor="client-enabled" className="cursor-pointer font-normal">
+                    Send client email
+                  </Label>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {currentValues.clientEmailEnabled && (
+                <>
+                  <RecipientEditor
+                    initialRecipients={previewData.clientEmail ? [previewData.clientEmail] : []}
+                    onChange={(recipients) => group.setFieldValue('clientRecipients', recipients)}
+                    label="Client Email Address"
+                    required={true}
+                    maxRecipients={1}
+                  />
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowClientPreview(true)}
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    Preview Client Email
+                  </Button>
+                </>
+              )}
+
+              {!currentValues.clientEmailEnabled && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Client will not receive an email notification for this test.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Referral Email Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg">
+                  {smartGrouping === 'combined' ? 'Your Email' : 'Referral Emails'}
+                </CardTitle>
+                <CardDescription>
+                  {smartGrouping === 'combined'
+                    ? 'Email sent to the client (self-pay)'
+                    : 'Emails sent to court officers, probation officers, or employers'}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="referral-enabled"
+                  checked={currentValues.referralEmailEnabled}
+                  onCheckedChange={(checked) =>
+                    group.setFieldValue('referralEmailEnabled', checked === true)
+                  }
+                  disabled={smartGrouping === 'combined'} // Can't disable for self-pay
+                />
+                <Label htmlFor="referral-enabled" className="cursor-pointer font-normal">
+                  Send {smartGrouping === 'combined' ? 'email' : 'referral emails'}
+                </Label>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {currentValues.referralEmailEnabled && (
+              <>
+                <RecipientEditor
+                  initialRecipients={previewData.referralEmails}
+                  onChange={(recipients) => group.setFieldValue('referralRecipients', recipients)}
+                  label="Recipient Email Addresses"
+                  required={smartGrouping === 'combined'} // Always required for self-pay
+                  maxRecipients={10}
+                />
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowReferralPreview(true)}
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  Preview {smartGrouping === 'combined' ? 'Email' : 'Referral Email'}
+                </Button>
+              </>
+            )}
+
+            {!currentValues.referralEmailEnabled && smartGrouping !== 'combined' && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Referrals will not receive email notifications for this test. This is not
+                  recommended for{' '}
+                  {clientData.clientType === 'probation' ? 'probation' : 'employment'} clients.
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Summary */}
+        <Alert>
+          <CheckCircle2 className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Ready to send:</strong>{' '}
+            {currentValues.clientEmailEnabled && currentValues.clientRecipients.length > 0 && (
+              <span>
+                {currentValues.clientRecipients.length} client email
+                {currentValues.referralEmailEnabled &&
+                  currentValues.referralRecipients.length > 0 &&
+                  ', '}
+              </span>
+            )}
+            {currentValues.referralEmailEnabled && currentValues.referralRecipients.length > 0 && (
+              <span>
+                {currentValues.referralRecipients.length} referral email
+                {currentValues.referralRecipients.length !== 1 ? 's' : ''}
+              </span>
+            )}
+            {!currentValues.clientEmailEnabled && !currentValues.referralEmailEnabled && (
+              <span className="text-destructive">No emails will be sent</span>
+            )}
+          </AlertDescription>
+        </Alert>
+
+        {/* Email Preview Modals */}
+        {showClientPreview && smartGrouping === 'separate' && (
+          <EmailPreviewModal
+            isOpen={showClientPreview}
+            onClose={() => setShowClientPreview(false)}
+            emailHtml={previewData.clientHtml}
+            subject={previewData.clientSubject}
+            recipients={currentValues.clientRecipients}
+            emailType="client"
+          />
+        )}
+
+        {showReferralPreview && (
+          <EmailPreviewModal
+            isOpen={showReferralPreview}
+            onClose={() => setShowReferralPreview(false)}
+            emailHtml={previewData.referralHtml}
+            subject={previewData.referralSubject}
+            recipients={currentValues.referralRecipients}
+            emailType="referral"
+          />
+        )}
+      </div>
+    )
+  },
+})

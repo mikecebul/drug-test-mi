@@ -16,8 +16,9 @@ import { ExtractFieldGroup } from './field-groups/ExtractFieldGroup'
 import { VerifyClientFieldGroup } from './field-groups/VerifyClientFieldGroup'
 import { VerifyDataFieldGroup } from './field-groups/VerifyDataFieldGroup'
 import { ConfirmFieldGroup } from './field-groups/ConfirmFieldGroup'
+import { ReviewEmailsFieldGroup } from './field-groups/ReviewEmailsFieldGroup'
 
-type WizardStep = 'upload' | 'extract' | 'verify-client' | 'verify-data' | 'confirm'
+type WizardStep = 'upload' | 'extract' | 'verify-client' | 'verify-data' | 'confirm' | 'review-emails'
 
 export function PDFUploadWizardClient() {
   const router = useRouter()
@@ -57,6 +58,7 @@ export function PDFUploadWizardClient() {
     { id: 'verify-client', label: 'Client' },
     { id: 'verify-data', label: 'Verify' },
     { id: 'confirm', label: 'Confirm' },
+    { id: 'review-emails', label: 'Review Emails' },
   ]
 
   const stepMapping: Record<number, WizardStep> = {
@@ -65,6 +67,7 @@ export function PDFUploadWizardClient() {
     3: 'verify-client',
     4: 'verify-data',
     5: 'confirm',
+    6: 'review-emails',
   }
 
   const currentStepId = stepMapping[currentStep]
@@ -76,6 +79,7 @@ export function PDFUploadWizardClient() {
     3: <VerifyClientFieldGroup form={form} fields="clientData" title="Verify Client" />,
     4: <VerifyDataFieldGroup form={form} fields="verifyData" title="Verify Test Data" />,
     5: <ConfirmFieldGroup form={form} fields="confirmData" title="Confirm and Create" />,
+    6: <ReviewEmailsFieldGroup form={form} fields="reviewEmailsData" title="Review Emails" />,
   }
 
   return (

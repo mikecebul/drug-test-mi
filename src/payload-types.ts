@@ -1448,6 +1448,22 @@ export interface DrugTest {
          * Who received the notification
          */
         recipients?: string | null;
+        /**
+         * Status of this notification
+         */
+        status?: ('sent' | 'failed' | 'opted-out') | null;
+        /**
+         * How this email was skipped (wizard, manual-resend, etc.)
+         */
+        optedOutBy?: string | null;
+        /**
+         * Original computed recipients before any edits
+         */
+        originalRecipients?: string | null;
+        /**
+         * Error message if send failed
+         */
+        errorMessage?: string | null;
         id?: string | null;
       }[]
     | null;
@@ -2686,6 +2702,10 @@ export interface DrugTestsSelect<T extends boolean = true> {
         stage?: T;
         sentAt?: T;
         recipients?: T;
+        status?: T;
+        optedOutBy?: T;
+        originalRecipients?: T;
+        errorMessage?: T;
         id?: T;
       };
   updatedAt?: T;

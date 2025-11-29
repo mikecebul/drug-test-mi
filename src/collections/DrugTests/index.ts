@@ -544,6 +544,43 @@ export const DrugTests: CollectionConfig = {
                     description: 'Who received the notification',
                   },
                 },
+                {
+                  name: 'status',
+                  type: 'select',
+                  options: [
+                    { label: 'Sent', value: 'sent' },
+                    { label: 'Failed', value: 'failed' },
+                    { label: 'Opted Out', value: 'opted-out' },
+                  ],
+                  admin: {
+                    readOnly: true,
+                    description: 'Status of this notification',
+                  },
+                },
+                {
+                  name: 'optedOutBy',
+                  type: 'text',
+                  admin: {
+                    readOnly: true,
+                    description: 'How this email was skipped (wizard, manual-resend, etc.)',
+                  },
+                },
+                {
+                  name: 'originalRecipients',
+                  type: 'textarea',
+                  admin: {
+                    readOnly: true,
+                    description: 'Original computed recipients before any edits',
+                  },
+                },
+                {
+                  name: 'errorMessage',
+                  type: 'textarea',
+                  admin: {
+                    readOnly: true,
+                    description: 'Error message if send failed',
+                  },
+                },
               ],
             },
           ],

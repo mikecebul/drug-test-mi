@@ -6,6 +6,7 @@ import { extract15PanelInstant } from '@/utilities/extractors/extract15PanelInst
 import type { ParsedPDFData, ClientMatch } from './types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { classifyTestResult } from '@/collections/DrugTests/helpers/classifyTestResult'
+import { DrugTest } from '@/payload-types'
 
 /**
  * Extract data from uploaded PDF file
@@ -57,7 +58,7 @@ function calculateSimilarity(str1: string, str2: string): number {
       matrix[i][j] = Math.min(
         matrix[i - 1][j] + 1, // deletion
         matrix[i][j - 1] + 1, // insertion
-        matrix[i - 1][j - 1] + cost // substitution
+        matrix[i - 1][j - 1] + cost, // substitution
       )
     }
   }
@@ -73,7 +74,7 @@ function calculateSimilarity(str1: string, str2: string): number {
 export async function findMatchingClients(
   firstName: string,
   lastName: string,
-  middleInitial?: string
+  middleInitial?: string,
 ): Promise<{
   matches: ClientMatch[]
   searchTerm: string
@@ -486,6 +487,337 @@ export async function createDrugTest(data: {
     return { success: true, testId: drugTest.id }
   } catch (error: any) {
     console.error('Error creating drug test:', error)
+    return {
+      success: false,
+      error: `Failed to create drug test: ${error.message}`,
+    }
+  }
+}
+
+/**
+ * Get email preview for Step 6 - Review Emails
+ */
+export async function getEmailPreview(data: {
+  clientId: string
+  detectedSubstances: SubstanceValue[]
+  testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
+  collectionDate: string
+  isDilute: boolean
+}): Promise<{
+  success: boolean
+  data?: {
+    clientEmail: string
+    referralEmails: string[]
+    clientHtml: string
+    referralHtml: string
+    smartGrouping: 'separate' | 'combined'
+    clientSubject: string
+    referralSubject: string
+  }
+  error?: string
+}> {
+  const payload = await getPayload({ config })
+
+  try {
+    // Import email functions
+    const { getRecipients } = await import('@/collections/DrugTests/email/recipients')
+    const { buildScreenedEmail } = await import('@/collections/DrugTests/email/templates')
+
+    // Fetch client to determine client type
+    const client = await payload.findByID({
+      collection: 'clients',
+      id: data.clientId,
+      depth: 0,
+    })
+
+    if (!client) {
+      return { success: false, error: 'Client not found' }
+    }
+
+    // Get recipients using existing helper
+    const { clientEmail, referralEmails } = await getRecipients(data.clientId, payload)
+
+    // Compute test result preview (for email content)
+    const previewResult = await computeTestResultPreview(data.clientId, data.detectedSubstances)
+
+    // Build email HTML using existing template builder
+    const clientName = `${client.firstName} ${client.lastName}`
+    const emailData = buildScreenedEmail({
+      clientName,
+      collectionDate: data.collectionDate,
+      testType: data.testType,
+      initialScreenResult: previewResult.initialScreenResult,
+      detectedSubstances: data.detectedSubstances,
+      expectedPositives: previewResult.expectedPositives,
+      unexpectedPositives: previewResult.unexpectedPositives,
+      unexpectedNegatives: previewResult.unexpectedNegatives,
+      isDilute: data.isDilute,
+    })
+
+    // Determine smart grouping based on client type
+    const smartGrouping = client.clientType === 'self' ? 'combined' : 'separate'
+
+    return {
+      success: true,
+      data: {
+        clientEmail,
+        referralEmails,
+        clientHtml: emailData.client.html,
+        referralHtml: emailData.referrals.html,
+        smartGrouping,
+        clientSubject: emailData.client.subject,
+        referralSubject: emailData.referrals.subject,
+      },
+    }
+  } catch (error: any) {
+    console.error('Error generating email preview:', error)
+    return {
+      success: false,
+      error: `Failed to generate email preview: ${error.message}`,
+    }
+  }
+}
+
+/**
+ * Create drug test and send approved emails (Step 6 submit)
+ */
+export async function createDrugTestWithEmailReview(
+  testData: {
+    clientId: string
+    testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
+    collectionDate: string
+    detectedSubstances: SubstanceValue[]
+    isDilute: boolean
+    pdfBuffer: number[]
+    pdfFilename: string
+  },
+  emailConfig: {
+    clientEmailEnabled: boolean
+    clientRecipients: string[]
+    referralEmailEnabled: boolean
+    referralRecipients: string[]
+  },
+): Promise<{
+  success: boolean
+  testId?: string
+  error?: string
+}> {
+  const payload = await getPayload({ config })
+
+  try {
+    // Import email functions
+    const { buildScreenedEmail } = await import('@/collections/DrugTests/email/templates')
+    const { createAdminAlert } = await import('@/lib/admin-alerts')
+
+    // Convert number array back to Buffer
+    const buffer = Buffer.from(testData.pdfBuffer)
+
+    // 1. Upload PDF to private-media collection
+    const uploadedFile = await payload.create({
+      collection: 'private-media',
+      data: {
+        relatedClient: testData.clientId,
+        documentType: 'drug-test-report',
+      },
+      file: {
+        data: buffer,
+        mimetype: 'application/pdf',
+        name: testData.pdfFilename,
+        size: buffer.length,
+      },
+      overrideAccess: true,
+    })
+
+    // 2. Create drug test record with skipNotificationHook context
+    const drugTest = await payload.create({
+      collection: 'drug-tests',
+      data: {
+        relatedClient: testData.clientId,
+        testType: testData.testType,
+        collectionDate: testData.collectionDate,
+        detectedSubstances: testData.detectedSubstances,
+        isDilute: testData.isDilute,
+        testDocument: uploadedFile.id,
+        screeningStatus: 'screened',
+        processNotes: 'Created via PDF upload wizard with email review',
+        sendNotifications: false, // Prevent auto-send
+      },
+      context: {
+        skipNotificationHook: true,
+      },
+      overrideAccess: true,
+    })
+
+    // 3. Fetch client for email generation
+    const client = await payload.findByID({
+      collection: 'clients',
+      id: testData.clientId,
+      depth: 0,
+    })
+
+    // 4. Compute test results for email content
+    const previewResult = await computeTestResultPreview(
+      testData.clientId,
+      testData.detectedSubstances,
+    )
+
+    // 5. Build email content
+    const clientName = `${client.firstName} ${client.lastName}`
+    const emailData = buildScreenedEmail({
+      clientName,
+      collectionDate: testData.collectionDate,
+      testType: testData.testType,
+      initialScreenResult: previewResult.initialScreenResult,
+      detectedSubstances: testData.detectedSubstances,
+      expectedPositives: previewResult.expectedPositives,
+      unexpectedPositives: previewResult.unexpectedPositives,
+      unexpectedNegatives: previewResult.unexpectedNegatives,
+      isDilute: testData.isDilute,
+    })
+
+    // 6. Fetch document for attachment
+    const testDocument = await payload.findByID({
+      collection: 'private-media',
+      id: uploadedFile.id,
+      overrideAccess: true,
+    })
+
+    // 7. Read file buffer (handle S3 vs local)
+    let fileBuffer: Buffer
+    const isS3Enabled = Boolean(process.env.NEXT_PUBLIC_S3_HOSTNAME)
+
+    if (isS3Enabled) {
+      // Production: Fetch from S3
+      const { S3Client, GetObjectCommand } = await import('@aws-sdk/client-s3')
+      const s3Client = new S3Client({
+        credentials: {
+          accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+        },
+        endpoint: process.env.S3_ENDPOINT,
+        forcePathStyle: true,
+        region: process.env.S3_REGION,
+      })
+
+      const command = new GetObjectCommand({
+        Bucket: process.env.S3_BUCKET!,
+        Key: `private/${testDocument.filename}`,
+      })
+
+      const response = await s3Client.send(command)
+      const chunks: Uint8Array[] = []
+      for await (const chunk of response.Body as any) {
+        chunks.push(chunk)
+      }
+      fileBuffer = Buffer.concat(chunks)
+    } else {
+      // Development: Read from local disk
+      const { promises: fsPromises } = await import('fs')
+      const path = await import('path')
+      const localPath = path.join(process.cwd(), 'private-media', testDocument.filename!)
+      fileBuffer = await fsPromises.readFile(localPath)
+    }
+
+    // 8. Send emails
+    const sentTo: string[] = []
+    const failedTo: string[] = []
+
+    // Send client email if enabled
+    if (emailConfig.clientEmailEnabled && emailConfig.clientRecipients.length > 0) {
+      for (const email of emailConfig.clientRecipients) {
+        try {
+          await payload.sendEmail({
+            to: email,
+            from: payload.email.defaultFromAddress,
+            subject: emailData.client.subject,
+            html: emailData.client.html,
+            attachments: [
+              {
+                filename: testDocument.filename || 'drug-test-report.pdf',
+                content: fileBuffer,
+                contentType: 'application/pdf',
+              },
+            ],
+          })
+          sentTo.push(`Client: ${email}`)
+        } catch (error) {
+          console.error(`Failed to send client email to ${email}:`, error)
+          failedTo.push(`Client: ${email}`)
+        }
+      }
+    }
+
+    // Send referral emails if enabled
+    if (emailConfig.referralEmailEnabled && emailConfig.referralRecipients.length > 0) {
+      for (const email of emailConfig.referralRecipients) {
+        try {
+          await payload.sendEmail({
+            to: email,
+            from: payload.email.defaultFromAddress,
+            subject: emailData.referrals.subject,
+            html: emailData.referrals.html,
+            attachments: [
+              {
+                filename: testDocument.filename || 'drug-test-report.pdf',
+                content: fileBuffer,
+                contentType: 'application/pdf',
+              },
+            ],
+          })
+          sentTo.push(`Referral: ${email}`)
+        } catch (error) {
+          console.error(`Failed to send referral email to ${email}:`, error)
+          failedTo.push(`Referral: ${email}`)
+
+          // Create admin alert for failed referral email
+          await createAdminAlert(payload, {
+            severity: 'critical',
+            alertType: 'email-failure',
+            title: `Referral email failed - ${clientName}`,
+            message: `URGENT: Failed to send screening results email to referral.\n\nClient: ${clientName}\nReferral Email: ${email}\nStage: screened\nDrug Test ID: ${drugTest.id}\n\nThis referral is expecting these results. Please send manually ASAP.`,
+            context: {
+              drugTestId: drugTest.id,
+              clientId: testData.clientId,
+              clientName,
+              recipientEmail: email,
+              recipientType: 'referral',
+              emailStage: 'screened',
+              errorMessage: error instanceof Error ? error.message : String(error),
+            },
+          })
+        }
+      }
+    }
+
+    // 9. Update notification history
+    const notificationEntry = {
+      stage: 'screened',
+      sentAt: new Date().toISOString() || null,
+      recipients: sentTo.join(', ') || null,
+      status: failedTo.length > 0 ? 'failed' : 'sent',
+      optedOutBy: 'wizard',
+      originalRecipients: [
+        ...emailConfig.clientRecipients.map((e) => `Client: ${e}`),
+        ...emailConfig.referralRecipients.map((e) => `Referral: ${e}`),
+      ].join(', ') || null,
+      errorMessage: failedTo.length > 0 ? `Failed to send to: ${failedTo.join(', ')}` : null,
+    } as const
+
+    await payload.update({
+      collection: 'drug-tests',
+      id: drugTest.id,
+      data: {
+        notificationsSent: [notificationEntry],
+      },
+      context: {
+        skipNotificationHook: true,
+      },
+      overrideAccess: true,
+    })
+
+    return { success: true, testId: drugTest.id }
+  } catch (error: any) {
+    console.error('Error creating drug test with email review:', error)
     return {
       success: false,
       error: `Failed to create drug test: ${error.message}`,

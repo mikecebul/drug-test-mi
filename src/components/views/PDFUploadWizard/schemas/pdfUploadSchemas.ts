@@ -51,6 +51,34 @@ export const confirmSchema = z.object({
   }),
 })
 
+// Step 6: Review Emails
+export const reviewEmailsSchema = z.object({
+  reviewEmailsData: z.object({
+    clientEmailEnabled: z.boolean(),
+    clientRecipients: z.array(z.string().email()),
+    referralEmailEnabled: z.boolean(),
+    referralRecipients: z.array(z.string().email()),
+    previewsLoaded: z.boolean(),
+  }).refine((data) => {
+    // At least one email type must be enabled
+    return data.clientEmailEnabled || data.referralEmailEnabled
+  }, {
+    message: 'At least one email type must be enabled'
+  }).refine((data) => {
+    // If client email enabled, must have at least one recipient
+    if (data.clientEmailEnabled && data.clientRecipients.length === 0) {
+      return false
+    }
+    // If referral email enabled, must have at least one recipient
+    if (data.referralEmailEnabled && data.referralRecipients.length === 0) {
+      return false
+    }
+    return true
+  }, {
+    message: 'Enabled email types must have at least one recipient'
+  }),
+})
+
 // Step schemas array for the stepper hook
 export const stepSchemas = [
   uploadSchema,
@@ -58,6 +86,7 @@ export const stepSchemas = [
   verifyClientSchema,
   verifyDataSchema,
   confirmSchema,
+  reviewEmailsSchema,
 ]
 
 // Complete form schema for final validation
@@ -67,6 +96,7 @@ export const completePdfUploadSchema = z.object({
   clientData: verifyClientSchema.shape.clientData,
   verifyData: verifyDataSchema.shape.verifyData,
   confirmData: confirmSchema.shape.confirmData,
+  reviewEmailsData: reviewEmailsSchema.shape.reviewEmailsData,
 })
 
 // Type inference

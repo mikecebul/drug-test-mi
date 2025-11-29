@@ -3,7 +3,8 @@
 import { formOptions } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import type { PdfUploadFormType } from './schemas/pdfUploadSchemas'
-import { createDrugTest } from './actions'
+import { createDrugTestWithEmailReview } from './actions'
+import type { SubstanceValue } from '@/fields/substanceOptions'
 
 const defaultValues: PdfUploadFormType = {
   uploadData: {
@@ -37,6 +38,13 @@ const defaultValues: PdfUploadFormType = {
   confirmData: {
     previewComputed: false,
   },
+  reviewEmailsData: {
+    clientEmailEnabled: false,
+    clientRecipients: [],
+    referralEmailEnabled: true,
+    referralRecipients: [],
+    previewsLoaded: false,
+  },
 }
 
 export const usePdfUploadFormOpts = ({
@@ -64,21 +72,35 @@ export const usePdfUploadFormOpts = ({
           throw new Error('Collection date is required')
         }
 
+        // Validate email configuration
+        if (!value.reviewEmailsData.clientEmailEnabled && !value.reviewEmailsData.referralEmailEnabled) {
+          toast.error('At least one email type must be enabled')
+          throw new Error('At least one email type must be enabled')
+        }
+
         // Convert File to buffer array for server action
         const arrayBuffer = await value.uploadData.file.arrayBuffer()
 
-        const result = await createDrugTest({
-          clientId: value.clientData.id,
-          testType: value.verifyData.testType,
-          collectionDate: new Date(value.verifyData.collectionDate).toISOString(),
-          detectedSubstances: value.verifyData.detectedSubstances,
-          isDilute: value.verifyData.isDilute,
-          pdfBuffer: Array.from(new Uint8Array(arrayBuffer)),
-          pdfFilename: value.uploadData.file.name,
-        })
+        const result = await createDrugTestWithEmailReview(
+          {
+            clientId: value.clientData.id,
+            testType: value.verifyData.testType,
+            collectionDate: new Date(value.verifyData.collectionDate).toISOString(),
+            detectedSubstances: value.verifyData.detectedSubstances as SubstanceValue[],
+            isDilute: value.verifyData.isDilute,
+            pdfBuffer: Array.from(new Uint8Array(arrayBuffer)),
+            pdfFilename: value.uploadData.file.name,
+          },
+          {
+            clientEmailEnabled: value.reviewEmailsData.clientEmailEnabled,
+            clientRecipients: value.reviewEmailsData.clientRecipients,
+            referralEmailEnabled: value.reviewEmailsData.referralEmailEnabled,
+            referralRecipients: value.reviewEmailsData.referralRecipients,
+          }
+        )
 
         if (result.success && result.testId) {
-          toast.success('Drug test created successfully!')
+          toast.success('Drug test created and emails sent successfully!')
           onComplete(result.testId)
         } else {
           toast.error('Failed to create drug test')
@@ -88,7 +110,8 @@ export const usePdfUploadFormOpts = ({
         console.error('PDF Upload wizard error:', error)
 
         if (error instanceof Error && !error.message.includes('uploaded') &&
-            !error.message.includes('selected') && !error.message.includes('required')) {
+            !error.message.includes('selected') && !error.message.includes('required') &&
+            !error.message.includes('enabled')) {
           toast.error(
             error instanceof Error ? error.message : 'Failed to create drug test. Please try again.',
           )
