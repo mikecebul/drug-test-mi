@@ -1,4 +1,6 @@
-import PDFParser from 'pdf2json'
+// Import worker before PDFParse to fix Next.js/serverless environments
+import 'pdf-parse/worker'
+import { PDFParse } from 'pdf-parse'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 
 /**
@@ -15,7 +17,7 @@ export interface Extracted15PanelData {
 }
 
 /**
- * Extract data from 15-panel instant test PDF
+ * Extract data from 15-panel instant test PDF using pdf-parse
  *
  * Expected PDF format:
  * - Donor Name: [Full Name]
@@ -28,35 +30,12 @@ export interface Extracted15PanelData {
  */
 export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15PanelData> {
   try {
-    // Parse PDF to extract raw text using pdf2json
-    const pdfParser = new PDFParser()
+    // Parse PDF using pdf-parse (better than pdf2json)
+    const parser = new PDFParse({ data: buffer })
+    const data = await parser.getText()
+    await parser.destroy()
 
-    // Create promise to handle async parsing
-    const parsePdf = new Promise<string>((resolve, reject) => {
-      pdfParser.on('pdfParser_dataError', (errData: any) => {
-        reject(new Error(errData.parserError))
-      })
-
-      pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
-        // Extract text from parsed PDF data
-        let text = ''
-        pdfData.Pages?.forEach((page: any) => {
-          page.Texts?.forEach((textItem: any) => {
-            textItem.R?.forEach((run: any) => {
-              if (run.T) {
-                text += decodeURIComponent(run.T) + ' '
-              }
-            })
-          })
-        })
-        resolve(text)
-      })
-
-      // Parse the buffer
-      pdfParser.parseBuffer(buffer)
-    })
-
-    const text = await parsePdf
+    const text = data.text
  
     // Initialize result object
     const result: Extracted15PanelData = {
@@ -70,32 +49,31 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
     }
 
     // Extract donor name
-    // pdf2json scrambles the layout. Multiple strategies to find the name:
+    // pdf-parse preserves layout: donor name appears after phone number or before "iCup" test description
+    // Pattern: "Phone: (231)373-6341\nDennis D Erfourth"
 
-    // Strategy 1: Look for name at bottom right (after "Page X of Y" line)
-    // Pattern: "Page 1 of 1 [spaces] Michael Cebulski"
-    let donorNameMatch = text.match(/Page\s+\d+\s+of\s+\d+[^\w]+([A-Z][a-z]+\s+(?:[A-Z]\.?\s+)?[A-Z][a-z]+)/i)
+    // Strategy 1: Look for name after phone number (most reliable)
+    let donorNameMatch = text.match(/Phone:\s*\(\d{3}\)\d{3}-\d{4}\s*\n\s*([A-Z][a-zA-Z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-zA-Z]+)/i)
 
-    // Strategy 2: Name after the phone number
-    // Pattern: "Phone: (231)373-6341 Michael J Cebulski"
+    // Strategy 2: Look for name before "iCup" test description
     if (!donorNameMatch) {
-      donorNameMatch = text.match(/Phone:\s*\(\d{3}\)\d{3}-\d{4}\s+([A-Z][a-z]+\s+(?:[A-Z]\.?\s+)?[A-Z][a-z]+)/i)
+      donorNameMatch = text.match(/([A-Z][a-zA-Z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-zA-Z]+)\s*\n\s*iCup\s+Urine/i)
     }
 
-    // Strategy 3: Look for name after "Charlevoix" city name
+    // Strategy 3: Look for donor signature at bottom (before "Page X of Y")
     if (!donorNameMatch) {
-      donorNameMatch = text.match(/Charlevoix[^A-Z]+([A-Z][a-z]+\s+(?:[A-Z]\.?\s+)?[A-Z][a-z]+)/i)
+      donorNameMatch = text.match(/Donor Signature\s*\n\s*([A-Z][a-zA-Z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-zA-Z]+)/i)
     }
 
     if (donorNameMatch) {
-      result.donorName = donorNameMatch[1].trim()
+      result.donorName = donorNameMatch[1].trim().replace(/\s+/g, ' ')
       result.extractedFields.push('donorName')
     }
 
     // Extract collection date
-    // pdf2json puts time first, then date
-    // Pattern: "10:47 PM 09/22/2025" or "09/22/2025 10:47 PM"
-    let collectedMatch = text.match(/(\d{1,2}:\d{2}\s*(?:AM|PM))\s+(\d{1,2}\/\d{1,2}\/\d{4})/i)
+    // pdf-parse shows: "Collected:\n...\nMike Cebulski\n06:27 PM\t11/20/2025"
+    // Pattern: time with tab separator then date
+    let collectedMatch = text.match(/(\d{1,2}:\d{2}\s*(?:AM|PM))\s*[\t\n]\s*(\d{1,2}\/\d{1,2}\/\d{4})/i)
 
     if (collectedMatch) {
       const timeStr = collectedMatch[1]
@@ -156,18 +134,20 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
     }
 
     // For each substance mapping, check if it's marked as positive in the PDF
+    // pdf-parse shows clean lines like: "Buprenorphine Presumptive Positive 10 ng/mL\tCIA"
     for (const [pdfName, systemValue] of Object.entries(substanceMapping)) {
-      // Create pattern to find substance name followed by "Negative" or nothing
-      // We're looking for lines like: "Amphetamines   Negative   CIA   500 ng/mL"
-      // The pattern looks for the substance name, then checks if "Negative" appears before "CIA"
+      // Pattern: Substance name followed by result status
+      // Results can be: "Negative", "Presumptive Positive", or just "Positive"
       const pattern = new RegExp(
-        `${escapeRegex(pdfName)}[\\s\\S]{0,200}(Negative|Positive)`,
+        `${escapeRegex(pdfName)}[^\\n]{0,100}?(Negative|Presumptive Positive|Positive)`,
         'i'
       )
 
       const match = text.match(pattern)
-      if (match && match[1].toLowerCase() === 'positive') {
-        result.detectedSubstances.push(systemValue)
+      if (match && match[1].toLowerCase().includes('positive')) {
+        if (!result.detectedSubstances.includes(systemValue)) {
+          result.detectedSubstances.push(systemValue)
+        }
       }
     }
 
