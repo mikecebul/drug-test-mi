@@ -21,6 +21,14 @@ export interface ParsedPDFData {
   rawText: string
   confidence: 'high' | 'medium' | 'low'
   extractedFields: string[]
+  // Lab-specific fields
+  testType?: TestType
+  hasConfirmation?: boolean
+  confirmationResults?: Array<{
+    substance: SubstanceValue
+    result: 'confirmed-positive' | 'confirmed-negative' | 'inconclusive'
+    notes?: string
+  }>
 }
 
 export type TestType = '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'

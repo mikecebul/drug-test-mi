@@ -7,6 +7,8 @@ const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
+  // Required for pdf-parse to work correctly in Next.js
+  serverExternalPackages: ['pdf-parse', '@napi-rs/canvas'],
   images: {
     remotePatterns: [
       ...[

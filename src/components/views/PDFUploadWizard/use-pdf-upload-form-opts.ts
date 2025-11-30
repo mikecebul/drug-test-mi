@@ -8,6 +8,7 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
 
 const defaultValues: PdfUploadFormType = {
   uploadData: {
+    testType: '15-panel-instant' as const,
     file: null as any, // File object will be set by user
   },
   extractData: {
@@ -18,6 +19,9 @@ const defaultValues: PdfUploadFormType = {
     rawText: '',
     confidence: 'low',
     extractedFields: [],
+    testType: undefined,
+    hasConfirmation: undefined,
+    confirmationResults: undefined,
   },
   clientData: {
     id: '',
@@ -90,6 +94,8 @@ export const usePdfUploadFormOpts = ({
             isDilute: value.verifyData.isDilute,
             pdfBuffer: Array.from(new Uint8Array(arrayBuffer)),
             pdfFilename: value.uploadData.file.name,
+            hasConfirmation: value.extractData.hasConfirmation,
+            confirmationResults: value.extractData.confirmationResults as any,
           },
           {
             clientEmailEnabled: value.reviewEmailsData.clientEmailEnabled,

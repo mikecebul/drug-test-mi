@@ -3,7 +3,8 @@
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { extract15PanelInstant } from '@/utilities/extractors/extract15PanelInstant'
-import type { ParsedPDFData, ClientMatch } from './types'
+import { extract11PanelLab } from '@/utilities/extractors/extract11PanelLab'
+import type { ParsedPDFData, ClientMatch, TestType } from './types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { classifyTestResult } from '@/collections/DrugTests/helpers/classifyTestResult'
 import { DrugTest } from '@/payload-types'
@@ -11,7 +12,10 @@ import { DrugTest } from '@/payload-types'
 /**
  * Extract data from uploaded PDF file
  */
-export async function extractPdfData(formData: FormData): Promise<{
+export async function extractPdfData(
+  formData: FormData,
+  testType?: TestType,
+): Promise<{
   success: boolean
   data?: ParsedPDFData
   error?: string
@@ -23,7 +27,20 @@ export async function extractPdfData(formData: FormData): Promise<{
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer())
-    const extracted = await extract15PanelInstant(buffer)
+
+    // Route to the appropriate parser based on test type
+    let extracted: ParsedPDFData
+
+    switch (testType) {
+      case '11-panel-lab':
+        extracted = await extract11PanelLab(buffer)
+        break
+      case '15-panel-instant':
+      default:
+        // Default to 15-panel instant for backward compatibility
+        extracted = await extract15PanelInstant(buffer)
+        break
+    }
 
     return { success: true, data: extracted }
   } catch (error: any) {
@@ -441,6 +458,12 @@ export async function createDrugTest(data: {
   isDilute: boolean
   pdfBuffer: number[]
   pdfFilename: string
+  hasConfirmation?: boolean
+  confirmationResults?: Array<{
+    substance: SubstanceValue
+    result: 'confirmed-positive' | 'confirmed-negative' | 'inconclusive'
+    notes?: string
+  }>
 }): Promise<{
   success: boolean
   testId?: string
@@ -468,19 +491,38 @@ export async function createDrugTest(data: {
       overrideAccess: true,
     })
 
-    // 2. Create drug test record (computeTestResults hook will run automatically)
+    // 2. Prepare drug test data
+    const drugTestData: any = {
+      relatedClient: data.clientId,
+      testType: data.testType,
+      collectionDate: data.collectionDate,
+      detectedSubstances: data.detectedSubstances,
+      isDilute: data.isDilute,
+      testDocument: uploadedFile.id,
+      screeningStatus: 'screened', // Mark as screened since we have results
+      processNotes: data.hasConfirmation
+        ? 'Created via PDF upload wizard with lab confirmation results'
+        : 'Created via PDF upload wizard',
+    }
+
+    // 3. Add confirmation data if present (lab tests)
+    if (data.hasConfirmation && data.confirmationResults && data.confirmationResults.length > 0) {
+      // Extract substances that need confirmation
+      const confirmationSubstances = data.confirmationResults.map((r) => r.substance)
+
+      drugTestData.confirmationDecision = 'request-confirmation'
+      drugTestData.confirmationSubstances = confirmationSubstances
+      drugTestData.confirmationResults = data.confirmationResults.map((r) => ({
+        substance: r.substance,
+        result: r.result,
+        notes: r.notes || undefined,
+      }))
+    }
+
+    // 4. Create drug test record (computeTestResults hook will run automatically)
     const drugTest = await payload.create({
       collection: 'drug-tests',
-      data: {
-        relatedClient: data.clientId,
-        testType: data.testType,
-        collectionDate: data.collectionDate,
-        detectedSubstances: data.detectedSubstances,
-        isDilute: data.isDilute,
-        testDocument: uploadedFile.id,
-        screeningStatus: 'screened', // Mark as screened since we have results
-        processNotes: 'Created via PDF upload wizard',
-      },
+      data: drugTestData,
       overrideAccess: true,
     })
 
@@ -590,6 +632,12 @@ export async function createDrugTestWithEmailReview(
     isDilute: boolean
     pdfBuffer: number[]
     pdfFilename: string
+    hasConfirmation?: boolean
+    confirmationResults?: Array<{
+      substance: SubstanceValue
+      result: 'confirmed-positive' | 'confirmed-negative' | 'inconclusive'
+      notes?: string
+    }>
   },
   emailConfig: {
     clientEmailEnabled: boolean
@@ -628,20 +676,42 @@ export async function createDrugTestWithEmailReview(
       overrideAccess: true,
     })
 
-    // 2. Create drug test record with skipNotificationHook context
+    // 2. Prepare drug test data
+    const drugTestData: any = {
+      relatedClient: testData.clientId,
+      testType: testData.testType,
+      collectionDate: testData.collectionDate,
+      detectedSubstances: testData.detectedSubstances,
+      isDilute: testData.isDilute,
+      testDocument: uploadedFile.id,
+      screeningStatus: 'screened',
+      processNotes: testData.hasConfirmation
+        ? 'Created via PDF upload wizard with email review and lab confirmation results'
+        : 'Created via PDF upload wizard with email review',
+      sendNotifications: false, // Prevent auto-send
+    }
+
+    // 3. Add confirmation data if present (lab tests)
+    if (
+      testData.hasConfirmation &&
+      testData.confirmationResults &&
+      testData.confirmationResults.length > 0
+    ) {
+      const confirmationSubstances = testData.confirmationResults.map((r) => r.substance)
+
+      drugTestData.confirmationDecision = 'request-confirmation'
+      drugTestData.confirmationSubstances = confirmationSubstances
+      drugTestData.confirmationResults = testData.confirmationResults.map((r) => ({
+        substance: r.substance,
+        result: r.result,
+        notes: r.notes || undefined,
+      }))
+    }
+
+    // 4. Create drug test record with skipNotificationHook context
     const drugTest = await payload.create({
       collection: 'drug-tests',
-      data: {
-        relatedClient: testData.clientId,
-        testType: testData.testType,
-        collectionDate: testData.collectionDate,
-        detectedSubstances: testData.detectedSubstances,
-        isDilute: testData.isDilute,
-        testDocument: uploadedFile.id,
-        screeningStatus: 'screened',
-        processNotes: 'Created via PDF upload wizard with email review',
-        sendNotifications: false, // Prevent auto-send
-      },
+      data: drugTestData,
       context: {
         skipNotificationHook: true,
       },

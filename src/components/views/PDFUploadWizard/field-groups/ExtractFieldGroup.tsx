@@ -22,6 +22,18 @@ export const extractFieldSchema = z.object({
   rawText: z.string(),
   confidence: z.enum(['high', 'medium', 'low']),
   extractedFields: z.array(z.string()),
+  // Lab-specific optional fields
+  testType: z.enum(['15-panel-instant', '11-panel-lab', '17-panel-sos-lab', 'etg-lab']).optional(),
+  hasConfirmation: z.boolean().optional(),
+  confirmationResults: z
+    .array(
+      z.object({
+        substance: z.string(),
+        result: z.enum(['confirmed-positive', 'confirmed-negative', 'inconclusive']),
+        notes: z.string().optional(),
+      }),
+    )
+    .optional(),
 })
 
 const defaultValues: PdfUploadFormType['extractData'] = {
@@ -32,6 +44,9 @@ const defaultValues: PdfUploadFormType['extractData'] = {
   rawText: '',
   confidence: 'low',
   extractedFields: [],
+  testType: undefined,
+  hasConfirmation: undefined,
+  confirmationResults: undefined,
 }
 
 export const ExtractFieldGroup = withFieldGroup({
@@ -45,9 +60,10 @@ export const ExtractFieldGroup = withFieldGroup({
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string>('')
 
-    // Get the file from the uploadData field group
+    // Get the file and test type from the uploadData field group
     const formValues = useStore(group.form.store, (state) => state.values)
     const uploadedFile = (formValues as any).uploadData?.file as File | null
+    const testType = (formValues as any).uploadData?.testType as '15-panel-instant' | '11-panel-lab' | undefined
 
     useEffect(() => {
       async function parseFile() {
@@ -63,7 +79,7 @@ export const ExtractFieldGroup = withFieldGroup({
         const formData = new FormData()
         formData.append('file', uploadedFile)
 
-        const result = await extractPdfData(formData)
+        const result = await extractPdfData(formData, testType)
 
         if (result.success && result.data) {
           // Update form fields with extracted data
@@ -74,6 +90,17 @@ export const ExtractFieldGroup = withFieldGroup({
           group.setFieldValue('rawText', result.data.rawText)
           group.setFieldValue('confidence', result.data.confidence)
           group.setFieldValue('extractedFields', result.data.extractedFields)
+
+          // Set lab-specific fields if present
+          if (result.data.testType) {
+            group.setFieldValue('testType', result.data.testType)
+          }
+          if (result.data.hasConfirmation !== undefined) {
+            group.setFieldValue('hasConfirmation', result.data.hasConfirmation)
+          }
+          if (result.data.confirmationResults) {
+            group.setFieldValue('confirmationResults', result.data.confirmationResults)
+          }
         } else {
           setError(result.error || 'Unknown error occurred')
         }
@@ -140,6 +167,9 @@ export const ExtractFieldGroup = withFieldGroup({
       rawText: extractData.rawText,
       confidence: extractData.confidence,
       extractedFields: extractData.extractedFields,
+      testType: extractData.testType,
+      hasConfirmation: extractData.hasConfirmation,
+      confirmationResults: extractData.confirmationResults as ParsedPDFData['confirmationResults'],
     }
 
     return (

@@ -123,7 +123,7 @@ export const ConfirmFieldGroup = withFieldGroup({
 
             <div className="space-y-2 border-t pt-2">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                Detected Substances
+                Detected Substances (Screening)
               </div>
               <div className="pl-6">
                 {verifyData?.detectedSubstances?.length > 0 ? (
@@ -148,6 +148,62 @@ export const ConfirmFieldGroup = withFieldGroup({
                 )}
               </div>
             </div>
+
+            {(formValues as any).extractData?.hasConfirmation &&
+              (formValues as any).extractData?.confirmationResults &&
+              (formValues as any).extractData.confirmationResults.length > 0 && (
+                <div className="space-y-2 border-t pt-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    Confirmation Results (LC-MS/MS)
+                  </div>
+                  <div className="pl-6 space-y-2">
+                    {(formValues as any).extractData.confirmationResults.map(
+                      (result: any, index: number) => {
+                        const resultConfig = {
+                          'confirmed-positive': {
+                            variant: 'destructive' as const,
+                            icon: XCircle,
+                            label: 'Confirmed Positive',
+                          },
+                          'confirmed-negative': {
+                            variant: 'default' as const,
+                            icon: CheckCircle2,
+                            label: 'Confirmed Negative',
+                          },
+                          'inconclusive': {
+                            variant: 'secondary' as const,
+                            icon: AlertTriangle,
+                            label: 'Inconclusive',
+                          },
+                        }
+
+                        const config = resultConfig[result.result]
+                        const ResultIcon = config.icon
+
+                        return (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between rounded-md border p-2"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">
+                                {result.substance}
+                              </Badge>
+                              <Badge variant={config.variant} className="gap-1 text-xs">
+                                <ResultIcon className="h-3 w-3" />
+                                {config.label}
+                              </Badge>
+                            </div>
+                            {result.notes && (
+                              <span className="text-xs text-muted-foreground">{result.notes}</span>
+                            )}
+                          </div>
+                        )
+                      },
+                    )}
+                  </div>
+                </div>
+              )}
 
             {loadingPreview ? (
               <div className="border-t pt-2">
