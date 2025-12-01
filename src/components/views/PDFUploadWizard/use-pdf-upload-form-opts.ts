@@ -38,6 +38,7 @@ const defaultValues: PdfUploadFormType = {
     collectionDate: '',
     detectedSubstances: [],
     isDilute: false,
+    clientData: null,
   },
   confirmData: {
     previewComputed: false,

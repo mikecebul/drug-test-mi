@@ -1052,6 +1052,7 @@ export interface Client {
         detectedAs?:
           | (
               | '6-mam'
+              | 'alcohol'
               | 'amphetamines'
               | 'barbiturates'
               | 'benzodiazepines'
@@ -1254,6 +1255,7 @@ export interface DrugTest {
   detectedSubstances?:
     | (
         | '6-mam'
+        | 'alcohol'
         | 'amphetamines'
         | 'barbiturates'
         | 'benzodiazepines'
@@ -1281,6 +1283,7 @@ export interface DrugTest {
   expectedPositives?:
     | (
         | '6-mam'
+        | 'alcohol'
         | 'amphetamines'
         | 'barbiturates'
         | 'benzodiazepines'
@@ -1308,6 +1311,7 @@ export interface DrugTest {
   unexpectedPositives?:
     | (
         | '6-mam'
+        | 'alcohol'
         | 'amphetamines'
         | 'barbiturates'
         | 'benzodiazepines'
@@ -1335,6 +1339,7 @@ export interface DrugTest {
   unexpectedNegatives?:
     | (
         | '6-mam'
+        | 'alcohol'
         | 'amphetamines'
         | 'barbiturates'
         | 'benzodiazepines'
@@ -1370,6 +1375,7 @@ export interface DrugTest {
   confirmationSubstances?:
     | (
         | '6-mam'
+        | 'alcohol'
         | 'amphetamines'
         | 'barbiturates'
         | 'benzodiazepines'
@@ -1401,6 +1407,7 @@ export interface DrugTest {
          */
         substance:
           | '6-mam'
+          | 'alcohol'
           | 'amphetamines'
           | 'barbiturates'
           | 'benzodiazepines'

@@ -3,7 +3,7 @@
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { extract15PanelInstant } from '@/utilities/extractors/extract15PanelInstant'
-import { extract11PanelLab } from '@/utilities/extractors/extract11PanelLab'
+import { extractLabTest } from '@/utilities/extractors/extractLabTest'
 import type { ParsedPDFData, ClientMatch, TestType } from './types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { classifyTestResult } from '@/collections/DrugTests/helpers/classifyTestResult'
@@ -33,7 +33,10 @@ export async function extractPdfData(
 
     switch (testType) {
       case '11-panel-lab':
-        extracted = await extract11PanelLab(buffer)
+      case '17-panel-sos-lab':
+      case 'etg-lab':
+        // All lab tests use the same extractor which auto-detects the specific type
+        extracted = await extractLabTest(buffer)
         break
       case '15-panel-instant':
       default:
@@ -621,6 +624,72 @@ export async function getEmailPreview(data: {
 }
 
 /**
+ * Get email preview for collection notification
+ */
+export async function getCollectionEmailPreview(data: {
+  clientId: string
+  testType: '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
+  collectionDate: string
+  collectionTime: string
+}): Promise<{
+  success: boolean
+  data?: {
+    referralEmails: string[]
+    referralHtml: string
+    referralSubject: string
+  }
+  error?: string
+}> {
+  const payload = await getPayload({ config })
+
+  try {
+    // Import email functions
+    const { getRecipients } = await import('@/collections/DrugTests/email/recipients')
+    const { buildCollectedEmail } = await import('@/collections/DrugTests/email/templates')
+
+    // Fetch client
+    const client = await payload.findByID({
+      collection: 'clients',
+      id: data.clientId,
+      depth: 0,
+    })
+
+    if (!client) {
+      return { success: false, error: 'Client not found' }
+    }
+
+    // Get recipients using existing helper
+    const { referralEmails } = await getRecipients(data.clientId, payload)
+
+    // Build collection email HTML using existing template builder
+    const clientName = `${client.firstName} ${client.lastName}`
+    const dateTimeStr = `${data.collectionDate} ${data.collectionTime}`
+    const collectionDate = new Date(dateTimeStr).toISOString()
+
+    const emailData = buildCollectedEmail({
+      clientName,
+      collectionDate,
+      testType: data.testType,
+    })
+
+    return {
+      success: true,
+      data: {
+        referralEmails,
+        referralHtml: emailData.html,
+        referralSubject: emailData.subject,
+      },
+    }
+  } catch (error: any) {
+    console.error('Error generating collection email preview:', error)
+    return {
+      success: false,
+      error: `Failed to generate email preview: ${error.message}`,
+    }
+  }
+}
+
+/**
  * Create drug test and send approved emails (Step 6 submit)
  */
 export async function createDrugTestWithEmailReview(
@@ -866,10 +935,11 @@ export async function createDrugTestWithEmailReview(
       recipients: sentTo.join(', ') || null,
       status: failedTo.length > 0 ? 'failed' : 'sent',
       optedOutBy: 'wizard',
-      originalRecipients: [
-        ...emailConfig.clientRecipients.map((e) => `Client: ${e}`),
-        ...emailConfig.referralRecipients.map((e) => `Referral: ${e}`),
-      ].join(', ') || null,
+      originalRecipients:
+        [
+          ...emailConfig.clientRecipients.map((e) => `Client: ${e}`),
+          ...emailConfig.referralRecipients.map((e) => `Referral: ${e}`),
+        ].join(', ') || null,
       errorMessage: failedTo.length > 0 ? `Failed to send to: ${failedTo.join(', ')}` : null,
     } as const
 
@@ -892,5 +962,468 @@ export async function createDrugTestWithEmailReview(
       success: false,
       error: `Failed to create drug test: ${error.message}`,
     }
+  }
+}
+
+/**
+ * Create a collection-only drug test (no screening results yet)
+ */
+export async function createCollectionOnlyTest(data: {
+  clientId: string
+  testType: '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
+  collectionDate: string
+}): Promise<{
+  success: boolean
+  testId?: string
+  error?: string
+}> {
+  const payload = await getPayload({ config })
+
+  try {
+    // Create drug test with only collection info
+    const drugTest = await payload.create({
+      collection: 'drug-tests',
+      data: {
+        relatedClient: data.clientId,
+        testType: data.testType,
+        collectionDate: data.collectionDate,
+        screeningStatus: 'collected', // Status will remain "collected" until results entered
+        detectedSubstances: [], // No substances yet
+        isDilute: false,
+        processNotes: 'Specimen collected - awaiting lab results',
+      },
+      overrideAccess: true,
+    })
+
+    return { success: true, testId: drugTest.id }
+  } catch (error: any) {
+    console.error('Error creating collection-only test:', error)
+    return {
+      success: false,
+      error: `Failed to create collection record: ${error.message}`,
+    }
+  }
+}
+
+/**
+ * Create a collection-only drug test with email review
+ */
+export async function createCollectionWithEmailReview(
+  testData: {
+    clientId: string
+    testType: '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
+    collectionDate: string
+  },
+  emailConfig: {
+    referralEmailEnabled: boolean
+    referralRecipients: string[]
+  },
+): Promise<{
+  success: boolean
+  testId?: string
+  error?: string
+}> {
+  const payload = await getPayload({ config })
+
+  try {
+    // Import email functions
+    const { buildCollectedEmail } = await import('@/collections/DrugTests/email/templates')
+    const { createAdminAlert } = await import('@/lib/admin-alerts')
+
+    // 1. Create drug test with skipNotificationHook to prevent auto-send
+    const drugTest = await payload.create({
+      collection: 'drug-tests',
+      data: {
+        relatedClient: testData.clientId,
+        testType: testData.testType,
+        collectionDate: testData.collectionDate,
+        screeningStatus: 'collected',
+        detectedSubstances: [],
+        isDilute: false,
+        processNotes: 'Specimen collected - awaiting lab results (email review)',
+      },
+      context: {
+        skipNotificationHook: true,
+      },
+      overrideAccess: true,
+    })
+
+    // 2. Fetch client for email generation
+    const client = await payload.findByID({
+      collection: 'clients',
+      id: testData.clientId,
+      depth: 0,
+    })
+
+    // 3. Build email content
+    const clientName = `${client.firstName} ${client.lastName}`
+    const emailData = buildCollectedEmail({
+      clientName,
+      collectionDate: testData.collectionDate,
+      testType: testData.testType,
+    })
+
+    // 4. Send emails if enabled
+    const sentTo: string[] = []
+    const failedTo: string[] = []
+
+    // Send referral emails if enabled
+    if (emailConfig.referralEmailEnabled && emailConfig.referralRecipients.length > 0) {
+      for (const email of emailConfig.referralRecipients) {
+        try {
+          await payload.sendEmail({
+            to: email,
+            from: payload.email.defaultFromAddress,
+            subject: emailData.subject,
+            html: emailData.html,
+          })
+          sentTo.push(`Referral: ${email}`)
+        } catch (error) {
+          console.error(`Failed to send referral email to ${email}:`, error)
+          failedTo.push(`Referral: ${email}`)
+
+          // Create admin alert for failed referral email
+          await createAdminAlert(payload, {
+            severity: 'critical',
+            alertType: 'email-failure',
+            title: `Collection notification failed - ${clientName}`,
+            message: `URGENT: Failed to send collection notification to referral.\n\nClient: ${clientName}\nReferral Email: ${email}\nStage: collected\nDrug Test ID: ${drugTest.id}\n\nThis referral is expecting notification. Please send manually ASAP.`,
+            context: {
+              drugTestId: drugTest.id,
+              clientId: testData.clientId,
+              clientName,
+              recipientEmail: email,
+              recipientType: 'referral',
+              emailStage: 'collected',
+              errorMessage: error instanceof Error ? error.message : String(error),
+            },
+          })
+        }
+      }
+    }
+
+    // 5. Update notification history
+    const notificationEntry = {
+      stage: 'collected',
+      sentAt: new Date().toISOString() || null,
+      recipients: sentTo.join(', ') || null,
+      status: failedTo.length > 0 ? 'failed' : 'sent',
+      optedOutBy: 'wizard',
+      originalRecipients:
+        emailConfig.referralRecipients.map((e) => `Referral: ${e}`).join(', ') || null,
+      errorMessage: failedTo.length > 0 ? `Failed to send to: ${failedTo.join(', ')}` : null,
+    } as const
+
+    await payload.update({
+      collection: 'drug-tests',
+      id: drugTest.id,
+      data: {
+        notificationsSent: [notificationEntry],
+      },
+      context: {
+        skipNotificationHook: true,
+      },
+      overrideAccess: true,
+    })
+
+    return { success: true, testId: drugTest.id }
+  } catch (error: any) {
+    console.error('Error creating collection with email review:', error)
+    return {
+      success: false,
+      error: `Failed to create collection: ${error.message}`,
+    }
+  }
+}
+
+/**
+ * Update an existing test with screening results
+ */
+export async function updateTestWithScreening(data: {
+  testId: string
+  detectedSubstances: SubstanceValue[]
+  isDilute: boolean
+  pdfBuffer: number[]
+  pdfFilename: string
+  hasConfirmation?: boolean
+  confirmationResults?: Array<{
+    substance: SubstanceValue
+    result: 'confirmed-positive' | 'confirmed-negative' | 'inconclusive'
+    notes?: string
+  }>
+}): Promise<{
+  success: boolean
+  error?: string
+}> {
+  const payload = await getPayload({ config })
+
+  try {
+    // 1. Get existing test to verify it exists and get client ID
+    const existingTest = await payload.findByID({
+      collection: 'drug-tests',
+      id: data.testId,
+      overrideAccess: true,
+    })
+
+    if (!existingTest) {
+      return { success: false, error: 'Drug test not found' }
+    }
+
+    const clientId =
+      typeof existingTest.relatedClient === 'string'
+        ? existingTest.relatedClient
+        : existingTest.relatedClient.id
+
+    // 2. Upload PDF to private-media
+    const buffer = Buffer.from(data.pdfBuffer)
+    const uploadedFile = await payload.create({
+      collection: 'private-media',
+      data: {
+        relatedClient: clientId,
+        documentType: 'drug-test-report',
+      },
+      file: {
+        data: buffer,
+        mimetype: 'application/pdf',
+        name: data.pdfFilename,
+        size: buffer.length,
+      },
+      overrideAccess: true,
+    })
+
+    // 3. Prepare update data
+    const updateData: any = {
+      detectedSubstances: data.detectedSubstances,
+      isDilute: data.isDilute,
+      testDocument: uploadedFile.id,
+      screeningStatus: 'screened', // Update status to screened
+      processNotes: `${existingTest.processNotes || ''}\nScreening results uploaded via wizard`,
+    }
+
+    // 4. Add confirmation data if present
+    if (data.hasConfirmation && data.confirmationResults && data.confirmationResults.length > 0) {
+      const confirmationSubstances = data.confirmationResults.map((r) => r.substance)
+      updateData.confirmationDecision = 'request-confirmation'
+      updateData.confirmationSubstances = confirmationSubstances
+      updateData.confirmationResults = data.confirmationResults.map((r) => ({
+        substance: r.substance,
+        result: r.result,
+        notes: r.notes || undefined,
+      }))
+    }
+
+    // 5. Update the drug test
+    await payload.update({
+      collection: 'drug-tests',
+      id: data.testId,
+      data: updateData,
+      overrideAccess: true,
+    })
+
+    return { success: true }
+  } catch (error: any) {
+    console.error('Error updating test with screening:', error)
+    return {
+      success: false,
+      error: `Failed to update test: ${error.message}`,
+    }
+  }
+}
+
+/**
+ * Update an existing test with confirmation results only
+ */
+export async function updateTestWithConfirmation(data: {
+  testId: string
+  pdfBuffer: number[]
+  pdfFilename: string
+  confirmationResults: Array<{
+    substance: SubstanceValue
+    result: 'confirmed-positive' | 'confirmed-negative' | 'inconclusive'
+    notes?: string
+  }>
+}): Promise<{
+  success: boolean
+  error?: string
+}> {
+  const payload = await getPayload({ config })
+
+  try {
+    // 1. Get existing test
+    const existingTest = await payload.findByID({
+      collection: 'drug-tests',
+      id: data.testId,
+      overrideAccess: true,
+    })
+
+    if (!existingTest) {
+      return { success: false, error: 'Drug test not found' }
+    }
+
+    const clientId =
+      typeof existingTest.relatedClient === 'string'
+        ? existingTest.relatedClient
+        : existingTest.relatedClient.id
+
+    // 2. Upload confirmation PDF to private-media (as drug-test-report)
+    const buffer = Buffer.from(data.pdfBuffer)
+    const uploadedFile = await payload.create({
+      collection: 'private-media',
+      data: {
+        relatedClient: clientId,
+        documentType: 'drug-test-report',
+      },
+      file: {
+        data: buffer,
+        mimetype: 'application/pdf',
+        name: data.pdfFilename,
+        size: buffer.length,
+      },
+      overrideAccess: true,
+    })
+
+    // 3. Update with confirmation results
+    const confirmationSubstances = data.confirmationResults.map((r) => r.substance)
+
+    await payload.update({
+      collection: 'drug-tests',
+      id: data.testId,
+      data: {
+        confirmationDocument: uploadedFile.id,
+        confirmationDecision: 'request-confirmation',
+        confirmationSubstances,
+        confirmationResults: data.confirmationResults.map((r) => ({
+          substance: r.substance,
+          result: r.result,
+          notes: r.notes || undefined,
+        })),
+        screeningStatus: 'complete', // Mark as complete
+        processNotes: `${existingTest.processNotes || ''}\nConfirmation results uploaded via wizard`,
+      },
+      overrideAccess: true,
+    })
+
+    return { success: true }
+  } catch (error: any) {
+    console.error('Error updating test with confirmation:', error)
+    return {
+      success: false,
+      error: `Failed to update confirmation: ${error.message}`,
+    }
+  }
+}
+
+/**
+ * Get client data from a drug test
+ */
+export async function getClientFromTest(testId: string): Promise<{
+  success: boolean
+  client?: {
+    id: string
+    firstName: string
+    lastName: string
+    middleInitial?: string | null
+    email: string
+    dob?: string | null
+  }
+  error?: string
+}> {
+  const payload = await getPayload({ config })
+
+  try {
+    // Fetch the drug test with the related client
+    const drugTest = await payload.findByID({
+      collection: 'drug-tests',
+      id: testId,
+      depth: 1, // Get the full client object
+    })
+
+    if (!drugTest) {
+      return { success: false, error: 'Drug test not found' }
+    }
+
+    // Extract client data
+    const client = typeof drugTest.relatedClient === 'object' ? drugTest.relatedClient : null
+
+    if (!client) {
+      return { success: false, error: 'No client associated with this test' }
+    }
+
+    // Return only the necessary client fields
+    return {
+      success: true,
+      client: {
+        id: client.id,
+        firstName: client.firstName,
+        lastName: client.lastName,
+        middleInitial: client.middleInitial,
+        email: client.email,
+        dob: client.dob,
+      },
+    }
+  } catch (error: any) {
+    console.error('Error fetching client from drug test:', error)
+    return {
+      success: false,
+      error: `Failed to fetch client: ${error.message}`,
+    }
+  }
+}
+
+/**
+ * Fetch pending drug tests
+ */
+export async function fetchPendingTests(filterStatus?: string[]): Promise<
+  {
+    id: string
+    clientName: string
+    testType: string
+    collectionDate: string
+    screeningStatus: string
+  }[]
+> {
+  'use server'
+
+  const payload = await getPayload({ config })
+
+  try {
+    // Build where clause based on status filter
+    let whereClause: any = {}
+
+    if (filterStatus && filterStatus.length > 0) {
+      whereClause = {
+        screeningStatus: {
+          in: filterStatus,
+        },
+      }
+    } else {
+      // Default: only show collected or screened tests (not complete)
+      whereClause = {
+        screeningStatus: {
+          in: ['collected', 'screened', 'confirmation-pending'],
+        },
+      }
+    }
+
+    // Fetch pending drug tests
+    const result = await payload.find({
+      collection: 'drug-tests',
+      where: whereClause,
+      sort: '-collectionDate',
+      limit: 50,
+      depth: 1,
+    })
+
+    // Map to simplified format
+    return result.docs.map((test) => ({
+      id: test.id,
+      clientName: test.clientName || 'Unknown',
+      testType: test.testType,
+      collectionDate: test.collectionDate || '',
+      screeningStatus: test.screeningStatus,
+    }))
+  } catch (error) {
+    console.error('Error fetching pending tests:', error)
+    return []
   }
 }

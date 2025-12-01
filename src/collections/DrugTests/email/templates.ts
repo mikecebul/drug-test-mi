@@ -56,6 +56,7 @@ function getResultLabel(result: string): string {
 function formatSubstance(substance: string): string {
   const substanceMap: Record<string, string> = {
     '6-mam': 'Heroin (6-MAM)',
+    alcohol: 'Alcohol (Current Intoxication)',
     amphetamines: 'Amphetamines',
     methamphetamines: 'Methamphetamines',
     benzodiazepines: 'Benzodiazepines',
@@ -73,7 +74,7 @@ function formatSubstance(substance: string): string {
     tramadol: 'Tramadol',
     fentanyl: 'Fentanyl',
     kratom: 'Kratom',
-    etg: 'EtG (Alcohol)',
+    etg: 'EtG (Past Alcohol Use)',
     synthetic_cannabinoids: 'Synthetic Cannabinoids',
     other: 'Other',
   }

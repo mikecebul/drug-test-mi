@@ -1,6 +1,17 @@
 import type { SubstanceValue } from '@/fields/substanceOptions'
 
-export type WizardStep = 'upload' | 'extract' | 'verify-client' | 'verify-data' | 'confirm'
+export type WizardType = '15-panel-instant' | 'collect-lab' | 'enter-lab-screen' | 'enter-lab-confirmation'
+
+export type WizardStep =
+  | 'wizard-type'
+  | 'upload'
+  | 'extract'
+  | 'verify-client'
+  | 'verify-data'
+  | 'confirm'
+  | 'review-emails'
+  | 'select-test'
+  | 'collection-details'
 
 export interface ClientMatch {
   id: string

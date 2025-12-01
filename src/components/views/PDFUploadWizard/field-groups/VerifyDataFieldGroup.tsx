@@ -6,7 +6,7 @@ import { useStore } from '@tanstack/react-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import InputDateTimePicker from '@/components/input-datetime-picker'
 import MedicationDisplayField from '@/blocks/Form/field-components/medication-display-field'
-import { getClientMedications } from '../actions'
+import { getClientMedications, getClientFromTest } from '../actions'
 import type { TestType } from '../types'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
@@ -17,6 +17,14 @@ export const verifyDataFieldSchema = z.object({
   collectionDate: z.string().min(1, 'Collection date is required'),
   detectedSubstances: z.array(z.string()),
   isDilute: z.boolean(),
+  clientData: z.object({
+    id: z.string(),
+    firstName: z.string(),
+    lastName: z.string(),
+    middleInitial: z.string().nullable().optional(),
+    email: z.string(),
+    dob: z.string().nullable().optional(),
+  }).nullable(),
 })
 
 const defaultValues: PdfUploadFormType['verifyData'] = {
@@ -24,6 +32,7 @@ const defaultValues: PdfUploadFormType['verifyData'] = {
   collectionDate: '',
   detectedSubstances: [],
   isDilute: false,
+  clientData: null,
 }
 
 export const VerifyDataFieldGroup = withFieldGroup({
@@ -31,21 +40,25 @@ export const VerifyDataFieldGroup = withFieldGroup({
 
   props: {
     title: 'Verify Test Data',
-    description: 'Review and adjust the extracted data before creating the test record',
+    description: '',
   },
 
-  render: function Render({ group, title, description }) {
+  render: function Render({ group, title, description = '' }) {
     const [medications, setMedications] = useState<Array<{ name: string; detectedAs: string[] }>>(
       [],
     )
+    const [client, setClient] = useState<any>(null)
 
-    // Get client and parsed data from form
+    // Get form values
     const formValues = useStore(group.form.store, (state) => state.values)
-    const client = (formValues as any).clientData
     const extractData = (formValues as any).extractData
+    const verifyTest = (formValues as any).verifyTest
 
     // Initialize form with extracted data
     useEffect(() => {
+      if (extractData?.testType) {
+        group.setFieldValue('testType', extractData.testType)
+      }
       if (extractData?.collectionDate) {
         group.setFieldValue('collectionDate', extractData.collectionDate.toISOString())
       }
@@ -55,12 +68,46 @@ export const VerifyDataFieldGroup = withFieldGroup({
       if (extractData?.isDilute !== undefined) {
         group.setFieldValue('isDilute', extractData.isDilute)
       }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [extractData])
 
-    // Fetch medications
+    // Fetch client from selected test and store in form
+    useEffect(() => {
+      async function fetchClient() {
+        if (!verifyTest?.testId) {
+          setClient(null)
+          group.setFieldValue('clientData', null)
+          return
+        }
+
+        try {
+          const result = await getClientFromTest(verifyTest.testId)
+          if (result.success && result.client) {
+            setClient(result.client)
+            // Store client in form so it's available in other steps
+            group.setFieldValue('clientData', result.client)
+          } else {
+            console.error('Failed to fetch client:', result.error)
+            setClient(null)
+            group.setFieldValue('clientData', null)
+          }
+        } catch (error) {
+          console.error('Error fetching client:', error)
+          setClient(null)
+          group.setFieldValue('clientData', null)
+        }
+      }
+      fetchClient()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [verifyTest?.testId])
+
+    // Fetch medications when client is loaded
     useEffect(() => {
       async function fetchMedications() {
-        if (!client?.id) return
+        if (!client?.id) {
+          setMedications([])
+          return
+        }
 
         const result = await getClientMedications(client.id)
         setMedications(result.medications)
@@ -71,6 +118,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
 
     const collectionDateValue = useStore(group.store, (state) => state.values.collectionDate)
     const collectionDateTime = collectionDateValue ? new Date(collectionDateValue) : undefined
+    const testTypeValue = useStore(group.store, (state) => state.values.testType)
 
     return (
       <div className="space-y-6">
@@ -144,7 +192,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
             </group.AppField>
 
             <group.AppField name="detectedSubstances">
-              {(field) => <field.SubstanceChecklistField />}
+              {(field) => <field.SubstanceChecklistField testType={testTypeValue} />}
             </group.AppField>
           </CardContent>
         </Card>

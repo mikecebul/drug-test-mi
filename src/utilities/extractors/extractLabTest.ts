@@ -4,9 +4,9 @@ import { PDFParse } from 'pdf-parse'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 
 /**
- * Extracted data from 11-panel lab test PDF
+ * Extracted data from lab test PDF (11-panel, 17-panel SOS, or EtG)
  */
-export interface Extracted11PanelData {
+export interface ExtractedLabData {
   donorName: string | null
   collectionDate: Date | null
   detectedSubstances: SubstanceValue[] // From "Screen" column
@@ -14,7 +14,7 @@ export interface Extracted11PanelData {
   rawText: string
   confidence: 'high' | 'medium' | 'low'
   extractedFields: string[]
-  testType: '11-panel-lab'
+  testType: '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
   hasConfirmation: boolean
   confirmationResults?: Array<{
     substance: SubstanceValue
@@ -24,11 +24,15 @@ export interface Extracted11PanelData {
 }
 
 /**
- * Extract data from 11-panel lab test PDF using pdf-parse
+ * Extract data from lab test PDF using pdf-parse
  *
  * Expected PDF format: Redwood Toxicology Laboratory
  * - Donor Name: [Full Name]
  * - Collected: [MM/DD/YYYY HH:MM AM/PM]
+ * - Tests Ordered: Determines test type
+ *   - "049 - Ethyl Glucuronide (EtG)" = EtG Lab
+ *   - "B306 - Urine 17 Panel" = 17-Panel SOS Lab
+ *   - Default = 11-Panel Lab
  * - Substance results table with "Screen" and "Confirmation" columns
  * - Screen column: "Negative" or "Screened Positive"
  * - Confirmation column: LC-MS/MS results with ng/mL values or blank
@@ -37,7 +41,7 @@ export interface Extracted11PanelData {
  * @param buffer - PDF file buffer
  * @returns Extracted data with confidence score
  */
-export async function extract11PanelLab(buffer: Buffer): Promise<Extracted11PanelData> {
+export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> {
   try {
     // Parse PDF using pdf-parse (better than pdf2json)
     const parser = new PDFParse({ data: buffer })
@@ -46,8 +50,17 @@ export async function extract11PanelLab(buffer: Buffer): Promise<Extracted11Pane
 
     const text = data.text
 
+    // Detect test type from "Tests Ordered" section
+    let testType: '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' = '11-panel-lab'
+    if (/(049|050)\s*-?\s*Ethyl Glucuronide/i.test(text) || /(049|050)\s*-?\s*EtG/i.test(text)) {
+      // EtG test ordered (codes 049 or 050 with flexible formatting)
+      testType = 'etg-lab'
+    } else if (/B306\s*-?\s*Urine 17 Panel/i.test(text)) {
+      testType = '17-panel-sos-lab'
+    }
+
     // Initialize result object
-    const result: Extracted11PanelData = {
+    const result: ExtractedLabData = {
       donorName: null,
       collectionDate: null,
       detectedSubstances: [],
@@ -55,7 +68,7 @@ export async function extract11PanelLab(buffer: Buffer): Promise<Extracted11Pane
       rawText: text,
       confidence: 'low',
       extractedFields: [],
-      testType: '11-panel-lab',
+      testType,
       hasConfirmation: false,
       confirmationResults: [],
     }
@@ -162,8 +175,9 @@ export async function extract11PanelLab(buffer: Buffer): Promise<Extracted11Pane
       result.extractedFields.push('isDilute')
     }
 
-    // Substance mapping
+    // Substance mapping - comprehensive for all lab test types
     const substanceMapping: Record<string, SubstanceValue> = {
+      // 11-Panel Lab
       'Amphetamines 500': 'amphetamines',
       'Amphetamines': 'amphetamines',
       'Benzodiazepines': 'benzodiazepines',
@@ -177,6 +191,20 @@ export async function extract11PanelLab(buffer: Buffer): Promise<Extracted11Pane
       'Mitragynine': 'kratom',
       'Opiates': 'opiates',
       'THC (Marijuana)': 'thc',
+
+      // 17-Panel SOS additions
+      // IMPORTANT: Alcohol (Ethanol) detects CURRENT intoxication, EtG detects PAST use (24-48hrs)
+      'Alcohol (Ethanol)': 'alcohol',
+      'Methylenedioxymethamphetamine (MDMA)': 'mdma',
+      'MDMA': 'mdma',
+      'Barbiturates': 'barbiturates',
+      'Methadone Metabolite': 'methadone', // Metabolite counted as parent
+      'Oxycodone / Noroxycodone': 'oxycodone',
+      'Oxycodone': 'oxycodone',
+      'Phencyclidine (PCP)': 'pcp',
+      'PCP': 'pcp',
+      'Propoxyphene': 'propoxyphene',
+      'Methaqualone': 'tricyclic_antidepressants', // Map to closest match
     }
 
     // Extract substances from screening
@@ -253,7 +281,7 @@ export async function extract11PanelLab(buffer: Buffer): Promise<Extracted11Pane
 
     return result
   } catch (error: any) {
-    throw new Error(`Failed to extract 11-panel lab test data: ${error.message}`)
+    throw new Error(`Failed to extract lab test data: ${error.message}`)
   }
 }
 

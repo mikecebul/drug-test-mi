@@ -1,0 +1,102 @@
+'use client'
+
+import React from 'react'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Zap, Beaker, ClipboardList, CheckCircle } from 'lucide-react'
+import { cn } from '@/utilities/cn'
+import type { WizardType } from './types'
+
+interface WizardOption {
+  id: WizardType
+  icon: React.ElementType
+  title: string
+  description: string
+  color: string
+  borderColor: string
+  bgColor: string
+}
+
+const wizardOptions: WizardOption[] = [
+  {
+    id: '15-panel-instant',
+    icon: Zap,
+    title: 'Screen 15-Panel Instant',
+    description: 'Perform an on-site 15-panel instant drug screen',
+    color: 'text-orange-600',
+    borderColor: 'border-orange-300 dark:border-orange-700',
+    bgColor: 'bg-orange-50 dark:bg-orange-950/30',
+  },
+  {
+    id: 'collect-lab',
+    icon: Beaker,
+    title: 'Collect 11-Panel / EtG Lab',
+    description: 'Collect specimen for 11-panel or EtG laboratory testing',
+    color: 'text-blue-600',
+    borderColor: 'border-blue-300 dark:border-blue-700',
+    bgColor: 'bg-blue-50 dark:bg-blue-950/30',
+  },
+  {
+    id: 'enter-lab-screen',
+    icon: ClipboardList,
+    title: 'Enter 11-Panel / EtG Screen',
+    description: 'Enter results for an 11-panel or EtG screen',
+    color: 'text-green-600',
+    borderColor: 'border-green-300 dark:border-green-700',
+    bgColor: 'bg-green-50 dark:bg-green-950/30',
+  },
+  {
+    id: 'enter-lab-confirmation',
+    icon: CheckCircle,
+    title: 'Enter Lab Confirmation',
+    description: 'Enter confirmation results for 11-panel or EtG lab',
+    color: 'text-indigo-600',
+    borderColor: 'border-indigo-300 dark:border-indigo-700',
+    bgColor: 'bg-indigo-50 dark:bg-indigo-950/30',
+  },
+]
+
+interface WizardTypeSelectorProps {
+  onSelect: (wizardType: WizardType) => void
+}
+
+export function WizardTypeSelector({ onSelect }: WizardTypeSelectorProps) {
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2">
+        {wizardOptions.map((option) => {
+          const Icon = option.icon
+
+          return (
+            <Card
+              key={option.id}
+              className={cn(
+                'cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md',
+                'border',
+              )}
+              onClick={() => onSelect(option.id)}
+            >
+              <CardHeader>
+                <div className="flex items-start gap-4">
+                  <div
+                    className={cn(
+                      'flex h-12 w-12 shrink-0 items-center justify-center rounded-lg',
+                      option.bgColor,
+                    )}
+                  >
+                    <Icon className={cn('h-6 w-6', option.color)} />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="text-base">{option.title}</CardTitle>
+                    <CardDescription className="mt-1.5 text-sm">
+                      {option.description}
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
+          )
+        })}
+      </div>
+    </div>
+  )
+}

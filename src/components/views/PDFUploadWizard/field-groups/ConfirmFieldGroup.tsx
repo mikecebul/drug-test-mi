@@ -19,6 +19,7 @@ import {
 import { computeTestResultPreview } from '../actions'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
+import { format } from 'date-fns'
 
 // Export the schema for reuse in step validation
 export const confirmFieldSchema = z.object({
@@ -34,10 +35,10 @@ export const ConfirmFieldGroup = withFieldGroup({
 
   props: {
     title: 'Confirm and Create',
-    description: 'Review the final data before creating the drug test record',
+    description: '',
   },
 
-  render: function Render({ group, title, description }) {
+  render: function Render({ group, title, description = '' }) {
     const [preview, setPreview] = useState<{
       initialScreenResult: string
       expectedPositives: string[]
@@ -49,9 +50,51 @@ export const ConfirmFieldGroup = withFieldGroup({
 
     // Get all form data
     const formValues = useStore(group.form.store, (state) => state.values)
-    const client = (formValues as any).clientData
     const verifyData = (formValues as any).verifyData
     const uploadData = (formValues as any).uploadData
+
+    // Client can come from either clientData (instant test) or verifyData.clientData (lab screen)
+    const client = (formValues as any).clientData || verifyData?.clientData
+
+    // Generate proper filename based on client initials and collection date
+    const generateFilename = () => {
+      try {
+        if (!client || !verifyData?.collectionDate) {
+          return uploadData?.file?.name || 'No file'
+        }
+
+        const firstInitial = client.firstName?.charAt(0)?.toUpperCase() || ''
+        const middleInitial = client.middleInitial?.charAt(0)?.toUpperCase() || ''
+        const lastInitial = client.lastName?.charAt(0)?.toUpperCase() || ''
+
+        const initials = middleInitial
+          ? `${firstInitial}${middleInitial}${lastInitial}`
+          : `${firstInitial}${lastInitial}`
+
+        // Fallback to original filename if we don't have enough data
+        if (!initials || initials.length < 2) {
+          return uploadData?.file?.name || 'No file'
+        }
+
+        const date = format(new Date(verifyData.collectionDate), 'MM-dd-yy')
+        const testTypePrefix =
+          verifyData.testType === '11-panel-lab'
+            ? 'Lab'
+            : verifyData.testType === '17-panel-sos-lab'
+              ? 'Lab'
+              : verifyData.testType === 'etg-lab'
+                ? 'Lab'
+                : 'Instant'
+
+        return `${initials}_${testTypePrefix}_${date}.pdf`
+      } catch (error) {
+        console.error('Error generating filename:', error)
+        // Fallback to original filename on any error
+        return uploadData?.file?.name || 'No file'
+      }
+    }
+
+    const displayFilename = generateFilename()
 
     useEffect(() => {
       async function fetchPreview() {
@@ -82,13 +125,13 @@ export const ConfirmFieldGroup = withFieldGroup({
         <Card className="border-primary">
           <CardHeader className="bg-primary/5 dark:bg-primary/10">
             <CardTitle className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-primary" />
+              <CheckCircle2 className="text-primary h-5 w-5" />
               Test Summary
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
             <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
                 <User className="h-4 w-4" />
                 Client
               </div>
@@ -97,12 +140,12 @@ export const ConfirmFieldGroup = withFieldGroup({
                   {client?.firstName} {client?.middleInitial ? `${client.middleInitial}. ` : ''}
                   {client?.lastName}
                 </p>
-                <p className="text-sm text-muted-foreground">{client?.email}</p>
+                <p className="text-muted-foreground text-sm">{client?.email}</p>
               </div>
             </div>
 
             <div className="space-y-1 border-t pt-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
                 <FileText className="h-4 w-4" />
                 Test Type
               </div>
@@ -110,7 +153,7 @@ export const ConfirmFieldGroup = withFieldGroup({
             </div>
 
             <div className="space-y-1 border-t pt-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
                 <Calendar className="h-4 w-4" />
                 Collection Date
               </div>
@@ -122,7 +165,7 @@ export const ConfirmFieldGroup = withFieldGroup({
             </div>
 
             <div className="space-y-2 border-t pt-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
                 Detected Substances (Screening)
               </div>
               <div className="pl-6">
@@ -153,10 +196,10 @@ export const ConfirmFieldGroup = withFieldGroup({
               (formValues as any).extractData?.confirmationResults &&
               (formValues as any).extractData.confirmationResults.length > 0 && (
                 <div className="space-y-2 border-t pt-2">
-                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
                     Confirmation Results (LC-MS/MS)
                   </div>
-                  <div className="pl-6 space-y-2">
+                  <div className="space-y-2 pl-6">
                     {(formValues as any).extractData.confirmationResults.map(
                       (result: any, index: number) => {
                         const resultConfig = {
@@ -170,7 +213,7 @@ export const ConfirmFieldGroup = withFieldGroup({
                             icon: CheckCircle2,
                             label: 'Confirmed Negative',
                           },
-                          'inconclusive': {
+                          inconclusive: {
                             variant: 'secondary' as const,
                             icon: AlertTriangle,
                             label: 'Inconclusive',
@@ -195,7 +238,7 @@ export const ConfirmFieldGroup = withFieldGroup({
                               </Badge>
                             </div>
                             {result.notes && (
-                              <span className="text-xs text-muted-foreground">{result.notes}</span>
+                              <span className="text-muted-foreground text-xs">{result.notes}</span>
                             )}
                           </div>
                         )
@@ -207,7 +250,7 @@ export const ConfirmFieldGroup = withFieldGroup({
 
             {loadingPreview ? (
               <div className="border-t pt-2">
-                <div className="flex items-center gap-2 pl-6 text-sm text-muted-foreground">
+                <div className="text-muted-foreground flex items-center gap-2 pl-6 text-sm">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Computing test result classification...
                 </div>
@@ -215,7 +258,7 @@ export const ConfirmFieldGroup = withFieldGroup({
             ) : (
               preview && (
                 <div className="space-y-2 border-t pt-2">
-                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
                     Test Result Classification
                   </div>
                   <div className="space-y-3 pl-6">
@@ -254,7 +297,7 @@ export const ConfirmFieldGroup = withFieldGroup({
                                   <Badge
                                     key={substance}
                                     variant="outline"
-                                    className="text-xs bg-green-100 dark:bg-green-900/30"
+                                    className="bg-green-100 text-xs dark:bg-green-900/30"
                                   >
                                     {substance}
                                   </Badge>
@@ -272,7 +315,8 @@ export const ConfirmFieldGroup = withFieldGroup({
                         <AlertDescription>
                           <p className="font-semibold">Unexpected Positive (Fail)</p>
                           <p className="mt-1 text-sm">
-                            Detected substances that are NOT in client&apos;s prescribed medications.
+                            Detected substances that are NOT in client&apos;s prescribed
+                            medications.
                           </p>
                           {preview.unexpectedPositives.length > 0 && (
                             <div className="mt-2">
@@ -340,7 +384,7 @@ export const ConfirmFieldGroup = withFieldGroup({
             )}
 
             <div className="space-y-1 border-t pt-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
                 Dilute Sample
               </div>
               <div className="pl-6">
@@ -356,13 +400,13 @@ export const ConfirmFieldGroup = withFieldGroup({
             </div>
 
             <div className="space-y-1 border-t pt-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
                 <FileText className="h-4 w-4" />
                 PDF Document
               </div>
               <div className="pl-6">
-                <p className="font-medium">{uploadData?.file?.name || 'No file'}</p>
-                <p className="text-sm text-muted-foreground">
+                <p className="font-medium">{displayFilename}</p>
+                <p className="text-muted-foreground text-sm">
                   {uploadData?.file
                     ? `${(uploadData.file.size / 1024).toFixed(2)} KB`
                     : 'No file uploaded'}
