@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge'
 import {
   CheckCircle2,
   User,
-  Calendar,
   FileText,
   XCircle,
   AlertTriangle,
@@ -19,11 +18,10 @@ import {
 import { computeTestResultPreview } from '../actions'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
-import { format } from 'date-fns'
 import { generateTestFilename } from '../utils/generateFilename'
 
 // Export the schema for reuse in step validation
-export const confirmFieldSchema = z.object({
+export const confirmConfirmationFieldSchema = z.object({
   previewComputed: z.boolean(),
 })
 
@@ -31,11 +29,11 @@ const defaultValues: PdfUploadFormType['confirmData'] = {
   previewComputed: false,
 }
 
-export const ConfirmFieldGroup = withFieldGroup({
+export const ConfirmConfirmationFieldGroup = withFieldGroup({
   defaultValues,
 
   props: {
-    title: 'Confirm and Create',
+    title: 'Confirm Confirmation Update',
     description: '',
   },
 
@@ -51,31 +49,42 @@ export const ConfirmFieldGroup = withFieldGroup({
 
     // Get all form data
     const formValues = useStore(group.form.store, (state) => state.values)
-    const verifyData = (formValues as any).verifyData
+    const verifyConfirmation = (formValues as any).verifyConfirmation
+    const verifyTest = (formValues as any).verifyTest
     const uploadData = (formValues as any).uploadData
 
-    // Client can come from either clientData (instant test) or verifyData.clientData (lab screen)
-    const client = (formValues as any).clientData || verifyData?.clientData
+    // Get client and confirmation results
+    const client = verifyConfirmation?.clientData
+    const confirmationResults = verifyConfirmation?.confirmationResults || []
+    const originalDetectedSubstances = verifyConfirmation?.detectedSubstances || []
 
     // Generate new filename and keep original
     const originalFilename = uploadData?.file?.name || 'No file'
     const newFilename =
       generateTestFilename({
         client,
-        collectionDate: verifyData?.collectionDate,
-        testType: verifyData?.testType,
-        isConfirmation: false,
+        collectionDate: verifyTest?.collectionDate,
+        testType: verifyTest?.testType,
+        isConfirmation: true,
       }) || originalFilename
 
     useEffect(() => {
       async function fetchPreview() {
-        if (!client?.id || !verifyData?.detectedSubstances) {
+        if (!client?.id) {
           setLoadingPreview(false)
           return
         }
 
         try {
-          const result = await computeTestResultPreview(client.id, verifyData.detectedSubstances)
+          // Calculate final detected substances (removing confirmed negatives)
+          const adjustedSubstances = originalDetectedSubstances.filter((substance: string) => {
+            const confirmationResult = confirmationResults.find(
+              (r: any) => r.substance.toLowerCase() === substance.toLowerCase(),
+            )
+            return !(confirmationResult && confirmationResult.result === 'confirmed-negative')
+          })
+
+          const result = await computeTestResultPreview(client.id, adjustedSubstances)
           setPreview(result)
         } catch (err) {
           console.error('Failed to compute preview:', err)
@@ -84,7 +93,8 @@ export const ConfirmFieldGroup = withFieldGroup({
         }
       }
       fetchPreview()
-    }, [client?.id, verifyData?.detectedSubstances])
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [client?.id, originalDetectedSubstances, confirmationResults])
 
     return (
       <div className="space-y-6">
@@ -97,7 +107,7 @@ export const ConfirmFieldGroup = withFieldGroup({
           <CardHeader className="bg-primary/5 dark:bg-primary/10">
             <CardTitle className="flex items-center gap-2">
               <CheckCircle2 className="text-primary h-5 w-5" />
-              Test Summary
+              Confirmation Summary
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
@@ -115,122 +125,68 @@ export const ConfirmFieldGroup = withFieldGroup({
               </div>
             </div>
 
-            <div className="space-y-1 border-t pt-2">
-              <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
-                <FileText className="h-4 w-4" />
-                Test Type
-              </div>
-              <p className="pl-6 text-lg font-medium">{verifyData?.testType}</p>
-            </div>
-
-            <div className="space-y-1 border-t pt-2">
-              <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
-                <Calendar className="h-4 w-4" />
-                Collection Date
-              </div>
-              <p className="pl-6 text-lg font-medium">
-                {verifyData?.collectionDate
-                  ? new Date(verifyData.collectionDate).toLocaleString()
-                  : 'Not set'}
-              </p>
-            </div>
-
-            <div className="space-y-2 border-t pt-2">
-              <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
-                Detected Substances (Screening)
-              </div>
-              <div className="pl-6">
-                {verifyData?.detectedSubstances?.length > 0 ? (
-                  <div className="space-y-2">
-                    <Badge variant="destructive" className="gap-1">
-                      <XCircle className="h-3 w-3" />
-                      {verifyData.detectedSubstances.length} Positive
-                    </Badge>
-                    <div className="flex flex-wrap gap-2">
-                      {verifyData.detectedSubstances.map((substance: string) => (
-                        <Badge key={substance} variant="outline" className="text-xs">
-                          {substance}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <Badge variant="default" className="gap-1 bg-green-600">
-                    <CheckCircle2 className="h-3 w-3" />
-                    All Negative
-                  </Badge>
-                )}
-              </div>
-            </div>
-
-            {(formValues as any).extractData?.hasConfirmation &&
-              (formValues as any).extractData?.confirmationResults &&
-              (formValues as any).extractData.confirmationResults.length > 0 && (
-                <div className="space-y-2 border-t pt-2">
-                  <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
-                    Confirmation Results (LC-MS/MS)
-                  </div>
-                  <div className="space-y-2 pl-6">
-                    {(formValues as any).extractData.confirmationResults.map(
-                      (result: any, index: number) => {
-                        const resultConfig = {
-                          'confirmed-positive': {
-                            variant: 'destructive' as const,
-                            icon: XCircle,
-                            label: 'Confirmed Positive',
-                          },
-                          'confirmed-negative': {
-                            variant: 'default' as const,
-                            icon: CheckCircle2,
-                            label: 'Confirmed Negative',
-                          },
-                          inconclusive: {
-                            variant: 'secondary' as const,
-                            icon: AlertTriangle,
-                            label: 'Inconclusive',
-                          },
-                        }
-
-                        const config = resultConfig[result.result]
-                        const ResultIcon = config.icon
-
-                        return (
-                          <div
-                            key={index}
-                            className="flex items-center justify-between rounded-md border p-2"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs">
-                                {result.substance}
-                              </Badge>
-                              <Badge variant={config.variant} className="gap-1 text-xs">
-                                <ResultIcon className="h-3 w-3" />
-                                {config.label}
-                              </Badge>
-                            </div>
-                            {result.notes && (
-                              <span className="text-muted-foreground text-xs">{result.notes}</span>
-                            )}
-                          </div>
-                        )
-                      },
-                    )}
-                  </div>
+            {/* Confirmation Results */}
+            {confirmationResults.length > 0 && (
+              <div className="space-y-2 border-t pt-2">
+                <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+                  Confirmation Results (LC-MS/MS)
                 </div>
-              )}
+                <div className="space-y-2 pl-6">
+                  {confirmationResults.map((result: any, index: number) => {
+                    const resultConfig = {
+                      'confirmed-positive': {
+                        variant: 'destructive' as const,
+                        icon: XCircle,
+                        label: 'Confirmed Positive',
+                      },
+                      'confirmed-negative': {
+                        variant: 'default' as const,
+                        icon: CheckCircle2,
+                        label: 'Confirmed Negative',
+                      },
+                      inconclusive: {
+                        variant: 'secondary' as const,
+                        icon: AlertTriangle,
+                        label: 'Inconclusive',
+                      },
+                    }
+
+                    const config = resultConfig[result.result]
+                    const ResultIcon = config.icon
+
+                    return (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between rounded-md border p-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {result.substance}
+                          </Badge>
+                          <Badge variant={config.variant} className="gap-1 text-xs">
+                            <ResultIcon className="h-3 w-3" />
+                            {config.label}
+                          </Badge>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {loadingPreview ? (
               <div className="border-t pt-2">
                 <div className="text-muted-foreground flex items-center gap-2 pl-6 text-sm">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Computing test result classification...
+                  Computing final test result...
                 </div>
               </div>
             ) : (
               preview && (
                 <div className="space-y-2 border-t pt-2">
                   <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
-                    Test Result Classification
+                    Final Test Result
                   </div>
                   <div className="space-y-3 pl-6">
                     {preview.initialScreenResult === 'negative' && (
@@ -241,8 +197,7 @@ export const ConfirmFieldGroup = withFieldGroup({
                             All Negative (Pass)
                           </p>
                           <p className="mt-1 text-sm text-green-800 dark:text-green-200">
-                            No substances detected and no medications expected. This result will be
-                            automatically accepted.
+                            All confirmation tests came back negative.
                           </p>
                         </AlertDescription>
                       </Alert>
@@ -256,7 +211,7 @@ export const ConfirmFieldGroup = withFieldGroup({
                             Expected Positive (Pass)
                           </p>
                           <p className="mt-1 text-sm text-green-800 dark:text-green-200">
-                            All detected substances match client&apos;s prescribed medications.
+                            All confirmed substances match client&apos;s prescribed medications.
                           </p>
                           {preview.expectedPositives.length > 0 && (
                             <div className="mt-2">
@@ -286,7 +241,7 @@ export const ConfirmFieldGroup = withFieldGroup({
                         <AlertDescription>
                           <p className="font-semibold">Unexpected Positive (Fail)</p>
                           <p className="mt-1 text-sm">
-                            Detected substances that are NOT in client&apos;s prescribed
+                            Confirmed substances that are NOT in client&apos;s prescribed
                             medications.
                           </p>
                           {preview.unexpectedPositives.length > 0 && (
@@ -356,22 +311,6 @@ export const ConfirmFieldGroup = withFieldGroup({
 
             <div className="space-y-1 border-t pt-2">
               <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
-                Dilute Sample
-              </div>
-              <div className="pl-6">
-                {verifyData?.isDilute ? (
-                  <Badge variant="secondary" className="gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    Yes
-                  </Badge>
-                ) : (
-                  <Badge variant="outline">No</Badge>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-1 border-t pt-2">
-              <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
                 <FileText className="h-4 w-4" />
                 PDF Document
               </div>
@@ -398,20 +337,20 @@ export const ConfirmFieldGroup = withFieldGroup({
           <Bell className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           <AlertDescription>
             <p className="mb-2 text-sm font-medium text-blue-900 dark:text-blue-100">
-              After creation, the system will automatically:
+              After updating, the system will automatically:
             </p>
             <ul className="space-y-1.5 text-sm text-blue-800 dark:text-blue-200">
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-                Compare detected substances with client&apos;s medications
+                Update the test with confirmation results
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-                Calculate the test result classification
+                Recalculate the final test result classification
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-                Send notification emails to appropriate recipients
+                Send updated notification emails to appropriate recipients
               </li>
             </ul>
           </AlertDescription>

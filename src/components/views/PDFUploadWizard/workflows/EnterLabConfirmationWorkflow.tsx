@@ -10,18 +10,16 @@ import { useStore } from '@tanstack/react-form'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { useFormStepper } from '@/app/(frontend)/register/hooks/useFormStepper'
 import { z } from 'zod'
-import { SelectTestFieldGroup, selectTestFieldSchema } from '../field-groups/SelectTestFieldGroup'
 import { UploadFieldGroup, uploadFieldSchema } from '../field-groups/UploadFieldGroup'
 import { ExtractFieldGroup, extractFieldSchema } from '../field-groups/ExtractFieldGroup'
-import { ConfirmFieldGroup, confirmFieldSchema } from '../field-groups/ConfirmFieldGroup'
+import { VerifyTestFieldGroup, verifyTestFieldSchema } from '../field-groups/VerifyTestFieldGroup'
+import { VerifyConfirmationFieldGroup, verifyConfirmationFieldSchema } from '../field-groups/VerifyConfirmationFieldGroup'
+import { ConfirmConfirmationFieldGroup, confirmConfirmationFieldSchema } from '../field-groups/ConfirmConfirmationFieldGroup'
+import { ReviewEmailsFieldGroup, reviewEmailsFieldSchema } from '../field-groups/ReviewEmailsFieldGroup'
 import { updateTestWithConfirmation } from '../actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 
 // Step schemas
-const selectTestSchema = z.object({
-  selectTest: selectTestFieldSchema,
-})
-
 const uploadSchema = z.object({
   uploadData: uploadFieldSchema,
 })
@@ -30,18 +28,39 @@ const extractSchema = z.object({
   extractData: extractFieldSchema,
 })
 
-const confirmSchema = z.object({
-  confirmData: confirmFieldSchema,
+const verifyTestSchema = z.object({
+  verifyTest: verifyTestFieldSchema,
 })
 
-const stepSchemas = [selectTestSchema, uploadSchema, extractSchema, confirmSchema]
+const verifyConfirmationSchema = z.object({
+  verifyConfirmation: verifyConfirmationFieldSchema,
+})
+
+const confirmSchema = z.object({
+  confirmData: confirmConfirmationFieldSchema,
+})
+
+const reviewEmailsSchema = z.object({
+  reviewEmailsData: reviewEmailsFieldSchema,
+})
+
+const stepSchemas = [
+  uploadSchema,
+  extractSchema,
+  verifyTestSchema,
+  verifyConfirmationSchema,
+  confirmSchema,
+  reviewEmailsSchema,
+]
 
 // Complete form schema
 const completeEnterLabConfirmationSchema = z.object({
-  selectTest: selectTestFieldSchema,
   uploadData: uploadFieldSchema,
   extractData: extractFieldSchema,
-  confirmData: confirmFieldSchema,
+  verifyTest: verifyTestFieldSchema,
+  verifyConfirmation: verifyConfirmationFieldSchema,
+  confirmData: confirmConfirmationFieldSchema,
+  reviewEmailsData: reviewEmailsFieldSchema,
 })
 
 type EnterLabConfirmationFormType = z.infer<typeof completeEnterLabConfirmationSchema>
@@ -59,15 +78,8 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
 
   const formOpts = {
     defaultValues: {
-      selectTest: {
-        testId: '',
-        clientName: '',
-        testType: '',
-        collectionDate: '',
-        screeningStatus: '',
-      },
       uploadData: {
-        file: null as any, // Will be set when user uploads
+        file: null as any,
         fileUrl: '',
         fileName: '',
         testType: '11-panel-lab' as const,
@@ -82,16 +94,38 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
         rawText: '',
         confidence: 'low' as const,
         extractedFields: [],
+        testType: '11-panel-lab' as const,
         hasConfirmation: false,
         confirmationResults: [],
+      },
+      verifyTest: {
+        testId: '',
+        clientName: '',
+        testType: '',
+        collectionDate: '',
+        screeningStatus: '',
+        matchType: 'manual' as const,
+        score: 0,
+      },
+      verifyConfirmation: {
+        confirmationResults: [],
+        clientData: null,
+        detectedSubstances: [],
+        isDilute: false,
       },
       confirmData: {
         previewComputed: false,
       },
+      reviewEmailsData: {
+        clientEmailEnabled: true,
+        clientRecipients: [],
+        referralEmailEnabled: true,
+        referralRecipients: [],
+        previewsLoaded: false,
+      },
     },
     onSubmit: async ({ value }: { value: EnterLabConfirmationFormType }) => {
       try {
-        // Get PDF buffer from file
         const file = value.uploadData.file
         if (!file) {
           throw new Error('No file selected')
@@ -100,23 +134,20 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
         const buffer = await file.arrayBuffer()
         const pdfBuffer = Array.from(new Uint8Array(buffer))
 
-        // Update the existing test with confirmation results only
-        // Confirmation results come from extractData, not confirmData
-        const confirmationResults = (value.extractData.confirmationResults || []).map((r) => ({
+        const confirmationResults = value.verifyConfirmation.confirmationResults.map((r) => ({
           substance: r.substance as SubstanceValue,
           result: r.result,
-          notes: r.notes,
         }))
 
         const result = await updateTestWithConfirmation({
-          testId: value.selectTest.testId,
+          testId: value.verifyTest.testId,
           pdfBuffer,
           pdfFilename: file.name,
           confirmationResults,
         })
 
         if (result.success) {
-          handleComplete(value.selectTest.testId)
+          handleComplete(value.verifyTest.testId)
         } else {
           throw new Error(result.error || 'Failed to update confirmation')
         }
@@ -164,17 +195,21 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
   }
 
   const steps: Step[] = [
-    { id: 'select-test', label: 'Select' },
     { id: 'upload', label: 'Upload' },
     { id: 'extract', label: 'Extract' },
+    { id: 'verify-test', label: 'Match' },
+    { id: 'verify-confirmation', label: 'Verify' },
     { id: 'confirm', label: 'Confirm' },
+    { id: 'review-emails', label: 'Emails' },
   ]
 
   const stepMapping: Record<number, string> = {
-    1: 'select-test',
-    2: 'upload',
-    3: 'extract',
-    4: 'confirm',
+    1: 'upload',
+    2: 'extract',
+    3: 'verify-test',
+    4: 'verify-confirmation',
+    5: 'confirm',
+    6: 'review-emails',
   }
 
   const currentStepId = stepMapping[currentStep]
@@ -201,16 +236,6 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
       >
         <div className="wizard-content mb-8 flex-1">
           {currentStep === 1 && (
-            <SelectTestFieldGroup
-              form={form}
-              fields="selectTest"
-              title="Select Test for Confirmation"
-              description=""
-              filterStatus={['screened', 'confirmation-pending']}
-            />
-          )}
-
-          {currentStep === 2 && (
             <UploadFieldGroup
               form={form}
               fields="uploadData"
@@ -219,12 +244,46 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
             />
           )}
 
-          {currentStep === 3 && (
+          {currentStep === 2 && (
             <ExtractFieldGroup form={form} fields="extractData" title="Extract Confirmation Data" />
           )}
 
+          {currentStep === 3 && (
+            <VerifyTestFieldGroup
+              form={form}
+              fields="verifyTest"
+              title="Match Test for Confirmation"
+              description="Select the test that needs confirmation results"
+              filterStatus={['screened', 'confirmation-pending']}
+            />
+          )}
+
           {currentStep === 4 && (
-            <ConfirmFieldGroup form={form} fields="confirmData" title="Confirm Update" description="" />
+            <VerifyConfirmationFieldGroup
+              form={form}
+              fields="verifyConfirmation"
+              title="Verify Confirmation Results"
+              description="Review and adjust the confirmation results extracted from the PDF"
+            />
+          )}
+
+          {currentStep === 5 && (
+            <ConfirmConfirmationFieldGroup
+              form={form}
+              fields="confirmData"
+              title="Confirm Confirmation Update"
+              description=""
+            />
+          )}
+
+          {currentStep === 6 && (
+            <ReviewEmailsFieldGroup
+              form={form}
+              fields="reviewEmailsData"
+              title="Review Emails"
+              description=""
+              workflowMode="confirmation"
+            />
           )}
         </div>
 

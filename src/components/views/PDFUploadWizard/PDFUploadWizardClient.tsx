@@ -178,6 +178,7 @@ function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
         fields="reviewEmailsData"
         title="Review Emails"
         description="Review and customize the emails that will be sent for this drug test"
+        workflowMode="screening"
       />
     ),
   }

@@ -295,6 +295,9 @@ export const VerifyTestFieldGroup = withFieldGroup({
                       {!isHighConfidence && !isMediumConfidence && score > 0 && (
                         <Badge variant="outline">Low Match ({score}%)</Badge>
                       )}
+                      {!isHighConfidence && !isMediumConfidence && score === 0 && (
+                        <Badge variant="outline">Manual Selection</Badge>
+                      )}
                       <Badge variant="outline">{test.screeningStatus}</Badge>
                     </div>
                   </div>

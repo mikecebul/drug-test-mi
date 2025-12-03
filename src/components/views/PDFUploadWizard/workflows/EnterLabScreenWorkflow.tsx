@@ -19,7 +19,7 @@ import { ReviewEmailsFieldGroup, reviewEmailsFieldSchema } from '../field-groups
 import { updateTestWithScreening } from '../actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 
-// Step schemas - New order: Upload → Extract → Verify Test → Verify Data → Confirm → Emails
+// Step schemas
 const uploadSchema = z.object({
   uploadData: uploadFieldSchema,
 })
@@ -79,10 +79,10 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
   const formOpts = {
     defaultValues: {
       uploadData: {
-        file: null as any, // Will be set when user uploads
+        file: null as any,
         fileUrl: '',
         fileName: '',
-        testType: '11-panel-lab' as const, // Default, will be overridden by extraction
+        testType: '11-panel-lab' as const,
       },
       extractData: {
         extracting: false,
@@ -94,7 +94,7 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
         rawText: '',
         confidence: 'low' as const,
         extractedFields: [],
-        testType: '11-panel-lab' as const, // Will be set by extraction
+        testType: '11-panel-lab' as const,
         hasConfirmation: false,
         confirmationResults: [],
       },
@@ -127,7 +127,6 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
     },
     onSubmit: async ({ value }: { value: EnterLabScreenFormType }) => {
       try {
-        // Get PDF buffer from file
         const file = value.uploadData.file
         if (!file) {
           throw new Error('No file selected')
@@ -136,7 +135,6 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
         const buffer = await file.arrayBuffer()
         const pdfBuffer = Array.from(new Uint8Array(buffer))
 
-        // Update the existing test with screening results
         const confirmationResults = (value.extractData.confirmationResults || []).map((r) => ({
           substance: r.substance as SubstanceValue,
           result: r.result,
@@ -289,6 +287,7 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
               fields="reviewEmailsData"
               title="Review Emails"
               description=""
+              workflowMode="screening"
             />
           )}
         </div>

@@ -12,9 +12,11 @@ import { toast } from 'sonner'
 import { useStore } from '@tanstack/react-form'
 import { RecipientEditor } from '../components/RecipientEditor'
 import { EmailPreviewModal } from '../components/EmailPreviewModal'
-import { getEmailPreview } from '../actions'
+import { getEmailPreview, getConfirmationEmailPreview } from '../actions'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
+
+type WorkflowMode = 'screening' | 'confirmation'
 
 type EmailPreviewData = {
   clientEmail: string
@@ -66,9 +68,10 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
   props: {
     title: 'Review Emails',
     description: '',
+    workflowMode: 'screening' as WorkflowMode,
   },
 
-  render: function Render({ group, title, description = '' }) {
+  render: function Render({ group, title, description = '', workflowMode }) {
     const [isLoading, setIsLoading] = useState(true)
     const [previewData, setPreviewData] = useState<EmailPreviewData | null>(null)
     const [showClientPreview, setShowClientPreview] = useState(false)
@@ -77,27 +80,60 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
 
     // Get data from previous steps
     const formValues = useStore(group.form.store, (state: any) => state.values)
-    // Client can come from either clientData (instant test) or verifyData.clientData (lab screen)
-    const clientData = formValues.clientData || formValues.verifyData?.clientData
+    // Client can come from different places depending on workflow:
+    // - Instant test: formValues.clientData
+    // - Lab screen: formValues.verifyData.clientData
+    // - Lab confirmation: formValues.verifyConfirmation.clientData
+    const clientData =
+      formValues.clientData ||
+      formValues.verifyData?.clientData ||
+      formValues.verifyConfirmation?.clientData
     const verifyData = formValues.verifyData
+    const verifyConfirmation = formValues.verifyConfirmation
+    const verifyTest = formValues.verifyTest
+    const extractData = formValues.extractData
 
     useEffect(() => {
       async function loadEmailPreview() {
-        if (!clientData?.id || !verifyData) {
-          setError('Missing client or test data')
+        if (!clientData?.id) {
+          setError('Missing client data')
           setIsLoading(false)
           return
         }
 
         try {
           setIsLoading(true)
-          const result = await getEmailPreview({
-            clientId: clientData.id,
-            detectedSubstances: verifyData.detectedSubstances,
-            testType: verifyData.testType,
-            collectionDate: verifyData.collectionDate,
-            isDilute: verifyData.isDilute,
-          })
+          let result
+
+          if (workflowMode === 'confirmation') {
+            // Confirmation workflow: get confirmation email preview
+            if (!verifyTest?.testId || !verifyConfirmation?.confirmationResults) {
+              setError('Missing test or confirmation data')
+              setIsLoading(false)
+              return
+            }
+
+            result = await getConfirmationEmailPreview({
+              clientId: clientData.id,
+              testId: verifyTest.testId,
+              confirmationResults: verifyConfirmation.confirmationResults,
+            })
+          } else {
+            // Screening workflow: get screening email preview
+            if (!verifyData) {
+              setError('Missing screening data')
+              setIsLoading(false)
+              return
+            }
+
+            result = await getEmailPreview({
+              clientId: clientData.id,
+              detectedSubstances: verifyData.detectedSubstances,
+              testType: verifyData.testType,
+              collectionDate: verifyData.collectionDate,
+              isDilute: verifyData.isDilute,
+            })
+          }
 
           if (!result.success || !result.data) {
             throw new Error(result.error || 'Failed to load email preview')
@@ -126,7 +162,7 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
 
       loadEmailPreview()
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [clientData?.id, verifyData])
+    }, [clientData?.id, verifyData, verifyConfirmation, workflowMode, verifyTest, extractData])
 
     if (isLoading) {
       return (

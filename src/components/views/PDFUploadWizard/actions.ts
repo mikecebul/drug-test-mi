@@ -690,6 +690,115 @@ export async function getCollectionEmailPreview(data: {
 }
 
 /**
+ * Get email preview for confirmation results
+ */
+export async function getConfirmationEmailPreview(data: {
+  clientId: string
+  testId: string
+  confirmationResults: Array<{
+    substance: SubstanceValue
+    result: 'confirmed-positive' | 'confirmed-negative' | 'inconclusive'
+    notes?: string
+  }>
+}): Promise<{
+  success: boolean
+  data?: {
+    clientEmail: string
+    referralEmails: string[]
+    clientHtml: string
+    referralHtml: string
+    smartGrouping: 'separate' | 'combined'
+    clientSubject: string
+    referralSubject: string
+  }
+  error?: string
+}> {
+  const payload = await getPayload({ config })
+
+  try {
+    // Import email functions
+    const { getRecipients } = await import('@/collections/DrugTests/email/recipients')
+    const { buildCompleteEmail } = await import('@/collections/DrugTests/email/templates')
+
+    // Fetch the drug test to get initial screening data
+    const drugTest = await payload.findByID({
+      collection: 'drug-tests',
+      id: data.testId,
+      depth: 1,
+      overrideAccess: true,
+    })
+
+    if (!drugTest) {
+      return { success: false, error: 'Drug test not found' }
+    }
+
+    const client = typeof drugTest.relatedClient === 'object' ? drugTest.relatedClient : null
+
+    if (!client) {
+      return { success: false, error: 'Client not found' }
+    }
+
+    // Get recipients using existing helper
+    const { clientEmail, referralEmails } = await getRecipients(data.clientId, payload)
+
+    // Compute initial test result for email (need this for complete email template)
+    const previewResult = await computeTestResultPreview(
+      data.clientId,
+      drugTest.detectedSubstances as any,
+    )
+
+    // Determine final status based on confirmation results
+    // This is a simplified version - in production this would use more complex logic
+    const hasPositiveConfirmations = data.confirmationResults.some(
+      (r) => r.result === 'confirmed-positive',
+    )
+    const finalStatus = hasPositiveConfirmations ? 'failed' : 'passed'
+
+    // Build complete email HTML using existing template builder
+    const clientName = `${client.firstName} ${client.lastName}`
+    const emailData = buildCompleteEmail({
+      clientName,
+      collectionDate: drugTest.collectionDate || '',
+      testType: drugTest.testType,
+      initialScreenResult: previewResult.initialScreenResult,
+      detectedSubstances: drugTest.detectedSubstances as any,
+      expectedPositives: previewResult.expectedPositives,
+      unexpectedPositives: previewResult.unexpectedPositives,
+      unexpectedNegatives: previewResult.unexpectedNegatives,
+      confirmationResults: data.confirmationResults.map((r) => ({
+        substance: r.substance,
+        result: r.result,
+        notes: r.notes,
+      })),
+      finalStatus,
+      isDilute: drugTest.isDilute || false,
+    })
+
+    // Determine smart grouping based on client type
+    const smartGrouping = client.clientType === 'self' ? 'combined' : 'separate'
+
+    return {
+      success: true,
+      data: {
+        clientEmail,
+        referralEmails,
+        clientHtml: emailData.client.html,
+        referralHtml: emailData.referrals.html,
+        smartGrouping,
+        clientSubject: emailData.client.subject,
+        referralSubject: emailData.referrals.subject,
+      },
+    }
+  } catch (error: any) {
+    console.error('Error generating confirmation email preview:', error)
+    return {
+      success: false,
+      error: `Failed to generate confirmation email preview: ${error.message}`,
+    }
+  }
+}
+
+/**
  * Create drug test and send approved emails (Step 6 submit)
  */
 export async function createDrugTestWithEmailReview(
