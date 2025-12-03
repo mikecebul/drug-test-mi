@@ -18,6 +18,7 @@ import { ConfirmFieldGroup, confirmFieldSchema } from '../field-groups/ConfirmFi
 import { ReviewEmailsFieldGroup, reviewEmailsFieldSchema } from '../field-groups/ReviewEmailsFieldGroup'
 import { updateTestWithScreening } from '../actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
+import { generateTestFilename } from '../utils/generateFilename'
 
 // Step schemas
 const uploadSchema = z.object({
@@ -141,12 +142,20 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
           notes: r.notes,
         }))
 
+        // Generate formatted filename using utility function
+        const pdfFilename = generateTestFilename({
+          client: value.verifyData.clientData,
+          collectionDate: value.verifyData.collectionDate,
+          testType: value.verifyData.testType,
+          isConfirmation: false,
+        })
+
         const result = await updateTestWithScreening({
           testId: value.verifyTest.testId,
           detectedSubstances: value.verifyData.detectedSubstances as any,
           isDilute: value.verifyData.isDilute,
           pdfBuffer,
-          pdfFilename: file.name,
+          pdfFilename: pdfFilename || file.name, // Fallback to original filename if generation fails
           hasConfirmation: value.extractData.hasConfirmation,
           confirmationResults,
         })

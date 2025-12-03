@@ -6,7 +6,7 @@ import { useStore } from '@tanstack/react-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import InputDateTimePicker from '@/components/input-datetime-picker'
 import MedicationDisplayField from '@/blocks/Form/field-components/medication-display-field'
-import { getClientMedications, getClientFromTest } from '../actions'
+import { getClientMedications } from '../actions'
 import type { TestType } from '../types'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
@@ -47,12 +47,14 @@ export const VerifyDataFieldGroup = withFieldGroup({
     const [medications, setMedications] = useState<Array<{ name: string; detectedAs: string[] }>>(
       [],
     )
-    const [client, setClient] = useState<any>(null)
 
     // Get form values
     const formValues = useStore(group.form.store, (state) => state.values)
     const extractData = (formValues as any).extractData
-    const verifyTest = (formValues as any).verifyTest
+    const verifyData = (formValues as any).verifyData
+
+    // Client can come from either clientData (instant test) or verifyData.clientData (lab screen)
+    const client = (formValues as any).clientData || verifyData?.clientData
 
     // Initialize form with extracted data
     useEffect(() => {
@@ -71,35 +73,13 @@ export const VerifyDataFieldGroup = withFieldGroup({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [extractData])
 
-    // Fetch client from selected test and store in form
+    // Store client in verifyData for later access (lab workflows)
     useEffect(() => {
-      async function fetchClient() {
-        if (!verifyTest?.testId) {
-          setClient(null)
-          group.setFieldValue('clientData', null)
-          return
-        }
-
-        try {
-          const result = await getClientFromTest(verifyTest.testId)
-          if (result.success && result.client) {
-            setClient(result.client)
-            // Store client in form so it's available in other steps
-            group.setFieldValue('clientData', result.client)
-          } else {
-            console.error('Failed to fetch client:', result.error)
-            setClient(null)
-            group.setFieldValue('clientData', null)
-          }
-        } catch (error) {
-          console.error('Error fetching client:', error)
-          setClient(null)
-          group.setFieldValue('clientData', null)
-        }
+      if (client && !verifyData?.clientData) {
+        group.setFieldValue('clientData', client)
       }
-      fetchClient()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [verifyTest?.testId])
+    }, [client])
 
     // Fetch medications when client is loaded
     useEffect(() => {

@@ -18,6 +18,7 @@ import { ConfirmConfirmationFieldGroup, confirmConfirmationFieldSchema } from '.
 import { ReviewEmailsFieldGroup, reviewEmailsFieldSchema } from '../field-groups/ReviewEmailsFieldGroup'
 import { updateTestWithConfirmation } from '../actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
+import { generateTestFilename } from '../utils/generateFilename'
 
 // Step schemas
 const uploadSchema = z.object({
@@ -139,10 +140,18 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
           result: r.result,
         }))
 
+        // Generate formatted filename using utility function
+        const pdfFilename = generateTestFilename({
+          client: value.verifyConfirmation.clientData,
+          collectionDate: value.verifyTest.collectionDate,
+          testType: value.verifyTest.testType,
+          isConfirmation: true,
+        })
+
         const result = await updateTestWithConfirmation({
           testId: value.verifyTest.testId,
           pdfBuffer,
-          pdfFilename: file.name,
+          pdfFilename: pdfFilename || file.name, // Fallback to original filename if generation fails
           confirmationResults,
         })
 

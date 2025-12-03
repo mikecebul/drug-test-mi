@@ -312,16 +312,16 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
             <div className="space-y-1 border-t pt-2">
               <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
                 <FileText className="h-4 w-4" />
-                PDF Document
+                File Names
               </div>
-              <div className="space-y-2 pl-6">
+              <div className="pl-6 space-y-2">
                 <div>
-                  <p className="text-xs text-muted-foreground">Original filename:</p>
-                  <p className="text-sm font-medium">{originalFilename}</p>
+                  <p className="text-xs text-muted-foreground">Original:</p>
+                  <p className="text-sm font-mono">{originalFilename}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Will be renamed to:</p>
-                  <p className="text-sm font-semibold">{newFilename}</p>
+                  <p className="text-xs text-muted-foreground">Will be saved as:</p>
+                  <p className="text-sm font-mono font-semibold text-primary">{newFilename}</p>
                 </div>
                 <p className="text-muted-foreground text-xs">
                   {uploadData?.file

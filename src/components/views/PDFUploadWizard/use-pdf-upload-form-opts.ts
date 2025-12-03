@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import type { PdfUploadFormType } from './schemas/pdfUploadSchemas'
 import { createDrugTestWithEmailReview } from './actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
+import { generateTestFilename } from './utils/generateFilename'
 
 const defaultValues: PdfUploadFormType = {
   uploadData: {
@@ -86,6 +87,14 @@ export const usePdfUploadFormOpts = ({
         // Convert File to buffer array for server action
         const arrayBuffer = await value.uploadData.file.arrayBuffer()
 
+        // Generate formatted filename using utility function
+        const pdfFilename = generateTestFilename({
+          client: value.clientData,
+          collectionDate: value.verifyData.collectionDate,
+          testType: value.verifyData.testType,
+          isConfirmation: false,
+        })
+
         const result = await createDrugTestWithEmailReview(
           {
             clientId: value.clientData.id,
@@ -94,7 +103,7 @@ export const usePdfUploadFormOpts = ({
             detectedSubstances: value.verifyData.detectedSubstances as SubstanceValue[],
             isDilute: value.verifyData.isDilute,
             pdfBuffer: Array.from(new Uint8Array(arrayBuffer)),
-            pdfFilename: value.uploadData.file.name,
+            pdfFilename: pdfFilename || value.uploadData.file.name, // Fallback to original filename if generation fails
             hasConfirmation: value.extractData.hasConfirmation,
             confirmationResults: value.extractData.confirmationResults as any,
           },

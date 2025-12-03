@@ -748,11 +748,52 @@ export async function getConfirmationEmailPreview(data: {
     )
 
     // Determine final status based on confirmation results
-    // This is a simplified version - in production this would use more complex logic
-    const hasPositiveConfirmations = data.confirmationResults.some(
+    // This logic matches computeTestResults.ts lines 158-211
+    const confirmationResults = data.confirmationResults
+    const confirmedPositiveCount = confirmationResults.filter(
       (r) => r.result === 'confirmed-positive',
-    )
-    const finalStatus = hasPositiveConfirmations ? 'failed' : 'passed'
+    ).length
+    const inconclusiveCount = confirmationResults.filter((r) => r.result === 'inconclusive').length
+
+    let finalStatus: string
+
+    if (inconclusiveCount > 0) {
+      // If any confirmation came back inconclusive, overall result is inconclusive
+      finalStatus = 'inconclusive'
+    } else if (confirmedPositiveCount > 0) {
+      // At least one substance confirmed positive = FAIL
+      // Check if there are also unexpected negatives (from initial screen)
+      if (
+        previewResult.initialScreenResult === 'mixed-unexpected' ||
+        previewResult.initialScreenResult === 'unexpected-negative-critical' ||
+        previewResult.initialScreenResult === 'unexpected-negative-warning'
+      ) {
+        finalStatus = 'mixed-unexpected'
+      } else {
+        finalStatus = 'unexpected-positive'
+      }
+    } else {
+      // All confirmations came back negative (false positives ruled out)
+      // The initial "unexpected positive" was a false alarm
+
+      // Check if there were unexpected negatives from initial screen
+      if (
+        previewResult.initialScreenResult === 'unexpected-negative-critical' ||
+        previewResult.initialScreenResult === 'mixed-unexpected'
+      ) {
+        // Critical medications missing = still FAIL
+        finalStatus = 'unexpected-negative-critical'
+      } else if (previewResult.initialScreenResult === 'unexpected-negative-warning') {
+        // Only warning-level medications missing = WARNING (still technically compliant)
+        finalStatus = 'unexpected-negative-warning'
+      } else if (previewResult.expectedPositives.length > 0) {
+        // Had expected positives and confirmations ruled out false positives = PASS
+        finalStatus = 'expected-positive'
+      } else {
+        // All negative, confirmations ruled out false positives = PASS
+        finalStatus = 'confirmed-negative'
+      }
+    }
 
     // Build complete email HTML using existing template builder
     const clientName = `${client.firstName} ${client.lastName}`
