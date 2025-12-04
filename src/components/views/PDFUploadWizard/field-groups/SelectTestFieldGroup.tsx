@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,7 +10,7 @@ import { Loader2, AlertCircle, Calendar, User } from 'lucide-react'
 import { z } from 'zod'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { format } from 'date-fns'
-import { fetchPendingTests } from '../actions'
+import { useFetchPendingTestsQuery } from '../queries'
 
 // Export the schema for reuse in step validation
 export const selectTestFieldSchema = z.object({
@@ -49,28 +49,13 @@ export const SelectTestFieldGroup = withFieldGroup({
   },
 
   render: function Render({ group, title, description = '', filterStatus }) {
-    const [loading, setLoading] = useState(true)
-    const [tests, setTests] = useState<DrugTest[]>([])
-    const [error, setError] = useState<string | null>(null)
-
     const selectedTestId = useStore(group.store, (state) => state.values.testId)
 
-    useEffect(() => {
-      async function loadTests() {
-        setLoading(true)
-        setError(null)
-        try {
-          const pendingTests = await fetchPendingTests(filterStatus)
-          setTests(pendingTests)
-        } catch (err) {
-          setError('Failed to load pending tests')
-        } finally {
-          setLoading(false)
-        }
-      }
-
-      loadTests()
-    }, [filterStatus])
+    // Fetch pending tests using TanStack Query
+    const testsQuery = useFetchPendingTestsQuery(filterStatus)
+    const tests = testsQuery.data ?? []
+    const loading = testsQuery.isLoading
+    const error = testsQuery.error
 
     const handleTestSelect = (testId: string) => {
       const test = tests.find((t) => t.id === testId)
@@ -99,7 +84,9 @@ export const SelectTestFieldGroup = withFieldGroup({
         {error && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>
+              {error instanceof Error ? error.message : 'Failed to load pending tests'}
+            </AlertDescription>
           </Alert>
         )}
 

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,10 +15,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import MedicationDisplayField from '@/blocks/Form/field-components/medication-display-field'
-import { getClientMedications, getClientFromTest } from '../actions'
 import { z } from 'zod'
 import { Trash2, Plus } from 'lucide-react'
 import { getSubstanceOptions } from '@/fields/substanceOptions'
+import { useGetClientMedicationsQuery, useGetClientFromTestQuery, useGetDrugTestQuery } from '../queries'
 
 // Export the schema for reuse in step validation
 export const verifyConfirmationFieldSchema = z.object({
@@ -62,16 +62,22 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
   },
 
   render: function Render({ group, title, description = '' }) {
-    const [medications, setMedications] = useState<Array<{ name: string; detectedAs: string[] }>>(
-      [],
-    )
-    const [client, setClient] = useState<any>(null)
-    const [screeningResults, setScreeningResults] = useState<string[]>([])
-
     // Get form values
     const formValues = useStore(group.form.store, (state) => state.values)
     const extractData = (formValues as any).extractData
     const verifyTest = (formValues as any).verifyTest
+
+    // Fetch client from selected test using TanStack Query
+    const clientQuery = useGetClientFromTestQuery(verifyTest?.testId)
+    const client = clientQuery.data ?? null
+
+    // Fetch drug test details (screening results) using TanStack Query
+    const drugTestQuery = useGetDrugTestQuery(verifyTest?.testId)
+    const screeningResults = drugTestQuery.data?.detectedSubstances ?? []
+
+    // Fetch medications using TanStack Query
+    const medicationsQuery = useGetClientMedicationsQuery(client?.id)
+    const medications = medicationsQuery.data?.medications ?? []
 
     // Initialize form with extracted confirmation results
     useEffect(() => {
@@ -81,69 +87,27 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [extractData?.confirmationResults])
 
-    // Fetch client from selected test and get screening results
+    // Store client data in form when it loads
     useEffect(() => {
-      async function fetchClientAndTest() {
-        if (!verifyTest?.testId) {
-          setClient(null)
-          setScreeningResults([])
-          group.setFieldValue('clientData', null)
-          group.setFieldValue('detectedSubstances', [])
-          group.setFieldValue('isDilute', false)
-          return
-        }
-
-        try {
-          const result = await getClientFromTest(verifyTest.testId)
-          if (result.success && result.client) {
-            setClient(result.client)
-            // Store client in form so it's available in other steps
-            group.setFieldValue('clientData', result.client)
-
-            // Fetch the drug test to get screening results
-            const testResponse = await fetch(`/api/drug-tests/${verifyTest.testId}`)
-            if (testResponse.ok) {
-              const testData = await testResponse.json()
-              setScreeningResults(testData.detectedSubstances || [])
-              // Store screening data in form so it's available in ConfirmConfirmationFieldGroup
-              group.setFieldValue('detectedSubstances', testData.detectedSubstances || [])
-              group.setFieldValue('isDilute', testData.isDilute || false)
-            }
-          } else {
-            console.error('Failed to fetch client:', result.error)
-            setClient(null)
-            setScreeningResults([])
-            group.setFieldValue('clientData', null)
-            group.setFieldValue('detectedSubstances', [])
-            group.setFieldValue('isDilute', false)
-          }
-        } catch (error) {
-          console.error('Error fetching client and test:', error)
-          setClient(null)
-          setScreeningResults([])
-          group.setFieldValue('clientData', null)
-          group.setFieldValue('detectedSubstances', [])
-          group.setFieldValue('isDilute', false)
-        }
+      if (client) {
+        group.setFieldValue('clientData', client)
+      } else if (!verifyTest?.testId) {
+        group.setFieldValue('clientData', null)
       }
-      fetchClientAndTest()
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [verifyTest?.testId])
+    }, [client, verifyTest?.testId])
 
-    // Fetch medications when client is loaded
+    // Store screening results in form when they load
     useEffect(() => {
-      async function fetchMedications() {
-        if (!client?.id) {
-          setMedications([])
-          return
-        }
-
-        const result = await getClientMedications(client.id)
-        setMedications(result.medications)
+      if (drugTestQuery.data) {
+        group.setFieldValue('detectedSubstances', drugTestQuery.data.detectedSubstances || [])
+        group.setFieldValue('isDilute', drugTestQuery.data.isDilute || false)
+      } else if (!verifyTest?.testId) {
+        group.setFieldValue('detectedSubstances', [])
+        group.setFieldValue('isDilute', false)
       }
-      fetchMedications()
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [client?.id])
+    }, [drugTestQuery.data, verifyTest?.testId])
 
     const confirmationResults = useStore(
       group.store,

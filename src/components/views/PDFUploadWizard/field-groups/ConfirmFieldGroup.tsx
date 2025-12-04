@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,11 +16,11 @@ import {
   Bell,
   Loader2,
 } from 'lucide-react'
-import { computeTestResultPreview } from '../actions'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import { format } from 'date-fns'
 import { generateTestFilename } from '../utils/generateFilename'
+import { useComputeTestResultPreviewQuery } from '../queries'
 
 // Export the schema for reuse in step validation
 export const confirmFieldSchema = z.object({
@@ -40,15 +40,6 @@ export const ConfirmFieldGroup = withFieldGroup({
   },
 
   render: function Render({ group, title, description = '' }) {
-    const [preview, setPreview] = useState<{
-      initialScreenResult: string
-      expectedPositives: string[]
-      unexpectedPositives: string[]
-      unexpectedNegatives: string[]
-      autoAccept: boolean
-    } | null>(null)
-    const [loadingPreview, setLoadingPreview] = useState(true)
-
     // Get all form data
     const formValues = useStore(group.form.store, (state) => state.values)
     const verifyData = (formValues as any).verifyData
@@ -67,24 +58,10 @@ export const ConfirmFieldGroup = withFieldGroup({
         isConfirmation: false,
       }) || originalFilename
 
-    useEffect(() => {
-      async function fetchPreview() {
-        if (!client?.id || !verifyData?.detectedSubstances) {
-          setLoadingPreview(false)
-          return
-        }
-
-        try {
-          const result = await computeTestResultPreview(client.id, verifyData.detectedSubstances)
-          setPreview(result)
-        } catch (err) {
-          console.error('Failed to compute preview:', err)
-        } finally {
-          setLoadingPreview(false)
-        }
-      }
-      fetchPreview()
-    }, [client?.id, verifyData?.detectedSubstances])
+    // Fetch test result preview using TanStack Query
+    const previewQuery = useComputeTestResultPreviewQuery(client?.id, verifyData?.detectedSubstances ?? [])
+    const preview = previewQuery.data ?? null
+    const loadingPreview = previewQuery.isLoading
 
     return (
       <div className="space-y-6">

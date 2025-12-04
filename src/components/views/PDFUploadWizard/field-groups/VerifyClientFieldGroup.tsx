@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardContent } from '@/components/ui/card'
@@ -26,10 +26,10 @@ import {
   ChevronsUpDown,
   Check,
 } from 'lucide-react'
-import { findMatchingClients, getAllClients } from '../actions'
 import type { ClientMatch } from '../types'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
+import { useFindMatchingClientsQuery, useGetAllClientsQuery } from '../queries'
 
 // Export the schema for reuse in step validation
 export const verifyClientFieldSchema = z.object({
@@ -62,9 +62,6 @@ export const VerifyClientFieldGroup = withFieldGroup({
   },
 
   render: function Render({ group, title }) {
-    const [loading, setLoading] = useState(true)
-    const [matches, setMatches] = useState<ClientMatch[]>([])
-    const [allClients, setAllClients] = useState<ClientMatch[]>([])
     const [showAllClients, setShowAllClients] = useState(false)
     const [open, setOpen] = useState(false)
 
@@ -76,50 +73,42 @@ export const VerifyClientFieldGroup = withFieldGroup({
     const formValues = useStore(group.form.store, (state) => state.values)
     const donorName = (formValues as any).extractData?.donorName as string | null
 
-    useEffect(() => {
-      async function searchForClient() {
-        if (!donorName) {
-          setLoading(false)
-          setShowAllClients(true)
-          return
-        }
-
-        // Parse name into parts
-        const nameParts = donorName.split(/\s+/)
-        if (nameParts.length < 2) {
-          setLoading(false)
-          setShowAllClients(true)
-          return
-        }
-
-        const firstName = nameParts[0]
-        const lastName = nameParts[nameParts.length - 1]
-        const middleInitial = nameParts.length === 3 ? nameParts[1].charAt(0) : undefined
-
-        const result = await findMatchingClients(firstName, lastName, middleInitial)
-        setMatches(result.matches)
-        setLoading(false)
-
-        if (result.matches.length === 0) {
-          setShowAllClients(true)
-        }
+    // Parse donor name into parts
+    const { firstName, lastName, middleInitial } = useMemo(() => {
+      if (!donorName) {
+        return { firstName: undefined, lastName: undefined, middleInitial: undefined }
       }
 
-      searchForClient()
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      const nameParts = donorName.split(/\s+/)
+      if (nameParts.length < 2) {
+        return { firstName: undefined, lastName: undefined, middleInitial: undefined }
+      }
+
+      return {
+        firstName: nameParts[0],
+        lastName: nameParts[nameParts.length - 1],
+        middleInitial: nameParts.length === 3 ? nameParts[1].charAt(0) : undefined,
+      }
     }, [donorName])
 
-    useEffect(() => {
-      if (showAllClients && allClients.length === 0) {
-        loadAllClients()
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [showAllClients])
+    // Query for matching clients based on donor name
+    const matchingClientsQuery = useFindMatchingClientsQuery(firstName, lastName, middleInitial)
 
-    const loadAllClients = async () => {
-      const result = await getAllClients()
-      setAllClients(result.clients)
+    // Query for all clients (only enabled when needed)
+    const allClientsQuery = useGetAllClientsQuery(showAllClients)
+
+    // Determine if we should show all clients
+    const shouldShowAllClients =
+      !firstName || !lastName || (matchingClientsQuery.data?.matches.length === 0 && !matchingClientsQuery.isLoading)
+
+    // Auto-enable all clients view if no matches found
+    if (shouldShowAllClients && !showAllClients && !matchingClientsQuery.isLoading) {
+      setShowAllClients(true)
     }
+
+    const matches = matchingClientsQuery.data?.matches ?? []
+    const allClients = allClientsQuery.data?.clients ?? []
+    const loading = matchingClientsQuery.isLoading
 
     if (loading) {
       return (

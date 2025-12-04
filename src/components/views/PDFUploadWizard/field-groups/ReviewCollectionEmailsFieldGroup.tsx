@@ -8,12 +8,11 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Eye, AlertCircle, CheckCircle2 } from 'lucide-react'
-import { toast } from 'sonner'
 import { useStore } from '@tanstack/react-form'
 import { RecipientEditor } from '../components/RecipientEditor'
 import { EmailPreviewModal } from '../components/EmailPreviewModal'
-import { getCollectionEmailPreview } from '../actions'
 import { z } from 'zod'
+import { useGetCollectionEmailPreviewQuery } from '../queries'
 
 type EmailPreviewData = {
   referralEmails: string[]
@@ -64,58 +63,42 @@ export const ReviewCollectionEmailsFieldGroup = withFieldGroup({
   },
 
   render: function Render({ group, title, description = '' }) {
-    const [isLoading, setIsLoading] = useState(true)
-    const [previewData, setPreviewData] = useState<EmailPreviewData | null>(null)
     const [showReferralPreview, setShowReferralPreview] = useState(false)
-    const [error, setError] = useState<string | null>(null)
 
     // Get data from previous steps
     const formValues = useStore(group.form.store, (state: any) => state.values)
     const clientData = formValues.clientData
     const collectionDetails = formValues.collectionDetails
 
+    // Fetch email preview using TanStack Query
+    const emailPreviewQuery = useGetCollectionEmailPreviewQuery({
+      clientId: clientData?.id,
+      testType: collectionDetails?.testType,
+      collectionDate: collectionDetails?.collectionDate,
+      collectionTime: collectionDetails?.collectionTime,
+    })
+
+    const previewData = emailPreviewQuery.data?.data ?? null
+    const isLoading = emailPreviewQuery.isLoading
+    const error = emailPreviewQuery.error
+      ? emailPreviewQuery.error instanceof Error
+        ? emailPreviewQuery.error.message
+        : 'Failed to load email preview'
+      : !clientData?.id || !collectionDetails
+        ? 'Missing client or collection data'
+        : null
+
+    // Initialize form fields when preview data loads
     useEffect(() => {
-      async function loadEmailPreview() {
-        if (!clientData?.id || !collectionDetails) {
-          setError('Missing client or collection data')
-          setIsLoading(false)
-          return
-        }
-
-        try {
-          setIsLoading(true)
-          const result = await getCollectionEmailPreview({
-            clientId: clientData.id,
-            testType: collectionDetails.testType,
-            collectionDate: collectionDetails.collectionDate,
-            collectionTime: collectionDetails.collectionTime,
-          })
-
-          if (!result.success || !result.data) {
-            throw new Error(result.error || 'Failed to load email preview')
-          }
-
-          setPreviewData(result.data)
-
-          // Initialize form fields with fetched data
-          group.setFieldValue('clientEmailEnabled', false) // No client emails for collection
-          group.setFieldValue('clientRecipients', [])
-          group.setFieldValue('referralEmailEnabled', true)
-          group.setFieldValue('referralRecipients', result.data.referralEmails)
-          group.setFieldValue('previewsLoaded', true)
-
-          setIsLoading(false)
-        } catch (err) {
-          console.error('Failed to load email preview:', err)
-          setError(err instanceof Error ? err.message : 'Failed to load email preview')
-          setIsLoading(false)
-          toast.error('Failed to load email preview')
-        }
+      if (previewData && !group.state.values.previewsLoaded) {
+        group.setFieldValue('clientEmailEnabled', false) // No client emails for collection
+        group.setFieldValue('clientRecipients', [])
+        group.setFieldValue('referralEmailEnabled', true)
+        group.setFieldValue('referralRecipients', previewData.referralEmails)
+        group.setFieldValue('previewsLoaded', true)
       }
-
-      loadEmailPreview()
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [clientData?.id, collectionDetails])
+    }, [previewData])
 
     if (isLoading) {
       return (

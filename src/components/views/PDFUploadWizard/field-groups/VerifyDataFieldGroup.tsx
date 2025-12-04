@@ -1,15 +1,15 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import InputDateTimePicker from '@/components/input-datetime-picker'
 import MedicationDisplayField from '@/blocks/Form/field-components/medication-display-field'
-import { getClientMedications } from '../actions'
 import type { TestType } from '../types'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
+import { useGetClientMedicationsQuery } from '../queries'
 
 // Export the schema for reuse in step validation
 export const verifyDataFieldSchema = z.object({
@@ -44,10 +44,6 @@ export const VerifyDataFieldGroup = withFieldGroup({
   },
 
   render: function Render({ group, title, description = '' }) {
-    const [medications, setMedications] = useState<Array<{ name: string; detectedAs: string[] }>>(
-      [],
-    )
-
     // Get form values
     const formValues = useStore(group.form.store, (state) => state.values)
     const extractData = (formValues as any).extractData
@@ -55,6 +51,10 @@ export const VerifyDataFieldGroup = withFieldGroup({
 
     // Client can come from either clientData (instant test) or verifyData.clientData (lab screen)
     const client = (formValues as any).clientData || verifyData?.clientData
+
+    // Fetch medications using TanStack Query
+    const medicationsQuery = useGetClientMedicationsQuery(client?.id)
+    const medications = medicationsQuery.data?.medications ?? []
 
     // Initialize form with extracted data
     useEffect(() => {
@@ -80,21 +80,6 @@ export const VerifyDataFieldGroup = withFieldGroup({
       }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [client])
-
-    // Fetch medications when client is loaded
-    useEffect(() => {
-      async function fetchMedications() {
-        if (!client?.id) {
-          setMedications([])
-          return
-        }
-
-        const result = await getClientMedications(client.id)
-        setMedications(result.medications)
-      }
-      fetchMedications()
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [client?.id])
 
     const collectionDateValue = useStore(group.store, (state) => state.values.collectionDate)
     const collectionDateTime = collectionDateValue ? new Date(collectionDateValue) : undefined

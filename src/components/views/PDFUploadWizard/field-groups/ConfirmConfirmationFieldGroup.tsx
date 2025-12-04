@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useMemo } from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,10 +15,11 @@ import {
   Bell,
   Loader2,
 } from 'lucide-react'
-import { computeTestResultPreview } from '../actions'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import { generateTestFilename } from '../utils/generateFilename'
+import { useComputeTestResultPreviewQuery } from '../queries'
+import type { SubstanceValue } from '@/fields/substanceOptions'
 
 // Export the schema for reuse in step validation
 export const confirmConfirmationFieldSchema = z.object({
@@ -38,15 +39,6 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
   },
 
   render: function Render({ group, title, description = '' }) {
-    const [preview, setPreview] = useState<{
-      initialScreenResult: string
-      expectedPositives: string[]
-      unexpectedPositives: string[]
-      unexpectedNegatives: string[]
-      autoAccept: boolean
-    } | null>(null)
-    const [loadingPreview, setLoadingPreview] = useState(true)
-
     // Get all form data
     const formValues = useStore(group.form.store, (state) => state.values)
     const verifyConfirmation = (formValues as any).verifyConfirmation
@@ -58,6 +50,24 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
     const confirmationResults = verifyConfirmation?.confirmationResults || []
     const originalDetectedSubstances = verifyConfirmation?.detectedSubstances || []
 
+    // Calculate final detected substances (removing confirmed negatives)
+    const adjustedSubstances = useMemo(() => {
+      return originalDetectedSubstances.filter((substance: string) => {
+        const confirmationResult = confirmationResults.find(
+          (r: any) => r.substance.toLowerCase() === substance.toLowerCase(),
+        )
+        return !(confirmationResult && confirmationResult.result === 'confirmed-negative')
+      })
+    }, [originalDetectedSubstances, confirmationResults])
+
+    // Fetch test result preview using TanStack Query
+    const previewQuery = useComputeTestResultPreviewQuery(
+      client?.id,
+      adjustedSubstances as SubstanceValue[]
+    )
+    const preview = previewQuery.data ?? null
+    const loadingPreview = previewQuery.isLoading
+
     // Generate new filename and keep original
     const originalFilename = uploadData?.file?.name || 'No file'
     const newFilename =
@@ -67,34 +77,6 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
         testType: verifyTest?.testType,
         isConfirmation: true,
       }) || originalFilename
-
-    useEffect(() => {
-      async function fetchPreview() {
-        if (!client?.id) {
-          setLoadingPreview(false)
-          return
-        }
-
-        try {
-          // Calculate final detected substances (removing confirmed negatives)
-          const adjustedSubstances = originalDetectedSubstances.filter((substance: string) => {
-            const confirmationResult = confirmationResults.find(
-              (r: any) => r.substance.toLowerCase() === substance.toLowerCase(),
-            )
-            return !(confirmationResult && confirmationResult.result === 'confirmed-negative')
-          })
-
-          const result = await computeTestResultPreview(client.id, adjustedSubstances)
-          setPreview(result)
-        } catch (err) {
-          console.error('Failed to compute preview:', err)
-        } finally {
-          setLoadingPreview(false)
-        }
-      }
-      fetchPreview()
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [client?.id, originalDetectedSubstances, confirmationResults])
 
     return (
       <div className="space-y-6">
