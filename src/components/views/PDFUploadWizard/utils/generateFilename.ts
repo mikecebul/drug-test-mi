@@ -1,4 +1,4 @@
-import { format } from 'date-fns'
+import { format, isValid } from 'date-fns'
 
 interface Client {
   firstName: string
@@ -36,7 +36,13 @@ export function generateTestFilename({
     return ''
   }
 
-  const date = format(new Date(collectionDate), 'MM-dd-yy')
+  // Validate the date before formatting to avoid throwing on invalid dates
+  const parsedDate = new Date(collectionDate)
+  if (!isValid(parsedDate)) {
+    return ''
+  }
+
+  const date = format(parsedDate, 'MM-dd-yy')
   const testTypePrefix =
     testType === '11-panel-lab'
       ? 'Lab'

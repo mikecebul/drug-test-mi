@@ -128,7 +128,11 @@ export const VerifyTestFieldGroup = withFieldGroup({
       async function loadPendingTests() {
         try {
           setIsLoading(true)
-          const tests = await fetchPendingTests(filterStatus)
+          const result = await fetchPendingTests(filterStatus)
+          if (!result.success) {
+            throw new Error(result.error)
+          }
+          const tests = result.tests
           setPendingTests(tests)
 
           // Auto-match if we have extracted data

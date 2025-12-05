@@ -53,7 +53,8 @@ export const panel15InstantSubstances = [
 /**
  * 11-Panel Lab Test Substances
  * Tests sent to lab for confirmation
- * AMP, BUP, BZO, COC, CR, ETG, FEN, MIT, MTD, OPI, THC
+ * Drug panels: AMP, BUP, BZO, COC, ETG, FEN, MIT, MTD, OPI, THC (10 substances)
+ * Note: CR (Creatinine) is a specimen validity marker, not a drug panel
  */
 export const panel11LabSubstances = [
   { label: 'Amphetamines (AMP)', value: 'amphetamines' },
@@ -71,7 +72,7 @@ export const panel11LabSubstances = [
 /**
  * 17-Panel SOS Lab Test Substances
  * Comprehensive lab test including alcohol, common drugs, and prescription medications
- * B306 - Urine 17 Panel
+ * B306 - Urine 17 Panel (tests 14 drug substances; panel count includes metabolites/confirmations)
  * NOTE: This test includes Alcohol (Ethanol) which detects current intoxication,
  * not EtG which detects past alcohol use (24-48 hours)
  */

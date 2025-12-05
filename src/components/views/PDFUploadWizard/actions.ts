@@ -316,9 +316,10 @@ export async function getAllClients(): Promise<{
 /**
  * Get client's active medications for preview
  */
-export async function getClientMedications(clientId: string): Promise<{
-  medications: Array<{ name: string; detectedAs: string[] }>
-}> {
+export async function getClientMedications(clientId: string): Promise<
+  | { success: true; medications: Array<{ name: string; detectedAs: string[] }> }
+  | { success: false; error: string }
+> {
   const payload = await getPayload({ config })
 
   try {
@@ -329,7 +330,7 @@ export async function getClientMedications(clientId: string): Promise<{
     })
 
     if (!client?.medications || !Array.isArray(client.medications)) {
-      return { medications: [] }
+      return { success: true, medications: [] }
     }
 
     const activeMeds = client.medications
@@ -339,10 +340,13 @@ export async function getClientMedications(clientId: string): Promise<{
         detectedAs: (med.detectedAs || []).filter((s: string) => s !== 'none'),
       }))
 
-    return { medications: activeMeds }
+    return { success: true, medications: activeMeds }
   } catch (error) {
     console.error('Error fetching client medications:', error)
-    return { medications: [] }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch client medications',
+    }
   }
 }
 
@@ -1032,6 +1036,23 @@ export async function createDrugTestWithEmailReview(
         } catch (error) {
           console.error(`Failed to send client email to ${email}:`, error)
           failedTo.push(`Client: ${email}`)
+
+          // Create admin alert for failed client email
+          await createAdminAlert(payload, {
+            severity: 'critical',
+            alertType: 'email-failure',
+            title: `Client email failed - ${clientName}`,
+            message: `URGENT: Failed to send screening results email to client.\n\nClient: ${clientName}\nClient Email: ${email}\nStage: screened\nDrug Test ID: ${drugTest.id}\n\nThe client is expecting these results. Please send manually or contact the client.`,
+            context: {
+              drugTestId: drugTest.id,
+              clientId: testData.clientId,
+              clientName,
+              recipientEmail: email,
+              recipientType: 'client',
+              emailStage: 'screened',
+              errorMessage: error instanceof Error ? error.message : String(error),
+            },
+          })
         }
       }
     }
@@ -1524,16 +1545,18 @@ export async function getClientFromTest(testId: string): Promise<{
  * Fetch pending drug tests
  */
 export async function fetchPendingTests(filterStatus?: string[]): Promise<
-  {
-    id: string
-    clientName: string
-    testType: string
-    collectionDate: string
-    screeningStatus: string
-  }[]
+  | {
+      success: true
+      tests: {
+        id: string
+        clientName: string
+        testType: string
+        collectionDate: string
+        screeningStatus: string
+      }[]
+    }
+  | { success: false; error: string }
 > {
-  'use server'
-
   const payload = await getPayload({ config })
 
   try {
@@ -1565,15 +1588,21 @@ export async function fetchPendingTests(filterStatus?: string[]): Promise<
     })
 
     // Map to simplified format
-    return result.docs.map((test) => ({
-      id: test.id,
-      clientName: test.clientName || 'Unknown',
-      testType: test.testType,
-      collectionDate: test.collectionDate || '',
-      screeningStatus: test.screeningStatus,
-    }))
+    return {
+      success: true,
+      tests: result.docs.map((test) => ({
+        id: test.id,
+        clientName: test.clientName || 'Unknown',
+        testType: test.testType,
+        collectionDate: test.collectionDate || '',
+        screeningStatus: test.screeningStatus,
+      })),
+    }
   } catch (error) {
     console.error('Error fetching pending tests:', error)
-    return []
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch pending tests',
+    }
   }
 }

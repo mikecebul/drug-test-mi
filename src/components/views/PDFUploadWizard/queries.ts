@@ -57,7 +57,11 @@ export function useGetClientMedicationsQuery(clientId: string | null | undefined
       if (!clientId) {
         return { medications: [] }
       }
-      return getClientMedications(clientId)
+      const result = await getClientMedications(clientId)
+      if (!result.success) {
+        throw new Error(result.error)
+      }
+      return { medications: result.medications }
     },
     enabled: Boolean(clientId),
     staleTime: 2 * 60 * 1000, // 2 minutes
@@ -90,7 +94,13 @@ export function useComputeTestResultPreviewQuery(
 export function useFetchPendingTestsQuery(filterStatus?: string[]) {
   return useQuery({
     queryKey: ['pending-tests', filterStatus],
-    queryFn: () => fetchPendingTests(filterStatus),
+    queryFn: async () => {
+      const result = await fetchPendingTests(filterStatus)
+      if (!result.success) {
+        throw new Error(result.error)
+      }
+      return result.tests
+    },
     staleTime: 1 * 60 * 1000, // 1 minute - tests can be added/updated frequently
   })
 }
@@ -135,10 +145,10 @@ export function useGetClientFromTestQuery(testId: string | null | undefined) {
         return null
       }
       const result = await getClientFromTest(testId)
-      if (result.success && result.client) {
-        return result.client
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to get client from test')
       }
-      return null
+      return result.client ?? null
     },
     enabled: Boolean(testId),
     staleTime: 2 * 60 * 1000, // 2 minutes
@@ -158,7 +168,9 @@ export function useGetDrugTestQuery(testId: string | null | undefined) {
       }
       const response = await fetch(`/api/drug-tests/${testId}`)
       if (!response.ok) {
-        throw new Error('Failed to fetch drug test')
+        const errorData = await response.json().catch(() => ({}))
+        const message = errorData.error || errorData.message || `Failed to fetch drug test (${response.status})`
+        throw new Error(message)
       }
       return response.json()
     },
