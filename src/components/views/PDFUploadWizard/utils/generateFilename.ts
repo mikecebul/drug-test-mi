@@ -13,6 +13,34 @@ interface GenerateFilenameOptions {
   isConfirmation?: boolean
 }
 
+/**
+ * Generates a standardized filename for drug test PDF documents.
+ *
+ * @param options - The filename generation options
+ * @param options.client - The client whose initials will be used in the filename
+ * @param options.collectionDate - The date of specimen collection (used in filename)
+ * @param options.testType - The type of drug test (e.g., '15-panel-instant', '11-panel-lab')
+ * @param options.isConfirmation - Whether this is a confirmation test document
+ * @returns A filename in the format "{initials}_{Lab|Instant}_{MM-dd-yy}[_Confirmation].pdf",
+ *          or an empty string if required data is missing or invalid
+ *
+ * @example
+ * // Returns "JDS_Instant_12-04-25.pdf"
+ * generateTestFilename({
+ *   client: { firstName: 'John', middleInitial: 'D', lastName: 'Smith' },
+ *   collectionDate: '2025-12-04',
+ *   testType: '15-panel-instant',
+ * })
+ *
+ * @example
+ * // Returns "JS_Lab_12-04-25_Confirmation.pdf"
+ * generateTestFilename({
+ *   client: { firstName: 'John', lastName: 'Smith' },
+ *   collectionDate: '2025-12-04',
+ *   testType: '11-panel-lab',
+ *   isConfirmation: true,
+ * })
+ */
 export function generateTestFilename({
   client,
   collectionDate,

@@ -7,7 +7,6 @@ import { extractLabTest } from '@/utilities/extractors/extractLabTest'
 import type { ParsedPDFData, ClientMatch, TestType } from './types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { classifyTestResult } from '@/collections/DrugTests/helpers/classifyTestResult'
-import { DrugTest } from '@/payload-types'
 import { calculateSimilarity } from './utils/calculateSimilarity'
 
 /**
@@ -112,8 +111,8 @@ export async function findMatchingClients(
     overrideAccess: true,
   })
 
-  console.log(`[findMatchingClients] Search term: "${searchTerm}"`)
-  console.log(`[findMatchingClients] Found ${searchResults.docs.length} search records`)
+  payload.logger.info(`[findMatchingClients] Search term: "${searchTerm}"`)
+  payload.logger.info(`[findMatchingClients] Found ${searchResults.docs.length} search records`)
 
   // Extract client IDs from search results
   const clientIds = searchResults.docs
@@ -134,7 +133,7 @@ export async function findMatchingClients(
     overrideAccess: true,
   })
 
-  console.log(`[findMatchingClients] Fetched ${clientsResult.docs.length} clients`)
+  payload.logger.info(`[findMatchingClients] Fetched ${clientsResult.docs.length} clients`)
 
   // Calculate similarity scores for each client
   const scoredMatches = clientsResult.docs
@@ -175,7 +174,7 @@ export async function searchClients(searchTerm: string): Promise<{
 }> {
   const payload = await getPayload({ config })
 
-  console.log(`[searchClients] Searching for: "${searchTerm}"`)
+  payload.logger.info(`[searchClients] Searching for: "${searchTerm}"`)
 
   // Step 1: Query the search collection to get client IDs
   const searchResults = await payload.find({
@@ -188,14 +187,14 @@ export async function searchClients(searchTerm: string): Promise<{
     overrideAccess: true,
   })
 
-  console.log(`[searchClients] Found ${searchResults.docs.length} search docs`)
+  payload.logger.info(`[searchClients] Found ${searchResults.docs.length} search docs`)
 
   // Step 2: Extract client IDs from search results
   const clientIds = searchResults.docs
     .map((searchDoc) => (typeof searchDoc.doc.value === 'string' ? searchDoc.doc.value : null))
     .filter((id): id is string => id !== null)
 
-  console.log(`[searchClients] Extracted ${clientIds.length} client IDs`)
+  payload.logger.info(`[searchClients] Extracted ${clientIds.length} client IDs`)
 
   if (clientIds.length === 0) {
     return { matches: [], total: 0 }
@@ -211,7 +210,7 @@ export async function searchClients(searchTerm: string): Promise<{
     overrideAccess: true,
   })
 
-  console.log(`[searchClients] Fetched ${clientsResult.docs.length} clients`)
+  payload.logger.info(`[searchClients] Fetched ${clientsResult.docs.length} clients`)
 
   // Step 4: Calculate similarity scores for each client
   const scoredMatches = clientsResult.docs
@@ -239,7 +238,7 @@ export async function searchClients(searchTerm: string): Promise<{
     .sort((a, b) => b.score - a.score) // Sort by score descending
     .slice(0, 10)
 
-  console.log(`[searchClients] Returning ${scoredMatches.length} matches`)
+  payload.logger.info(`[searchClients] Returning ${scoredMatches.length} matches`)
 
   return {
     matches: scoredMatches,
@@ -255,7 +254,7 @@ export async function getAllClients(): Promise<{
 }> {
   const payload = await getPayload({ config })
 
-  console.log('[getAllClients] Fetching all clients')
+  payload.logger.info('[getAllClients] Fetching all clients')
 
   const clientsResult = await payload.find({
     collection: 'clients',
@@ -264,7 +263,7 @@ export async function getAllClients(): Promise<{
     overrideAccess: true,
   })
 
-  console.log(`[getAllClients] Found ${clientsResult.docs.length} clients`)
+  payload.logger.info(`[getAllClients] Found ${clientsResult.docs.length} clients`)
 
   const clients = clientsResult.docs.map((client) => ({
     id: client.id,
@@ -309,7 +308,7 @@ export async function getClientMedications(clientId: string): Promise<
 
     return { success: true, medications: activeMeds }
   } catch (error) {
-    console.error('Error fetching client medications:', error)
+    payload.logger.error('Error fetching client medications:', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to fetch client medications',
@@ -416,7 +415,7 @@ export async function computeTestResultPreview(
       autoAccept: classification.autoAccept,
     }
   } catch (error) {
-    console.error('Error computing test result preview:', error)
+    payload.logger.error('Error computing test result preview:', error)
     throw error
   }
 }
@@ -502,7 +501,7 @@ export async function createDrugTest(data: {
 
     return { success: true, testId: drugTest.id }
   } catch (error: any) {
-    console.error('Error creating drug test:', error)
+    payload.logger.error('Error creating drug test:', error)
     return {
       success: false,
       error: `Failed to create drug test: ${error.message}`,
@@ -586,7 +585,7 @@ export async function getEmailPreview(data: {
       },
     }
   } catch (error: any) {
-    console.error('Error generating email preview:', error)
+    payload.logger.error('Error generating email preview:', error)
     return {
       success: false,
       error: `Failed to generate email preview: ${error.message}`,
@@ -652,7 +651,7 @@ export async function getCollectionEmailPreview(data: {
       },
     }
   } catch (error: any) {
-    console.error('Error generating collection email preview:', error)
+    payload.logger.error('Error generating collection email preview:', error)
     return {
       success: false,
       error: `Failed to generate email preview: ${error.message}`,
@@ -802,7 +801,7 @@ export async function getConfirmationEmailPreview(data: {
       },
     }
   } catch (error: any) {
-    console.error('Error generating confirmation email preview:', error)
+    payload.logger.error('Error generating confirmation email preview:', error)
     return {
       success: false,
       error: `Failed to generate confirmation email preview: ${error.message}`,
@@ -1001,7 +1000,7 @@ export async function createDrugTestWithEmailReview(
           })
           sentTo.push(`Client: ${email}`)
         } catch (error) {
-          console.error(`Failed to send client email to ${email}:`, error)
+          payload.logger.error(`Failed to send client email to ${email}:`, error)
           failedTo.push(`Client: ${email}`)
 
           // Create admin alert for failed client email
@@ -1043,7 +1042,7 @@ export async function createDrugTestWithEmailReview(
           })
           sentTo.push(`Referral: ${email}`)
         } catch (error) {
-          console.error(`Failed to send referral email to ${email}:`, error)
+          payload.logger.error(`Failed to send referral email to ${email}:`, error)
           failedTo.push(`Referral: ${email}`)
 
           // Create admin alert for failed referral email
@@ -1095,7 +1094,7 @@ export async function createDrugTestWithEmailReview(
 
     return { success: true, testId: drugTest.id }
   } catch (error: any) {
-    console.error('Error creating drug test with email review:', error)
+    payload.logger.error('Error creating drug test with email review:', error)
     return {
       success: false,
       error: `Failed to create drug test: ${error.message}`,
@@ -1135,7 +1134,7 @@ export async function createCollectionOnlyTest(data: {
 
     return { success: true, testId: drugTest.id }
   } catch (error: any) {
-    console.error('Error creating collection-only test:', error)
+    payload.logger.error('Error creating collection-only test:', error)
     return {
       success: false,
       error: `Failed to create collection record: ${error.message}`,
@@ -1217,7 +1216,7 @@ export async function createCollectionWithEmailReview(
           })
           sentTo.push(`Referral: ${email}`)
         } catch (error) {
-          console.error(`Failed to send referral email to ${email}:`, error)
+          payload.logger.error(`Failed to send referral email to ${email}:`, error)
           failedTo.push(`Referral: ${email}`)
 
           // Create admin alert for failed referral email
@@ -1266,7 +1265,7 @@ export async function createCollectionWithEmailReview(
 
     return { success: true, testId: drugTest.id }
   } catch (error: any) {
-    console.error('Error creating collection with email review:', error)
+    payload.logger.error('Error creating collection with email review:', error)
     return {
       success: false,
       error: `Failed to create collection: ${error.message}`,
@@ -1360,7 +1359,7 @@ export async function updateTestWithScreening(data: {
 
     return { success: true }
   } catch (error: any) {
-    console.error('Error updating test with screening:', error)
+    payload.logger.error('Error updating test with screening:', error)
     return {
       success: false,
       error: `Failed to update test: ${error.message}`,
@@ -1443,7 +1442,7 @@ export async function updateTestWithConfirmation(data: {
 
     return { success: true }
   } catch (error: any) {
-    console.error('Error updating test with confirmation:', error)
+    payload.logger.error('Error updating test with confirmation:', error)
     return {
       success: false,
       error: `Failed to update confirmation: ${error.message}`,
@@ -1500,7 +1499,7 @@ export async function getClientFromTest(testId: string): Promise<{
       },
     }
   } catch (error: any) {
-    console.error('Error fetching client from drug test:', error)
+    payload.logger.error('Error fetching client from drug test:', error)
     return {
       success: false,
       error: `Failed to fetch client: ${error.message}`,
@@ -1566,7 +1565,7 @@ export async function fetchPendingTests(filterStatus?: string[]): Promise<
       })),
     }
   } catch (error) {
-    console.error('Error fetching pending tests:', error)
+    payload.logger.error('Error fetching pending tests:', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to fetch pending tests',
