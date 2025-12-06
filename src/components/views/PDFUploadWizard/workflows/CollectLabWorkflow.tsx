@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Stepper, type Step } from '@/components/ui/stepper'
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
@@ -59,9 +59,10 @@ interface CollectLabWorkflowProps {
 
 export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   const router = useRouter()
+  const [completedTestId, setCompletedTestId] = useState<string | null>(null)
 
   const handleComplete = (testId: string) => {
-    router.push(`/admin/collections/drug-tests/${testId}`)
+    setCompletedTestId(testId)
   }
 
   const formOpts = {
@@ -172,6 +173,36 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
 
   // Get form values for confirmation
   const formValues = useStore(form.store, (state) => state.values)
+
+  // Show completion screen if collection was created successfully
+  if (completedTestId) {
+    return (
+      <ShadcnWrapper className="mx-auto my-32 flex max-w-sm origin-top scale-125 flex-col items-center md:max-w-2xl lg:mx-auto lg:max-w-4xl">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+            <Check className="h-8 w-8 text-green-600" />
+          </div>
+          <h1 className="mb-2 text-3xl font-bold tracking-tight">Collection Recorded Successfully!</h1>
+          <p className="text-muted-foreground">
+            The specimen collection has been recorded and notification email has been sent.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button onClick={onBack} size="lg">
+            Start New Workflow
+          </Button>
+          <Button
+            onClick={() => router.push(`/admin/collections/drug-tests/${completedTestId}`)}
+            variant="outline"
+            size="lg"
+          >
+            View Collection
+          </Button>
+        </div>
+      </ShadcnWrapper>
+    )
+  }
 
   return (
     <ShadcnWrapper className="mx-auto flex max-w-sm origin-top scale-125 flex-col pb-8 md:max-w-2xl lg:mx-auto lg:max-w-4xl">
