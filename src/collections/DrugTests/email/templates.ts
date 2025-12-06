@@ -299,7 +299,7 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
   const isLabScreen = testType !== '15-panel-instant'
   const hasConfirmationDecision = confirmationDecision !== null && confirmationDecision !== undefined
   const isAccepted = confirmationDecision === 'accept'
-  const isNotAvailable = confirmationDecision === 'not-available'
+  const isPending = confirmationDecision === 'pending-decision'
 
   // Client email - full results breakdown with attachment
   const clientEmail = {
@@ -401,8 +401,8 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                       : isLabScreen && hasConfirmationDecision
                         ? isAccepted
                           ? '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">You accepted these results. Sample held by lab for 30 days if you change your mind.</p>'
-                          : isNotAvailable
-                            ? '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Sample held by lab for 30 days. Confirmation testing available for $45 within 30 days.</p>'
+                          : isPending
+                            ? '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Sample held by lab for 30 days. Confirmation testing available for $45 per substance within 30 days.</p>'
                             : '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Sample sent to lab for LC-MS/MS confirmation testing.</p>'
                         : '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Confirmation testing available within 30 days.</p>'
                   }
@@ -476,15 +476,15 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                 <div class="info-box">
                   <p style="margin: 0; font-weight: bold;">Results Accepted</p>
                   <p style="margin: 10px 0 0 0;">You have accepted these screening results as final. Your sample will be held by the laboratory for 30 days in case you change your mind and wish to request confirmation testing.</p>
-                  <p style="margin: 10px 0 0 0;">Confirmation testing is available for <strong>$45</strong> within <strong>30 days</strong>. Please call us if you have questions.</p>
+                  <p style="margin: 10px 0 0 0;">Confirmation testing is available for <strong>$45 per substance</strong> within <strong>30 days</strong>. Please call us if you have questions.</p>
                 </div>
               `
-                            : isNotAvailable
+                            : isPending
                               ? `
                 <div class="info-box">
                   <p style="margin: 0; font-weight: bold;">Confirmation Testing Available</p>
                   <p style="margin: 10px 0 0 0;">We were unable to reach you about your screening results. Your sample is being held by the laboratory for <strong>30 days</strong> to give you the opportunity to request confirmation testing.</p>
-                  <p style="margin: 10px 0 0 0;">Confirmation testing is available for <strong>$45</strong> within <strong>30 days</strong> to verify these results. Please call us at your earliest convenience to discuss your options.</p>
+                  <p style="margin: 10px 0 0 0;">Confirmation testing is available for <strong>$45 per substance</strong> within <strong>30 days</strong> to verify these results. Please call us at your earliest convenience to discuss your options.</p>
                 </div>
               `
                               : `
@@ -497,7 +497,7 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                           : `
                 <div class="info-box">
                   <p style="margin: 0; font-weight: bold;">Confirmation Testing Available</p>
-                  <p style="margin: 10px 0 0 0;">Your initial screening detected unexpected substances. Confirmation testing is available for <strong>$45</strong> within <strong>30 days</strong> to verify these results.</p>
+                  <p style="margin: 10px 0 0 0;">Your initial screening detected unexpected substances. Confirmation testing is available for <strong>$45 per substance</strong> within <strong>30 days</strong> to verify these results.</p>
                   <p style="margin: 10px 0 0 0;">Please call us at your earliest convenience to discuss your results.</p>
                 </div>
               `
@@ -614,8 +614,8 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                       : isLabScreen && hasConfirmationDecision
                         ? isAccepted
                           ? '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Client accepted results as final. Sample held by lab for 30 days if client changes decision.</p>'
-                          : isNotAvailable
-                            ? '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Client not available. Sample held by lab for 30 days for confirmation decision.</p>'
+                          : isPending
+                            ? '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Decision pending. Sample held by lab for 30 days for confirmation decision.</p>'
                             : '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Client requested confirmation testing. Sample sent to lab for LC-MS/MS confirmation.</p>'
                         : '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Confirmation testing available within 30 days.</p>'
                   }
@@ -654,11 +654,11 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                         : '<p><small>Client requested confirmation testing. Sample has been sent to lab for LC-MS/MS confirmation testing.</small></p>'
                       : isLabScreen && hasConfirmationDecision
                         ? isAccepted
-                          ? '<p><small>Client accepted screening results. Sample held by lab for 30 days if client changes decision. Confirmation testing $45.</small></p>'
-                          : isNotAvailable
-                            ? '<p><small>Client was not available to make a decision. Sample held by lab for 30 days. Confirmation testing available for $45.</small></p>'
+                          ? '<p><small>Client accepted screening results. Sample held by lab for 30 days if client changes decision. Confirmation testing $45 per substance.</small></p>'
+                          : isPending
+                            ? '<p><small>Decision pending. Sample held by lab for 30 days. Confirmation testing available for $45 per substance.</small></p>'
                             : '<p><small>Client requested confirmation testing. Sample has been sent to lab for LC-MS/MS confirmation testing.</small></p>'
-                        : '<p><small>Confirmation testing available for $45 within 30 days of collection.</small></p>'
+                        : '<p><small>Confirmation testing available for $45 per substance within 30 days of collection.</small></p>'
                     : ''
                 }
                 <p><small>Notification sent: ${new Date().toLocaleString()}</small></p>

@@ -188,7 +188,7 @@ export function useGetEmailPreviewQuery(data: {
   testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | null | undefined
   collectionDate: string | null | undefined
   isDilute: boolean
-  confirmationDecision?: 'accept' | 'request-confirmation' | 'not-available' | null
+  confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
 }) {
   const { clientId, detectedSubstances, testType, collectionDate, isDilute, confirmationDecision } = data
 

@@ -41,7 +41,7 @@ export const verifyDataFieldSchema = z.object({
     })
     .nullable(),
   confirmationDecision: z
-    .enum(['accept', 'request-confirmation', 'not-available'])
+    .enum(['accept', 'request-confirmation', 'pending-decision'])
     .nullable()
     .optional(),
   confirmationSubstances: z.array(z.string()).optional(),
@@ -164,7 +164,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="border-primary/50 bg-primary-muted/50 w-full rounded-xl border-1 p-6 shadow-md">
+          <div className="bg-card border-border w-full rounded-xl border p-6 shadow-md">
             {/* Header */}
             <div className="mb-4">
               <div className="flex items-center gap-2.5">
@@ -240,7 +240,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
 
         {/* Confirmation Decision Section - only show when there are unexpected positives */}
         {requiresDecision && (
-          <div className="border-warning/50 bg-warning-muted/50 w-full rounded-xl border-1 p-6 shadow-md">
+          <div className="border-warning/50 bg-warning-muted/50 w-full rounded-xl border p-6 shadow-md">
             {/* Header */}
             <div className="mb-6">
               <div className="flex items-center gap-2.5">
@@ -305,7 +305,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
                 onValueChange={(value) =>
                   group.setFieldValue(
                     'confirmationDecision',
-                    value as 'accept' | 'request-confirmation' | 'not-available',
+                    value as 'accept' | 'request-confirmation' | 'pending-decision',
                   )
                 }
                 className="space-y-2.5"
@@ -354,26 +354,28 @@ export const VerifyDataFieldGroup = withFieldGroup({
                   </div>
                 </Label>
 
-                {/* Only show "Client Not Available" option for lab screens */}
-                {testTypeValue !== '15-panel-instant' && (
-                  <Label
-                    htmlFor="not-available"
-                    className={cn(
-                      'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
-                      confirmationDecisionValue === 'not-available' &&
-                        'border-foreground/50 ring-foreground/20 ring-2',
-                    )}
-                  >
-                    <RadioGroupItem value="not-available" id="not-available" className="mt-0.5" />
-                    <div className="flex-1">
-                      <span className="text-foreground font-medium">Client Not Available</span>
-                      <p className="text-muted-foreground mt-0.5 text-sm">
-                        Unable to reach client. Sample will be held by lab for 30 days for
-                        confirmation decision.
-                      </p>
-                    </div>
-                  </Label>
-                )}
+                {/* Show "Pending Decision" option for all test types */}
+                <Label
+                  htmlFor="pending-decision"
+                  className={cn(
+                    'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
+                    confirmationDecisionValue === 'pending-decision' &&
+                      'border-foreground/50 ring-foreground/20 ring-2',
+                  )}
+                >
+                  <RadioGroupItem
+                    value="pending-decision"
+                    id="pending-decision"
+                    className="mt-0.5"
+                  />
+                  <div className="flex-1">
+                    <span className="text-foreground font-medium">Pending Decision</span>
+                    <p className="text-muted-foreground mt-0.5 text-sm">
+                      Decision not yet made. Sample will be held for 30 days. Instant tests:
+                      $30/substance, Lab tests: $45/substance.
+                    </p>
+                  </div>
+                </Label>
               </RadioGroup>
             </div>
 

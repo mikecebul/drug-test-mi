@@ -1,5 +1,7 @@
 import React from 'react'
 
+import { cn } from '@/utilities/cn'
+
 interface ShadcnWrapperProps {
   children: React.ReactNode
   className?: string
@@ -12,7 +14,7 @@ interface ShadcnWrapperProps {
  */
 export const ShadcnWrapper: React.FC<ShadcnWrapperProps> = ({ children, className = '' }) => {
   return (
-    <div data-twp className={className}>
+    <div data-twp className={cn('text-foreground border-border outline-ring/50 pb-8', className)}>
       {children}
     </div>
   )

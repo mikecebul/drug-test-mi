@@ -237,6 +237,7 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
         unexpectedPositives: (doc.unexpectedPositives as string[]) || [],
         unexpectedNegatives: (doc.unexpectedNegatives as string[]) || [],
         isDilute: doc.isDilute || false,
+        confirmationDecision: doc.confirmationDecision as 'accept' | 'request-confirmation' | 'pending-decision' | null | undefined,
       })
       clientEmailData = emails.client
       referralEmailData = emails.referrals

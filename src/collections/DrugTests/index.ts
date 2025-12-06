@@ -194,12 +194,13 @@ export const DrugTests: CollectionConfig = {
       name: 'confirmationDecision',
       type: 'radio',
       options: [
-        { label: 'Accept Results (No Confirmation Needed)', value: 'accept' },
+        { label: 'Pending Decision', value: 'pending-decision' },
+        { label: 'Accept Results (No Confirmation)', value: 'accept' },
         { label: 'Request Confirmation Testing', value: 'request-confirmation' },
       ],
       admin: {
         description:
-          'AUTO-SELECTED as "accept" for negative/expected-positive results. REQUIRED CHOICE for unexpected results.',
+          'AUTO-SELECTED as "accept" for negative/expected-positive results. For unexpected results, choose to accept as-is, request $30-45/substance confirmation, or leave pending.',
         position: 'sidebar',
       },
     },

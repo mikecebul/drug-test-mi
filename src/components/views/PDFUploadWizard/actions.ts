@@ -518,7 +518,7 @@ export async function getEmailPreview(data: {
   testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
   collectionDate: string
   isDilute: boolean
-  confirmationDecision?: 'accept' | 'request-confirmation' | 'not-available' | null
+  confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
 }): Promise<{
   success: boolean
   data?: {
@@ -829,7 +829,7 @@ export async function createDrugTestWithEmailReview(
       result: 'confirmed-positive' | 'confirmed-negative' | 'inconclusive'
       notes?: string
     }>
-    confirmationDecision?: 'accept' | 'request-confirmation' | 'not-available' | null
+    confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
     confirmationSubstances?: SubstanceValue[]
   },
   emailConfig: {
@@ -1304,7 +1304,7 @@ export async function updateTestWithScreening(data: {
     result: 'confirmed-positive' | 'confirmed-negative' | 'inconclusive'
     notes?: string
   }>
-  confirmationDecision?: 'accept' | 'request-confirmation' | 'not-available' | null
+  confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
   confirmationSubstances?: SubstanceValue[]
 }): Promise<{
   success: boolean

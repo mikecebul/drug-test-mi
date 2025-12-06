@@ -1214,9 +1214,9 @@ export interface DrugTest {
    */
   isComplete?: boolean | null;
   /**
-   * AUTO-SELECTED as "accept" for negative/expected-positive results. REQUIRED CHOICE for unexpected results.
+   * AUTO-SELECTED as "accept" for negative/expected-positive results. For unexpected results, choose to accept as-is, request $30-45/substance confirmation, or leave pending.
    */
-  confirmationDecision?: ('accept' | 'request-confirmation') | null;
+  confirmationDecision?: ('pending-decision' | 'accept' | 'request-confirmation') | null;
   /**
    * Uncheck to skip sending email notifications when saving (useful for testing or manual corrections)
    */

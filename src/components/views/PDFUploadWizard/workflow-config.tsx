@@ -1,6 +1,5 @@
 import type { WizardType, WizardStep } from './types'
 import type { Step } from '@/components/ui/stepper'
-import React from 'react'
 
 /**
  * Workflow configuration defining steps for each wizard type
