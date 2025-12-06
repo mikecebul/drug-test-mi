@@ -114,6 +114,8 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
         detectedSubstances: [],
         isDilute: false,
         clientData: null,
+        confirmationDecision: null,
+        confirmationSubstances: [],
       },
       confirmData: {
         previewComputed: false,
@@ -158,6 +160,8 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
           pdfFilename: pdfFilename || file.name, // Fallback to original filename if generation fails
           hasConfirmation: value.extractData.hasConfirmation,
           confirmationResults,
+          confirmationDecision: value.verifyData.confirmationDecision,
+          confirmationSubstances: value.verifyData.confirmationSubstances as SubstanceValue[],
         })
 
         if (result.success) {

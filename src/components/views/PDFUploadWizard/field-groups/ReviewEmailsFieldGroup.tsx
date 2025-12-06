@@ -95,6 +95,7 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
       testType: verifyData?.testType,
       collectionDate: verifyData?.collectionDate,
       isDilute: verifyData?.isDilute ?? false,
+      confirmationDecision: verifyData?.confirmationDecision,
     })
 
     const confirmationEmailQuery = useGetConfirmationEmailPreviewQuery({

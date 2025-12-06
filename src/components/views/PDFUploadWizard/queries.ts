@@ -188,11 +188,12 @@ export function useGetEmailPreviewQuery(data: {
   testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | null | undefined
   collectionDate: string | null | undefined
   isDilute: boolean
+  confirmationDecision?: 'accept' | 'request-confirmation' | 'not-available' | null
 }) {
-  const { clientId, detectedSubstances, testType, collectionDate, isDilute } = data
+  const { clientId, detectedSubstances, testType, collectionDate, isDilute, confirmationDecision } = data
 
   return useQuery({
-    queryKey: ['email-preview', clientId, detectedSubstances, testType, collectionDate, isDilute],
+    queryKey: ['email-preview', clientId, detectedSubstances, testType, collectionDate, isDilute, confirmationDecision],
     queryFn: async () => {
       if (!clientId || !testType || !collectionDate) {
         return null
@@ -203,6 +204,7 @@ export function useGetEmailPreviewQuery(data: {
         testType,
         collectionDate,
         isDilute,
+        confirmationDecision,
       })
     },
     enabled: Boolean(clientId && testType && collectionDate),

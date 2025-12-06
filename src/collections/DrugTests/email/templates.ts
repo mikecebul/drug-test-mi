@@ -284,6 +284,7 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
     unexpectedPositives,
     unexpectedNegatives,
     isDilute,
+    confirmationDecision,
   } = data
 
   const resultColor = getResultColor(initialScreenResult)
@@ -292,6 +293,13 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
     initialScreenResult === 'unexpected-positive' ||
     initialScreenResult === 'unexpected-negative' ||
     initialScreenResult === 'mixed-unexpected'
+
+  // Determine confirmation messaging based on test type and decision
+  const isInstantTest = testType === '15-panel-instant'
+  const isLabScreen = testType !== '15-panel-instant'
+  const hasConfirmationDecision = confirmationDecision !== null && confirmationDecision !== undefined
+  const isAccepted = confirmationDecision === 'accept'
+  const isNotAvailable = confirmationDecision === 'not-available'
 
   // Client email - full results breakdown with attachment
   const clientEmail = {
@@ -385,7 +393,19 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                   <ul class="substance-list">
                     ${unexpectedPositives.map((s) => `<li class="substance-item">❌ ${formatSubstance(s)}</li>`).join('')}
                   </ul>
-                  <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Confirmation testing available within 30 days.</p>
+                  ${
+                    isInstantTest && hasConfirmationDecision
+                      ? isAccepted
+                        ? '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Results accepted as final. Sample has been disposed.</p>'
+                        : '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Sample sent to lab for LC-MS/MS confirmation testing.</p>'
+                      : isLabScreen && hasConfirmationDecision
+                        ? isAccepted
+                          ? '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">You accepted these results. Sample held by lab for 30 days if you change your mind.</p>'
+                          : isNotAvailable
+                            ? '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Sample held by lab for 30 days. Confirmation testing available for $45 within 30 days.</p>'
+                            : '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Sample sent to lab for LC-MS/MS confirmation testing.</p>'
+                        : '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Confirmation testing available within 30 days.</p>'
+                  }
                 </div>
               `
                   : ''
@@ -434,7 +454,47 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
               `
                     : initialScreenResult === 'unexpected-positive' ||
                         initialScreenResult === 'mixed-unexpected'
-                      ? `
+                      ? isInstantTest && hasConfirmationDecision
+                        ? isAccepted
+                          ? `
+                <div class="info-box">
+                  <p style="margin: 0; font-weight: bold;">Results Accepted</p>
+                  <p style="margin: 10px 0 0 0;">You chose to accept these screening results as final at the time of collection. The sample has been disposed and confirmation testing is no longer available for this test.</p>
+                  <p style="margin: 10px 0 0 0;">Please call us if you have questions about your results.</p>
+                </div>
+              `
+                          : `
+                <div class="info-box">
+                  <p style="margin: 0; font-weight: bold;">Confirmation Testing Requested</p>
+                  <p style="margin: 10px 0 0 0;">Your sample has been sent to the laboratory for LC-MS/MS confirmation testing on the unexpected positive substances. You will receive an update when confirmation results are available (typically 2-4 business days).</p>
+                  <p style="margin: 10px 0 0 0;">Thank you for choosing confirmation testing to verify your results.</p>
+                </div>
+              `
+                        : isLabScreen && hasConfirmationDecision
+                          ? isAccepted
+                            ? `
+                <div class="info-box">
+                  <p style="margin: 0; font-weight: bold;">Results Accepted</p>
+                  <p style="margin: 10px 0 0 0;">You have accepted these screening results as final. Your sample will be held by the laboratory for 30 days in case you change your mind and wish to request confirmation testing.</p>
+                  <p style="margin: 10px 0 0 0;">Confirmation testing is available for <strong>$45</strong> within <strong>30 days</strong>. Please call us if you have questions.</p>
+                </div>
+              `
+                            : isNotAvailable
+                              ? `
+                <div class="info-box">
+                  <p style="margin: 0; font-weight: bold;">Confirmation Testing Available</p>
+                  <p style="margin: 10px 0 0 0;">We were unable to reach you about your screening results. Your sample is being held by the laboratory for <strong>30 days</strong> to give you the opportunity to request confirmation testing.</p>
+                  <p style="margin: 10px 0 0 0;">Confirmation testing is available for <strong>$45</strong> within <strong>30 days</strong> to verify these results. Please call us at your earliest convenience to discuss your options.</p>
+                </div>
+              `
+                              : `
+                <div class="info-box">
+                  <p style="margin: 0; font-weight: bold;">Confirmation Testing Requested</p>
+                  <p style="margin: 10px 0 0 0;">Your sample has been sent to the laboratory for LC-MS/MS confirmation testing on the unexpected positive substances. You will receive an update when confirmation results are available (typically 2-4 business days).</p>
+                  <p style="margin: 10px 0 0 0;">Thank you for choosing confirmation testing to verify your results.</p>
+                </div>
+              `
+                          : `
                 <div class="info-box">
                   <p style="margin: 0; font-weight: bold;">Confirmation Testing Available</p>
                   <p style="margin: 10px 0 0 0;">Your initial screening detected unexpected substances. Confirmation testing is available for <strong>$45</strong> within <strong>30 days</strong> to verify these results.</p>
@@ -546,7 +606,19 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                   <ul class="substance-list">
                     ${unexpectedPositives.map((s) => `<li class="substance-item">❌ ${formatSubstance(s)}</li>`).join('')}
                   </ul>
-                  <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Confirmation testing available within 30 days.</p>
+                  ${
+                    isInstantTest && hasConfirmationDecision
+                      ? isAccepted
+                        ? '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Client accepted results as final. Sample has been disposed.</p>'
+                        : '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Client requested confirmation testing. Sample sent to lab for LC-MS/MS confirmation.</p>'
+                      : isLabScreen && hasConfirmationDecision
+                        ? isAccepted
+                          ? '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Client accepted results as final. Sample held by lab for 30 days if client changes decision.</p>'
+                          : isNotAvailable
+                            ? '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Client not available. Sample held by lab for 30 days for confirmation decision.</p>'
+                            : '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Client requested confirmation testing. Sample sent to lab for LC-MS/MS confirmation.</p>'
+                        : '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Confirmation testing available within 30 days.</p>'
+                  }
                 </div>
               `
                   : ''
@@ -574,7 +646,21 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
 
               <div class="footer">
                 <p><small>This is an automated notification from MI Drug Test.</small></p>
-                ${hasUnexpected ? '<p><small>Confirmation testing available for $45 within 30 days of collection.</small></p>' : ''}
+                ${
+                  hasUnexpected
+                    ? isInstantTest && hasConfirmationDecision
+                      ? isAccepted
+                        ? '<p><small>Client accepted screening results as final. Sample has been disposed and confirmation testing is not available.</small></p>'
+                        : '<p><small>Client requested confirmation testing. Sample has been sent to lab for LC-MS/MS confirmation testing.</small></p>'
+                      : isLabScreen && hasConfirmationDecision
+                        ? isAccepted
+                          ? '<p><small>Client accepted screening results. Sample held by lab for 30 days if client changes decision. Confirmation testing $45.</small></p>'
+                          : isNotAvailable
+                            ? '<p><small>Client was not available to make a decision. Sample held by lab for 30 days. Confirmation testing available for $45.</small></p>'
+                            : '<p><small>Client requested confirmation testing. Sample has been sent to lab for LC-MS/MS confirmation testing.</small></p>'
+                        : '<p><small>Confirmation testing available for $45 within 30 days of collection.</small></p>'
+                    : ''
+                }
                 <p><small>Notification sent: ${new Date().toLocaleString()}</small></p>
               </div>
             </div>

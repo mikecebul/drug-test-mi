@@ -40,6 +40,8 @@ const defaultValues: PdfUploadFormType = {
     detectedSubstances: [],
     isDilute: false,
     clientData: null,
+    confirmationDecision: null,
+    confirmationSubstances: [],
   },
   confirmData: {
     previewComputed: false,
@@ -106,6 +108,8 @@ export const usePdfUploadFormOpts = ({
             pdfFilename: pdfFilename || value.uploadData.file.name, // Fallback to original filename if generation fails
             hasConfirmation: value.extractData.hasConfirmation,
             confirmationResults: value.extractData.confirmationResults as any,
+            confirmationDecision: value.verifyData.confirmationDecision,
+            confirmationSubstances: value.verifyData.confirmationSubstances as SubstanceValue[],
           },
           {
             clientEmailEnabled: value.reviewEmailsData.clientEmailEnabled,

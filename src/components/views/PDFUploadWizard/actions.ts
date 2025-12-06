@@ -518,6 +518,7 @@ export async function getEmailPreview(data: {
   testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
   collectionDate: string
   isDilute: boolean
+  confirmationDecision?: 'accept' | 'request-confirmation' | 'not-available' | null
 }): Promise<{
   success: boolean
   data?: {
@@ -567,6 +568,7 @@ export async function getEmailPreview(data: {
       unexpectedPositives: previewResult.unexpectedPositives,
       unexpectedNegatives: previewResult.unexpectedNegatives,
       isDilute: data.isDilute,
+      confirmationDecision: data.confirmationDecision,
     })
 
     // Determine smart grouping based on client type
@@ -827,6 +829,8 @@ export async function createDrugTestWithEmailReview(
       result: 'confirmed-positive' | 'confirmed-negative' | 'inconclusive'
       notes?: string
     }>
+    confirmationDecision?: 'accept' | 'request-confirmation' | 'not-available' | null
+    confirmationSubstances?: SubstanceValue[]
   },
   emailConfig: {
     clientEmailEnabled: boolean
@@ -880,7 +884,7 @@ export async function createDrugTestWithEmailReview(
       sendNotifications: false, // Prevent auto-send
     }
 
-    // 3. Add confirmation data if present (lab tests)
+    // 3. Add confirmation data if present (lab tests with embedded confirmation)
     if (
       testData.hasConfirmation &&
       testData.confirmationResults &&
@@ -895,6 +899,17 @@ export async function createDrugTestWithEmailReview(
         result: r.result,
         notes: r.notes || undefined,
       }))
+    }
+    // 3b. Add confirmation decision from wizard (for instant tests with unexpected positives)
+    else if (testData.confirmationDecision) {
+      drugTestData.confirmationDecision = testData.confirmationDecision
+      if (
+        testData.confirmationDecision === 'request-confirmation' &&
+        testData.confirmationSubstances &&
+        testData.confirmationSubstances.length > 0
+      ) {
+        drugTestData.confirmationSubstances = testData.confirmationSubstances
+      }
     }
 
     // 4. Create drug test record with skipNotificationHook context
@@ -932,6 +947,7 @@ export async function createDrugTestWithEmailReview(
       unexpectedPositives: previewResult.unexpectedPositives,
       unexpectedNegatives: previewResult.unexpectedNegatives,
       isDilute: testData.isDilute,
+      confirmationDecision: testData.confirmationDecision,
     })
 
     // 6. Fetch document for attachment
@@ -1288,6 +1304,8 @@ export async function updateTestWithScreening(data: {
     result: 'confirmed-positive' | 'confirmed-negative' | 'inconclusive'
     notes?: string
   }>
+  confirmationDecision?: 'accept' | 'request-confirmation' | 'not-available' | null
+  confirmationSubstances?: SubstanceValue[]
 }): Promise<{
   success: boolean
   error?: string
@@ -1337,7 +1355,7 @@ export async function updateTestWithScreening(data: {
       processNotes: `${existingTest.processNotes || ''}\nScreening results uploaded via wizard`,
     }
 
-    // 4. Add confirmation data if present
+    // 4. Add confirmation data if present (from PDF extraction)
     if (data.hasConfirmation && data.confirmationResults && data.confirmationResults.length > 0) {
       const confirmationSubstances = data.confirmationResults.map((r) => r.substance)
       updateData.confirmationDecision = 'request-confirmation'
@@ -1347,6 +1365,17 @@ export async function updateTestWithScreening(data: {
         result: r.result,
         notes: r.notes || undefined,
       }))
+    }
+    // 4b. Add confirmation decision from wizard (for tests with unexpected positives)
+    else if (data.confirmationDecision) {
+      updateData.confirmationDecision = data.confirmationDecision
+      if (
+        data.confirmationDecision === 'request-confirmation' &&
+        data.confirmationSubstances &&
+        data.confirmationSubstances.length > 0
+      ) {
+        updateData.confirmationSubstances = data.confirmationSubstances
+      }
     }
 
     // 5. Update the drug test
@@ -1462,6 +1491,7 @@ export async function getClientFromTest(testId: string): Promise<{
     middleInitial?: string | null
     email: string
     dob?: string | null
+    phone?: string | null
   }
   error?: string
 }> {
@@ -1496,6 +1526,7 @@ export async function getClientFromTest(testId: string): Promise<{
         middleInitial: client.middleInitial,
         email: client.email,
         dob: client.dob,
+        phone: client.phone,
       },
     }
   } catch (error: any) {
