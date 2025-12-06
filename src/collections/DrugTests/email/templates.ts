@@ -389,9 +389,9 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                 unexpectedPositives.length > 0
                   ? `
                 <div class="substances-section red">
-                  <strong>❌ Unexpected Positives (not from reported medications):</strong>
+                  <strong>‼️ Unexpected Positives (not from reported medications):</strong>
                   <ul class="substance-list">
-                    ${unexpectedPositives.map((s) => `<li class="substance-item">❌ ${formatSubstance(s)}</li>`).join('')}
+                    ${unexpectedPositives.map((s) => `<li class="substance-item">‼️ ${formatSubstance(s)}</li>`).join('')}
                   </ul>
                   ${
                     isInstantTest && hasConfirmationDecision
@@ -415,9 +415,9 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                 unexpectedNegatives.length > 0
                   ? `
                 <div class="substances-section ${initialScreenResult === 'unexpected-negative-critical' ? 'red' : 'yellow'}">
-                  <strong>${initialScreenResult === 'unexpected-negative-critical' ? '❌' : '⚠️'} Unexpected Negatives (reported medications not detected):</strong>
+                  <strong>${initialScreenResult === 'unexpected-negative-critical' ? '‼️' : '⚠️'} Unexpected Negatives (reported medications not detected):</strong>
                   <ul class="substance-list">
-                    ${unexpectedNegatives.map((s) => `<li class="substance-item">${initialScreenResult === 'unexpected-negative-critical' ? '❌' : '⚠️'} ${formatSubstance(s)}</li>`).join('')}
+                    ${unexpectedNegatives.map((s) => `<li class="substance-item">${initialScreenResult === 'unexpected-negative-critical' ? '‼️' : '⚠️'} ${formatSubstance(s)}</li>`).join('')}
                   </ul>
                   <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">
                     ${
@@ -447,7 +447,7 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                   : initialScreenResult === 'unexpected-negative-critical'
                     ? `
                 <div class="info-box error">
-                  <p style="margin: 0; font-weight: bold;">❌ Critical: Required Medication Missing</p>
+                  <p style="margin: 0; font-weight: bold;">‼️ Critical: Required Medication Missing</p>
                   <p style="margin: 10px 0 0 0;">Your test shows that required medications (marked for strict monitoring) were not detected. This requires immediate review.</p>
                   <p style="margin: 10px 0 0 0;"><strong>Action Required:</strong> Your referral source has been notified and may request confirmation testing. Please contact them directly if you have questions.</p>
                 </div>
@@ -602,9 +602,9 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                 unexpectedPositives.length > 0
                   ? `
                 <div class="substances-section red">
-                  <strong>❌ Unexpected Positives (not from reported medications):</strong>
+                  <strong>‼️ Unexpected Positives (not from reported medications):</strong>
                   <ul class="substance-list">
-                    ${unexpectedPositives.map((s) => `<li class="substance-item">❌ ${formatSubstance(s)}</li>`).join('')}
+                    ${unexpectedPositives.map((s) => `<li class="substance-item">‼️ ${formatSubstance(s)}</li>`).join('')}
                   </ul>
                   ${
                     isInstantTest && hasConfirmationDecision
@@ -628,9 +628,9 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                 unexpectedNegatives.length > 0
                   ? `
                 <div class="substances-section ${initialScreenResult === 'unexpected-negative-critical' ? 'red' : 'yellow'}">
-                  <strong>${initialScreenResult === 'unexpected-negative-critical' ? '❌' : '⚠️'} Unexpected Negatives (reported medications not detected):</strong>
+                  <strong>${initialScreenResult === 'unexpected-negative-critical' ? '‼️' : '⚠️'} Unexpected Negatives (reported medications not detected):</strong>
                   <ul class="substance-list">
-                    ${unexpectedNegatives.map((s) => `<li class="substance-item">${initialScreenResult === 'unexpected-negative-critical' ? '❌' : '⚠️'} ${formatSubstance(s)}</li>`).join('')}
+                    ${unexpectedNegatives.map((s) => `<li class="substance-item">${initialScreenResult === 'unexpected-negative-critical' ? '‼️' : '⚠️'} ${formatSubstance(s)}</li>`).join('')}
                   </ul>
                   <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">
                     ${

@@ -47,12 +47,10 @@ export function PDFUploadWizardClient() {
   // Show workflow type selector if no workflow is selected
   if (!selectedWorkflow) {
     return (
-      <ShadcnWrapper className="mx-auto my-32 flex max-w-sm scale-125 flex-col md:max-w-2xl lg:mx-auto lg:max-w-4xl">
+      <ShadcnWrapper className="mx-auto my-32 flex max-w-sm origin-top scale-125 flex-col md:max-w-2xl lg:mx-auto lg:max-w-4xl">
         <div className="mb-8">
           <h1 className="mb-2 text-3xl font-bold tracking-tight">Drug Test Workflow</h1>
-          <p className="text-muted-foreground">
-            Select the type of workflow you want to perform
-          </p>
+          <p className="text-muted-foreground">Select the type of workflow you want to perform</p>
         </div>
         <WizardTypeSelector onSelect={handleWorkflowSelect} />
       </ShadcnWrapper>
@@ -184,7 +182,7 @@ function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <ShadcnWrapper className="mx-auto my-32 flex max-w-sm scale-125 flex-col md:max-w-2xl lg:mx-auto lg:max-w-4xl">
+    <ShadcnWrapper className="mx-auto my-32 flex max-w-sm origin-top scale-125 flex-col md:max-w-2xl lg:mx-auto lg:max-w-4xl">
       <div className="mb-8">
         <h1 className="mb-2 text-3xl font-bold tracking-tight">Drug Test Upload Wizard</h1>
         <p className="text-muted-foreground">
@@ -207,11 +205,7 @@ function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
 
         {/* Navigation Buttons */}
         <div className="flex justify-between">
-          <Button
-            type="button"
-            onClick={handlePrevious}
-            variant="outline"
-          >
+          <Button type="button" onClick={handlePrevious} variant="outline">
             <ChevronLeft className="mr-2 h-5 w-5" />
             {isFirstStep ? 'Cancel' : 'Back'}
           </Button>

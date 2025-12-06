@@ -13,9 +13,18 @@ import { z } from 'zod'
 import { UploadFieldGroup, uploadFieldSchema } from '../field-groups/UploadFieldGroup'
 import { ExtractFieldGroup, extractFieldSchema } from '../field-groups/ExtractFieldGroup'
 import { VerifyTestFieldGroup, verifyTestFieldSchema } from '../field-groups/VerifyTestFieldGroup'
-import { VerifyConfirmationFieldGroup, verifyConfirmationFieldSchema } from '../field-groups/VerifyConfirmationFieldGroup'
-import { ConfirmConfirmationFieldGroup, confirmConfirmationFieldSchema } from '../field-groups/ConfirmConfirmationFieldGroup'
-import { ReviewEmailsFieldGroup, reviewEmailsFieldSchema } from '../field-groups/ReviewEmailsFieldGroup'
+import {
+  VerifyConfirmationFieldGroup,
+  verifyConfirmationFieldSchema,
+} from '../field-groups/VerifyConfirmationFieldGroup'
+import {
+  ConfirmConfirmationFieldGroup,
+  confirmConfirmationFieldSchema,
+} from '../field-groups/ConfirmConfirmationFieldGroup'
+import {
+  ReviewEmailsFieldGroup,
+  reviewEmailsFieldSchema,
+} from '../field-groups/ReviewEmailsFieldGroup'
 import { updateTestWithConfirmation } from '../actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { generateTestFilename } from '../utils/generateFilename'
@@ -169,13 +178,8 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
 
   const form = useAppForm(formOpts)
 
-  const {
-    currentStep,
-    isLastStep,
-    handleNextStepOrSubmit,
-    handleCancelOrBack,
-    setCurrentStep,
-  } = useFormStepper(stepSchemas)
+  const { currentStep, isLastStep, handleNextStepOrSubmit, handleCancelOrBack, setCurrentStep } =
+    useFormStepper(stepSchemas)
 
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
 
@@ -224,12 +228,10 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
   const currentStepId = stepMapping[currentStep]
 
   return (
-    <ShadcnWrapper className="mx-auto my-32 flex max-w-sm scale-125 flex-col md:max-w-2xl lg:mx-auto lg:max-w-4xl">
+    <ShadcnWrapper className="mx-auto flex max-w-sm origin-top scale-125 flex-col pb-8 md:max-w-2xl lg:mx-auto lg:max-w-4xl">
       <div className="mb-8">
         <h1 className="mb-2 text-3xl font-bold tracking-tight">Enter Lab Confirmation Results</h1>
-        <p className="text-muted-foreground">
-          Upload and process laboratory confirmation results
-        </p>
+        <p className="text-muted-foreground">Upload and process laboratory confirmation results</p>
       </div>
 
       <div className="mb-8">
@@ -298,12 +300,7 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
 
         {/* Navigation Buttons */}
         <div className="flex justify-between">
-          <Button
-            type="button"
-            onClick={handlePrevious}
-            variant="outline"
-            disabled={isSubmitting}
-          >
+          <Button type="button" onClick={handlePrevious} variant="outline" disabled={isSubmitting}>
             <ChevronLeft className="mr-2 h-5 w-5" />
             {currentStep === 1 ? 'Cancel' : 'Back'}
           </Button>

@@ -125,13 +125,8 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
 
   const form = useAppForm(formOpts)
 
-  const {
-    currentStep,
-    isLastStep,
-    handleNextStepOrSubmit,
-    handleCancelOrBack,
-    setCurrentStep,
-  } = useFormStepper(stepSchemas)
+  const { currentStep, isLastStep, handleNextStepOrSubmit, handleCancelOrBack, setCurrentStep } =
+    useFormStepper(stepSchemas)
 
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
 
@@ -179,12 +174,10 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   const formValues = useStore(form.store, (state) => state.values)
 
   return (
-    <ShadcnWrapper className="mx-auto my-32 flex max-w-sm scale-125 flex-col md:max-w-2xl lg:mx-auto lg:max-w-4xl">
+    <ShadcnWrapper className="mx-auto flex max-w-sm origin-top scale-125 flex-col pb-8 md:max-w-2xl lg:mx-auto lg:max-w-4xl">
       <div className="mb-8">
         <h1 className="mb-2 text-3xl font-bold tracking-tight">Collect Lab Specimen</h1>
-        <p className="text-muted-foreground">
-          Record specimen collection for laboratory testing
-        </p>
+        <p className="text-muted-foreground">Record specimen collection for laboratory testing</p>
       </div>
 
       <div className="mb-8">
@@ -200,11 +193,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
       >
         <div className="wizard-content mb-8 flex-1">
           {currentStep === 1 && (
-            <VerifyClientFieldGroup
-              form={form}
-              fields="clientData"
-              title="Select Client"
-            />
+            <VerifyClientFieldGroup form={form} fields="clientData" title="Select Client" />
           )}
 
           {currentStep === 2 && (
@@ -229,26 +218,26 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
                 <CardContent className="pt-6">
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-sm font-medium text-muted-foreground">Client</h3>
+                      <h3 className="text-muted-foreground text-sm font-medium">Client</h3>
                       <p className="text-lg">
                         {formValues.clientData.firstName} {formValues.clientData.lastName}
                       </p>
-                      <p className="text-sm text-muted-foreground">{formValues.clientData.email}</p>
+                      <p className="text-muted-foreground text-sm">{formValues.clientData.email}</p>
                     </div>
 
                     <div>
-                      <h3 className="text-sm font-medium text-muted-foreground">Test Type</h3>
+                      <h3 className="text-muted-foreground text-sm font-medium">Test Type</h3>
                       <p className="text-lg">
                         {formValues.collectionDetails.testType === '11-panel-lab'
                           ? '11-Panel Lab Test'
                           : formValues.collectionDetails.testType === '17-panel-sos-lab'
-                          ? '17-Panel SOS Lab Test'
-                          : 'EtG Lab Test'}
+                            ? '17-Panel SOS Lab Test'
+                            : 'EtG Lab Test'}
                       </p>
                     </div>
 
                     <div>
-                      <h3 className="text-sm font-medium text-muted-foreground">
+                      <h3 className="text-muted-foreground text-sm font-medium">
                         Collection Date & Time
                       </h3>
                       <p className="text-lg">
@@ -280,12 +269,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
 
         {/* Navigation Buttons */}
         <div className="flex justify-between">
-          <Button
-            type="button"
-            onClick={handlePrevious}
-            variant="outline"
-            disabled={isSubmitting}
-          >
+          <Button type="button" onClick={handlePrevious} variant="outline" disabled={isSubmitting}>
             <ChevronLeft className="mr-2 h-5 w-5" />
             {currentStep === 1 ? 'Cancel' : 'Back'}
           </Button>

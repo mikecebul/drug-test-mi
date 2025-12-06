@@ -3,19 +3,25 @@
 import React, { useEffect } from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import InputDateTimePicker from '@/components/input-datetime-picker'
 import MedicationDisplayField from '@/blocks/Form/field-components/medication-display-field'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
-import { useGetClientMedicationsQuery, useComputeTestResultPreviewQuery, useGetClientFromTestQuery } from '../queries'
+import {
+  useGetClientMedicationsQuery,
+  useComputeTestResultPreviewQuery,
+  useGetClientFromTestQuery,
+} from '../queries'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { AlertTriangle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { AlertTriangle, Phone, User } from 'lucide-react'
 import { formatSubstance } from '@/lib/substances'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { ConfirmationSubstanceSelector } from '@/blocks/Form/field-components/confirmation-substance-selector'
+import { cn } from '@/utilities/cn'
 
 // Export the schema for reuse in step validation
 export const verifyDataFieldSchema = z.object({
@@ -23,16 +29,21 @@ export const verifyDataFieldSchema = z.object({
   collectionDate: z.string().min(1, 'Collection date is required'),
   detectedSubstances: z.array(z.string()),
   isDilute: z.boolean(),
-  clientData: z.object({
-    id: z.string(),
-    firstName: z.string(),
-    lastName: z.string(),
-    middleInitial: z.string().nullable().optional(),
-    email: z.string(),
-    dob: z.string().nullable().optional(),
-    phone: z.string().nullable().optional(),
-  }).nullable(),
-  confirmationDecision: z.enum(['accept', 'request-confirmation', 'not-available']).nullable().optional(),
+  clientData: z
+    .object({
+      id: z.string(),
+      firstName: z.string(),
+      lastName: z.string(),
+      middleInitial: z.string().nullable().optional(),
+      email: z.string(),
+      dob: z.string().nullable().optional(),
+      phone: z.string().nullable().optional(),
+    })
+    .nullable(),
+  confirmationDecision: z
+    .enum(['accept', 'request-confirmation', 'not-available'])
+    .nullable()
+    .optional(),
   confirmationSubstances: z.array(z.string()).optional(),
 })
 
@@ -68,7 +79,8 @@ export const VerifyDataFieldGroup = withFieldGroup({
     // 1. clientData (instant test workflow)
     // 2. verifyData.clientData (already set)
     // 3. clientFromTestQuery.data (lab screen workflow - fetched from matched test)
-    const client = (formValues as any).clientData || verifyData?.clientData || clientFromTestQuery.data
+    const client =
+      (formValues as any).clientData || verifyData?.clientData || clientFromTestQuery.data
 
     // Fetch medications using TanStack Query
     const medicationsQuery = useGetClientMedicationsQuery(client?.id)
@@ -88,7 +100,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
       if (extractData?.isDilute !== undefined) {
         group.setFieldValue('isDilute', extractData.isDilute)
       }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [extractData])
 
     // Store client in verifyData for later access (lab workflows)
@@ -96,20 +108,29 @@ export const VerifyDataFieldGroup = withFieldGroup({
       if (client && !verifyData?.clientData) {
         group.setFieldValue('clientData', client)
       }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [client])
 
     const collectionDateValue = useStore(group.store, (state) => state.values.collectionDate)
     const collectionDateTime = collectionDateValue ? new Date(collectionDateValue) : undefined
     const testTypeValue = useStore(group.store, (state) => state.values.testType)
-    const detectedSubstancesValue = useStore(group.store, (state) => state.values.detectedSubstances)
-    const confirmationDecisionValue = useStore(group.store, (state) => state.values.confirmationDecision)
-    const confirmationSubstancesValue = useStore(group.store, (state) => state.values.confirmationSubstances)
+    const detectedSubstancesValue = useStore(
+      group.store,
+      (state) => state.values.detectedSubstances,
+    )
+    const confirmationDecisionValue = useStore(
+      group.store,
+      (state) => state.values.confirmationDecision,
+    )
+    const confirmationSubstancesValue = useStore(
+      group.store,
+      (state) => state.values.confirmationSubstances,
+    )
 
     // Compute test result preview to detect unexpected positives
     const previewQuery = useComputeTestResultPreviewQuery(
       client?.id,
-      (detectedSubstancesValue ?? []) as SubstanceValue[]
+      (detectedSubstancesValue ?? []) as SubstanceValue[],
     )
     const preview = previewQuery.data
     const hasUnexpectedPositives = (preview?.unexpectedPositives?.length ?? 0) > 0
@@ -123,7 +144,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
           group.setFieldValue('confirmationSubstances', preview.unexpectedPositives)
         }
       }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [confirmationDecisionValue, preview?.unexpectedPositives])
 
     // Reset confirmation decision when detected substances change significantly
@@ -132,7 +153,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
         group.setFieldValue('confirmationDecision', null)
         group.setFieldValue('confirmationSubstances', [])
       }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [JSON.stringify(detectedSubstancesValue)])
 
     return (
@@ -143,31 +164,36 @@ export const VerifyDataFieldGroup = withFieldGroup({
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm uppercase tracking-wide text-blue-900 dark:text-blue-100">
-                Client
-              </CardTitle>
-              <CardDescription></CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-1">
-              <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+          <div className="border-primary/50 bg-primary-muted/50 w-full rounded-xl border-1 p-6 shadow-md">
+            {/* Header */}
+            <div className="mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="bg-primary/20 flex h-8 w-8 items-center justify-center rounded-full">
+                  <User className="text-primary h-4 w-4" />
+                </div>
+                <h3 className="text-foreground text-xl font-semibold">Client</h3>
+              </div>
+            </div>
+
+            {/* Client Info */}
+            <div className="space-y-1">
+              <p className="text-foreground text-lg font-semibold">
                 {client?.firstName} {client?.middleInitial ? `${client.middleInitial}. ` : ''}
                 {client?.lastName}
               </p>
-              <p className="text-sm text-blue-700 dark:text-blue-300">{client?.email}</p>
+              <p className="text-muted-foreground text-sm">{client?.email}</p>
               {client?.dob && (
-                <p className="text-sm text-blue-700 dark:text-blue-300">
+                <p className="text-muted-foreground text-sm">
                   DOB: {new Date(client.dob).toLocaleDateString()}
                 </p>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {medications.length > 0 && <MedicationDisplayField medications={medications} />}
         </div>
 
-        <Card>
+        <Card className="shadow-md">
           <CardContent className="space-y-4 pt-6">
             <group.AppField name="testType">
               {(field) => (
@@ -186,7 +212,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
 
             <group.AppField name="collectionDate">
               {(field) => (
-                <div className="space-y-2 max-w-sm">
+                <div className="max-w-sm space-y-2">
                   <InputDateTimePicker
                     id="collection-date"
                     label="Collection Date & Time"
@@ -196,7 +222,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
                     required
                   />
                   {field.state.meta.errors.length > 0 && (
-                    <p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>
+                    <p className="text-destructive text-sm">{String(field.state.meta.errors[0])}</p>
                   )}
                 </div>
               )}
@@ -214,121 +240,156 @@ export const VerifyDataFieldGroup = withFieldGroup({
 
         {/* Confirmation Decision Section - only show when there are unexpected positives */}
         {requiresDecision && (
-          <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-amber-900 dark:text-amber-100">
-                <AlertTriangle className="h-5 w-5" />
-                Confirmation Decision Required
-              </CardTitle>
-              <CardDescription className="text-amber-700 dark:text-amber-300">
-                Unexpected positive substances detected. {testTypeValue !== '15-panel-instant' ? 'Contact client to determine how to proceed.' : 'Choose how to proceed.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Display unexpected positives */}
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                  Unexpected Positives:
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {preview?.unexpectedPositives?.map((substance) => (
-                    <Badge key={substance} variant="destructive">
-                      {formatSubstance(substance)}
-                    </Badge>
-                  ))}
+          <div className="border-warning/50 bg-warning-muted/50 w-full rounded-xl border-1 p-6 shadow-md">
+            {/* Header */}
+            <div className="mb-6">
+              <div className="flex items-center gap-2.5">
+                <div className="bg-warning/20 flex h-8 w-8 items-center justify-center rounded-full">
+                  <AlertTriangle className="text-warning h-4 w-4" />
+                </div>
+                <h2 className="text-foreground text-xl font-semibold">
+                  Confirmation Decision Required
+                </h2>
+              </div>
+              <p className="text-warning-foreground mt-2 text-sm">
+                Unexpected positive substances detected.{' '}
+                {testTypeValue !== '15-panel-instant'
+                  ? 'Contact client to determine how to proceed.'
+                  : 'Choose how to proceed.'}
+              </p>
+            </div>
+
+            {/* Unexpected Positives */}
+            <div className="mb-5">
+              <p className="text-muted-foreground mb-2 text-sm font-medium">
+                Unexpected Positives:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {preview?.unexpectedPositives?.map((substance) => (
+                  <Badge key={substance} variant="destructive">
+                    {formatSubstance(substance)}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {/* Contact Client - Uses card background to stand out from warning-muted parent */}
+            {testTypeValue !== '15-panel-instant' && client?.phone && (
+              <div className="border-border bg-card mb-5 rounded-lg border p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-muted-foreground text-sm">Contact Client</p>
+                    <p className="text-foreground text-lg font-semibold tabular-nums">
+                      {client.phone}
+                    </p>
+                  </div>
+                  <Button variant="outline" size="sm" className="gap-2 bg-transparent" asChild>
+                    <a href={`tel:${client.phone}`}>
+                      <Phone className="h-4 w-4" />
+                      Call
+                    </a>
+                  </Button>
                 </div>
               </div>
+            )}
 
-              {/* For lab screens, show client contact info with call button */}
-              {testTypeValue !== '15-panel-instant' && client?.phone && (
-                <Card className="bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800">
-                  <CardContent className="pt-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                          Contact Client
-                        </p>
-                        <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">
-                          {client.phone}
-                        </p>
-                      </div>
-                      <a
-                        href={`tel:${client.phone}`}
-                        className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
-                        Call
-                      </a>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Radio buttons for decision */}
-              <div className="space-y-3">
-                <Label className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                  {testTypeValue !== '15-panel-instant' ? 'Client Decision:' : 'How would you like to proceed?'}
-                </Label>
-                <RadioGroup
-                  value={confirmationDecisionValue || ''}
-                  onValueChange={(value) => group.setFieldValue('confirmationDecision', value as 'accept' | 'request-confirmation' | 'not-available')}
-                  className="space-y-3"
-                >
-                  <div className="flex items-start space-x-3 rounded-md border border-amber-200 bg-white p-3 dark:border-amber-700 dark:bg-amber-950/50">
-                    <RadioGroupItem value="accept" id="accept" className="mt-1" />
-                    <div>
-                      <Label htmlFor="accept" className="font-medium cursor-pointer">
-                        Accept Results
-                      </Label>
-                      <p className="text-sm text-muted-foreground">
-                        {testTypeValue === '15-panel-instant'
-                          ? 'Accept the screening results as final. Sample will be disposed.'
-                          : 'Client accepts screening results as final. No confirmation testing requested.'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3 rounded-md border border-amber-200 bg-white p-3 dark:border-amber-700 dark:bg-amber-950/50">
-                    <RadioGroupItem value="request-confirmation" id="request-confirmation" className="mt-1" />
-                    <div>
-                      <Label htmlFor="request-confirmation" className="font-medium cursor-pointer">
-                        Request Confirmation Testing
-                      </Label>
-                      <p className="text-sm text-muted-foreground">
-                        {testTypeValue === '15-panel-instant'
-                          ? 'Send sample to lab for LC-MS/MS confirmation testing on selected substances.'
-                          : 'Client requests LC-MS/MS confirmation testing on selected substances.'}
-                      </p>
-                    </div>
-                  </div>
-                  {/* Only show "Client Not Available" option for lab screens */}
-                  {testTypeValue !== '15-panel-instant' && (
-                    <div className="flex items-start space-x-3 rounded-md border border-amber-200 bg-white p-3 dark:border-amber-700 dark:bg-amber-950/50">
-                      <RadioGroupItem value="not-available" id="not-available" className="mt-1" />
-                      <div>
-                        <Label htmlFor="not-available" className="font-medium cursor-pointer">
-                          Client Not Available
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Unable to reach client. Sample will be held by lab for 30 days for confirmation decision.
-                        </p>
-                      </div>
-                    </div>
+            {/* Client Decision */}
+            <div>
+              <p className="text-muted-foreground mb-3 text-sm font-medium">
+                {testTypeValue !== '15-panel-instant'
+                  ? 'Client Decision:'
+                  : 'How would you like to proceed?'}
+              </p>
+              <RadioGroup
+                value={confirmationDecisionValue || ''}
+                onValueChange={(value) =>
+                  group.setFieldValue(
+                    'confirmationDecision',
+                    value as 'accept' | 'request-confirmation' | 'not-available',
+                  )
+                }
+                className="space-y-2.5"
+              >
+                <Label
+                  htmlFor="accept"
+                  className={cn(
+                    'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
+                    confirmationDecisionValue === 'accept' &&
+                      'border-foreground/50 ring-foreground/20 ring-2',
                   )}
-                </RadioGroup>
-              </div>
+                >
+                  <RadioGroupItem value="accept" id="accept" className="mt-0.5" />
+                  <div className="flex-1">
+                    <span className="text-foreground font-medium">Accept Results</span>
+                    <p className="text-muted-foreground mt-0.5 text-sm">
+                      {testTypeValue === '15-panel-instant'
+                        ? 'Accept the screening results as final. Sample will be disposed.'
+                        : 'Client accepts screening results as final. No confirmation testing requested.'}
+                    </p>
+                  </div>
+                </Label>
 
-              {/* Substance selection when request-confirmation is chosen */}
-              {confirmationDecisionValue === 'request-confirmation' && (
+                <Label
+                  htmlFor="request-confirmation"
+                  className={cn(
+                    'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
+                    confirmationDecisionValue === 'request-confirmation' &&
+                      'border-foreground/50 ring-foreground/20 ring-2',
+                  )}
+                >
+                  <RadioGroupItem
+                    value="request-confirmation"
+                    id="request-confirmation"
+                    className="mt-0.5"
+                  />
+                  <div className="flex-1">
+                    <span className="text-foreground font-medium">
+                      Request Confirmation Testing
+                    </span>
+                    <p className="text-muted-foreground mt-0.5 text-sm">
+                      {testTypeValue === '15-panel-instant'
+                        ? 'Send sample to lab for LC-MS/MS confirmation testing on selected substances.'
+                        : 'Client requests LC-MS/MS confirmation testing on selected substances.'}
+                    </p>
+                  </div>
+                </Label>
+
+                {/* Only show "Client Not Available" option for lab screens */}
+                {testTypeValue !== '15-panel-instant' && (
+                  <Label
+                    htmlFor="not-available"
+                    className={cn(
+                      'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
+                      confirmationDecisionValue === 'not-available' &&
+                        'border-foreground/50 ring-foreground/20 ring-2',
+                    )}
+                  >
+                    <RadioGroupItem value="not-available" id="not-available" className="mt-0.5" />
+                    <div className="flex-1">
+                      <span className="text-foreground font-medium">Client Not Available</span>
+                      <p className="text-muted-foreground mt-0.5 text-sm">
+                        Unable to reach client. Sample will be held by lab for 30 days for
+                        confirmation decision.
+                      </p>
+                    </div>
+                  </Label>
+                )}
+              </RadioGroup>
+            </div>
+
+            {/* Substance selection when request-confirmation is chosen */}
+            {confirmationDecisionValue === 'request-confirmation' && (
+              <div className="mt-5">
                 <ConfirmationSubstanceSelector
                   unexpectedPositives={preview?.unexpectedPositives ?? []}
                   selectedSubstances={confirmationSubstancesValue ?? []}
-                  onSelectionChange={(substances) => group.setFieldValue('confirmationSubstances', substances)}
+                  onSelectionChange={(substances) =>
+                    group.setFieldValue('confirmationSubstances', substances)
+                  }
                 />
-              )}
-            </CardContent>
-          </Card>
+              </div>
+            )}
+          </div>
         )}
       </div>
     )

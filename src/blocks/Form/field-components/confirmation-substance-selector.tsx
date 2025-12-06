@@ -33,22 +33,22 @@ export function ConfirmationSubstanceSelector({
   }
 
   return (
-    <div className="space-y-3 rounded-md border border-amber-200 bg-white p-4 dark:border-amber-700 dark:bg-amber-950/50">
+    <div className="border-muted bg-card space-y-3 rounded-md border p-4">
       <div className="flex items-center justify-between">
         <Label className="text-sm font-medium">Select Substances for Confirmation</Label>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={selectAll}
-            className="text-xs text-primary hover:underline"
+            className="text-primary text-xs hover:underline"
           >
             Select All
           </button>
-          <span className="text-xs text-muted-foreground">|</span>
+          <span className="text-muted-foreground text-xs">|</span>
           <button
             type="button"
             onClick={selectNone}
-            className="text-xs text-primary hover:underline"
+            className="text-primary text-xs hover:underline"
           >
             Clear
           </button>
@@ -63,17 +63,14 @@ export function ConfirmationSubstanceSelector({
               checked={selectedSubstances.includes(substance)}
               onCheckedChange={() => toggleSubstance(substance)}
             />
-            <Label
-              htmlFor={`confirm-${substance}`}
-              className="cursor-pointer text-sm font-normal"
-            >
+            <Label htmlFor={`confirm-${substance}`} className="cursor-pointer text-sm font-normal">
               {formatSubstance(substance)}
             </Label>
           </div>
         ))}
       </div>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-muted-foreground text-xs">
         Selected: {selectedSubstances.length} of {unexpectedPositives.length} substances
       </p>
     </div>

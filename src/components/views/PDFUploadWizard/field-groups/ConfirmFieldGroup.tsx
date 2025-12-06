@@ -13,12 +13,10 @@ import {
   FileText,
   XCircle,
   AlertTriangle,
-  Bell,
   Loader2,
 } from 'lucide-react'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
-import { format } from 'date-fns'
 import { generateTestFilename } from '../utils/generateFilename'
 import { useComputeTestResultPreviewQuery } from '../queries'
 
@@ -311,6 +309,19 @@ export const ConfirmFieldGroup = withFieldGroup({
                             {preview.initialScreenResult === 'mixed-unexpected' &&
                               'Mixed Unexpected Results (Fail)'}
                           </p>
+                          {preview.initialScreenResult === 'mixed-unexpected' &&
+                            preview.unexpectedPositives.length > 0 && (
+                              <div className="mt-2">
+                                <p className="mb-1 text-xs">Unexpected substances:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {preview.unexpectedPositives.map((substance) => (
+                                    <Badge key={substance} variant="destructive" className="text-xs">
+                                      {substance}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           {preview.unexpectedNegatives.length > 0 && (
                             <div className="mt-2">
                               <p className="mb-1 text-xs">Missing expected:</p>
@@ -370,29 +381,6 @@ export const ConfirmFieldGroup = withFieldGroup({
             </div>
           </CardContent>
         </Card>
-
-        <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
-          <Bell className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          <AlertDescription>
-            <p className="mb-2 text-sm font-medium text-blue-900 dark:text-blue-100">
-              After creation, the system will automatically:
-            </p>
-            <ul className="space-y-1.5 text-sm text-blue-800 dark:text-blue-200">
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-                Compare detected substances with client&apos;s medications
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-                Calculate the test result classification
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-                Send notification emails to appropriate recipients
-              </li>
-            </ul>
-          </AlertDescription>
-        </Alert>
       </div>
     )
   },
