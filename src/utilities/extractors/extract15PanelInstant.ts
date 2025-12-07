@@ -29,14 +29,13 @@ export interface Extracted15PanelData {
  * @returns Extracted data with confidence score
  */
 export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15PanelData> {
-  try {
-    // Parse PDF using pdf-parse (better than pdf2json)
-    const parser = new PDFParse({ data: buffer })
-    const data = await parser.getText()
-    await parser.destroy()
+  // Parse PDF using pdf-parse (better than pdf2json)
+  const parser = new PDFParse({ data: buffer })
 
+  try {
+    const data = await parser.getText()
     const text = data.text
- 
+
     // Initialize result object
     const result: Extracted15PanelData = {
       donorName: null,
@@ -164,7 +163,10 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
 
     return result
   } catch (error) {
-    throw new Error(`Failed to extract 15-panel instant test data: ${error.message}`)
+    throw new Error(`Failed to extract 15-panel instant test data: ${error instanceof Error ? error.message : String(error)}`)
+  } finally {
+    // Always destroy the parser to prevent memory leaks, even if an error occurs
+    await parser.destroy()
   }
 }
 

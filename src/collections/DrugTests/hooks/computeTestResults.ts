@@ -2,6 +2,11 @@ import type { CollectionBeforeChangeHook } from 'payload'
 import { classifyTestResult } from '../helpers/classifyTestResult'
 import { isConfirmationComplete } from '../helpers/confirmationStatus'
 
+// Epsilon threshold for breathalyzer BAC comparisons
+// BAC values are reported to 3 decimal places (e.g., 0.080)
+// Use 0.0001 to avoid floating point precision issues
+const BAC_EPSILON = 0.0001
+
 /**
  * Business Logic Hook: Computes test result classification
  *
@@ -144,7 +149,7 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
     data.initialScreenResult = initialScreenResult
 
     // Breathalyzer override: positive breathalyzer always fails the test
-    if (data.breathalyzerTaken && data.breathalyzerResult && data.breathalyzerResult > 0.000) {
+    if (data.breathalyzerTaken && data.breathalyzerResult && data.breathalyzerResult > BAC_EPSILON) {
       // If currently passing (negative or expected-positive), change to fail
       if (initialScreenResult === 'negative' || initialScreenResult === 'expected-positive') {
         data.initialScreenResult = 'unexpected-positive'
@@ -222,7 +227,7 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
       }
 
       // Breathalyzer override for finalStatus: positive breathalyzer always fails
-      if (data.breathalyzerTaken && data.breathalyzerResult && data.breathalyzerResult > 0.000) {
+      if (data.breathalyzerTaken && data.breathalyzerResult && data.breathalyzerResult > BAC_EPSILON) {
         // If final status would be passing, change to fail
         if (
           data.finalStatus === 'negative' ||

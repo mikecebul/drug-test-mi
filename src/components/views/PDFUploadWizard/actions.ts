@@ -10,7 +10,12 @@ import { classifyTestResult } from '@/collections/DrugTests/helpers/classifyTest
 import { calculateSimilarity } from './utils/calculateSimilarity'
 
 const TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
-const TEST_EMAIL = 'mike@midrugtest.com'
+const TEST_EMAIL = process.env.EMAIL_TEST_ADDRESS || 'mike@midrugtest.com'
+
+// Epsilon threshold for breathalyzer BAC comparisons
+// BAC values are reported to 3 decimal places (e.g., 0.080)
+// Use 0.0001 to avoid floating point precision issues
+const BAC_EPSILON = 0.0001
 
 /**
  * Extract data from uploaded PDF file
@@ -49,10 +54,10 @@ export async function extractPdfData(
     }
 
     return { success: true, data: extracted }
-  } catch (error: any) {
+  } catch (error) {
     return {
       success: false,
-      error: `Failed to extract PDF data: ${error.message}`,
+      error: `Failed to extract PDF data: ${error instanceof Error ? error.message : String(error)}`,
     }
   }
 }
@@ -416,7 +421,7 @@ export async function computeTestResultPreview(
     let finalAutoAccept = classification.autoAccept
 
     // Breathalyzer override: positive breathalyzer always fails the test
-    if (breathalyzerTaken && breathalyzerResult && breathalyzerResult > 0.000) {
+    if (breathalyzerTaken && breathalyzerResult && breathalyzerResult > BAC_EPSILON) {
       // If currently passing (negative or expected-positive), change to fail
       if (finalResult === 'negative' || finalResult === 'expected-positive') {
         finalResult = 'unexpected-positive'
@@ -463,6 +468,21 @@ export async function createDrugTest(data: {
   const payload = await getPayload({ config })
 
   try {
+    // Validate client exists before proceeding
+    const existingClient = await payload.findByID({
+      collection: 'clients',
+      id: data.clientId,
+      depth: 0,
+      overrideAccess: true,
+    })
+
+    if (!existingClient) {
+      return {
+        success: false,
+        error: 'Client not found. They may have been deleted. Please go back and select a different client.',
+      }
+    }
+
     // Convert number array back to Buffer for server-side processing
     const buffer = Buffer.from(data.pdfBuffer)
 
@@ -518,11 +538,11 @@ export async function createDrugTest(data: {
     })
 
     return { success: true, testId: drugTest.id }
-  } catch (error: any) {
+  } catch (error) {
     payload.logger.error('Error creating drug test:', error)
     return {
       success: false,
-      error: `Failed to create drug test: ${error.message}`,
+      error: `Failed to create drug test: ${error instanceof Error ? error.message : String(error)}`,
     }
   }
 }
@@ -608,11 +628,11 @@ export async function getEmailPreview(data: {
         referralSubject: emailData.referrals.subject,
       },
     }
-  } catch (error: any) {
+  } catch (error) {
     payload.logger.error('Error generating email preview:', error)
     return {
       success: false,
-      error: `Failed to generate email preview: ${error.message}`,
+      error: `Failed to generate email preview: ${error instanceof Error ? error.message : String(error)}`,
     }
   }
 }
@@ -678,11 +698,11 @@ export async function getCollectionEmailPreview(data: {
         referralSubject: emailData.subject,
       },
     }
-  } catch (error: any) {
+  } catch (error) {
     payload.logger.error('Error generating collection email preview:', error)
     return {
       success: false,
-      error: `Failed to generate email preview: ${error.message}`,
+      error: `Failed to generate email preview: ${error instanceof Error ? error.message : String(error)}`,
     }
   }
 }
@@ -830,11 +850,11 @@ export async function getConfirmationEmailPreview(data: {
         referralSubject: emailData.referrals.subject,
       },
     }
-  } catch (error: any) {
+  } catch (error) {
     payload.logger.error('Error generating confirmation email preview:', error)
     return {
       success: false,
-      error: `Failed to generate confirmation email preview: ${error.message}`,
+      error: `Failed to generate confirmation email preview: ${error instanceof Error ? error.message : String(error)}`,
     }
   }
 }
@@ -876,6 +896,21 @@ export async function createDrugTestWithEmailReview(
   const payload = await getPayload({ config })
 
   try {
+    // Validate client exists before proceeding
+    const existingClient = await payload.findByID({
+      collection: 'clients',
+      id: testData.clientId,
+      depth: 0,
+      overrideAccess: true,
+    })
+
+    if (!existingClient) {
+      return {
+        success: false,
+        error: 'Client not found. They may have been deleted. Please go back and select a different client.',
+      }
+    }
+
     // Import email functions
     const { buildScreenedEmail } = await import('@/collections/DrugTests/email/templates')
     const { createAdminAlert } = await import('@/lib/admin-alerts')
@@ -995,36 +1030,53 @@ export async function createDrugTestWithEmailReview(
     let fileBuffer: Buffer
     const isS3Enabled = Boolean(process.env.NEXT_PUBLIC_S3_HOSTNAME)
 
-    if (isS3Enabled) {
-      // Production: Fetch from S3
-      const { S3Client, GetObjectCommand } = await import('@aws-sdk/client-s3')
-      const s3Client = new S3Client({
-        credentials: {
-          accessKeyId: process.env.S3_ACCESS_KEY_ID!,
-          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
-        },
-        endpoint: process.env.S3_ENDPOINT,
-        forcePathStyle: true,
-        region: process.env.S3_REGION,
-      })
+    try {
+      if (isS3Enabled) {
+        // Production: Fetch from S3
+        const { S3Client, GetObjectCommand } = await import('@aws-sdk/client-s3')
+        const s3Client = new S3Client({
+          credentials: {
+            accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+            secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+          },
+          endpoint: process.env.S3_ENDPOINT,
+          forcePathStyle: true,
+          region: process.env.S3_REGION,
+        })
 
-      const command = new GetObjectCommand({
-        Bucket: process.env.S3_BUCKET!,
-        Key: `private/${testDocument.filename}`,
-      })
+        const command = new GetObjectCommand({
+          Bucket: process.env.S3_BUCKET!,
+          Key: `private/${testDocument.filename}`,
+        })
 
-      const response = await s3Client.send(command)
-      const chunks: Uint8Array[] = []
-      for await (const chunk of response.Body as any) {
-        chunks.push(chunk)
+        payload.logger.info(`Fetching PDF from S3: ${testDocument.filename}`)
+        const response = await s3Client.send(command)
+
+        const chunks: Uint8Array[] = []
+        for await (const chunk of response.Body as any) {
+          chunks.push(chunk)
+        }
+        fileBuffer = Buffer.concat(chunks)
+      } else {
+        // Development: Read from local disk
+        const { promises: fsPromises } = await import('fs')
+        const path = await import('path')
+        const localPath = path.join(process.cwd(), 'private-media', testDocument.filename!)
+        payload.logger.info(`Reading PDF from local storage: ${localPath}`)
+        fileBuffer = await fsPromises.readFile(localPath)
       }
-      fileBuffer = Buffer.concat(chunks)
-    } else {
-      // Development: Read from local disk
-      const { promises: fsPromises } = await import('fs')
-      const path = await import('path')
-      const localPath = path.join(process.cwd(), 'private-media', testDocument.filename!)
-      fileBuffer = await fsPromises.readFile(localPath)
+    } catch (error) {
+      payload.logger.error(
+        `Failed to retrieve PDF for email attachment (filename: ${testDocument.filename}, isS3: ${isS3Enabled})`,
+        error
+      )
+
+      // The drug test WAS created successfully, just can't send email with attachment
+      return {
+        success: false,
+        testId: drugTest.id,
+        error: `Drug test created but email cannot be sent - PDF file not found in storage (${isS3Enabled ? 'S3' : 'local disk'}). Please check the file exists and retry sending emails manually.`,
+      }
     }
 
     // 8. Send emails
@@ -1144,12 +1196,29 @@ export async function createDrugTestWithEmailReview(
       overrideAccess: true,
     })
 
+    // Check for email failures and return appropriate status
+    if (failedTo.length > 0 && sentTo.length === 0) {
+      // All emails failed
+      return {
+        success: false,
+        testId: drugTest.id,
+        error: `Drug test created but all emails failed to send: ${failedTo.join(', ')}. Please send manually or retry.`,
+      }
+    } else if (failedTo.length > 0) {
+      // Some emails failed - return partial success
+      return {
+        success: false,
+        testId: drugTest.id,
+        error: `Drug test created and ${sentTo.length} email(s) sent, but ${failedTo.length} failed: ${failedTo.join(', ')}. Please check and resend failed emails.`,
+      }
+    }
+
     return { success: true, testId: drugTest.id }
-  } catch (error: any) {
+  } catch (error) {
     payload.logger.error('Error creating drug test with email review:', error)
     return {
       success: false,
-      error: `Failed to create drug test: ${error.message}`,
+      error: `Failed to create drug test: ${error instanceof Error ? error.message : String(error)}`,
     }
   }
 }
@@ -1185,11 +1254,11 @@ export async function createCollectionOnlyTest(data: {
     })
 
     return { success: true, testId: drugTest.id }
-  } catch (error: any) {
+  } catch (error) {
     payload.logger.error('Error creating collection-only test:', error)
     return {
       success: false,
-      error: `Failed to create collection record: ${error.message}`,
+      error: `Failed to create collection record: ${error instanceof Error ? error.message : String(error)}`,
     }
   }
 }
@@ -1217,6 +1286,21 @@ export async function createCollectionWithEmailReview(
   const payload = await getPayload({ config })
 
   try {
+    // Validate client exists before proceeding
+    const existingClient = await payload.findByID({
+      collection: 'clients',
+      id: testData.clientId,
+      depth: 0,
+      overrideAccess: true,
+    })
+
+    if (!existingClient) {
+      return {
+        success: false,
+        error: 'Client not found. They may have been deleted. Please go back and select a different client.',
+      }
+    }
+
     // Import email functions
     const { buildCollectedEmail } = await import('@/collections/DrugTests/email/templates')
     const { createAdminAlert } = await import('@/lib/admin-alerts')
@@ -1322,12 +1406,29 @@ export async function createCollectionWithEmailReview(
       overrideAccess: true,
     })
 
+    // Check for email failures and return appropriate status
+    if (failedTo.length > 0 && sentTo.length === 0) {
+      // All emails failed
+      return {
+        success: false,
+        testId: drugTest.id,
+        error: `Collection recorded but all emails failed to send: ${failedTo.join(', ')}. Please send manually or retry.`,
+      }
+    } else if (failedTo.length > 0) {
+      // Some emails failed - return partial success
+      return {
+        success: false,
+        testId: drugTest.id,
+        error: `Collection recorded and ${sentTo.length} email(s) sent, but ${failedTo.length} failed: ${failedTo.join(', ')}. Please check and resend failed emails.`,
+      }
+    }
+
     return { success: true, testId: drugTest.id }
-  } catch (error: any) {
+  } catch (error) {
     payload.logger.error('Error creating collection with email review:', error)
     return {
       success: false,
-      error: `Failed to create collection: ${error.message}`,
+      error: `Failed to create collection: ${error instanceof Error ? error.message : String(error)}`,
     }
   }
 }
@@ -1430,11 +1531,11 @@ export async function updateTestWithScreening(data: {
     })
 
     return { success: true }
-  } catch (error: any) {
+  } catch (error) {
     payload.logger.error('Error updating test with screening:', error)
     return {
       success: false,
-      error: `Failed to update test: ${error.message}`,
+      error: `Failed to update test: ${error instanceof Error ? error.message : String(error)}`,
     }
   }
 }
@@ -1513,11 +1614,11 @@ export async function updateTestWithConfirmation(data: {
     })
 
     return { success: true }
-  } catch (error: any) {
+  } catch (error) {
     payload.logger.error('Error updating test with confirmation:', error)
     return {
       success: false,
-      error: `Failed to update confirmation: ${error.message}`,
+      error: `Failed to update confirmation: ${error instanceof Error ? error.message : String(error)}`,
     }
   }
 }
@@ -1572,11 +1673,11 @@ export async function getClientFromTest(testId: string): Promise<{
         phone: client.phone,
       },
     }
-  } catch (error: any) {
+  } catch (error) {
     payload.logger.error('Error fetching client from drug test:', error)
     return {
       success: false,
-      error: `Failed to fetch client: ${error.message}`,
+      error: `Failed to fetch client: ${error instanceof Error ? error.message : String(error)}`,
     }
   }
 }

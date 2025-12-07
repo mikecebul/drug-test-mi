@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardContent } from '@/components/ui/card'
@@ -82,6 +82,9 @@ export const VerifyDataFieldGroup = withFieldGroup({
   },
 
   render: function Render({ group, title, description = '' }) {
+    // Track initial mount to skip first effect run
+    const isInitialMount = useRef(true)
+
     // Get form values
     const formValues = useStore(group.form.store, (state) => state.values)
     const extractData = (formValues as any).extractData
@@ -165,7 +168,13 @@ export const VerifyDataFieldGroup = withFieldGroup({
     }, [confirmationDecisionValue, preview?.unexpectedPositives])
 
     // Reset confirmation decision when detected substances change significantly
+    // Skip this effect on initial mount to prevent race condition
     useEffect(() => {
+      if (isInitialMount.current) {
+        isInitialMount.current = false
+        return
+      }
+
       if (confirmationDecisionValue) {
         group.setFieldValue('confirmationDecision', null)
         group.setFieldValue('confirmationSubstances', [])

@@ -42,12 +42,11 @@ export interface ExtractedLabData {
  * @returns Extracted data with confidence score
  */
 export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> {
-  try {
-    // Parse PDF using pdf-parse (better than pdf2json)
-    const parser = new PDFParse({ data: buffer })
-    const data = await parser.getText()
-    await parser.destroy()
+  // Parse PDF using pdf-parse (better than pdf2json)
+  const parser = new PDFParse({ data: buffer })
 
+  try {
+    const data = await parser.getText()
     const text = data.text
 
     // Detect test type from "Tests Ordered" section
@@ -280,8 +279,11 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
     }
 
     return result
-  } catch (error: any) {
-    throw new Error(`Failed to extract lab test data: ${error.message}`)
+  } catch (error) {
+    throw new Error(`Failed to extract lab test data: ${error instanceof Error ? error.message : String(error)}`)
+  } finally {
+    // Always destroy the parser to prevent memory leaks, even if an error occurs
+    await parser.destroy()
   }
 }
 
