@@ -4,6 +4,8 @@ export type CollectedEmailData = {
   clientName: string
   collectionDate: string
   testType: string
+  breathalyzerTaken: boolean
+  breathalyzerResult: number | null
 }
 
 export type InconclusiveEmailData = CollectedEmailData & {

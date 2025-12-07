@@ -148,6 +148,7 @@ export interface Config {
   db: {
     defaultIDType: string;
   };
+  fallbackLocale: null;
   globals: {
     header: Header;
     footer: Footer;
@@ -1249,6 +1250,14 @@ export interface DrugTest {
    * Mark if the test sample was dilute
    */
   isDilute?: boolean | null;
+  /**
+   * Check if a breathalyzer test was administered
+   */
+  breathalyzerTaken?: boolean | null;
+  /**
+   * BAC result with 3 decimal places (e.g., 0.000). Any value > 0.000 is considered positive.
+   */
+  breathalyzerResult?: number | null;
   /**
    * RAW TEST RESULTS: Which substances tested positive? Leave empty if all negative.
    */
@@ -2688,6 +2697,8 @@ export interface DrugTestsSelect<T extends boolean = true> {
   processNotes?: T;
   testDocument?: T;
   isDilute?: T;
+  breathalyzerTaken?: T;
+  breathalyzerResult?: T;
   detectedSubstances?: T;
   expectedPositives?: T;
   unexpectedPositives?: T;

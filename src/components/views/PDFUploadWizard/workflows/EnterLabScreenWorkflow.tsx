@@ -117,6 +117,8 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
         collectionDate: '',
         detectedSubstances: [],
         isDilute: false,
+        breathalyzerTaken: false,
+        breathalyzerResult: null,
         clientData: null,
         confirmationDecision: null,
         confirmationSubstances: [],

@@ -74,14 +74,16 @@ export function useGetClientMedicationsQuery(clientId: string | null | undefined
 export function useComputeTestResultPreviewQuery(
   clientId: string | null | undefined,
   detectedSubstances: SubstanceValue[],
+  breathalyzerTaken?: boolean,
+  breathalyzerResult?: number | null,
 ) {
   return useQuery({
-    queryKey: ['test-result-preview', clientId, detectedSubstances],
+    queryKey: ['test-result-preview', clientId, detectedSubstances, breathalyzerTaken, breathalyzerResult],
     queryFn: async () => {
       if (!clientId) {
         return null
       }
-      return computeTestResultPreview(clientId, detectedSubstances)
+      return computeTestResultPreview(clientId, detectedSubstances, breathalyzerTaken, breathalyzerResult)
     },
     enabled: Boolean(clientId),
     staleTime: 1 * 60 * 1000, // 1 minute
@@ -113,11 +115,13 @@ export function useGetCollectionEmailPreviewQuery(data: {
   testType: '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | null | undefined
   collectionDate: string | null | undefined
   collectionTime: string | null | undefined
+  breathalyzerTaken?: boolean
+  breathalyzerResult?: number | null
 }) {
-  const { clientId, testType, collectionDate, collectionTime } = data
+  const { clientId, testType, collectionDate, collectionTime, breathalyzerTaken, breathalyzerResult } = data
 
   return useQuery({
-    queryKey: ['collection-email-preview', clientId, testType, collectionDate, collectionTime],
+    queryKey: ['collection-email-preview', clientId, testType, collectionDate, collectionTime, breathalyzerTaken, breathalyzerResult],
     queryFn: async () => {
       if (!clientId || !testType || !collectionDate || !collectionTime) {
         return null
@@ -127,6 +131,8 @@ export function useGetCollectionEmailPreviewQuery(data: {
         testType,
         collectionDate,
         collectionTime,
+        breathalyzerTaken,
+        breathalyzerResult,
       })
     },
     enabled: Boolean(clientId && testType && collectionDate && collectionTime),
@@ -188,12 +194,14 @@ export function useGetEmailPreviewQuery(data: {
   testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | null | undefined
   collectionDate: string | null | undefined
   isDilute: boolean
+  breathalyzerTaken?: boolean
+  breathalyzerResult?: number | null
   confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
 }) {
-  const { clientId, detectedSubstances, testType, collectionDate, isDilute, confirmationDecision } = data
+  const { clientId, detectedSubstances, testType, collectionDate, isDilute, breathalyzerTaken, breathalyzerResult, confirmationDecision } = data
 
   return useQuery({
-    queryKey: ['email-preview', clientId, detectedSubstances, testType, collectionDate, isDilute, confirmationDecision],
+    queryKey: ['email-preview', clientId, detectedSubstances, testType, collectionDate, isDilute, breathalyzerTaken, breathalyzerResult, confirmationDecision],
     queryFn: async () => {
       if (!clientId || !testType || !collectionDate) {
         return null
@@ -204,6 +212,8 @@ export function useGetEmailPreviewQuery(data: {
         testType,
         collectionDate,
         isDilute,
+        breathalyzerTaken,
+        breathalyzerResult,
         confirmationDecision,
       })
     },

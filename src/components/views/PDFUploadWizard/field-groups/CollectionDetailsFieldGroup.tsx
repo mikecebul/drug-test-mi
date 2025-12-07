@@ -7,13 +7,29 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { z } from 'zod'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Checkbox } from '@/components/ui/checkbox'
+import { useStore } from '@tanstack/react-form'
 
 // Export the schema for reuse in step validation
 export const collectionDetailsFieldSchema = z.object({
   testType: z.enum(['11-panel-lab', '17-panel-sos-lab', 'etg-lab']),
   collectionDate: z.string().min(1, 'Collection date is required'),
   collectionTime: z.string().min(1, 'Collection time is required'),
-})
+  breathalyzerTaken: z.boolean().default(false),
+  breathalyzerResult: z.number().nullable().optional(),
+}).refine(
+  (data) => {
+    // If breathalyzer is checked, result must be provided
+    if (data.breathalyzerTaken && (data.breathalyzerResult === null || data.breathalyzerResult === undefined)) {
+      return false
+    }
+    return true
+  },
+  {
+    message: 'Breathalyzer result is required when breathalyzer is taken',
+    path: ['breathalyzerResult'],
+  }
+)
 
 export type CollectionDetailsData = z.infer<typeof collectionDetailsFieldSchema>
 
@@ -21,6 +37,8 @@ const defaultValues: CollectionDetailsData = {
   testType: '11-panel-lab',
   collectionDate: new Date().toISOString().split('T')[0],
   collectionTime: new Date().toTimeString().slice(0, 5),
+  breathalyzerTaken: false,
+  breathalyzerResult: null,
 }
 
 export const CollectionDetailsFieldGroup = withFieldGroup({
@@ -32,6 +50,9 @@ export const CollectionDetailsFieldGroup = withFieldGroup({
   },
 
   render: function Render({ group, title, description = '' }) {
+    // Access breathalyzerTaken value for conditional rendering
+    const breathalyzerTaken = useStore(group.store, (state) => state.values.breathalyzerTaken)
+
     return (
       <div className="space-y-6">
         <div>
@@ -115,6 +136,55 @@ export const CollectionDetailsFieldGroup = withFieldGroup({
                   </div>
                 )}
               </group.Field>
+
+              {/* Breathalyzer Section */}
+              <div className="space-y-4 rounded-lg border p-4 bg-muted/50">
+                <h3 className="text-sm font-medium">Breathalyzer Test (Optional)</h3>
+
+                <group.Field name="breathalyzerTaken">
+                  {(field) => (
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="breathalyzerTaken"
+                        checked={field.state.value}
+                        onCheckedChange={(checked) => field.handleChange(checked as boolean)}
+                      />
+                      <Label htmlFor="breathalyzerTaken" className="font-normal cursor-pointer">
+                        Breathalyzer test was administered
+                      </Label>
+                    </div>
+                  )}
+                </group.Field>
+
+                {breathalyzerTaken && (
+                  <group.Field name="breathalyzerResult">
+                    {(field) => (
+                      <div className="space-y-2">
+                        <Label htmlFor="breathalyzerResult">
+                          BAC Result <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          type="number"
+                          step="0.001"
+                          min="0"
+                          max="1"
+                          id="breathalyzerResult"
+                          value={field.state.value ?? ''}
+                          onChange={(e) => field.handleChange(e.target.value ? parseFloat(e.target.value) : null)}
+                          onBlur={field.handleBlur}
+                          placeholder="0.000"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Enter result with 3 decimal places. Threshold: 0.000 (any detectable alcohol = positive)
+                        </p>
+                        {field.state.meta.errors.length > 0 && (
+                          <p className="text-destructive text-sm">{field.state.meta.errors[0]}</p>
+                        )}
+                      </div>
+                    )}
+                  </group.Field>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

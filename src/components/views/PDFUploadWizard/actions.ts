@@ -9,6 +9,9 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
 import { classifyTestResult } from '@/collections/DrugTests/helpers/classifyTestResult'
 import { calculateSimilarity } from './utils/calculateSimilarity'
 
+const TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
+const TEST_EMAIL = 'mike@midrugtest.com'
+
 /**
  * Extract data from uploaded PDF file
  */
@@ -322,6 +325,8 @@ export async function getClientMedications(clientId: string): Promise<
 export async function computeTestResultPreview(
   clientId: string,
   detectedSubstances: SubstanceValue[],
+  breathalyzerTaken?: boolean,
+  breathalyzerResult?: number | null,
 ): Promise<{
   initialScreenResult:
     | 'negative'
@@ -407,12 +412,25 @@ export async function computeTestResultPreview(
       criticalNegativesCount: criticalNegatives.length,
     })
 
+    let finalResult = classification.initialScreenResult
+    let finalAutoAccept = classification.autoAccept
+
+    // Breathalyzer override: positive breathalyzer always fails the test
+    if (breathalyzerTaken && breathalyzerResult && breathalyzerResult > 0.000) {
+      // If currently passing (negative or expected-positive), change to fail
+      if (finalResult === 'negative' || finalResult === 'expected-positive') {
+        finalResult = 'unexpected-positive'
+        finalAutoAccept = false // Don't auto-accept if breathalyzer is positive
+      }
+      // If already failing, keep the existing fail status
+    }
+
     return {
-      initialScreenResult: classification.initialScreenResult,
+      initialScreenResult: finalResult,
       expectedPositives,
       unexpectedPositives,
       unexpectedNegatives: [...unexpectedNegatives, ...criticalNegatives],
-      autoAccept: classification.autoAccept,
+      autoAccept: finalAutoAccept,
     }
   } catch (error) {
     payload.logger.error('Error computing test result preview:', error)
@@ -518,6 +536,8 @@ export async function getEmailPreview(data: {
   testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
   collectionDate: string
   isDilute: boolean
+  breathalyzerTaken?: boolean
+  breathalyzerResult?: number | null
   confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
 }): Promise<{
   success: boolean
@@ -568,6 +588,8 @@ export async function getEmailPreview(data: {
       unexpectedPositives: previewResult.unexpectedPositives,
       unexpectedNegatives: previewResult.unexpectedNegatives,
       isDilute: data.isDilute,
+      breathalyzerTaken: data.breathalyzerTaken ?? false,
+      breathalyzerResult: data.breathalyzerResult ?? null,
       confirmationDecision: data.confirmationDecision,
     })
 
@@ -603,6 +625,8 @@ export async function getCollectionEmailPreview(data: {
   testType: '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
   collectionDate: string
   collectionTime: string
+  breathalyzerTaken?: boolean
+  breathalyzerResult?: number | null
 }): Promise<{
   success: boolean
   data?: {
@@ -642,6 +666,8 @@ export async function getCollectionEmailPreview(data: {
       clientName,
       collectionDate,
       testType: data.testType,
+      breathalyzerTaken: data.breathalyzerTaken ?? false,
+      breathalyzerResult: data.breathalyzerResult ?? null,
     })
 
     return {
@@ -785,6 +811,8 @@ export async function getConfirmationEmailPreview(data: {
       })),
       finalStatus,
       isDilute: drugTest.isDilute || false,
+      breathalyzerTaken: drugTest.breathalyzerTaken || false,
+      breathalyzerResult: drugTest.breathalyzerResult ?? null,
     })
 
     // Determine smart grouping based on client type
@@ -821,6 +849,8 @@ export async function createDrugTestWithEmailReview(
     collectionDate: string
     detectedSubstances: SubstanceValue[]
     isDilute: boolean
+    breathalyzerTaken: boolean
+    breathalyzerResult: number | null
     pdfBuffer: number[]
     pdfFilename: string
     hasConfirmation?: boolean
@@ -876,6 +906,8 @@ export async function createDrugTestWithEmailReview(
       collectionDate: testData.collectionDate,
       detectedSubstances: testData.detectedSubstances,
       isDilute: testData.isDilute,
+      breathalyzerTaken: testData.breathalyzerTaken,
+      breathalyzerResult: testData.breathalyzerResult,
       testDocument: uploadedFile.id,
       screeningStatus: 'screened',
       processNotes: testData.hasConfirmation
@@ -947,6 +979,8 @@ export async function createDrugTestWithEmailReview(
       unexpectedPositives: previewResult.unexpectedPositives,
       unexpectedNegatives: previewResult.unexpectedNegatives,
       isDilute: testData.isDilute,
+      breathalyzerTaken: testData.breathalyzerTaken,
+      breathalyzerResult: testData.breathalyzerResult,
       confirmationDecision: testData.confirmationDecision,
     })
 
@@ -999,12 +1033,13 @@ export async function createDrugTestWithEmailReview(
 
     // Send client email if enabled
     if (emailConfig.clientEmailEnabled && emailConfig.clientRecipients.length > 0) {
-      for (const email of emailConfig.clientRecipients) {
+      const clientRecipients = TEST_MODE ? [TEST_EMAIL] : emailConfig.clientRecipients
+      for (const email of clientRecipients) {
         try {
           await payload.sendEmail({
             to: email,
             from: payload.email.defaultFromAddress,
-            subject: emailData.client.subject,
+            subject: TEST_MODE ? `[TEST MODE] ${emailData.client.subject}` : emailData.client.subject,
             html: emailData.client.html,
             attachments: [
               {
@@ -1014,7 +1049,7 @@ export async function createDrugTestWithEmailReview(
               },
             ],
           })
-          sentTo.push(`Client: ${email}`)
+          sentTo.push(`Client: ${email}${TEST_MODE ? ' (TEST MODE)' : ''}`)
         } catch (error) {
           payload.logger.error(`Failed to send client email to ${email}:`, error)
           failedTo.push(`Client: ${email}`)
@@ -1041,12 +1076,13 @@ export async function createDrugTestWithEmailReview(
 
     // Send referral emails if enabled
     if (emailConfig.referralEmailEnabled && emailConfig.referralRecipients.length > 0) {
-      for (const email of emailConfig.referralRecipients) {
+      const referralRecipients = TEST_MODE ? [TEST_EMAIL] : emailConfig.referralRecipients
+      for (const email of referralRecipients) {
         try {
           await payload.sendEmail({
             to: email,
             from: payload.email.defaultFromAddress,
-            subject: emailData.referrals.subject,
+            subject: TEST_MODE ? `[TEST MODE] ${emailData.referrals.subject}` : emailData.referrals.subject,
             html: emailData.referrals.html,
             attachments: [
               {
@@ -1056,7 +1092,7 @@ export async function createDrugTestWithEmailReview(
               },
             ],
           })
-          sentTo.push(`Referral: ${email}`)
+          sentTo.push(`Referral: ${email}${TEST_MODE ? ' (TEST MODE)' : ''}`)
         } catch (error) {
           payload.logger.error(`Failed to send referral email to ${email}:`, error)
           failedTo.push(`Referral: ${email}`)
@@ -1166,6 +1202,8 @@ export async function createCollectionWithEmailReview(
     clientId: string
     testType: '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
     collectionDate: string
+    breathalyzerTaken: boolean
+    breathalyzerResult: number | null
   },
   emailConfig: {
     referralEmailEnabled: boolean
@@ -1193,6 +1231,8 @@ export async function createCollectionWithEmailReview(
         screeningStatus: 'collected',
         detectedSubstances: [],
         isDilute: false,
+        breathalyzerTaken: testData.breathalyzerTaken,
+        breathalyzerResult: testData.breathalyzerResult,
         processNotes: 'Specimen collected - awaiting lab results (email review)',
       },
       context: {
@@ -1214,6 +1254,8 @@ export async function createCollectionWithEmailReview(
       clientName,
       collectionDate: testData.collectionDate,
       testType: testData.testType,
+      breathalyzerTaken: testData.breathalyzerTaken,
+      breathalyzerResult: testData.breathalyzerResult,
     })
 
     // 4. Send emails if enabled
@@ -1222,15 +1264,16 @@ export async function createCollectionWithEmailReview(
 
     // Send referral emails if enabled
     if (emailConfig.referralEmailEnabled && emailConfig.referralRecipients.length > 0) {
-      for (const email of emailConfig.referralRecipients) {
+      const referralRecipients = TEST_MODE ? [TEST_EMAIL] : emailConfig.referralRecipients
+      for (const email of referralRecipients) {
         try {
           await payload.sendEmail({
             to: email,
             from: payload.email.defaultFromAddress,
-            subject: emailData.subject,
+            subject: TEST_MODE ? `[TEST MODE] ${emailData.subject}` : emailData.subject,
             html: emailData.html,
           })
-          sentTo.push(`Referral: ${email}`)
+          sentTo.push(`Referral: ${email}${TEST_MODE ? ' (TEST MODE)' : ''}`)
         } catch (error) {
           payload.logger.error(`Failed to send referral email to ${email}:`, error)
           failedTo.push(`Referral: ${email}`)

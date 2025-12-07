@@ -76,6 +76,8 @@ export const ReviewCollectionEmailsFieldGroup = withFieldGroup({
       testType: collectionDetails?.testType,
       collectionDate: collectionDetails?.collectionDate,
       collectionTime: collectionDetails?.collectionTime,
+      breathalyzerTaken: collectionDetails?.breathalyzerTaken,
+      breathalyzerResult: collectionDetails?.breathalyzerResult,
     })
 
     const previewData = emailPreviewQuery.data?.data ?? null

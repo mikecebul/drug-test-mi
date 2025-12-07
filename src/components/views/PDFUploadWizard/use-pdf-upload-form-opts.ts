@@ -39,6 +39,8 @@ const defaultValues: PdfUploadFormType = {
     collectionDate: '',
     detectedSubstances: [],
     isDilute: false,
+    breathalyzerTaken: false,
+    breathalyzerResult: null,
     clientData: null,
     confirmationDecision: null,
     confirmationSubstances: [],
@@ -104,6 +106,8 @@ export const usePdfUploadFormOpts = ({
             collectionDate: new Date(value.verifyData.collectionDate).toISOString(),
             detectedSubstances: value.verifyData.detectedSubstances as SubstanceValue[],
             isDilute: value.verifyData.isDilute,
+            breathalyzerTaken: value.verifyData.breathalyzerTaken ?? false,
+            breathalyzerResult: value.verifyData.breathalyzerResult ?? null,
             pdfBuffer: Array.from(new Uint8Array(arrayBuffer)),
             pdfFilename: pdfFilename || value.uploadData.file.name, // Fallback to original filename if generation fails
             hasConfirmation: value.extractData.hasConfirmation,

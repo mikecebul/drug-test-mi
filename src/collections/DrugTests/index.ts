@@ -342,6 +342,28 @@ export const DrugTests: CollectionConfig = {
               },
             },
             {
+              name: 'breathalyzerTaken',
+              type: 'checkbox',
+              admin: {
+                description: 'Check if a breathalyzer test was administered',
+              },
+              defaultValue: false,
+            },
+            {
+              name: 'breathalyzerResult',
+              type: 'number',
+              admin: {
+                description: 'BAC result with 3 decimal places (e.g., 0.000). Any value > 0.000 is considered positive.',
+                condition: (data) => data.breathalyzerTaken === true,
+              },
+              validate: (value, { siblingData }) => {
+                if (siblingData.breathalyzerTaken && (value === null || value === undefined)) {
+                  return 'Breathalyzer result is required when breathalyzer is taken'
+                }
+                return true
+              },
+            },
+            {
               type: 'row',
               fields: [
                 {

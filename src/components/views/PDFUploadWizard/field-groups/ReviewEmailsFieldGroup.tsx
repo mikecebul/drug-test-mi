@@ -95,6 +95,8 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
       testType: verifyData?.testType,
       collectionDate: verifyData?.collectionDate,
       isDilute: verifyData?.isDilute ?? false,
+      breathalyzerTaken: verifyData?.breathalyzerTaken ?? false,
+      breathalyzerResult: verifyData?.breathalyzerResult ?? null,
       confirmationDecision: verifyData?.confirmationDecision,
     })
 

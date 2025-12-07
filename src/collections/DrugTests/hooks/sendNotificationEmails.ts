@@ -210,6 +210,8 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
         clientName,
         collectionDate: doc.collectionDate!,
         testType: doc.testType,
+        breathalyzerTaken: doc.breathalyzerTaken || false,
+        breathalyzerResult: doc.breathalyzerResult ?? null,
       })
       referralEmailData = emailData
     } else if (emailStage === 'inconclusive') {
@@ -222,6 +224,8 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
         collectionDate: doc.collectionDate!,
         testType: doc.testType,
         reason: doc.processNotes || undefined,
+        breathalyzerTaken: doc.breathalyzerTaken || false,
+        breathalyzerResult: doc.breathalyzerResult ?? null,
       })
       clientEmailData = emails.client
       referralEmailData = emails.referrals
@@ -238,6 +242,8 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
         unexpectedNegatives: (doc.unexpectedNegatives as string[]) || [],
         isDilute: doc.isDilute || false,
         confirmationDecision: doc.confirmationDecision as 'accept' | 'request-confirmation' | 'pending-decision' | null | undefined,
+        breathalyzerTaken: doc.breathalyzerTaken || false,
+        breathalyzerResult: doc.breathalyzerResult ?? null,
       })
       clientEmailData = emails.client
       referralEmailData = emails.referrals
@@ -254,6 +260,8 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
         isDilute: doc.isDilute || false,
         confirmationResults: doc.confirmationResults as any,
         finalStatus: doc.finalStatus || doc.initialScreenResult!, // Use finalStatus if available
+        breathalyzerTaken: doc.breathalyzerTaken || false,
+        breathalyzerResult: doc.breathalyzerResult ?? null,
       })
       clientEmailData = emails.client
       referralEmailData = emails.referrals

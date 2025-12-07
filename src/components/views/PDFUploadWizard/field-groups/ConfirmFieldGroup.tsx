@@ -57,7 +57,12 @@ export const ConfirmFieldGroup = withFieldGroup({
       }) || originalFilename
 
     // Fetch test result preview using TanStack Query
-    const previewQuery = useComputeTestResultPreviewQuery(client?.id, verifyData?.detectedSubstances ?? [])
+    const previewQuery = useComputeTestResultPreviewQuery(
+      client?.id,
+      verifyData?.detectedSubstances ?? [],
+      verifyData?.breathalyzerTaken ?? false,
+      verifyData?.breathalyzerResult ?? null,
+    )
     const preview = previewQuery.data ?? null
     const loadingPreview = previewQuery.isLoading
 
@@ -340,6 +345,43 @@ export const ConfirmFieldGroup = withFieldGroup({
                   </div>
                 </div>
               )
+            )}
+
+            {verifyData?.breathalyzerTaken && verifyData?.breathalyzerResult !== null && (
+              <div className="space-y-2 border-t pt-2">
+                <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+                  Breathalyzer Test
+                </div>
+                <div className="pl-6">
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={verifyData.breathalyzerResult > 0.000 ? 'destructive' : 'default'}
+                      className={verifyData.breathalyzerResult > 0.000 ? 'gap-1' : 'gap-1 bg-green-600'}
+                    >
+                      {verifyData.breathalyzerResult > 0.000 ? (
+                        <>
+                          <XCircle className="h-3 w-3" />
+                          POSITIVE (FAIL)
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="h-3 w-3" />
+                          NEGATIVE (PASS)
+                        </>
+                      )}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-sm">
+                    <span className="text-muted-foreground">BAC Level:</span>{' '}
+                    <span className="font-mono font-semibold">{verifyData.breathalyzerResult.toFixed(3)}</span>
+                  </p>
+                  {verifyData.breathalyzerResult > 0.000 && (
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      Any detectable alcohol level constitutes a positive result.
+                    </p>
+                  )}
+                </div>
+              </div>
             )}
 
             <div className="space-y-1 border-t pt-2">

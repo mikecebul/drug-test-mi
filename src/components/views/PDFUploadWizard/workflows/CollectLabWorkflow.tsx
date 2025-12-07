@@ -81,6 +81,8 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
         testType: '11-panel-lab' as const,
         collectionDate: new Date().toISOString().split('T')[0],
         collectionTime: new Date().toTimeString().slice(0, 5),
+        breathalyzerTaken: false,
+        breathalyzerResult: null,
       },
       confirmData: {
         confirmed: false,
@@ -105,6 +107,8 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
             clientId: value.clientData.id,
             testType: value.collectionDetails.testType,
             collectionDate,
+            breathalyzerTaken: value.collectionDetails.breathalyzerTaken ?? false,
+            breathalyzerResult: value.collectionDetails.breathalyzerResult ?? null,
           },
           {
             referralEmailEnabled: value.reviewEmailsData.referralEmailEnabled,

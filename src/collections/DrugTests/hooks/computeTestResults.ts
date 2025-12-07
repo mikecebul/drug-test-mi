@@ -143,7 +143,19 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
     data.unexpectedNegatives = [...unexpectedNegatives, ...criticalNegatives] // Combined for storage
     data.initialScreenResult = initialScreenResult
 
+    // Breathalyzer override: positive breathalyzer always fails the test
+    if (data.breathalyzerTaken && data.breathalyzerResult && data.breathalyzerResult > 0.000) {
+      // If currently passing (negative or expected-positive), change to fail
+      if (initialScreenResult === 'negative' || initialScreenResult === 'expected-positive') {
+        data.initialScreenResult = 'unexpected-positive'
+        // Don't auto-accept if breathalyzer is positive
+        data.confirmationDecision = null
+      }
+      // If already failing, keep the existing fail status
+    }
+
     // Auto-accept for negative and expected-positive results (if not already set)
+    // Note: This will not trigger if breathalyzer overrode the result above
     if (autoAccept && !data.confirmationDecision) {
       data.confirmationDecision = 'accept'
     }
@@ -207,6 +219,19 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
           // All negative, confirmations ruled out false positives = PASS
           data.finalStatus = 'confirmed-negative'
         }
+      }
+
+      // Breathalyzer override for finalStatus: positive breathalyzer always fails
+      if (data.breathalyzerTaken && data.breathalyzerResult && data.breathalyzerResult > 0.000) {
+        // If final status would be passing, change to fail
+        if (
+          data.finalStatus === 'negative' ||
+          data.finalStatus === 'expected-positive' ||
+          data.finalStatus === 'confirmed-negative'
+        ) {
+          data.finalStatus = 'unexpected-positive'
+        }
+        // If already failing, keep the existing fail status
       }
     }
 

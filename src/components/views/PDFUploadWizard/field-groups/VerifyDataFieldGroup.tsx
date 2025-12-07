@@ -29,6 +29,8 @@ export const verifyDataFieldSchema = z.object({
   collectionDate: z.string().min(1, 'Collection date is required'),
   detectedSubstances: z.array(z.string()),
   isDilute: z.boolean(),
+  breathalyzerTaken: z.boolean().default(false),
+  breathalyzerResult: z.number().nullable().optional(),
   clientData: z
     .object({
       id: z.string(),
@@ -45,13 +47,27 @@ export const verifyDataFieldSchema = z.object({
     .nullable()
     .optional(),
   confirmationSubstances: z.array(z.string()).optional(),
-})
+}).refine(
+  (data) => {
+    // If breathalyzer is checked, result must be provided
+    if (data.breathalyzerTaken && (data.breathalyzerResult === null || data.breathalyzerResult === undefined)) {
+      return false
+    }
+    return true
+  },
+  {
+    message: 'Breathalyzer result is required when breathalyzer is taken',
+    path: ['breathalyzerResult'],
+  }
+)
 
 const defaultValues: PdfUploadFormType['verifyData'] = {
   testType: '15-panel-instant',
   collectionDate: '',
   detectedSubstances: [],
   isDilute: false,
+  breathalyzerTaken: false,
+  breathalyzerResult: null,
   clientData: null,
   confirmationDecision: null,
   confirmationSubstances: [],
@@ -126,6 +142,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
       group.store,
       (state) => state.values.confirmationSubstances,
     )
+    const breathalyzerTaken = useStore(group.store, (state) => state.values.breathalyzerTaken)
 
     // Compute test result preview to detect unexpected positives
     const previewQuery = useComputeTestResultPreviewQuery(
@@ -231,6 +248,45 @@ export const VerifyDataFieldGroup = withFieldGroup({
             <group.AppField name="isDilute">
               {(field) => <field.CheckboxField label="Dilute Sample" />}
             </group.AppField>
+
+            {/* Breathalyzer Section */}
+            <div className="space-y-4 rounded-lg border p-4 bg-muted/50">
+              <h3 className="text-sm font-medium">Breathalyzer Test (Optional)</h3>
+
+              <group.AppField name="breathalyzerTaken">
+                {(field) => <field.CheckboxField label="Breathalyzer test was administered" />}
+              </group.AppField>
+
+              {breathalyzerTaken && (
+                <group.Field name="breathalyzerResult">
+                  {(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor="breathalyzerResult">
+                        BAC Result <span className="text-destructive">*</span>
+                      </Label>
+                      <input
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        max="1"
+                        id="breathalyzerResult"
+                        value={field.state.value ?? ''}
+                        onChange={(e) => field.handleChange(e.target.value ? parseFloat(e.target.value) : null)}
+                        onBlur={field.handleBlur}
+                        placeholder="0.000"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Enter result with 3 decimal places. Threshold: 0.000 (any detectable alcohol = positive)
+                      </p>
+                      {field.state.meta.errors.length > 0 && (
+                        <p className="text-destructive text-sm">{field.state.meta.errors[0]}</p>
+                      )}
+                    </div>
+                  )}
+                </group.Field>
+              )}
+            </div>
 
             <group.AppField name="detectedSubstances">
               {(field) => <field.SubstanceChecklistField testType={testTypeValue} />}

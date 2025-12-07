@@ -215,7 +215,7 @@ export function buildCollectedEmail(data: CollectedEmailData): {
   subject: string
   html: string
 } {
-  const { clientName, collectionDate, testType } = data
+  const { clientName, collectionDate, testType, breathalyzerTaken, breathalyzerResult } = data
 
   return {
     subject: `Drug Test Sample Collected - ${clientName}`,
@@ -254,6 +254,16 @@ export function buildCollectedEmail(data: CollectedEmailData): {
                 <span class="label">Test Type:</span> ${formatTestType(testType)}
               </div>
 
+              ${
+                breathalyzerTaken && breathalyzerResult !== null
+                  ? `
+              <div class="detail-row">
+                <span class="label">Breathalyzer:</span> ${breathalyzerResult.toFixed(3)} BAC ${breathalyzerResult > 0.000 ? '<strong style="color: #ef4444;">(POSITIVE)</strong>' : '<strong style="color: #22c55e;">(NEGATIVE)</strong>'}
+              </div>
+              `
+                  : ''
+              }
+
               <p>You will receive another notification when laboratory results are available.</p>
 
               <div class="footer">
@@ -285,6 +295,8 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
     unexpectedNegatives,
     isDilute,
     confirmationDecision,
+    breathalyzerTaken,
+    breathalyzerResult,
   } = data
 
   const resultColor = getResultColor(initialScreenResult)
@@ -354,6 +366,27 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
                 <div class="dilute-warning">
                   <strong>⚠️ DILUTE SAMPLE</strong>
                   <p style="margin: 5px 0 0 0;">This sample was dilute and may affect result accuracy.</p>
+                </div>
+              `
+                  : ''
+              }
+
+              ${
+                breathalyzerTaken && breathalyzerResult !== null
+                  ? `
+                <div class="substances-section ${breathalyzerResult > 0.000 ? 'red' : 'green'}">
+                  <strong>${breathalyzerResult > 0.000 ? '‼️' : '✅'} Breathalyzer Test Result:</strong>
+                  <div class="detail-row" style="margin-top: 10px;">
+                    <span class="label">BAC Level:</span> ${breathalyzerResult.toFixed(3)}
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">Result:</span> ${breathalyzerResult > 0.000 ? 'POSITIVE (FAIL)' : 'NEGATIVE (PASS)'}
+                  </div>
+                  ${
+                    breathalyzerResult > 0.000
+                      ? '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Any detectable alcohol level constitutes a positive result.</p>'
+                      : ''
+                  }
                 </div>
               `
                   : ''
@@ -573,6 +606,27 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
               }
 
               ${
+                breathalyzerTaken && breathalyzerResult !== null
+                  ? `
+                <div class="substances-section ${breathalyzerResult > 0.000 ? 'red' : 'green'}">
+                  <strong>${breathalyzerResult > 0.000 ? '‼️' : '✅'} Breathalyzer Test Result:</strong>
+                  <div class="detail-row" style="margin-top: 10px;">
+                    <span class="label">BAC Level:</span> ${breathalyzerResult.toFixed(3)}
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">Result:</span> ${breathalyzerResult > 0.000 ? 'POSITIVE (FAIL)' : 'NEGATIVE (PASS)'}
+                  </div>
+                  ${
+                    breathalyzerResult > 0.000
+                      ? '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Any detectable alcohol level constitutes a positive result.</p>'
+                      : ''
+                  }
+                </div>
+              `
+                  : ''
+              }
+
+              ${
                 detectedSubstances.length > 0
                   ? `
                 <div class="substances-section">
@@ -689,6 +743,8 @@ export function buildCompleteEmail(data: CompleteEmailData): EmailOutput {
     confirmationResults,
     finalStatus,
     isDilute,
+    breathalyzerTaken,
+    breathalyzerResult,
   } = data
 
   const resultColor = getResultColor(finalStatus)
@@ -751,6 +807,27 @@ export function buildCompleteEmail(data: CompleteEmailData): EmailOutput {
                 <div class="dilute-warning">
                   <strong>⚠️ DILUTE SAMPLE</strong>
                   <p style="margin: 5px 0 0 0;">This sample was dilute and may affect result accuracy.</p>
+                </div>
+              `
+                  : ''
+              }
+
+              ${
+                breathalyzerTaken && breathalyzerResult !== null
+                  ? `
+                <div class="substances-section ${breathalyzerResult > 0.000 ? 'red' : 'green'}">
+                  <strong>${breathalyzerResult > 0.000 ? '‼️' : '✅'} Breathalyzer Test Result:</strong>
+                  <div class="detail-row" style="margin-top: 10px;">
+                    <span class="label">BAC Level:</span> ${breathalyzerResult.toFixed(3)}
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">Result:</span> ${breathalyzerResult > 0.000 ? 'POSITIVE (FAIL)' : 'NEGATIVE (PASS)'}
+                  </div>
+                  ${
+                    breathalyzerResult > 0.000
+                      ? '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Any detectable alcohol level constitutes a positive result.</p>'
+                      : ''
+                  }
                 </div>
               `
                   : ''
@@ -842,6 +919,27 @@ export function buildCompleteEmail(data: CompleteEmailData): EmailOutput {
                 <div class="dilute-warning">
                   <strong>⚠️ DILUTE SAMPLE</strong>
                   <p style="margin: 5px 0 0 0;">This sample was dilute and may affect result accuracy.</p>
+                </div>
+              `
+                  : ''
+              }
+
+              ${
+                breathalyzerTaken && breathalyzerResult !== null
+                  ? `
+                <div class="substances-section ${breathalyzerResult > 0.000 ? 'red' : 'green'}">
+                  <strong>${breathalyzerResult > 0.000 ? '‼️' : '✅'} Breathalyzer Test Result:</strong>
+                  <div class="detail-row" style="margin-top: 10px;">
+                    <span class="label">BAC Level:</span> ${breathalyzerResult.toFixed(3)}
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">Result:</span> ${breathalyzerResult > 0.000 ? 'POSITIVE (FAIL)' : 'NEGATIVE (PASS)'}
+                  </div>
+                  ${
+                    breathalyzerResult > 0.000
+                      ? '<p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">Any detectable alcohol level constitutes a positive result.</p>'
+                      : ''
+                  }
                 </div>
               `
                   : ''
