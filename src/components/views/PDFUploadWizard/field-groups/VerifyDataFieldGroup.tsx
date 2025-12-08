@@ -12,6 +12,7 @@ import {
   useGetClientMedicationsQuery,
   useComputeTestResultPreviewQuery,
   useGetClientFromTestQuery,
+  useExtractPdfQuery,
 } from '../queries'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
@@ -86,10 +87,21 @@ export const VerifyDataFieldGroup = withFieldGroup({
     const isInitialMount = useRef(true)
 
     // Get form values
-    const formValues = useStore(group.form.store, (state) => state.values)
-    const extractData = (formValues as any).extractData
-    const verifyData = (formValues as any).verifyData
-    const verifyTest = (formValues as any).verifyTest
+    const formValues = useStore(group.form.store, (state: any) => state.values)
+    const verifyData = formValues?.verifyData
+    const verifyTest = formValues?.verifyTest
+
+    // Get uploaded file to access extracted data from query cache
+    const uploadedFile = formValues?.uploadData?.file as File | null
+    const uploadTestType = formValues?.uploadData?.testType as
+      | '15-panel-instant'
+      | '11-panel-lab'
+      | '17-panel-sos-lab'
+      | 'etg-lab'
+      | undefined
+
+    // Get extracted data from query cache (cached from ExtractFieldGroup)
+    const { data: extractData } = useExtractPdfQuery(uploadedFile, uploadTestType)
 
     // For lab workflows, fetch client data from the matched test
     const clientFromTestQuery = useGetClientFromTestQuery(verifyTest?.testId)
@@ -99,7 +111,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
     // 2. verifyData.clientData (already set)
     // 3. clientFromTestQuery.data (lab screen workflow - fetched from matched test)
     const client =
-      (formValues as any).clientData || verifyData?.clientData || clientFromTestQuery.data
+      formValues?.clientData || verifyData?.clientData || clientFromTestQuery.data
 
     // Fetch medications using TanStack Query
     const medicationsQuery = useGetClientMedicationsQuery(client?.id)

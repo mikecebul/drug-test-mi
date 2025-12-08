@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Stepper, type Step } from '@/components/ui/stepper'
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { Button } from '@/components/ui/button'
 import { ChevronRight, ChevronLeft, Check } from 'lucide-react'
 import { useStore } from '@tanstack/react-form'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { useFormStepper } from '@/app/(frontend)/register/hooks/useFormStepper'
 import { z } from 'zod'
@@ -22,6 +23,7 @@ import {
 import { updateTestWithScreening } from '../actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { generateTestFilename } from '../utils/generateFilename'
+import { extractPdfQueryKey, type ExtractedPdfData } from '../queries'
 
 // Step schemas
 const uploadSchema = z.object({
@@ -75,11 +77,24 @@ interface EnterLabScreenWorkflowProps {
 
 export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
 
   const handleComplete = (testId: string) => {
     setCompletedTestId(testId)
   }
+
+  // Get extracted data from query cache - called during form submission
+  const getExtractData = useCallback(
+    (
+      file: File,
+      testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab',
+    ) => {
+      const queryKey = extractPdfQueryKey(file, testType)
+      return queryClient.getQueryData<ExtractedPdfData>(queryKey)
+    },
+    [queryClient],
+  )
 
   const formOpts = {
     defaultValues: {
@@ -90,18 +105,8 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
         testType: '11-panel-lab' as const,
       },
       extractData: {
-        extracting: false,
+        // Minimal schema - actual data lives in TanStack Query cache
         extracted: false,
-        donorName: null,
-        collectionDate: null,
-        detectedSubstances: [],
-        isDilute: false,
-        rawText: '',
-        confidence: 'low' as const,
-        extractedFields: [],
-        testType: '11-panel-lab' as const,
-        hasConfirmation: false,
-        confirmationResults: [],
       },
       verifyTest: {
         testId: '',
@@ -144,7 +149,10 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
         const buffer = await file.arrayBuffer()
         const pdfBuffer = Array.from(new Uint8Array(buffer))
 
-        const confirmationResults = (value.extractData.confirmationResults || []).map((r) => ({
+        // Get extracted data from query cache for email-building fields
+        const extractData = getExtractData(file, value.uploadData.testType)
+
+        const confirmationResults = (extractData?.confirmationResults || []).map((r) => ({
           substance: r.substance as SubstanceValue,
           result: r.result,
           notes: r.notes,
@@ -164,7 +172,7 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
           isDilute: value.verifyData.isDilute,
           pdfBuffer,
           pdfFilename: pdfFilename || file.name, // Fallback to original filename if generation fails
-          hasConfirmation: value.extractData.hasConfirmation,
+          hasConfirmation: extractData?.hasConfirmation,
           confirmationResults,
           confirmationDecision: value.verifyData.confirmationDecision,
           confirmationSubstances: value.verifyData.confirmationSubstances as SubstanceValue[],

@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useStore } from '@tanstack/react-form'
+import { useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, ChevronLeft, Check } from 'lucide-react'
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { Stepper, type Step } from '@/components/ui/stepper'
@@ -17,6 +18,7 @@ import { VerifyClientFieldGroup } from '../field-groups/VerifyClientFieldGroup'
 import { VerifyDataFieldGroup } from '../field-groups/VerifyDataFieldGroup'
 import { ConfirmFieldGroup } from '../field-groups/ConfirmFieldGroup'
 import { ReviewEmailsFieldGroup } from '../field-groups/ReviewEmailsFieldGroup'
+import { extractPdfQueryKey, type ExtractedPdfData } from '../queries'
 
 type WizardStep =
   | 'upload'
@@ -28,13 +30,26 @@ type WizardStep =
 
 export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
 
   const handleComplete = (testId: string) => {
     setCompletedTestId(testId)
   }
 
-  const formOpts = usePdfUploadFormOpts({ onComplete: handleComplete })
+  // Get extracted data from query cache - called during form submission with form values
+  const getExtractData = useCallback(
+    (
+      file: File,
+      testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab',
+    ) => {
+      const queryKey = extractPdfQueryKey(file, testType)
+      return queryClient.getQueryData<ExtractedPdfData>(queryKey)
+    },
+    [queryClient],
+  )
+
+  const formOpts = usePdfUploadFormOpts({ onComplete: handleComplete, getExtractData })
   const form = useAppForm({ ...formOpts })
 
   const {

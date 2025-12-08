@@ -29,7 +29,7 @@ import {
 import type { ClientMatch } from '../types'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
-import { useFindMatchingClientsQuery, useGetAllClientsQuery } from '../queries'
+import { useFindMatchingClientsQuery, useGetAllClientsQuery, useExtractPdfQuery } from '../queries'
 
 // Export the schema for reuse in step validation
 export const verifyClientFieldSchema = z.object({
@@ -69,9 +69,19 @@ export const VerifyClientFieldGroup = withFieldGroup({
     const selectedClientId = useStore(group.store, (state) => state.values.id)
     const selectedClientData = useStore(group.store, (state) => state.values)
 
-    // Get extracted donor name
-    const formValues = useStore(group.form.store, (state) => state.values)
-    const donorName = (formValues as any).extractData?.donorName as string | null
+    // Get uploaded file to access extracted data from query cache
+    const formValues = useStore(group.form.store, (state: any) => state.values)
+    const uploadedFile = formValues?.uploadData?.file as File | null
+    const testType = formValues?.uploadData?.testType as
+      | '15-panel-instant'
+      | '11-panel-lab'
+      | '17-panel-sos-lab'
+      | 'etg-lab'
+      | undefined
+
+    // Get extracted data from query cache (cached from ExtractFieldGroup)
+    const { data: extractedData } = useExtractPdfQuery(uploadedFile, testType)
+    const donorName = extractedData?.donorName ?? null
 
     // Parse donor name into parts
     const { firstName, lastName, middleInitial } = useMemo(() => {

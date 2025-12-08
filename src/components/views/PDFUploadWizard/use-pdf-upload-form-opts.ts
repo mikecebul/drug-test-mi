@@ -6,6 +6,7 @@ import type { PdfUploadFormType } from './schemas/pdfUploadSchemas'
 import { createDrugTestWithEmailReview } from './actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { generateTestFilename } from './utils/generateFilename'
+import type { ExtractedPdfData } from './queries'
 
 const defaultValues: PdfUploadFormType = {
   uploadData: {
@@ -13,16 +14,8 @@ const defaultValues: PdfUploadFormType = {
     file: null as any, // File object will be set by user
   },
   extractData: {
-    donorName: null,
-    collectionDate: null,
-    detectedSubstances: [],
-    isDilute: false,
-    rawText: '',
-    confidence: 'low',
-    extractedFields: [],
-    testType: undefined,
-    hasConfirmation: undefined,
-    confirmationResults: undefined,
+    // Minimal schema - actual data lives in TanStack Query cache
+    extracted: false,
   },
   clientData: {
     id: '',
@@ -59,8 +52,13 @@ const defaultValues: PdfUploadFormType = {
 
 export const usePdfUploadFormOpts = ({
   onComplete,
+  getExtractData,
 }: {
   onComplete: (testId: string) => void
+  getExtractData: (
+    file: File,
+    testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab',
+  ) => ExtractedPdfData | undefined
 }) => {
   return formOptions({
     defaultValues: defaultValues,
@@ -88,6 +86,9 @@ export const usePdfUploadFormOpts = ({
           throw new Error('At least one email type must be enabled')
         }
 
+        // Get extracted data from TanStack Query cache using form values
+        const extractData = getExtractData(value.uploadData.file, value.uploadData.testType)
+
         // Convert File to buffer array for server action
         const arrayBuffer = await value.uploadData.file.arrayBuffer()
 
@@ -110,8 +111,8 @@ export const usePdfUploadFormOpts = ({
             breathalyzerResult: value.verifyData.breathalyzerResult ?? null,
             pdfBuffer: Array.from(new Uint8Array(arrayBuffer)),
             pdfFilename: pdfFilename || value.uploadData.file.name, // Fallback to original filename if generation fails
-            hasConfirmation: value.extractData.hasConfirmation,
-            confirmationResults: value.extractData.confirmationResults as any,
+            hasConfirmation: extractData?.hasConfirmation,
+            confirmationResults: extractData?.confirmationResults as any,
             confirmationDecision: value.verifyData.confirmationDecision,
             confirmationSubstances: value.verifyData.confirmationSubstances as SubstanceValue[],
           },

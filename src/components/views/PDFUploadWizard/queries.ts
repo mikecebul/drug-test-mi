@@ -11,8 +11,13 @@ import {
   getClientFromTest,
   getEmailPreview,
   getConfirmationEmailPreview,
+  extractPdfData,
 } from './actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
+import type { ParsedPDFData } from './types'
+
+// Re-export ParsedPDFData as ExtractedPdfData for clarity in query consumers
+export type ExtractedPdfData = ParsedPDFData
 
 /**
  * Query hook for finding matching clients based on donor name
@@ -250,5 +255,44 @@ export function useGetConfirmationEmailPreviewQuery(data: {
     },
     enabled: Boolean(clientId && testId && confirmationResults && confirmationResults.length > 0),
     staleTime: 30 * 1000, // 30 seconds - email previews should be relatively fresh
+  })
+}
+
+// Query key factory for PDF extraction
+export const extractPdfQueryKey = (
+  file: File | null | undefined,
+  testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | undefined,
+) => ['extract-pdf', file?.name, file?.size, file?.lastModified, testType] as const
+
+/**
+ * Query hook for extracting PDF data
+ * Automatically extracts when file is uploaded and caches the result
+ * Invalidates and re-extracts when file changes
+ */
+export function useExtractPdfQuery(
+  file: File | null | undefined,
+  testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | undefined,
+) {
+  return useQuery({
+    queryKey: extractPdfQueryKey(file, testType),
+    queryFn: async () => {
+      if (!file) {
+        throw new Error('No file provided')
+      }
+
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const result = await extractPdfData(formData, testType)
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to extract PDF data')
+      }
+
+      return result.data
+    },
+    enabled: Boolean(file), // Only run when file exists
+    staleTime: Infinity, // Extracted data never goes stale (file content won't change)
+    retry: 1, // Only retry once on failure
   })
 }

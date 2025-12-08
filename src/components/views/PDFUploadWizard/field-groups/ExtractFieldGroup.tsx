@@ -1,187 +1,131 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { withFieldGroup } from '@/blocks/Form/hooks/form'
+import React from 'react'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, FileX2 } from 'lucide-react'
-import { extractPdfData } from '../actions'
 import ParsedDataDisplayField from '@/blocks/Form/field-components/parsed-data-display-field'
 import type { ParsedPDFData } from '../types'
 import { z } from 'zod'
-import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import type { SubstanceValue } from '@/fields/substanceOptions'
+import { useExtractPdfQuery } from '../queries'
 
-// Export the schema for reuse in step validation
+// Minimal schema - extraction data lives in TanStack Query cache
+// This just validates that the step can proceed
 export const extractFieldSchema = z.object({
-  donorName: z.string().nullable(),
-  collectionDate: z.date().nullable(),
-  detectedSubstances: z.array(z.string()),
-  isDilute: z.boolean(),
-  rawText: z.string(),
-  confidence: z.enum(['high', 'medium', 'low']),
-  extractedFields: z.array(z.string()),
-  // Lab-specific optional fields
-  testType: z.enum(['15-panel-instant', '11-panel-lab', '17-panel-sos-lab', 'etg-lab']).optional(),
-  hasConfirmation: z.boolean().optional(),
-  confirmationResults: z
-    .array(
-      z.object({
-        substance: z.string(),
-        result: z.enum(['confirmed-positive', 'confirmed-negative', 'inconclusive']),
-        notes: z.string().optional(),
-      }),
-    )
-    .optional(),
+  extracted: z.boolean(),
 })
 
-const defaultValues: PdfUploadFormType['extractData'] = {
-  donorName: null,
-  collectionDate: null,
-  detectedSubstances: [],
-  isDilute: false,
-  rawText: '',
-  confidence: 'low',
-  extractedFields: [],
-  testType: undefined,
-  hasConfirmation: undefined,
-  confirmationResults: undefined,
+interface ExtractFieldGroupProps {
+  form: any
+  fields: string
+  title?: string
 }
 
-export const ExtractFieldGroup = withFieldGroup({
-  defaultValues,
+/**
+ * ExtractFieldGroup - Displays extracted PDF data
+ *
+ * Uses TanStack Query for extraction with caching and loading states.
+ * Data is synced to form fields in VerifyDataFieldGroup for user editing.
+ * On form submission, email-building fields come from query cache.
+ */
+export function ExtractFieldGroup({ form, title = 'Extract Data' }: ExtractFieldGroupProps) {
+  // Get the file and test type from the uploadData field group
+  const formValues = useStore(form.store, (state: any) => state.values)
+  const uploadedFile = formValues?.uploadData?.file as File | null
+  const testType = formValues?.uploadData?.testType as
+    | '15-panel-instant'
+    | '11-panel-lab'
+    | '17-panel-sos-lab'
+    | 'etg-lab'
+    | undefined
 
-  props: {
-    title: 'Extract Data',
-  },
+  // TanStack Query handles extraction with caching and loading states
+  const { data: extractedData, isLoading, error } = useExtractPdfQuery(uploadedFile, testType)
 
-  render: function Render({ group, title }) {
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string>('')
-
-    // Get the file and test type from the uploadData field group
-    const formValues = useStore(group.form.store, (state) => state.values)
-    const uploadedFile = (formValues as any).uploadData?.file as File | null
-    const testType = (formValues as any).uploadData?.testType as '15-panel-instant' | '11-panel-lab' | undefined
-
-    useEffect(() => {
-      async function parseFile() {
-        if (!uploadedFile) {
-          setError('No file uploaded')
-          setLoading(false)
-          return
-        }
-
-        setLoading(true)
-        setError('')
-
-        const formData = new FormData()
-        formData.append('file', uploadedFile)
-
-        const result = await extractPdfData(formData, testType)
-
-        if (result.success && result.data) {
-          // Update form fields with extracted data
-          group.setFieldValue('donorName', result.data.donorName)
-          group.setFieldValue('collectionDate', result.data.collectionDate)
-          group.setFieldValue('detectedSubstances', result.data.detectedSubstances)
-          group.setFieldValue('isDilute', result.data.isDilute)
-          group.setFieldValue('rawText', result.data.rawText)
-          group.setFieldValue('confidence', result.data.confidence)
-          group.setFieldValue('extractedFields', result.data.extractedFields)
-
-          // Set lab-specific fields if present
-          if (result.data.testType) {
-            group.setFieldValue('testType', result.data.testType)
-          }
-          if (result.data.hasConfirmation !== undefined) {
-            group.setFieldValue('hasConfirmation', result.data.hasConfirmation)
-          }
-          if (result.data.confirmationResults) {
-            group.setFieldValue('confirmationResults', result.data.confirmationResults)
-          }
-        } else {
-          setError(result.error || 'Unknown error occurred')
-        }
-
-        setLoading(false)
-      }
-
-      parseFile()
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [uploadedFile])
-
-    const extractData = useStore(group.store, (state) => state.values)
-
-    if (loading) {
-      return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="mb-2 text-2xl font-bold">Extracting Data...</h2>
-            <p className="text-muted-foreground">Processing your PDF file</p>
-          </div>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-center py-12">
-                <div className="space-y-4 text-center">
-                  <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
-                  <p className="text-muted-foreground">
-                    Please wait while we extract the test data
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )
-    }
-
-    if (error) {
-      return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="mb-2 text-2xl font-bold">Extraction Failed</h2>
-            <p className="text-muted-foreground">Unable to process the PDF file</p>
-          </div>
-          <Alert variant="destructive">
-            <FileX2 className="h-4 w-4" />
-            <AlertDescription>
-              <p className="mb-1 font-medium">{error}</p>
-              <p className="text-sm">
-                The PDF format may not be supported, or the file may be damaged. Please try a
-                different file or contact support if this issue persists.
-              </p>
-            </AlertDescription>
-          </Alert>
-        </div>
-      )
-    }
-
-    // Build ParsedPDFData object for display
-    const parsedData: ParsedPDFData = {
-      donorName: extractData.donorName,
-      collectionDate: extractData.collectionDate,
-      detectedSubstances: extractData.detectedSubstances as SubstanceValue[],
-      isDilute: extractData.isDilute,
-      rawText: extractData.rawText,
-      confidence: extractData.confidence,
-      extractedFields: extractData.extractedFields,
-      testType: extractData.testType,
-      hasConfirmation: extractData.hasConfirmation,
-      confirmationResults: extractData.confirmationResults as ParsedPDFData['confirmationResults'],
-    }
-
+  // Show loading state while extracting
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-          <p className="text-muted-foreground">Review the extracted data</p>
+          <h2 className="mb-2 text-2xl font-bold">Extracting Data...</h2>
+          <p className="text-muted-foreground">Processing your PDF file</p>
         </div>
-
-        {/* Use the ParsedDataDisplayField to show extracted data */}
-        <ParsedDataDisplayField data={parsedData} showRawText />
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-center py-12">
+              <div className="space-y-4 text-center">
+                <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
+                <p className="text-muted-foreground">
+                  Please wait while we extract the test data
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
-  },
-})
+  }
+
+  // Show error state if extraction failed
+  if (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="mb-2 text-2xl font-bold">Extraction Failed</h2>
+          <p className="text-muted-foreground">Unable to process the PDF file</p>
+        </div>
+        <Alert variant="destructive">
+          <FileX2 className="h-4 w-4" />
+          <AlertDescription>
+            <p className="mb-1 font-medium">{errorMessage}</p>
+            <p className="text-sm">
+              The PDF format may not be supported, or the file may be damaged. Please try a
+              different file or contact support if this issue persists.
+            </p>
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
+  // No data yet (shouldn't happen if file validation passed)
+  if (!extractedData) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="mb-2 text-2xl font-bold">No Data</h2>
+          <p className="text-muted-foreground">No file uploaded</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Build ParsedPDFData object for display from query data
+  const parsedData: ParsedPDFData = {
+    donorName: extractedData.donorName,
+    collectionDate: extractedData.collectionDate,
+    detectedSubstances: extractedData.detectedSubstances as SubstanceValue[],
+    isDilute: extractedData.isDilute,
+    rawText: extractedData.rawText,
+    confidence: extractedData.confidence,
+    extractedFields: extractedData.extractedFields,
+    testType: extractedData.testType,
+    hasConfirmation: extractedData.hasConfirmation,
+    confirmationResults: extractedData.confirmationResults as ParsedPDFData['confirmationResults'],
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="mb-2 text-2xl font-bold">{title}</h2>
+        <p className="text-muted-foreground">Review the extracted data</p>
+      </div>
+
+      {/* Display extracted data directly from query */}
+      <ParsedDataDisplayField data={parsedData} showRawText />
+    </div>
+  )
+}

@@ -96,18 +96,8 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
         testType: '11-panel-lab' as const,
       },
       extractData: {
-        extracting: false,
+        // Minimal schema - actual data lives in TanStack Query cache
         extracted: false,
-        donorName: null,
-        collectionDate: null,
-        detectedSubstances: [],
-        isDilute: false,
-        rawText: '',
-        confidence: 'low' as const,
-        extractedFields: [],
-        testType: '11-panel-lab' as const,
-        hasConfirmation: false,
-        confirmationResults: [],
       },
       verifyTest: {
         testId: '',

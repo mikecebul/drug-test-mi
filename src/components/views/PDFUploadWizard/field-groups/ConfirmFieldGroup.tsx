@@ -18,7 +18,7 @@ import {
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import { generateTestFilename } from '../utils/generateFilename'
-import { useComputeTestResultPreviewQuery } from '../queries'
+import { useComputeTestResultPreviewQuery, useExtractPdfQuery } from '../queries'
 
 // Export the schema for reuse in step validation
 export const confirmFieldSchema = z.object({
@@ -39,12 +39,24 @@ export const ConfirmFieldGroup = withFieldGroup({
 
   render: function Render({ group, title, description = '' }) {
     // Get all form data
-    const formValues = useStore(group.form.store, (state) => state.values)
-    const verifyData = (formValues as any).verifyData
-    const uploadData = (formValues as any).uploadData
+    const formValues = useStore(group.form.store, (state: any) => state.values)
+    const verifyData = formValues?.verifyData
+    const uploadData = formValues?.uploadData
+
+    // Get uploaded file to access extracted data from query cache
+    const uploadedFile = uploadData?.file as File | null
+    const uploadTestType = uploadData?.testType as
+      | '15-panel-instant'
+      | '11-panel-lab'
+      | '17-panel-sos-lab'
+      | 'etg-lab'
+      | undefined
+
+    // Get extracted data from query cache (cached from ExtractFieldGroup)
+    const { data: extractData } = useExtractPdfQuery(uploadedFile, uploadTestType)
 
     // Client can come from either clientData (instant test) or verifyData.clientData (lab screen)
-    const client = (formValues as any).clientData || verifyData?.clientData
+    const client = formValues?.clientData || verifyData?.clientData
 
     // Generate new filename and keep original
     const originalFilename = uploadData?.file?.name || 'No file'
@@ -143,15 +155,15 @@ export const ConfirmFieldGroup = withFieldGroup({
               </div>
             </div>
 
-            {(formValues as any).extractData?.hasConfirmation &&
-              (formValues as any).extractData?.confirmationResults &&
-              (formValues as any).extractData.confirmationResults.length > 0 && (
+            {extractData?.hasConfirmation &&
+              extractData?.confirmationResults &&
+              extractData.confirmationResults.length > 0 && (
                 <div className="space-y-2 border-t pt-2">
                   <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
                     Confirmation Results (LC-MS/MS)
                   </div>
                   <div className="space-y-2 pl-6">
-                    {(formValues as any).extractData.confirmationResults.map(
+                    {extractData.confirmationResults.map(
                       (result: any, index: number) => {
                         const resultConfig = {
                           'confirmed-positive': {

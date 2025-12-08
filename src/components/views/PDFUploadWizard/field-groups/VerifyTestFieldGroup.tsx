@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { useStore } from '@tanstack/react-form'
 import { format } from 'date-fns'
 import { fetchPendingTests } from '../actions'
+import { useExtractPdfQuery } from '../queries'
 
 // Export the schema for reuse in step validation
 export const verifyTestFieldSchema = z.object({
@@ -120,9 +121,18 @@ export const VerifyTestFieldGroup = withFieldGroup({
     const [showAllTests, setShowAllTests] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    // Get extracted data from previous step
+    // Get form values and uploaded file to access extracted data from query cache
     const formValues = useStore(group.form.store, (state: any) => state.values)
-    const extractData = formValues.extractData
+    const uploadedFile = formValues?.uploadData?.file as File | null
+    const uploadTestType = formValues?.uploadData?.testType as
+      | '15-panel-instant'
+      | '11-panel-lab'
+      | '17-panel-sos-lab'
+      | 'etg-lab'
+      | undefined
+
+    // Get extracted data from query cache (cached from ExtractFieldGroup)
+    const { data: extractData } = useExtractPdfQuery(uploadedFile, uploadTestType)
 
     useEffect(() => {
       async function loadPendingTests() {
@@ -238,7 +248,7 @@ export const VerifyTestFieldGroup = withFieldGroup({
     // Calculate scores for all tests
     const testsWithScores = pendingTests.map((test) => ({
       test,
-      score: calculateTestMatchScore(extractData?.donorName, extractData?.collectionDate, test),
+      score: calculateTestMatchScore(extractData?.donorName ?? null, extractData?.collectionDate ?? null, test),
     }))
 
     // Sort by score descending

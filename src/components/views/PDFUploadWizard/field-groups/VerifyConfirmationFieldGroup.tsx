@@ -18,7 +18,7 @@ import MedicationDisplayField from '@/blocks/Form/field-components/medication-di
 import { z } from 'zod'
 import { Trash2, Plus } from 'lucide-react'
 import { getSubstanceOptions } from '@/fields/substanceOptions'
-import { useGetClientMedicationsQuery, useGetClientFromTestQuery, useGetDrugTestQuery } from '../queries'
+import { useGetClientMedicationsQuery, useGetClientFromTestQuery, useGetDrugTestQuery, useExtractPdfQuery } from '../queries'
 
 // Export the schema for reuse in step validation
 export const verifyConfirmationFieldSchema = z.object({
@@ -63,9 +63,20 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
 
   render: function Render({ group, title, description = '' }) {
     // Get form values
-    const formValues = useStore(group.form.store, (state) => state.values)
-    const extractData = (formValues as any).extractData
-    const verifyTest = (formValues as any).verifyTest
+    const formValues = useStore(group.form.store, (state: any) => state.values)
+    const verifyTest = formValues?.verifyTest
+
+    // Get uploaded file to access extracted data from query cache
+    const uploadedFile = formValues?.uploadData?.file as File | null
+    const uploadTestType = formValues?.uploadData?.testType as
+      | '15-panel-instant'
+      | '11-panel-lab'
+      | '17-panel-sos-lab'
+      | 'etg-lab'
+      | undefined
+
+    // Get extracted data from query cache (cached from ExtractFieldGroup)
+    const { data: extractData } = useExtractPdfQuery(uploadedFile, uploadTestType)
 
     // Fetch client from selected test using TanStack Query
     const clientQuery = useGetClientFromTestQuery(verifyTest?.testId)
