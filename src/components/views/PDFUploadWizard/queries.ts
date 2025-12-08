@@ -83,12 +83,23 @@ export function useComputeTestResultPreviewQuery(
   breathalyzerResult?: number | null,
 ) {
   return useQuery({
-    queryKey: ['test-result-preview', clientId, detectedSubstances, breathalyzerTaken, breathalyzerResult],
+    queryKey: [
+      'test-result-preview',
+      clientId,
+      detectedSubstances,
+      breathalyzerTaken,
+      breathalyzerResult,
+    ],
     queryFn: async () => {
       if (!clientId) {
         return null
       }
-      return computeTestResultPreview(clientId, detectedSubstances, breathalyzerTaken, breathalyzerResult)
+      return computeTestResultPreview(
+        clientId,
+        detectedSubstances,
+        breathalyzerTaken,
+        breathalyzerResult,
+      )
     },
     enabled: Boolean(clientId),
     staleTime: 1 * 60 * 1000, // 1 minute
@@ -123,10 +134,25 @@ export function useGetCollectionEmailPreviewQuery(data: {
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
 }) {
-  const { clientId, testType, collectionDate, collectionTime, breathalyzerTaken, breathalyzerResult } = data
+  const {
+    clientId,
+    testType,
+    collectionDate,
+    collectionTime,
+    breathalyzerTaken,
+    breathalyzerResult,
+  } = data
 
   return useQuery({
-    queryKey: ['collection-email-preview', clientId, testType, collectionDate, collectionTime, breathalyzerTaken, breathalyzerResult],
+    queryKey: [
+      'collection-email-preview',
+      clientId,
+      testType,
+      collectionDate,
+      collectionTime,
+      breathalyzerTaken,
+      breathalyzerResult,
+    ],
     queryFn: async () => {
       if (!clientId || !testType || !collectionDate || !collectionTime) {
         return null
@@ -180,7 +206,8 @@ export function useGetDrugTestQuery(testId: string | null | undefined) {
       const response = await fetch(`/api/drug-tests/${testId}`)
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        const message = errorData.error || errorData.message || `Failed to fetch drug test (${response.status})`
+        const message =
+          errorData.error || errorData.message || `Failed to fetch drug test (${response.status})`
         throw new Error(message)
       }
       return response.json()
@@ -203,10 +230,29 @@ export function useGetEmailPreviewQuery(data: {
   breathalyzerResult?: number | null
   confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
 }) {
-  const { clientId, detectedSubstances, testType, collectionDate, isDilute, breathalyzerTaken, breathalyzerResult, confirmationDecision } = data
+  const {
+    clientId,
+    detectedSubstances,
+    testType,
+    collectionDate,
+    isDilute,
+    breathalyzerTaken,
+    breathalyzerResult,
+    confirmationDecision,
+  } = data
 
   return useQuery({
-    queryKey: ['email-preview', clientId, detectedSubstances, testType, collectionDate, isDilute, breathalyzerTaken, breathalyzerResult, confirmationDecision],
+    queryKey: [
+      'email-preview',
+      clientId,
+      detectedSubstances,
+      testType,
+      collectionDate,
+      isDilute,
+      breathalyzerTaken,
+      breathalyzerResult,
+      confirmationDecision,
+    ],
     queryFn: async () => {
       if (!clientId || !testType || !collectionDate) {
         return null

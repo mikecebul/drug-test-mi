@@ -23,44 +23,50 @@ import { formatSubstance } from '@/lib/substances'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { ConfirmationSubstanceSelector } from '@/blocks/Form/field-components/confirmation-substance-selector'
 import { cn } from '@/utilities/cn'
+import { Input } from '@/components/ui/input'
 
 // Export the schema for reuse in step validation
-export const verifyDataFieldSchema = z.object({
-  testType: z.enum(['15-panel-instant', '11-panel-lab', '17-panel-sos-lab', 'etg-lab']),
-  collectionDate: z.string().min(1, 'Collection date is required'),
-  detectedSubstances: z.array(z.string()),
-  isDilute: z.boolean(),
-  breathalyzerTaken: z.boolean().default(false),
-  breathalyzerResult: z.number().nullable().optional(),
-  clientData: z
-    .object({
-      id: z.string(),
-      firstName: z.string(),
-      lastName: z.string(),
-      middleInitial: z.string().nullable().optional(),
-      email: z.string(),
-      dob: z.string().nullable().optional(),
-      phone: z.string().nullable().optional(),
-    })
-    .nullable(),
-  confirmationDecision: z
-    .enum(['accept', 'request-confirmation', 'pending-decision'])
-    .nullable()
-    .optional(),
-  confirmationSubstances: z.array(z.string()).optional(),
-}).refine(
-  (data) => {
-    // If breathalyzer is checked, result must be provided
-    if (data.breathalyzerTaken && (data.breathalyzerResult === null || data.breathalyzerResult === undefined)) {
-      return false
-    }
-    return true
-  },
-  {
-    message: 'Breathalyzer result is required when breathalyzer is taken',
-    path: ['breathalyzerResult'],
-  }
-)
+export const verifyDataFieldSchema = z
+  .object({
+    testType: z.enum(['15-panel-instant', '11-panel-lab', '17-panel-sos-lab', 'etg-lab']),
+    collectionDate: z.string().min(1, 'Collection date is required'),
+    detectedSubstances: z.array(z.string()),
+    isDilute: z.boolean(),
+    breathalyzerTaken: z.boolean().default(false),
+    breathalyzerResult: z.number().nullable().optional(),
+    clientData: z
+      .object({
+        id: z.string(),
+        firstName: z.string(),
+        lastName: z.string(),
+        middleInitial: z.string().nullable().optional(),
+        email: z.string(),
+        dob: z.string().nullable().optional(),
+        phone: z.string().nullable().optional(),
+      })
+      .nullable(),
+    confirmationDecision: z
+      .enum(['accept', 'request-confirmation', 'pending-decision'])
+      .nullable()
+      .optional(),
+    confirmationSubstances: z.array(z.string()).optional(),
+  })
+  .refine(
+    (data) => {
+      // If breathalyzer is checked, result must be provided
+      if (
+        data.breathalyzerTaken &&
+        (data.breathalyzerResult === null || data.breathalyzerResult === undefined)
+      ) {
+        return false
+      }
+      return true
+    },
+    {
+      message: 'Breathalyzer result is required when breathalyzer is taken',
+      path: ['breathalyzerResult'],
+    },
+  )
 
 const defaultValues: PdfUploadFormType['verifyData'] = {
   testType: '15-panel-instant',
@@ -110,8 +116,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
     // 1. clientData (instant test workflow)
     // 2. verifyData.clientData (already set)
     // 3. clientFromTestQuery.data (lab screen workflow - fetched from matched test)
-    const client =
-      formValues?.clientData || verifyData?.clientData || clientFromTestQuery.data
+    const client = formValues?.clientData || verifyData?.clientData || clientFromTestQuery.data
 
     // Fetch medications using TanStack Query
     const medicationsQuery = useGetClientMedicationsQuery(client?.id)
@@ -271,7 +276,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
             </group.AppField>
 
             {/* Breathalyzer Section */}
-            <div className="space-y-4 rounded-lg border p-4 bg-muted/50">
+            <div className="bg-muted/50 space-y-4 rounded-lg border p-4">
               <h3 className="text-sm font-medium">Breathalyzer Test (Optional)</h3>
 
               <group.AppField name="breathalyzerTaken">
@@ -279,26 +284,39 @@ export const VerifyDataFieldGroup = withFieldGroup({
               </group.AppField>
 
               {breathalyzerTaken && (
-                <group.Field name="breathalyzerResult">
+                <group.Field
+                  name="breathalyzerResult"
+                  validators={{
+                    onChange: ({ value }) =>
+                      value === null || value === undefined
+                        ? 'Breathalyzer result is required'
+                        : value < 0
+                          ? 'Breathalyzer result can&post be a negative number'
+                          : undefined,
+                  }}
+                >
                   {(field) => (
                     <div className="space-y-2">
                       <Label htmlFor="breathalyzerResult">
                         BAC Result <span className="text-destructive">*</span>
                       </Label>
-                      <input
+                      <Input
                         type="number"
                         step="0.001"
                         min="0"
                         max="1"
                         id="breathalyzerResult"
                         value={field.state.value ?? ''}
-                        onChange={(e) => field.handleChange(e.target.value ? parseFloat(e.target.value) : null)}
+                        onChange={(e) =>
+                          field.handleChange(e.target.value ? parseFloat(e.target.value) : null)
+                        }
                         onBlur={field.handleBlur}
                         placeholder="0.000"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Enter result with 3 decimal places. Threshold: 0.000 (any detectable alcohol = positive)
+                      <p className="text-muted-foreground text-xs">
+                        Enter result with 3 decimal places. Threshold: 0.000 (any detectable alcohol
+                        = positive)
                       </p>
                       {field.state.meta.errors.length > 0 && (
                         <p className="text-destructive text-sm">{field.state.meta.errors[0]}</p>
