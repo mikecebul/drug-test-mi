@@ -79,6 +79,7 @@ export function useGetClientMedicationsQuery(clientId: string | null | undefined
 export function useComputeTestResultPreviewQuery(
   clientId: string | null | undefined,
   detectedSubstances: SubstanceValue[],
+  testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | null | undefined,
   breathalyzerTaken?: boolean,
   breathalyzerResult?: number | null,
 ) {
@@ -87,21 +88,23 @@ export function useComputeTestResultPreviewQuery(
       'test-result-preview',
       clientId,
       detectedSubstances,
+      testType,
       breathalyzerTaken,
       breathalyzerResult,
     ],
     queryFn: async () => {
-      if (!clientId) {
+      if (!clientId || !testType) {
         return null
       }
       return computeTestResultPreview(
         clientId,
         detectedSubstances,
+        testType,
         breathalyzerTaken,
         breathalyzerResult,
       )
     },
-    enabled: Boolean(clientId),
+    enabled: Boolean(clientId && testType),
     staleTime: 1 * 60 * 1000, // 1 minute
   })
 }

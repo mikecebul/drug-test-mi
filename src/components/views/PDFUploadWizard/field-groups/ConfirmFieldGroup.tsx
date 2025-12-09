@@ -86,6 +86,7 @@ export const ConfirmFieldGroup = withFieldGroup({
     const previewQuery = useComputeTestResultPreviewQuery(
       client?.id,
       verifyData?.detectedSubstances ?? [],
+      verifyData?.testType,
       verifyData?.breathalyzerTaken ?? false,
       verifyData?.breathalyzerResult ?? null,
     )

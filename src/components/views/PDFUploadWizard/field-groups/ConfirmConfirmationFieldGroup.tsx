@@ -60,6 +60,7 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
     const previewQuery = useComputeTestResultPreviewQuery(
       client?.id,
       adjustedSubstances as SubstanceValue[],
+      verifyTest?.testType,
     )
     const preview = previewQuery.data ?? null
     const loadingPreview = previewQuery.isLoading

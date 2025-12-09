@@ -354,6 +354,7 @@ export async function getClientMedications(clientId: string): Promise<
 export async function computeTestResultPreview(
   clientId: string,
   detectedSubstances: SubstanceValue[],
+  testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab',
   breathalyzerTaken?: boolean,
   breathalyzerResult?: number | null,
 ): Promise<{
@@ -383,7 +384,13 @@ export async function computeTestResultPreview(
       throw new Error('Client not found')
     }
 
+    // Import substance options to get what this test type actually tests for
+    const { getSubstanceOptions } = await import('@/fields/substanceOptions')
+    const testTypeSubstances = getSubstanceOptions(testType)
+    const testTypeSubstanceValues = new Set(testTypeSubstances.map((s) => s.value))
+
     // Extract expected substances from active medications
+    // IMPORTANT: Only include substances that this test type actually screens for
     const expectedSubstances = new Set<string>()
     const criticalSubstances = new Set<string>()
 
@@ -394,9 +401,12 @@ export async function computeTestResultPreview(
         const substances = (med.detectedAs || []).filter((s: string) => s !== 'none')
 
         substances.forEach((substance: string) => {
-          expectedSubstances.add(substance)
-          if (med.requireConfirmation === true) {
-            criticalSubstances.add(substance)
+          // Only add to expected substances if this test type actually screens for it
+          if (testTypeSubstanceValues.has(substance)) {
+            expectedSubstances.add(substance)
+            if (med.requireConfirmation === true) {
+              criticalSubstances.add(substance)
+            }
           }
         })
       })
@@ -618,7 +628,11 @@ export async function getEmailPreview(data: {
     const { clientEmail, referralEmails } = await getRecipients(data.clientId, payload)
 
     // Compute test result preview (for email content)
-    const previewResult = await computeTestResultPreview(data.clientId, data.detectedSubstances)
+    const previewResult = await computeTestResultPreview(
+      data.clientId,
+      data.detectedSubstances,
+      data.testType,
+    )
 
     // Build email HTML using existing template builder
     const clientName = `${client.firstName} ${client.lastName}`
@@ -787,6 +801,7 @@ export async function getConfirmationEmailPreview(data: {
     const previewResult = await computeTestResultPreview(
       data.clientId,
       drugTest.detectedSubstances as any,
+      drugTest.testType,
     )
 
     // Determine final status based on confirmation results
@@ -1024,6 +1039,7 @@ export async function createDrugTestWithEmailReview(
     const previewResult = await computeTestResultPreview(
       testData.clientId,
       testData.detectedSubstances,
+      testData.testType,
     )
 
     // 5. Build email content

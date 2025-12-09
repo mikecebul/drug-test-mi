@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect } from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardContent } from '@/components/ui/card'
@@ -78,9 +78,6 @@ export const VerifyDataFieldGroup = withFieldGroup({
   },
 
   render: function Render({ group, title, description = '' }) {
-    // Track initial mount to skip first effect run
-    const isInitialMount = useRef(true)
-
     // Get form values
     const formValues = useStore(group.form.store, (state: any) => state.values)
     console.log('formValues in VerifyDataFieldGroup:', formValues)
@@ -152,36 +149,26 @@ export const VerifyDataFieldGroup = withFieldGroup({
     const previewQuery = useComputeTestResultPreviewQuery(
       client?.id,
       (detectedSubstancesValue ?? []) as SubstanceValue[],
+      testTypeValue,
     )
     const preview = previewQuery.data
     const hasUnexpectedPositives = (preview?.unexpectedPositives?.length ?? 0) > 0
     const requiresDecision = hasUnexpectedPositives && !preview?.autoAccept
 
-    // Auto-populate confirmation substances when requesting confirmation
-    useEffect(() => {
-      if (confirmationDecisionValue === 'request-confirmation' && preview?.unexpectedPositives) {
+    // Handler for confirmation decision changes
+    const handleConfirmationDecisionChange = (
+      value: 'accept' | 'request-confirmation' | 'pending-decision',
+    ) => {
+      group.setFieldValue('confirmationDecision', value)
+
+      // Auto-populate confirmation substances when requesting confirmation
+      if (value === 'request-confirmation' && preview?.unexpectedPositives) {
         const currentSubstances = confirmationSubstancesValue || []
         if (currentSubstances.length === 0) {
           group.setFieldValue('confirmationSubstances', preview.unexpectedPositives)
         }
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [confirmationDecisionValue, preview?.unexpectedPositives])
-
-    // Reset confirmation decision when detected substances change significantly
-    // Skip this effect on initial mount to prevent race condition
-    useEffect(() => {
-      if (isInitialMount.current) {
-        isInitialMount.current = false
-        return
-      }
-
-      if (confirmationDecisionValue) {
-        group.setFieldValue('confirmationDecision', null)
-        group.setFieldValue('confirmationSubstances', [])
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [JSON.stringify(detectedSubstancesValue)])
+    }
 
     return (
       <div className="space-y-6">
@@ -323,7 +310,19 @@ export const VerifyDataFieldGroup = withFieldGroup({
               )}
             </div>
 
-            <group.AppField name="detectedSubstances">
+            <group.AppField
+              name="detectedSubstances"
+              listeners={{
+                onChange: () => {
+                  // Reset confirmation decision when detected substances change
+                  // This ensures the user makes a fresh decision when test results change
+                  if (confirmationDecisionValue) {
+                    group.setFieldValue('confirmationDecision', null)
+                    group.setFieldValue('confirmationSubstances', [])
+                  }
+                },
+              }}
+            >
               {(field) => <field.SubstanceChecklistField testType={testTypeValue} />}
             </group.AppField>
           </CardContent>
@@ -394,8 +393,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
               <RadioGroup
                 value={confirmationDecisionValue || ''}
                 onValueChange={(value) =>
-                  group.setFieldValue(
-                    'confirmationDecision',
+                  handleConfirmationDecisionChange(
                     value as 'accept' | 'request-confirmation' | 'pending-decision',
                   )
                 }
