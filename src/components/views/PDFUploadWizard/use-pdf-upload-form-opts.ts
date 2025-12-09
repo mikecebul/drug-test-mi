@@ -34,7 +34,6 @@ const defaultValues: PdfUploadFormType = {
     isDilute: false,
     breathalyzerTaken: false,
     breathalyzerResult: null,
-    clientData: null,
     confirmationDecision: null,
     confirmationSubstances: [],
   },

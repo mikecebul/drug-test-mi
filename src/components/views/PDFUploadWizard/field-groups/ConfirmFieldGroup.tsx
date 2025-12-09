@@ -19,7 +19,11 @@ import {
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import { generateTestFilename } from '../utils/generateFilename'
-import { useComputeTestResultPreviewQuery, useExtractPdfQuery } from '../queries'
+import {
+  useComputeTestResultPreviewQuery,
+  useExtractPdfQuery,
+  useGetClientFromTestQuery,
+} from '../queries'
 
 // Export the schema for reuse in step validation
 export const confirmFieldSchema = z.object({
@@ -42,6 +46,7 @@ export const ConfirmFieldGroup = withFieldGroup({
     // Get all form data
     const formValues = useStore(group.form.store, (state: any) => state.values)
     const verifyData = formValues?.verifyData
+    const verifyTest = formValues?.verifyTest
     const uploadData = formValues?.uploadData
 
     // Get uploaded file to access extracted data from query cache
@@ -56,11 +61,16 @@ export const ConfirmFieldGroup = withFieldGroup({
     // Get extracted data from query cache (cached from ExtractFieldGroup)
     const { data: extractData } = useExtractPdfQuery(uploadedFile, uploadTestType)
 
-    // Client can come from either clientData (instant test) or verifyData.clientData (lab screen)
-    const client = formValues?.clientData || verifyData?.clientData
+    // For lab workflows, fetch client data from the matched test
+    const clientFromTestQuery = useGetClientFromTestQuery(verifyTest?.testId)
 
-    // Get headshot from client (same fallback logic as client)
-    const clientHeadshot = formValues?.clientData?.headshot || verifyData?.clientData?.headshot || null
+    // Client can come from:
+    // 1. clientData (instant test workflow - selected in VerifyClientFieldGroup)
+    // 2. clientFromTestQuery.data (lab workflow - fetched from matched test)
+    const client = formValues?.clientData || clientFromTestQuery.data
+
+    // Get headshot from client
+    const clientHeadshot = client?.headshot || null
 
     // Generate new filename and keep original
     const originalFilename = uploadData?.file?.name || 'No file'

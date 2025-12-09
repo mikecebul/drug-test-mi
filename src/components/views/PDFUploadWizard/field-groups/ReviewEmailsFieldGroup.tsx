@@ -13,7 +13,11 @@ import { RecipientEditor } from '../components/RecipientEditor'
 import { EmailPreviewModal } from '../components/EmailPreviewModal'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
-import { useGetEmailPreviewQuery, useGetConfirmationEmailPreviewQuery } from '../queries'
+import {
+  useGetEmailPreviewQuery,
+  useGetConfirmationEmailPreviewQuery,
+  useGetClientFromTestQuery,
+} from '../queries'
 
 type WorkflowMode = 'screening' | 'confirmation'
 
@@ -76,17 +80,17 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
 
     // Get data from previous steps
     const formValues = useStore(group.form.store, (state: any) => state.values)
-    // Client can come from different places depending on workflow:
-    // - Instant test: formValues.clientData
-    // - Lab screen: formValues.verifyData.clientData
-    // - Lab confirmation: formValues.verifyConfirmation.clientData
-    const clientData =
-      formValues.clientData ||
-      formValues.verifyData?.clientData ||
-      formValues.verifyConfirmation?.clientData
     const verifyData = formValues.verifyData
     const verifyConfirmation = formValues.verifyConfirmation
     const verifyTest = formValues.verifyTest
+
+    // For lab workflows, fetch client data from the matched test
+    const clientFromTestQuery = useGetClientFromTestQuery(verifyTest?.testId)
+
+    // Client can come from:
+    // 1. clientData (instant test workflow - selected in VerifyClientFieldGroup)
+    // 2. clientFromTestQuery.data (lab workflows - fetched from matched test)
+    const clientData = formValues.clientData || clientFromTestQuery.data
 
     // Fetch email preview based on workflow mode using TanStack Query
     const screeningEmailQuery = useGetEmailPreviewQuery({

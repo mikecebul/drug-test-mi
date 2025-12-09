@@ -35,17 +35,6 @@ export const verifyDataFieldSchema = z
     isDilute: z.boolean(),
     breathalyzerTaken: z.boolean().default(false),
     breathalyzerResult: z.number().nullable().optional(),
-    clientData: z
-      .object({
-        id: z.string(),
-        firstName: z.string(),
-        lastName: z.string(),
-        middleInitial: z.string().nullable().optional(),
-        email: z.string(),
-        dob: z.string().nullable().optional(),
-        phone: z.string().nullable().optional(),
-      })
-      .nullable(),
     confirmationDecision: z
       .enum(['accept', 'request-confirmation', 'pending-decision'])
       .nullable()
@@ -76,7 +65,6 @@ const defaultValues: PdfUploadFormType['verifyData'] = {
   isDilute: false,
   breathalyzerTaken: false,
   breathalyzerResult: null,
-  clientData: null,
   confirmationDecision: null,
   confirmationSubstances: [],
 }
@@ -96,7 +84,6 @@ export const VerifyDataFieldGroup = withFieldGroup({
     // Get form values
     const formValues = useStore(group.form.store, (state: any) => state.values)
     console.log('formValues in VerifyDataFieldGroup:', formValues)
-    const verifyData = formValues?.verifyData
     const verifyTest = formValues?.verifyTest
 
     // Get uploaded file to access extracted data from query cache
@@ -115,17 +102,12 @@ export const VerifyDataFieldGroup = withFieldGroup({
     const clientFromTestQuery = useGetClientFromTestQuery(verifyTest?.testId)
 
     // Client can come from:
-    // 1. clientData (instant test workflow)
-    // 2. verifyData.clientData (already set)
-    // 3. clientFromTestQuery.data (lab screen workflow - fetched from matched test)
-    const client = formValues?.clientData || verifyData?.clientData || clientFromTestQuery.data
+    // 1. clientData (instant test workflow - selected in VerifyClientFieldGroup)
+    // 2. clientFromTestQuery.data (lab screen workflow - fetched from matched test)
+    const client = formValues?.clientData || clientFromTestQuery.data
 
-    // Get headshot from client (same fallback logic as client)
-    const clientHeadshot =
-      formValues?.clientData?.headshot ||
-      verifyData?.clientData?.headshot ||
-      clientFromTestQuery.data?.headshot ||
-      null
+    // Get headshot from client
+    const clientHeadshot = client?.headshot || null
 
     // Fetch medications using TanStack Query
     const medicationsQuery = useGetClientMedicationsQuery(client?.id)
@@ -148,13 +130,6 @@ export const VerifyDataFieldGroup = withFieldGroup({
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [extractData])
 
-    // Store client in verifyData for later access (lab workflows)
-    useEffect(() => {
-      if (client && !verifyData?.clientData) {
-        group.setFieldValue('clientData', client)
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [client])
 
     const collectionDateValue = useStore(group.store, (state) => state.values.collectionDate)
     const collectionDateTime = collectionDateValue ? new Date(collectionDateValue) : undefined

@@ -11,7 +11,7 @@ import { CheckCircle2, User, FileText, XCircle, AlertTriangle, Bell, Loader2 } f
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import { generateTestFilename } from '../utils/generateFilename'
-import { useComputeTestResultPreviewQuery } from '../queries'
+import { useComputeTestResultPreviewQuery, useGetClientFromTestQuery } from '../queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 
 // Export the schema for reuse in step validation
@@ -38,8 +38,11 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
     const verifyTest = (formValues as any).verifyTest
     const uploadData = (formValues as any).uploadData
 
-    // Get client and confirmation results
-    const client = verifyConfirmation?.clientData
+    // Fetch client data from the matched test
+    const clientFromTestQuery = useGetClientFromTestQuery(verifyTest?.testId)
+    const client = clientFromTestQuery.data
+
+    // Get confirmation results
     const confirmationResults = verifyConfirmation?.confirmationResults || []
     const originalDetectedSubstances = verifyConfirmation?.detectedSubstances || []
 
@@ -65,7 +68,7 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
     const originalFilename = uploadData?.file?.name || 'No file'
     const newFilename =
       generateTestFilename({
-        client,
+        client: client || null,
         collectionDate: verifyTest?.collectionDate,
         testType: verifyTest?.testType,
         isConfirmation: true,

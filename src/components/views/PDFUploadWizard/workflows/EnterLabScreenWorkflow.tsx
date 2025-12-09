@@ -124,7 +124,6 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
         isDilute: false,
         breathalyzerTaken: false,
         breathalyzerResult: null,
-        clientData: null,
         confirmationDecision: null,
         confirmationSubstances: [],
       },
@@ -159,8 +158,10 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
         }))
 
         // Generate formatted filename using utility function
+        // Note: client is null for lab workflows since we match existing tests
+        // Will fall back to original filename
         const pdfFilename = generateTestFilename({
-          client: value.verifyData.clientData,
+          client: null,
           collectionDate: value.verifyData.collectionDate,
           testType: value.verifyData.testType,
           isConfirmation: false,

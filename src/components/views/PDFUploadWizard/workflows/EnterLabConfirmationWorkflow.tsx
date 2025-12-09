@@ -110,7 +110,6 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
       },
       verifyConfirmation: {
         confirmationResults: [],
-        clientData: null,
         detectedSubstances: [],
         isDilute: false,
       },
@@ -141,8 +140,10 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
         }))
 
         // Generate formatted filename using utility function
+        // Note: client is null for lab workflows since we match existing tests
+        // Will fall back to original filename
         const pdfFilename = generateTestFilename({
-          client: value.verifyConfirmation.clientData,
+          client: null,
           collectionDate: value.verifyTest.collectionDate,
           testType: value.verifyTest.testType,
           isConfirmation: true,

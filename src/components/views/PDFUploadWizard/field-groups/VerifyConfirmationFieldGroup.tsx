@@ -31,16 +31,6 @@ export const verifyConfirmationFieldSchema = z.object({
       }),
     )
     .min(1, 'At least one confirmation result is required'),
-  clientData: z
-    .object({
-      id: z.string(),
-      firstName: z.string(),
-      lastName: z.string(),
-      middleInitial: z.string().nullable().optional(),
-      email: z.string(),
-      dob: z.string().nullable().optional(),
-    })
-    .nullable(),
   detectedSubstances: z.array(z.string()),
   isDilute: z.boolean(),
 })
@@ -49,7 +39,6 @@ type VerifyConfirmationData = z.infer<typeof verifyConfirmationFieldSchema>
 
 const defaultValues: VerifyConfirmationData = {
   confirmationResults: [],
-  clientData: null,
   detectedSubstances: [],
   isDilute: false,
 }
@@ -99,15 +88,6 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [extractData?.confirmationResults])
 
-    // Store client data in form when it loads
-    useEffect(() => {
-      if (client) {
-        group.setFieldValue('clientData', client)
-      } else if (!verifyTest?.testId) {
-        group.setFieldValue('clientData', null)
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [client, verifyTest?.testId])
 
     // Store screening results in form when they load
     useEffect(() => {
