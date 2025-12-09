@@ -2,8 +2,8 @@ import { CollectionConfig } from 'payload'
 import { anyone } from '../../access/anyone'
 import { fileURLToPath } from 'url'
 import path from 'path'
-import { superAdmin } from '@/access/superAdmin'
 import { admins } from '@/access/admins'
+import { generateBlurhash } from './generate-blur-hash'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -84,5 +84,17 @@ export const Media: CollectionConfig = {
         hidden: true,
       },
     },
+    {
+      name: 'blurhash',
+      type: 'text',
+      admin: {
+        hidden: true,
+        disableListColumn: true,
+        disableListFilter: true,
+      },
+    },
   ],
+  hooks: {
+    beforeValidate: [generateBlurhash],
+  },
 }

@@ -12,6 +12,9 @@ import cssVariables from '@/cssVariables'
 
 const { breakpoints } = cssVariables
 
+// A base64 encoded image to use as a placeholder while the image is loading
+const placeholderBlurFallback = 'data:image/png;base64,LAAeH@of00a#IVayt6ay00ay~oj['
+
 export const ImageMedia: React.FC<MediaProps> = (props) => {
   const {
     alt: altFromProps,
@@ -31,10 +34,12 @@ export const ImageMedia: React.FC<MediaProps> = (props) => {
   let height: number | undefined = 640
   let alt = altFromProps
   let src: StaticImageData | string = srcFromProps || '/placeholder.svg'
+  let blurhash: string | undefined
 
   if (resource && typeof resource === 'object') {
     const {
       alt: altFromResource,
+      blurhash: blurhasFromResource,
       filename: fullFilename,
       height: fullHeight,
       url,
@@ -44,6 +49,7 @@ export const ImageMedia: React.FC<MediaProps> = (props) => {
     width = fullWidth ?? width
     height = fullHeight ?? height
     alt = altFromResource
+    blurhash = blurhasFromResource || undefined
 
     src = url ?? '/placeholder.svg'
   }
@@ -61,6 +67,8 @@ export const ImageMedia: React.FC<MediaProps> = (props) => {
       className={cn('rounded-lg', imgClassName)}
       fill={fill}
       height={!fill ? height : 640}
+      placeholder="blur"
+      blurDataURL={blurhash ?? placeholderBlurFallback}
       onClick={onClick}
       onLoad={() => {
         setIsLoading(false)
