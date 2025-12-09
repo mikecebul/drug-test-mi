@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardContent } from '@/components/ui/card'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import InputDateTimePicker from '@/components/input-datetime-picker'
 import MedicationDisplayField from '@/blocks/Form/field-components/medication-display-field'
 import { z } from 'zod'
@@ -94,6 +95,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
 
     // Get form values
     const formValues = useStore(group.form.store, (state: any) => state.values)
+    console.log('formValues in VerifyDataFieldGroup:', formValues)
     const verifyData = formValues?.verifyData
     const verifyTest = formValues?.verifyTest
 
@@ -117,6 +119,13 @@ export const VerifyDataFieldGroup = withFieldGroup({
     // 2. verifyData.clientData (already set)
     // 3. clientFromTestQuery.data (lab screen workflow - fetched from matched test)
     const client = formValues?.clientData || verifyData?.clientData || clientFromTestQuery.data
+
+    // Get headshot from client (same fallback logic as client)
+    const clientHeadshot =
+      formValues?.clientData?.headshot ||
+      verifyData?.clientData?.headshot ||
+      clientFromTestQuery.data?.headshot ||
+      null
 
     // Fetch medications using TanStack Query
     const medicationsQuery = useGetClientMedicationsQuery(client?.id)
@@ -219,17 +228,29 @@ export const VerifyDataFieldGroup = withFieldGroup({
             </div>
 
             {/* Client Info */}
-            <div className="space-y-1">
-              <p className="text-foreground text-lg font-semibold">
-                {client?.firstName} {client?.middleInitial ? `${client.middleInitial}. ` : ''}
-                {client?.lastName}
-              </p>
-              <p className="text-muted-foreground text-sm">{client?.email}</p>
-              {client?.dob && (
-                <p className="text-muted-foreground text-sm">
-                  DOB: {new Date(client.dob).toLocaleDateString()}
+            <div className="flex items-start gap-4">
+              <Avatar className="h-16 w-16 shrink-0">
+                <AvatarImage
+                  src={clientHeadshot ?? undefined}
+                  alt={`${client?.firstName} ${client?.lastName}`}
+                />
+                <AvatarFallback className="text-lg">
+                  {client?.firstName?.charAt(0)}
+                  {client?.lastName?.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 space-y-1">
+                <p className="text-foreground text-lg font-semibold">
+                  {client?.firstName} {client?.middleInitial ? `${client.middleInitial}. ` : ''}
+                  {client?.lastName}
                 </p>
-              )}
+                <p className="text-muted-foreground text-sm">{client?.email}</p>
+                {client?.dob && (
+                  <p className="text-muted-foreground text-sm">
+                    DOB: {new Date(client.dob).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 

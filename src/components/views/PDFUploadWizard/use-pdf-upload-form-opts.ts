@@ -1,6 +1,6 @@
 'use client'
 
-import { formOptions } from '@tanstack/react-form'
+import { formOptions, revalidateLogic } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import type { PdfUploadFormType } from './schemas/pdfUploadSchemas'
 import { createDrugTestWithEmailReview } from './actions'
@@ -14,7 +14,6 @@ const defaultValues: PdfUploadFormType = {
     file: null as any, // File object will be set by user
   },
   extractData: {
-    // Minimal schema - actual data lives in TanStack Query cache
     extracted: false,
   },
   clientData: {
@@ -24,6 +23,7 @@ const defaultValues: PdfUploadFormType = {
     middleInitial: null,
     email: '',
     dob: null,
+    headshot: null,
     matchType: 'fuzzy',
     score: 0,
   },
@@ -62,6 +62,10 @@ export const usePdfUploadFormOpts = ({
 }) => {
   return formOptions({
     defaultValues: defaultValues,
+    validationLogic: revalidateLogic({
+      mode: 'change',
+      modeAfterSubmission: 'change',
+    }),
     onSubmit: async ({ value }: { value: PdfUploadFormType }) => {
       try {
         // Validate required data
@@ -81,7 +85,10 @@ export const usePdfUploadFormOpts = ({
         }
 
         // Validate email configuration
-        if (!value.reviewEmailsData.clientEmailEnabled && !value.reviewEmailsData.referralEmailEnabled) {
+        if (
+          !value.reviewEmailsData.clientEmailEnabled &&
+          !value.reviewEmailsData.referralEmailEnabled
+        ) {
           toast.error('At least one email type must be enabled')
           throw new Error('At least one email type must be enabled')
         }
@@ -121,7 +128,7 @@ export const usePdfUploadFormOpts = ({
             clientRecipients: value.reviewEmailsData.clientRecipients,
             referralEmailEnabled: value.reviewEmailsData.referralEmailEnabled,
             referralRecipients: value.reviewEmailsData.referralRecipients,
-          }
+          },
         )
 
         if (result.success && result.testId) {
@@ -134,11 +141,17 @@ export const usePdfUploadFormOpts = ({
       } catch (error) {
         console.error('PDF Upload wizard error:', error)
 
-        if (error instanceof Error && !error.message.includes('uploaded') &&
-            !error.message.includes('selected') && !error.message.includes('required') &&
-            !error.message.includes('enabled')) {
+        if (
+          error instanceof Error &&
+          !error.message.includes('uploaded') &&
+          !error.message.includes('selected') &&
+          !error.message.includes('required') &&
+          !error.message.includes('enabled')
+        ) {
           toast.error(
-            error instanceof Error ? error.message : 'Failed to create drug test. Please try again.',
+            error instanceof Error
+              ? error.message
+              : 'Failed to create drug test. Please try again.',
           )
         }
         throw error

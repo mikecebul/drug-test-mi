@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, AlertCircle, Check, ChevronDown } from 'lucide-react'
@@ -50,6 +51,7 @@ interface DrugTest {
   testType: string
   collectionDate: string
   screeningStatus: string
+  clientHeadshot?: string | null
 }
 
 function calculateTestMatchScore(
@@ -291,15 +293,23 @@ export const VerifyTestFieldGroup = withFieldGroup({
                 onClick={() => handleTestSelect(test)}
               >
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        {test.clientName}
-                        {isSelected && <Check className="h-5 w-5 text-primary" />}
-                      </CardTitle>
-                      <CardDescription className="mt-1">
-                        {format(new Date(test.collectionDate), 'PPp')} • {test.testType}
-                      </CardDescription>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 flex-1">
+                      <Avatar className="h-12 w-12 shrink-0">
+                        <AvatarImage src={test.clientHeadshot ?? undefined} alt={test.clientName} />
+                        <AvatarFallback className="text-sm">
+                          {test.clientName.split(' ').map(n => n.charAt(0)).join('').slice(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          {test.clientName}
+                          {isSelected && <Check className="h-5 w-5 text-primary" />}
+                        </CardTitle>
+                        <CardDescription className="mt-1">
+                          {format(new Date(test.collectionDate), 'PPp')} • {test.testType}
+                        </CardDescription>
+                      </div>
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       {isHighConfidence && <Badge variant="default">High Match ({score}%)</Badge>}

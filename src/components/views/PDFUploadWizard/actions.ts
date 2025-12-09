@@ -90,19 +90,27 @@ export async function findMatchingClients(
       ],
     },
     limit: 5,
+    depth: 1, // Populate headshot relation
   })
 
   if (exactMatch.docs.length > 0) {
     return {
-      matches: exactMatch.docs.map((client) => ({
-        id: client.id,
-        firstName: client.firstName,
-        lastName: client.lastName,
-        middleInitial: client.middleInitial,
-        email: client.email,
-        dob: client.dob,
-        matchType: 'exact' as const,
-      })),
+      matches: exactMatch.docs.map((client) => {
+        // Prefer thumbnail for performance, fallback to full image
+        const headshot = typeof client.headshot === 'object' && client.headshot
+          ? (client.headshot.sizes?.thumbnail?.url || client.headshot.url || null)
+          : null
+        return {
+          id: client.id,
+          firstName: client.firstName,
+          lastName: client.lastName,
+          middleInitial: client.middleInitial,
+          email: client.email,
+          dob: client.dob,
+          headshot,
+          matchType: 'exact' as const,
+        }
+      }),
       searchTerm,
     }
   }
@@ -138,6 +146,7 @@ export async function findMatchingClients(
       id: { in: clientIds },
     },
     limit: 100,
+    depth: 1, // Populate headshot relation
     overrideAccess: true,
   })
 
@@ -152,6 +161,11 @@ export async function findMatchingClients(
 
       const score = calculateSimilarity(searchTerm, clientFullName)
 
+      // Prefer thumbnail for performance, fallback to full image
+      const headshot = typeof client.headshot === 'object' && client.headshot
+        ? (client.headshot.sizes?.thumbnail?.url || client.headshot.url || null)
+        : null
+
       return {
         id: client.id,
         firstName: client.firstName,
@@ -159,6 +173,7 @@ export async function findMatchingClients(
         middleInitial: client.middleInitial || undefined,
         email: client.email,
         dob: client.dob,
+        headshot,
         matchType: 'fuzzy' as const,
         score,
       }
@@ -268,21 +283,30 @@ export async function getAllClients(): Promise<{
     collection: 'clients',
     limit: 1000,
     sort: 'lastName',
+    depth: 1, // Populate headshot relation
     overrideAccess: true,
   })
 
   payload.logger.info(`[getAllClients] Found ${clientsResult.docs.length} clients`)
 
-  const clients = clientsResult.docs.map((client) => ({
-    id: client.id,
-    firstName: client.firstName,
-    lastName: client.lastName,
-    middleInitial: client.middleInitial || undefined,
-    email: client.email,
-    dateOfBirth: client.dob,
-    matchType: 'fuzzy' as const,
-    score: 0,
-  }))
+  const clients = clientsResult.docs.map((client) => {
+    // Prefer thumbnail for performance, fallback to full image
+    const headshot = typeof client.headshot === 'object' && client.headshot
+      ? (client.headshot.sizes?.thumbnail?.url || client.headshot.url || null)
+      : null
+
+    return {
+      id: client.id,
+      firstName: client.firstName,
+      lastName: client.lastName,
+      middleInitial: client.middleInitial || undefined,
+      email: client.email,
+      dob: client.dob,
+      headshot,
+      matchType: 'fuzzy' as const,
+      score: 0,
+    }
+  })
 
   return { clients }
 }
@@ -1636,6 +1660,7 @@ export async function getClientFromTest(testId: string): Promise<{
     email: string
     dob?: string | null
     phone?: string | null
+    headshot?: string | null
   }
   error?: string
 }> {
@@ -1646,7 +1671,7 @@ export async function getClientFromTest(testId: string): Promise<{
     const drugTest = await payload.findByID({
       collection: 'drug-tests',
       id: testId,
-      depth: 1, // Get the full client object
+      depth: 2, // Depth 2 needed to populate relatedClient.headshot
     })
 
     if (!drugTest) {
@@ -1660,6 +1685,11 @@ export async function getClientFromTest(testId: string): Promise<{
       return { success: false, error: 'No client associated with this test' }
     }
 
+    // Extract headshot URL (prefer thumbnail for performance)
+    const headshot = typeof client.headshot === 'object' && client.headshot
+      ? (client.headshot.sizes?.thumbnail?.url || client.headshot.url || null)
+      : null
+
     // Return only the necessary client fields
     return {
       success: true,
@@ -1671,6 +1701,7 @@ export async function getClientFromTest(testId: string): Promise<{
         email: client.email,
         dob: client.dob,
         phone: client.phone,
+        headshot,
       },
     }
   } catch (error) {
@@ -1694,6 +1725,7 @@ export async function fetchPendingTests(filterStatus?: string[]): Promise<
         testType: string
         collectionDate: string
         screeningStatus: string
+        clientHeadshot?: string | null
       }[]
     }
   | { success: false; error: string }
@@ -1725,19 +1757,28 @@ export async function fetchPendingTests(filterStatus?: string[]): Promise<
       where: whereClause,
       sort: '-collectionDate',
       limit: 50,
-      depth: 1,
+      depth: 2, // Depth 2 needed to populate relatedClient.headshot
     })
 
     // Map to simplified format
     return {
       success: true,
-      tests: result.docs.map((test) => ({
-        id: test.id,
-        clientName: test.clientName || 'Unknown',
-        testType: test.testType,
-        collectionDate: test.collectionDate || '',
-        screeningStatus: test.screeningStatus,
-      })),
+      tests: result.docs.map((test) => {
+        // Extract client headshot if available
+        const client = typeof test.relatedClient === 'object' ? test.relatedClient : null
+        const clientHeadshot = client && typeof client.headshot === 'object' && client.headshot
+          ? (client.headshot.sizes?.thumbnail?.url || client.headshot.url || null)
+          : null
+
+        return {
+          id: test.id,
+          clientName: test.clientName || 'Unknown',
+          testType: test.testType,
+          collectionDate: test.collectionDate || '',
+          screeningStatus: test.screeningStatus,
+          clientHeadshot,
+        }
+      }),
     }
   } catch (error) {
     payload.logger.error('Error fetching pending tests:', error)

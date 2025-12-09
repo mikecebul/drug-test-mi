@@ -4,6 +4,7 @@ import React from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -58,6 +59,9 @@ export const ConfirmFieldGroup = withFieldGroup({
     // Client can come from either clientData (instant test) or verifyData.clientData (lab screen)
     const client = formValues?.clientData || verifyData?.clientData
 
+    // Get headshot from client (same fallback logic as client)
+    const clientHeadshot = formValues?.clientData?.headshot || verifyData?.clientData?.headshot || null
+
     // Generate new filename and keep original
     const originalFilename = uploadData?.file?.name || 'No file'
     const newFilename =
@@ -98,12 +102,20 @@ export const ConfirmFieldGroup = withFieldGroup({
                 <User className="h-4 w-4" />
                 Client
               </div>
-              <div className="pl-6">
-                <p className="text-lg font-semibold">
-                  {client?.firstName} {client?.middleInitial ? `${client.middleInitial}. ` : ''}
-                  {client?.lastName}
-                </p>
-                <p className="text-muted-foreground text-sm">{client?.email}</p>
+              <div className="flex items-start gap-3 pl-6">
+                <Avatar className="h-12 w-12 shrink-0">
+                  <AvatarImage src={clientHeadshot ?? undefined} alt={`${client?.firstName} ${client?.lastName}`} />
+                  <AvatarFallback className="text-sm">
+                    {client?.firstName?.charAt(0)}{client?.lastName?.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 space-y-0.5">
+                  <p className="text-lg font-semibold">
+                    {client?.firstName} {client?.middleInitial ? `${client.middleInitial}. ` : ''}
+                    {client?.lastName}
+                  </p>
+                  <p className="text-muted-foreground text-sm">{client?.email}</p>
+                </div>
               </div>
             </div>
 

@@ -5,6 +5,7 @@ import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -39,6 +40,7 @@ export const verifyClientFieldSchema = z.object({
   middleInitial: z.string().nullable(),
   email: z.string().email(),
   dob: z.string().nullable(),
+  headshot: z.string().nullable(),
   matchType: z.enum(['exact', 'fuzzy']),
   score: z.number().optional(),
 })
@@ -50,6 +52,7 @@ const defaultValues: PdfUploadFormType['clientData'] = {
   middleInitial: null,
   email: '',
   dob: null,
+  headshot: null,
   matchType: 'fuzzy',
   score: 0,
 }
@@ -196,12 +199,19 @@ export const VerifyClientFieldGroup = withFieldGroup({
                           group.setFieldValue('middleInitial', match.middleInitial ?? null)
                           group.setFieldValue('email', match.email)
                           group.setFieldValue('dob', match.dob ?? null)
+                          group.setFieldValue('headshot', match.headshot ?? null)
                           group.setFieldValue('matchType', match.matchType)
                           group.setFieldValue('score', match.score || 0)
                         }}
                       >
                         <CardContent className="pt-6">
                           <div className="flex items-start justify-between gap-4">
+                            <Avatar className="h-14 w-14 shrink-0">
+                              <AvatarImage src={match.headshot ?? undefined} alt={`${match.firstName} ${match.lastName}`} />
+                              <AvatarFallback className="text-lg">
+                                {match.firstName.charAt(0)}{match.lastName.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
                             <div className="flex-1 space-y-3">
                               <div className="flex items-start justify-between">
                                 <div>
@@ -311,16 +321,23 @@ export const VerifyClientFieldGroup = withFieldGroup({
                                       )
                                       group.setFieldValue('email', client.email)
                                       group.setFieldValue('dob', client.dob ?? null)
+                                      group.setFieldValue('headshot', client.headshot ?? null)
                                       group.setFieldValue('matchType', client.matchType)
                                       group.setFieldValue('score', client.score || 0)
                                       setOpen(false)
                                     }}
                                   >
                                     <Check
-                                      className={`mr-2 h-4 w-4 ${
+                                      className={`mr-2 h-4 w-4 shrink-0 ${
                                         selectedClientId === client.id ? 'opacity-100' : 'opacity-0'
                                       }`}
                                     />
+                                    <Avatar className="mr-2 h-8 w-8 shrink-0">
+                                      <AvatarImage src={client.headshot ?? undefined} alt={`${client.firstName} ${client.lastName}`} />
+                                      <AvatarFallback className="text-xs">
+                                        {client.firstName.charAt(0)}{client.lastName.charAt(0)}
+                                      </AvatarFallback>
+                                    </Avatar>
                                     <div className="flex flex-col">
                                       <span>
                                         {client.firstName}{' '}
@@ -346,19 +363,29 @@ export const VerifyClientFieldGroup = withFieldGroup({
               {/* Selected Client Confirmation */}
               {selectedClientId && (
                 <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  <AlertDescription>
-                    <p className="mb-1 font-medium text-green-900 dark:text-green-100">
-                      Client Selected
-                    </p>
-                    <p className="text-sm text-green-700 dark:text-green-300">
-                      {selectedClientData.firstName}{' '}
-                      {selectedClientData.middleInitial
-                        ? `${selectedClientData.middleInitial}. `
-                        : ''}
-                      {selectedClientData.lastName} ({selectedClientData.email})
-                    </p>
-                  </AlertDescription>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-12 w-12 shrink-0 border-2 border-green-300 dark:border-green-700">
+                      <AvatarImage src={selectedClientData.headshot ?? undefined} alt={`${selectedClientData.firstName} ${selectedClientData.lastName}`} />
+                      <AvatarFallback className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                        {selectedClientData.firstName.charAt(0)}{selectedClientData.lastName.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <p className="font-medium text-green-900 dark:text-green-100">
+                          Client Selected
+                        </p>
+                      </div>
+                      <p className="mt-1 text-sm text-green-700 dark:text-green-300">
+                        {selectedClientData.firstName}{' '}
+                        {selectedClientData.middleInitial
+                          ? `${selectedClientData.middleInitial}. `
+                          : ''}
+                        {selectedClientData.lastName} ({selectedClientData.email})
+                      </p>
+                    </div>
+                  </div>
                 </Alert>
               )}
 

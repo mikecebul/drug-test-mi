@@ -310,6 +310,23 @@ export const extractPdfQueryKey = (
   testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | undefined,
 ) => ['extract-pdf', file?.name, file?.size, file?.lastModified, testType] as const
 
+// Shared query function for PDF extraction
+const extractPdfQueryFn = async (
+  file: File,
+  testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | undefined,
+) => {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const result = await extractPdfData(formData, testType)
+
+  if (!result.success || !result.data) {
+    throw new Error(result.error || 'Failed to extract PDF data')
+  }
+
+  return result.data
+}
+
 /**
  * Query hook for extracting PDF data
  * Automatically extracts when file is uploaded and caches the result
@@ -325,20 +342,26 @@ export function useExtractPdfQuery(
       if (!file) {
         throw new Error('No file provided')
       }
-
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const result = await extractPdfData(formData, testType)
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Failed to extract PDF data')
-      }
-
-      return result.data
+      return extractPdfQueryFn(file, testType)
     },
     enabled: Boolean(file), // Only run when file exists
     staleTime: Infinity, // Extracted data never goes stale (file content won't change)
     retry: 1, // Only retry once on failure
+  })
+}
+
+/**
+ * Prefetch PDF extraction - call this to trigger extraction early
+ * Results will be cached and available to useExtractPdfQuery
+ */
+export function prefetchExtractPdf(
+  queryClient: ReturnType<typeof import('@tanstack/react-query').useQueryClient>,
+  file: File,
+  testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | undefined,
+) {
+  return queryClient.prefetchQuery({
+    queryKey: extractPdfQueryKey(file, testType),
+    queryFn: () => extractPdfQueryFn(file, testType),
+    staleTime: Infinity,
   })
 }

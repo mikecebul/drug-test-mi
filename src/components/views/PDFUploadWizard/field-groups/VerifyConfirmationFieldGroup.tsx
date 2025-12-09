@@ -4,6 +4,7 @@ import React, { useEffect } from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -16,7 +17,7 @@ import {
 } from '@/components/ui/select'
 import MedicationDisplayField from '@/blocks/Form/field-components/medication-display-field'
 import { z } from 'zod'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2, Plus, User } from 'lucide-react'
 import { getSubstanceOptions } from '@/fields/substanceOptions'
 import { useGetClientMedicationsQuery, useGetClientFromTestQuery, useGetDrugTestQuery, useExtractPdfQuery } from '../queries'
 
@@ -160,26 +161,39 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm tracking-wide text-blue-900 uppercase dark:text-blue-100">
-                Client
-              </CardTitle>
-              <CardDescription></CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-1">
-              <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">
-                {client?.firstName} {client?.middleInitial ? `${client.middleInitial}. ` : ''}
-                {client?.lastName}
-              </p>
-              <p className="text-sm text-blue-700 dark:text-blue-300">{client?.email}</p>
-              {client?.dob && (
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                  DOB: {new Date(client.dob).toLocaleDateString()}
+          <div className="bg-card border-border w-full rounded-xl border p-6 shadow-md">
+            {/* Header */}
+            <div className="mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="bg-primary/20 flex h-8 w-8 items-center justify-center rounded-full">
+                  <User className="text-primary h-4 w-4" />
+                </div>
+                <h3 className="text-foreground text-xl font-semibold">Client</h3>
+              </div>
+            </div>
+
+            {/* Client Info */}
+            <div className="flex items-start gap-4">
+              <Avatar className="h-16 w-16 shrink-0">
+                <AvatarImage src={client?.headshot ?? undefined} alt={`${client?.firstName} ${client?.lastName}`} />
+                <AvatarFallback className="text-lg">
+                  {client?.firstName?.charAt(0)}{client?.lastName?.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 space-y-1">
+                <p className="text-foreground text-lg font-semibold">
+                  {client?.firstName} {client?.middleInitial ? `${client.middleInitial}. ` : ''}
+                  {client?.lastName}
                 </p>
-              )}
-            </CardContent>
-          </Card>
+                <p className="text-muted-foreground text-sm">{client?.email}</p>
+                {client?.dob && (
+                  <p className="text-muted-foreground text-sm">
+                    DOB: {new Date(client.dob).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
 
           {medications.length > 0 && <MedicationDisplayField medications={medications} />}
         </div>

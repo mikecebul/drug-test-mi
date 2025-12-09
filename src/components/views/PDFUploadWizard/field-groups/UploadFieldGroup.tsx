@@ -1,13 +1,12 @@
 'use client'
 
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
-import { Upload as UploadIcon } from 'lucide-react'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 
 // Export the schema for reuse in step validation
 export const uploadFieldSchema = z.object({
-  testType: z.enum(['15-panel-instant', '11-panel-lab']),
+  testType: z.enum(['15-panel-instant', '11-panel-lab', '17-panel-sos-lab', 'etg-lab']),
   file: z.instanceof(File, { message: 'Please upload a PDF file' }),
 })
 

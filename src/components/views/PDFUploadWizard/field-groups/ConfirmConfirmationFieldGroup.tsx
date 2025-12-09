@@ -4,17 +4,10 @@ import React, { useMemo } from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import {
-  CheckCircle2,
-  User,
-  FileText,
-  XCircle,
-  AlertTriangle,
-  Bell,
-  Loader2,
-} from 'lucide-react'
+import { CheckCircle2, User, FileText, XCircle, AlertTriangle, Bell, Loader2 } from 'lucide-react'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import { generateTestFilename } from '../utils/generateFilename'
@@ -63,7 +56,7 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
     // Fetch test result preview using TanStack Query
     const previewQuery = useComputeTestResultPreviewQuery(
       client?.id,
-      adjustedSubstances as SubstanceValue[]
+      adjustedSubstances as SubstanceValue[],
     )
     const preview = previewQuery.data ?? null
     const loadingPreview = previewQuery.isLoading
@@ -98,12 +91,24 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
                 <User className="h-4 w-4" />
                 Client
               </div>
-              <div className="pl-6">
-                <p className="text-lg font-semibold">
-                  {client?.firstName} {client?.middleInitial ? `${client.middleInitial}. ` : ''}
-                  {client?.lastName}
-                </p>
-                <p className="text-muted-foreground text-sm">{client?.email}</p>
+              <div className="flex items-start gap-3 pl-6">
+                <Avatar className="h-12 w-12 shrink-0">
+                  <AvatarImage
+                    src={client?.headshot ?? undefined}
+                    alt={`${client?.firstName} ${client?.lastName}`}
+                  />
+                  <AvatarFallback className="text-sm">
+                    {client?.firstName?.charAt(0)}
+                    {client?.lastName?.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 space-y-0.5">
+                  <p className="text-lg font-semibold">
+                    {client?.firstName} {client?.middleInitial ? `${client.middleInitial}. ` : ''}
+                    {client?.lastName}
+                  </p>
+                  <p className="text-muted-foreground text-sm">{client?.email}</p>
+                </div>
               </div>
             </div>
 
@@ -296,14 +301,14 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
                 <FileText className="h-4 w-4" />
                 File Names
               </div>
-              <div className="pl-6 space-y-2">
+              <div className="space-y-2 pl-6">
                 <div>
-                  <p className="text-xs text-muted-foreground">Original:</p>
-                  <p className="text-sm font-mono">{originalFilename}</p>
+                  <p className="text-muted-foreground text-xs">Original:</p>
+                  <p className="font-mono text-sm">{originalFilename}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Will be saved as:</p>
-                  <p className="text-sm font-mono font-semibold text-primary">{newFilename}</p>
+                  <p className="text-muted-foreground text-xs">Will be saved as:</p>
+                  <p className="text-primary font-mono text-sm font-semibold">{newFilename}</p>
                 </div>
                 <p className="text-muted-foreground text-xs">
                   {uploadData?.file
@@ -314,29 +319,6 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
             </div>
           </CardContent>
         </Card>
-
-        <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
-          <Bell className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          <AlertDescription>
-            <p className="mb-2 text-sm font-medium text-blue-900 dark:text-blue-100">
-              After updating, the system will automatically:
-            </p>
-            <ul className="space-y-1.5 text-sm text-blue-800 dark:text-blue-200">
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-                Update the test with confirmation results
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-                Recalculate the final test result classification
-              </li>
-              <li className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-                Send updated notification emails to appropriate recipients
-              </li>
-            </ul>
-          </AlertDescription>
-        </Alert>
       </div>
     )
   },

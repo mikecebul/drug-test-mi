@@ -20,6 +20,7 @@ export interface ClientMatch {
   middleInitial?: string | null
   email: string
   dob?: string | null
+  headshot?: string | null // URL to headshot image
   matchType: 'exact' | 'fuzzy'
   score?: number
 }

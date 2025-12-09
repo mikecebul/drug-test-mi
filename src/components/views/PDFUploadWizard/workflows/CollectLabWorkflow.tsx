@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Stepper, type Step } from '@/components/ui/stepper'
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { Button } from '@/components/ui/button'
-import { ChevronRight, ChevronLeft, Check } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Check, User } from 'lucide-react'
 import { useStore } from '@tanstack/react-form'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { useFormStepper } from '@/app/(frontend)/register/hooks/useFormStepper'
@@ -18,6 +18,7 @@ import { collectionDetailsFieldSchema } from '../field-groups/CollectionDetailsF
 import { reviewCollectionEmailsFieldSchema } from '../field-groups/ReviewCollectionEmailsFieldGroup'
 import { createCollectionWithEmailReview } from '../actions'
 import { Card, CardContent } from '@/components/ui/card'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { format } from 'date-fns'
 
 // Step schemas
@@ -74,6 +75,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
         middleInitial: null,
         email: '',
         dob: null,
+        headshot: null,
         matchType: 'fuzzy' as const,
         score: 0,
       },
@@ -253,16 +255,32 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
                 <CardContent className="pt-6">
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-muted-foreground text-sm font-medium">Client</h3>
-                      <p className="text-lg">
-                        {formValues.clientData.firstName} {formValues.clientData.lastName}
-                      </p>
-                      <p className="text-muted-foreground text-sm">{formValues.clientData.email}</p>
+                      <h3 className="text-muted-foreground text-sm font-medium flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Client
+                      </h3>
+                      <div className="flex items-start gap-3 pl-6 mt-2">
+                        <Avatar className="h-12 w-12 shrink-0">
+                          <AvatarImage
+                            src={formValues.clientData.headshot ?? undefined}
+                            alt={`${formValues.clientData.firstName} ${formValues.clientData.lastName}`}
+                          />
+                          <AvatarFallback className="text-sm">
+                            {formValues.clientData.firstName?.charAt(0)}{formValues.clientData.lastName?.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-0.5">
+                          <p className="text-lg font-semibold">
+                            {formValues.clientData.firstName} {formValues.clientData.lastName}
+                          </p>
+                          <p className="text-muted-foreground text-sm">{formValues.clientData.email}</p>
+                        </div>
+                      </div>
                     </div>
 
-                    <div>
+                    <div className="border-t pt-4">
                       <h3 className="text-muted-foreground text-sm font-medium">Test Type</h3>
-                      <p className="text-lg">
+                      <p className="text-lg pl-6 mt-1">
                         {formValues.collectionDetails.testType === '11-panel-lab'
                           ? '11-Panel Lab Test'
                           : formValues.collectionDetails.testType === '17-panel-sos-lab'
@@ -271,11 +289,11 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
                       </p>
                     </div>
 
-                    <div>
+                    <div className="border-t pt-4">
                       <h3 className="text-muted-foreground text-sm font-medium">
                         Collection Date & Time
                       </h3>
-                      <p className="text-lg">
+                      <p className="text-lg pl-6 mt-1">
                         {formValues.collectionDetails.collectionDate &&
                           formValues.collectionDetails.collectionTime &&
                           format(
