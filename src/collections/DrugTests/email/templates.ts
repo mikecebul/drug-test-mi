@@ -18,6 +18,15 @@ function formatDate(dateString: string): string {
   })
 }
 
+// Helper: Format date of birth for display
+function formatDob(dobString: string): string {
+  return new Date(dobString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+}
+
 // Helper: Format test type for display
 function formatTestType(testType: string): string {
   const typeMap: Record<string, string> = {
@@ -86,7 +95,7 @@ function formatSubstance(substance: string): string {
  * Sent when a test sample is invalid and cannot be screened
  */
 export function buildInconclusiveEmail(data: InconclusiveEmailData): EmailOutput {
-  const { clientName, collectionDate, testType, reason } = data
+  const { clientName, collectionDate, testType, reason, clientHeadshotDataUri, clientDob } = data
 
   const clientEmail = {
     subject: `Drug Test - Inconclusive Result - ${clientName}`,
@@ -105,6 +114,10 @@ export function buildInconclusiveEmail(data: InconclusiveEmailData): EmailOutput
             .warning-box { background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 15px 0; border-radius: 3px; }
             .detail-row { margin: 10px 0; padding: 10px; background-color: white; border-radius: 3px; }
             .label { font-weight: bold; color: #f59e0b; }
+            .client-headshot { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid #e5e7eb; margin: 0 auto 10px; display: block; }
+            .client-identity { text-align: center; padding: 20px; background-color: white; border-radius: 8px; margin-bottom: 20px; }
+            .client-name-caption { margin: 0; font-size: 16px; font-weight: 700; color: #1f2937; }
+            .client-dob-caption { margin: 5px 0 0; font-size: 14px; font-weight: 400; color: #6b7280; }
             .cta-button { display: inline-block; padding: 14px 32px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; text-align: center; }
             .button-container { text-align: center; margin: 25px 0; }
             .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 14px; color: #666; text-align: center; }
@@ -116,6 +129,13 @@ export function buildInconclusiveEmail(data: InconclusiveEmailData): EmailOutput
               <h1>⚠️ Test Inconclusive</h1>
             </div>
             <div class="content">
+              ${clientHeadshotDataUri ? `
+              <div class="client-identity">
+                <img src="${clientHeadshotDataUri}" alt="${clientName}" class="client-headshot">
+                <p class="client-name-caption">${clientName}</p>
+                ${clientDob ? `<p class="client-dob-caption">DOB: ${formatDob(clientDob)}</p>` : ''}
+              </div>
+              ` : ''}
               <div class="warning-box">
                 <p style="margin: 0; font-weight: bold;">Your drug test sample could not be screened.</p>
                 <p style="margin: 10px 0 0 0;">The sample was invalid and unable to produce test results. ${reason ? `Reason: ${reason}` : 'This may occur if the sample leaked during transport, was damaged, or was otherwise compromised.'}</p>
@@ -163,6 +183,10 @@ export function buildInconclusiveEmail(data: InconclusiveEmailData): EmailOutput
             .warning-box { background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 15px 0; border-radius: 3px; }
             .detail-row { margin: 10px 0; padding: 10px; background-color: white; border-radius: 3px; }
             .label { font-weight: bold; color: #f59e0b; }
+            .client-headshot { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid #e5e7eb; margin: 0 auto 10px; display: block; }
+            .client-identity { text-align: center; padding: 20px; background-color: white; border-radius: 8px; margin-bottom: 20px; }
+            .client-name-caption { margin: 0; font-size: 16px; font-weight: 700; color: #1f2937; }
+            .client-dob-caption { margin: 5px 0 0; font-size: 14px; font-weight: 400; color: #6b7280; }
             .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 14px; color: #666; text-align: center; }
           </style>
         </head>
@@ -172,6 +196,13 @@ export function buildInconclusiveEmail(data: InconclusiveEmailData): EmailOutput
               <h1>⚠️ Test Inconclusive</h1>
             </div>
             <div class="content">
+              ${clientHeadshotDataUri ? `
+              <div class="client-identity">
+                <img src="${clientHeadshotDataUri}" alt="${clientName}" class="client-headshot">
+                <p class="client-name-caption">${clientName}</p>
+                ${clientDob ? `<p class="client-dob-caption">DOB: ${formatDob(clientDob)}</p>` : ''}
+              </div>
+              ` : ''}
               <div class="warning-box">
                 <p style="margin: 0; font-weight: bold;">Drug test sample could not be screened.</p>
                 <p style="margin: 10px 0 0 0;">The sample was invalid and unable to produce test results. ${reason ? `Reason: ${reason}` : 'This may occur if the sample leaked during transport, was damaged, or was otherwise compromised.'}</p>
@@ -215,7 +246,7 @@ export function buildCollectedEmail(data: CollectedEmailData): {
   subject: string
   html: string
 } {
-  const { clientName, collectionDate, testType, breathalyzerTaken, breathalyzerResult } = data
+  const { clientName, collectionDate, testType, breathalyzerTaken, breathalyzerResult, clientHeadshotDataUri, clientDob } = data
 
   return {
     subject: `Drug Test Sample Collected - ${clientName}`,
@@ -233,6 +264,10 @@ export function buildCollectedEmail(data: CollectedEmailData): {
             .content { background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 5px 5px; }
             .detail-row { margin: 10px 0; padding: 10px; background-color: white; border-radius: 3px; }
             .label { font-weight: bold; color: #3b82f6; }
+            .client-headshot { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid #e5e7eb; margin: 0 auto 10px; display: block; }
+            .client-identity { text-align: center; padding: 20px; background-color: white; border-radius: 8px; margin-bottom: 20px; }
+            .client-name-caption { margin: 0; font-size: 16px; font-weight: 700; color: #1f2937; }
+            .client-dob-caption { margin: 5px 0 0; font-size: 14px; font-weight: 400; color: #6b7280; }
             .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 14px; color: #666; text-align: center; }
           </style>
         </head>
@@ -242,6 +277,13 @@ export function buildCollectedEmail(data: CollectedEmailData): {
               <h1>Drug Test Sample Collected</h1>
             </div>
             <div class="content">
+              ${clientHeadshotDataUri ? `
+              <div class="client-identity">
+                <img src="${clientHeadshotDataUri}" alt="${clientName}" class="client-headshot">
+                <p class="client-name-caption">${clientName}</p>
+                ${clientDob ? `<p class="client-dob-caption">DOB: ${formatDob(clientDob)}</p>` : ''}
+              </div>
+              ` : ''}
               <p>A drug test sample has been collected and is being sent to the laboratory for screening:</p>
 
               <div class="detail-row">
@@ -297,6 +339,8 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
     confirmationDecision,
     breathalyzerTaken,
     breathalyzerResult,
+    clientHeadshotDataUri,
+    clientDob,
   } = data
 
   const resultColor = getResultColor(initialScreenResult)
@@ -331,6 +375,10 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
             .result-badge { display: inline-block; padding: 8px 16px; background-color: ${resultColor}; color: white; border-radius: 5px; font-weight: bold; margin: 10px 0; }
             .detail-row { margin: 10px 0; padding: 10px; background-color: white; border-radius: 3px; }
             .label { font-weight: bold; color: #3b82f6; }
+            .client-headshot { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid #e5e7eb; margin: 0 auto 10px; display: block; }
+            .client-identity { text-align: center; padding: 20px; background-color: white; border-radius: 8px; margin-bottom: 20px; }
+            .client-name-caption { margin: 0; font-size: 16px; font-weight: 700; color: #1f2937; }
+            .client-dob-caption { margin: 5px 0 0; font-size: 14px; font-weight: 400; color: #6b7280; }
             .substances-section { margin: 15px 0; padding: 15px; background-color: white; border-left: 4px solid #ccc; border-radius: 3px; }
             .substances-section.green { border-left-color: #22c55e; }
             .substances-section.red { border-left-color: #ef4444; }
@@ -353,6 +401,13 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
               <div class="result-badge">${resultLabel}</div>
             </div>
             <div class="content">
+              ${clientHeadshotDataUri ? `
+              <div class="client-identity">
+                <img src="${clientHeadshotDataUri}" alt="${clientName}" class="client-headshot">
+                <p class="client-name-caption">${clientName}</p>
+                ${clientDob ? `<p class="client-dob-caption">DOB: ${formatDob(clientDob)}</p>` : ''}
+              </div>
+              ` : ''}
               <div class="detail-row">
                 <span class="label">Collection Date:</span> ${formatDate(collectionDate)}
               </div>
@@ -567,6 +622,10 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
             .detail-row { margin: 10px 0; padding: 10px; background-color: white; border-radius: 3px; }
             .label { font-weight: bold; color: #3b82f6; }
             .result-badge { display: inline-block; padding: 8px 16px; background-color: ${resultColor}; color: white; border-radius: 5px; font-weight: bold; margin: 10px 0; }
+            .client-headshot { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid #e5e7eb; margin: 0 auto 10px; display: block; }
+            .client-identity { text-align: center; padding: 20px; background-color: white; border-radius: 8px; margin-bottom: 20px; }
+            .client-name-caption { margin: 0; font-size: 16px; font-weight: 700; color: #1f2937; }
+            .client-dob-caption { margin: 5px 0 0; font-size: 14px; font-weight: 400; color: #6b7280; }
             .substances-section { margin: 15px 0; padding: 15px; background-color: white; border-left: 4px solid #ccc; border-radius: 3px; }
             .substances-section.green { border-left-color: #22c55e; }
             .substances-section.red { border-left-color: #ef4444; }
@@ -584,6 +643,13 @@ export function buildScreenedEmail(data: ScreenedEmailData): EmailOutput {
               <div class="result-badge">${resultLabel}</div>
             </div>
             <div class="content">
+              ${clientHeadshotDataUri ? `
+              <div class="client-identity">
+                <img src="${clientHeadshotDataUri}" alt="${clientName}" class="client-headshot">
+                <p class="client-name-caption">${clientName}</p>
+                ${clientDob ? `<p class="client-dob-caption">DOB: ${formatDob(clientDob)}</p>` : ''}
+              </div>
+              ` : ''}
               <div class="detail-row">
                 <span class="label">Client:</span> ${clientName}
               </div>
@@ -745,6 +811,8 @@ export function buildCompleteEmail(data: CompleteEmailData): EmailOutput {
     isDilute,
     breathalyzerTaken,
     breathalyzerResult,
+    clientHeadshotDataUri,
+    clientDob,
   } = data
 
   const resultColor = getResultColor(finalStatus)
@@ -768,6 +836,10 @@ export function buildCompleteEmail(data: CompleteEmailData): EmailOutput {
             .result-badge { display: inline-block; padding: 8px 16px; background-color: ${resultColor}; color: white; border-radius: 5px; font-weight: bold; margin: 10px 0; }
             .detail-row { margin: 10px 0; padding: 10px; background-color: white; border-radius: 3px; }
             .label { font-weight: bold; color: #3b82f6; }
+            .client-headshot { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid #e5e7eb; margin: 0 auto 10px; display: block; }
+            .client-identity { text-align: center; padding: 20px; background-color: white; border-radius: 8px; margin-bottom: 20px; }
+            .client-name-caption { margin: 0; font-size: 16px; font-weight: 700; color: #1f2937; }
+            .client-dob-caption { margin: 5px 0 0; font-size: 14px; font-weight: 400; color: #6b7280; }
             .substances-section { margin: 15px 0; padding: 15px; background-color: white; border-left: 4px solid #ccc; border-radius: 3px; }
             .substances-section.green { border-left-color: #22c55e; }
             .substances-section.red { border-left-color: #ef4444; }
@@ -791,6 +863,13 @@ export function buildCompleteEmail(data: CompleteEmailData): EmailOutput {
               <div class="result-badge">${resultLabel}</div>
             </div>
             <div class="content">
+              ${clientHeadshotDataUri ? `
+              <div class="client-identity">
+                <img src="${clientHeadshotDataUri}" alt="${clientName}" class="client-headshot">
+                <p class="client-name-caption">${clientName}</p>
+                ${clientDob ? `<p class="client-dob-caption">DOB: ${formatDob(clientDob)}</p>` : ''}
+              </div>
+              ` : ''}
               <div class="detail-row">
                 <span class="label">Collection Date:</span> ${formatDate(collectionDate)}
               </div>
@@ -887,6 +966,10 @@ export function buildCompleteEmail(data: CompleteEmailData): EmailOutput {
             .detail-row { margin: 10px 0; padding: 10px; background-color: white; border-radius: 3px; }
             .label { font-weight: bold; color: #3b82f6; }
             .result-badge { display: inline-block; padding: 8px 16px; background-color: ${resultColor}; color: white; border-radius: 5px; font-weight: bold; margin: 10px 0; }
+            .client-headshot { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid #e5e7eb; margin: 0 auto 10px; display: block; }
+            .client-identity { text-align: center; padding: 20px; background-color: white; border-radius: 8px; margin-bottom: 20px; }
+            .client-name-caption { margin: 0; font-size: 16px; font-weight: 700; color: #1f2937; }
+            .client-dob-caption { margin: 5px 0 0; font-size: 14px; font-weight: 400; color: #6b7280; }
             .confirmation-section { margin: 15px 0; padding: 15px; background-color: white; border: 2px solid #3b82f6; border-radius: 5px; }
             .confirmation-item { padding: 10px; margin: 5px 0; background-color: #f0f9ff; border-radius: 3px; }
             .dilute-warning { background-color: #fee2e2; border-left: 4px solid #ef4444; padding: 15px; margin: 15px 0; border-radius: 3px; }
@@ -900,6 +983,13 @@ export function buildCompleteEmail(data: CompleteEmailData): EmailOutput {
               <div class="result-badge">${resultLabel}</div>
             </div>
             <div class="content">
+              ${clientHeadshotDataUri ? `
+              <div class="client-identity">
+                <img src="${clientHeadshotDataUri}" alt="${clientName}" class="client-headshot">
+                <p class="client-name-caption">${clientName}</p>
+                ${clientDob ? `<p class="client-dob-caption">DOB: ${formatDob(clientDob)}</p>` : ''}
+              </div>
+              ` : ''}
               <div class="detail-row">
                 <span class="label">Client:</span> ${clientName}
               </div>

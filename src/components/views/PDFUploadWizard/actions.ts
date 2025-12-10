@@ -612,6 +612,7 @@ export async function getEmailPreview(data: {
     // Import email functions
     const { getRecipients } = await import('@/collections/DrugTests/email/recipients')
     const { buildScreenedEmail } = await import('@/collections/DrugTests/email/templates')
+    const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
 
     // Fetch client to determine client type
     const client = await payload.findByID({
@@ -627,6 +628,9 @@ export async function getEmailPreview(data: {
     // Get recipients using existing helper
     const { clientEmail, referralEmails } = await getRecipients(data.clientId, payload)
 
+    // Fetch client headshot for email embedding
+    const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
+
     // Compute test result preview (for email content)
     const previewResult = await computeTestResultPreview(
       data.clientId,
@@ -636,6 +640,7 @@ export async function getEmailPreview(data: {
 
     // Build email HTML using existing template builder
     const clientName = `${client.firstName} ${client.lastName}`
+    const clientDob = client.dob || null
     const emailData = buildScreenedEmail({
       clientName,
       collectionDate: data.collectionDate,
@@ -649,6 +654,8 @@ export async function getEmailPreview(data: {
       breathalyzerTaken: data.breathalyzerTaken ?? false,
       breathalyzerResult: data.breathalyzerResult ?? null,
       confirmationDecision: data.confirmationDecision,
+      clientHeadshotDataUri,
+      clientDob,
     })
 
     // Determine smart grouping based on client type

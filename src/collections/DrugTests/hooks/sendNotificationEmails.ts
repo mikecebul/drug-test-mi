@@ -11,6 +11,7 @@ import { promises as fsPromises } from 'fs'
 import path from 'path'
 import { createAdminAlert } from '@/lib/admin-alerts'
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
+import { fetchClientHeadshot } from '../email/fetch-headshot'
 
 const TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
 const TEST_EMAIL = 'mike@midrugtest.com'
@@ -175,6 +176,10 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
 
     const { clientEmail, referralEmails } = await getRecipients(clientId, payload)
 
+    // Fetch client headshot and convert to Base64 data URI for email embedding
+    const clientHeadshotDataUri = await fetchClientHeadshot(clientId, payload)
+    payload.logger.info(`Drug test ${doc.id}: clientHeadshotDataUri is ${clientHeadshotDataUri ? 'SET' : 'NULL'} (length: ${clientHeadshotDataUri?.length || 0})`)
+
     // Warn if no referrals found (but continue with client email)
     if (referralEmails.length === 0) {
       payload.logger.warn(
@@ -201,6 +206,7 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
 
     // Build email content based on stage
     const clientName = `${client.firstName} ${client.lastName}`
+    const clientDob = client.dob || null
     let clientEmailData: { subject: string; html: string } | null = null
     let referralEmailData: { subject: string; html: string } | null = null
 
@@ -212,6 +218,8 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
         testType: doc.testType,
         breathalyzerTaken: doc.breathalyzerTaken || false,
         breathalyzerResult: doc.breathalyzerResult ?? null,
+        clientHeadshotDataUri,
+        clientDob,
       })
       referralEmailData = emailData
     } else if (emailStage === 'inconclusive') {
@@ -226,6 +234,8 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
         reason: doc.processNotes || undefined,
         breathalyzerTaken: doc.breathalyzerTaken || false,
         breathalyzerResult: doc.breathalyzerResult ?? null,
+        clientHeadshotDataUri,
+        clientDob,
       })
       clientEmailData = emails.client
       referralEmailData = emails.referrals
@@ -244,6 +254,8 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
         confirmationDecision: doc.confirmationDecision as 'accept' | 'request-confirmation' | 'pending-decision' | null | undefined,
         breathalyzerTaken: doc.breathalyzerTaken || false,
         breathalyzerResult: doc.breathalyzerResult ?? null,
+        clientHeadshotDataUri,
+        clientDob,
       })
       clientEmailData = emails.client
       referralEmailData = emails.referrals
@@ -262,6 +274,8 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
         finalStatus: doc.finalStatus || doc.initialScreenResult!, // Use finalStatus if available
         breathalyzerTaken: doc.breathalyzerTaken || false,
         breathalyzerResult: doc.breathalyzerResult ?? null,
+        clientHeadshotDataUri,
+        clientDob,
       })
       clientEmailData = emails.client
       referralEmailData = emails.referrals

@@ -6,6 +6,8 @@ export type CollectedEmailData = {
   testType: string
   breathalyzerTaken: boolean
   breathalyzerResult: number | null
+  clientHeadshotDataUri?: string | null
+  clientDob?: string | null
 }
 
 export type InconclusiveEmailData = CollectedEmailData & {
