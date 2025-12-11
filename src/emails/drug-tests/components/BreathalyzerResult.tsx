@@ -49,7 +49,7 @@ export function BreathalyzerResult({ bac, result }: BreathalyzerResultProps) {
           margin: '0 0 8px 0',
         }}
       >
-        {bac.toFixed(3)}%
+        {bac.toFixed(3)} BAC
       </Text>
 
       <Text

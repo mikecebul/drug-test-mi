@@ -3,6 +3,7 @@ import { createAdminAlert } from '@/lib/admin-alerts'
 
 const TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
 const TEST_EMAIL = 'mike@midrugtest.com'
+const DRUG_TEST_FROM_EMAIL = 'mike@midrugtest.com'
 
 export type EmailContent = {
   subject: string
@@ -76,7 +77,7 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
       try {
         await payload.sendEmail({
           to: toAddress,
-          from: payload.email.defaultFromAddress,
+          from: DRUG_TEST_FROM_EMAIL,
           subject: TEST_MODE ? `[TEST MODE] ${clientEmailData.subject}` : clientEmailData.subject,
           html: clientEmailData.html,
           attachments: attachment
@@ -114,7 +115,7 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
       try {
         await payload.sendEmail({
           to: email,
-          from: payload.email.defaultFromAddress,
+          from: DRUG_TEST_FROM_EMAIL,
           subject: TEST_MODE
             ? `[TEST MODE] ${referralEmailData.subject}`
             : referralEmailData.subject,
