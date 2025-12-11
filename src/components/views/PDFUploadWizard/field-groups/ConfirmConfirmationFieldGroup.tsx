@@ -129,16 +129,20 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
                         variant: 'destructive' as const,
                         icon: XCircle,
                         label: 'Confirmed Positive',
+                        className: '',
                       },
                       'confirmed-negative': {
-                        variant: 'default' as const,
+                        variant: 'outline' as const,
                         icon: CheckCircle2,
                         label: 'Confirmed Negative',
+                        className:
+                          'border-green-600 bg-green-100 text-green-900 dark:border-green-400 dark:bg-green-900/30 dark:text-green-100',
                       },
                       inconclusive: {
                         variant: 'secondary' as const,
                         icon: AlertTriangle,
                         label: 'Inconclusive',
+                        className: '',
                       },
                     }
 
@@ -154,7 +158,10 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
                           <Badge variant="outline" className="text-xs">
                             {result.substance}
                           </Badge>
-                          <Badge variant={config.variant} className="gap-1 text-xs">
+                          <Badge
+                            variant={config.variant}
+                            className={`gap-1 text-xs ${config.className}`}
+                          >
                             <ResultIcon className="h-3 w-3" />
                             {config.label}
                           </Badge>
@@ -262,17 +269,23 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
                         }
                         className={
                           preview.initialScreenResult === 'unexpected-negative-warning'
-                            ? 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30'
+                            ? 'border-warning/50 bg-warning-muted/50 dark:border-warning/50 dark:bg-warning-muted/50'
                             : ''
                         }
                       >
                         {preview.initialScreenResult === 'unexpected-negative-warning' ? (
-                          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                          <AlertTriangle className="h-4 w-4 text-warning dark:text-warning" />
                         ) : (
                           <XCircle className="h-4 w-4" />
                         )}
                         <AlertDescription>
-                          <p className="font-semibold">
+                          <p
+                            className={
+                              preview.initialScreenResult === 'unexpected-negative-warning'
+                                ? 'text-warning-foreground font-semibold'
+                                : 'font-semibold'
+                            }
+                          >
                             {preview.initialScreenResult === 'unexpected-negative-critical' &&
                               'Unexpected Negative - Critical (Fail)'}
                             {preview.initialScreenResult === 'unexpected-negative-warning' &&
@@ -282,7 +295,15 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
                           </p>
                           {preview.unexpectedNegatives.length > 0 && (
                             <div className="mt-2">
-                              <p className="mb-1 text-xs">Missing expected:</p>
+                              <p
+                                className={
+                                  preview.initialScreenResult === 'unexpected-negative-warning'
+                                    ? 'text-warning-foreground mb-1 text-xs'
+                                    : 'mb-1 text-xs'
+                                }
+                              >
+                                Missing expected:
+                              </p>
                               <div className="flex flex-wrap gap-1">
                                 {preview.unexpectedNegatives.map((substance) => (
                                   <Badge key={substance} variant="outline" className="text-xs">
