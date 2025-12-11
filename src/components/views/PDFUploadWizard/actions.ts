@@ -616,6 +616,7 @@ export async function getCollectionEmailPreview(data: {
     // Import email functions
     const { getRecipients } = await import('@/collections/DrugTests/email/recipients')
     const { buildCollectedEmail } = await import('@/collections/DrugTests/email/templates')
+    const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
 
     // Fetch client
     const client = await payload.findByID({
@@ -631,8 +632,12 @@ export async function getCollectionEmailPreview(data: {
     // Get recipients using existing helper
     const { referralEmails } = await getRecipients(data.clientId, payload)
 
+    // Fetch client headshot for email embedding
+    const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
+
     // Build collection email HTML using existing template builder
     const clientName = `${client.firstName} ${client.lastName}`
+    const clientDob = client.dob || null
     const dateTimeStr = `${data.collectionDate} ${data.collectionTime}`
     const collectionDate = new Date(dateTimeStr).toISOString()
 
@@ -642,6 +647,8 @@ export async function getCollectionEmailPreview(data: {
       testType: data.testType,
       breathalyzerTaken: data.breathalyzerTaken ?? false,
       breathalyzerResult: data.breathalyzerResult ?? null,
+      clientHeadshotDataUri,
+      clientDob,
     })
 
     return {
@@ -691,6 +698,7 @@ export async function getConfirmationEmailPreview(data: {
     // Import email functions
     const { getRecipients } = await import('@/collections/DrugTests/email/recipients')
     const { buildCompleteEmail } = await import('@/collections/DrugTests/email/templates')
+    const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
 
     // Fetch the drug test to get initial screening data
     const drugTest = await payload.findByID({
@@ -712,6 +720,9 @@ export async function getConfirmationEmailPreview(data: {
 
     // Get recipients using existing helper
     const { clientEmail, referralEmails } = await getRecipients(data.clientId, payload)
+
+    // Fetch client headshot for email embedding
+    const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
 
     // Compute initial test result for email (need this for complete email template)
     const previewResult = await computeTestResultPreview(
@@ -735,6 +746,7 @@ export async function getConfirmationEmailPreview(data: {
 
     // Build complete email HTML using existing template builder
     const clientName = `${client.firstName} ${client.lastName}`
+    const clientDob = client.dob || null
     const emailData = buildCompleteEmail({
       clientName,
       collectionDate: drugTest.collectionDate || '',
@@ -753,6 +765,8 @@ export async function getConfirmationEmailPreview(data: {
       isDilute: drugTest.isDilute || false,
       breathalyzerTaken: drugTest.breathalyzerTaken || false,
       breathalyzerResult: drugTest.breathalyzerResult ?? null,
+      clientHeadshotDataUri,
+      clientDob,
     })
 
     // Determine smart grouping based on client type
@@ -833,6 +847,7 @@ export async function createDrugTestWithEmailReview(
 
     // Import email functions
     const { buildScreenedEmail } = await import('@/collections/DrugTests/email/templates')
+    const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
 
     // Convert number array back to Buffer
     const buffer = Buffer.from(testData.pdfBuffer)
@@ -915,6 +930,9 @@ export async function createDrugTestWithEmailReview(
       depth: 0,
     })
 
+    // 3a. Fetch client headshot for email embedding
+    const clientHeadshotDataUri = await fetchClientHeadshot(testData.clientId, payload)
+
     // 4. Compute test results for email content
     const previewResult = await computeTestResultPreview(
       testData.clientId,
@@ -924,6 +942,7 @@ export async function createDrugTestWithEmailReview(
 
     // 5. Build email content
     const clientName = `${client.firstName} ${client.lastName}`
+    const clientDob = client.dob || null
     const emailData = buildScreenedEmail({
       clientName,
       collectionDate: testData.collectionDate,
@@ -937,6 +956,8 @@ export async function createDrugTestWithEmailReview(
       breathalyzerTaken: testData.breathalyzerTaken,
       breathalyzerResult: testData.breathalyzerResult,
       confirmationDecision: testData.confirmationDecision,
+      clientHeadshotDataUri,
+      clientDob,
     })
 
     // 6-8. Fetch document and send emails using service layer
@@ -1121,6 +1142,7 @@ export async function createCollectionWithEmailReview(
 
     // Import email functions
     const { buildCollectedEmail } = await import('@/collections/DrugTests/email/templates')
+    const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
 
     // 1. Create drug test with skipNotificationHook to prevent auto-send
     const drugTest = await payload.create({
@@ -1149,14 +1171,20 @@ export async function createCollectionWithEmailReview(
       depth: 0,
     })
 
+    // 2a. Fetch client headshot for email embedding
+    const clientHeadshotDataUri = await fetchClientHeadshot(testData.clientId, payload)
+
     // 3. Build email content
     const clientName = `${client.firstName} ${client.lastName}`
+    const clientDob = client.dob || null
     const emailData = buildCollectedEmail({
       clientName,
       collectionDate: testData.collectionDate,
       testType: testData.testType,
       breathalyzerTaken: testData.breathalyzerTaken,
       breathalyzerResult: testData.breathalyzerResult,
+      clientHeadshotDataUri,
+      clientDob,
     })
 
     // 4. Send emails using service layer (no attachment for collected stage)
