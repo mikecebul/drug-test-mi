@@ -14,13 +14,11 @@ import type { EmployerConfig, CourtConfig } from '../types/recipient-types'
  * For now, this is acceptable for the limited number of employers.
  */
 export const EMPLOYER_CONFIGS = {
-  'lcems': {
+  lcems: {
     label: 'LCEMS (Lake Charlevoix EMS)',
-    recipients: [
-      { name: 'Melanie Kroll', email: 'melaniek@lcemsami.gov' },
-    ],
+    recipients: [{ name: 'Melanie Kroll', email: 'melaniek@lcemsami.gov' }],
   },
-  'other': {
+  other: {
     label: 'Other',
     recipients: [],
   },
@@ -55,21 +53,15 @@ export const COURT_CONFIGS = {
   },
   'charlevoix-circuit-stoner': {
     label: 'Charlevoix Circuit Court (Patrick Stoner)',
-    recipients: [
-      { name: 'Patrick Stoner', email: 'stonerp@michigan.gov' },
-    ],
+    recipients: [{ name: 'Patrick Stoner', email: 'stonerp@michigan.gov' }],
   },
   'charlevoix-circuit-hofbauer': {
     label: 'Charlevoix Circuit Court (Derek Hofbauer)',
-    recipients: [
-      { name: 'Derek Hofbauer', email: 'hofbauerd1@michigan.gov' },
-    ],
+    recipients: [{ name: 'Derek Hofbauer', email: 'hofbauerd1@michigan.gov' }],
   },
   'charlevoix-circuit-bond': {
     label: 'Charlevoix Circuit Bond',
-    recipients: [
-      { name: 'Assignment Clerk', email: 'petersa@charlevoixcounty.org'}
-    ],
+    recipients: [{ name: 'Marla Weston', email: 'westonm@charlevoixcounty.org' }],
   },
   'charlevoix-drug-court': {
     label: 'Charlevoix Drug Court',
@@ -88,11 +80,9 @@ export const COURT_CONFIGS = {
   },
   'otsego-district': {
     label: 'Otsego District',
-    recipients: [
-      { name: 'Otsego Probation', email: 'otcprobation@otsegocountymi.gov' },
-    ],
+    recipients: [{ name: 'Otsego Probation', email: 'otcprobation@otsegocountymi.gov' }],
   },
-  'other': {
+  other: {
     label: 'Other',
     recipients: [],
   },
