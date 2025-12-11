@@ -6,7 +6,7 @@ import {
   buildScreenedEmail,
   buildCompleteEmail,
   buildInconclusiveEmail,
-} from '../email/templates'
+} from '../email/render'
 import type { ComputeTestResultsResult, ConfirmationResult } from './testResults'
 
 export type EmailStage = 'collected' | 'screened' | 'complete' | 'inconclusive'
@@ -83,7 +83,7 @@ export async function buildCollectedEmailData(params: {
   clientHeadshotDataUri?: string | null
   clientDob?: string | null
 }): Promise<{ subject: string; html: string }> {
-  return buildCollectedEmail(params)
+  return await buildCollectedEmail(params)
 }
 
 /**
@@ -106,7 +106,7 @@ export async function buildScreenedEmailData(params: {
   clientHeadshotDataUri?: string | null
   clientDob?: string | null
 }): Promise<{ client: { subject: string; html: string }; referrals: { subject: string; html: string } }> {
-  return buildScreenedEmail(params)
+  return await buildScreenedEmail(params)
 }
 
 /**
@@ -130,7 +130,7 @@ export async function buildCompleteEmailData(params: {
   clientHeadshotDataUri?: string | null
   clientDob?: string | null
 }): Promise<{ client: { subject: string; html: string }; referrals: { subject: string; html: string } }> {
-  return buildCompleteEmail(params)
+  return await buildCompleteEmail(params)
 }
 
 /**
@@ -147,5 +147,5 @@ export async function buildInconclusiveEmailData(params: {
   clientHeadshotDataUri?: string | null
   clientDob?: string | null
 }): Promise<{ client: { subject: string; html: string }; referrals: { subject: string; html: string } }> {
-  return buildInconclusiveEmail(params)
+  return await buildInconclusiveEmail(params)
 }

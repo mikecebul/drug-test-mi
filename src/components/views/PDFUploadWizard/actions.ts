@@ -520,7 +520,7 @@ export async function getEmailPreview(data: {
   try {
     // Import email functions
     const { getRecipients } = await import('@/collections/DrugTests/email/recipients')
-    const { buildScreenedEmail } = await import('@/collections/DrugTests/email/templates')
+    const { buildScreenedEmail } = await import('@/collections/DrugTests/email/render')
     const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
 
     // Fetch client to determine client type
@@ -550,7 +550,7 @@ export async function getEmailPreview(data: {
     // Build email HTML using existing template builder
     const clientName = `${client.firstName} ${client.lastName}`
     const clientDob = client.dob || null
-    const emailData = buildScreenedEmail({
+    const emailData = await buildScreenedEmail({
       clientName,
       collectionDate: data.collectionDate,
       testType: data.testType,
@@ -615,7 +615,7 @@ export async function getCollectionEmailPreview(data: {
   try {
     // Import email functions
     const { getRecipients } = await import('@/collections/DrugTests/email/recipients')
-    const { buildCollectedEmail } = await import('@/collections/DrugTests/email/templates')
+    const { buildCollectedEmail } = await import('@/collections/DrugTests/email/render')
     const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
 
     // Fetch client
@@ -641,7 +641,7 @@ export async function getCollectionEmailPreview(data: {
     const dateTimeStr = `${data.collectionDate} ${data.collectionTime}`
     const collectionDate = new Date(dateTimeStr).toISOString()
 
-    const emailData = buildCollectedEmail({
+    const emailData = await buildCollectedEmail({
       clientName,
       collectionDate,
       testType: data.testType,
@@ -697,7 +697,7 @@ export async function getConfirmationEmailPreview(data: {
   try {
     // Import email functions
     const { getRecipients } = await import('@/collections/DrugTests/email/recipients')
-    const { buildCompleteEmail } = await import('@/collections/DrugTests/email/templates')
+    const { buildCompleteEmail } = await import('@/collections/DrugTests/email/render')
     const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
 
     // Fetch the drug test to get initial screening data
@@ -747,7 +747,7 @@ export async function getConfirmationEmailPreview(data: {
     // Build complete email HTML using existing template builder
     const clientName = `${client.firstName} ${client.lastName}`
     const clientDob = client.dob || null
-    const emailData = buildCompleteEmail({
+    const emailData = await buildCompleteEmail({
       clientName,
       collectionDate: drugTest.collectionDate || '',
       testType: drugTest.testType,
@@ -846,7 +846,7 @@ export async function createDrugTestWithEmailReview(
     }
 
     // Import email functions
-    const { buildScreenedEmail } = await import('@/collections/DrugTests/email/templates')
+    const { buildScreenedEmail } = await import('@/collections/DrugTests/email/render')
     const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
 
     // Convert number array back to Buffer
@@ -943,7 +943,7 @@ export async function createDrugTestWithEmailReview(
     // 5. Build email content
     const clientName = `${client.firstName} ${client.lastName}`
     const clientDob = client.dob || null
-    const emailData = buildScreenedEmail({
+    const emailData = await buildScreenedEmail({
       clientName,
       collectionDate: testData.collectionDate,
       testType: testData.testType,
@@ -1141,7 +1141,7 @@ export async function createCollectionWithEmailReview(
     }
 
     // Import email functions
-    const { buildCollectedEmail } = await import('@/collections/DrugTests/email/templates')
+    const { buildCollectedEmail } = await import('@/collections/DrugTests/email/render')
     const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
 
     // 1. Create drug test with skipNotificationHook to prevent auto-send
@@ -1177,7 +1177,7 @@ export async function createCollectionWithEmailReview(
     // 3. Build email content
     const clientName = `${client.firstName} ${client.lastName}`
     const clientDob = client.dob || null
-    const emailData = buildCollectedEmail({
+    const emailData = await buildCollectedEmail({
       clientName,
       collectionDate: testData.collectionDate,
       testType: testData.testType,

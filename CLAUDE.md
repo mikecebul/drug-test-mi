@@ -85,9 +85,13 @@ Pages are built using a flexible block system (`src/blocks/`):
 - **PDF Upload Wizard** (`src/components/views/PDFUploadWizard/actions.ts`): Manual email preview/send
   - Provides email preview before sending
   - Uses same service layer as collection hook (single source of truth)
-- **Email Templates** (`email/templates.ts`): HTML builders for different stages
-  - Separate content for client vs referrals
-  - Includes client headshots and test details
+- **React Email Templates** (`src/emails/drug-tests/`): Component-based email templates
+  - Built with `@react-email/components` for better maintainability and Outlook compatibility
+  - Preview with `pnpm email` (opens localhost:3000)
+  - 7 templates: Collected, Screened (client/referral), Complete (client/referral), Inconclusive (client/referral)
+  - Shared components: EmailLayout, ClientIdentity, ResultBadge, SubstancesSection, etc.
+  - Rendered to HTML via `email/render.ts` before sending
+  - Outlook-compatible: No object-fit CSS, table-based layouts, inline styles only
 
 **Payment Processing**: Stripe integration in Forms collection for payment fields
 - Supports conditional pricing based on form field values

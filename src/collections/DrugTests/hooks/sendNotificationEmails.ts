@@ -6,7 +6,7 @@ import {
   buildScreenedEmail,
   buildCompleteEmail,
   buildInconclusiveEmail,
-} from '../email/templates'
+} from '../email/render'
 import { createAdminAlert } from '@/lib/admin-alerts'
 import { fetchClientHeadshot } from '../email/fetch-headshot'
 import { fetchDocument, sendEmails } from '../services'
@@ -211,7 +211,7 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
 
     if (emailStage === 'collected') {
       // Only referrals get "collected" emails - clients don't need notification yet
-      const emailData = buildCollectedEmail({
+      const emailData = await buildCollectedEmail({
         clientName,
         collectionDate: doc.collectionDate!,
         testType: doc.testType,
@@ -226,7 +226,7 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
       payload.logger.info(
         `Drug test ${doc.id}: Building inconclusive email for client and referrals`,
       )
-      const emails = buildInconclusiveEmail({
+      const emails = await buildInconclusiveEmail({
         clientName,
         collectionDate: doc.collectionDate!,
         testType: doc.testType,
@@ -240,7 +240,7 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
       referralEmailData = emails.referrals
       payload.logger.info(`Drug test ${doc.id}: Inconclusive emails built successfully`)
     } else if (emailStage === 'screened') {
-      const emails = buildScreenedEmail({
+      const emails = await buildScreenedEmail({
         clientName,
         collectionDate: doc.collectionDate!,
         testType: doc.testType,
@@ -259,7 +259,7 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
       clientEmailData = emails.client
       referralEmailData = emails.referrals
     } else if (emailStage === 'complete') {
-      const emails = buildCompleteEmail({
+      const emails = await buildCompleteEmail({
         clientName,
         collectionDate: doc.collectionDate!,
         testType: doc.testType,
