@@ -96,7 +96,7 @@ export async function computeTestResults(
     if (testType) {
       const { getSubstanceOptions } = await import('@/fields/substanceOptions')
       const testTypeSubstances = getSubstanceOptions(testType)
-      testTypeSubstanceValues = new Set(testTypeSubstances.map((s) => s.value))
+      testTypeSubstanceValues = new Set(testTypeSubstances.map((s: { value: string }) => s.value))
     }
 
     // Extract expected substances from active medications

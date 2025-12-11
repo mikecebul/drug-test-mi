@@ -6,16 +6,16 @@ import { extract15PanelInstant } from '@/utilities/extractors/extract15PanelInst
 import { extractLabTest } from '@/utilities/extractors/extractLabTest'
 import type { ParsedPDFData, ClientMatch, TestType } from './types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
-import { classifyTestResult } from '@/collections/DrugTests/helpers/classifyTestResult'
 import { calculateSimilarity } from './utils/calculateSimilarity'
+import {
+  computeTestResults,
+  computeFinalStatus,
+  fetchDocument,
+  sendEmails,
+} from '@/collections/DrugTests/services'
 
 const TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
 const TEST_EMAIL = process.env.EMAIL_TEST_ADDRESS || 'mike@midrugtest.com'
-
-// Epsilon threshold for breathalyzer BAC comparisons
-// BAC values are reported to 3 decimal places (e.g., 0.080)
-// Use 0.0001 to avoid floating point precision issues
-const BAC_EPSILON = 0.0001
 
 /**
  * Extract data from uploaded PDF file
@@ -349,7 +349,11 @@ export async function getClientMedications(clientId: string): Promise<
 }
 
 /**
- * Compute test result preview (same logic as computeTestResults hook)
+ * Compute test result preview for wizard UI
+ *
+ * Wrapper around the service layer computeTestResults function.
+ * Filters expected substances by test type to only check substances this panel actually screens for.
+ * This prevents false "unexpected negatives" for substances not tested by the selected panel.
  */
 export async function computeTestResultPreview(
   clientId: string,
@@ -372,109 +376,14 @@ export async function computeTestResultPreview(
 }> {
   const payload = await getPayload({ config })
 
-  try {
-    // Fetch client with medications
-    const client = await payload.findByID({
-      collection: 'clients',
-      id: clientId,
-      depth: 0,
-    })
-
-    if (!client) {
-      throw new Error('Client not found')
-    }
-
-    // Import substance options to get what this test type actually tests for
-    const { getSubstanceOptions } = await import('@/fields/substanceOptions')
-    const testTypeSubstances = getSubstanceOptions(testType)
-    const testTypeSubstanceValues = new Set(testTypeSubstances.map((s) => s.value))
-
-    // Extract expected substances from active medications
-    // IMPORTANT: Only include substances that this test type actually screens for
-    const expectedSubstances = new Set<string>()
-    const criticalSubstances = new Set<string>()
-
-    if (client.medications && Array.isArray(client.medications)) {
-      const activeMedications = client.medications.filter((med: any) => med.status === 'active')
-
-      activeMedications.forEach((med: any) => {
-        const substances = (med.detectedAs || []).filter((s: string) => s !== 'none')
-
-        substances.forEach((substance: string) => {
-          // Only add to expected substances if this test type actually screens for it
-          if (testTypeSubstanceValues.has(substance)) {
-            expectedSubstances.add(substance)
-            if (med.requireConfirmation === true) {
-              criticalSubstances.add(substance)
-            }
-          }
-        })
-      })
-    }
-
-    // Convert to sets for comparison
-    const detectedSet = new Set(detectedSubstances)
-    const expectedSet = expectedSubstances
-
-    // Compute result arrays
-    const expectedPositives: string[] = []
-    const unexpectedPositives: string[] = []
-    const unexpectedNegatives: string[] = []
-    const criticalNegatives: string[] = []
-
-    // Check detected substances
-    detectedSet.forEach((substance) => {
-      if (expectedSet.has(substance)) {
-        expectedPositives.push(substance)
-      } else {
-        unexpectedPositives.push(substance)
-      }
-    })
-
-    // Check for missing expected substances
-    expectedSet.forEach((substance) => {
-      if (!detectedSet.has(substance as SubstanceValue)) {
-        if (criticalSubstances.has(substance)) {
-          criticalNegatives.push(substance)
-        } else {
-          unexpectedNegatives.push(substance)
-        }
-      }
-    })
-
-    // Determine overall result classification
-    const classification = classifyTestResult({
-      detectedCount: detectedSet.size,
-      expectedCount: expectedSet.size,
-      unexpectedPositivesCount: unexpectedPositives.length,
-      unexpectedNegativesCount: unexpectedNegatives.length,
-      criticalNegativesCount: criticalNegatives.length,
-    })
-
-    let finalResult = classification.initialScreenResult
-    let finalAutoAccept = classification.autoAccept
-
-    // Breathalyzer override: positive breathalyzer always fails the test
-    if (breathalyzerTaken && breathalyzerResult && breathalyzerResult > BAC_EPSILON) {
-      // If currently passing (negative or expected-positive), change to fail
-      if (finalResult === 'negative' || finalResult === 'expected-positive') {
-        finalResult = 'unexpected-positive'
-        finalAutoAccept = false // Don't auto-accept if breathalyzer is positive
-      }
-      // If already failing, keep the existing fail status
-    }
-
-    return {
-      initialScreenResult: finalResult,
-      expectedPositives,
-      unexpectedPositives,
-      unexpectedNegatives: [...unexpectedNegatives, ...criticalNegatives],
-      autoAccept: finalAutoAccept,
-    }
-  } catch (error) {
-    payload.logger.error('Error computing test result preview:', error)
-    throw error
-  }
+  return await computeTestResults({
+    clientId,
+    detectedSubstances,
+    testType, // Wizard filters by test type (only check substances this panel screens for)
+    breathalyzerTaken,
+    breathalyzerResult,
+    payload,
+  })
 }
 
 /**
@@ -811,53 +720,18 @@ export async function getConfirmationEmailPreview(data: {
       drugTest.testType,
     )
 
-    // Determine final status based on confirmation results
-    // This logic matches computeTestResults.ts lines 158-211
-    const confirmationResults = data.confirmationResults
-    const confirmedPositiveCount = confirmationResults.filter(
-      (r) => r.result === 'confirmed-positive',
-    ).length
-    const inconclusiveCount = confirmationResults.filter((r) => r.result === 'inconclusive').length
-
-    let finalStatus: string
-
-    if (inconclusiveCount > 0) {
-      // If any confirmation came back inconclusive, overall result is inconclusive
-      finalStatus = 'inconclusive'
-    } else if (confirmedPositiveCount > 0) {
-      // At least one substance confirmed positive = FAIL
-      // Check if there are also unexpected negatives (from initial screen)
-      if (
-        previewResult.initialScreenResult === 'mixed-unexpected' ||
-        previewResult.initialScreenResult === 'unexpected-negative-critical' ||
-        previewResult.initialScreenResult === 'unexpected-negative-warning'
-      ) {
-        finalStatus = 'mixed-unexpected'
-      } else {
-        finalStatus = 'unexpected-positive'
-      }
-    } else {
-      // All confirmations came back negative (false positives ruled out)
-      // The initial "unexpected positive" was a false alarm
-
-      // Check if there were unexpected negatives from initial screen
-      if (
-        previewResult.initialScreenResult === 'unexpected-negative-critical' ||
-        previewResult.initialScreenResult === 'mixed-unexpected'
-      ) {
-        // Critical medications missing = still FAIL
-        finalStatus = 'unexpected-negative-critical'
-      } else if (previewResult.initialScreenResult === 'unexpected-negative-warning') {
-        // Only warning-level medications missing = WARNING (still technically compliant)
-        finalStatus = 'unexpected-negative-warning'
-      } else if (previewResult.expectedPositives.length > 0) {
-        // Had expected positives and confirmations ruled out false positives = PASS
-        finalStatus = 'expected-positive'
-      } else {
-        // All negative, confirmations ruled out false positives = PASS
-        finalStatus = 'confirmed-negative'
-      }
-    }
+    // Compute final status using service layer
+    const finalStatus = computeFinalStatus({
+      initialScreenResult: previewResult.initialScreenResult,
+      expectedPositives: previewResult.expectedPositives,
+      confirmationResults: data.confirmationResults.map((r) => ({
+        substance: r.substance,
+        result: r.result,
+        notes: r.notes,
+      })),
+      breathalyzerTaken: drugTest.breathalyzerTaken || false,
+      breathalyzerResult: drugTest.breathalyzerResult ?? null,
+    })
 
     // Build complete email HTML using existing template builder
     const clientName = `${client.firstName} ${client.lastName}`
@@ -959,7 +833,6 @@ export async function createDrugTestWithEmailReview(
 
     // Import email functions
     const { buildScreenedEmail } = await import('@/collections/DrugTests/email/templates')
-    const { createAdminAlert } = await import('@/lib/admin-alerts')
 
     // Convert number array back to Buffer
     const buffer = Buffer.from(testData.pdfBuffer)
@@ -1066,153 +939,51 @@ export async function createDrugTestWithEmailReview(
       confirmationDecision: testData.confirmationDecision,
     })
 
-    // 6. Fetch document for attachment
-    const testDocument = await payload.findByID({
-      collection: 'private-media',
-      id: uploadedFile.id,
-      overrideAccess: true,
-    })
-
-    // 7. Read file buffer (handle S3 vs local)
-    let fileBuffer: Buffer
-    const isS3Enabled = Boolean(process.env.NEXT_PUBLIC_S3_HOSTNAME)
+    // 6-8. Fetch document and send emails using service layer
+    let sentTo: string[] = []
+    let failedTo: string[] = []
 
     try {
-      if (isS3Enabled) {
-        // Production: Fetch from S3
-        const { S3Client, GetObjectCommand } = await import('@aws-sdk/client-s3')
-        const s3Client = new S3Client({
-          credentials: {
-            accessKeyId: process.env.S3_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
-          },
-          endpoint: process.env.S3_ENDPOINT,
-          forcePathStyle: true,
-          region: process.env.S3_REGION,
-        })
+      // Fetch document using service layer
+      const document = await fetchDocument(uploadedFile.id, payload)
 
-        const command = new GetObjectCommand({
-          Bucket: process.env.S3_BUCKET!,
-          Key: `private/${testDocument.filename}`,
-        })
+      // Prepare recipient lists based on emailConfig
+      const clientRecipients = emailConfig.clientEmailEnabled ? emailConfig.clientRecipients : []
+      const referralRecipients = emailConfig.referralEmailEnabled ? emailConfig.referralRecipients : []
 
-        payload.logger.info(`Fetching PDF from S3: ${testDocument.filename}`)
-        const response = await s3Client.send(command)
+      // Combine recipients for service call
+      // Service will handle client vs referral distinction
+      const allClientRecipients = clientRecipients
+      const allReferralRecipients = referralRecipients
 
-        const chunks: Uint8Array[] = []
-        for await (const chunk of response.Body as any) {
-          chunks.push(chunk)
-        }
-        fileBuffer = Buffer.concat(chunks)
-      } else {
-        // Development: Read from local disk
-        const { promises: fsPromises } = await import('fs')
-        const path = await import('path')
-        const localPath = path.join(process.cwd(), 'private-media', testDocument.filename!)
-        payload.logger.info(`Reading PDF from local storage: ${localPath}`)
-        fileBuffer = await fsPromises.readFile(localPath)
-      }
-    } catch (error) {
-      payload.logger.error(
-        `Failed to retrieve PDF for email attachment (filename: ${testDocument.filename}, isS3: ${isS3Enabled})`,
-        error
-      )
+      // Send emails using service layer
+      const emailResult = await sendEmails({
+        payload,
+        clientEmail: allClientRecipients.length > 0 ? allClientRecipients[0] : null,
+        clientEmailData: allClientRecipients.length > 0 ? emailData.client : null,
+        referralEmails: allReferralRecipients,
+        referralEmailData: emailData.referrals,
+        attachment: {
+          filename: document.filename,
+          content: document.buffer,
+          contentType: document.mimeType,
+        },
+        emailStage: 'screened',
+        drugTestId: drugTest.id,
+        clientId: testData.clientId,
+        clientName,
+      })
+
+      sentTo = emailResult.sentTo
+      failedTo = emailResult.failedRecipients
+    } catch (documentError) {
+      payload.logger.error('Failed to retrieve PDF for email attachment:', documentError)
 
       // The drug test WAS created successfully, just can't send email with attachment
       return {
         success: false,
         testId: drugTest.id,
-        error: `Drug test created but email cannot be sent - PDF file not found in storage (${isS3Enabled ? 'S3' : 'local disk'}). Please check the file exists and retry sending emails manually.`,
-      }
-    }
-
-    // 8. Send emails
-    const sentTo: string[] = []
-    const failedTo: string[] = []
-
-    // Send client email if enabled
-    if (emailConfig.clientEmailEnabled && emailConfig.clientRecipients.length > 0) {
-      const clientRecipients = TEST_MODE ? [TEST_EMAIL] : emailConfig.clientRecipients
-      for (const email of clientRecipients) {
-        try {
-          await payload.sendEmail({
-            to: email,
-            from: payload.email.defaultFromAddress,
-            subject: TEST_MODE ? `[TEST MODE] ${emailData.client.subject}` : emailData.client.subject,
-            html: emailData.client.html,
-            attachments: [
-              {
-                filename: testDocument.filename || 'drug-test-report.pdf',
-                content: fileBuffer,
-                contentType: 'application/pdf',
-              },
-            ],
-          })
-          sentTo.push(`Client: ${email}${TEST_MODE ? ' (TEST MODE)' : ''}`)
-        } catch (error) {
-          payload.logger.error(`Failed to send client email to ${email}:`, error)
-          failedTo.push(`Client: ${email}`)
-
-          // Create admin alert for failed client email
-          await createAdminAlert(payload, {
-            severity: 'critical',
-            alertType: 'email-failure',
-            title: `Client email failed - ${clientName}`,
-            message: `URGENT: Failed to send screening results email to client.\n\nClient: ${clientName}\nClient Email: ${email}\nStage: screened\nDrug Test ID: ${drugTest.id}\n\nThe client is expecting these results. Please send manually or contact the client.`,
-            context: {
-              drugTestId: drugTest.id,
-              clientId: testData.clientId,
-              clientName,
-              recipientEmail: email,
-              recipientType: 'client',
-              emailStage: 'screened',
-              errorMessage: error instanceof Error ? error.message : String(error),
-            },
-          })
-        }
-      }
-    }
-
-    // Send referral emails if enabled
-    if (emailConfig.referralEmailEnabled && emailConfig.referralRecipients.length > 0) {
-      const referralRecipients = TEST_MODE ? [TEST_EMAIL] : emailConfig.referralRecipients
-      for (const email of referralRecipients) {
-        try {
-          await payload.sendEmail({
-            to: email,
-            from: payload.email.defaultFromAddress,
-            subject: TEST_MODE ? `[TEST MODE] ${emailData.referrals.subject}` : emailData.referrals.subject,
-            html: emailData.referrals.html,
-            attachments: [
-              {
-                filename: testDocument.filename || 'drug-test-report.pdf',
-                content: fileBuffer,
-                contentType: 'application/pdf',
-              },
-            ],
-          })
-          sentTo.push(`Referral: ${email}${TEST_MODE ? ' (TEST MODE)' : ''}`)
-        } catch (error) {
-          payload.logger.error(`Failed to send referral email to ${email}:`, error)
-          failedTo.push(`Referral: ${email}`)
-
-          // Create admin alert for failed referral email
-          await createAdminAlert(payload, {
-            severity: 'critical',
-            alertType: 'email-failure',
-            title: `Referral email failed - ${clientName}`,
-            message: `URGENT: Failed to send screening results email to referral.\n\nClient: ${clientName}\nReferral Email: ${email}\nStage: screened\nDrug Test ID: ${drugTest.id}\n\nThis referral is expecting these results. Please send manually ASAP.`,
-            context: {
-              drugTestId: drugTest.id,
-              clientId: testData.clientId,
-              clientName,
-              recipientEmail: email,
-              recipientType: 'referral',
-              emailStage: 'screened',
-              errorMessage: error instanceof Error ? error.message : String(error),
-            },
-          })
-        }
+        error: `Drug test created but email cannot be sent - PDF file not found in storage. Please check the file exists and retry sending emails manually.`,
       }
     }
 
@@ -1350,7 +1121,6 @@ export async function createCollectionWithEmailReview(
 
     // Import email functions
     const { buildCollectedEmail } = await import('@/collections/DrugTests/email/templates')
-    const { createAdminAlert } = await import('@/lib/admin-alerts')
 
     // 1. Create drug test with skipNotificationHook to prevent auto-send
     const drugTest = await payload.create({
@@ -1389,45 +1159,23 @@ export async function createCollectionWithEmailReview(
       breathalyzerResult: testData.breathalyzerResult,
     })
 
-    // 4. Send emails if enabled
-    const sentTo: string[] = []
-    const failedTo: string[] = []
+    // 4. Send emails using service layer (no attachment for collected stage)
+    const referralRecipients = emailConfig.referralEmailEnabled ? emailConfig.referralRecipients : []
 
-    // Send referral emails if enabled
-    if (emailConfig.referralEmailEnabled && emailConfig.referralRecipients.length > 0) {
-      const referralRecipients = TEST_MODE ? [TEST_EMAIL] : emailConfig.referralRecipients
-      for (const email of referralRecipients) {
-        try {
-          await payload.sendEmail({
-            to: email,
-            from: payload.email.defaultFromAddress,
-            subject: TEST_MODE ? `[TEST MODE] ${emailData.subject}` : emailData.subject,
-            html: emailData.html,
-          })
-          sentTo.push(`Referral: ${email}${TEST_MODE ? ' (TEST MODE)' : ''}`)
-        } catch (error) {
-          payload.logger.error(`Failed to send referral email to ${email}:`, error)
-          failedTo.push(`Referral: ${email}`)
+    const emailResult = await sendEmails({
+      payload,
+      clientEmail: null, // Collected stage doesn't send to client
+      clientEmailData: null,
+      referralEmails: referralRecipients,
+      referralEmailData: emailData,
+      emailStage: 'collected',
+      drugTestId: drugTest.id,
+      clientId: testData.clientId,
+      clientName,
+    })
 
-          // Create admin alert for failed referral email
-          await createAdminAlert(payload, {
-            severity: 'critical',
-            alertType: 'email-failure',
-            title: `Collection notification failed - ${clientName}`,
-            message: `URGENT: Failed to send collection notification to referral.\n\nClient: ${clientName}\nReferral Email: ${email}\nStage: collected\nDrug Test ID: ${drugTest.id}\n\nThis referral is expecting notification. Please send manually ASAP.`,
-            context: {
-              drugTestId: drugTest.id,
-              clientId: testData.clientId,
-              clientName,
-              recipientEmail: email,
-              recipientType: 'referral',
-              emailStage: 'collected',
-              errorMessage: error instanceof Error ? error.message : String(error),
-            },
-          })
-        }
-      }
-    }
+    const sentTo = emailResult.sentTo
+    const failedTo = emailResult.failedRecipients
 
     // 5. Update notification history
     const notificationEntry = {

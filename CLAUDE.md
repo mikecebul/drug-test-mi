@@ -70,7 +70,24 @@ Pages are built using a flexible block system (`src/blocks/`):
 **Email Notifications**:
 - Form submission notifications with template support
 - Automated admin notifications on client registration
+- Drug test result notifications with service layer architecture (see below)
 - Uses Payload's `sendEmail()` method with dynamic field substitution
+
+**Drug Test Email Architecture** (`src/collections/DrugTests/`):
+- **Service Layer** (`services/`): Reusable business logic for email workflows
+  - `testResults.ts` - Computes test result classification and final status
+  - `documentFetch.ts` - Retrieves PDFs from S3/local storage transparently
+  - `emailSender.ts` - Sends emails with TEST_MODE support, attachments, and admin alerts
+  - `emailData.ts` - Utility functions for fetching recipients and building email content
+- **Collection Hook** (`hooks/sendNotificationEmails.ts`): Automatic emails on workflow transitions
+  - Triggers on stage changes: collected → screened → complete
+  - Uses service layer for all email operations
+- **PDF Upload Wizard** (`src/components/views/PDFUploadWizard/actions.ts`): Manual email preview/send
+  - Provides email preview before sending
+  - Uses same service layer as collection hook (single source of truth)
+- **Email Templates** (`email/templates.ts`): HTML builders for different stages
+  - Separate content for client vs referrals
+  - Includes client headshots and test details
 
 **Payment Processing**: Stripe integration in Forms collection for payment fields
 - Supports conditional pricing based on form field values
