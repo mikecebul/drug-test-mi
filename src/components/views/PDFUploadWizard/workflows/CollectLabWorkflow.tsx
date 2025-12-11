@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { Stepper, type Step } from '@/components/ui/stepper'
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { Button } from '@/components/ui/button'
-import { ChevronRight, ChevronLeft, Check, User } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { ChevronRight, ChevronLeft, Check, User, CheckCircle2, XCircle } from 'lucide-react'
 import { useStore } from '@tanstack/react-form'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { useFormStepper } from '@/app/(frontend)/register/hooks/useFormStepper'
@@ -304,6 +305,41 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
                           )}
                       </p>
                     </div>
+
+                    {formValues.collectionDetails.breathalyzerTaken && formValues.collectionDetails.breathalyzerResult !== null && formValues.collectionDetails.breathalyzerResult !== undefined && (
+                      <div className="border-t pt-4 space-y-2">
+                        <h3 className="text-muted-foreground text-sm font-medium">Breathalyzer Test</h3>
+                        <div className="pl-6">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={formValues.collectionDetails.breathalyzerResult! > 0.000 ? 'destructive' : 'default'}
+                              className={formValues.collectionDetails.breathalyzerResult! > 0.000 ? 'gap-1' : 'gap-1 bg-green-600'}
+                            >
+                              {formValues.collectionDetails.breathalyzerResult! > 0.000 ? (
+                                <>
+                                  <XCircle className="h-3 w-3" />
+                                  POSITIVE (FAIL)
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  NEGATIVE (PASS)
+                                </>
+                              )}
+                            </Badge>
+                          </div>
+                          <p className="mt-2 text-sm">
+                            <span className="text-muted-foreground">BAC Level:</span>{' '}
+                            <span className="font-mono font-semibold">{formValues.collectionDetails.breathalyzerResult!.toFixed(3)}</span>
+                          </p>
+                          {formValues.collectionDetails.breathalyzerResult! > 0.000 && (
+                            <p className="text-muted-foreground mt-1 text-xs">
+                              Any detectable alcohol level constitutes a positive result.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

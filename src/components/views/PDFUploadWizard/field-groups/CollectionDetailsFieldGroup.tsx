@@ -157,7 +157,17 @@ export const CollectionDetailsFieldGroup = withFieldGroup({
                 </group.Field>
 
                 {breathalyzerTaken && (
-                  <group.Field name="breathalyzerResult">
+                  <group.Field
+                    name="breathalyzerResult"
+                    validators={{
+                      onChange: ({ value }) =>
+                        value === null || value === undefined
+                          ? 'Breathalyzer result is required'
+                          : value < 0
+                            ? 'Breathalyzer result cannot be negative'
+                            : undefined,
+                    }}
+                  >
                     {(field) => (
                       <div className="space-y-2">
                         <Label htmlFor="breathalyzerResult">
