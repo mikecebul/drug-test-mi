@@ -1,15 +1,17 @@
 import type { Payload } from 'payload'
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { promises as fsPromises } from 'fs'
 import path from 'path'
 
 /**
- * Fetches a client's headshot image and converts it to a Base64 data URI
- * for embedding directly in email HTML
+ * Fetches a client's headshot image and returns a publicly accessible URL
+ * for embedding in email HTML. Uses presigned URLs for S3 storage or
+ * local file paths for development.
  *
  * @param clientId - The client ID to fetch the headshot for
  * @param payload - Payload instance
- * @returns Base64 data URI string (e.g., "data:image/jpeg;base64,/9j/4AAQ...") or null if no headshot
+ * @returns Publicly accessible URL or null if no headshot
  */
 export async function fetchClientHeadshot(
   clientId: string,
@@ -61,15 +63,12 @@ export async function fetchClientHeadshot(
       return null
     }
 
-    // Fetch the image file as a buffer
-    let imageBuffer: Buffer
-
     const isS3Enabled = Boolean(process.env.NEXT_PUBLIC_S3_HOSTNAME)
 
     if (isS3Enabled) {
-      // Production: Fetch from S3
+      // Production: Generate presigned URL from S3
       payload.logger.info(
-        `Fetching client headshot thumbnail from S3: ${filenameToFetch}`,
+        `Generating presigned URL for client headshot thumbnail: ${filenameToFetch}`,
       )
 
       const s3Client = new S3Client({
@@ -87,34 +86,29 @@ export async function fetchClientHeadshot(
         Key: `private/${filenameToFetch}`, // Private media uses 'private/' prefix in S3
       })
 
-      const response = await s3Client.send(command)
+      // Generate presigned URL valid for 7 days (604800 seconds)
+      // This gives plenty of time for email recipients to view the image
+      const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 604800 })
 
-      if (!response.Body) {
-        throw new Error('S3 response body is empty')
-      }
+      payload.logger.info(`[HEADSHOT] Successfully generated presigned URL for client ${clientId} headshot`)
 
-      // Convert stream to buffer
-      const chunks: Uint8Array[] = []
-      for await (const chunk of response.Body as any) {
-        chunks.push(chunk)
-      }
-      imageBuffer = Buffer.concat(chunks)
+      return presignedUrl
     } else {
-      // Development: Read from local disk (private media directory)
+      // Development: Use Next.js public URL
+      // In development, we'll need to serve the image through a public endpoint
+      // For now, return a placeholder or the direct file path
       const localPath = path.join(process.cwd(), 'private-media', filenameToFetch)
-      payload.logger.info(`Reading client headshot thumbnail from local disk: ${localPath}`)
+      payload.logger.info(`[HEADSHOT] Development mode - checking local file: ${localPath}`)
 
+      // Verify file exists
       await fsPromises.access(localPath)
-      imageBuffer = await fsPromises.readFile(localPath)
+
+      // In development, we'll need to create a public endpoint to serve these
+      // For now, return null to skip the image in development emails
+      // TODO: Create /api/email-assets/[filename] endpoint for development
+      payload.logger.warn(`[HEADSHOT] Development mode - email images not yet supported locally`)
+      return null
     }
-
-    // Convert to Base64 data URI
-    const base64Image = imageBuffer.toString('base64')
-    const dataUri = `data:${mimeType};base64,${base64Image}`
-
-    payload.logger.info(`[HEADSHOT] Successfully converted client ${clientId} headshot to Base64 data URI (length: ${dataUri.length} chars)`)
-
-    return dataUri
   } catch (error) {
     payload.logger.error(`[HEADSHOT] Failed to fetch headshot for client ${clientId}:`, error)
     return null
