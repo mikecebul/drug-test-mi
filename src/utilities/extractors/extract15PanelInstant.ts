@@ -1,6 +1,3 @@
-// Import worker before PDFParse to fix Next.js/serverless environments
-import 'pdf-parse/worker'
-import { PDFParse } from 'pdf-parse'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 
 /**
@@ -29,8 +26,12 @@ export interface Extracted15PanelData {
  * @returns Extracted data with confidence score
  */
 export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15PanelData> {
-  // Parse PDF using pdf-parse (better than pdf2json)
-  const parser = new PDFParse({ data: buffer })
+  // Dynamically import pdf-parse to avoid build-time issues with canvas/browser APIs
+  const { CanvasFactory } = await import('pdf-parse/worker')
+  const { PDFParse } = await import('pdf-parse')
+
+  // Parse PDF using pdf-parse with CanvasFactory for Node.js compatibility
+  const parser = new PDFParse({ data: buffer, CanvasFactory })
 
   try {
     const data = await parser.getText()
