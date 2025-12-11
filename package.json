@@ -22,7 +22,7 @@
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "email": "email dev --dir src/emails",
+    "email": "email dev --dir src/emails --port 3001",
     "email:export": "email export --dir src/emails"
   },
   "dependencies": {
