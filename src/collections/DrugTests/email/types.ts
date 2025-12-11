@@ -4,6 +4,10 @@ export type CollectedEmailData = {
   clientName: string
   collectionDate: string
   testType: string
+  breathalyzerTaken: boolean
+  breathalyzerResult: number | null
+  clientHeadshotDataUri?: string | null
+  clientDob?: string | null
 }
 
 export type InconclusiveEmailData = CollectedEmailData & {
@@ -17,6 +21,7 @@ export type ScreenedEmailData = CollectedEmailData & {
   unexpectedPositives: string[]
   unexpectedNegatives: string[]
   isDilute: boolean
+  confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
 }
 
 export type CompleteEmailData = ScreenedEmailData & {

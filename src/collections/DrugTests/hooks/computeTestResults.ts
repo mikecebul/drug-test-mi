@@ -1,18 +1,21 @@
 import type { CollectionBeforeChangeHook } from 'payload'
-import { classifyTestResult } from '../helpers/classifyTestResult'
 import { isConfirmationComplete } from '../helpers/confirmationStatus'
+import { computeTestResults as computeTestResultsService, computeFinalStatus } from '../services'
 
 /**
  * Business Logic Hook: Computes test result classification
  *
  * This hook runs before a drug test is saved and:
- * 1. Fetches client's active medications at test time
- * 2. Extracts expected substances from medication detectedAs fields
- * 3. Compares detected substances with expected substances
- * 4. Populates: expectedPositives, unexpectedPositives, unexpectedNegatives
- * 5. Determines overall initialScreenResult classification
- * 6. Auto-accepts results for negative and expected-positive scenarios
- * 7. Auto-completes when criteria are met
+ * 1. Computes test result classification using service layer (see services/testResults.ts)
+ * 2. Populates: expectedPositives, unexpectedPositives, unexpectedNegatives, initialScreenResult
+ * 3. Determines final status after confirmation testing (if complete)
+ * 4. Auto-accepts results for negative and expected-positive scenarios
+ * 5. Auto-completes when criteria are met
+ *
+ * Test result computation is handled by computeTestResults() service which:
+ * - Fetches client's active medications at test time
+ * - Compares detected substances with expected substances from medications
+ * - Classifies results and applies breathalyzer override if positive
  *
  * Classification Logic:
  * - negative: All substances negative AND no medications with expected positives (AUTO-ACCEPT)
@@ -64,86 +67,29 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
   }
 
   try {
-    // Fetch client with medications
-    const client = await req.payload.findByID({
-      collection: 'clients',
-      id: relatedClient as string,
-      depth: 0,
+    // Compute test results using service layer
+    // Filter by test type to only check substances this panel actually screens for
+    // This prevents false "unexpected negatives" for substances not tested by this panel
+    const result = await computeTestResultsService({
+      clientId: relatedClient as string,
+      detectedSubstances: detected,
+      testType: data.testType as any, // Filter expected substances by what this test type screens for
+      breathalyzerTaken: data.breathalyzerTaken,
+      breathalyzerResult: data.breathalyzerResult,
+      payload: req.payload,
     })
-
-    if (!client) {
-      console.warn('Client not found for drug test')
-      return data
-    }
-
-    // Extract expected substances from active medications using flatMap
-    // Track which substances require confirmation if missing
-    const expectedSubstances = new Set<string>()
-    const criticalSubstances = new Set<string>() // Substances that MUST show (requireConfirmation = true)
-
-    if (client.medications && Array.isArray(client.medications)) {
-      const activeMedications = client.medications.filter((med: any) => med.status === 'active')
-
-      activeMedications.forEach((med: any) => {
-        const substances = (med.detectedAs || []).filter((s: string) => s !== 'none')
-
-        substances.forEach((substance: string) => {
-          expectedSubstances.add(substance)
-          if (med.requireConfirmation === true) {
-            criticalSubstances.add(substance)
-          }
-        })
-      })
-    }
-
-    // Convert to sets for comparison
-    const detectedSet = new Set(detected)
-    const expectedSet = expectedSubstances
-
-    // Compute result arrays
-    const expectedPositives: string[] = []
-    const unexpectedPositives: string[] = []
-    const unexpectedNegatives: string[] = [] // Soft warnings (requireConfirmation = false)
-    const criticalNegatives: string[] = [] // Critical failures (requireConfirmation = true)
-
-    // Check detected substances
-    detectedSet.forEach((substance) => {
-      if (expectedSet.has(substance)) {
-        expectedPositives.push(substance)
-      } else {
-        unexpectedPositives.push(substance)
-      }
-    })
-
-    // Check for missing expected substances - separate critical vs warning
-    expectedSet.forEach((substance) => {
-      if (!detectedSet.has(substance)) {
-        if (criticalSubstances.has(substance)) {
-          criticalNegatives.push(substance)
-        } else {
-          unexpectedNegatives.push(substance)
-        }
-      }
-    })
-
-    // Determine overall result classification using pure helper function
-    const classification = classifyTestResult({
-      detectedCount: detectedSet.size,
-      expectedCount: expectedSet.size,
-      unexpectedPositivesCount: unexpectedPositives.length,
-      unexpectedNegativesCount: unexpectedNegatives.length,
-      criticalNegativesCount: criticalNegatives.length,
-    })
-
-    const { initialScreenResult, autoAccept } = classification
 
     // Update the data object with computed values
-    data.expectedPositives = expectedPositives
-    data.unexpectedPositives = unexpectedPositives
-    data.unexpectedNegatives = [...unexpectedNegatives, ...criticalNegatives] // Combined for storage
-    data.initialScreenResult = initialScreenResult
+    data.expectedPositives = result.expectedPositives
+    data.unexpectedPositives = result.unexpectedPositives
+    data.unexpectedNegatives = result.unexpectedNegatives
+    data.initialScreenResult = result.initialScreenResult
+
+    // Extract values for auto-accept logic
+    const { initialScreenResult, autoAccept } = result
 
     // Auto-accept for negative and expected-positive results (if not already set)
+    // Note: This will not trigger if breathalyzer overrode the result above
     if (autoAccept && !data.confirmationDecision) {
       data.confirmationDecision = 'accept'
     }
@@ -156,58 +102,16 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
     )
 
     if (confirmationComplete) {
-      // Determine finalStatus based on confirmation results
+      // Compute final status using service layer
       // This should NOT depend on current medications (which may have changed)
       // It should only depend on: initial screen result + confirmation outcomes
-
-      const confirmationResults = data.confirmationResults || []
-
-      // Count the types of confirmation results
-      const confirmedPositiveCount = confirmationResults.filter(
-        (r: any) => r.result === 'confirmed-positive'
-      ).length
-      const inconclusiveCount = confirmationResults.filter(
-        (r: any) => r.result === 'inconclusive'
-      ).length
-
-      // Determine final status based on what was confirmed
-      if (inconclusiveCount > 0) {
-        // If any confirmation came back inconclusive, overall result is inconclusive
-        data.finalStatus = 'inconclusive'
-      } else if (confirmedPositiveCount > 0) {
-        // At least one substance confirmed positive = FAIL
-        // Check if there are also unexpected negatives (from initial screen)
-        if (
-          initialScreenResult === 'mixed-unexpected' ||
-          initialScreenResult === 'unexpected-negative-critical' ||
-          initialScreenResult === 'unexpected-negative-warning'
-        ) {
-          data.finalStatus = 'mixed-unexpected'
-        } else {
-          data.finalStatus = 'unexpected-positive'
-        }
-      } else {
-        // All confirmations came back negative (false positives ruled out)
-        // The initial "unexpected positive" was a false alarm
-
-        // Check if there were unexpected negatives from initial screen
-        if (
-          initialScreenResult === 'unexpected-negative-critical' ||
-          initialScreenResult === 'mixed-unexpected'
-        ) {
-          // Critical medications missing = still FAIL
-          data.finalStatus = 'unexpected-negative-critical'
-        } else if (initialScreenResult === 'unexpected-negative-warning') {
-          // Only warning-level medications missing = WARNING (still technically compliant)
-          data.finalStatus = 'unexpected-negative-warning'
-        } else if (expectedPositives.length > 0) {
-          // Had expected positives and confirmations ruled out false positives = PASS
-          data.finalStatus = 'expected-positive'
-        } else {
-          // All negative, confirmations ruled out false positives = PASS
-          data.finalStatus = 'confirmed-negative'
-        }
-      }
+      data.finalStatus = computeFinalStatus({
+        initialScreenResult,
+        expectedPositives: result.expectedPositives,
+        confirmationResults: data.confirmationResults || [],
+        breathalyzerTaken: data.breathalyzerTaken,
+        breathalyzerResult: data.breathalyzerResult,
+      })
     }
 
     // Auto-update screeningStatus based on confirmation workflow

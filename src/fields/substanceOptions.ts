@@ -25,6 +25,7 @@ export type SubstanceValue =
   | 'kratom'
   | '6-mam'
   | 'etg'
+  | 'alcohol'
   | 'synthetic_cannabinoids'
 
 /**
@@ -52,7 +53,8 @@ export const panel15InstantSubstances = [
 /**
  * 11-Panel Lab Test Substances
  * Tests sent to lab for confirmation
- * AMP, BUP, BZO, COC, CR, ETG, FEN, MIT, MTD, OPI, THC
+ * Drug panels: AMP, BUP, BZO, COC, ETG, FEN, MIT, MTD, OPI, THC (10 substances)
+ * Note: CR (Creatinine) is a specimen validity marker, not a drug panel
  */
 export const panel11LabSubstances = [
   { label: 'Amphetamines (AMP)', value: 'amphetamines' },
@@ -65,6 +67,30 @@ export const panel11LabSubstances = [
   { label: 'Methadone (MTD)', value: 'methadone' },
   { label: 'Opiates (OPI)', value: 'opiates' },
   { label: 'THC (THC)', value: 'thc' },
+] as const
+
+/**
+ * 17-Panel SOS Lab Test Substances
+ * Comprehensive lab test including alcohol, common drugs, and prescription medications
+ * B306 - Urine 17 Panel (tests 14 drug substances; panel count includes metabolites/confirmations)
+ * NOTE: This test includes Alcohol (Ethanol) which detects current intoxication,
+ * not EtG which detects past alcohol use (24-48 hours)
+ */
+export const panel17SosLabSubstances = [
+  { label: 'Alcohol (Ethanol)', value: 'alcohol' },
+  { label: 'Amphetamines', value: 'amphetamines' },
+  { label: 'Barbiturates', value: 'barbiturates' },
+  { label: 'Benzodiazepines', value: 'benzodiazepines' },
+  { label: 'Buprenorphine', value: 'buprenorphine' },
+  { label: 'Cocaine', value: 'cocaine' },
+  { label: 'MDMA (Ecstasy)', value: 'mdma' },
+  { label: 'Methadone', value: 'methadone' },
+  { label: 'Opiates', value: 'opiates' },
+  { label: 'Oxycodone', value: 'oxycodone' },
+  { label: 'PCP', value: 'pcp' },
+  { label: 'Propoxyphene', value: 'propoxyphene' },
+  { label: 'THC (Marijuana)', value: 'thc' },
+  { label: 'Tricyclic Antidepressants', value: 'tricyclic_antidepressants' },
 ] as const
 
 /**
@@ -82,12 +108,13 @@ export const etgLabSubstances = [
  */
 export const allSubstanceOptions = [
   { label: '6-MAM (Heroin)', value: '6-mam' },
+  { label: 'Alcohol (Ethanol - Current)', value: 'alcohol' },
   { label: 'Amphetamines', value: 'amphetamines' },
   { label: 'Barbiturates', value: 'barbiturates' },
   { label: 'Benzodiazepines', value: 'benzodiazepines' },
   { label: 'Buprenorphine', value: 'buprenorphine' },
   { label: 'Cocaine', value: 'cocaine' },
-  { label: 'EtG (Alcohol)', value: 'etg' },
+  { label: 'EtG (Alcohol - Past 24-48hrs)', value: 'etg' },
   { label: 'Fentanyl', value: 'fentanyl' },
   { label: 'Kratom', value: 'kratom' },
   { label: 'MDMA (Ecstasy)', value: 'mdma' },
@@ -113,6 +140,8 @@ export function getSubstanceOptions(testType?: string) {
       return panel15InstantSubstances
     case '11-panel-lab':
       return panel11LabSubstances
+    case '17-panel-sos-lab':
+      return panel17SosLabSubstances
     case 'etg-lab':
       return etgLabSubstances
     default:

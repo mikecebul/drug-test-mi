@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 
 interface DrugTest {
   id: string
@@ -37,8 +38,16 @@ const getTestStage = (test: DrugTest) => {
       : { stage: 'Ready to Complete', color: 'bg-blue-500', priority: 4 }
   }
 
-  if (['expected-positive', 'unexpected-positive'].includes(test.initialScreenResult)) {
-    if (!test.confirmationDecision) {
+  if (
+    [
+      'expected-positive',
+      'unexpected-positive',
+      'mixed-unexpected',
+      'unexpected-negative-critical',
+      'unexpected-negative-warning',
+    ].includes(test.initialScreenResult)
+  ) {
+    if (!test.confirmationDecision || test.confirmationDecision === 'pending-decision') {
       return { stage: 'Awaiting Client Decision', color: 'bg-orange-500', priority: 2 }
     }
 
@@ -50,10 +59,11 @@ const getTestStage = (test: DrugTest) => {
 
     if (test.confirmationDecision === 'request-confirmation') {
       // Check if all confirmation results are in
-      const hasAllResults = test.confirmationResults &&
+      const hasAllResults =
+        test.confirmationResults &&
         test.confirmationSubstances &&
         test.confirmationResults.length === test.confirmationSubstances.length &&
-        test.confirmationResults.every(r => r.result)
+        test.confirmationResults.every((r) => r.result)
 
       if (!hasAllResults) {
         return { stage: 'Pending Confirmation', color: 'bg-yellow-500', priority: 3 }
@@ -76,7 +86,9 @@ export function DrugTestTrackerClient() {
   useEffect(() => {
     async function fetchIncompleteTests() {
       try {
-        const response = await fetch('/api/drug-tests?where[isComplete][equals]=false&depth=1&limit=100')
+        const response = await fetch(
+          '/api/drug-tests?where[isComplete][equals]=false&depth=1&limit=100',
+        )
         const data = await response.json()
         setTests(data.docs || [])
       } catch (error) {
@@ -95,47 +107,55 @@ export function DrugTestTrackerClient() {
     return aStage.priority - bStage.priority
   })
 
-  const testsByStage = sortedTests.reduce((acc, test) => {
-    const { stage } = getTestStage(test)
-    if (!acc[stage]) acc[stage] = []
-    acc[stage].push(test)
-    return acc
-  }, {} as Record<string, DrugTest[]>)
+  const testsByStage = sortedTests.reduce(
+    (acc, test) => {
+      const { stage } = getTestStage(test)
+      if (!acc[stage]) acc[stage] = []
+      acc[stage].push(test)
+      return acc
+    },
+    {} as Record<string, DrugTest[]>,
+  )
 
   return (
-    <>
+    <ShadcnWrapper className="mx-auto my-8 flex max-w-sm origin-top scale-125 flex-col md:max-w-2xl lg:mx-auto lg:max-w-4xl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Drug Test Tracker</h1>
-        <p className="text-gray-600 mt-2">
+        <p className="text-muted-foreground mt-2">
           Track and manage drug tests that require attention
         </p>
       </div>
 
       {loading ? (
-        <div className="text-center py-8">
+        <div className="py-8 text-center">
           <p>Loading incomplete tests...</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-8">
           {Object.entries(testsByStage).map(([stage, stageTests]) => (
             <div key={stage}>
-              <div className="flex items-center gap-3 mb-4">
-                <Badge variant="secondary" className={`${getTestStage(stageTests[0]).color} text-white px-3 py-1`}>
+              <div className="mb-4 flex items-center gap-3">
+                <Badge
+                  variant="secondary"
+                  className={`${getTestStage(stageTests[0]).color} px-3 py-1 ${getTestStage(stageTests[0]).color.includes('yellow') ? 'text-black' : 'text-white'}`}
+                >
                   {stage}
                 </Badge>
-                <span className="text-sm text-gray-500">({stageTests.length} tests)</span>
+                <span className="text-muted-foreground text-sm">({stageTests.length} tests)</span>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 lg:grid-cols-2">
                 {stageTests.map((test) => (
-                  <Card key={test.id} className="hover:shadow-md transition-shadow">
+                  <Card key={test.id} className="">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div>
                           <CardTitle className="text-lg">
                             {test.relatedClient.firstName} {test.relatedClient.lastName}
                           </CardTitle>
-                          <p className="text-sm text-gray-500">{test.relatedClient.email}</p>
+                          <p className="text-muted-foreground text-sm">
+                            {test.relatedClient.email}
+                          </p>
                         </div>
                         <Badge variant="outline" className="text-xs">
                           {test.testType?.replace('-', ' ') || 'Unknown'}
@@ -146,7 +166,9 @@ export function DrugTestTrackerClient() {
                     <CardContent>
                       <div className="space-y-2">
                         <div>
-                          <span className="text-xs font-medium text-gray-500">Collection Date:</span>
+                          <span className="text-muted-foreground text-xs font-medium">
+                            Collection Date:
+                          </span>
                           <p className="text-sm">
                             {test.collectionDate
                               ? new Date(test.collectionDate).toLocaleDateString('en-US', {
@@ -154,16 +176,17 @@ export function DrugTestTrackerClient() {
                                   month: 'short',
                                   day: 'numeric',
                                   hour: '2-digit',
-                                  minute: '2-digit'
+                                  minute: '2-digit',
                                 })
-                              : 'Not scheduled'
-                            }
+                              : 'Not scheduled'}
                           </p>
                         </div>
 
                         {test.initialScreenResult && (
                           <div>
-                            <span className="text-xs font-medium text-gray-500">Screen Result:</span>
+                            <span className="text-muted-foreground text-xs font-medium">
+                              Screen Result:
+                            </span>
                             <p className="text-sm capitalize">
                               {test.initialScreenResult.replace('-', ' ')}
                             </p>
@@ -172,41 +195,50 @@ export function DrugTestTrackerClient() {
 
                         {test.confirmationDecision === 'request-confirmation' && (
                           <div>
-                            <span className="text-xs font-medium text-gray-500">Confirmation:</span>
+                            <span className="text-muted-foreground text-xs font-medium">
+                              Confirmation:
+                            </span>
                             <p className="text-sm">
                               {test.confirmationResults &&
-                               test.confirmationSubstances &&
-                               test.confirmationResults.length === test.confirmationSubstances.length &&
-                               test.confirmationResults.every(r => r.result)
+                              test.confirmationSubstances &&
+                              test.confirmationResults.length ===
+                                test.confirmationSubstances.length &&
+                              test.confirmationResults.every((r) => r.result)
                                 ? 'All results received'
-                                : `Pending (${test.confirmationResults?.filter(r => r.result).length || 0}/${test.confirmationSubstances?.length || 0})`
-                              }
+                                : `Pending (${test.confirmationResults?.filter((r) => r.result).length || 0}/${test.confirmationSubstances?.length || 0})`}
                             </p>
                           </div>
                         )}
 
                         {test.processNotes && (
                           <div>
-                            <span className="text-xs font-medium text-gray-500">Notes:</span>
-                            <p className="text-sm text-gray-700 line-clamp-2">
-                              {test.processNotes}
-                            </p>
+                            <span className="text-muted-foreground text-xs font-medium">
+                              Notes:
+                            </span>
+                            <p className="line-clamp-2 text-sm">{test.processNotes}</p>
                           </div>
                         )}
                       </div>
 
-                      <div className="flex gap-2 mt-4">
+                      <div className="mt-4 flex gap-2">
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => window.open(`/admin/collections/drug-tests/${test.id}`, '_blank')}
+                          onClick={() =>
+                            window.open(`/admin/collections/drug-tests/${test.id}`, '_blank')
+                          }
                         >
                           Edit Test
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => window.open(`/admin/collections/clients/${test.relatedClient.id}`, '_blank')}
+                          onClick={() =>
+                            window.open(
+                              `/admin/collections/clients/${test.relatedClient.id}`,
+                              '_blank',
+                            )
+                          }
                         >
                           View Client
                         </Button>
@@ -220,14 +252,14 @@ export function DrugTestTrackerClient() {
 
           {tests.length === 0 && (
             <Card>
-              <CardContent className="text-center py-8">
-                <p className="text-gray-500">No incomplete drug tests found.</p>
-                <p className="text-sm text-gray-400 mt-2">All tests have been completed!</p>
+              <CardContent className="py-8 text-center">
+                <p className="text-muted-foreground">No incomplete drug tests found.</p>
+                <p className="text-muted-foreground mt-2 text-sm">All tests have been completed!</p>
               </CardContent>
             </Card>
           )}
         </div>
       )}
-    </>
+    </ShadcnWrapper>
   )
 }

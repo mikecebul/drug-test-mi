@@ -10,9 +10,14 @@
  *
  * Used for formatting test results in emails, dashboard, and reports.
  * Provides a single source of truth for substance naming conventions.
+ *
+ * IMPORTANT: 'alcohol' and 'etg' are DIFFERENT tests:
+ * - 'alcohol': Detects current intoxication (Ethanol test)
+ * - 'etg': Detects past alcohol use within 24-48 hours (Metabolite test)
  */
 export const SUBSTANCE_MAP: Record<string, string> = {
   '6-mam': '6-MAM (Heroin)',
+  alcohol: 'Alcohol (Current Intoxication)',
   amphetamines: 'Amphetamines',
   methamphetamines: 'Methamphetamines',
   benzodiazepines: 'Benzodiazepines',
@@ -30,7 +35,7 @@ export const SUBSTANCE_MAP: Record<string, string> = {
   tramadol: 'Tramadol',
   fentanyl: 'Fentanyl',
   kratom: 'Kratom',
-  etg: 'EtG (Alcohol)',
+  etg: 'EtG (Past Alcohol Use)',
   synthetic_cannabinoids: 'Synthetic Cannabinoids',
   other: 'Other',
 } as const
@@ -41,6 +46,7 @@ export const SUBSTANCE_MAP: Record<string, string> = {
  */
 export const SUBSTANCE_MAP_SIMPLE: Record<string, string> = {
   '6-mam': 'Heroin',
+  alcohol: 'Alcohol',
   amphetamines: 'Amphetamines',
   methamphetamines: 'Methamphetamines',
   benzodiazepines: 'Benzodiazepines',
@@ -58,7 +64,7 @@ export const SUBSTANCE_MAP_SIMPLE: Record<string, string> = {
   tramadol: 'Tramadol',
   fentanyl: 'Fentanyl',
   kratom: 'Kratom',
-  etg: 'EtG (Alcohol)',
+  etg: 'EtG',
   synthetic_cannabinoids: 'Synthetic Cannabinoids',
   other: 'Other',
 } as const

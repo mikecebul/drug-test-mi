@@ -108,6 +108,7 @@ export interface Config {
     technicians: Technician;
     clients: Client;
     'drug-tests': DrugTest;
+    search: Search;
     exports: Export;
     redirects: Redirect;
     'payload-kv': PayloadKv;
@@ -135,6 +136,7 @@ export interface Config {
     technicians: TechniciansSelect<false> | TechniciansSelect<true>;
     clients: ClientsSelect<false> | ClientsSelect<true>;
     'drug-tests': DrugTestsSelect<false> | DrugTestsSelect<true>;
+    search: SearchSelect<false> | SearchSelect<true>;
     exports: ExportsSelect<false> | ExportsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -318,6 +320,7 @@ export interface Media {
   alt: string;
   caption?: string | null;
   prefix?: string | null;
+  blurhash?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -921,6 +924,10 @@ export interface Client {
   firstName: string;
   lastName: string;
   /**
+   * Middle initial (optional, single letter for precise matching)
+   */
+  middleInitial?: string | null;
+  /**
    * Date of birth
    */
   dob?: string | null;
@@ -1047,6 +1054,7 @@ export interface Client {
         detectedAs?:
           | (
               | '6-mam'
+              | 'alcohol'
               | 'amphetamines'
               | 'barbiturates'
               | 'benzodiazepines'
@@ -1166,6 +1174,7 @@ export interface PrivateMedia {
  */
 export interface DrugTest {
   id: string;
+  clientName?: string | null;
   /**
    * AUTO-UPDATED: Current workflow status based on entered data
    */
@@ -1207,9 +1216,9 @@ export interface DrugTest {
    */
   isComplete?: boolean | null;
   /**
-   * AUTO-SELECTED as "accept" for negative/expected-positive results. REQUIRED CHOICE for unexpected results.
+   * AUTO-SELECTED as "accept" for negative/expected-positive results. For unexpected results, choose to accept as-is, request $30-45/substance confirmation, or leave pending.
    */
-  confirmationDecision?: ('accept' | 'request-confirmation') | null;
+  confirmationDecision?: ('pending-decision' | 'accept' | 'request-confirmation') | null;
   /**
    * Uncheck to skip sending email notifications when saving (useful for testing or manual corrections)
    */
@@ -1243,11 +1252,20 @@ export interface DrugTest {
    */
   isDilute?: boolean | null;
   /**
+   * Check if a breathalyzer test was administered
+   */
+  breathalyzerTaken?: boolean | null;
+  /**
+   * BAC result with 3 decimal places (e.g., 0.000). Any value > 0.000 is considered positive.
+   */
+  breathalyzerResult?: number | null;
+  /**
    * RAW TEST RESULTS: Which substances tested positive? Leave empty if all negative.
    */
   detectedSubstances?:
     | (
         | '6-mam'
+        | 'alcohol'
         | 'amphetamines'
         | 'barbiturates'
         | 'benzodiazepines'
@@ -1275,6 +1293,7 @@ export interface DrugTest {
   expectedPositives?:
     | (
         | '6-mam'
+        | 'alcohol'
         | 'amphetamines'
         | 'barbiturates'
         | 'benzodiazepines'
@@ -1302,6 +1321,7 @@ export interface DrugTest {
   unexpectedPositives?:
     | (
         | '6-mam'
+        | 'alcohol'
         | 'amphetamines'
         | 'barbiturates'
         | 'benzodiazepines'
@@ -1329,6 +1349,7 @@ export interface DrugTest {
   unexpectedNegatives?:
     | (
         | '6-mam'
+        | 'alcohol'
         | 'amphetamines'
         | 'barbiturates'
         | 'benzodiazepines'
@@ -1364,6 +1385,7 @@ export interface DrugTest {
   confirmationSubstances?:
     | (
         | '6-mam'
+        | 'alcohol'
         | 'amphetamines'
         | 'barbiturates'
         | 'benzodiazepines'
@@ -1395,6 +1417,7 @@ export interface DrugTest {
          */
         substance:
           | '6-mam'
+          | 'alcohol'
           | 'amphetamines'
           | 'barbiturates'
           | 'benzodiazepines'
@@ -1442,6 +1465,22 @@ export interface DrugTest {
          * Who received the notification
          */
         recipients?: string | null;
+        /**
+         * Status of this notification
+         */
+        status?: ('sent' | 'failed' | 'opted-out') | null;
+        /**
+         * How this email was skipped (wizard, manual-resend, etc.)
+         */
+        optedOutBy?: string | null;
+        /**
+         * Original computed recipients before any edits
+         */
+        originalRecipients?: string | null;
+        /**
+         * Error message if send failed
+         */
+        errorMessage?: string | null;
         id?: string | null;
       }[]
     | null;
@@ -1579,6 +1618,23 @@ export interface Technician {
    * Inactive technicians will not appear in scheduling
    */
   isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This is a collection of automatically created search results. These results are used by the global site search and will be updated automatically as documents in the CMS are created or updated.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "search".
+ */
+export interface Search {
+  id: string;
+  title?: string | null;
+  priority?: number | null;
+  doc: {
+    relationTo: 'clients';
+    value: string | Client;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -1799,6 +1855,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'drug-tests';
         value: string | DrugTest;
+      } | null)
+    | ({
+        relationTo: 'search';
+        value: string | Search;
       } | null)
     | ({
         relationTo: 'exports';
@@ -2397,6 +2457,7 @@ export interface MediaSelect<T extends boolean = true> {
   alt?: T;
   caption?: T;
   prefix?: T;
+  blurhash?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -2542,6 +2603,7 @@ export interface ClientsSelect<T extends boolean = true> {
   isActive?: T;
   firstName?: T;
   lastName?: T;
+  middleInitial?: T;
   dob?: T;
   gender?: T;
   phone?: T;
@@ -2622,6 +2684,7 @@ export interface ClientsSelect<T extends boolean = true> {
  * via the `definition` "drug-tests_select".
  */
 export interface DrugTestsSelect<T extends boolean = true> {
+  clientName?: T;
   screeningStatus?: T;
   isInconclusive?: T;
   initialScreenResult?: T;
@@ -2636,6 +2699,8 @@ export interface DrugTestsSelect<T extends boolean = true> {
   processNotes?: T;
   testDocument?: T;
   isDilute?: T;
+  breathalyzerTaken?: T;
+  breathalyzerResult?: T;
   detectedSubstances?: T;
   expectedPositives?: T;
   unexpectedPositives?: T;
@@ -2657,8 +2722,23 @@ export interface DrugTestsSelect<T extends boolean = true> {
         stage?: T;
         sentAt?: T;
         recipients?: T;
+        status?: T;
+        optedOutBy?: T;
+        originalRecipients?: T;
+        errorMessage?: T;
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "search_select".
+ */
+export interface SearchSelect<T extends boolean = true> {
+  title?: T;
+  priority?: T;
+  doc?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -17,6 +17,11 @@ import MultiSelectField from '../field-components/multi-select-field'
 import DobField from '../field-components/dob-picker'
 import DateField from '../field-components/date-field'
 import DatePickerField from '../field-components/date-picker-field'
+import FileUploadField from '../field-components/file-upload-field'
+import SubstanceChecklistField from '../field-components/substance-checklist-field'
+import MedicationDisplayField from '../field-components/medication-display-field'
+import ParsedDataDisplayField from '../field-components/parsed-data-display-field'
+import ClientSelectorField from '../field-components/client-selector-field'
 
 export const { useAppForm, withForm, withFieldGroup } = createFormHook({
   fieldComponents: {
@@ -34,6 +39,11 @@ export const { useAppForm, withForm, withFieldGroup } = createFormHook({
     CountryField,
     SelectField,
     MultiSelectField,
+    FileUploadField,
+    SubstanceChecklistField,
+    MedicationDisplayField,
+    ParsedDataDisplayField,
+    ClientSelectorField,
   },
   formComponents: {
     SubmitButton,

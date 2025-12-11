@@ -48,9 +48,37 @@ export const DrugTests: CollectionConfig = {
       'isComplete',
     ],
     description: 'Track drug test results and workflow',
-    useAsTitle: 'relatedClient',
+    useAsTitle: 'clientName',
   },
   fields: [
+    // Computed field for display title (stored in DB)
+    {
+      name: 'clientName',
+      type: 'text',
+      admin: {
+        hidden: true,
+        readOnly: true,
+      },
+      hooks: {
+        beforeChange: [
+          async ({ req, data }) => {
+            if (data?.relatedClient) {
+              const clientId = typeof data.relatedClient === 'string' ? data.relatedClient : data.relatedClient.id
+              const client = await req.payload.findByID({
+                collection: 'clients',
+                id: clientId,
+                depth: 0,
+              })
+              if (client) {
+                const middleInitial = client.middleInitial ? `${client.middleInitial}. ` : ''
+                return `${client.firstName} ${middleInitial}${client.lastName}`
+              }
+            }
+            return 'Drug Test'
+          },
+        ],
+      },
+    },
     // Sidebar fields - workflow status and controls
     {
       name: 'screeningStatus',
@@ -166,12 +194,13 @@ export const DrugTests: CollectionConfig = {
       name: 'confirmationDecision',
       type: 'radio',
       options: [
-        { label: 'Accept Results (No Confirmation Needed)', value: 'accept' },
+        { label: 'Pending Decision', value: 'pending-decision' },
+        { label: 'Accept Results (No Confirmation)', value: 'accept' },
         { label: 'Request Confirmation Testing', value: 'request-confirmation' },
       ],
       admin: {
         description:
-          'AUTO-SELECTED as "accept" for negative/expected-positive results. REQUIRED CHOICE for unexpected results.',
+          'AUTO-SELECTED as "accept" for negative/expected-positive results. For unexpected results, choose to accept as-is, request $30-45/substance confirmation, or leave pending.',
         position: 'sidebar',
       },
     },
@@ -310,6 +339,28 @@ export const DrugTests: CollectionConfig = {
               type: 'checkbox',
               admin: {
                 description: 'Mark if the test sample was dilute',
+              },
+            },
+            {
+              name: 'breathalyzerTaken',
+              type: 'checkbox',
+              admin: {
+                description: 'Check if a breathalyzer test was administered',
+              },
+              defaultValue: false,
+            },
+            {
+              name: 'breathalyzerResult',
+              type: 'number',
+              admin: {
+                description: 'BAC result with 3 decimal places (e.g., 0.000). Any value > 0.000 is considered positive.',
+                condition: (data) => data.breathalyzerTaken === true,
+              },
+              validate: (value, { siblingData }) => {
+                if (siblingData.breathalyzerTaken && (value === null || value === undefined)) {
+                  return 'Breathalyzer result is required when breathalyzer is taken'
+                }
+                return true
               },
             },
             {
@@ -514,6 +565,43 @@ export const DrugTests: CollectionConfig = {
                   admin: {
                     readOnly: true,
                     description: 'Who received the notification',
+                  },
+                },
+                {
+                  name: 'status',
+                  type: 'select',
+                  options: [
+                    { label: 'Sent', value: 'sent' },
+                    { label: 'Failed', value: 'failed' },
+                    { label: 'Opted Out', value: 'opted-out' },
+                  ],
+                  admin: {
+                    readOnly: true,
+                    description: 'Status of this notification',
+                  },
+                },
+                {
+                  name: 'optedOutBy',
+                  type: 'text',
+                  admin: {
+                    readOnly: true,
+                    description: 'How this email was skipped (wizard, manual-resend, etc.)',
+                  },
+                },
+                {
+                  name: 'originalRecipients',
+                  type: 'textarea',
+                  admin: {
+                    readOnly: true,
+                    description: 'Original computed recipients before any edits',
+                  },
+                },
+                {
+                  name: 'errorMessage',
+                  type: 'textarea',
+                  admin: {
+                    readOnly: true,
+                    description: 'Error message if send failed',
                   },
                 },
               ],

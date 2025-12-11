@@ -6,14 +6,10 @@ import {
   buildScreenedEmail,
   buildCompleteEmail,
   buildInconclusiveEmail,
-} from '../email/templates'
-import { promises as fsPromises } from 'fs'
-import path from 'path'
+} from '../email/render'
 import { createAdminAlert } from '@/lib/admin-alerts'
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
-
-const TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
-const TEST_EMAIL = 'mike@midrugtest.com'
+import { fetchClientHeadshot } from '../email/fetch-headshot'
+import { fetchDocument, sendEmails } from '../services'
 
 /**
  * AfterChange Hook: Send email notifications based on workflow stage transitions
@@ -24,6 +20,10 @@ const TEST_EMAIL = 'mike@midrugtest.com'
  * - Lab tests: collected → Send "sample collected" notification
  * - All tests: screened → Send "results available" notification
  * - All tests: complete → Send "final results" notification
+ *
+ * Implementation:
+ * - Uses fetchDocument() service to retrieve PDF attachments from S3/local storage
+ * - Uses sendEmails() service to send emails with TEST_MODE support and admin alerts
  *
  * Test Mode:
  * Set EMAIL_TEST_MODE=true in .env to send all emails to mike@midrugtest.com
@@ -175,6 +175,10 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
 
     const { clientEmail, referralEmails } = await getRecipients(clientId, payload)
 
+    // Fetch client headshot and convert to Base64 data URI for email embedding
+    const clientHeadshotDataUri = await fetchClientHeadshot(clientId, payload)
+    payload.logger.info(`Drug test ${doc.id}: clientHeadshotDataUri is ${clientHeadshotDataUri ? 'SET' : 'NULL'} (length: ${clientHeadshotDataUri?.length || 0})`)
+
     // Warn if no referrals found (but continue with client email)
     if (referralEmails.length === 0) {
       payload.logger.warn(
@@ -201,15 +205,20 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
 
     // Build email content based on stage
     const clientName = `${client.firstName} ${client.lastName}`
+    const clientDob = client.dob || null
     let clientEmailData: { subject: string; html: string } | null = null
     let referralEmailData: { subject: string; html: string } | null = null
 
     if (emailStage === 'collected') {
       // Only referrals get "collected" emails - clients don't need notification yet
-      const emailData = buildCollectedEmail({
+      const emailData = await buildCollectedEmail({
         clientName,
         collectionDate: doc.collectionDate!,
         testType: doc.testType,
+        breathalyzerTaken: doc.breathalyzerTaken || false,
+        breathalyzerResult: doc.breathalyzerResult ?? null,
+        clientHeadshotDataUri,
+        clientDob,
       })
       referralEmailData = emailData
     } else if (emailStage === 'inconclusive') {
@@ -217,17 +226,21 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
       payload.logger.info(
         `Drug test ${doc.id}: Building inconclusive email for client and referrals`,
       )
-      const emails = buildInconclusiveEmail({
+      const emails = await buildInconclusiveEmail({
         clientName,
         collectionDate: doc.collectionDate!,
         testType: doc.testType,
         reason: doc.processNotes || undefined,
+        breathalyzerTaken: doc.breathalyzerTaken || false,
+        breathalyzerResult: doc.breathalyzerResult ?? null,
+        clientHeadshotDataUri,
+        clientDob,
       })
       clientEmailData = emails.client
       referralEmailData = emails.referrals
       payload.logger.info(`Drug test ${doc.id}: Inconclusive emails built successfully`)
     } else if (emailStage === 'screened') {
-      const emails = buildScreenedEmail({
+      const emails = await buildScreenedEmail({
         clientName,
         collectionDate: doc.collectionDate!,
         testType: doc.testType,
@@ -237,11 +250,16 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
         unexpectedPositives: (doc.unexpectedPositives as string[]) || [],
         unexpectedNegatives: (doc.unexpectedNegatives as string[]) || [],
         isDilute: doc.isDilute || false,
+        confirmationDecision: doc.confirmationDecision as 'accept' | 'request-confirmation' | 'pending-decision' | null | undefined,
+        breathalyzerTaken: doc.breathalyzerTaken || false,
+        breathalyzerResult: doc.breathalyzerResult ?? null,
+        clientHeadshotDataUri,
+        clientDob,
       })
       clientEmailData = emails.client
       referralEmailData = emails.referrals
     } else if (emailStage === 'complete') {
-      const emails = buildCompleteEmail({
+      const emails = await buildCompleteEmail({
         clientName,
         collectionDate: doc.collectionDate!,
         testType: doc.testType,
@@ -253,92 +271,35 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
         isDilute: doc.isDilute || false,
         confirmationResults: doc.confirmationResults as any,
         finalStatus: doc.finalStatus || doc.initialScreenResult!, // Use finalStatus if available
+        breathalyzerTaken: doc.breathalyzerTaken || false,
+        breathalyzerResult: doc.breathalyzerResult ?? null,
+        clientHeadshotDataUri,
+        clientDob,
       })
       clientEmailData = emails.client
       referralEmailData = emails.referrals
     }
 
     // Send emails and track recipients
-    const sentTo: string[] = []
+    let sentTo: string[] = []
 
     // For "collected" and "inconclusive" stages, send notification without attachment
     if (emailStage === 'collected' || emailStage === 'inconclusive') {
       payload.logger.info(`Drug test ${doc.id}: Sending ${emailStage} emails without attachment`)
 
-      // Send to client (for inconclusive only)
-      if (emailStage === 'inconclusive' && clientEmailData && clientEmail) {
-        const toAddress = TEST_MODE ? TEST_EMAIL : clientEmail
-        payload.logger.info(
-          `Drug test ${doc.id}: Sending inconclusive email to client ${toAddress}`,
-        )
-        try {
-          await payload.sendEmail({
-            to: toAddress,
-            from: payload.email.defaultFromAddress,
-            subject: TEST_MODE ? `[TEST MODE] ${clientEmailData.subject}` : clientEmailData.subject,
-            html: clientEmailData.html,
-          })
-          sentTo.push(`Client: ${toAddress}${TEST_MODE ? ' (TEST MODE)' : ''}`)
-          payload.logger.info(`Drug test ${doc.id}: Successfully sent inconclusive email to client`)
-        } catch (emailError) {
-          payload.logger.error(`Failed to send email to client ${toAddress}:`, emailError)
-          sentTo.push(`Client: ${toAddress} (FAILED)`)
-        }
-      } else if (emailStage === 'inconclusive') {
-        payload.logger.warn(
-          `Drug test ${doc.id}: Inconclusive email to client NOT sent - clientEmailData: ${!!clientEmailData}, clientEmail: ${!!clientEmail}`,
-        )
-      }
+      const emailResult = await sendEmails({
+        payload,
+        clientEmail: emailStage === 'inconclusive' ? clientEmail : null,
+        clientEmailData: emailStage === 'inconclusive' ? clientEmailData : null,
+        referralEmails,
+        referralEmailData: referralEmailData!,
+        emailStage,
+        drugTestId: doc.id,
+        clientId,
+        clientName,
+      })
 
-      // Send to referrals
-      if (referralEmailData && referralEmails.length > 0) {
-        const recipients = TEST_MODE ? [TEST_EMAIL] : referralEmails
-        payload.logger.info(
-          `Drug test ${doc.id}: Sending ${emailStage} email to ${recipients.length} referral(s)`,
-        )
-
-        for (const email of recipients) {
-          try {
-            await payload.sendEmail({
-              to: email,
-              from: payload.email.defaultFromAddress,
-              subject: TEST_MODE
-                ? `[TEST MODE] ${referralEmailData.subject}`
-                : referralEmailData.subject,
-              html: referralEmailData.html,
-            })
-            sentTo.push(`Referral: ${email}${TEST_MODE ? ' (TEST MODE)' : ''}`)
-          } catch (emailError) {
-            payload.logger.error(`Failed to send email to ${email}:`, emailError)
-            sentTo.push(`Referral: ${email} (FAILED)`)
-
-            // CRITICAL: Alert admin immediately when referral email fails
-            await createAdminAlert(payload, {
-              severity: 'critical',
-              alertType: 'email-failure',
-              title: `Referral email failed - ${clientName}`,
-              message: `URGENT: Failed to send ${emailStage} results email to referral.\n\nIMMEDIATE ACTION REQUIRED: Manually send results to this referral.\n\nClient: ${clientName}\nReferral Email: ${email}\nStage: ${emailStage}\nDrug Test ID: ${doc.id}\nError: ${emailError instanceof Error ? emailError.message : String(emailError)}\n\nThis referral is expecting these results. Please send manually ASAP.`,
-              context: {
-                drugTestId: doc.id,
-                clientId: clientId,
-                clientName: clientName,
-                recipientEmail: email,
-                recipientType: 'referral',
-                emailStage: emailStage,
-                errorMessage: emailError instanceof Error ? emailError.message : String(emailError),
-                errorStack: emailError instanceof Error ? emailError.stack : undefined,
-              },
-            })
-          }
-        }
-        payload.logger.info(
-          `Drug test ${doc.id}: Completed sending ${emailStage} emails to referrals`,
-        )
-      } else {
-        payload.logger.warn(
-          `Drug test ${doc.id}: ${emailStage} email to referrals NOT sent - referralEmailData: ${!!referralEmailData}, referralEmails.length: ${referralEmails.length}`,
-        )
-      }
+      sentTo = emailResult.sentTo
     } else {
       // For screened/complete stages, attach appropriate document to both client and referral emails
       // For "screened" stage: use testDocument (initial screening results)
@@ -364,203 +325,54 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
           `No document attached for drug test ${doc.id} (stage: ${emailStage}) - skipping all emails`,
         )
       } else {
-        // Fetch the document using local API with overrideAccess
-        const testDocument = await payload.findByID({
-          collection: 'private-media',
-          id: documentId,
-          overrideAccess: true,
-        })
+        try {
+          // Fetch document using service layer
+          const document = await fetchDocument(documentId, payload)
 
-        if (!testDocument || !testDocument.filename) {
+          payload.logger.info(`Attaching test document: ${document.filename}`)
+
+          // Send emails with attachment
+          const emailResult = await sendEmails({
+            payload,
+            clientEmail,
+            clientEmailData,
+            referralEmails,
+            referralEmailData: referralEmailData!,
+            attachment: {
+              filename: document.filename,
+              content: document.buffer,
+              contentType: document.mimeType,
+            },
+            emailStage,
+            drugTestId: doc.id,
+            clientId,
+            clientName,
+          })
+
+          sentTo = emailResult.sentTo
+        } catch (documentError) {
           payload.logger.error(
-            `CRITICAL: Document ${documentId} not found in database or has no filename for drug test ${doc.id} - cannot send notifications. This indicates a data integrity issue.`,
+            `CRITICAL: Cannot send notifications for drug test ${doc.id} - document fetch failed:`,
+            documentError,
           )
 
-          // Alert admin about missing document
+          // Alert admin about document fetch failure
           await createAdminAlert(payload, {
             severity: 'critical',
             alertType: 'document-missing',
-            title: `Missing test document - ${clientName}`,
-            message: `CRITICAL: Cannot send ${emailStage} results emails because test document is missing from database.\n\nDocument ID: ${documentId}\nDrug Test ID: ${doc.id}\nClient: ${clientName}\nStage: ${emailStage}\n\nThis is a data integrity issue. The document record may exist but has no filename, or the document was deleted. Client and referrals cannot receive results until document is uploaded.`,
+            title: `Test document fetch failed - ${clientName}`,
+            message: `CRITICAL: Cannot send ${emailStage} results emails because test document could not be fetched.\n\nDocument ID: ${documentId}\nDrug Test ID: ${doc.id}\nClient: ${clientName}\nStage: ${emailStage}\nError: ${documentError instanceof Error ? documentError.message : String(documentError)}\n\nThe document may be missing from storage, or there may be a network/permissions issue. Client and referrals cannot receive results until this is resolved.`,
             context: {
               drugTestId: doc.id,
               clientId: clientId,
               clientName: clientName,
               documentId: documentId,
               emailStage: emailStage,
-              issueType: 'document-not-found-in-database',
+              issueType: 'document-fetch-failed',
+              errorMessage: documentError instanceof Error ? documentError.message : String(documentError),
+              errorStack: documentError instanceof Error ? documentError.stack : undefined,
             },
           })
-        } else {
-          // Fetch file buffer - handle both S3 (production) and local storage (development)
-          let fileBuffer: Buffer
-
-          try {
-            // Check if S3 storage is enabled (production)
-            const isS3Enabled = Boolean(process.env.NEXT_PUBLIC_S3_HOSTNAME)
-
-            if (isS3Enabled) {
-              // Production: Fetch from S3 using AWS SDK
-              payload.logger.info(
-                `Fetching test document from S3: ${testDocument.filename}`,
-              )
-
-              // Initialize S3 client with credentials
-              const s3Client = new S3Client({
-                credentials: {
-                  accessKeyId: process.env.S3_ACCESS_KEY_ID!,
-                  secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
-                },
-                endpoint: process.env.S3_ENDPOINT,
-                forcePathStyle: true,
-                region: process.env.S3_REGION,
-              })
-
-              // Fetch file from S3
-              const command = new GetObjectCommand({
-                Bucket: process.env.S3_BUCKET!,
-                Key: `private/${testDocument.filename}`,
-              })
-
-              const response = await s3Client.send(command)
-
-              if (!response.Body) {
-                throw new Error('S3 response body is empty')
-              }
-
-              // Convert stream to buffer
-              const chunks: Uint8Array[] = []
-              for await (const chunk of response.Body as any) {
-                chunks.push(chunk)
-              }
-              fileBuffer = Buffer.concat(chunks)
-
-              payload.logger.info(
-                `Successfully fetched test document from S3: ${testDocument.filename}`,
-              )
-            } else {
-              // Development: Read directly from local disk
-              // Don't use the URL because it's an API endpoint requiring auth
-              const localPath = path.join(process.cwd(), 'private-media', testDocument.filename)
-              payload.logger.info(`Reading test document from local disk: ${localPath}`)
-
-              await fsPromises.access(localPath)
-              fileBuffer = await fsPromises.readFile(localPath)
-
-              payload.logger.info(`Successfully read test document from disk: ${testDocument.filename}`)
-            }
-
-            payload.logger.info(`Attaching test document: ${testDocument.filename}`)
-
-            // Send to client with attachment
-            // For "self" clients: skip sending to clientEmail separately since it's already in referralEmails
-            const isClientInReferralList = referralEmails.includes(clientEmail)
-            if (clientEmailData && clientEmail && !isClientInReferralList) {
-              const toAddress = TEST_MODE ? TEST_EMAIL : clientEmail
-              try {
-                await payload.sendEmail({
-                  to: toAddress,
-                  from: payload.email.defaultFromAddress,
-                  subject: TEST_MODE
-                    ? `[TEST MODE] ${clientEmailData.subject}`
-                    : clientEmailData.subject,
-                  html: clientEmailData.html,
-                  attachments: [
-                    {
-                      filename: testDocument.filename || 'drug-test-report.pdf',
-                      content: fileBuffer,
-                      contentType: testDocument.mimeType || 'application/pdf',
-                    },
-                  ],
-                })
-                sentTo.push(`Client: ${toAddress}${TEST_MODE ? ' (TEST MODE)' : ''}`)
-              } catch (emailError) {
-                payload.logger.error(`Failed to send email to client ${toAddress}:`, emailError)
-                sentTo.push(`Client: ${toAddress} (FAILED)`)
-              }
-            }
-
-            // Send to referrals with attachment
-            if (referralEmailData && referralEmails.length > 0) {
-              const recipients = TEST_MODE ? [TEST_EMAIL] : referralEmails
-
-              for (const email of recipients) {
-                try {
-                  await payload.sendEmail({
-                    to: email,
-                    from: payload.email.defaultFromAddress,
-                    subject: TEST_MODE
-                      ? `[TEST MODE] ${referralEmailData.subject}`
-                      : referralEmailData.subject,
-                    html: referralEmailData.html,
-                    attachments: [
-                      {
-                        filename: testDocument.filename || 'drug-test-report.pdf',
-                        content: fileBuffer,
-                        contentType: testDocument.mimeType || 'application/pdf',
-                      },
-                    ],
-                  })
-                  sentTo.push(`Referral: ${email}${TEST_MODE ? ' (TEST MODE)' : ''}`)
-                } catch (emailError) {
-                  payload.logger.error(`Failed to send email to ${email}:`, emailError)
-                  sentTo.push(`Referral: ${email} (FAILED)`)
-
-                  // CRITICAL: Alert admin immediately when referral email fails
-                  await createAdminAlert(payload, {
-                    severity: 'critical',
-                    alertType: 'email-failure',
-                    title: `Referral email failed - ${clientName}`,
-                    message: `URGENT: Failed to send ${emailStage} results email with attachment to referral.\n\nIMMEDIATE ACTION REQUIRED: Manually send results to this referral.\n\nClient: ${clientName}\nReferral Email: ${email}\nStage: ${emailStage}\nDrug Test ID: ${doc.id}\nDocument: ${testDocument.filename}\nError: ${emailError instanceof Error ? emailError.message : String(emailError)}\n\nThis referral is expecting these results with the test report PDF. Please send manually ASAP.`,
-                    context: {
-                      drugTestId: doc.id,
-                      clientId: clientId,
-                      clientName: clientName,
-                      recipientEmail: email,
-                      recipientType: 'referral',
-                      emailStage: emailStage,
-                      documentFilename: testDocument.filename,
-                      errorMessage:
-                        emailError instanceof Error ? emailError.message : String(emailError),
-                      errorStack: emailError instanceof Error ? emailError.stack : undefined,
-                    },
-                  })
-                }
-              }
-            }
-          } catch (fileError) {
-            const isS3Enabled = Boolean(process.env.NEXT_PUBLIC_S3_HOSTNAME)
-            const errorLocation = isS3Enabled ? 'S3' : 'local disk'
-            const errorPath = isS3Enabled
-              ? `s3://${process.env.S3_BUCKET}/private/${testDocument.filename}`
-              : path.join(process.cwd(), 'private-media', testDocument.filename)
-
-            payload.logger.error(
-              `CRITICAL: Cannot send notifications for drug test ${doc.id} - test document not accessible from ${errorLocation} at ${errorPath}`,
-              fileError,
-            )
-
-            // Alert admin about file access failure
-            await createAdminAlert(payload, {
-              severity: 'critical',
-              alertType: 'document-missing',
-              title: `Test document not accessible - ${clientName}`,
-              message: `CRITICAL: Cannot send ${emailStage} results emails because test document is not accessible.\n\nStorage: ${errorLocation}\nLocation: ${errorPath}\nFilename: ${testDocument.filename}\nDrug Test ID: ${doc.id}\nClient: ${clientName}\nStage: ${emailStage}\n\nThe document may be missing from storage, or there may be a network/permissions issue. Client and referrals cannot receive results until this is resolved.`,
-              context: {
-                drugTestId: doc.id,
-                clientId: clientId,
-                clientName: clientName,
-                documentId: documentId,
-                documentFilename: testDocument.filename,
-                storageLocation: errorLocation,
-                accessPath: errorPath,
-                emailStage: emailStage,
-                issueType: isS3Enabled ? 's3-fetch-failed' : 'file-not-found-on-disk',
-                errorMessage: fileError instanceof Error ? fileError.message : String(fileError),
-                errorStack: fileError instanceof Error ? fileError.stack : undefined,
-              },
-            })
-          }
         }
       }
     }

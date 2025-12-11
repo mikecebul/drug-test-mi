@@ -250,6 +250,14 @@ export const Clients: CollectionConfig = {
               index: true,
             },
             {
+              name: 'middleInitial',
+              type: 'text',
+              maxLength: 1,
+              admin: {
+                description: 'Middle initial (optional, single letter for precise matching)',
+              },
+            },
+            {
               name: 'dob',
               type: 'date',
               admin: {
