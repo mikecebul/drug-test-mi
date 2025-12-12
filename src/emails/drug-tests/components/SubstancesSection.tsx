@@ -44,7 +44,7 @@ export function SubstancesSection({
         style={{
           ...contentSection,
           backgroundColor,
-          border: `3px solid ${borderColor}`,
+          border: `2px solid ${borderColor}`,
           marginBottom: '16px',
         }}
       >
@@ -79,17 +79,6 @@ export function SubstancesSection({
 
   return (
     <Section style={{ marginBottom: '24px' }}>
-      <Text
-        style={{
-          fontSize: '18px',
-          fontWeight: 700,
-          color: '#1f2937',
-          margin: '0 0 16px 0',
-        }}
-      >
-        Substance Breakdown
-      </Text>
-
       {/* Expected Positives (Green) */}
       {renderSubstanceList(
         expectedPositives || [],

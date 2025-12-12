@@ -26,7 +26,6 @@ export function BreathalyzerResult({ bac, result }: BreathalyzerResultProps) {
         ...contentSection,
         backgroundColor,
         border: `2px solid ${borderColor}`,
-        textAlign: 'center',
       }}
     >
       <Text
@@ -50,18 +49,6 @@ export function BreathalyzerResult({ bac, result }: BreathalyzerResultProps) {
         }}
       >
         {bac.toFixed(3)} BAC
-      </Text>
-
-      <Text
-        style={{
-          fontSize: '16px',
-          fontWeight: 600,
-          color: textColor,
-          margin: '0',
-          textTransform: 'uppercase',
-        }}
-      >
-        {isPass ? 'PASS' : 'FAIL'}
       </Text>
     </Section>
   )

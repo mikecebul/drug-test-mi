@@ -7,7 +7,6 @@ import {
   ConfirmationSection,
   DetailRow,
   EmailLayout,
-  ResultBadge,
 } from './components'
 import { formatDate, formatTestType } from './utils/formatters'
 import { getResultLabel } from './utils/constants'
@@ -25,7 +24,6 @@ export function CompleteEmailReferral(data: CompleteEmailData) {
     testType,
     initialScreenResult,
     confirmationResults,
-    finalStatus,
     isDilute,
     breathalyzerTaken,
     breathalyzerResult,
@@ -38,16 +36,19 @@ export function CompleteEmailReferral(data: CompleteEmailData) {
       preview={`Final drug test results for ${clientName}`}
       title="Final Drug Test Results"
     >
-      <ResultBadge result={finalStatus} />
-
-      <ClientIdentity
-        headshotDataUri={clientHeadshotDataUri}
-        name={clientName}
-        dob={clientDob}
-      />
+      <ClientIdentity headshotDataUri={clientHeadshotDataUri} name={clientName} dob={clientDob} />
 
       <Section style={{ marginBottom: '24px' }}>
-        <DetailRow label="Client" value={clientName} />
+        <Text
+          style={{
+            fontSize: '18px',
+            fontWeight: 700,
+            color: '#1f2937',
+            margin: '0 0 12px 0',
+          }}
+        >
+          Test Information
+        </Text>
         <DetailRow label="Collection Date" value={formatDate(collectionDate)} />
         <DetailRow label="Test Type" value={formatTestType(testType)} />
         <DetailRow label="Initial Screen Result" value={getResultLabel(initialScreenResult)} />
@@ -63,7 +64,10 @@ export function CompleteEmailReferral(data: CompleteEmailData) {
       )}
 
       {breathalyzerTaken && breathalyzerResult !== null && (
-        <BreathalyzerResult bac={breathalyzerResult} result={breathalyzerResult > 0.0 ? 'positive' : 'negative'} />
+        <BreathalyzerResult
+          bac={breathalyzerResult}
+          result={breathalyzerResult > 0.0 ? 'positive' : 'negative'}
+        />
       )}
 
       <ConfirmationSection confirmationResults={confirmationResults} />
@@ -72,15 +76,14 @@ export function CompleteEmailReferral(data: CompleteEmailData) {
         style={{
           backgroundColor: '#f9fafb',
           padding: '16px',
-          borderRadius: '6px',
-          textAlign: 'center',
+          borderRadius: '8px',
         }}
       >
         <Text style={{ margin: '0 0 8px 0', fontWeight: 700 }}>
           Complete test report is attached to this email.
         </Text>
         <Text style={{ margin: '0', fontSize: '12px', color: '#6b7280' }}>
-          All testing is now complete for this client.
+          This is an automated notification from MI Drug Test.
         </Text>
         <Text style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#6b7280' }}>
           Notification sent: {new Date().toLocaleString()}
@@ -95,9 +98,7 @@ CompleteEmailReferral.PreviewProps = {
   collectionDate: '2025-12-05T10:00:00Z',
   testType: '17-panel-sos-lab',
   initialScreenResult: 'unexpected-positive',
-  confirmationResults: [
-    { substance: 'thc', result: 'positive', notes: 'Confirmed at 25 ng/mL' },
-  ],
+  confirmationResults: [{ substance: 'thc', result: 'positive', notes: 'Confirmed at 25 ng/mL' }],
   finalStatus: 'unexpected-positive',
   isDilute: true,
   breathalyzerTaken: false,

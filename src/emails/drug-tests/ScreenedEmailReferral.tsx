@@ -6,7 +6,6 @@ import {
   ClientIdentity,
   DetailRow,
   EmailLayout,
-  ResultBadge,
   SubstancesSection,
 } from './components'
 import { formatDate, formatTestType } from './utils/formatters'
@@ -22,7 +21,6 @@ export function ScreenedEmailReferral(data: ScreenedEmailData) {
     clientName,
     collectionDate,
     testType,
-    initialScreenResult,
     expectedPositives,
     unexpectedPositives,
     unexpectedNegatives,
@@ -38,8 +36,6 @@ export function ScreenedEmailReferral(data: ScreenedEmailData) {
       preview={`Drug test results for ${clientName}`}
       title="Drug Test Results"
     >
-      <ResultBadge result={initialScreenResult} />
-
       <ClientIdentity
         headshotDataUri={clientHeadshotDataUri}
         name={clientName}
@@ -47,7 +43,16 @@ export function ScreenedEmailReferral(data: ScreenedEmailData) {
       />
 
       <Section style={{ marginBottom: '24px' }}>
-        <DetailRow label="Client" value={clientName} />
+        <Text
+          style={{
+            fontSize: '18px',
+            fontWeight: 700,
+            color: '#1f2937',
+            margin: '0 0 12px 0',
+          }}
+        >
+          Test Information
+        </Text>
         <DetailRow label="Collection Date" value={formatDate(collectionDate)} />
         <DetailRow label="Test Type" value={formatTestType(testType)} />
       </Section>
@@ -75,8 +80,7 @@ export function ScreenedEmailReferral(data: ScreenedEmailData) {
         style={{
           backgroundColor: '#f9fafb',
           padding: '16px',
-          borderRadius: '6px',
-          textAlign: 'center',
+          borderRadius: '8px',
         }}
       >
         <Text style={{ margin: '0 0 8px 0', fontWeight: 700 }}>

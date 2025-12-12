@@ -34,6 +34,16 @@ export function InconclusiveEmail(data: InconclusiveEmailData) {
       </Section>
 
       <Section style={{ marginBottom: '24px' }}>
+        <Text
+          style={{
+            fontSize: '18px',
+            fontWeight: 700,
+            color: '#1f2937',
+            margin: '0 0 12px 0',
+          }}
+        >
+          Test Information
+        </Text>
         <DetailRow label="Collection Date" value={formatDate(collectionDate)} />
         <DetailRow label="Test Type" value={formatTestType(testType)} />
       </Section>
@@ -63,8 +73,7 @@ export function InconclusiveEmail(data: InconclusiveEmailData) {
         style={{
           backgroundColor: '#f9fafb',
           padding: '16px',
-          borderRadius: '6px',
-          textAlign: 'center',
+          borderRadius: '8px',
         }}
       >
         <Text style={{ margin: '0 0 8px 0', fontWeight: 700 }}>

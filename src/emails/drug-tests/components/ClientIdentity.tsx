@@ -10,24 +10,38 @@ interface ClientIdentityProps {
 
 /**
  * ClientIdentity displays client headshot, name, and date of birth
- * Headshot is displayed as a square image (no border-radius for Outlook compatibility)
+ * Headshot is displayed as a square image
+ * Layout is left-aligned with notice about image availability
  */
 export function ClientIdentity({ headshotDataUri, name, dob }: ClientIdentityProps) {
   return (
-    <Section style={{ textAlign: 'center', marginBottom: '24px' }}>
+    <Section style={{ marginBottom: '24px' }}>
       {/* Client Headshot */}
       {headshotDataUri && (
-        <Img
-          src={headshotDataUri}
-          alt={`${name} headshot`}
-          width={120}
-          height={120}
-          style={{
-            display: 'block',
-            margin: '0 auto 16px auto',
-            border: '4px solid #e5e7eb',
-          }}
-        />
+        <>
+          <Img
+            src={headshotDataUri}
+            alt={`${name} headshot`}
+            width={120}
+            height={120}
+            style={{
+              display: 'block',
+              marginBottom: '0px',
+              border: '2px solid #e5e7eb',
+              borderRadius: '8px',
+            }}
+          />
+          <Text
+            style={{
+              fontSize: '12px',
+              color: '#6b7280',
+              margin: '0 0 24px 0',
+              fontStyle: 'italic',
+            }}
+          >
+            Image available for 7 days
+          </Text>
+        </>
       )}
 
       {/* Client Name */}

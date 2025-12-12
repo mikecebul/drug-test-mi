@@ -160,7 +160,7 @@ export const tableCell: CSSProperties = {
 export const warningBox: CSSProperties = {
   backgroundColor: '#fef3c7',
   border: '2px solid #f59e0b',
-  borderRadius: '6px',
+  borderRadius: '8px',
   padding: '16px',
   marginBottom: '16px',
 }
@@ -171,7 +171,7 @@ export const warningBox: CSSProperties = {
 export const successBox: CSSProperties = {
   backgroundColor: '#d1fae5',
   border: '2px solid #10b981',
-  borderRadius: '6px',
+  borderRadius: '8px',
   padding: '16px',
   marginBottom: '16px',
 }
@@ -182,7 +182,7 @@ export const successBox: CSSProperties = {
 export const errorBox: CSSProperties = {
   backgroundColor: '#fee2e2',
   border: '2px solid #ef4444',
-  borderRadius: '6px',
+  borderRadius: '8px',
   padding: '16px',
   marginBottom: '16px',
 }

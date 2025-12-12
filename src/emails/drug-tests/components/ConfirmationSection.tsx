@@ -41,7 +41,7 @@ export function ConfirmationSection({ confirmationResults }: ConfirmationSection
             style={{
               backgroundColor,
               border: `2px solid ${borderColor}`,
-              borderRadius: '6px',
+              borderRadius: '8px',
               padding: '12px',
               marginBottom: index < confirmationResults.length - 1 ? '12px' : '0',
             }}
@@ -68,19 +68,6 @@ export function ConfirmationSection({ confirmationResults }: ConfirmationSection
             >
               {confirmation.result}
             </Text>
-
-            {confirmation.notes && (
-              <Text
-                style={{
-                  fontSize: '12px',
-                  color: '#6b7280',
-                  margin: '4px 0 0 0',
-                  fontStyle: 'italic',
-                }}
-              >
-                {confirmation.notes}
-              </Text>
-            )}
           </Section>
         )
       })}

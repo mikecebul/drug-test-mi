@@ -43,7 +43,16 @@ export function CollectedEmail(data: CollectedEmailData) {
       </Text>
 
       <Section style={{ marginBottom: '24px' }}>
-        <DetailRow label="Client" value={clientName} />
+        <Text
+          style={{
+            fontSize: '18px',
+            fontWeight: 700,
+            color: '#1f2937',
+            margin: '0 0 12px 0',
+          }}
+        >
+          Test Information
+        </Text>
         <DetailRow label="Collection Date" value={formatDate(collectionDate)} />
         <DetailRow label="Test Type" value={formatTestType(testType)} />
       </Section>
@@ -70,12 +79,11 @@ export function CollectedEmail(data: CollectedEmailData) {
         style={{
           backgroundColor: '#f9fafb',
           padding: '16px',
-          borderRadius: '6px',
-          textAlign: 'center',
+          borderRadius: '8px',
         }}
       >
         <Text style={{ margin: '0', fontSize: '12px', color: '#6b7280' }}>
-          This is an automated notification from MI Drug Test. Please do not reply to this email.
+          This is an automated notification from MI Drug Test.
         </Text>
         <Text style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#6b7280' }}>
           Notification sent: {new Date().toLocaleString()}

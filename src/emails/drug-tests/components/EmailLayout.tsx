@@ -1,6 +1,6 @@
 import { Body, Container, Head, Html, Preview, Section, Text } from '@react-email/components'
 import * as React from 'react'
-import { main, container, header, headerTitle, footer } from '../utils/styles'
+import { main, container, footer } from '../utils/styles'
 
 interface EmailLayoutProps {
   preview: string
@@ -23,13 +23,20 @@ export function EmailLayout({ preview, title, children }: EmailLayoutProps) {
         <Container style={container}>
           {/* Header */}
           {title && (
-            <Section style={header}>
-              <Text style={headerTitle}>{title}</Text>
-            </Section>
+            <Text
+              style={{
+                fontSize: '24px',
+                fontWeight: 700,
+                color: '#1f2937',
+                margin: '0 0 24px 0',
+              }}
+            >
+              {title}
+            </Text>
           )}
 
           {/* Main Content */}
-          <Section style={{ marginTop: title ? '24px' : '0' }}>{children}</Section>
+          <Section>{children}</Section>
 
           {/* Footer */}
           <Text style={footer}>
