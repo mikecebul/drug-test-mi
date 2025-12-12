@@ -8,8 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import {
   Command,
   CommandEmpty,
@@ -18,19 +17,12 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import {
-  Loader2,
-  AlertCircle,
-  UserCheck,
-  Mail,
-  CheckCircle2,
-  ChevronsUpDown,
-  Check,
-} from 'lucide-react'
+import { Loader2, AlertCircle, UserCheck, Mail, CheckCircle2, Check } from 'lucide-react'
 import type { ClientMatch } from '../types'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import { useFindMatchingClientsQuery, useGetAllClientsQuery, useExtractPdfQuery } from '../queries'
+import ShadcnWrapper from '@/components/ShadcnWrapper'
 
 // Export the schema for reuse in step validation
 export const verifyClientFieldSchema = z.object({
@@ -112,7 +104,9 @@ export const VerifyClientFieldGroup = withFieldGroup({
 
     // Determine if we should show all clients
     const shouldShowAllClients =
-      !firstName || !lastName || (matchingClientsQuery.data?.matches.length === 0 && !matchingClientsQuery.isLoading)
+      !firstName ||
+      !lastName ||
+      (matchingClientsQuery.data?.matches.length === 0 && !matchingClientsQuery.isLoading)
 
     // Auto-enable all clients view if no matches found
     if (shouldShowAllClients && !showAllClients && !matchingClientsQuery.isLoading) {
@@ -157,14 +151,28 @@ export const VerifyClientFieldGroup = withFieldGroup({
           </p>
         </div>
 
-        {matches.length === 0 && donorName && showAllClients && (
+        {matches.length === 0 && (
           <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
             <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <AlertDescription>
+            <AlertDescription className="space-y-3">
               <p className="text-blue-900 dark:text-blue-100">
-                No matches found for &quot;{donorName}&quot;. Please select the correct client from
-                the dropdown below.
+                {donorName
+                  ? `No matches found for "${donorName}".`
+                  : 'Unable to extract client name from PDF.'}{' '}
+                Please search for the correct client manually.
               </p>
+              <div>
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={() => {
+                    setShowAllClients(true)
+                    setOpen(true)
+                  }}
+                >
+                  Search All Clients
+                </Button>
+              </div>
             </AlertDescription>
           </Alert>
         )}
@@ -207,9 +215,13 @@ export const VerifyClientFieldGroup = withFieldGroup({
                         <CardContent className="pt-6">
                           <div className="flex items-start justify-between gap-4">
                             <Avatar className="h-14 w-14 shrink-0">
-                              <AvatarImage src={match.headshot ?? undefined} alt={`${match.firstName} ${match.lastName}`} />
+                              <AvatarImage
+                                src={match.headshot ?? undefined}
+                                alt={`${match.firstName} ${match.lastName}`}
+                              />
                               <AvatarFallback className="text-lg">
-                                {match.firstName.charAt(0)}{match.lastName.charAt(0)}
+                                {match.firstName.charAt(0)}
+                                {match.lastName.charAt(0)}
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex-1 space-y-3">
@@ -255,119 +267,99 @@ export const VerifyClientFieldGroup = withFieldGroup({
                     ))}
                   </div>
 
-                  {!showAllClients && (
-                    <div className="flex justify-center">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setShowAllClients(true)}
-                      >
-                        Not the right client? Search all clients
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex justify-center">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setShowAllClients(true)
+                        setOpen(true)
+                      }}
+                    >
+                      {selectedClientId
+                        ? 'Change selected client'
+                        : 'Not the right client? Search all clients'}
+                    </Button>
+                  </div>
                 </>
               )}
 
-              {(showAllClients || matches.length === 0) && (
-                <Card>
-                  <CardContent className="space-y-4 pt-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="client-select">Search and Select Client</Label>
-                      <Popover open={open} onOpenChange={setOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            id="client-select"
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={open}
-                            className="w-full justify-between"
-                          >
-                            {selectedClientId ? (
-                              <>
-                                {selectedClientData.firstName}{' '}
-                                {selectedClientData.middleInitial
-                                  ? `${selectedClientData.middleInitial}. `
-                                  : ''}
-                                {selectedClientData.lastName} - {selectedClientData.email}
-                              </>
-                            ) : (
-                              'Search for a client...'
-                            )}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="" align="start">
-                          <Command>
-                            <CommandInput placeholder="Search by name or email..." />
-                            <CommandList>
-                              <CommandEmpty>
-                                {allClients.length === 0
-                                  ? 'Loading clients...'
-                                  : 'No client found.'}
-                              </CommandEmpty>
-                              <CommandGroup>
-                                {allClients.map((client) => (
-                                  <CommandItem
-                                    key={client.id}
-                                    value={`${client.firstName} ${client.middleInitial || ''} ${client.lastName} ${client.email}`}
-                                    onSelect={() => {
-                                      group.setFieldValue('id', client.id)
-                                      group.setFieldValue('firstName', client.firstName)
-                                      group.setFieldValue('lastName', client.lastName)
-                                      group.setFieldValue(
-                                        'middleInitial',
-                                        client.middleInitial ?? null,
-                                      )
-                                      group.setFieldValue('email', client.email)
-                                      group.setFieldValue('dob', client.dob ?? null)
-                                      group.setFieldValue('headshot', client.headshot ?? null)
-                                      group.setFieldValue('matchType', client.matchType)
-                                      group.setFieldValue('score', client.score || 0)
-                                      setOpen(false)
-                                    }}
-                                  >
-                                    <Check
-                                      className={`mr-2 h-4 w-4 shrink-0 ${
-                                        selectedClientId === client.id ? 'opacity-100' : 'opacity-0'
-                                      }`}
-                                    />
-                                    <Avatar className="mr-2 h-8 w-8 shrink-0">
-                                      <AvatarImage src={client.headshot ?? undefined} alt={`${client.firstName} ${client.lastName}`} />
-                                      <AvatarFallback className="text-xs">
-                                        {client.firstName.charAt(0)}{client.lastName.charAt(0)}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex flex-col">
-                                      <span>
-                                        {client.firstName}{' '}
-                                        {client.middleInitial ? `${client.middleInitial}. ` : ''}
-                                        {client.lastName}
-                                      </span>
-                                      <span className="text-muted-foreground text-xs">
-                                        {client.email}
-                                      </span>
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              {/* Client Search Dialog */}
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent className="max-w-2xl p-0">
+                  <ShadcnWrapper className="origin-top scale-125">
+                    <DialogTitle className="sr-only">Search and Select Client</DialogTitle>
+                    <Command className="">
+                      <CommandInput placeholder="Search by name or email..." />
+                      <CommandList>
+                        <CommandEmpty>
+                          {allClients.length === 0 ? 'Loading clients...' : 'No client found.'}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {allClients.map((client) => (
+                            <CommandItem
+                              key={client.id}
+                              value={`${client.firstName} ${client.middleInitial || ''} ${client.lastName} ${client.email}`}
+                              className="px-3 py-3"
+                              onSelect={() => {
+                                group.setFieldValue('id', client.id)
+                                group.setFieldValue('firstName', client.firstName)
+                                group.setFieldValue('lastName', client.lastName)
+                                group.setFieldValue('middleInitial', client.middleInitial ?? null)
+                                group.setFieldValue('email', client.email)
+                                group.setFieldValue('dob', client.dob ?? null)
+                                group.setFieldValue('headshot', client.headshot ?? null)
+                                group.setFieldValue('matchType', client.matchType)
+                                group.setFieldValue('score', client.score || 0)
+                                setOpen(false)
+                              }}
+                            >
+                              <Check
+                                className={`mr-3 h-5 w-5 shrink-0 ${
+                                  selectedClientId === client.id ? 'opacity-100' : 'opacity-0'
+                                }`}
+                              />
+                              <Avatar className="mr-3 h-10 w-10 shrink-0">
+                                <AvatarImage
+                                  src={client.headshot ?? undefined}
+                                  alt={`${client.firstName} ${client.lastName}`}
+                                />
+                                <AvatarFallback className="text-sm">
+                                  {client.firstName.charAt(0)}
+                                  {client.lastName.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex flex-col">
+                                <span className="text-base font-medium">
+                                  {client.firstName}{' '}
+                                  {client.middleInitial ? `${client.middleInitial}. ` : ''}
+                                  {client.lastName}
+                                </span>
+                                <span className="text-muted-foreground text-sm">
+                                  {client.email}
+                                </span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </ShadcnWrapper>
+                </DialogContent>
+              </Dialog>
 
               {/* Selected Client Confirmation */}
               {selectedClientId && (
                 <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-12 w-12 shrink-0 border-2 border-green-300 dark:border-green-700">
-                      <AvatarImage src={selectedClientData.headshot ?? undefined} alt={`${selectedClientData.firstName} ${selectedClientData.lastName}`} />
+                      <AvatarImage
+                        src={selectedClientData.headshot ?? undefined}
+                        alt={`${selectedClientData.firstName} ${selectedClientData.lastName}`}
+                      />
                       <AvatarFallback className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
-                        {selectedClientData.firstName.charAt(0)}{selectedClientData.lastName.charAt(0)}
+                        {selectedClientData.firstName.charAt(0)}
+                        {selectedClientData.lastName.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
