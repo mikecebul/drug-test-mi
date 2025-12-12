@@ -33,7 +33,7 @@ export function EmailLayout({ preview, title, children }: EmailLayoutProps) {
 
           {/* Footer */}
           <Text style={footer}>
-            MI Drug Test • 101 M-66 N, Charlevoix, MI 49720
+            MI Drug Test • 201 State St, Lower level, Charlevoix, MI 49720
             <br />
             {currentYear} © All rights reserved
           </Text>
