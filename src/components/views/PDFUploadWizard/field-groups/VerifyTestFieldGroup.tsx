@@ -13,6 +13,7 @@ import { useStore } from '@tanstack/react-form'
 import { format } from 'date-fns'
 import { fetchPendingTests } from '../actions'
 import { useExtractPdfQuery } from '../queries'
+import { getRankedTestMatches, type DrugTest as TestMatchDrugTest, type TestType } from '../utils/testMatching'
 
 // Export the schema for reuse in step validation
 export const verifyTestFieldSchema = z.object({
@@ -45,67 +46,8 @@ const defaultValues: VerifyTestFields = {
   score: 0,
 }
 
-interface DrugTest {
-  id: string
-  clientName: string
-  testType: string
-  collectionDate: string
-  screeningStatus: string
-  clientHeadshot?: string | null
-}
-
-function calculateTestMatchScore(
-  extractedName: string | null,
-  extractedDate: Date | null,
-  test: DrugTest,
-): number {
-  let score = 0
-
-  // Name matching (60 points max)
-  if (extractedName) {
-    const extractedLower = extractedName.toLowerCase().trim()
-    const testNameLower = test.clientName.toLowerCase().trim()
-
-    if (extractedLower === testNameLower) {
-      score += 60 // Exact match
-    } else if (testNameLower.includes(extractedLower) || extractedLower.includes(testNameLower)) {
-      score += 40 // Partial match
-    } else {
-      // Check for similar names (last name match)
-      const extractedParts = extractedLower.split(/\s+/)
-      const testParts = testNameLower.split(/\s+/)
-      const lastNameMatch = extractedParts.some((p) => testParts.includes(p))
-      if (lastNameMatch) {
-        score += 30
-      }
-    }
-  }
-
-  // Date matching (40 points max)
-  if (extractedDate) {
-    const extractedDateStr = format(extractedDate, 'yyyy-MM-dd')
-    const testDateStr = test.collectionDate.split('T')[0]
-
-    if (extractedDateStr === testDateStr) {
-      score += 40 // Exact date match
-    } else {
-      // Check if within a few days
-      const daysDiff = Math.abs(
-        (new Date(extractedDateStr).getTime() - new Date(testDateStr).getTime()) /
-          (1000 * 60 * 60 * 24),
-      )
-      if (daysDiff <= 1) {
-        score += 30 // Within 1 day
-      } else if (daysDiff <= 3) {
-        score += 20 // Within 3 days
-      } else if (daysDiff <= 7) {
-        score += 10 // Within a week
-      }
-    }
-  }
-
-  return score
-}
+// Use DrugTest type from testMatching utility
+type DrugTest = TestMatchDrugTest
 
 export const VerifyTestFieldGroup = withFieldGroup({
   defaultValues,
@@ -136,6 +78,9 @@ export const VerifyTestFieldGroup = withFieldGroup({
     // Get extracted data from query cache (cached from ExtractFieldGroup)
     const { data: extractData } = useExtractPdfQuery(uploadedFile, uploadTestType)
 
+    // Use the extracted test type if available (more accurate than the initial upload type)
+    const detectedTestType = extractData?.testType || uploadTestType
+
     useEffect(() => {
       async function loadPendingTests() {
         try {
@@ -147,19 +92,18 @@ export const VerifyTestFieldGroup = withFieldGroup({
           const tests = result.tests
           setPendingTests(tests)
 
+          // Determine if this is a screen workflow (working with 'collected' tests)
+          const isScreenWorkflow = filterStatus.includes('collected')
+
           // Auto-match if we have extracted data
           if (extractData?.donorName || extractData?.collectionDate) {
-            const testsWithScores = tests.map((test) => ({
-              test,
-              score: calculateTestMatchScore(
-                extractData.donorName,
-                extractData.collectionDate,
-                test,
-              ),
-            }))
-
-            // Sort by score descending
-            testsWithScores.sort((a, b) => b.score - a.score)
+            const testsWithScores = getRankedTestMatches(
+              tests,
+              extractData.donorName ?? null,
+              extractData.collectionDate ?? null,
+              detectedTestType,
+              isScreenWorkflow,
+            )
 
             if (testsWithScores.length > 0 && testsWithScores[0].score >= 60) {
               // High confidence match
@@ -247,14 +191,17 @@ export const VerifyTestFieldGroup = withFieldGroup({
       )
     }
 
-    // Calculate scores for all tests
-    const testsWithScores = pendingTests.map((test) => ({
-      test,
-      score: calculateTestMatchScore(extractData?.donorName ?? null, extractData?.collectionDate ?? null, test),
-    }))
+    // Determine if this is a screen workflow (working with 'collected' tests)
+    const isScreenWorkflow = filterStatus.includes('collected')
 
-    // Sort by score descending
-    testsWithScores.sort((a, b) => b.score - a.score)
+    // Calculate scores for all tests with filtering
+    const testsWithScores = getRankedTestMatches(
+      pendingTests,
+      extractData?.donorName ?? null,
+      extractData?.collectionDate ?? null,
+      detectedTestType,
+      isScreenWorkflow,
+    )
 
     // Show top 3 or all if requested
     const displayedTests = showAllTests ? testsWithScores : testsWithScores.slice(0, 3)
@@ -273,6 +220,11 @@ export const VerifyTestFieldGroup = withFieldGroup({
               <strong>Extracted from PDF:</strong> {extractData.donorName}
               {extractData.collectionDate && (
                 <span> • {format(new Date(extractData.collectionDate), 'PPp')}</span>
+              )}
+              {detectedTestType && (
+                <span className="block mt-1 text-xs text-muted-foreground">
+                  Detected Test Type: {detectedTestType}
+                </span>
               )}
             </AlertDescription>
           </Alert>

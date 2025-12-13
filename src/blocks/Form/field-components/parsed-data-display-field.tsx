@@ -4,13 +4,7 @@ import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import {
-  FileCheck2,
-  Calendar,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-} from 'lucide-react'
+import { FileCheck2, Calendar, AlertTriangle, CheckCircle2, XCircle, User } from 'lucide-react'
 import type { ParsedPDFData } from '@/components/views/PDFUploadWizard/types'
 
 interface ParsedDataDisplayFieldProps {
@@ -56,7 +50,7 @@ export default function ParsedDataDisplayField({
     <div className="space-y-6">
       <Alert className={`${confidence.bgColor} ${confidence.borderColor}`}>
         <div className="flex items-start gap-3">
-          <ConfidenceIcon className={`h-5 w-5 ${confidence.iconColor} shrink-0 mt-0.5`} />
+          <ConfidenceIcon className={`h-5 w-5 ${confidence.iconColor} mt-0.5 shrink-0`} />
           <div className="flex-1 space-y-1">
             <AlertTitle className={confidence.titleColor}>
               Extracted with {data.confidence.toUpperCase()} Confidence
@@ -77,19 +71,19 @@ export default function ParsedDataDisplayField({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <FileCheck2 className="h-4 w-4" />
+            <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+              <User className="h-4 w-4" />
               Donor Name
             </div>
             <p className="pl-6 text-lg font-medium">
               {data.donorName || (
-                <span className="text-base italic text-muted-foreground">Not found</span>
+                <span className="text-muted-foreground text-base italic">Not found</span>
               )}
             </p>
           </div>
 
           <div className="space-y-1 border-t pt-2">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
               <Calendar className="h-4 w-4" />
               Collection Date
             </div>
@@ -97,13 +91,27 @@ export default function ParsedDataDisplayField({
               {data.collectionDate ? (
                 data.collectionDate.toLocaleString()
               ) : (
-                <span className="text-base italic text-muted-foreground">Not found</span>
+                <span className="text-muted-foreground text-base italic">Not found</span>
               )}
             </p>
           </div>
 
+          {data.testType && (
+            <div className="space-y-1 border-t pt-2">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+                <FileCheck2 className="h-4 w-4" />
+                Detected Test Type
+              </div>
+              <p className="pl-6 text-lg font-medium">
+                <Badge variant="outline" className="text-sm">
+                  {data.testType}
+                </Badge>
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2 border-t pt-2">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
               Detected Substances
             </div>
             <div className="pl-6">
@@ -130,57 +138,62 @@ export default function ParsedDataDisplayField({
             </div>
           </div>
 
-          {data.hasConfirmation && data.confirmationResults && data.confirmationResults.length > 0 && (
-            <div className="space-y-2 border-t pt-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                Confirmation Results (LC-MS/MS)
-              </div>
-              <div className="pl-6 space-y-2">
-                {data.confirmationResults.map((result, index) => {
-                  const resultConfig = {
-                    'confirmed-positive': {
-                      variant: 'destructive' as const,
-                      icon: XCircle,
-                      label: 'Confirmed Positive',
-                    },
-                    'confirmed-negative': {
-                      variant: 'default' as const,
-                      icon: CheckCircle2,
-                      label: 'Confirmed Negative',
-                    },
-                    'inconclusive': {
-                      variant: 'secondary' as const,
-                      icon: AlertTriangle,
-                      label: 'Inconclusive',
-                    },
-                  }
+          {data.hasConfirmation &&
+            data.confirmationResults &&
+            data.confirmationResults.length > 0 && (
+              <div className="space-y-2 border-t pt-2">
+                <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+                  Confirmation Results (LC-MS/MS)
+                </div>
+                <div className="space-y-2 pl-6">
+                  {data.confirmationResults.map((result, index) => {
+                    const resultConfig = {
+                      'confirmed-positive': {
+                        variant: 'destructive' as const,
+                        icon: XCircle,
+                        label: 'Confirmed Positive',
+                      },
+                      'confirmed-negative': {
+                        variant: 'default' as const,
+                        icon: CheckCircle2,
+                        label: 'Confirmed Negative',
+                      },
+                      inconclusive: {
+                        variant: 'secondary' as const,
+                        icon: AlertTriangle,
+                        label: 'Inconclusive',
+                      },
+                    }
 
-                  const config = resultConfig[result.result]
-                  const ResultIcon = config.icon
+                    const config = resultConfig[result.result]
+                    const ResultIcon = config.icon
 
-                  return (
-                    <div key={index} className="flex items-center justify-between rounded-md border p-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {result.substance}
-                        </Badge>
-                        <Badge variant={config.variant} className="gap-1 text-xs">
-                          <ResultIcon className="h-3 w-3" />
-                          {config.label}
-                        </Badge>
+                    return (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between rounded-md border p-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {result.substance}
+                          </Badge>
+                          <Badge variant={config.variant} className="gap-1 text-xs">
+                            <ResultIcon className="h-3 w-3" />
+                            {config.label}
+                          </Badge>
+                        </div>
+                        {result.notes && (
+                          <span className="text-muted-foreground text-xs">{result.notes}</span>
+                        )}
                       </div>
-                      {result.notes && (
-                        <span className="text-xs text-muted-foreground">{result.notes}</span>
-                      )}
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           <div className="space-y-1 border-t pt-2">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
               Dilute Sample
             </div>
             <div className="pl-6">
@@ -200,14 +213,14 @@ export default function ParsedDataDisplayField({
       {showRawText && (
         <details className="group">
           <summary className="cursor-pointer list-none">
-            <Card className="transition-colors group-open:border-primary">
+            <Card className="group-open:border-primary transition-colors">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">View Raw Extracted Text</span>
-                  <span className="text-xs text-muted-foreground group-open:hidden">
+                  <span className="text-muted-foreground text-xs group-open:hidden">
                     Click to expand
                   </span>
-                  <span className="hidden text-xs text-muted-foreground group-open:inline">
+                  <span className="text-muted-foreground hidden text-xs group-open:inline">
                     Click to collapse
                   </span>
                 </div>
@@ -216,7 +229,7 @@ export default function ParsedDataDisplayField({
           </summary>
           <Card className="mt-2">
             <CardContent className="pt-6">
-              <pre className="max-h-96 overflow-y-auto whitespace-pre-wrap rounded-md bg-muted p-4 text-xs text-muted-foreground">
+              <pre className="bg-muted text-muted-foreground max-h-96 overflow-y-auto rounded-md p-4 text-xs whitespace-pre-wrap">
                 {data.rawText}
               </pre>
             </CardContent>
