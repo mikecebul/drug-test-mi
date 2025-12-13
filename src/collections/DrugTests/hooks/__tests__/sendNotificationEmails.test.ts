@@ -12,13 +12,13 @@ vi.mock('fs')
 import { getRecipients } from '../../email/recipients'
 import { createAdminAlert } from '@/lib/admin-alerts'
 
-// Mock the email templates
-vi.mock('../../email/templates', () => ({
-  buildCollectedEmail: vi.fn(() => ({
+// Mock the email render functions (these use React email components)
+vi.mock('../../email/render', () => ({
+  buildCollectedEmail: vi.fn(async () => ({
     subject: 'Sample Collected',
     html: '<html>Collected</html>',
   })),
-  buildScreenedEmail: vi.fn(() => ({
+  buildScreenedEmail: vi.fn(async () => ({
     client: {
       subject: 'Results Available - Client',
       html: '<html>Client Screened</html>',
@@ -28,7 +28,7 @@ vi.mock('../../email/templates', () => ({
       html: '<html>Referral Screened</html>',
     },
   })),
-  buildCompleteEmail: vi.fn(() => ({
+  buildCompleteEmail: vi.fn(async () => ({
     client: {
       subject: 'Final Results - Client',
       html: '<html>Client Complete</html>',
@@ -38,7 +38,7 @@ vi.mock('../../email/templates', () => ({
       html: '<html>Referral Complete</html>',
     },
   })),
-  buildInconclusiveEmail: vi.fn(() => ({
+  buildInconclusiveEmail: vi.fn(async () => ({
     client: {
       subject: 'Test Inconclusive - Client',
       html: '<html>Client Inconclusive</html>',
@@ -935,9 +935,10 @@ describe('sendNotificationEmails - Error Handling', () => {
     // Should NOT send emails
     expect(mockPayload.sendEmail).not.toHaveBeenCalled()
 
-    // Should log CRITICAL error
+    // Should log CRITICAL error with error object
     expect(mockPayload.logger.error).toHaveBeenCalledWith(
       expect.stringContaining('CRITICAL'),
+      expect.any(Error),
     )
 
     // Should create admin alert
