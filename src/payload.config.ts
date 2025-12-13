@@ -76,7 +76,7 @@ const generateImage: GenerateImage<Page> = ({ doc }) => {
 }
 
 export default buildConfig({
-  serverURL: baseUrl,
+  // serverURL: baseUrl,
   admin: {
     avatar: 'default',
     components: {

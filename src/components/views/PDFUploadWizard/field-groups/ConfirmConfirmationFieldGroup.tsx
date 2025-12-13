@@ -42,19 +42,20 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
     const clientFromTestQuery = useGetClientFromTestQuery(verifyTest?.testId)
     const client = clientFromTestQuery.data
 
-    // Get confirmation results
-    const confirmationResults = verifyConfirmation?.confirmationResults || []
-    const originalDetectedSubstances = verifyConfirmation?.detectedSubstances || []
-
     // Calculate final detected substances (removing confirmed negatives)
-    const adjustedSubstances = useMemo(() => {
-      return originalDetectedSubstances.filter((substance: string) => {
+    const { adjustedSubstances, confirmationResults, originalDetectedSubstances } = useMemo(() => {
+      const confirmationResults = verifyConfirmation?.confirmationResults || []
+      const originalDetectedSubstances = verifyConfirmation?.detectedSubstances || []
+
+      const adjustedSubstances = originalDetectedSubstances.filter((substance: string) => {
         const confirmationResult = confirmationResults.find(
           (r: any) => r.substance.toLowerCase() === substance.toLowerCase(),
         )
         return !(confirmationResult && confirmationResult.result === 'confirmed-negative')
       })
-    }, [originalDetectedSubstances, confirmationResults])
+
+      return { adjustedSubstances, confirmationResults, originalDetectedSubstances }
+    }, [verifyConfirmation])
 
     // Fetch test result preview using TanStack Query
     const previewQuery = useComputeTestResultPreviewQuery(
