@@ -6,7 +6,7 @@ import { extract15PanelInstant } from '@/utilities/extractors/extract15PanelInst
 import { extractLabTest } from '@/utilities/extractors/extractLabTest'
 import type { ParsedPDFData, ClientMatch, TestType } from './types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
-import { calculateSimilarity } from './utils/calculateSimilarity'
+import { calculateNameSimilarity, calculateSimilarity } from './utils/calculateSimilarity'
 import {
   computeTestResults,
   computeFinalStatus,
@@ -152,14 +152,18 @@ export async function findMatchingClients(
 
   payload.logger.info(`[findMatchingClients] Fetched ${clientsResult.docs.length} clients`)
 
-  // Calculate similarity scores for each client
+  // Calculate similarity scores for each client using weighted name matching
   const scoredMatches = clientsResult.docs
     .map((client) => {
-      const clientFullName = [client.firstName, client.middleInitial, client.lastName]
-        .filter(Boolean)
-        .join(' ')
-
-      const score = calculateSimilarity(searchTerm, clientFullName)
+      // Use weighted name similarity (last name 60%, first name 30%, middle 10%)
+      const score = calculateNameSimilarity(
+        firstName,
+        lastName,
+        client.firstName,
+        client.lastName,
+        middleInitial,
+        client.middleInitial || undefined,
+      )
 
       // Prefer thumbnail for performance, fallback to full image
       const headshot = typeof client.headshot === 'object' && client.headshot
@@ -178,7 +182,7 @@ export async function findMatchingClients(
         score,
       }
     })
-    .filter((match) => match.score > 0.2) // Only show 20%+ similarity
+    .filter((match) => match.score > 0.5) // Raise threshold to 50% for weighted scoring
     .sort((a, b) => b.score - a.score) // Sort by score descending
     .slice(0, 10)
 
@@ -238,13 +242,47 @@ export async function searchClients(searchTerm: string): Promise<{
   // Step 4: Calculate similarity scores for each client
   const scoredMatches = clientsResult.docs
     .map((client) => {
-      const clientFullName = [client.firstName, client.middleInitial, client.lastName]
-        .filter(Boolean)
-        .join(' ')
+      // For manual search, we need to parse the search term to extract name parts
+      const searchParts = searchTerm.trim().split(/\s+/)
+      let nameScore = 0
 
+      if (searchParts.length >= 2) {
+        // Assume last part is last name, first part is first name
+        const searchFirst = searchParts[0]
+        const searchLast = searchParts[searchParts.length - 1]
+        const searchMiddle = searchParts.length === 3 ? searchParts[1] : undefined
+
+        nameScore = calculateNameSimilarity(
+          searchFirst,
+          searchLast,
+          client.firstName,
+          client.lastName,
+          searchMiddle,
+          client.middleInitial || undefined,
+        )
+      } else if (searchParts.length === 1) {
+        // Single word - check against both first and last name
+        const singleTerm = searchParts[0]
+        const firstScore = calculateNameSimilarity(
+          singleTerm,
+          '',
+          client.firstName,
+          client.lastName,
+        )
+        const lastScore = calculateNameSimilarity(
+          '',
+          singleTerm,
+          client.firstName,
+          client.lastName,
+        )
+        nameScore = Math.max(firstScore, lastScore)
+      }
+
+      // Also check email similarity
       const emailScore = calculateSimilarity(searchTerm, client.email)
-      const nameScore = calculateSimilarity(searchTerm, clientFullName)
-      const score = Math.max(emailScore, nameScore) // Use best match
+
+      // Use best match between name and email
+      const score = Math.max(emailScore, nameScore)
 
       return {
         id: client.id,
@@ -257,7 +295,7 @@ export async function searchClients(searchTerm: string): Promise<{
         score,
       }
     })
-    .filter((match) => match.score > 0.2) // Only show 20%+ similarity
+    .filter((match) => match.score > 0.5) // Raise threshold to 50% for weighted scoring
     .sort((a, b) => b.score - a.score) // Sort by score descending
     .slice(0, 10)
 

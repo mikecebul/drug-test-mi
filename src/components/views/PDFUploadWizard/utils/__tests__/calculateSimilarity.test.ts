@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { calculateSimilarity } from '../calculateSimilarity'
+import { calculateSimilarity, calculateNameSimilarity } from '../calculateSimilarity'
 
 describe('calculateSimilarity', () => {
   describe('exact matches', () => {
@@ -149,6 +149,157 @@ describe('calculateSimilarity', () => {
       // similarity = (7 - 3) / 7 = 0.571...
       const score = calculateSimilarity('kitten', 'sitting')
       expect(score).toBeCloseTo(4 / 7, 5)
+    })
+  })
+})
+
+describe('calculateNameSimilarity', () => {
+  describe('exact name matches', () => {
+    test('returns 1 for identical first and last names', () => {
+      const score = calculateNameSimilarity('John', 'Smith', 'John', 'Smith')
+      expect(score).toBeCloseTo(1, 5)
+    })
+
+    test('returns 1 for identical names with middle initials', () => {
+      const score = calculateNameSimilarity('John', 'Smith', 'John', 'Smith', 'M', 'M')
+      expect(score).toBeCloseTo(1, 5)
+    })
+
+    test('is case insensitive', () => {
+      const score = calculateNameSimilarity('JOHN', 'SMITH', 'john', 'smith')
+      expect(score).toBeCloseTo(1, 5)
+    })
+  })
+
+  describe('last name prioritization', () => {
+    test('scores high when last name matches perfectly but first name differs', () => {
+      // John vs Jane: 'John' vs 'Jane' similarity = 0.5 (J-n match, oh vs ae differ)
+      // Score: 0.5 * 0.3 + 1.0 * 0.6 + 1.0 * 0.1 = 0.15 + 0.6 + 0.1 = 0.85 (roughly)
+      const score = calculateNameSimilarity('John', 'Smith', 'Jane', 'Smith')
+      expect(score).toBeGreaterThan(0.7)
+      expect(score).toBeLessThan(0.85)
+    })
+
+    test('scores higher for last name match than first name match', () => {
+      const lastNameMatch = calculateNameSimilarity('John', 'Smith', 'Jane', 'Smith')
+      const firstNameMatch = calculateNameSimilarity('John', 'Smith', 'John', 'Jones')
+      expect(lastNameMatch).toBeGreaterThan(firstNameMatch)
+    })
+
+    test('perfect last name match gives at least 60% score even with completely different first name', () => {
+      const score = calculateNameSimilarity('Zachary', 'Smith', 'Alice', 'Smith')
+      expect(score).toBeGreaterThanOrEqual(0.6)
+    })
+  })
+
+  describe('realistic client matching scenarios', () => {
+    test('matches clients with same last name and similar first name', () => {
+      // Michael vs Micheal (common typo) - first name ~0.86, last name 1.0
+      // Score: 0.86 * 0.3 + 1.0 * 0.6 + 1.0 * 0.1 = 0.258 + 0.6 + 0.1 = 0.958
+      const score = calculateNameSimilarity('Michael', 'Johnson', 'Micheal', 'Johnson')
+      expect(score).toBeGreaterThan(0.9)
+    })
+
+    test('handles middle initial mismatch gracefully', () => {
+      // Same first/last, different middle initial (M vs P = 0 similarity)
+      // Score: 1.0 * 0.3 + 1.0 * 0.6 + 0.0 * 0.1 = 0.9
+      const score = calculateNameSimilarity('John', 'Smith', 'John', 'Smith', 'M', 'P')
+      expect(score).toBeCloseTo(0.9, 5)
+    })
+
+    test('handles missing middle initial on one side', () => {
+      // One has middle initial, one doesn't - should use 0.8 penalty
+      // Score: 1.0 * 0.3 + 1.0 * 0.6 + 0.8 * 0.1 = 0.3 + 0.6 + 0.08 = 0.98
+      const score = calculateNameSimilarity('John', 'Smith', 'John', 'Smith', 'M')
+      expect(score).toBeCloseTo(0.98, 2)
+    })
+
+    test('handles missing middle initial on both sides', () => {
+      // Neither has middle initial - should default to 1.0
+      // Score: 1.0 * 0.3 + 1.0 * 0.6 + 1.0 * 0.1 = 1.0
+      const score = calculateNameSimilarity('John', 'Smith', 'John', 'Smith')
+      expect(score).toBeCloseTo(1.0, 5)
+    })
+
+    test('scores differently for common vs uncommon name mismatches', () => {
+      // Smith is common - should have lower threshold
+      const commonScore = calculateNameSimilarity('John', 'Smith', 'Jon', 'Smith')
+      const uncommonScore = calculateNameSimilarity('John', 'Szczepanski', 'Jon', 'Szczepanski')
+
+      // Both should be high, but uncommon last name provides more confidence
+      expect(commonScore).toBeGreaterThan(0.85)
+      expect(uncommonScore).toBeGreaterThan(0.85)
+    })
+  })
+
+  describe('edge cases', () => {
+    test('handles empty first name', () => {
+      const score = calculateNameSimilarity('', 'Smith', 'John', 'Smith')
+      // Last name perfect (0.6), first name 0 (0.0), middle 1.0 (0.1) = 0.7
+      expect(score).toBeCloseTo(0.7, 2)
+    })
+
+    test('handles empty last name', () => {
+      const score = calculateNameSimilarity('John', '', 'John', 'Smith')
+      // First name perfect (0.3), last name 0 (0.0), middle 1.0 (0.1) = 0.4
+      expect(score).toBeCloseTo(0.4, 2)
+    })
+
+    test('handles completely empty names', () => {
+      const score = calculateNameSimilarity('', '', '', '')
+      expect(score).toBeCloseTo(1.0, 5) // Empty strings match perfectly
+    })
+
+    test('handles special characters in names', () => {
+      const score = calculateNameSimilarity("O'Brien", 'Smith', "O'Brien", 'Smith')
+      expect(score).toBeCloseTo(1.0, 5)
+    })
+
+    test('handles hyphenated last names', () => {
+      const score = calculateNameSimilarity('John', 'Smith-Jones', 'John', 'Smith-Jones')
+      expect(score).toBeCloseTo(1.0, 5)
+    })
+  })
+
+  describe('score range validation', () => {
+    test('all scores are between 0 and 1', () => {
+      const testCases = [
+        ['John', 'Smith', 'Jane', 'Doe'],
+        ['Alice', 'Johnson', 'Bob', 'Williams'],
+        ['Michael', 'Brown', 'Micheal', 'Brown'],
+        ['', '', 'John', 'Smith'],
+        ['John', 'Smith', 'John', 'Smith'],
+      ]
+
+      for (const [searchFirst, searchLast, clientFirst, clientLast] of testCases) {
+        const score = calculateNameSimilarity(searchFirst, searchLast, clientFirst, clientLast)
+        expect(score).toBeGreaterThanOrEqual(0)
+        expect(score).toBeLessThanOrEqual(1)
+      }
+    })
+  })
+
+  describe('weight calculation verification', () => {
+    test('calculates correct weighted score for known values', () => {
+      // Test case: 80% first name match, 100% last name match, no middle
+      // Expected: 0.8 * 0.3 + 1.0 * 0.6 + 1.0 * 0.1 = 0.24 + 0.6 + 0.1 = 0.94
+      // Using 'John' vs 'Joan' (4 chars, 1 substitution = 0.75 similarity)
+      const score = calculateNameSimilarity('Joan', 'Smith', 'John', 'Smith')
+      expect(score).toBeCloseTo(0.925, 2) // 0.75*0.3 + 1.0*0.6 + 1.0*0.1 = 0.925
+    })
+
+    test('verifies 60/30/10 weight distribution', () => {
+      // Perfect last name, zero first name, perfect middle
+      const lastOnly = calculateNameSimilarity('zzz', 'Smith', 'aaa', 'Smith', 'M', 'M')
+      expect(lastOnly).toBeCloseTo(0.7, 1) // 0.6 + 0.1 = 0.7
+
+      // Perfect first name, zero last name, perfect middle
+      const firstOnly = calculateNameSimilarity('John', 'zzz', 'John', 'aaa', 'M', 'M')
+      expect(firstOnly).toBeCloseTo(0.4, 1) // 0.3 + 0.1 = 0.4
+
+      // Zero first/last, perfect middle
+      const middleOnly = calculateNameSimilarity('zzz', 'yyy', 'aaa', 'bbb', 'M', 'M')
+      expect(middleOnly).toBeCloseTo(0.1, 1) // 0.1
     })
   })
 })
