@@ -108,6 +108,7 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
       data.finalStatus = computeFinalStatus({
         initialScreenResult,
         expectedPositives: result.expectedPositives,
+        unexpectedPositives: result.unexpectedPositives,
         confirmationResults: data.confirmationResults || [],
         breathalyzerTaken: data.breathalyzerTaken,
         breathalyzerResult: data.breathalyzerResult,

@@ -92,6 +92,24 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
     // 2. clientFromTestQuery.data (lab workflows - fetched from matched test)
     const clientData = formValues.clientData || clientFromTestQuery.data
 
+    // Calculate adjusted substances for confirmation workflow
+    // Remove substances that were confirmed negative from the detected substances list
+    const adjustedSubstances = React.useMemo(() => {
+      if (workflowMode !== 'confirmation' || !verifyConfirmation?.confirmationResults) {
+        return undefined
+      }
+
+      const originalDetectedSubstances = verifyConfirmation.detectedSubstances || []
+      const confirmationResults = verifyConfirmation.confirmationResults || []
+
+      return originalDetectedSubstances.filter((substance: string) => {
+        const confirmationResult = confirmationResults.find(
+          (r: any) => r.substance.toLowerCase() === substance.toLowerCase(),
+        )
+        return !(confirmationResult && confirmationResult.result === 'confirmed-negative')
+      })
+    }, [workflowMode, verifyConfirmation])
+
     // Fetch email preview based on workflow mode using TanStack Query
     const screeningEmailQuery = useGetEmailPreviewQuery({
       clientId: workflowMode === 'screening' ? clientData?.id : null,
@@ -108,6 +126,7 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
       clientId: workflowMode === 'confirmation' ? clientData?.id : null,
       testId: verifyTest?.testId,
       confirmationResults: verifyConfirmation?.confirmationResults ?? [],
+      adjustedSubstances,
     })
 
     // Select the appropriate query based on workflow mode

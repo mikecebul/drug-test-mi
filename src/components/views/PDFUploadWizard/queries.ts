@@ -287,11 +287,12 @@ export function useGetConfirmationEmailPreviewQuery(data: {
     result: 'confirmed-positive' | 'confirmed-negative' | 'inconclusive'
     notes?: string
   }>
+  adjustedSubstances?: SubstanceValue[] // Optional: substances with confirmed negatives removed
 }) {
-  const { clientId, testId, confirmationResults } = data
+  const { clientId, testId, confirmationResults, adjustedSubstances } = data
 
   return useQuery({
-    queryKey: ['confirmation-email-preview', clientId, testId, confirmationResults],
+    queryKey: ['confirmation-email-preview', clientId, testId, confirmationResults, adjustedSubstances],
     queryFn: async () => {
       if (!clientId || !testId || !confirmationResults || confirmationResults.length === 0) {
         return null
@@ -300,6 +301,7 @@ export function useGetConfirmationEmailPreviewQuery(data: {
         clientId,
         testId,
         confirmationResults,
+        adjustedSubstances,
       })
     },
     enabled: Boolean(clientId && testId && confirmationResults && confirmationResults.length > 0),

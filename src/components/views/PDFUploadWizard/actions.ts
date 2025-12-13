@@ -679,6 +679,7 @@ export async function getConfirmationEmailPreview(data: {
     result: 'confirmed-positive' | 'confirmed-negative' | 'inconclusive'
     notes?: string
   }>
+  adjustedSubstances?: SubstanceValue[] // Optional: substances with confirmed negatives removed
 }): Promise<{
   success: boolean
   data?: {
@@ -724,10 +725,14 @@ export async function getConfirmationEmailPreview(data: {
     // Fetch client headshot for email embedding
     const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
 
+    // Use adjusted substances if provided (confirmed negatives removed),
+    // otherwise fall back to original detected substances
+    const substancesForPreview = data.adjustedSubstances ?? (drugTest.detectedSubstances as SubstanceValue[])
+
     // Compute initial test result for email (need this for complete email template)
     const previewResult = await computeTestResultPreview(
       data.clientId,
-      drugTest.detectedSubstances as any,
+      substancesForPreview,
       drugTest.testType,
     )
 
@@ -735,6 +740,7 @@ export async function getConfirmationEmailPreview(data: {
     const finalStatus = computeFinalStatus({
       initialScreenResult: previewResult.initialScreenResult,
       expectedPositives: previewResult.expectedPositives,
+      unexpectedPositives: previewResult.unexpectedPositives,
       confirmationResults: data.confirmationResults.map((r) => ({
         substance: r.substance,
         result: r.result,
@@ -752,7 +758,7 @@ export async function getConfirmationEmailPreview(data: {
       collectionDate: drugTest.collectionDate || '',
       testType: drugTest.testType,
       initialScreenResult: previewResult.initialScreenResult,
-      detectedSubstances: drugTest.detectedSubstances as any,
+      detectedSubstances: substancesForPreview,
       expectedPositives: previewResult.expectedPositives,
       unexpectedPositives: previewResult.unexpectedPositives,
       unexpectedNegatives: previewResult.unexpectedNegatives,

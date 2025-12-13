@@ -52,6 +52,7 @@ export type ConfirmationResult = {
 export type ComputeFinalStatusParams = {
   initialScreenResult: InitialScreenResult
   expectedPositives: string[]
+  unexpectedPositives: string[]
   confirmationResults: ConfirmationResult[]
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
@@ -197,15 +198,17 @@ export async function computeTestResults(
  * This determines pass/fail based on:
  * - Initial screen result (expected/unexpected positives/negatives)
  * - Confirmation results (confirmed-positive, confirmed-negative, inconclusive)
+ * - Unexpected positives that were NOT sent for confirmation (client accepted the fail)
  * - Breathalyzer result (override if positive)
  *
- * @param params - Initial result, confirmation results, breathalyzer data
+ * @param params - Initial result, unexpected positives, confirmation results, breathalyzer data
  * @returns Final status classification
  */
 export function computeFinalStatus(params: ComputeFinalStatusParams): FinalStatus {
   const {
     initialScreenResult,
     expectedPositives,
+    unexpectedPositives,
     confirmationResults,
     breathalyzerTaken,
     breathalyzerResult,
@@ -216,6 +219,15 @@ export function computeFinalStatus(params: ComputeFinalStatusParams): FinalStatu
     (r) => r.result === 'confirmed-positive',
   ).length
   const inconclusiveCount = confirmationResults.filter((r) => r.result === 'inconclusive').length
+
+  // Determine which unexpected positives were NOT sent for confirmation
+  // These represent substances the client accepted as failures without confirmation
+  const confirmedSubstances = new Set(
+    confirmationResults.map((r) => r.substance.toLowerCase()),
+  )
+  const unconfirmedUnexpectedPositives = unexpectedPositives.filter(
+    (substance) => !confirmedSubstances.has(substance.toLowerCase()),
+  )
 
   let finalStatus: FinalStatus
 
@@ -235,8 +247,21 @@ export function computeFinalStatus(params: ComputeFinalStatusParams): FinalStatu
     } else {
       finalStatus = 'unexpected-positive'
     }
+  } else if (unconfirmedUnexpectedPositives.length > 0) {
+    // All confirmations came back negative, BUT there are still unexpected positives
+    // that were NOT sent for confirmation (client accepted the fail)
+    // These are still failures
+    if (
+      initialScreenResult === 'mixed-unexpected' ||
+      initialScreenResult === 'unexpected-negative-critical' ||
+      initialScreenResult === 'unexpected-negative-warning'
+    ) {
+      finalStatus = 'mixed-unexpected'
+    } else {
+      finalStatus = 'unexpected-positive'
+    }
   } else {
-    // All confirmations came back negative (false positives ruled out)
+    // All confirmations came back negative AND no unconfirmed unexpected positives
     // The initial "unexpected positive" was a false alarm
 
     // Check if there were unexpected negatives from initial screen

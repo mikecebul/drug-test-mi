@@ -259,15 +259,47 @@ export const sendNotificationEmails: CollectionAfterChangeHook<DrugTest> = async
       clientEmailData = emails.client
       referralEmailData = emails.referrals
     } else if (emailStage === 'complete') {
+      // Calculate adjusted substances: remove substances that were confirmed negative
+      const originalSubstances = (doc.detectedSubstances as string[]) || []
+      const confirmationResults = (doc.confirmationResults as any[]) || []
+
+      const adjustedSubstances = originalSubstances.filter((substance: string) => {
+        const confirmationResult = confirmationResults.find(
+          (r: any) => r.substance.toLowerCase() === substance.toLowerCase(),
+        )
+        // Keep substance if it wasn't confirmed negative
+        return !(confirmationResult && confirmationResult.result === 'confirmed-negative')
+      })
+
+      payload.logger.info(
+        `Drug test ${doc.id}: Adjusted substances for complete email - original: [${originalSubstances.join(', ')}], adjusted: [${adjustedSubstances.join(', ')}]`,
+      )
+
+      // Recompute test results using adjusted substances to get accurate expected/unexpected arrays
+      // This ensures the email shows the correct classification after confirmed negatives are removed
+      const { computeTestResults } = await import('../services')
+      const recomputedResult = await computeTestResults({
+        clientId,
+        detectedSubstances: adjustedSubstances,
+        testType: doc.testType,
+        breathalyzerTaken: doc.breathalyzerTaken || false,
+        breathalyzerResult: doc.breathalyzerResult ?? null,
+        payload,
+      })
+
+      payload.logger.info(
+        `Drug test ${doc.id}: Recomputed result - ${recomputedResult.initialScreenResult}, expected: [${recomputedResult.expectedPositives.join(', ')}], unexpected positives: [${recomputedResult.unexpectedPositives.join(', ')}], unexpected negatives: [${recomputedResult.unexpectedNegatives.join(', ')}]`,
+      )
+
       const emails = await buildCompleteEmail({
         clientName,
         collectionDate: doc.collectionDate!,
         testType: doc.testType,
-        initialScreenResult: doc.initialScreenResult!,
-        detectedSubstances: (doc.detectedSubstances as string[]) || [],
-        expectedPositives: (doc.expectedPositives as string[]) || [],
-        unexpectedPositives: (doc.unexpectedPositives as string[]) || [],
-        unexpectedNegatives: (doc.unexpectedNegatives as string[]) || [],
+        initialScreenResult: recomputedResult.initialScreenResult,
+        detectedSubstances: adjustedSubstances,
+        expectedPositives: recomputedResult.expectedPositives,
+        unexpectedPositives: recomputedResult.unexpectedPositives,
+        unexpectedNegatives: recomputedResult.unexpectedNegatives,
         isDilute: doc.isDilute || false,
         confirmationResults: doc.confirmationResults as any,
         finalStatus: doc.finalStatus || doc.initialScreenResult!, // Use finalStatus if available
