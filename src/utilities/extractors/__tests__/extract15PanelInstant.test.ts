@@ -96,20 +96,24 @@ describe('extract15PanelInstant', () => {
     const result = await extract15PanelInstant(pdf.buffer)
 
     // PDF shows: Collected: 06:27 PM  11/20/2025
-    expect(result.collectionDate).toBeInstanceOf(Date)
+    // collectionDate is now an ISO string
+    expect(typeof result.collectionDate).toBe('string')
     expect(result.collectionDate).not.toBeNull()
 
     if (result.collectionDate) {
+      // collectionDate is now an ISO string, convert to Date for testing
+      const parsedDate = new Date(result.collectionDate)
+
       // Verify it's a valid date
-      expect(result.collectionDate.getTime()).toBeGreaterThan(0)
+      expect(parsedDate.getTime()).toBeGreaterThan(0)
       // Verify it's in the expected range (2025)
-      expect(result.collectionDate.getFullYear()).toBeGreaterThanOrEqual(2024)
+      expect(parsedDate.getFullYear()).toBeGreaterThanOrEqual(2024)
 
       // Verify specific date and time
-      const dateStr = result.collectionDate.toLocaleDateString('en-US')
+      const dateStr = parsedDate.toLocaleDateString('en-US')
       expect(dateStr).toBe('11/20/2025')
 
-      const timeStr = result.collectionDate.toLocaleTimeString('en-US')
+      const timeStr = parsedDate.toLocaleTimeString('en-US')
       expect(timeStr).toContain('6:27')
     }
   })

@@ -116,7 +116,8 @@ export const VerifyDataFieldGroup = withFieldGroup({
         group.setFieldValue('testType', extractData.testType)
       }
       if (extractData?.collectionDate) {
-        group.setFieldValue('collectionDate', extractData.collectionDate.toISOString())
+        // extractData.collectionDate is already an ISO string
+        group.setFieldValue('collectionDate', extractData.collectionDate)
       }
       if (extractData?.detectedSubstances) {
         group.setFieldValue('detectedSubstances', extractData.detectedSubstances)

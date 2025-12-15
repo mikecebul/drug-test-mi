@@ -5,7 +5,7 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
  */
 export interface Extracted15PanelData {
   donorName: string | null
-  collectionDate: Date | null
+  collectionDate: string | null // ISO string in UTC
   detectedSubstances: SubstanceValue[]
   isDilute: boolean
   rawText: string
@@ -84,7 +84,8 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
       const parsed = new Date(dateTimeStr)
 
       if (!isNaN(parsed.getTime())) {
-        result.collectionDate = parsed
+        // Return ISO string instead of Date object to avoid serialization issues
+        result.collectionDate = parsed.toISOString()
         result.extractedFields.push('collectionDate')
       }
     } else {
@@ -98,7 +99,8 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
         const parsed = new Date(dateTimeStr)
 
         if (!isNaN(parsed.getTime())) {
-          result.collectionDate = parsed
+          // Return ISO string instead of Date object to avoid serialization issues
+          result.collectionDate = parsed.toISOString()
           result.extractedFields.push('collectionDate')
         }
       }

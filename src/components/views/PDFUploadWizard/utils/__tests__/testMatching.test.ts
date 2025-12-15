@@ -203,33 +203,33 @@ describe('calculateTestMatchScore', () => {
     test('returns high score for same calendar day', () => {
       const test = createMockTest({ collectionDate: '2025-01-15T10:00:00Z' })
       // Using UTC date to ensure consistency
-      const score = calculateTestMatchScore(null, new Date('2025-01-15T00:00:00Z'), test)
+      const score = calculateTestMatchScore(null, '2025-01-15T00:00:00Z', test)
       expect(score).toBeGreaterThanOrEqual(30)
       expect(score).toBeLessThanOrEqual(40)
     })
 
     test('returns 30+ points for date within 1 day', () => {
       const test = createMockTest({ collectionDate: '2025-01-15T10:00:00Z' })
-      const score = calculateTestMatchScore(null, new Date('2025-01-16T00:00:00Z'), test)
+      const score = calculateTestMatchScore(null, '2025-01-16T00:00:00Z', test)
       expect(score).toBeGreaterThanOrEqual(30)
       expect(score).toBeLessThanOrEqual(40)
     })
 
     test('returns 20 points for date within 3 days', () => {
       const test = createMockTest({ collectionDate: '2025-01-15T10:00:00Z' })
-      const score = calculateTestMatchScore(null, new Date('2025-01-18'), test)
+      const score = calculateTestMatchScore(null, new Date('2025-01-18').toISOString(), test)
       expect(score).toBe(20)
     })
 
     test('returns 10 points for date within 7 days', () => {
       const test = createMockTest({ collectionDate: '2025-01-15T10:00:00Z' })
-      const score = calculateTestMatchScore(null, new Date('2025-01-20'), test)
+      const score = calculateTestMatchScore(null, new Date('2025-01-20').toISOString(), test)
       expect(score).toBe(10)
     })
 
     test('returns 0 points for date more than 7 days apart', () => {
       const test = createMockTest({ collectionDate: '2025-01-15T10:00:00Z' })
-      const score = calculateTestMatchScore(null, new Date('2025-01-25'), test)
+      const score = calculateTestMatchScore(null, new Date('2025-01-25').toISOString(), test)
       expect(score).toBe(0)
     })
 
@@ -241,7 +241,7 @@ describe('calculateTestMatchScore', () => {
 
     test('handles date objects correctly', () => {
       const test = createMockTest({ collectionDate: '2025-01-15T10:00:00Z' })
-      const extractedDate = new Date('2025-01-15T14:30:00Z')
+      const extractedDate = '2025-01-15T14:30:00Z'
       const score = calculateTestMatchScore(null, extractedDate, test)
       expect(score).toBeGreaterThanOrEqual(30) // Same day or very close
       expect(score).toBeLessThanOrEqual(40)
@@ -254,7 +254,7 @@ describe('calculateTestMatchScore', () => {
         clientName: 'John Doe',
         collectionDate: '2025-01-15T10:00:00Z',
       })
-      const score = calculateTestMatchScore('John Doe', new Date('2025-01-15T00:00:00Z'), test)
+      const score = calculateTestMatchScore('John Doe', '2025-01-15T00:00:00Z', test)
       expect(score).toBeGreaterThanOrEqual(90) // Should be very high, close to 100
       expect(score).toBeLessThanOrEqual(100)
     })
@@ -264,7 +264,7 @@ describe('calculateTestMatchScore', () => {
         clientName: 'Jane Smith',
         collectionDate: '2025-01-15T10:00:00Z',
       })
-      const score = calculateTestMatchScore('John Smith', new Date('2025-01-16T00:00:00Z'), test)
+      const score = calculateTestMatchScore('John Smith', '2025-01-16T00:00:00Z', test)
       // Similar name (~45) + date close (30-40) = ~75-85
       expect(score).toBeGreaterThan(60)
       expect(score).toBeLessThan(95)
@@ -275,7 +275,7 @@ describe('calculateTestMatchScore', () => {
         clientName: 'Jon Smith',
         collectionDate: '2025-01-15T10:00:00Z',
       })
-      const score = calculateTestMatchScore('John Smith', new Date('2025-01-15T00:00:00Z'), test)
+      const score = calculateTestMatchScore('John Smith', '2025-01-15T00:00:00Z', test)
       // Very similar name (~55) + close date (30-40) = ~85-95
       expect(score).toBeGreaterThan(80)
       expect(score).toBeLessThan(100)
@@ -291,9 +291,9 @@ describe('calculateTestMatchScore', () => {
 
     test('score is always between 0 and 100', () => {
       const testCases = [
-        ['John Doe', new Date('2025-01-15')],
-        ['Jane Smith', new Date('2025-02-20')],
-        [null, new Date('2025-01-15')],
+        ['John Doe', new Date('2025-01-15').toISOString()],
+        ['Jane Smith', new Date('2025-02-20').toISOString()],
+        [null, new Date('2025-01-15').toISOString()],
         ['John Doe', null],
         [null, null],
       ] as const
@@ -413,7 +413,7 @@ describe('getRankedTestMatches', () => {
       const result = getRankedTestMatches(
         tests,
         'John Smith',
-        new Date('2025-01-15T00:00:00Z'),
+        '2025-01-15T00:00:00Z',
         undefined,
         false,
       )
@@ -487,7 +487,7 @@ describe('getRankedTestMatches', () => {
       const result = getRankedTestMatches(
         tests,
         null,
-        new Date('2025-01-15T00:00:00Z'),
+        '2025-01-15T00:00:00Z',
         undefined,
         false,
       )
@@ -549,7 +549,7 @@ describe('getRankedTestMatches', () => {
       const result = getRankedTestMatches(
         tests,
         'John Smith',
-        new Date('2025-01-15T00:00:00Z'),
+        '2025-01-15T00:00:00Z',
         '11-panel-lab',
         true,
       )

@@ -27,7 +27,7 @@ export interface ClientMatch {
 
 export interface ParsedPDFData {
   donorName: string | null
-  collectionDate: Date | null
+  collectionDate: string | null // ISO string in UTC
   detectedSubstances: SubstanceValue[]
   isDilute: boolean
   rawText: string

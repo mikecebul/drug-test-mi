@@ -93,7 +93,7 @@ export function filterByTestType(
  */
 export function calculateTestMatchScore(
   extractedName: string | null,
-  extractedDate: Date | null,
+  extractedDate: string | null, // Now accepts ISO string instead of Date
   test: DrugTest,
 ): number {
   let score = 0
@@ -119,7 +119,8 @@ export function calculateTestMatchScore(
 
   // Date matching (40 points max)
   if (extractedDate) {
-    const extractedDateStr = format(extractedDate, 'yyyy-MM-dd')
+    // extractedDate is now an ISO string, format it for comparison
+    const extractedDateStr = format(new Date(extractedDate), 'yyyy-MM-dd')
     const testDateStr = test.collectionDate.split('T')[0]
 
     if (extractedDateStr === testDateStr) {
@@ -156,7 +157,7 @@ export function calculateTestMatchScore(
 export function getRankedTestMatches(
   tests: DrugTest[],
   extractedName: string | null,
-  extractedDate: Date | null,
+  extractedDate: string | null, // Now accepts ISO string instead of Date
   uploadedTestType?: TestType,
   isScreenWorkflow: boolean = false,
 ): TestMatchResult[] {

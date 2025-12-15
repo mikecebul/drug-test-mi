@@ -5,7 +5,7 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
  */
 export interface ExtractedLabData {
   donorName: string | null
-  collectionDate: Date | null
+  collectionDate: string | null // ISO string in UTC
   detectedSubstances: SubstanceValue[] // From "Screen" column
   isDilute: boolean
   rawText: string
@@ -119,14 +119,16 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
             const timeStr = timeMatch[1]
             const parsed = new Date(`${dateStr} ${timeStr}`)
             if (!isNaN(parsed.getTime())) {
-              result.collectionDate = parsed
+              // Return ISO string instead of Date object to avoid serialization issues
+              result.collectionDate = parsed.toISOString()
               result.extractedFields.push('collectionDate')
             }
           } else {
             // Only date found, use default time
             const parsed = new Date(dateStr)
             if (!isNaN(parsed.getTime())) {
-              result.collectionDate = parsed
+              // Return ISO string instead of Date object to avoid serialization issues
+              result.collectionDate = parsed.toISOString()
               result.extractedFields.push('collectionDate')
             }
           }
@@ -154,14 +156,16 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
             const timeStr = timeMatch[1]
             const parsed = new Date(`${dateStr} ${timeStr}`)
             if (!isNaN(parsed.getTime())) {
-              result.collectionDate = parsed
+              // Return ISO string instead of Date object to avoid serialization issues
+              result.collectionDate = parsed.toISOString()
               result.extractedFields.push('collectionDate')
             }
           } else {
             // Only date found, use default time
             const parsed = new Date(dateStr)
             if (!isNaN(parsed.getTime())) {
-              result.collectionDate = parsed
+              // Return ISO string instead of Date object to avoid serialization issues
+              result.collectionDate = parsed.toISOString()
               result.extractedFields.push('collectionDate')
             }
           }

@@ -327,14 +327,18 @@ describe('extractLabTest', () => {
       const result = await extractLabTest(pdf.buffer)
 
       // PDF shows: Collected: 11/19/2025 06:17 PM
-      expect(result.collectionDate).toBeInstanceOf(Date)
+      // collectionDate is now an ISO string
+      expect(typeof result.collectionDate).toBe('string')
       expect(result.collectionDate).not.toBeNull()
 
       if (result.collectionDate) {
+        // collectionDate is now an ISO string, convert to Date for testing
+        const parsedDate = new Date(result.collectionDate)
+
         // Verify it's a valid date
-        expect(result.collectionDate.getTime()).toBeGreaterThan(0)
+        expect(parsedDate.getTime()).toBeGreaterThan(0)
         // Verify it's in the expected range (2024+)
-        expect(result.collectionDate.getFullYear()).toBeGreaterThanOrEqual(2024)
+        expect(parsedDate.getFullYear()).toBeGreaterThanOrEqual(2024)
       }
     })
 

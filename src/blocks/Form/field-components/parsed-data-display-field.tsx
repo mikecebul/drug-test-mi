@@ -89,7 +89,7 @@ export default function ParsedDataDisplayField({
             </div>
             <p className="pl-6 text-lg font-medium">
               {data.collectionDate ? (
-                data.collectionDate.toLocaleString()
+                new Date(data.collectionDate).toLocaleString()
               ) : (
                 <span className="text-muted-foreground text-base italic">Not found</span>
               )}
