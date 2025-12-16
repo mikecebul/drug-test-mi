@@ -1631,3 +1631,146 @@ export async function fetchPendingTests(filterStatus?: string[]): Promise<
     }
   }
 }
+
+/**
+ * Generate a secure random password
+ * Ensures password meets complexity requirements:
+ * - At least 12 characters
+ * - Contains uppercase, lowercase, and numbers
+ */
+function generateSecurePassword(): string {
+  const length = 12
+  const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ' // Excludes ambiguous: I, O
+  const lowercase = 'abcdefghjkmnpqrstuvwxyz' // Excludes ambiguous: i, l, o
+  const numbers = '23456789' // Excludes ambiguous: 0, 1
+
+  // Ensure requirements: 1 upper, 1 lower, 1 number
+  let password = ''
+  password += uppercase[Math.floor(Math.random() * uppercase.length)]
+  password += lowercase[Math.floor(Math.random() * lowercase.length)]
+  password += numbers[Math.floor(Math.random() * numbers.length)]
+
+  // Fill remaining characters from all pools
+  const all = uppercase + lowercase + numbers
+  for (let i = 3; i < length; i++) {
+    password += all[Math.floor(Math.random() * all.length)]
+  }
+
+  // Shuffle password to avoid predictable pattern
+  return password
+    .split('')
+    .sort(() => Math.random() - 0.5)
+    .join('')
+}
+
+/**
+ * Register a new client from the PDF Upload Wizard
+ * Creates a client with auto-generated password
+ */
+export async function registerClientFromWizard(data: {
+  firstName: string
+  lastName: string
+  middleInitial?: string
+  gender: string
+  dob: string
+  phone: string
+  email: string
+  clientType: 'self' | 'employment' | 'probation'
+  // Court info (for probation)
+  courtInfo?: {
+    courtName: string
+    recipients: Array<{ name: string; email: string }>
+  }
+  // Employment info (for employment)
+  employmentInfo?: {
+    employerName: string
+    recipients: Array<{ name: string; email: string }>
+  }
+  // Self info (for self-pay with additional recipients)
+  selfInfo?: {
+    recipients: Array<{ name: string; email: string }>
+  }
+}): Promise<{
+  success: boolean
+  client?: ClientMatch
+  generatedPassword?: string
+  error?: string
+}> {
+  const payload = await getPayload({ config })
+
+  try {
+    // Check if email already exists
+    const existingClient = await payload.find({
+      collection: 'clients',
+      where: { email: { equals: data.email } },
+      limit: 1,
+      overrideAccess: true,
+    })
+
+    if (existingClient.docs.length > 0) {
+      return {
+        success: false,
+        error: 'A client with this email already exists. Please search for them instead.',
+      }
+    }
+
+    // Generate a random password
+    const generatedPassword = generateSecurePassword()
+
+    // Build client data
+    const clientData: any = {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      middleInitial: data.middleInitial || undefined,
+      email: data.email,
+      password: generatedPassword,
+      gender: data.gender,
+      dob: data.dob,
+      phone: data.phone,
+      clientType: data.clientType,
+      preferredContactMethod: 'email',
+      _verified: true, // Skip email verification for admin-created clients
+    }
+
+    // Add type-specific info
+    if (data.clientType === 'probation' && data.courtInfo) {
+      clientData.courtInfo = data.courtInfo
+    } else if (data.clientType === 'employment' && data.employmentInfo) {
+      clientData.employmentInfo = data.employmentInfo
+    } else if (data.clientType === 'self' && data.selfInfo) {
+      clientData.selfInfo = data.selfInfo
+    }
+
+    // Create the client
+    const newClient = await payload.create({
+      collection: 'clients',
+      data: clientData,
+      overrideAccess: true,
+    })
+
+    payload.logger.info(`[registerClientFromWizard] Created client ${newClient.id} for ${data.email}`)
+
+    // Return client data formatted as ClientMatch
+    return {
+      success: true,
+      client: {
+        id: newClient.id,
+        firstName: newClient.firstName,
+        lastName: newClient.lastName,
+        middleInitial: newClient.middleInitial || undefined,
+        email: newClient.email,
+        dob: newClient.dob,
+        headshot: null, // New client won't have a headshot yet
+        matchType: 'exact',
+        score: 1,
+      },
+      generatedPassword,
+    }
+  } catch (error) {
+    payload.logger.error('Error registering client from wizard:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to register client',
+    }
+  }
+}

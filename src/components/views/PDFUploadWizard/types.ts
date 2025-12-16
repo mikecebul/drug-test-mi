@@ -28,6 +28,8 @@ export interface ClientMatch {
 export interface ParsedPDFData {
   donorName: string | null
   collectionDate: string | null // ISO string in UTC
+  dob?: string | null // Date of birth in MM/DD/YYYY format (15-panel instant only)
+  gender?: string | null // M or F (15-panel instant only)
   detectedSubstances: SubstanceValue[]
   isDilute: boolean
   rawText: string

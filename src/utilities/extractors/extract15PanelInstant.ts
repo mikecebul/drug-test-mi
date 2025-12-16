@@ -6,6 +6,8 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
 export interface Extracted15PanelData {
   donorName: string | null
   collectionDate: string | null // ISO string in UTC
+  dob: string | null // Date of birth in MM/DD/YYYY format
+  gender: string | null // M or F
   detectedSubstances: SubstanceValue[]
   isDilute: boolean
   rawText: string
@@ -41,6 +43,8 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
     const result: Extracted15PanelData = {
       donorName: null,
       collectionDate: null,
+      dob: null,
+      gender: null,
       detectedSubstances: [],
       isDilute: false,
       rawText: text,
@@ -103,6 +107,38 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
           result.collectionDate = parsed.toISOString()
           result.extractedFields.push('collectionDate')
         }
+      }
+    }
+
+    // Extract DOB and Gender
+    // Pattern in PDF: "DOB:\nSex:\n03/13/1982\nM" or "DOB:\nSex:\n03/13/1982M"
+    // The DOB and Sex labels are on separate lines, followed by their values
+
+    // Strategy 1: Try combined pattern (DOB:Sex: followed by date and gender)
+    let dobSexMatch = text.match(/DOB:\s*\n?\s*Sex:\s*\n?\s*(\d{1,2}\/\d{1,2}\/\d{4})\s*\n?\s*([MF])/i)
+
+    // Strategy 2: Try date+gender on same line (e.g., "03/13/1982M")
+    if (!dobSexMatch) {
+      dobSexMatch = text.match(/DOB:\s*\n?\s*Sex:\s*\n?\s*(\d{1,2}\/\d{1,2}\/\d{4})([MF])/i)
+    }
+
+    if (dobSexMatch) {
+      result.dob = dobSexMatch[1]
+      result.gender = dobSexMatch[2].toUpperCase()
+      result.extractedFields.push('dob')
+      result.extractedFields.push('gender')
+    } else {
+      // Fallback: Try to extract DOB and Sex separately
+      const dobMatch = text.match(/DOB:\s*[\n\t]\s*(\d{1,2}\/\d{1,2}\/\d{4})/i)
+      if (dobMatch) {
+        result.dob = dobMatch[1]
+        result.extractedFields.push('dob')
+      }
+
+      const sexMatch = text.match(/Sex:\s*[\n\t]\s*([MF])/i)
+      if (sexMatch) {
+        result.gender = sexMatch[1].toUpperCase()
+        result.extractedFields.push('gender')
       }
     }
 

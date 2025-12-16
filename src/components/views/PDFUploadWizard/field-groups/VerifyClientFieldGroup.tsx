@@ -17,12 +17,14 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import { Loader2, AlertCircle, UserCheck, Mail, CheckCircle2, Check } from 'lucide-react'
+import { Loader2, AlertCircle, UserCheck, Mail, CheckCircle2, Check, UserPlus } from 'lucide-react'
 import type { ClientMatch } from '../types'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import { useFindMatchingClientsQuery, useGetAllClientsQuery, useExtractPdfQuery } from '../queries'
 import ShadcnWrapper from '@/components/ShadcnWrapper'
+import { RegisterClientDialog } from '../components/RegisterClientDialog'
+import { toast } from 'sonner'
 
 // Export the schema for reuse in step validation
 export const verifyClientFieldSchema = z.object({
@@ -59,6 +61,7 @@ export const VerifyClientFieldGroup = withFieldGroup({
   render: function Render({ group, title }) {
     const [showAllClients, setShowAllClients] = useState(false)
     const [open, setOpen] = useState(false)
+    const [showRegisterDialog, setShowRegisterDialog] = useState(false)
 
     // Get selected client ID and data from form state
     const selectedClientId = useStore(group.store, (state) => state.values.id)
@@ -77,6 +80,8 @@ export const VerifyClientFieldGroup = withFieldGroup({
     // Get extracted data from query cache (cached from ExtractFieldGroup)
     const { data: extractedData } = useExtractPdfQuery(uploadedFile, testType)
     const donorName = extractedData?.donorName ?? null
+    const dob = extractedData?.dob ?? null
+    const gender = extractedData?.gender ?? null
 
     // Parse donor name into parts
     const { firstName, lastName, middleInitial } = useMemo(() => {
@@ -159,9 +164,9 @@ export const VerifyClientFieldGroup = withFieldGroup({
                 {donorName
                   ? `No matches found for "${donorName}".`
                   : 'Unable to extract client name from PDF.'}{' '}
-                Please search for the correct client manually.
+                Please search for the correct client or register a new one.
               </p>
-              <div>
+              <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
                   variant="default"
@@ -171,6 +176,14 @@ export const VerifyClientFieldGroup = withFieldGroup({
                   }}
                 >
                   Search All Clients
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setShowRegisterDialog(true)}
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Register New Client
                 </Button>
               </div>
             </AlertDescription>
@@ -267,7 +280,7 @@ export const VerifyClientFieldGroup = withFieldGroup({
                     ))}
                   </div>
 
-                  <div className="flex justify-center">
+                  <div className="flex justify-center gap-3">
                     <Button
                       type="button"
                       variant="outline"
@@ -280,14 +293,22 @@ export const VerifyClientFieldGroup = withFieldGroup({
                         ? 'Change selected client'
                         : 'Not the right client? Search all clients'}
                     </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setShowRegisterDialog(true)}
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Register New Client
+                    </Button>
                   </div>
                 </>
               )}
 
               {/* Client Search Dialog */}
               <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="max-w-2xl p-0">
-                  <ShadcnWrapper className="origin-top scale-125">
+                <DialogContent className="max-w-sm origin-top scale-125 p-0 lg:max-w-2xl">
+                  <ShadcnWrapper className="p-3">
                     <DialogTitle className="sr-only">Search and Select Client</DialogTitle>
                     <Command className="">
                       <CommandInput placeholder="Search by name or email..." />
@@ -387,6 +408,33 @@ export const VerifyClientFieldGroup = withFieldGroup({
                   <AlertDescription>{idField.state.meta.errors[0]}</AlertDescription>
                 </Alert>
               )}
+
+              {/* Register Client Dialog */}
+              <RegisterClientDialog
+                open={showRegisterDialog}
+                onOpenChange={setShowRegisterDialog}
+                prefillFirstName={firstName}
+                prefillLastName={lastName}
+                prefillMiddleInitial={middleInitial}
+                prefillDob={dob}
+                prefillGender={gender}
+                onClientCreated={(client, generatedPassword) => {
+                  // Auto-select the newly created client
+                  group.setFieldValue('id', client.id)
+                  group.setFieldValue('firstName', client.firstName)
+                  group.setFieldValue('lastName', client.lastName)
+                  group.setFieldValue('middleInitial', client.middleInitial ?? null)
+                  group.setFieldValue('email', client.email)
+                  group.setFieldValue('dob', client.dob ?? null)
+                  group.setFieldValue('headshot', client.headshot ?? null)
+                  group.setFieldValue('matchType', 'exact')
+                  group.setFieldValue('score', 1)
+
+                  toast.success(
+                    `Client ${client.firstName} ${client.lastName} registered and selected`,
+                  )
+                }}
+              />
             </div>
           )}
         </group.AppField>

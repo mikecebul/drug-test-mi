@@ -36,7 +36,7 @@ export function useFindMatchingClientsQuery(
       return findMatchingClients(firstName, lastName, middleInitial)
     },
     enabled: Boolean(firstName && lastName),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 30 * 1000, // 30 seconds - clients can be added/deleted frequently
   })
 }
 
@@ -48,7 +48,7 @@ export function useGetAllClientsQuery(enabled: boolean = true) {
     queryKey: ['all-clients'],
     queryFn: getAllClients,
     enabled,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 30 * 1000, // 30 seconds - clients can be added/deleted frequently
   })
 }
 
