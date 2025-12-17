@@ -40,9 +40,9 @@ import { default as default_a8ed57560afaff4535f43ca83a9fecbd } from '@/graphics/
 import { default as default_1ceaa075bd8323ee72a35f935e6cfcf1 } from '@/components/Logo/Graphic'
 import { default as default_6b85bbe5b07dcbb6e3a8e43e51c14a0b } from '@/components/afterDashboard/Analytics'
 import { default as default_95a1304f99d4385400076a6aaa04a867 } from '@/components/afterNavLinks/LinkToAnalyticsDefaultRootView'
-import { default as default_ce08b44c907c5aa8a66fdb021e5a1d10 } from '@/components/afterNavLinks/DrugTestTrackerLink'
-import { default as default_341b00b3dfdf2dafe43c504722d38757 } from '@/components/afterNavLinks/PDFUploadLink'
 import { default as default_181555c9d7be037008e574c68fb01617 } from '@/components/beforeDashboard/DrugTestStats'
+import { default as default_9823a163bebf069296d042d345eeb1a5 } from '@/components/beforeNavLinks/DrugTestCollectorLink'
+import { default as default_b6998ec5306459100a084db1c6b46ba6 } from '@/components/beforeNavLinks/DrugTestTrackerLink'
 import { ImportExportProvider as ImportExportProvider_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 import { default as default_562672c6d49401890858663241518d7e } from '@/components/views/Analytics'
@@ -92,9 +92,9 @@ export const importMap = {
   "@/components/Logo/Graphic#default": default_1ceaa075bd8323ee72a35f935e6cfcf1,
   "@/components/afterDashboard/Analytics#default": default_6b85bbe5b07dcbb6e3a8e43e51c14a0b,
   "@/components/afterNavLinks/LinkToAnalyticsDefaultRootView#default": default_95a1304f99d4385400076a6aaa04a867,
-  "@/components/afterNavLinks/DrugTestTrackerLink#default": default_ce08b44c907c5aa8a66fdb021e5a1d10,
-  "@/components/afterNavLinks/PDFUploadLink#default": default_341b00b3dfdf2dafe43c504722d38757,
   "@/components/beforeDashboard/DrugTestStats#default": default_181555c9d7be037008e574c68fb01617,
+  "@/components/beforeNavLinks/DrugTestCollectorLink#default": default_9823a163bebf069296d042d345eeb1a5,
+  "@/components/beforeNavLinks/DrugTestTrackerLink#default": default_b6998ec5306459100a084db1c6b46ba6,
   "@payloadcms/plugin-import-export/rsc#ImportExportProvider": ImportExportProvider_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
   "@/components/views/Analytics#default": default_562672c6d49401890858663241518d7e,

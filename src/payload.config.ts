@@ -82,11 +82,11 @@ export default buildConfig({
     components: {
       beforeDashboard: ['@/components/beforeDashboard/DrugTestStats'],
       afterDashboard: ['@/components/afterDashboard/Analytics'],
-      afterNavLinks: [
-        '@/components/afterNavLinks/LinkToAnalyticsDefaultRootView',
-        '@/components/afterNavLinks/DrugTestTrackerLink',
-        '@/components/afterNavLinks/PDFUploadLink',
+      beforeNavLinks: [
+        '@/components/beforeNavLinks/DrugTestCollectorLink',
+        '@/components/beforeNavLinks/DrugTestTrackerLink',
       ],
+      afterNavLinks: ['@/components/afterNavLinks/LinkToAnalyticsDefaultRootView'],
       graphics: {
         Icon: '@/graphics/Icon',
         Logo: '@/components/Logo/Graphic',

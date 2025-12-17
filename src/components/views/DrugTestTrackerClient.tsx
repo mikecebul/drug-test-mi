@@ -118,7 +118,7 @@ export function DrugTestTrackerClient() {
   )
 
   return (
-    <ShadcnWrapper className="mx-auto my-8 flex max-w-sm origin-top scale-125 flex-col md:max-w-2xl lg:mx-auto lg:max-w-4xl">
+    <ShadcnWrapper className="mx-auto my-8 flex max-w-sm flex-col md:max-w-2xl lg:mx-auto lg:max-w-4xl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Drug Test Tracker</h1>
         <p className="text-muted-foreground mt-2">
