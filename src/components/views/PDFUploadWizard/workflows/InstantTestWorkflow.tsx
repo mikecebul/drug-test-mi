@@ -15,6 +15,7 @@ import { stepSchemas } from '../schemas/pdfUploadSchemas'
 import { UploadFieldGroup } from '../field-groups/UploadFieldGroup'
 import { ExtractFieldGroup } from '../field-groups/ExtractFieldGroup'
 import { VerifyClientFieldGroup } from '../field-groups/VerifyClientFieldGroup'
+import { VerifyMedicationsFieldGroup } from '../field-groups/VerifyMedicationsFieldGroup'
 import { VerifyDataFieldGroup } from '../field-groups/VerifyDataFieldGroup'
 import { ConfirmFieldGroup } from '../field-groups/ConfirmFieldGroup'
 import { ReviewEmailsFieldGroup } from '../field-groups/ReviewEmailsFieldGroup'
@@ -24,6 +25,7 @@ type WizardStep =
   | 'upload'
   | 'extract'
   | 'verify-client'
+  | 'verify-medications'
   | 'verify-data'
   | 'confirm'
   | 'review-emails'
@@ -92,6 +94,7 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
     { id: 'upload', label: 'Upload' },
     { id: 'extract', label: 'Extract' },
     { id: 'verify-client', label: 'Client' },
+    { id: 'verify-medications', label: 'Medications' },
     { id: 'verify-data', label: 'Verify' },
     { id: 'confirm', label: 'Confirm' },
     { id: 'review-emails', label: 'Emails' },
@@ -101,9 +104,10 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
     1: 'upload',
     2: 'extract',
     3: 'verify-client',
-    4: 'verify-data',
-    5: 'confirm',
-    6: 'review-emails',
+    4: 'verify-medications',
+    5: 'verify-data',
+    6: 'confirm',
+    7: 'review-emails',
   }
 
   const currentStepId = stepMapping[currentStep]
@@ -121,6 +125,14 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
     2: <ExtractFieldGroup form={form} fields="extractData" title="Extract Data" />,
     3: <VerifyClientFieldGroup form={form} fields="clientData" title="Verify Client" />,
     4: (
+      <VerifyMedicationsFieldGroup
+        form={form}
+        fields="medicationsData"
+        title="Verify Medications"
+        description="Review and update the client's medications for accurate drug test interpretation"
+      />
+    ),
+    5: (
       <VerifyDataFieldGroup
         form={form}
         fields="verifyData"
@@ -128,7 +140,7 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
         description="Review and adjust the extracted data before creating the test record"
       />
     ),
-    5: (
+    6: (
       <ConfirmFieldGroup
         form={form}
         fields="confirmData"
@@ -136,7 +148,7 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
         description="Review the final data before creating the drug test record"
       />
     ),
-    6: (
+    7: (
       <ReviewEmailsFieldGroup
         form={form}
         fields="reviewEmailsData"

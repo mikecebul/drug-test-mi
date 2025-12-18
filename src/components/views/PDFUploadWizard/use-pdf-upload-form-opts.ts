@@ -27,6 +27,9 @@ const defaultValues: PdfUploadFormType = {
     matchType: 'fuzzy',
     score: 0,
   },
+  medicationsData: {
+    verified: true,
+  },
   verifyData: {
     testType: '15-panel-instant',
     collectionDate: '',

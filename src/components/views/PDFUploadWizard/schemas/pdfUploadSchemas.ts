@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { uploadFieldSchema } from '../field-groups/UploadFieldGroup'
 import { extractFieldSchema } from '../field-groups/ExtractFieldGroup'
 import { verifyClientFieldSchema } from '../field-groups/VerifyClientFieldGroup'
+import { verifyMedicationsFieldSchema } from '../field-groups/VerifyMedicationsFieldGroup'
 import { verifyDataFieldSchema } from '../field-groups/VerifyDataFieldGroup'
 import { confirmFieldSchema } from '../field-groups/ConfirmFieldGroup'
 import { reviewEmailsFieldSchema } from '../field-groups/ReviewEmailsFieldGroup'
@@ -21,17 +22,22 @@ export const verifyClientSchema = z.object({
   clientData: verifyClientFieldSchema,
 })
 
-// Step 4: Verify Data - reusing field group schema
+// Step 4: Verify Medications - reusing field group schema
+export const verifyMedicationsSchema = z.object({
+  medicationsData: verifyMedicationsFieldSchema,
+})
+
+// Step 5: Verify Data - reusing field group schema
 export const verifyDataSchema = z.object({
   verifyData: verifyDataFieldSchema,
 })
 
-// Step 5: Confirm - reusing field group schema
+// Step 6: Confirm - reusing field group schema
 export const confirmSchema = z.object({
   confirmData: confirmFieldSchema,
 })
 
-// Step 6: Review Emails - reusing field group schema
+// Step 7: Review Emails - reusing field group schema
 export const reviewEmailsSchema = z.object({
   reviewEmailsData: reviewEmailsFieldSchema,
 })
@@ -41,6 +47,7 @@ export const stepSchemas = [
   uploadSchema,
   extractSchema,
   verifyClientSchema,
+  verifyMedicationsSchema,
   verifyDataSchema,
   confirmSchema,
   reviewEmailsSchema,
@@ -51,6 +58,7 @@ export const completePdfUploadSchema = z.object({
   uploadData: uploadSchema.shape.uploadData,
   extractData: extractSchema.shape.extractData,
   clientData: verifyClientSchema.shape.clientData,
+  medicationsData: verifyMedicationsSchema.shape.medicationsData,
   verifyData: verifyDataSchema.shape.verifyData,
   confirmData: confirmSchema.shape.confirmData,
   reviewEmailsData: reviewEmailsSchema.shape.reviewEmailsData,
