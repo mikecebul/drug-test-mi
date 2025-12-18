@@ -10,7 +10,6 @@ import MedicationDisplayField from '@/blocks/Form/field-components/medication-di
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import {
-  useGetClientMedicationsQuery,
   useComputeTestResultPreviewQuery,
   useGetClientFromTestQuery,
   useExtractPdfQuery,
@@ -106,9 +105,9 @@ export const VerifyDataFieldGroup = withFieldGroup({
     // Get headshot from client
     const clientHeadshot = client?.headshot || null
 
-    // Fetch medications using TanStack Query
-    const medicationsQuery = useGetClientMedicationsQuery(client?.id)
-    const medications = medicationsQuery.data?.medications ?? []
+    // Get medications from form state (updated in VerifyMedicationsFieldGroup)
+    const allMedications = formValues?.medicationsData?.medications ?? []
+    const activeMedications = allMedications.filter((med: any) => med.status === 'active')
 
     // Initialize form with extracted data
     useEffect(() => {
@@ -151,6 +150,9 @@ export const VerifyDataFieldGroup = withFieldGroup({
       client?.id,
       (detectedSubstancesValue ?? []) as SubstanceValue[],
       testTypeValue,
+      undefined, // breathalyzerTaken
+      undefined, // breathalyzerResult
+      allMedications, // Pass all medications (computeTestResults filters to active)
     )
     const preview = previewQuery.data
     const hasUnexpectedPositives = (preview?.unexpectedPositives?.length ?? 0) > 0
@@ -217,7 +219,9 @@ export const VerifyDataFieldGroup = withFieldGroup({
             </div>
           </div>
 
-          {medications.length > 0 && <MedicationDisplayField medications={medications} />}
+          {activeMedications.length > 0 && (
+            <MedicationDisplayField medications={activeMedications} />
+          )}
         </div>
 
         <Card className="shadow-md">

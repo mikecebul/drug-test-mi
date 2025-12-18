@@ -72,6 +72,10 @@ export const ConfirmFieldGroup = withFieldGroup({
     // Get headshot from client
     const clientHeadshot = client?.headshot || null
 
+    // Get medications from form state (updated in VerifyMedicationsFieldGroup)
+    const allMedications = formValues?.medicationsData?.medications ?? []
+    const activeMedications = allMedications.filter((med: any) => med.status === 'active')
+
     // Generate new filename and keep original
     const originalFilename = uploadData?.file?.name || 'No file'
     const newFilename =
@@ -89,6 +93,7 @@ export const ConfirmFieldGroup = withFieldGroup({
       verifyData?.testType,
       verifyData?.breathalyzerTaken ?? false,
       verifyData?.breathalyzerResult ?? null,
+      allMedications, // Pass all medications (computeTestResults filters to active)
     )
     const preview = previewQuery.data ?? null
     const loadingPreview = previewQuery.isLoading

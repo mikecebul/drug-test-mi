@@ -92,6 +92,9 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
     // 2. clientFromTestQuery.data (lab workflows - fetched from matched test)
     const clientData = formValues.clientData || clientFromTestQuery.data
 
+    // Get medications from form state (updated in VerifyMedicationsFieldGroup)
+    const allMedications = formValues.medicationsData?.medications ?? []
+
     // Calculate adjusted substances for confirmation workflow
     // Remove substances that were confirmed negative from the detected substances list
     const adjustedSubstances = React.useMemo(() => {
@@ -120,6 +123,7 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
       breathalyzerTaken: verifyData?.breathalyzerTaken ?? false,
       breathalyzerResult: verifyData?.breathalyzerResult ?? null,
       confirmationDecision: verifyData?.confirmationDecision,
+      medications: allMedications, // Pass all medications (computeTestResults filters to active)
     })
 
     const confirmationEmailQuery = useGetConfirmationEmailPreviewQuery({

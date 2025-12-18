@@ -11,13 +11,16 @@ import { useStore } from '@tanstack/react-form'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { useFormStepper } from '@/app/(frontend)/register/hooks/useFormStepper'
 import { VerifyClientFieldGroup } from '../field-groups/VerifyClientFieldGroup'
+import { VerifyMedicationsFieldGroup } from '../field-groups/VerifyMedicationsFieldGroup'
 import { CollectionDetailsFieldGroup } from '../field-groups/CollectionDetailsFieldGroup'
 import { ReviewCollectionEmailsFieldGroup } from '../field-groups/ReviewCollectionEmailsFieldGroup'
 import { z } from 'zod'
 import { verifyClientFieldSchema } from '../field-groups/VerifyClientFieldGroup'
+import { verifyMedicationsFieldSchema } from '../field-groups/VerifyMedicationsFieldGroup'
 import { collectionDetailsFieldSchema } from '../field-groups/CollectionDetailsFieldGroup'
 import { reviewCollectionEmailsFieldSchema } from '../field-groups/ReviewCollectionEmailsFieldGroup'
-import { createCollectionWithEmailReview } from '../actions'
+import { createCollectionWithEmailReview, updateClientMedications } from '../actions'
+import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { format } from 'date-fns'
@@ -25,6 +28,10 @@ import { format } from 'date-fns'
 // Step schemas
 const verifyClientSchema = z.object({
   clientData: verifyClientFieldSchema,
+})
+
+const verifyMedicationsSchema = z.object({
+  medicationsData: verifyMedicationsFieldSchema,
 })
 
 const collectionDetailsSchema = z.object({
@@ -41,11 +48,18 @@ const reviewEmailsSchema = z.object({
   reviewEmailsData: reviewCollectionEmailsFieldSchema,
 })
 
-const stepSchemas = [verifyClientSchema, collectionDetailsSchema, confirmSchema, reviewEmailsSchema]
+const stepSchemas = [
+  verifyClientSchema,
+  verifyMedicationsSchema,
+  collectionDetailsSchema,
+  confirmSchema,
+  reviewEmailsSchema,
+]
 
 // Complete form schema
 const completeCollectLabSchema = z.object({
   clientData: verifyClientFieldSchema,
+  medicationsData: verifyMedicationsFieldSchema,
   collectionDetails: collectionDetailsFieldSchema,
   confirmData: z.object({
     confirmed: z.boolean(),
@@ -80,6 +94,10 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
         matchType: 'fuzzy' as const,
         score: 0,
       },
+      medicationsData: {
+        verified: true,
+        medications: [],
+      },
       collectionDetails: {
         testType: '11-panel-lab' as const,
         collectionDate: new Date().toISOString().split('T')[0],
@@ -100,6 +118,18 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
     },
     onSubmit: async ({ value }: { value: CollectLabFormType }) => {
       try {
+        // Update client medications if provided
+        if (value.medicationsData.medications && value.medicationsData.medications.length >= 0) {
+          const medicationUpdateResult = await updateClientMedications(
+            value.clientData.id,
+            value.medicationsData.medications,
+          )
+          if (!medicationUpdateResult.success) {
+            toast.error('Failed to update medications')
+            throw new Error(medicationUpdateResult.error || 'Failed to update medications')
+          }
+        }
+
         // Combine date and time
         const dateTimeStr = `${value.collectionDetails.collectionDate} ${value.collectionDetails.collectionTime}`
         const collectionDate = new Date(dateTimeStr).toISOString()
@@ -164,6 +194,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
 
   const steps: Step[] = [
     { id: 'verify-client', label: 'Client' },
+    { id: 'verify-medications', label: 'Medications' },
     { id: 'collection-details', label: 'Details' },
     { id: 'confirm', label: 'Confirm' },
     { id: 'review-emails', label: 'Emails' },
@@ -171,9 +202,10 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
 
   const stepMapping: Record<number, string> = {
     1: 'verify-client',
-    2: 'collection-details',
-    3: 'confirm',
-    4: 'review-emails',
+    2: 'verify-medications',
+    3: 'collection-details',
+    4: 'confirm',
+    5: 'review-emails',
   }
 
   const currentStepId = stepMapping[currentStep]
@@ -235,6 +267,15 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
           )}
 
           {currentStep === 2 && (
+            <VerifyMedicationsFieldGroup
+              form={form}
+              fields="medicationsData"
+              title="Verify Medications"
+              description="Review and update the client's medications for accurate drug test interpretation"
+            />
+          )}
+
+          {currentStep === 3 && (
             <CollectionDetailsFieldGroup
               form={form}
               fields="collectionDetails"
@@ -243,7 +284,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
             />
           )}
 
-          {currentStep === 3 && (
+          {currentStep === 4 && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-semibold tracking-tight">Confirm Collection</h2>
@@ -346,7 +387,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
             </div>
           )}
 
-          {currentStep === 4 && (
+          {currentStep === 5 && (
             <ReviewCollectionEmailsFieldGroup
               form={form}
               fields="reviewEmailsData"

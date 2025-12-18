@@ -33,6 +33,7 @@ export type ComputeTestResultsParams = {
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
   payload: Payload
+  medications?: any[] // Optional - if provided, uses these instead of fetching from client
 }
 
 export type ComputeTestResultsResult = {
@@ -77,19 +78,35 @@ export type ComputeFinalStatusParams = {
 export async function computeTestResults(
   params: ComputeTestResultsParams,
 ): Promise<ComputeTestResultsResult> {
-  const { clientId, detectedSubstances, testType, breathalyzerTaken, breathalyzerResult, payload } =
-    params
+  const {
+    clientId,
+    detectedSubstances,
+    testType,
+    breathalyzerTaken,
+    breathalyzerResult,
+    payload,
+    medications: providedMedications,
+  } = params
 
   try {
-    // Fetch client with medications
-    const client = await payload.findByID({
-      collection: 'clients',
-      id: clientId,
-      depth: 0,
-    })
+    // Use provided medications or fetch from client
+    let medications: any[] = []
+    if (providedMedications !== undefined) {
+      // Use medications passed from form state
+      medications = providedMedications
+    } else {
+      // Fetch client with medications from database
+      const client = await payload.findByID({
+        collection: 'clients',
+        id: clientId,
+        depth: 0,
+      })
 
-    if (!client) {
-      throw new Error(`Client not found: ${clientId}`)
+      if (!client) {
+        throw new Error(`Client not found: ${clientId}`)
+      }
+
+      medications = client.medications || []
     }
 
     // If test type provided, get substances that this test type actually screens for
@@ -105,8 +122,8 @@ export async function computeTestResults(
     const expectedSubstances = new Set<string>()
     const criticalSubstances = new Set<string>() // Substances that MUST show (requireConfirmation = true)
 
-    if (client.medications && Array.isArray(client.medications)) {
-      const activeMedications = client.medications.filter((med: any) => med.status === 'active')
+    if (medications && Array.isArray(medications)) {
+      const activeMedications = medications.filter((med: any) => med.status === 'active')
 
       activeMedications.forEach((med: any) => {
         const substances = ((med.detectedAs as string[]) || []).filter((s: string) => s !== 'none')

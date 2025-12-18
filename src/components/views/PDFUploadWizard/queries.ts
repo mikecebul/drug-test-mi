@@ -82,6 +82,7 @@ export function useComputeTestResultPreviewQuery(
   testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | null | undefined,
   breathalyzerTaken?: boolean,
   breathalyzerResult?: number | null,
+  medications?: any[], // Optional - if provided, uses these instead of fetching from client
 ) {
   return useQuery({
     queryKey: [
@@ -91,6 +92,7 @@ export function useComputeTestResultPreviewQuery(
       testType,
       breathalyzerTaken,
       breathalyzerResult,
+      medications, // Include medications in query key so it re-runs when medications change
     ],
     queryFn: async () => {
       if (!clientId || !testType) {
@@ -102,6 +104,7 @@ export function useComputeTestResultPreviewQuery(
         testType,
         breathalyzerTaken,
         breathalyzerResult,
+        medications,
       )
     },
     enabled: Boolean(clientId && testType),
@@ -232,6 +235,7 @@ export function useGetEmailPreviewQuery(data: {
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
   confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
+  medications?: any[] // Optional - if provided, uses these instead of fetching from client
 }) {
   const {
     clientId,
@@ -242,6 +246,7 @@ export function useGetEmailPreviewQuery(data: {
     breathalyzerTaken,
     breathalyzerResult,
     confirmationDecision,
+    medications,
   } = data
 
   return useQuery({
@@ -255,6 +260,7 @@ export function useGetEmailPreviewQuery(data: {
       breathalyzerTaken,
       breathalyzerResult,
       confirmationDecision,
+      medications, // Include medications in query key
     ],
     queryFn: async () => {
       if (!clientId || !testType || !collectionDate) {
@@ -269,6 +275,7 @@ export function useGetEmailPreviewQuery(data: {
         breathalyzerTaken,
         breathalyzerResult,
         confirmationDecision,
+        medications,
       })
     },
     enabled: Boolean(clientId && testType && collectionDate),

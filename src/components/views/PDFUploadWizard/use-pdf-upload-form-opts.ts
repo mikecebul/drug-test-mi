@@ -3,7 +3,7 @@
 import { formOptions, revalidateLogic } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import type { PdfUploadFormType } from './schemas/pdfUploadSchemas'
-import { createDrugTestWithEmailReview } from './actions'
+import { createDrugTestWithEmailReview, updateClientMedications } from './actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { generateTestFilename } from './utils/generateFilename'
 import type { ExtractedPdfData } from './queries'
@@ -29,6 +29,7 @@ const defaultValues: PdfUploadFormType = {
   },
   medicationsData: {
     verified: true,
+    medications: [],
   },
   verifyData: {
     testType: '15-panel-instant',
@@ -93,6 +94,18 @@ export const usePdfUploadFormOpts = ({
         ) {
           toast.error('At least one email type must be enabled')
           throw new Error('At least one email type must be enabled')
+        }
+
+        // Update client medications if provided
+        if (value.medicationsData.medications && value.medicationsData.medications.length >= 0) {
+          const medicationUpdateResult = await updateClientMedications(
+            value.clientData.id,
+            value.medicationsData.medications,
+          )
+          if (!medicationUpdateResult.success) {
+            toast.error('Failed to update medications')
+            throw new Error(medicationUpdateResult.error || 'Failed to update medications')
+          }
         }
 
         // Get extracted data from TanStack Query cache using form values

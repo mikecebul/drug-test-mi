@@ -399,6 +399,7 @@ export async function computeTestResultPreview(
   testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab',
   breathalyzerTaken?: boolean,
   breathalyzerResult?: number | null,
+  medications?: any[], // Optional - if provided, uses these instead of fetching from client
 ): Promise<{
   initialScreenResult:
     | 'negative'
@@ -421,6 +422,7 @@ export async function computeTestResultPreview(
     breathalyzerTaken,
     breathalyzerResult,
     payload,
+    medications, // Pass through medications if provided
   })
 }
 
@@ -540,6 +542,7 @@ export async function getEmailPreview(data: {
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
   confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
+  medications?: any[] // Optional - if provided, uses these instead of fetching from client
 }): Promise<{
   success: boolean
   data?: {
@@ -583,6 +586,9 @@ export async function getEmailPreview(data: {
       data.clientId,
       data.detectedSubstances,
       data.testType,
+      data.breathalyzerTaken,
+      data.breathalyzerResult,
+      data.medications, // Pass medications from form state if provided
     )
 
     // Build email HTML using existing template builder
@@ -833,6 +839,35 @@ export async function getConfirmationEmailPreview(data: {
     return {
       success: false,
       error: `Failed to generate confirmation email preview: ${error instanceof Error ? error.message : String(error)}`,
+    }
+  }
+}
+
+/**
+ * Update client medications
+ */
+export async function updateClientMedications(
+  clientId: string,
+  medications: any[],
+): Promise<{ success: boolean; error?: string }> {
+  const payload = await getPayload({ config })
+
+  try {
+    await payload.update({
+      collection: 'clients',
+      id: clientId,
+      data: {
+        medications,
+      },
+      overrideAccess: true,
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error updating client medications:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update medications',
     }
   }
 }

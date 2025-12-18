@@ -78,7 +78,8 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
 
     // Fetch medications using TanStack Query
     const medicationsQuery = useGetClientMedicationsQuery(client?.id)
-    const medications = medicationsQuery.data?.medications ?? []
+    const allMedications = medicationsQuery.data?.medications ?? []
+    const activeMedications = allMedications.filter((med: any) => med.status === 'active')
 
     // Initialize form with extracted confirmation results
     useEffect(() => {
@@ -175,7 +176,9 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
             </div>
           </div>
 
-          {medications.length > 0 && <MedicationDisplayField medications={medications} />}
+          {activeMedications.length > 0 && (
+            <MedicationDisplayField medications={activeMedications} />
+          )}
         </div>
 
         {/* Screening Results (Read-Only Context) */}
