@@ -24,6 +24,9 @@ import {
   useExtractPdfQuery,
   useGetClientFromTestQuery,
 } from '../queries'
+import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { wizardContainerStyles } from '../styles'
+import { cn } from '@/utilities/cn'
 
 // Export the schema for reuse in step validation
 export const confirmFieldSchema = z.object({
@@ -94,13 +97,10 @@ export const ConfirmFieldGroup = withFieldGroup({
     const loadingPreview = previewQuery.isLoading
 
     return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-          <p className="text-muted-foreground">{description}</p>
-        </div>
-
-        <Card className="border-primary">
+      <div className={wizardContainerStyles.content}>
+        <FieldGroupHeader title={title} description={description} />
+        <div className={cn(wizardContainerStyles.fields, "text-base md:text-lg")}>
+          <Card className="border-primary">
           <CardHeader className="bg-primary/5 dark:bg-primary/10">
             <CardTitle className="flex items-center gap-2">
               <CheckCircle2 className="text-primary h-5 w-5" />
@@ -479,6 +479,7 @@ export const ConfirmFieldGroup = withFieldGroup({
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
     )
   },

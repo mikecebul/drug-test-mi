@@ -28,6 +28,9 @@ import {
 import { updateTestWithConfirmation } from '../actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { generateTestFilename } from '../utils/generateFilename'
+import { wizardContainerStyles, wizardWrapperStyles } from '../styles'
+import { cn } from '@/utilities/cn'
+import { WizardHeader } from '../components/WizardHeader'
 
 // Step schemas
 const uploadSchema = z.object({
@@ -222,7 +225,7 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
   // Show completion screen if confirmation was updated successfully
   if (completedTestId) {
     return (
-      <ShadcnWrapper className="mx-auto my-32 flex max-w-sm origin-top scale-125 flex-col items-center md:max-w-2xl lg:mx-auto lg:max-w-4xl">
+      <ShadcnWrapper className={wizardWrapperStyles.completion}>
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
             <Check className="h-8 w-8 text-green-600" />
@@ -236,13 +239,14 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Button onClick={onBack} size="lg">
+          <Button onClick={onBack} size="lg" className="text-lg">
             Start New Workflow
           </Button>
           <Button
             onClick={() => router.push(`/admin/collections/drug-tests/${completedTestId}`)}
             variant="outline"
             size="lg"
+            className="text-lg"
           >
             View Drug Test
           </Button>
@@ -252,13 +256,15 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
   }
 
   return (
-    <ShadcnWrapper className="mx-auto flex max-w-sm origin-top scale-125 flex-col pb-8 md:max-w-2xl lg:mx-auto lg:max-w-4xl">
-      <div className="mb-8">
-        <h1 className="mb-2 text-3xl font-bold tracking-tight">Enter Lab Confirmation Results</h1>
-        <p className="text-muted-foreground">Upload and process laboratory confirmation results</p>
+    <ShadcnWrapper className={wizardWrapperStyles.workflow}>
+      <div className={wizardWrapperStyles.header}>
+        <WizardHeader
+          title="Enter Lab Confirmation Results"
+          description="Upload and process laboratory confirmation (LC-MS/MS) test results"
+        />
       </div>
 
-      <div className="mb-8">
+      <div className={wizardWrapperStyles.stepper}>
         <Stepper steps={steps} currentStepId={currentStepId} onStepClick={handleStepClick} />
       </div>
 
@@ -324,13 +330,13 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
 
         {/* Navigation Buttons */}
         <div className="flex justify-between">
-          <Button type="button" onClick={handlePrevious} variant="outline" disabled={isSubmitting}>
+          <Button type="button" onClick={handlePrevious} variant="outline" disabled={isSubmitting} size="lg" className="text-lg">
             <ChevronLeft className="mr-2 h-5 w-5" />
             {currentStep === 1 ? 'Cancel' : 'Back'}
           </Button>
 
           {!isLastStep ? (
-            <Button type="button" onClick={handleNext}>
+            <Button type="button" onClick={handleNext} size="lg" className="text-lg">
               Next
               <ChevronRight className="ml-2 h-5 w-5" />
             </Button>
@@ -342,6 +348,7 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
                 isSubmitting ? 'cursor-not-allowed opacity-50' : ''
               }`}
               disabled={isSubmitting}
+              size="lg"
             >
               {isSubmitting ? (
                 'Updating...'

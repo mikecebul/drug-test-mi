@@ -25,6 +25,9 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
 import { ConfirmationSubstanceSelector } from '@/blocks/Form/field-components/confirmation-substance-selector'
 import { cn } from '@/utilities/cn'
 import { Input } from '@/components/ui/input'
+import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { SectionHeader } from '../components/SectionHeader'
+import { wizardContainerStyles } from '../styles'
 
 // Export the schema for reuse in step validation
 export const verifyDataFieldSchema = z
@@ -128,7 +131,6 @@ export const VerifyDataFieldGroup = withFieldGroup({
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [extractData])
 
-
     const collectionDateValue = useStore(group.store, (state) => state.values.collectionDate)
     const collectionDateTime = collectionDateValue ? new Date(collectionDateValue) : undefined
     const testTypeValue = useStore(group.store, (state) => state.values.testType)
@@ -172,24 +174,16 @@ export const VerifyDataFieldGroup = withFieldGroup({
     }
 
     return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-          <p className="text-muted-foreground">{description}</p>
-        </div>
+      <div className={wizardContainerStyles.content}>
+        <FieldGroupHeader title={title} description={description} />
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="bg-card border-border w-full rounded-xl border p-6 shadow-md">
-            {/* Header */}
-            <div className="mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="bg-primary/20 flex h-8 w-8 items-center justify-center rounded-full">
-                  <User className="text-primary h-4 w-4" />
-                </div>
-                <h3 className="text-foreground text-xl font-semibold">Client</h3>
-              </div>
-            </div>
-
+          <div
+            className={cn(
+              'bg-card border-border w-full rounded-xl border shadow-md',
+              wizardContainerStyles.card,
+            )}
+          >
             {/* Client Info */}
             <div className="flex items-start gap-4">
               <Avatar className="h-16 w-16 shrink-0">
@@ -220,8 +214,8 @@ export const VerifyDataFieldGroup = withFieldGroup({
           {medications.length > 0 && <MedicationDisplayField medications={medications} />}
         </div>
 
-        <Card className="shadow-md">
-          <CardContent className="space-y-4 pt-6">
+        <Card className={cn('shadow-md')}>
+          <CardContent className={cn(wizardContainerStyles.fields, 'pt-6 text-base md:text-lg')}>
             <group.AppField name="testType">
               {(field) => (
                 <field.SelectField
@@ -331,17 +325,18 @@ export const VerifyDataFieldGroup = withFieldGroup({
 
         {/* Confirmation Decision Section - only show when there are unexpected positives */}
         {requiresDecision && (
-          <div className="border-warning/50 bg-warning-muted/50 w-full rounded-xl border p-6 shadow-md">
+          <div
+            className={cn(
+              'border-warning/50 bg-warning-muted/50 w-full rounded-xl border shadow-md',
+              wizardContainerStyles.card,
+            )}
+          >
             {/* Header */}
             <div className="mb-6">
-              <div className="flex items-center gap-2.5">
-                <div className="bg-warning/20 flex h-8 w-8 items-center justify-center rounded-full">
-                  <AlertTriangle className="text-warning h-4 w-4" />
-                </div>
-                <h2 className="text-foreground text-xl font-semibold">
-                  Confirmation Decision Required
-                </h2>
-              </div>
+              <SectionHeader
+                icon={<AlertTriangle className="text-warning h-5 w-5" />}
+                title="Confirmation Decision Required"
+              />
               <p className="text-warning-foreground mt-2 text-sm">
                 Unexpected positive substances detected.{' '}
                 {testTypeValue !== '15-panel-instant'

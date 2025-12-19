@@ -11,6 +11,9 @@ import { z } from 'zod'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { format } from 'date-fns'
 import { useFetchPendingTestsQuery } from '../queries'
+import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { wizardContainerStyles } from '../styles'
+import { cn } from '@/utilities/cn'
 
 // Export the schema for reuse in step validation
 export const selectTestFieldSchema = z.object({
@@ -69,13 +72,10 @@ export const SelectTestFieldGroup = withFieldGroup({
     }
 
     return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
-          {description && <p className="text-muted-foreground mt-2">{description}</p>}
-        </div>
-
-        {loading && (
+      <div className={wizardContainerStyles.content}>
+        <FieldGroupHeader title={title} description={description} />
+        <div className={cn(wizardContainerStyles.fields, "text-base md:text-lg")}>
+          {loading && (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
@@ -156,6 +156,7 @@ export const SelectTestFieldGroup = withFieldGroup({
             )}
           </group.Field>
         )}
+        </div>
       </div>
     )
   },

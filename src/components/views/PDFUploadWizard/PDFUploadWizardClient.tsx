@@ -8,6 +8,8 @@ import { EnterLabScreenWorkflow } from './workflows/EnterLabScreenWorkflow'
 import { EnterLabConfirmationWorkflow } from './workflows/EnterLabConfirmationWorkflow'
 import { InstantTestWorkflow } from './workflows/InstantTestWorkflow'
 import type { WizardType } from './types'
+import { wizardContainerStyles } from './styles'
+import { WizardHeader } from './components/WizardHeader'
 
 export function PDFUploadWizardClient() {
   const [selectedWorkflow, setSelectedWorkflow] = useState<WizardType | null>(null)
@@ -25,12 +27,14 @@ export function PDFUploadWizardClient() {
   // Show workflow type selector if no workflow is selected
   if (!selectedWorkflow) {
     return (
-      <ShadcnWrapper className="mx-auto my-32 flex max-w-sm origin-top scale-125 flex-col md:max-w-2xl lg:mx-auto lg:max-w-4xl">
-        <div className="mb-8">
-          <h1 className="mb-2 text-3xl font-bold tracking-tight">Drug Test Workflow</h1>
-          <p className="text-muted-foreground">Select the type of workflow you want to perform</p>
+      <ShadcnWrapper className="mx-auto my-32 flex max-w-lg flex-col md:max-w-4xl lg:mx-auto lg:max-w-4xl">
+        <div className={wizardContainerStyles.content}>
+          <WizardHeader
+            title="Drug Test Workflow"
+            description="Select the type of workflow you want to perform"
+          />
+          <WizardTypeSelector onSelect={handleWorkflowSelect} />
         </div>
-        <WizardTypeSelector onSelect={handleWorkflowSelect} />
       </ShadcnWrapper>
     )
   }

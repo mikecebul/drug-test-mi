@@ -20,6 +20,10 @@ import { z } from 'zod'
 import { Trash2, Plus, User } from 'lucide-react'
 import { getSubstanceOptions } from '@/fields/substanceOptions'
 import { useGetClientMedicationsQuery, useGetClientFromTestQuery, useGetDrugTestQuery, useExtractPdfQuery } from '../queries'
+import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { SectionHeader } from '../components/SectionHeader'
+import { wizardContainerStyles } from '../styles'
+import { cn } from '@/utilities/cn'
 
 // Export the schema for reuse in step validation
 export const verifyConfirmationFieldSchema = z.object({
@@ -134,23 +138,15 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
     }
 
     return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-          <p className="text-muted-foreground">{description}</p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="bg-card border-border w-full rounded-xl border p-6 shadow-md">
-            {/* Header */}
-            <div className="mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="bg-primary/20 flex h-8 w-8 items-center justify-center rounded-full">
-                  <User className="text-primary h-4 w-4" />
-                </div>
-                <h3 className="text-foreground text-xl font-semibold">Client</h3>
+      <div className={wizardContainerStyles.content}>
+        <FieldGroupHeader title={title} description={description} />
+        <div className={cn(wizardContainerStyles.fields, "text-base md:text-lg")}>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className={cn("bg-card border-border w-full rounded-xl border shadow-md", wizardContainerStyles.card)}>
+              {/* Header */}
+              <div className="mb-4">
+                <SectionHeader icon={<User className="text-primary h-5 w-5" />} title="Client" />
               </div>
-            </div>
 
             {/* Client Info */}
             <div className="flex items-start gap-4">
@@ -290,6 +286,7 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
             )
           }
         </group.Field>
+        </div>
       </div>
     )
   },

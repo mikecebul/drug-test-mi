@@ -21,6 +21,9 @@ import { createCollectionWithEmailReview } from '../actions'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { format } from 'date-fns'
+import { wizardContainerStyles, wizardWrapperStyles } from '../styles'
+import { cn } from '@/utilities/cn'
+import { WizardHeader } from '../components/WizardHeader'
 
 // Step schemas
 const verifyClientSchema = z.object({
@@ -184,12 +187,14 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   // Show completion screen if collection was created successfully
   if (completedTestId) {
     return (
-      <ShadcnWrapper className="mx-auto my-32 flex max-w-sm origin-top scale-125 flex-col items-center md:max-w-2xl lg:mx-auto lg:max-w-4xl">
+      <ShadcnWrapper className={wizardWrapperStyles.completion}>
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
             <Check className="h-8 w-8 text-green-600" />
           </div>
-          <h1 className="mb-2 text-3xl font-bold tracking-tight">Collection Recorded Successfully!</h1>
+          <h1 className="mb-2 text-3xl font-bold tracking-tight">
+            Collection Recorded Successfully!
+          </h1>
           <p className="text-muted-foreground">
             The specimen collection has been recorded and notification email has been sent.
           </p>
@@ -212,13 +217,15 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   }
 
   return (
-    <ShadcnWrapper className="mx-auto flex max-w-sm origin-top scale-125 flex-col pb-8 md:max-w-2xl lg:mx-auto lg:max-w-4xl">
-      <div className="mb-8">
-        <h1 className="mb-2 text-3xl font-bold tracking-tight">Collect Lab Specimen</h1>
-        <p className="text-muted-foreground">Record specimen collection for laboratory testing</p>
+    <ShadcnWrapper className={wizardWrapperStyles.workflow}>
+      <div className={wizardWrapperStyles.header}>
+        <WizardHeader
+          title="Collect Lab Specimen"
+          description="Record specimen collection for laboratory testing"
+        />
       </div>
 
-      <div className="mb-8">
+      <div className={wizardWrapperStyles.stepper}>
         <Stepper steps={steps} currentStepId={currentStepId} onStepClick={handleStepClick} />
       </div>
 
@@ -244,44 +251,47 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
           )}
 
           {currentStep === 3 && (
-            <div className="space-y-6">
+            <div className={wizardContainerStyles.content}>
               <div>
-                <h2 className="text-2xl font-semibold tracking-tight">Confirm Collection</h2>
-                <p className="text-muted-foreground mt-2">
+                <h2 className="text-3xl font-bold tracking-tight">Confirm Collection</h2>
+                <p className="text-muted-foreground mt-3 text-lg">
                   Review the collection details before creating the record
                 </p>
               </div>
 
-              <Card>
-                <CardContent className="pt-6">
+              <Card className={wizardContainerStyles.card}>
+                <CardContent className={cn(wizardContainerStyles.fields, 'text-base md:text-lg pt-6')}>
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-muted-foreground text-sm font-medium flex items-center gap-2">
+                      <h3 className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
                         <User className="h-4 w-4" />
                         Client
                       </h3>
-                      <div className="flex items-start gap-3 pl-6 mt-2">
+                      <div className="mt-2 flex items-start gap-3 pl-6">
                         <Avatar className="h-12 w-12 shrink-0">
                           <AvatarImage
                             src={formValues.clientData.headshot ?? undefined}
                             alt={`${formValues.clientData.firstName} ${formValues.clientData.lastName}`}
                           />
                           <AvatarFallback className="text-sm">
-                            {formValues.clientData.firstName?.charAt(0)}{formValues.clientData.lastName?.charAt(0)}
+                            {formValues.clientData.firstName?.charAt(0)}
+                            {formValues.clientData.lastName?.charAt(0)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 space-y-0.5">
                           <p className="text-lg font-semibold">
                             {formValues.clientData.firstName} {formValues.clientData.lastName}
                           </p>
-                          <p className="text-muted-foreground text-sm">{formValues.clientData.email}</p>
+                          <p className="text-muted-foreground text-sm">
+                            {formValues.clientData.email}
+                          </p>
                         </div>
                       </div>
                     </div>
 
                     <div className="border-t pt-4">
                       <h3 className="text-muted-foreground text-sm font-medium">Test Type</h3>
-                      <p className="text-lg pl-6 mt-1">
+                      <p className="mt-1 pl-6 text-lg">
                         {formValues.collectionDetails.testType === '11-panel-lab'
                           ? '11-Panel Lab Test'
                           : formValues.collectionDetails.testType === '17-panel-sos-lab'
@@ -294,7 +304,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
                       <h3 className="text-muted-foreground text-sm font-medium">
                         Collection Date & Time
                       </h3>
-                      <p className="text-lg pl-6 mt-1">
+                      <p className="mt-1 pl-6 text-lg">
                         {formValues.collectionDetails.collectionDate &&
                           formValues.collectionDetails.collectionTime &&
                           format(
@@ -306,40 +316,54 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
                       </p>
                     </div>
 
-                    {formValues.collectionDetails.breathalyzerTaken && formValues.collectionDetails.breathalyzerResult !== null && formValues.collectionDetails.breathalyzerResult !== undefined && (
-                      <div className="border-t pt-4 space-y-2">
-                        <h3 className="text-muted-foreground text-sm font-medium">Breathalyzer Test</h3>
-                        <div className="pl-6">
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant={formValues.collectionDetails.breathalyzerResult! > 0.000 ? 'destructive' : 'default'}
-                              className={formValues.collectionDetails.breathalyzerResult! > 0.000 ? 'gap-1' : 'gap-1 bg-green-600'}
-                            >
-                              {formValues.collectionDetails.breathalyzerResult! > 0.000 ? (
-                                <>
-                                  <XCircle className="h-3 w-3" />
-                                  POSITIVE (FAIL)
-                                </>
-                              ) : (
-                                <>
-                                  <CheckCircle2 className="h-3 w-3" />
-                                  NEGATIVE (PASS)
-                                </>
-                              )}
-                            </Badge>
-                          </div>
-                          <p className="mt-2 text-sm">
-                            <span className="text-muted-foreground">BAC Level:</span>{' '}
-                            <span className="font-mono font-semibold">{formValues.collectionDetails.breathalyzerResult!.toFixed(3)}</span>
-                          </p>
-                          {formValues.collectionDetails.breathalyzerResult! > 0.000 && (
-                            <p className="text-muted-foreground mt-1 text-xs">
-                              Any detectable alcohol level constitutes a positive result.
+                    {formValues.collectionDetails.breathalyzerTaken &&
+                      formValues.collectionDetails.breathalyzerResult !== null &&
+                      formValues.collectionDetails.breathalyzerResult !== undefined && (
+                        <div className="space-y-2 border-t pt-4">
+                          <h3 className="text-muted-foreground text-sm font-medium">
+                            Breathalyzer Test
+                          </h3>
+                          <div className="pl-6">
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant={
+                                  formValues.collectionDetails.breathalyzerResult! > 0.0
+                                    ? 'destructive'
+                                    : 'default'
+                                }
+                                className={
+                                  formValues.collectionDetails.breathalyzerResult! > 0.0
+                                    ? 'gap-1'
+                                    : 'gap-1 bg-green-600'
+                                }
+                              >
+                                {formValues.collectionDetails.breathalyzerResult! > 0.0 ? (
+                                  <>
+                                    <XCircle className="h-3 w-3" />
+                                    POSITIVE (FAIL)
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    NEGATIVE (PASS)
+                                  </>
+                                )}
+                              </Badge>
+                            </div>
+                            <p className="mt-2 text-sm">
+                              <span className="text-muted-foreground">BAC Level:</span>{' '}
+                              <span className="font-mono font-semibold">
+                                {formValues.collectionDetails.breathalyzerResult!.toFixed(3)}
+                              </span>
                             </p>
-                          )}
+                            {formValues.collectionDetails.breathalyzerResult! > 0.0 && (
+                              <p className="text-muted-foreground mt-1 text-xs">
+                                Any detectable alcohol level constitutes a positive result.
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                   </div>
                 </CardContent>
               </Card>
@@ -358,13 +382,20 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
 
         {/* Navigation Buttons */}
         <div className="flex justify-between">
-          <Button type="button" onClick={handlePrevious} variant="outline" disabled={isSubmitting}>
+          <Button
+            type="button"
+            onClick={handlePrevious}
+            variant="outline"
+            disabled={isSubmitting}
+            size="lg"
+            className="text-lg"
+          >
             <ChevronLeft className="mr-2 h-5 w-5" />
             {currentStep === 1 ? 'Cancel' : 'Back'}
           </Button>
 
           {!isLastStep ? (
-            <Button type="button" onClick={handleNext}>
+            <Button type="button" onClick={handleNext} size="lg" className="text-lg">
               Next
               <ChevronRight className="ml-2 h-5 w-5" />
             </Button>
@@ -372,7 +403,8 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
             <Button
               type="button"
               onClick={handleNext}
-              className={`bg-secondary text-secondary-foreground hover:bg-secondary/90 ${
+              size="lg"
+              className={`bg-secondary text-secondary-foreground hover:bg-secondary/90 text-lg ${
                 isSubmitting ? 'cursor-not-allowed opacity-50' : ''
               }`}
               disabled={isSubmitting}

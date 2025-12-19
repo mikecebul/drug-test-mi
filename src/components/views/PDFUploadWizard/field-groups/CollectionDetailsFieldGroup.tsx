@@ -9,6 +9,9 @@ import { z } from 'zod'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useStore } from '@tanstack/react-form'
+import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { wizardContainerStyles } from '../styles'
+import { cn } from '@/utilities/cn'
 
 // Export the schema for reuse in step validation
 export const collectionDetailsFieldSchema = z.object({
@@ -54,14 +57,11 @@ export const CollectionDetailsFieldGroup = withFieldGroup({
     const breathalyzerTaken = useStore(group.store, (state) => state.values.breathalyzerTaken)
 
     return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
-          {description && <p className="text-muted-foreground mt-2">{description}</p>}
-        </div>
-
-        <Card>
-          <CardContent className="pt-6">
+      <div className={wizardContainerStyles.content}>
+        <FieldGroupHeader title={title} description={description} />
+        <div className={cn(wizardContainerStyles.fields, "text-base md:text-lg")}>
+          <Card>
+            <CardContent className="pt-6">
             <div className="space-y-6">
               {/* Test Type Selection */}
               <group.Field name="testType">
@@ -197,7 +197,8 @@ export const CollectionDetailsFieldGroup = withFieldGroup({
               </div>
             </div>
           </CardContent>
-        </Card>
+          </Card>
+        </div>
       </div>
     )
   },

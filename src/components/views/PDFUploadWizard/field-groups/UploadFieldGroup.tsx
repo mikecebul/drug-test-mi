@@ -3,6 +3,9 @@
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
+import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { wizardContainerStyles } from '../styles'
+import { cn } from '@/utilities/cn'
 
 // Export the schema for reuse in step validation
 export const uploadFieldSchema = z.object({
@@ -25,13 +28,11 @@ export const UploadFieldGroup = withFieldGroup({
 
   render: function Render({ group, title, description = '' }) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-          <p className="text-muted-foreground">{description}</p>
-        </div>
+      <div className={wizardContainerStyles.content}>
+        <FieldGroupHeader title={title} description={description} />
 
-        <group.AppField
+        <div className={cn(wizardContainerStyles.fields, 'text-base md:text-lg')}>
+          <group.AppField
           name="file"
           validators={{
             onChange: ({ value }) => {
@@ -54,6 +55,7 @@ export const UploadFieldGroup = withFieldGroup({
             />
           )}
         </group.AppField>
+        </div>
       </div>
     )
   },
