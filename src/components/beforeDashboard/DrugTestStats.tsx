@@ -20,7 +20,7 @@ export default function DrugTestStats() {
     <ShadcnWrapper className="pb-0">
       <div className="mb-6 space-y-6">
         {/* Quick Navigation Buttons - Always visible */}
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3 pb-8">
           <Button asChild size="xl" className="min-w-2xs gap-2">
             <Link href="/admin/drug-test-upload">
               <svg
