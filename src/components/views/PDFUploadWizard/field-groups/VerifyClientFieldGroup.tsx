@@ -25,6 +25,9 @@ import { useFindMatchingClientsQuery, useGetAllClientsQuery, useExtractPdfQuery 
 import ShadcnWrapper from '@/components/ShadcnWrapper'
 import { RegisterClientDialog } from '../components/RegisterClientDialog'
 import { toast } from 'sonner'
+import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { wizardContainerStyles } from '../styles'
+import { cn } from '@/utilities/cn'
 
 // Export the schema for reuse in step validation
 export const verifyClientFieldSchema = z.object({
@@ -124,19 +127,19 @@ export const VerifyClientFieldGroup = withFieldGroup({
 
     if (loading) {
       return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="mb-2 text-2xl font-bold">Searching for Client...</h2>
-            <p className="text-muted-foreground">
-              {donorName ? `Looking for: ${donorName}` : 'Searching client database'}
-            </p>
-          </div>
-          <Card>
+        <div className={wizardContainerStyles.content}>
+          <FieldGroupHeader
+            title="Searching for Client..."
+            description={donorName ? `Looking for: ${donorName}` : 'Searching client database'}
+          />
+          <Card className={wizardContainerStyles.card}>
             <CardContent className="pt-6">
               <div className="flex items-center justify-center py-12">
                 <div className="space-y-4 text-center">
                   <Loader2 className="text-primary mx-auto h-12 w-12 animate-spin" />
-                  <p className="text-muted-foreground">Please wait while we search for matches</p>
+                  <p className="text-muted-foreground text-lg">
+                    Please wait while we search for matches
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -146,15 +149,15 @@ export const VerifyClientFieldGroup = withFieldGroup({
     }
 
     return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-          <p className="text-muted-foreground">
-            {donorName
+      <div className={wizardContainerStyles.content}>
+        <FieldGroupHeader
+          title={title}
+          description={
+            donorName
               ? `Select the correct client for: ${donorName}`
-              : 'Search for the client manually'}
-          </p>
-        </div>
+              : 'Search for the client manually'
+          }
+        />
 
         {matches.length === 0 && (
           <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
@@ -202,7 +205,7 @@ export const VerifyClientFieldGroup = withFieldGroup({
           }}
         >
           {(idField) => (
-            <div className="space-y-4">
+            <div className={cn(wizardContainerStyles.fields, 'text-base md:text-lg')}>
               {matches.length > 0 && (
                 <>
                   <div className="space-y-3">
@@ -307,11 +310,14 @@ export const VerifyClientFieldGroup = withFieldGroup({
 
               {/* Client Search Dialog */}
               <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="max-w-sm origin-top scale-125 p-0 lg:max-w-2xl">
-                  <ShadcnWrapper className="p-3">
+                <DialogContent className="max-w-4xl">
+                  <ShadcnWrapper className="pt-12">
                     <DialogTitle className="sr-only">Search and Select Client</DialogTitle>
                     <Command className="">
-                      <CommandInput placeholder="Search by name or email..." />
+                      <CommandInput
+                        placeholder="Search by name or email..."
+                        className="h-14 text-lg"
+                      />
                       <CommandList>
                         <CommandEmpty>
                           {allClients.length === 0 ? 'Loading clients...' : 'No client found.'}
@@ -321,7 +327,7 @@ export const VerifyClientFieldGroup = withFieldGroup({
                             <CommandItem
                               key={client.id}
                               value={`${client.firstName} ${client.middleInitial || ''} ${client.lastName} ${client.email}`}
-                              className="px-3 py-3"
+                              className="px-3 py-3 text-lg"
                               onSelect={() => {
                                 group.setFieldValue('id', client.id)
                                 group.setFieldValue('firstName', client.firstName)
@@ -336,27 +342,27 @@ export const VerifyClientFieldGroup = withFieldGroup({
                               }}
                             >
                               <Check
-                                className={`mr-3 h-5 w-5 shrink-0 ${
+                                className={`mr-3 size-6 shrink-0 ${
                                   selectedClientId === client.id ? 'opacity-100' : 'opacity-0'
                                 }`}
                               />
-                              <Avatar className="mr-3 h-10 w-10 shrink-0">
+                              <Avatar className="mr-3 size-12 shrink-0">
                                 <AvatarImage
                                   src={client.headshot ?? undefined}
                                   alt={`${client.firstName} ${client.lastName}`}
                                 />
-                                <AvatarFallback className="text-sm">
+                                <AvatarFallback className="text-lg">
                                   {client.firstName.charAt(0)}
                                   {client.lastName.charAt(0)}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex flex-col">
-                                <span className="text-base font-medium">
+                                <span className="text-lg font-medium">
                                   {client.firstName}{' '}
                                   {client.middleInitial ? `${client.middleInitial}. ` : ''}
                                   {client.lastName}
                                 </span>
-                                <span className="text-muted-foreground text-sm">
+                                <span className="text-muted-foreground text-base">
                                   {client.email}
                                 </span>
                               </div>

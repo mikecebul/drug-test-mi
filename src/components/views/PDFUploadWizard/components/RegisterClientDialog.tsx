@@ -430,7 +430,7 @@ export function RegisterClientDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl origin-top scale-125">
+      <DialogContent className="max-w-2xl">
         <ShadcnWrapper className="">
           <DialogHeader>
             <DialogTitle>Register New Client</DialogTitle>

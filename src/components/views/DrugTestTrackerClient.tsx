@@ -118,10 +118,10 @@ export function DrugTestTrackerClient() {
   )
 
   return (
-    <ShadcnWrapper className="mx-auto my-8 flex max-w-sm origin-top scale-125 flex-col md:max-w-2xl lg:mx-auto lg:max-w-4xl">
+    <ShadcnWrapper className="mx-auto flex flex-col">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">Drug Test Tracker</h1>
-        <p className="text-muted-foreground mt-2">
+        <h1 className="text-4xl font-bold">Drug Test Tracker</h1>
+        <p className="text-muted-foreground mt-2 text-lg">
           Track and manage drug tests that require attention
         </p>
       </div>
@@ -144,16 +144,16 @@ export function DrugTestTrackerClient() {
                 <span className="text-muted-foreground text-sm">({stageTests.length} tests)</span>
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-6">
                 {stageTests.map((test) => (
                   <Card key={test.id} className="">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div>
-                          <CardTitle className="text-lg">
+                          <CardTitle className="text-lg md:text-xl">
                             {test.relatedClient.firstName} {test.relatedClient.lastName}
                           </CardTitle>
-                          <p className="text-muted-foreground text-sm">
+                          <p className="text-muted-foreground text-sm md:text-base">
                             {test.relatedClient.email}
                           </p>
                         </div>
@@ -166,10 +166,10 @@ export function DrugTestTrackerClient() {
                     <CardContent>
                       <div className="space-y-2">
                         <div>
-                          <span className="text-muted-foreground text-xs font-medium">
+                          <span className="text-muted-foreground text-xs font-medium md:text-sm">
                             Collection Date:
                           </span>
-                          <p className="text-sm">
+                          <p className="text-sm md:text-base">
                             {test.collectionDate
                               ? new Date(test.collectionDate).toLocaleDateString('en-US', {
                                   year: 'numeric',
@@ -184,10 +184,10 @@ export function DrugTestTrackerClient() {
 
                         {test.initialScreenResult && (
                           <div>
-                            <span className="text-muted-foreground text-xs font-medium">
+                            <span className="text-muted-foreground text-xs font-medium md:text-sm">
                               Screen Result:
                             </span>
-                            <p className="text-sm capitalize">
+                            <p className="text-sm capitalize md:text-base">
                               {test.initialScreenResult.replace('-', ' ')}
                             </p>
                           </div>
@@ -195,10 +195,10 @@ export function DrugTestTrackerClient() {
 
                         {test.confirmationDecision === 'request-confirmation' && (
                           <div>
-                            <span className="text-muted-foreground text-xs font-medium">
+                            <span className="text-muted-foreground text-xs font-medium md:text-sm">
                               Confirmation:
                             </span>
-                            <p className="text-sm">
+                            <p className="text-sm md:text-base">
                               {test.confirmationResults &&
                               test.confirmationSubstances &&
                               test.confirmationResults.length ===
@@ -212,10 +212,10 @@ export function DrugTestTrackerClient() {
 
                         {test.processNotes && (
                           <div>
-                            <span className="text-muted-foreground text-xs font-medium">
+                            <span className="text-muted-foreground text-xs font-medium md:text-sm">
                               Notes:
                             </span>
-                            <p className="line-clamp-2 text-sm">{test.processNotes}</p>
+                            <p className="line-clamp-2 text-sm md:text-base">{test.processNotes}</p>
                           </div>
                         )}
                       </div>

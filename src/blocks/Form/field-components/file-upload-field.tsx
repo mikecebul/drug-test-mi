@@ -69,7 +69,7 @@ export default function FileUploadField({
   }
 
   return (
-    <div className="min-h-48 max-w-3xl space-y-2">
+    <div className="min-h-48 space-y-2">
       {label && (
         <label className="text-foreground text-sm font-medium">
           {label}
@@ -89,7 +89,7 @@ export default function FileUploadField({
         maxSize={maxSize}
       >
         <FileUploadDropzone>
-          <div className="min-h-32 flex flex-col items-center justify-center space-y-2 text-center">
+          <div className="flex min-h-32 flex-col items-center justify-center space-y-2 text-center">
             <p className="text-sm font-medium">Click to upload or drag and drop</p>
             <p className="text-muted-foreground text-xs">
               {accept.includes('pdf') ? 'PDF files' : 'Files'} up to{' '}
@@ -115,9 +115,7 @@ export default function FileUploadField({
 
       {(error || field.state.meta.errors.length > 0) && (
         <Alert variant="destructive">
-          <AlertDescription>
-            {error || String(field.state.meta.errors[0])}
-          </AlertDescription>
+          <AlertDescription>{error || String(field.state.meta.errors[0])}</AlertDescription>
         </Alert>
       )}
     </div>

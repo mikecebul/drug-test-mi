@@ -20,6 +20,9 @@ import { VerifyDataFieldGroup } from '../field-groups/VerifyDataFieldGroup'
 import { ConfirmFieldGroup } from '../field-groups/ConfirmFieldGroup'
 import { ReviewEmailsFieldGroup } from '../field-groups/ReviewEmailsFieldGroup'
 import { extractPdfQueryKey, type ExtractedPdfData } from '../queries'
+import { wizardContainerStyles, wizardWrapperStyles } from '../styles'
+import { cn } from '@/utilities/cn'
+import { WizardHeader } from '../components/WizardHeader'
 
 type WizardStep =
   | 'upload'
@@ -162,7 +165,7 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
   // Show completion screen if test was created successfully
   if (completedTestId) {
     return (
-      <ShadcnWrapper className="mx-auto my-32 flex max-w-sm origin-top scale-125 flex-col items-center md:max-w-2xl lg:mx-auto lg:max-w-4xl">
+      <ShadcnWrapper className={wizardWrapperStyles.completion}>
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
             <Check className="h-8 w-8 text-green-600" />
@@ -176,13 +179,14 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Button onClick={onBack} size="lg">
+          <Button onClick={onBack} size="lg" className="text-lg">
             Start New Test
           </Button>
           <Button
             onClick={() => router.push(`/admin/collections/drug-tests/${completedTestId}`)}
             variant="outline"
             size="lg"
+            className="text-lg"
           >
             View Drug Test
           </Button>
@@ -192,15 +196,15 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <ShadcnWrapper className="mx-auto my-8 flex max-w-sm origin-top scale-125 flex-col md:max-w-2xl lg:mx-auto lg:max-w-4xl">
-      <div className="mb-8">
-        <h1 className="mb-2 text-3xl font-bold tracking-tight">Drug Test Upload Wizard</h1>
-        <p className="text-muted-foreground">
-          Upload and process drug test PDFs quickly and accurately
-        </p>
+    <ShadcnWrapper className={wizardWrapperStyles.workflow}>
+      <div className={wizardWrapperStyles.header}>
+        <WizardHeader
+          title="Drug Test Upload Wizard"
+          description="Upload and process drug test PDFs quickly and accurately"
+        />
       </div>
 
-      <div className="mb-8">
+      <div className={wizardWrapperStyles.stepper}>
         <Stepper steps={steps} currentStepId={currentStepId} onStepClick={handleStepClick} />
       </div>
 
@@ -215,13 +219,13 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
 
         {/* Navigation Buttons */}
         <div className="flex justify-between">
-          <Button type="button" onClick={handlePrevious} variant="outline">
+          <Button type="button" onClick={handlePrevious} variant="outline" size="lg" className="text-lg">
             <ChevronLeft className="mr-2 h-5 w-5" />
             {isFirstStep ? 'Cancel' : 'Back'}
           </Button>
 
           {!isLastStep ? (
-            <Button type="button" onClick={handleNext}>
+            <Button type="button" onClick={handleNext} size="lg" className="text-lg">
               Next
               <ChevronRight className="ml-2 h-5 w-5" />
             </Button>
@@ -233,6 +237,7 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
                 isSubmitting ? 'cursor-not-allowed opacity-50' : ''
               }`}
               disabled={isSubmitting}
+              size="lg"
             >
               {isSubmitting ? (
                 'Creating...'

@@ -18,6 +18,9 @@ import {
   useGetConfirmationEmailPreviewQuery,
   useGetClientFromTestQuery,
 } from '../queries'
+import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { wizardContainerStyles } from '../styles'
+import { cn } from '@/utilities/cn'
 
 type WorkflowMode = 'screening' | 'confirmation'
 
@@ -169,11 +172,8 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
 
     if (isLoading) {
       return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-            <p className="text-muted-foreground">{description}</p>
-          </div>
+        <div className={wizardContainerStyles.content}>
+          <FieldGroupHeader title={title} description={description} />
           <Card>
             <CardContent className="flex items-center justify-center py-12">
               <div className="flex flex-col items-center gap-4">
@@ -188,11 +188,8 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
 
     if (error || !previewData) {
       return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-            <p className="text-muted-foreground">{description}</p>
-          </div>
+        <div className={wizardContainerStyles.content}>
+          <FieldGroupHeader title={title} description={description} />
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error || 'Failed to load email preview'}</AlertDescription>
@@ -205,13 +202,10 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
     const currentValues = group.state.values
 
     return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-          <p className="text-muted-foreground">{description}</p>
-        </div>
-
-        {/* Client Email Section (for probation/employment only) */}
+      <div className={wizardContainerStyles.content}>
+        <FieldGroupHeader title={title} description={description} />
+        <div className={cn(wizardContainerStyles.fields, "text-base md:text-lg")}>
+          {/* Client Email Section (for probation/employment only) */}
         {smartGrouping === 'separate' && (
           <Card>
             <CardHeader>
@@ -383,6 +377,7 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
             emailType="referral"
           />
         )}
+        </div>
       </div>
     )
   },

@@ -14,6 +14,9 @@ import { format } from 'date-fns'
 import { fetchPendingTests } from '../actions'
 import { useExtractPdfQuery } from '../queries'
 import { getRankedTestMatches, type DrugTest as TestMatchDrugTest, type TestType } from '../utils/testMatching'
+import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { wizardContainerStyles } from '../styles'
+import { cn } from '@/utilities/cn'
 
 // Export the schema for reuse in step validation
 export const verifyTestFieldSchema = z.object({
@@ -144,11 +147,8 @@ export const VerifyTestFieldGroup = withFieldGroup({
 
     if (isLoading) {
       return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-            <p className="text-muted-foreground">{description}</p>
-          </div>
+        <div className={wizardContainerStyles.content}>
+          <FieldGroupHeader title={title} description={description} />
           <Card>
             <CardContent className="flex items-center justify-center py-12">
               <div className="flex flex-col items-center gap-4">
@@ -163,11 +163,8 @@ export const VerifyTestFieldGroup = withFieldGroup({
 
     if (error) {
       return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-            <p className="text-muted-foreground">{description}</p>
-          </div>
+        <div className={wizardContainerStyles.content}>
+          <FieldGroupHeader title={title} description={description} />
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
@@ -178,11 +175,8 @@ export const VerifyTestFieldGroup = withFieldGroup({
 
     if (pendingTests.length === 0) {
       return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-            <p className="text-muted-foreground">{description}</p>
-          </div>
+        <div className={wizardContainerStyles.content}>
+          <FieldGroupHeader title={title} description={description} />
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>No pending tests found with status: {filterStatus.join(', ')}</AlertDescription>
@@ -207,13 +201,10 @@ export const VerifyTestFieldGroup = withFieldGroup({
     const displayedTests = showAllTests ? testsWithScores : testsWithScores.slice(0, 3)
 
     return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-          <p className="text-muted-foreground">{description}</p>
-        </div>
-
-        {extractData?.donorName && (
+      <div className={wizardContainerStyles.content}>
+        <FieldGroupHeader title={title} description={description} />
+        <div className={cn(wizardContainerStyles.fields, "text-base md:text-lg")}>
+          {extractData?.donorName && (
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
@@ -301,6 +292,7 @@ export const VerifyTestFieldGroup = withFieldGroup({
             <AlertDescription>Please select a pending test to continue</AlertDescription>
           </Alert>
         )}
+        </div>
       </div>
     )
   },

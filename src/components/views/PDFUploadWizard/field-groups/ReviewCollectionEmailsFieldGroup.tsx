@@ -13,6 +13,9 @@ import { RecipientEditor } from '../components/RecipientEditor'
 import { EmailPreviewModal } from '../components/EmailPreviewModal'
 import { z } from 'zod'
 import { useGetCollectionEmailPreviewQuery } from '../queries'
+import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { wizardContainerStyles } from '../styles'
+import { cn } from '@/utilities/cn'
 
 type EmailPreviewData = {
   referralEmails: string[]
@@ -104,11 +107,8 @@ export const ReviewCollectionEmailsFieldGroup = withFieldGroup({
 
     if (isLoading) {
       return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-            <p className="text-muted-foreground">{description}</p>
-          </div>
+        <div className={wizardContainerStyles.content}>
+          <FieldGroupHeader title={title} description={description} />
           <Card>
             <CardContent className="flex items-center justify-center py-12">
               <div className="flex flex-col items-center gap-4">
@@ -123,11 +123,8 @@ export const ReviewCollectionEmailsFieldGroup = withFieldGroup({
 
     if (error || !previewData) {
       return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-            <p className="text-muted-foreground">{description}</p>
-          </div>
+        <div className={wizardContainerStyles.content}>
+          <FieldGroupHeader title={title} description={description} />
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error || 'Failed to load email preview'}</AlertDescription>
@@ -139,13 +136,10 @@ export const ReviewCollectionEmailsFieldGroup = withFieldGroup({
     const currentValues = group.state.values
 
     return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-          <p className="text-muted-foreground">{description}</p>
-        </div>
-
-        {/* Referral Email Section */}
+      <div className={wizardContainerStyles.content}>
+        <FieldGroupHeader title={title} description={description} />
+        <div className={cn(wizardContainerStyles.fields, "text-base md:text-lg")}>
+          {/* Referral Email Section */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -230,6 +224,7 @@ export const ReviewCollectionEmailsFieldGroup = withFieldGroup({
             emailType="referral"
           />
         )}
+        </div>
       </div>
     )
   },
