@@ -5,14 +5,24 @@ import type { AdminViewProps } from 'payload'
 import { PDFUploadWizardClient } from './PDFUploadWizardClient'
 import ShadcnWrapper from '@/components/ShadcnWrapper'
 import { WizsrdContainer } from './components/WizardContainer'
+import { redirect } from 'next/navigation'
 
-export default function PDFUploadWizard({ initPageResult, params, searchParams }: AdminViewProps) {
+export default function PDFUploadWizard({
+  initPageResult,
+  params,
+  searchParams,
+  user,
+}: AdminViewProps) {
   const navItem = [
     {
       label: 'PDF Upload Wizard',
       url: '/drug-test-upload',
     },
   ]
+
+  if (!user || user.collection !== 'admins') {
+    redirect('/admin/login')
+  }
 
   return (
     <DefaultTemplate
