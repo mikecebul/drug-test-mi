@@ -13,10 +13,15 @@ import { useStore } from '@tanstack/react-form'
 import { format } from 'date-fns'
 import { fetchPendingTests } from '../actions'
 import { useExtractPdfQuery } from '../queries'
-import { getRankedTestMatches, type DrugTest as TestMatchDrugTest, type TestType } from '../utils/testMatching'
+import {
+  getRankedTestMatches,
+  type DrugTest as TestMatchDrugTest,
+  type TestType,
+} from '../utils/testMatching'
 import { FieldGroupHeader } from '../components/FieldGroupHeader'
 import { wizardContainerStyles } from '../styles'
 import { cn } from '@/utilities/cn'
+import { WizardType } from '../types'
 
 // Export the schema for reuse in step validation
 export const verifyTestFieldSchema = z.object({
@@ -71,18 +76,12 @@ export const VerifyTestFieldGroup = withFieldGroup({
     // Get form values and uploaded file to access extracted data from query cache
     const formValues = useStore(group.form.store, (state: any) => state.values)
     const uploadedFile = formValues?.uploadData?.file as File | null
-    const uploadTestType = formValues?.uploadData?.testType as
-      | '15-panel-instant'
-      | '11-panel-lab'
-      | '17-panel-sos-lab'
-      | 'etg-lab'
-      | undefined
+    const uploadWizardType = formValues?.uploadData?.wizardType as WizardType
 
     // Get extracted data from query cache (cached from ExtractFieldGroup)
-    const { data: extractData } = useExtractPdfQuery(uploadedFile, uploadTestType)
+    const { data: extractData } = useExtractPdfQuery(uploadedFile, uploadWizardType)
 
-    // Use the extracted test type if available (more accurate than the initial upload type)
-    const detectedTestType = extractData?.testType || uploadTestType
+    const detectedTestType = extractData?.testType
 
     useEffect(() => {
       async function loadPendingTests() {
@@ -179,7 +178,9 @@ export const VerifyTestFieldGroup = withFieldGroup({
           <FieldGroupHeader title={title} description={description} />
           <Alert>
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>No pending tests found with status: {filterStatus.join(', ')}</AlertDescription>
+            <AlertDescription>
+              No pending tests found with status: {filterStatus.join(', ')}
+            </AlertDescription>
           </Alert>
         </div>
       )
@@ -203,95 +204,102 @@ export const VerifyTestFieldGroup = withFieldGroup({
     return (
       <div className={wizardContainerStyles.content}>
         <FieldGroupHeader title={title} description={description} />
-        <div className={cn(wizardContainerStyles.fields, "text-base md:text-lg")}>
+        <div className={cn(wizardContainerStyles.fields, 'text-base md:text-lg')}>
           {extractData?.donorName && (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Extracted from PDF:</strong> {extractData.donorName}
-              {extractData.collectionDate && (
-                <span> • {format(new Date(extractData.collectionDate), 'PPp')}</span>
-              )}
-              {detectedTestType && (
-                <span className="block mt-1 text-xs text-muted-foreground">
-                  Detected Test Type: {detectedTestType}
-                </span>
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Extracted from PDF:</strong> {extractData.donorName}
+                {extractData.collectionDate && (
+                  <span> • {format(new Date(extractData.collectionDate), 'PPp')}</span>
+                )}
+                {detectedTestType && (
+                  <span className="text-muted-foreground mt-1 block text-xs">
+                    Detected Test Type: {detectedTestType}
+                  </span>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
 
-        <div className="space-y-3">
-          {displayedTests.map(({ test, score }) => {
-            const isSelected = matchedTest?.id === test.id
-            const isHighConfidence = score >= 80
-            const isMediumConfidence = score >= 60 && score < 80
+          <div className="space-y-3">
+            {displayedTests.map(({ test, score }) => {
+              const isSelected = matchedTest?.id === test.id
+              const isHighConfidence = score >= 80
+              const isMediumConfidence = score >= 60 && score < 80
 
-            return (
-              <Card
-                key={test.id}
-                className={`cursor-pointer transition-all hover:shadow-md ${
-                  isSelected ? 'border-primary ring-2 ring-primary' : ''
-                }`}
-                onClick={() => handleTestSelect(test)}
-              >
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 flex-1">
-                      <Avatar className="h-12 w-12 shrink-0">
-                        <AvatarImage src={test.clientHeadshot ?? undefined} alt={test.clientName} />
-                        <AvatarFallback className="text-sm">
-                          {test.clientName.split(' ').map(n => n.charAt(0)).join('').slice(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          {test.clientName}
-                          {isSelected && <Check className="h-5 w-5 text-primary" />}
-                        </CardTitle>
-                        <CardDescription className="mt-1">
-                          {format(new Date(test.collectionDate), 'PPp')} • {test.testType}
-                        </CardDescription>
+              return (
+                <Card
+                  key={test.id}
+                  className={`cursor-pointer transition-all hover:shadow-md ${
+                    isSelected ? 'border-primary ring-primary ring-2' : ''
+                  }`}
+                  onClick={() => handleTestSelect(test)}
+                >
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-1 items-start gap-3">
+                        <Avatar className="h-12 w-12 shrink-0">
+                          <AvatarImage
+                            src={test.clientHeadshot ?? undefined}
+                            alt={test.clientName}
+                          />
+                          <AvatarFallback className="text-sm">
+                            {test.clientName
+                              .split(' ')
+                              .map((n) => n.charAt(0))
+                              .join('')
+                              .slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <CardTitle className="flex items-center gap-2 text-lg">
+                            {test.clientName}
+                            {isSelected && <Check className="text-primary h-5 w-5" />}
+                          </CardTitle>
+                          <CardDescription className="mt-1">
+                            {format(new Date(test.collectionDate), 'PPp')} • {test.testType}
+                          </CardDescription>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        {isHighConfidence && <Badge variant="default">High Match ({score}%)</Badge>}
+                        {isMediumConfidence && (
+                          <Badge variant="secondary">Medium Match ({score}%)</Badge>
+                        )}
+                        {!isHighConfidence && !isMediumConfidence && score > 0 && (
+                          <Badge variant="outline">Low Match ({score}%)</Badge>
+                        )}
+                        {!isHighConfidence && !isMediumConfidence && score === 0 && (
+                          <Badge variant="outline">Manual Selection</Badge>
+                        )}
+                        <Badge variant="outline">{test.screeningStatus}</Badge>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      {isHighConfidence && <Badge variant="default">High Match ({score}%)</Badge>}
-                      {isMediumConfidence && (
-                        <Badge variant="secondary">Medium Match ({score}%)</Badge>
-                      )}
-                      {!isHighConfidence && !isMediumConfidence && score > 0 && (
-                        <Badge variant="outline">Low Match ({score}%)</Badge>
-                      )}
-                      {!isHighConfidence && !isMediumConfidence && score === 0 && (
-                        <Badge variant="outline">Manual Selection</Badge>
-                      )}
-                      <Badge variant="outline">{test.screeningStatus}</Badge>
-                    </div>
-                  </div>
-                </CardHeader>
-              </Card>
-            )
-          })}
-        </div>
+                  </CardHeader>
+                </Card>
+              )
+            })}
+          </div>
 
-        {!showAllTests && testsWithScores.length > 3 && (
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={() => setShowAllTests(true)}
-          >
-            <ChevronDown className="mr-2 h-4 w-4" />
-            Show {testsWithScores.length - 3} more pending tests
-          </Button>
-        )}
+          {!showAllTests && testsWithScores.length > 3 && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowAllTests(true)}
+            >
+              <ChevronDown className="mr-2 h-4 w-4" />
+              Show {testsWithScores.length - 3} more pending tests
+            </Button>
+          )}
 
-        {!matchedTest && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>Please select a pending test to continue</AlertDescription>
-          </Alert>
-        )}
+          {!matchedTest && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>Please select a pending test to continue</AlertDescription>
+            </Alert>
+          )}
         </div>
       </div>
     )

@@ -14,7 +14,7 @@ import {
   extractPdfData,
 } from './actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
-import type { ParsedPDFData } from './types'
+import type { ParsedPDFData, WizardType } from './types'
 
 // Re-export ParsedPDFData as ExtractedPdfData for clarity in query consumers
 export type ExtractedPdfData = ParsedPDFData
@@ -292,7 +292,13 @@ export function useGetConfirmationEmailPreviewQuery(data: {
   const { clientId, testId, confirmationResults, adjustedSubstances } = data
 
   return useQuery({
-    queryKey: ['confirmation-email-preview', clientId, testId, confirmationResults, adjustedSubstances],
+    queryKey: [
+      'confirmation-email-preview',
+      clientId,
+      testId,
+      confirmationResults,
+      adjustedSubstances,
+    ],
     queryFn: async () => {
       if (!clientId || !testId || !confirmationResults || confirmationResults.length === 0) {
         return null
@@ -312,18 +318,15 @@ export function useGetConfirmationEmailPreviewQuery(data: {
 // Query key factory for PDF extraction
 export const extractPdfQueryKey = (
   file: File | null | undefined,
-  testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | undefined,
-) => ['extract-pdf', file?.name, file?.size, file?.lastModified, testType] as const
+  wizardType: WizardType | undefined,
+) => ['extract-pdf', file?.name, file?.size, file?.lastModified, wizardType] as const
 
 // Shared query function for PDF extraction
-const extractPdfQueryFn = async (
-  file: File,
-  testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | undefined,
-) => {
+const extractPdfQueryFn = async (file: File, wizardType: WizardType | undefined) => {
   const formData = new FormData()
   formData.append('file', file)
 
-  const result = await extractPdfData(formData, testType)
+  const result = await extractPdfData(formData, wizardType)
 
   if (!result.success || !result.data) {
     throw new Error(result.error || 'Failed to extract PDF data')
@@ -339,15 +342,15 @@ const extractPdfQueryFn = async (
  */
 export function useExtractPdfQuery(
   file: File | null | undefined,
-  testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | undefined,
+  wizardType: WizardType | undefined,
 ) {
   return useQuery({
-    queryKey: extractPdfQueryKey(file, testType),
+    queryKey: extractPdfQueryKey(file, wizardType),
     queryFn: async () => {
       if (!file) {
         throw new Error('No file provided')
       }
-      return extractPdfQueryFn(file, testType)
+      return extractPdfQueryFn(file, wizardType)
     },
     enabled: Boolean(file), // Only run when file exists
     staleTime: Infinity, // Extracted data never goes stale (file content won't change)
@@ -362,11 +365,11 @@ export function useExtractPdfQuery(
 export function prefetchExtractPdf(
   queryClient: ReturnType<typeof import('@tanstack/react-query').useQueryClient>,
   file: File,
-  testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | undefined,
+  wizardType: WizardType | undefined,
 ) {
   return queryClient.prefetchQuery({
-    queryKey: extractPdfQueryKey(file, testType),
-    queryFn: () => extractPdfQueryFn(file, testType),
+    queryKey: extractPdfQueryKey(file, wizardType),
+    queryFn: () => extractPdfQueryFn(file, wizardType),
     staleTime: Infinity,
   })
 }

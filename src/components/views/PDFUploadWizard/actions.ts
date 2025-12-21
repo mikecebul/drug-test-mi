@@ -4,7 +4,7 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import { extract15PanelInstant } from '@/utilities/extractors/extract15PanelInstant'
 import { extractLabTest } from '@/utilities/extractors/extractLabTest'
-import type { ParsedPDFData, ClientMatch, TestType } from './types'
+import type { ParsedPDFData, ClientMatch, TestType, WizardType } from './types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { calculateNameSimilarity, calculateSimilarity } from './utils/calculateSimilarity'
 import {
@@ -22,7 +22,7 @@ const TEST_EMAIL = process.env.EMAIL_TEST_ADDRESS || 'mike@midrugtest.com'
  */
 export async function extractPdfData(
   formData: FormData,
-  testType?: TestType,
+  wizardType?: WizardType,
 ): Promise<{
   success: boolean
   data?: ParsedPDFData
@@ -39,16 +39,13 @@ export async function extractPdfData(
     // Route to the appropriate parser based on test type
     let extracted: ParsedPDFData
 
-    switch (testType) {
-      case '11-panel-lab':
-      case '17-panel-sos-lab':
-      case 'etg-lab':
-        // All lab tests use the same extractor which auto-detects the specific type
+    switch (wizardType) {
+      case 'enter-lab-confirmation':
+      case 'enter-lab-screen':
         extracted = await extractLabTest(buffer)
         break
       case '15-panel-instant':
       default:
-        // Default to 15-panel instant for backward compatibility
         extracted = await extract15PanelInstant(buffer)
         break
     }

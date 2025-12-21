@@ -22,6 +22,7 @@ import { extractPdfQueryKey, type ExtractedPdfData } from '../queries'
 import { wizardContainerStyles, wizardWrapperStyles } from '../styles'
 import { cn } from '@/utilities/cn'
 import { WizardHeader } from '../components/WizardHeader'
+import { WizardType } from '../types'
 
 type WizardStep =
   | 'upload'
@@ -42,11 +43,8 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
 
   // Get extracted data from query cache - called during form submission with form values
   const getExtractData = useCallback(
-    (
-      file: File,
-      testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab',
-    ) => {
-      const queryKey = extractPdfQueryKey(file, testType)
+    (file: File, wizardType: WizardType) => {
+      const queryKey = extractPdfQueryKey(file, wizardType)
       return queryClient.getQueryData<ExtractedPdfData>(queryKey)
     },
     [queryClient],
@@ -153,7 +151,7 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
   // Show completion screen if test was created successfully
   if (completedTestId) {
     return (
-      <ShadcnWrapper className={wizardWrapperStyles.completion}>
+      <>
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
             <Check className="h-8 w-8 text-green-600" />
@@ -179,12 +177,12 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
             View Drug Test
           </Button>
         </div>
-      </ShadcnWrapper>
+      </>
     )
   }
 
   return (
-    <ShadcnWrapper className={wizardWrapperStyles.workflow}>
+    <>
       <div className={wizardWrapperStyles.header}>
         <WizardHeader
           title="Drug Test Upload Wizard"
@@ -203,11 +201,17 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
         }}
         className="flex flex-1 flex-col"
       >
-        <div className="wizard-content mb-8 flex-1">{stepComponents[currentStep]}</div>
+        <div className="mb-12 flex-1">{stepComponents[currentStep]}</div>
 
         {/* Navigation Buttons */}
         <div className="flex justify-between">
-          <Button type="button" onClick={handlePrevious} variant="outline" size="lg" className="text-lg">
+          <Button
+            type="button"
+            onClick={handlePrevious}
+            variant="outline"
+            size="lg"
+            className="text-lg"
+          >
             <ChevronLeft className="mr-2 h-5 w-5" />
             {isFirstStep ? 'Cancel' : 'Back'}
           </Button>
@@ -239,6 +243,6 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
           )}
         </div>
       </form>
-    </ShadcnWrapper>
+    </>
   )
 }

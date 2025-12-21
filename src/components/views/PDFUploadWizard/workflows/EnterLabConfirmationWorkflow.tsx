@@ -96,7 +96,7 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
         file: null as any,
         fileUrl: '',
         fileName: '',
-        testType: '11-panel-lab' as const,
+        wizardType: 'enter-lab-confirmation' as const,
       },
       extractData: {
         // Minimal schema - actual data lives in TanStack Query cache
@@ -330,7 +330,14 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
 
         {/* Navigation Buttons */}
         <div className="flex justify-between">
-          <Button type="button" onClick={handlePrevious} variant="outline" disabled={isSubmitting} size="lg" className="text-lg">
+          <Button
+            type="button"
+            onClick={handlePrevious}
+            variant="outline"
+            disabled={isSubmitting}
+            size="lg"
+            className="text-lg"
+          >
             <ChevronLeft className="mr-2 h-5 w-5" />
             {currentStep === 1 ? 'Cancel' : 'Back'}
           </Button>

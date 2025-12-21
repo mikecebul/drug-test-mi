@@ -26,6 +26,7 @@ import { generateTestFilename } from '../utils/generateFilename'
 import { extractPdfQueryKey, type ExtractedPdfData } from '../queries'
 import { wizardWrapperStyles } from '../styles'
 import { WizardHeader } from '../components/WizardHeader'
+import { WizardType } from '../types'
 
 // Step schemas
 const uploadSchema = z.object({
@@ -88,11 +89,8 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
 
   // Get extracted data from query cache - called during form submission
   const getExtractData = useCallback(
-    (
-      file: File,
-      testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab',
-    ) => {
-      const queryKey = extractPdfQueryKey(file, testType)
+    (file: File, wizardType: WizardType) => {
+      const queryKey = extractPdfQueryKey(file, wizardType)
       return queryClient.getQueryData<ExtractedPdfData>(queryKey)
     },
     [queryClient],
@@ -104,7 +102,7 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
         file: null as any,
         fileUrl: '',
         fileName: '',
-        testType: '11-panel-lab' as const,
+        wizardType: 'enter-lab-screen' as const,
       },
       extractData: {
         // Minimal schema - actual data lives in TanStack Query cache
@@ -151,7 +149,7 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
         const pdfBuffer = Array.from(new Uint8Array(buffer))
 
         // Get extracted data from query cache for email-building fields
-        const extractData = getExtractData(file, value.uploadData.testType)
+        const extractData = getExtractData(file, value.uploadData.wizardType)
 
         const confirmationResults = (extractData?.confirmationResults || []).map((r) => ({
           substance: r.substance as SubstanceValue,
@@ -193,7 +191,7 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
     },
   }
 
-  const form = useAppForm(formOpts)
+  const form = useAppForm({ ...formOpts })
 
   const { currentStep, isLastStep, handleNextStepOrSubmit, handleCancelOrBack, setCurrentStep } =
     useFormStepper(stepSchemas)
@@ -352,7 +350,14 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
 
         {/* Navigation Buttons */}
         <div className="flex justify-between">
-          <Button type="button" onClick={handlePrevious} variant="outline" disabled={isSubmitting} size="lg" className="text-lg">
+          <Button
+            type="button"
+            onClick={handlePrevious}
+            variant="outline"
+            disabled={isSubmitting}
+            size="lg"
+            className="text-lg"
+          >
             <ChevronLeft className="mr-2 h-5 w-5" />
             {currentStep === 1 ? 'Cancel' : 'Back'}
           </Button>

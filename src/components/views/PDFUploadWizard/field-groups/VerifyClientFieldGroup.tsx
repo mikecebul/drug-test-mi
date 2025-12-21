@@ -18,7 +18,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Loader2, AlertCircle, UserCheck, Mail, CheckCircle2, Check, UserPlus } from 'lucide-react'
-import type { ClientMatch } from '../types'
+import type { ClientMatch, WizardType } from '../types'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import { useFindMatchingClientsQuery, useGetAllClientsQuery, useExtractPdfQuery } from '../queries'
@@ -73,15 +73,10 @@ export const VerifyClientFieldGroup = withFieldGroup({
     // Get uploaded file to access extracted data from query cache
     const formValues = useStore(group.form.store, (state: any) => state.values)
     const uploadedFile = formValues?.uploadData?.file as File | null
-    const testType = formValues?.uploadData?.testType as
-      | '15-panel-instant'
-      | '11-panel-lab'
-      | '17-panel-sos-lab'
-      | 'etg-lab'
-      | undefined
+    const wizardType = formValues?.uploadData?.testType as WizardType
 
     // Get extracted data from query cache (cached from ExtractFieldGroup)
-    const { data: extractedData } = useExtractPdfQuery(uploadedFile, testType)
+    const { data: extractedData } = useExtractPdfQuery(uploadedFile, wizardType)
     const donorName = extractedData?.donorName ?? null
     const dob = extractedData?.dob ?? null
     const gender = extractedData?.gender ?? null

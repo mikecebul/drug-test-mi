@@ -15,7 +15,14 @@ export interface TestMatchResult {
   score: number
 }
 
-export type TestType = '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
+export const TEST_TYPES = [
+  '15-panel-instant',
+  '11-panel-lab',
+  '17-panel-sos-lab',
+  'etg-lab',
+] as const
+
+export type TestType = (typeof TEST_TYPES)[number]
 
 /**
  * Parse a full name into first, middle, and last name components
@@ -43,28 +50,21 @@ function parseName(fullName: string): { first: string; middle?: string; last: st
  * Filter tests by screening status
  * For screen workflows, exclude already screened tests
  */
-export function filterByScreeningStatus(
-  tests: DrugTest[],
-  isScreenWorkflow: boolean,
-): DrugTest[] {
+export function filterByScreeningStatus(tests: DrugTest[], isScreenWorkflow: boolean): DrugTest[] {
   if (!isScreenWorkflow) {
     return tests
   }
 
   // For screen workflows, only show tests that haven't been screened yet
-  return tests.filter(test =>
-    test.screeningStatus !== 'screened' &&
-    test.screeningStatus !== 'complete'
+  return tests.filter(
+    (test) => test.screeningStatus !== 'screened' && test.screeningStatus !== 'complete',
   )
 }
 
 /**
  * Filter tests by test type to match the uploaded PDF type
  */
-export function filterByTestType(
-  tests: DrugTest[],
-  uploadedTestType?: TestType,
-): DrugTest[] {
+export function filterByTestType(tests: DrugTest[], uploadedTestType?: TestType): DrugTest[] {
   if (!uploadedTestType) {
     return tests
   }
@@ -84,7 +84,7 @@ export function filterByTestType(
     return tests
   }
 
-  return tests.filter(test => validTestTypes.includes(test.testType))
+  return tests.filter((test) => validTestTypes.includes(test.testType))
 }
 
 /**

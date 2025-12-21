@@ -7,10 +7,11 @@ import { createDrugTestWithEmailReview } from './actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { generateTestFilename } from './utils/generateFilename'
 import type { ExtractedPdfData } from './queries'
+import { WizardType } from './types'
 
 const defaultValues: PdfUploadFormType = {
   uploadData: {
-    testType: '15-panel-instant' as const,
+    wizardType: '15-panel-instant' as const,
     file: null as any, // File object will be set by user
   },
   extractData: {
@@ -54,10 +55,7 @@ export const usePdfUploadFormOpts = ({
   getExtractData,
 }: {
   onComplete: (testId: string) => void
-  getExtractData: (
-    file: File,
-    testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab',
-  ) => ExtractedPdfData | undefined
+  getExtractData: (file: File, wizardType: WizardType) => ExtractedPdfData | undefined
 }) => {
   return formOptions({
     defaultValues: defaultValues,
@@ -93,7 +91,7 @@ export const usePdfUploadFormOpts = ({
         }
 
         // Get extracted data from TanStack Query cache using form values
-        const extractData = getExtractData(value.uploadData.file, value.uploadData.testType)
+        const extractData = getExtractData(value.uploadData.file, value.uploadData.wizardType)
 
         // Convert File to buffer array for server action
         const arrayBuffer = await value.uploadData.file.arrayBuffer()

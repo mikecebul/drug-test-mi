@@ -1,6 +1,14 @@
 import type { SubstanceValue } from '@/fields/substanceOptions'
 
-export type WizardType = '15-panel-instant' | 'collect-lab' | 'enter-lab-screen' | 'enter-lab-confirmation'
+export const WIZARD_OPTIONS = [
+  '15-panel-instant',
+  'collect-lab',
+  'enter-lab-screen',
+  'enter-lab-confirmation',
+] as const
+
+// 1. Create the Type
+export type WizardType = (typeof WIZARD_OPTIONS)[number]
 
 export type WizardStep =
   | 'wizard-type'

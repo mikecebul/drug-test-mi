@@ -28,11 +28,13 @@ import { Input } from '@/components/ui/input'
 import { FieldGroupHeader } from '../components/FieldGroupHeader'
 import { SectionHeader } from '../components/SectionHeader'
 import { wizardContainerStyles } from '../styles'
+import { WizardType } from '../types'
+import { TEST_TYPES } from '../utils/testMatching'
 
 // Export the schema for reuse in step validation
 export const verifyDataFieldSchema = z
   .object({
-    testType: z.enum(['15-panel-instant', '11-panel-lab', '17-panel-sos-lab', 'etg-lab']),
+    testType: z.enum(TEST_TYPES),
     collectionDate: z.string().min(1, 'Collection date is required'),
     detectedSubstances: z.array(z.string()),
     isDilute: z.boolean(),
@@ -88,12 +90,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
 
     // Get uploaded file to access extracted data from query cache
     const uploadedFile = formValues?.uploadData?.file as File | null
-    const uploadTestType = formValues?.uploadData?.testType as
-      | '15-panel-instant'
-      | '11-panel-lab'
-      | '17-panel-sos-lab'
-      | 'etg-lab'
-      | undefined
+    const uploadTestType = formValues?.uploadData?.wizardType as WizardType
 
     // Get extracted data from query cache (cached from ExtractFieldGroup)
     const { data: extractData } = useExtractPdfQuery(uploadedFile, uploadTestType)

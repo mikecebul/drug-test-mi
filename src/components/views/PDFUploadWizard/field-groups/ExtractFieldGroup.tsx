@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, FileX2 } from 'lucide-react'
 import ParsedDataDisplayField from '@/blocks/Form/field-components/parsed-data-display-field'
-import type { ParsedPDFData } from '../types'
+import type { ParsedPDFData, WizardType } from '../types'
 import { z } from 'zod'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { useExtractPdfQuery } from '../queries'
@@ -36,15 +36,10 @@ export function ExtractFieldGroup({ form, title = 'Extract Data' }: ExtractField
   // Get the file and test type from the uploadData field group
   const formValues = useStore(form.store, (state: any) => state.values)
   const uploadedFile = formValues?.uploadData?.file as File | null
-  const testType = formValues?.uploadData?.testType as
-    | '15-panel-instant'
-    | '11-panel-lab'
-    | '17-panel-sos-lab'
-    | 'etg-lab'
-    | undefined
+  const wizardType = formValues?.uploadData?.wizardType as WizardType
 
   // TanStack Query handles extraction with caching and loading states
-  const { data: extractedData, isLoading, error } = useExtractPdfQuery(uploadedFile, testType)
+  const { data: extractedData, isLoading, error } = useExtractPdfQuery(uploadedFile, wizardType)
 
   // Show loading state while extracting
   if (isLoading) {
