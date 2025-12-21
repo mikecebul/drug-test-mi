@@ -7,12 +7,7 @@ import ShadcnWrapper from '@/components/ShadcnWrapper'
 import { WizsrdContainer } from './components/WizardContainer'
 import { redirect } from 'next/navigation'
 
-export default function PDFUploadWizard({
-  initPageResult,
-  params,
-  searchParams,
-  user,
-}: AdminViewProps) {
+export default function PDFUploadWizard({ initPageResult, params, searchParams }: AdminViewProps) {
   const navItem = [
     {
       label: 'PDF Upload Wizard',
@@ -20,7 +15,8 @@ export default function PDFUploadWizard({
     },
   ]
 
-  if (!user || user.collection !== 'admins') {
+  const user = initPageResult.req?.user
+  if (!user || user?.collection !== 'admins') {
     redirect('/admin/login')
   }
 

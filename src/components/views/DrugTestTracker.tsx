@@ -3,14 +3,24 @@ import { DefaultTemplate } from '@payloadcms/next/templates'
 import { Gutter, SetStepNav } from '@payloadcms/ui'
 import type { AdminViewServerProps } from 'payload'
 import { DrugTestTrackerClient } from './DrugTestTrackerClient'
+import { redirect } from 'next/dist/client/components/navigation'
 
-export default function DrugTestTracker({ initPageResult, params, searchParams }: AdminViewServerProps) {
+export default function DrugTestTracker({
+  initPageResult,
+  params,
+  searchParams,
+}: AdminViewServerProps) {
   const navItem = [
     {
       label: 'Drug Test Tracker',
       url: '/drug-test-tracker',
     },
   ]
+
+  const user = initPageResult.req?.user
+  if (!user || user?.collection !== 'admins') {
+    redirect('/admin/login')
+  }
 
   return (
     <DefaultTemplate
