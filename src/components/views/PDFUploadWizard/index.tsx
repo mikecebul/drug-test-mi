@@ -3,6 +3,8 @@ import { DefaultTemplate } from '@payloadcms/next/templates'
 import { SetStepNav } from '@payloadcms/ui'
 import type { AdminViewProps } from 'payload'
 import { PDFUploadWizardClient } from './PDFUploadWizardClient'
+import ShadcnWrapper from '@/components/ShadcnWrapper'
+import { WizsrdContainer } from './components/WizardContainer'
 
 export default function PDFUploadWizard({ initPageResult, params, searchParams }: AdminViewProps) {
   const navItem = [
@@ -24,7 +26,11 @@ export default function PDFUploadWizard({ initPageResult, params, searchParams }
       visibleEntities={initPageResult.visibleEntities}
     >
       <SetStepNav nav={navItem} />
-      <PDFUploadWizardClient />
+      <ShadcnWrapper>
+        <WizsrdContainer>
+          <PDFUploadWizardClient />
+        </WizsrdContainer>
+      </ShadcnWrapper>
     </DefaultTemplate>
   )
 }

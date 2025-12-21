@@ -14,7 +14,7 @@ interface ShadcnWrapperProps {
  */
 export const ShadcnWrapper: React.FC<ShadcnWrapperProps> = ({ children, className = '' }) => {
   return (
-    <div data-twp className={cn('text-foreground border-border outline-ring/50', className)}>
+    <div data-twp className={cn('text-foreground border-border outline-ring/50 pb-8', className)}>
       {children}
     </div>
   )

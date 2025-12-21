@@ -8,7 +8,6 @@ import { EnterLabScreenWorkflow } from './workflows/EnterLabScreenWorkflow'
 import { EnterLabConfirmationWorkflow } from './workflows/EnterLabConfirmationWorkflow'
 import { InstantTestWorkflow } from './workflows/InstantTestWorkflow'
 import type { WizardType } from './types'
-import { wizardContainerStyles } from './styles'
 import { WizardHeader } from './components/WizardHeader'
 
 export function PDFUploadWizardClient() {
@@ -27,15 +26,13 @@ export function PDFUploadWizardClient() {
   // Show workflow type selector if no workflow is selected
   if (!selectedWorkflow) {
     return (
-      <ShadcnWrapper className="mx-auto my-32 flex max-w-lg flex-col md:max-w-4xl lg:mx-auto lg:max-w-4xl">
-        <div className={wizardContainerStyles.content}>
-          <WizardHeader
-            title="Drug Test Workflow"
-            description="Select the type of workflow you want to perform"
-          />
-          <WizardTypeSelector onSelect={handleWorkflowSelect} />
-        </div>
-      </ShadcnWrapper>
+      <>
+        <WizardHeader
+          title="Drug Test Workflow"
+          description="Select the type of workflow you want to perform"
+        />
+        <WizardTypeSelector onSelect={handleWorkflowSelect} />
+      </>
     )
   }
 
@@ -52,6 +49,9 @@ export function PDFUploadWizardClient() {
     return <EnterLabConfirmationWorkflow onBack={handleBack} />
   }
 
-  // 15-panel instant workflow (existing workflow)
-  return <InstantTestWorkflow onBack={handleBack} />
+  if (selectedWorkflow === '15-panel-instant') {
+    return <InstantTestWorkflow onBack={handleBack} />
+  }
+
+  return null
 }
