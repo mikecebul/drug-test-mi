@@ -37,7 +37,7 @@ export const UploadFieldGroup = withFieldGroup({
       <div className={wizardContainerStyles.content}>
         <FieldGroupHeader title={title} description={description} />
 
-        <div className={cn(wizardContainerStyles.fields, 'text-base md:text-lg')}>
+        <div className={cn('', 'text-base md:text-lg')}>
           <group.AppField
             name="file"
             validators={{
@@ -52,8 +52,8 @@ export const UploadFieldGroup = withFieldGroup({
           >
             {(field) => (
               <field.FileUploadField
-                label="Drug Test PDF"
-                description="PDF files up to 10MB"
+                // label="Drug Test PDF"
+                // description="PDF files up to 10MB"
                 accept="application/pdf"
                 maxFiles={1}
                 maxSize={10 * 1024 * 1024}

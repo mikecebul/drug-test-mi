@@ -62,7 +62,7 @@ interface WizardTypeSelectorProps {
 export function WizardTypeSelector({ onSelect }: WizardTypeSelectorProps) {
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2">
         {wizardOptions.map((option) => {
           const Icon = option.icon
 

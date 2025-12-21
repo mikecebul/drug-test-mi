@@ -115,8 +115,8 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
       <UploadFieldGroup
         form={form}
         fields="uploadData"
-        title="Upload Drug Test PDF"
-        description="Select a PDF file from your 15-panel instant test"
+        title="Upload Drug Test"
+        description="Use the pdf report generated from Redwood Labs "
       />
     ),
     2: <ExtractFieldGroup form={form} fields="extractData" title="Extract Data" />,

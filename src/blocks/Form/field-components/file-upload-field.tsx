@@ -104,8 +104,8 @@ export default function FileUploadField({
               <FileUploadItemPreview />
               <FileUploadItemMetadata />
               <FileUploadItemDelete asChild>
-                <Button type="button" variant="ghost" size="icon">
-                  <XCircle className="h-4 w-4" />
+                <Button type="button" variant="ghost" size="default">
+                  <XCircle className="stroke-destructive size-5" />
                 </Button>
               </FileUploadItemDelete>
             </FileUploadItem>
