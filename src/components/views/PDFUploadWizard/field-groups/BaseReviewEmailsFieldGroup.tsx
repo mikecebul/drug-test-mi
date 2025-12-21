@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Eye, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Eye, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { useStore } from '@tanstack/react-form'
 import { RecipientEditor } from '../components/RecipientEditor'
 import { EmailPreviewModal } from '../components/EmailPreviewModal'
@@ -19,7 +19,8 @@ import {
   useGetClientFromTestQuery,
 } from '../queries'
 import { FieldGroupHeader } from '../components/FieldGroupHeader'
-import { wizardContainerStyles } from '../styles'
+import { WizardSection } from '../components/WizardSection'
+import { LoadingCard } from '../components/LoadingCard'
 import { cn } from '@/utilities/cn'
 
 type WorkflowMode = 'screening' | 'confirmation'
@@ -60,7 +61,7 @@ export const reviewEmailsFieldSchema = z.object({
   message: 'Enabled email types must have at least one recipient'
 })
 
-const defaultValues: PdfUploadFormType['reviewEmailsData'] = {
+export const reviewEmailsDefaultValues: PdfUploadFormType['reviewEmailsData'] = {
   clientEmailEnabled: false,
   clientRecipients: [],
   referralEmailEnabled: true,
@@ -68,16 +69,8 @@ const defaultValues: PdfUploadFormType['reviewEmailsData'] = {
   previewsLoaded: false,
 }
 
-export const ReviewEmailsFieldGroup = withFieldGroup({
-  defaultValues,
-
-  props: {
-    title: 'Review Emails',
-    description: '',
-    workflowMode: 'screening' as WorkflowMode,
-  },
-
-  render: function Render({ group, title, description = '', workflowMode }) {
+// Export the render function for reuse in workflow-specific wrappers
+export function RenderReviewEmailsFieldGroup({ group, title, description = '', workflowMode }: any) {
     const [showClientPreview, setShowClientPreview] = useState(false)
     const [showReferralPreview, setShowReferralPreview] = useState(false)
 
@@ -94,9 +87,6 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
     // 1. clientData (instant test workflow - selected in VerifyClientFieldGroup)
     // 2. clientFromTestQuery.data (lab workflows - fetched from matched test)
     const clientData = formValues.clientData || clientFromTestQuery.data
-
-    // Get medications from form state (updated in VerifyMedicationsFieldGroup)
-    const allMedications = formValues.medicationsData?.medications ?? []
 
     // Calculate adjusted substances for confirmation workflow
     // Remove substances that were confirmed negative from the detected substances list
@@ -126,7 +116,7 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
       breathalyzerTaken: verifyData?.breathalyzerTaken ?? false,
       breathalyzerResult: verifyData?.breathalyzerResult ?? null,
       confirmationDecision: verifyData?.confirmationDecision,
-      medications: allMedications, // Pass all medications (computeTestResults filters to active)
+      // Don't pass medications - let server fetch full medication objects from DB
     })
 
     const confirmationEmailQuery = useGetConfirmationEmailPreviewQuery({
@@ -172,29 +162,22 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
 
     if (isLoading) {
       return (
-        <div className={wizardContainerStyles.content}>
+        <WizardSection>
           <FieldGroupHeader title={title} description={description} />
-          <Card>
-            <CardContent className="flex items-center justify-center py-12">
-              <div className="flex flex-col items-center gap-4">
-                <Loader2 className="text-primary h-8 w-8 animate-spin" />
-                <p className="text-muted-foreground">Loading email preview...</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          <LoadingCard message="Loading email preview..." />
+        </WizardSection>
       )
     }
 
     if (error || !previewData) {
       return (
-        <div className={wizardContainerStyles.content}>
+        <WizardSection>
           <FieldGroupHeader title={title} description={description} />
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error || 'Failed to load email preview'}</AlertDescription>
           </Alert>
-        </div>
+        </WizardSection>
       )
     }
 
@@ -202,9 +185,9 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
     const currentValues = group.state.values
 
     return (
-      <div className={wizardContainerStyles.content}>
+      <WizardSection>
         <FieldGroupHeader title={title} description={description} />
-        <div className={cn(wizardContainerStyles.fields, "text-base md:text-lg")}>
+        <div className="space-y-6 text-base md:text-lg">
           {/* Client Email Section (for probation/employment only) */}
         {smartGrouping === 'separate' && (
           <Card>
@@ -378,7 +361,19 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
           />
         )}
         </div>
-      </div>
+      </WizardSection>
     )
+}
+
+// Base component with default props
+export const BaseReviewEmailsFieldGroup = withFieldGroup({
+  defaultValues: reviewEmailsDefaultValues,
+
+  props: {
+    title: 'Review Emails',
+    description: '',
+    workflowMode: 'screening' as WorkflowMode,
   },
+
+  render: RenderReviewEmailsFieldGroup,
 })

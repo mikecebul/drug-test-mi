@@ -2,16 +2,16 @@
 
 import React from 'react'
 import { useStore } from '@tanstack/react-form'
-import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, FileX2 } from 'lucide-react'
+import { FileX2 } from 'lucide-react'
 import ParsedDataDisplayField from '@/blocks/Form/field-components/parsed-data-display-field'
 import type { ParsedPDFData, WorkflowType } from '../types'
 import { z } from 'zod'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { useExtractPdfQuery } from '../queries'
 import { FieldGroupHeader } from '../components/FieldGroupHeader'
-import { wizardContainerStyles } from '../styles'
+import { WizardSection } from '../components/WizardSection'
+import { LoadingCard } from '../components/LoadingCard'
 
 // Minimal schema - extraction data lives in TanStack Query cache
 // This just validates that the step can proceed
@@ -19,46 +19,42 @@ export const extractFieldSchema = z.object({
   extracted: z.boolean(),
 })
 
-interface ExtractFieldGroupProps {
+interface BaseExtractFieldGroupProps {
   form: any
   fields: string
   title?: string
+  description?: string
+  workflowType: WorkflowType
 }
 
 /**
- * ExtractFieldGroup - Displays extracted PDF data
+ * BaseExtractFieldGroup - Displays extracted PDF data
  *
  * Uses TanStack Query for extraction with caching and loading states.
  * Data is synced to form fields in VerifyDataFieldGroup for user editing.
  * On form submission, email-building fields come from query cache.
  */
-export function ExtractFieldGroup({ form, title = 'Extract Data' }: ExtractFieldGroupProps) {
-  // Get the file and test type from the uploadData field group
+export function BaseExtractFieldGroup({
+  form,
+  title = 'Extract Data',
+  description = 'Review the extracted data',
+  workflowType,
+}: BaseExtractFieldGroupProps) {
+  // Get the file from the uploadData field group
   const formValues = useStore(form.store, (state: any) => state.values)
   const uploadedFile = formValues?.uploadData?.file as File | null
-  const workflowType = formValues?.uploadData?.workflowType as WorkflowType | undefined
 
   // TanStack Query handles extraction with caching and loading states
+  // Extractor auto-detects specific testType (e.g., '11-panel-lab', '17-panel-sos-lab', 'etg-lab', '15-panel-instant')
   const { data: extractedData, isLoading, error } = useExtractPdfQuery(uploadedFile, workflowType)
 
   // Show loading state while extracting
   if (isLoading) {
     return (
-      <div className={wizardContainerStyles.content}>
+      <WizardSection>
         <FieldGroupHeader title="Extracting Data..." description="Processing your PDF file" />
-        <Card className={wizardContainerStyles.card}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-center py-12">
-              <div className="space-y-4 text-center">
-                <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
-                <p className="text-muted-foreground text-lg">
-                  Please wait while we extract the test data
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        <LoadingCard message="Please wait while we extract the test data" />
+      </WizardSection>
     )
   }
 
@@ -66,28 +62,28 @@ export function ExtractFieldGroup({ form, title = 'Extract Data' }: ExtractField
   if (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     return (
-      <div className={wizardContainerStyles.content}>
+      <WizardSection>
         <FieldGroupHeader title="Extraction Failed" description="Unable to process the PDF file" />
         <Alert variant="destructive">
           <FileX2 className="h-4 w-4" />
           <AlertDescription>
-            <p className="mb-1 font-medium text-base">{errorMessage}</p>
+            <p className="mb-1 text-base font-medium">{errorMessage}</p>
             <p className="text-sm">
               The PDF format may not be supported, or the file may be damaged. Please try a
               different file or contact support if this issue persists.
             </p>
           </AlertDescription>
         </Alert>
-      </div>
+      </WizardSection>
     )
   }
 
   // No data yet (shouldn't happen if file validation passed)
   if (!extractedData) {
     return (
-      <div className={wizardContainerStyles.content}>
+      <WizardSection>
         <FieldGroupHeader title="No Data" description="No file uploaded" />
-      </div>
+      </WizardSection>
     )
   }
 
@@ -106,11 +102,11 @@ export function ExtractFieldGroup({ form, title = 'Extract Data' }: ExtractField
   }
 
   return (
-    <div className={wizardContainerStyles.content}>
-      <FieldGroupHeader title={title} description="Review the extracted data" />
+    <WizardSection>
+      <FieldGroupHeader title={title} description={description} />
 
       {/* Display extracted data directly from query */}
       <ParsedDataDisplayField data={parsedData} showRawText />
-    </div>
+    </WizardSection>
   )
 }

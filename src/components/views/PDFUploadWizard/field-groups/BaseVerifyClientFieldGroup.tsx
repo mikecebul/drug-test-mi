@@ -35,7 +35,9 @@ import ShadcnWrapper from '@/components/ShadcnWrapper'
 import { RegisterClientDialog } from '../components/RegisterClientDialog'
 import { toast } from 'sonner'
 import { FieldGroupHeader } from '../components/FieldGroupHeader'
-import { wizardContainerStyles } from '../styles'
+import { WizardSection } from '../components/WizardSection'
+import { WizardCard } from '../components/WizardCard'
+import { LoadingCard } from '../components/LoadingCard'
 import { cn } from '@/utilities/cn'
 
 // Export the schema for reuse in step validation
@@ -63,15 +65,15 @@ const defaultValues: PdfUploadFormType['clientData'] = {
   score: 0,
 }
 
-export const VerifyClientFieldGroup = withFieldGroup({
+export const BaseVerifyClientFieldGroup = withFieldGroup({
   defaultValues,
 
   props: {
     title: 'Verify Client',
-    searchOnly: true,
+    workflowType: 'instant' as WorkflowType,
   },
 
-  render: function Render({ group, title, searchOnly }) {
+  render: function Render({ group, title, workflowType }) {
     const [showAllClients, setShowAllClients] = useState(false)
     const [open, setOpen] = useState(false)
     const [showRegisterDialog, setShowRegisterDialog] = useState(false)
@@ -83,7 +85,6 @@ export const VerifyClientFieldGroup = withFieldGroup({
     // Get uploaded file to access extracted data from query cache
     const formValues = useStore(group.form.store, (state: any) => state.values)
     const uploadedFile = formValues?.uploadData?.file as File | null
-    const workflowType = formValues?.uploadData?.workflowType as WorkflowType | undefined
 
     // Get extracted data from query cache (cached from ExtractFieldGroup)
     const { data: extractedData } = useExtractPdfQuery(uploadedFile, workflowType)
@@ -130,68 +131,56 @@ export const VerifyClientFieldGroup = withFieldGroup({
     const allClients = allClientsQuery.data?.clients ?? []
     const loading = matchingClientsQuery.isLoading
 
+    const computedDescription = donorName
+      ? `Select the correct client for: ${donorName}`
+      : 'Search for the client manually'
+
     if (loading) {
       return (
-        <div className={wizardContainerStyles.content}>
+        <WizardSection>
           <FieldGroupHeader
             title="Searching for Client..."
             description={donorName ? `Looking for: ${donorName}` : 'Searching client database'}
           />
-          <Card className={wizardContainerStyles.card}>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-center py-12">
-                <div className="space-y-4 text-center">
-                  <Loader2 className="text-primary mx-auto h-12 w-12 animate-spin" />
-                  <p className="text-muted-foreground text-lg">
-                    Please wait while we search for matches
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          <LoadingCard message="Please wait while we search for matches" />
+        </WizardSection>
       )
     }
 
     return (
-      <div className={wizardContainerStyles.content}>
-        <FieldGroupHeader
-          title={title}
-          description={
-            donorName
-              ? `Select the correct client for: ${donorName}`
-              : 'Search for the client manually'
-          }
-        />
-        {searchOnly && (
-          <div className="border-border bg-card flex flex-wrap gap-4 rounded-md border p-8">
-            <Button
-              type="button"
-              size="lg"
-              className="text-lg"
-              variant="default"
-              onClick={() => {
-                setShowAllClients(true)
-                setOpen(true)
-              }}
-            >
-              <Search className="mr-2 size-5" />
-              Search All Clients
-            </Button>
-            <Button
-              type="button"
-              size="lg"
-              className="text-lg"
-              variant="secondary"
-              onClick={() => setShowRegisterDialog(true)}
-            >
-              <UserPlus className="mr-2 size-5" />
-              Register New Client
-            </Button>
-          </div>
+      <WizardSection>
+        <FieldGroupHeader title={title} description={computedDescription} />
+        {workflowType === 'lab' && (
+          <WizardCard>
+            <div className="flex flex-wrap gap-4">
+              <Button
+                type="button"
+                size="lg"
+                className="text-lg"
+                variant="default"
+                onClick={() => {
+                  setShowAllClients(true)
+                  setOpen(true)
+                }}
+              >
+                <Search className="mr-2 size-5" />
+                Search All Clients
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                className="text-lg"
+                variant="secondary"
+                onClick={() => setShowRegisterDialog(true)}
+              >
+                <UserPlus className="mr-2 size-5" />
+                Register New Client
+              </Button>
+            </div>
+          </WizardCard>
         )}
 
-        {matches.length === 0 && searchOnly === false && (
+        {matches.length === 0 && workflowType === 'instant' && (
           <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
             <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <AlertDescription className="space-y-3">
@@ -237,7 +226,7 @@ export const VerifyClientFieldGroup = withFieldGroup({
           }}
         >
           {(idField) => (
-            <div className={cn(wizardContainerStyles.fields, 'text-base md:text-lg')}>
+            <div className="space-y-6 text-base md:text-lg">
               {matches.length > 0 && (
                 <>
                   <div className="space-y-3">
@@ -476,7 +465,7 @@ export const VerifyClientFieldGroup = withFieldGroup({
             </div>
           )}
         </group.AppField>
-      </div>
+      </WizardSection>
     )
   },
 })

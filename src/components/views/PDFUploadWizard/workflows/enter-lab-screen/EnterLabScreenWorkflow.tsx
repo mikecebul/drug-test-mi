@@ -11,21 +11,22 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { useFormStepper } from '@/app/(frontend)/register/hooks/useFormStepper'
 import { z } from 'zod'
-import { UploadFieldGroup, uploadFieldSchema } from '../field-groups/UploadFieldGroup'
-import { ExtractFieldGroup, extractFieldSchema } from '../field-groups/ExtractFieldGroup'
-import { VerifyTestFieldGroup, verifyTestFieldSchema } from '../field-groups/VerifyTestFieldGroup'
-import { VerifyDataFieldGroup, verifyDataFieldSchema } from '../field-groups/VerifyDataFieldGroup'
-import { ConfirmFieldGroup, confirmFieldSchema } from '../field-groups/ConfirmFieldGroup'
+import { BaseUploadFieldGroup, uploadFieldSchema } from '../../field-groups/BaseUploadFieldGroup'
+import { BaseExtractFieldGroup } from '../../field-groups/BaseExtractFieldGroup'
+import { VerifyTestFieldGroup, verifyTestFieldSchema } from './VerifyTestFieldGroup'
+import { VerifyDataFieldGroup, verifyDataFieldSchema } from './VerifyDataFieldGroup'
+import { ConfirmFieldGroup, confirmFieldSchema } from './ConfirmFieldGroup'
 import {
   ReviewEmailsFieldGroup,
   reviewEmailsFieldSchema,
-} from '../field-groups/ReviewEmailsFieldGroup'
-import { updateTestWithScreening } from '../actions'
+} from './ReviewEmailsFieldGroup'
+import { extractFieldSchema } from '../../field-groups/BaseExtractFieldGroup'
+import { updateTestWithScreening } from '../../actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
-import { generateTestFilename } from '../utils/generateFilename'
-import { extractPdfQueryKey, type ExtractedPdfData } from '../queries'
-import { wizardWrapperStyles } from '../styles'
-import { WizardHeader } from '../components/WizardHeader'
+import { generateTestFilename } from '../../utils/generateFilename'
+import { extractPdfQueryKey, type ExtractedPdfData } from '../../queries'
+import { wizardWrapperStyles } from '../../styles'
+import { WizardHeader } from '../../components/WizardHeader'
 
 // Step schemas
 const uploadSchema = z.object({
@@ -82,17 +83,17 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
   const queryClient = useQueryClient()
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
 
+  // Workflow type constant
+  const WORKFLOW_TYPE = 'lab' as const
+
   const handleComplete = (testId: string) => {
     setCompletedTestId(testId)
   }
 
   // Get extracted data from query cache - called during form submission
   const getExtractData = useCallback(
-    (
-      file: File,
-      testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab',
-    ) => {
-      const queryKey = extractPdfQueryKey(file, testType)
+    (file: File) => {
+      const queryKey = extractPdfQueryKey(file, WORKFLOW_TYPE)
       return queryClient.getQueryData<ExtractedPdfData>(queryKey)
     },
     [queryClient],
@@ -102,9 +103,6 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
     defaultValues: {
       uploadData: {
         file: null as any,
-        fileUrl: '',
-        fileName: '',
-        testType: '11-panel-lab' as const,
       },
       extractData: {
         // Minimal schema - actual data lives in TanStack Query cache
@@ -151,7 +149,7 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
         const pdfBuffer = Array.from(new Uint8Array(buffer))
 
         // Get extracted data from query cache for email-building fields
-        const extractData = getExtractData(file, value.uploadData.testType)
+        const extractData = getExtractData(file)
 
         const confirmationResults = (extractData?.confirmationResults || []).map((r) => ({
           substance: r.substance as SubstanceValue,
@@ -299,7 +297,7 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
       >
         <div className="wizard-content mb-8 flex-1">
           {currentStep === 1 && (
-            <UploadFieldGroup
+            <BaseUploadFieldGroup
               form={form}
               fields="uploadData"
               title="Upload Lab Report"
@@ -308,7 +306,7 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
           )}
 
           {currentStep === 2 && (
-            <ExtractFieldGroup form={form} fields="extractData" title="Extract Data" />
+            <BaseExtractFieldGroup form={form} fields="extractData" title="Extract Data" workflowType={WORKFLOW_TYPE} />
           )}
 
           {currentStep === 3 && (
@@ -318,6 +316,7 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
               title="Match Pending Test"
               description="Select the pending test that matches this lab report"
               filterStatus={['collected']}
+              workflowType={WORKFLOW_TYPE}
             />
           )}
 
@@ -327,6 +326,7 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
               fields="verifyData"
               title="Verify Screening Results"
               description=""
+              workflowType={WORKFLOW_TYPE}
             />
           )}
 
@@ -336,6 +336,7 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
               fields="confirmData"
               title="Confirm Update"
               description=""
+              workflowType={WORKFLOW_TYPE}
             />
           )}
 

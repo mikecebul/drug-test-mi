@@ -10,27 +10,26 @@ import { useStore } from '@tanstack/react-form'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { useFormStepper } from '@/app/(frontend)/register/hooks/useFormStepper'
 import { z } from 'zod'
-import { UploadFieldGroup, uploadFieldSchema } from '../field-groups/UploadFieldGroup'
-import { ExtractFieldGroup, extractFieldSchema } from '../field-groups/ExtractFieldGroup'
-import { VerifyTestFieldGroup, verifyTestFieldSchema } from '../field-groups/VerifyTestFieldGroup'
+import { BaseUploadFieldGroup, uploadFieldSchema } from '../../field-groups/BaseUploadFieldGroup'
+import { BaseExtractFieldGroup, extractFieldSchema } from '../../field-groups/BaseExtractFieldGroup'
+import { VerifyTestFieldGroup, verifyTestFieldSchema } from './VerifyTestFieldGroup'
 import {
   VerifyConfirmationFieldGroup,
   verifyConfirmationFieldSchema,
-} from '../field-groups/VerifyConfirmationFieldGroup'
+} from './VerifyConfirmationFieldGroup'
 import {
   ConfirmConfirmationFieldGroup,
   confirmConfirmationFieldSchema,
-} from '../field-groups/ConfirmConfirmationFieldGroup'
+} from './ConfirmConfirmationFieldGroup'
 import {
   ReviewEmailsFieldGroup,
   reviewEmailsFieldSchema,
-} from '../field-groups/ReviewEmailsFieldGroup'
-import { updateTestWithConfirmation } from '../actions'
+} from './ReviewEmailsFieldGroup'
+import { updateTestWithConfirmation } from '../../actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
-import { generateTestFilename } from '../utils/generateFilename'
-import { wizardContainerStyles, wizardWrapperStyles } from '../styles'
-import { cn } from '@/utilities/cn'
-import { WizardHeader } from '../components/WizardHeader'
+import { generateTestFilename } from '../../utils/generateFilename'
+import { wizardWrapperStyles } from '../../styles'
+import { WizardHeader } from '../../components/WizardHeader'
 
 // Step schemas
 const uploadSchema = z.object({
@@ -86,6 +85,9 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
   const router = useRouter()
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
 
+  // Workflow type constant
+  const WORKFLOW_TYPE = 'lab' as const
+
   const handleComplete = (testId: string) => {
     setCompletedTestId(testId)
   }
@@ -94,9 +96,6 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
     defaultValues: {
       uploadData: {
         file: null as any,
-        fileUrl: '',
-        fileName: '',
-        testType: '11-panel-lab' as const,
       },
       extractData: {
         // Minimal schema - actual data lives in TanStack Query cache
@@ -277,7 +276,7 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
       >
         <div className="wizard-content mb-8 flex-1">
           {currentStep === 1 && (
-            <UploadFieldGroup
+            <BaseUploadFieldGroup
               form={form}
               fields="uploadData"
               title="Upload Confirmation Report"
@@ -286,7 +285,7 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
           )}
 
           {currentStep === 2 && (
-            <ExtractFieldGroup form={form} fields="extractData" title="Extract Confirmation Data" />
+            <BaseExtractFieldGroup form={form} fields="extractData" title="Extract Confirmation Data" workflowType={WORKFLOW_TYPE} />
           )}
 
           {currentStep === 3 && (
@@ -296,6 +295,7 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
               title="Match Test for Confirmation"
               description="Select the test that needs confirmation results"
               filterStatus={['screened', 'confirmation-pending']}
+              workflowType={WORKFLOW_TYPE}
             />
           )}
 
@@ -305,6 +305,7 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
               fields="verifyConfirmation"
               title="Verify Confirmation Results"
               description="Review and adjust the confirmation results extracted from the PDF"
+              workflowType={WORKFLOW_TYPE}
             />
           )}
 

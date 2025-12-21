@@ -45,7 +45,17 @@ export interface ParsedPDFData {
   }>
 }
 
-export type TestType = '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
+// Workflow type - what gets passed to the PDF extractor
+export type WorkflowType = 'instant' | 'lab'
+
+// Specific instant test types
+export type InstantTestType = '15-panel-instant'
+
+// Specific lab test types (auto-detected by extractor)
+export type LabTestType = '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
+
+// All test types (returned by extractor in ParsedPDFData)
+export type TestType = InstantTestType | LabTestType
 
 export interface VerifiedTestData {
   testType: TestType

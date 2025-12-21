@@ -11,6 +11,8 @@ import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import { MedicationList } from '../medication-components/MedicationList'
 import { adminGetClientMedicationsAction } from '../actions/adminMedicationActions'
 import type { Medication } from '@/app/dashboard/medications/types'
+import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { Button } from '@/components/ui/button'
 
 // Export the schema for reuse in step validation
 export const verifyMedicationsFieldSchema = z.object({
@@ -28,7 +30,7 @@ export const VerifyMedicationsFieldGroup = withFieldGroup({
 
   props: {
     title: 'Verify Medications',
-    description: 'Review and update the client\'s medications for accurate drug test interpretation',
+    description: "Review and update the client's medications for accurate drug test interpretation",
   },
 
   render: function Render({ group, title, description = '' }) {
@@ -82,7 +84,7 @@ export const VerifyMedicationsFieldGroup = withFieldGroup({
           </div>
           <Card>
             <CardContent className="pt-6">
-              <p className="text-center text-muted-foreground">
+              <p className="text-muted-foreground text-center">
                 No client selected. Please go back and select a client.
               </p>
             </CardContent>
@@ -93,26 +95,13 @@ export const VerifyMedicationsFieldGroup = withFieldGroup({
 
     return (
       <div className="space-y-6">
-        <div>
-          <h2 className="mb-2 text-2xl font-bold">{title}</h2>
-          <p className="text-muted-foreground">{description}</p>
-        </div>
+        <FieldGroupHeader title={title} description={description} />
 
         {/* Client Info Card */}
         <div className="bg-card border-border w-full rounded-xl border p-6 shadow-md">
-          {/* Header */}
-          <div className="mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="bg-primary/20 flex h-8 w-8 items-center justify-center rounded-full">
-                <User className="text-primary h-4 w-4" />
-              </div>
-              <h3 className="text-foreground text-xl font-semibold">Client</h3>
-            </div>
-          </div>
-
           {/* Client Info */}
-          <div className="flex items-start gap-4">
-            <Avatar className="h-16 w-16 shrink-0">
+          <div className="flex items-start gap-8">
+            <Avatar className="size-24 shrink-0">
               <AvatarImage
                 src={client.headshot ?? undefined}
                 alt={`${client.firstName} ${client.lastName}`}
@@ -122,17 +111,19 @@ export const VerifyMedicationsFieldGroup = withFieldGroup({
                 {client.lastName?.charAt(0)}
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1 space-y-1">
-              <p className="text-foreground text-lg font-semibold">
+            <div className="flex-1 space-y-3">
+              <p className="text-foreground text-2xl font-semibold">
                 {client.firstName} {client.middleInitial ? `${client.middleInitial}. ` : ''}
                 {client.lastName}
               </p>
-              <p className="text-muted-foreground text-sm">{client.email}</p>
-              {client.dob && (
-                <p className="text-muted-foreground text-sm">
-                  DOB: {new Date(client.dob).toLocaleDateString()}
-                </p>
-              )}
+              <div>
+                <p className="text-muted-foreground text-lg">{client.email}</p>
+                {client.dob && (
+                  <p className="text-muted-foreground text-lg">
+                    DOB: {new Date(client.dob).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -140,26 +131,28 @@ export const VerifyMedicationsFieldGroup = withFieldGroup({
         {/* Medications Section */}
         <Card className="shadow-md">
           <CardContent className="space-y-4 pt-6">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between pb-4">
               <div>
-                <h3 className="text-lg font-semibold">Medications</h3>
-                <p className="text-muted-foreground text-sm">
+                <h3 className="text-2xl font-semibold">Medications</h3>
+                <p className="text-muted-foreground text-lg">
                   Manage medications for accurate drug test interpretation
                 </p>
               </div>
-              <button
+              <Button
                 type="button"
+                size="sm"
+                variant="ghost"
                 onClick={handleRefresh}
-                className="text-muted-foreground hover:text-foreground transition-colors p-2"
+                className="text-muted-foreground hover:text-foreground p-2 transition-colors"
                 title="Refresh medications"
               >
-                <RefreshCw className="h-4 w-4" />
-              </button>
+                <RefreshCw className="size-5" />
+              </Button>
             </div>
 
             {isLoading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-2" />
+              <div className="text-muted-foreground py-8 text-center">
+                <RefreshCw className="mx-auto mb-2 h-8 w-8 animate-spin" />
                 <p>Loading medications...</p>
               </div>
             ) : (
@@ -167,7 +160,7 @@ export const VerifyMedicationsFieldGroup = withFieldGroup({
                 {(field) => {
                   // Filter to only show active medications
                   const activeMedications = field.state.value.filter(
-                    (med: any) => med.status === 'active'
+                    (med: any) => med.status === 'active',
                   )
                   const allMedications = field.state.value
 

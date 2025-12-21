@@ -27,23 +27,23 @@ export function MedicationCard({ medication, index, onEdit, onToggleStatus }: Me
       <Card>
         <CardContent className="pt-4">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3 flex-1">
-              <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full shrink-0">
-                <Pill className="text-primary h-5 w-5" />
+            <div className="flex flex-1 items-start gap-3">
+              <div className="bg-primary/10 flex size-12 shrink-0 items-center justify-center rounded-full">
+                <Pill className="text-primary size-6" />
               </div>
               <div className="flex-1 space-y-2">
                 <div>
-                  <h4 className="font-semibold">{medication.medicationName}</h4>
+                  <h4 className="text-xl font-semibold">{medication.medicationName}</h4>
                   {medication.detectedAs && medication.detectedAs.length > 0 && (
-                    <p className="text-muted-foreground text-sm mt-1">
-                      Shows as: {medication.detectedAs.map((s) => formatSubstance(s)).join(', ')}
+                    <p className="text-warning mt-1 text-base">
+                      {medication.detectedAs.map((s) => formatSubstance(s)).join(', ')}
                     </p>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-2 items-center">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="default">Active</Badge>
                   {medication.requireConfirmation && (
-                    <Badge variant="outline" className="text-orange-600 border-orange-300">
+                    <Badge variant="outline" className="border-orange-300 text-orange-600">
                       Required
                     </Badge>
                   )}
@@ -56,7 +56,7 @@ export function MedicationCard({ medication, index, onEdit, onToggleStatus }: Me
                 )}
               </div>
             </div>
-            <div className="flex gap-1 shrink-0">
+            <div className="flex shrink-0 gap-1">
               <Button
                 type="button"
                 variant="ghost"
@@ -64,7 +64,7 @@ export function MedicationCard({ medication, index, onEdit, onToggleStatus }: Me
                 onClick={() => onEdit(index)}
                 title="Edit medication"
               >
-                <Edit className="h-4 w-4" />
+                <Edit className="size-5" />
               </Button>
               <Button
                 type="button"
@@ -74,7 +74,7 @@ export function MedicationCard({ medication, index, onEdit, onToggleStatus }: Me
                 title="Mark as discontinued"
                 className="text-muted-foreground hover:text-destructive"
               >
-                <XCircle className="h-4 w-4" />
+                <XCircle className="size-5" />
               </Button>
             </div>
           </div>

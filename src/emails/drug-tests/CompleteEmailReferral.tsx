@@ -7,6 +7,7 @@ import {
   ConfirmationSection,
   DetailRow,
   EmailLayout,
+  SubstancesSection,
 } from './components'
 import { formatDate, formatTestType } from './utils/formatters'
 import { getResultLabel } from './utils/constants'
@@ -23,6 +24,9 @@ export function CompleteEmailReferral(data: CompleteEmailData) {
     collectionDate,
     testType,
     initialScreenResult,
+    expectedPositives,
+    unexpectedPositives,
+    unexpectedNegatives,
     confirmationResults,
     isDilute,
     breathalyzerTaken,
@@ -69,6 +73,12 @@ export function CompleteEmailReferral(data: CompleteEmailData) {
           result={breathalyzerResult > 0.0 ? 'positive' : 'negative'}
         />
       )}
+
+      <SubstancesSection
+        expectedPositives={expectedPositives}
+        unexpectedPositives={unexpectedPositives}
+        unexpectedNegatives={unexpectedNegatives}
+      />
 
       <ConfirmationSection confirmationResults={confirmationResults} />
 

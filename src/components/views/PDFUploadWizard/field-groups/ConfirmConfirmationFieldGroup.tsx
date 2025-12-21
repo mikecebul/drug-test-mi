@@ -45,10 +45,6 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
     const clientFromTestQuery = useGetClientFromTestQuery(verifyTest?.testId)
     const client = clientFromTestQuery.data
 
-    // Get medications from form state (updated in VerifyMedicationsFieldGroup)
-    const allMedications = (formValues as any).medicationsData?.medications ?? []
-    const activeMedications = allMedications.filter((med: any) => med.status === 'active')
-
     // Calculate final detected substances (removing confirmed negatives)
     const { adjustedSubstances, confirmationResults, originalDetectedSubstances } = useMemo(() => {
       const confirmationResults = verifyConfirmation?.confirmationResults || []
@@ -65,13 +61,14 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
     }, [verifyConfirmation])
 
     // Fetch test result preview using TanStack Query
+    // Note: Don't pass medications - let server fetch full medication objects from DB
     const previewQuery = useComputeTestResultPreviewQuery(
       client?.id,
       adjustedSubstances as SubstanceValue[],
       verifyTest?.testType,
       undefined, // breathalyzerTaken
       undefined, // breathalyzerResult
-      allMedications, // Pass all medications (computeTestResults filters to active)
+      undefined, // Let server fetch full medications from DB
     )
     const preview = previewQuery.data ?? null
     const loadingPreview = previewQuery.isLoading

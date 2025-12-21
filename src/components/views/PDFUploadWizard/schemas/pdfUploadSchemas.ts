@@ -1,11 +1,11 @@
 import { z } from 'zod'
-import { uploadFieldSchema } from '../field-groups/UploadFieldGroup'
+import { uploadFieldSchema } from '../field-groups/BaseUploadFieldGroup'
 import { extractFieldSchema } from '../field-groups/ExtractFieldGroup'
 import { verifyClientFieldSchema } from '../field-groups/VerifyClientFieldGroup'
 import { verifyMedicationsFieldSchema } from '../field-groups/VerifyMedicationsFieldGroup'
-import { verifyDataFieldSchema } from '../field-groups/VerifyDataFieldGroup'
-import { confirmFieldSchema } from '../field-groups/ConfirmFieldGroup'
-import { reviewEmailsFieldSchema } from '../field-groups/ReviewEmailsFieldGroup'
+import { verifyDataFieldSchema } from '../field-groups/BaseVerifyDataFieldGroup'
+import { confirmFieldSchema } from '../field-groups/BaseConfirmFieldGroup'
+import { reviewEmailsFieldSchema } from '../field-groups/BaseReviewEmailsFieldGroup'
 
 // Step 1: Upload - reusing field group schema
 export const uploadSchema = z.object({

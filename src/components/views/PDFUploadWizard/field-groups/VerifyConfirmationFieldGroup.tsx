@@ -4,7 +4,6 @@ import React, { useEffect } from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -17,13 +16,19 @@ import {
 } from '@/components/ui/select'
 import MedicationDisplayField from '@/blocks/Form/field-components/medication-display-field'
 import { z } from 'zod'
-import { Trash2, Plus, User } from 'lucide-react'
+import type { WorkflowType } from '../types'
+import { Trash2, Plus } from 'lucide-react'
 import { getSubstanceOptions } from '@/fields/substanceOptions'
-import { useGetClientMedicationsQuery, useGetClientFromTestQuery, useGetDrugTestQuery, useExtractPdfQuery } from '../queries'
+import {
+  useGetClientMedicationsQuery,
+  useGetClientFromTestQuery,
+  useGetDrugTestQuery,
+  useExtractPdfQuery,
+} from '../queries'
 import { FieldGroupHeader } from '../components/FieldGroupHeader'
-import { SectionHeader } from '../components/SectionHeader'
-import { wizardContainerStyles } from '../styles'
-import { cn } from '@/utilities/cn'
+import { WizardSection } from '../components/WizardSection'
+import { ClientInfoCard } from '../components/ClientInfoCard'
+import { EmptyState } from '../components/EmptyState'
 
 // Export the schema for reuse in step validation
 export const verifyConfirmationFieldSchema = z.object({
@@ -53,24 +58,19 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
   props: {
     title: 'Verify Confirmation Results',
     description: '',
+    workflowType: 'lab' as WorkflowType,
   },
 
-  render: function Render({ group, title, description = '' }) {
+  render: function Render({ group, title, description = '', workflowType }) {
     // Get form values
     const formValues = useStore(group.form.store, (state: any) => state.values)
     const verifyTest = formValues?.verifyTest
 
     // Get uploaded file to access extracted data from query cache
     const uploadedFile = formValues?.uploadData?.file as File | null
-    const uploadTestType = formValues?.uploadData?.testType as
-      | '15-panel-instant'
-      | '11-panel-lab'
-      | '17-panel-sos-lab'
-      | 'etg-lab'
-      | undefined
 
     // Get extracted data from query cache (cached from ExtractFieldGroup)
-    const { data: extractData } = useExtractPdfQuery(uploadedFile, uploadTestType)
+    const { data: extractData } = useExtractPdfQuery(uploadedFile, workflowType)
 
     // Fetch client from selected test using TanStack Query
     const clientQuery = useGetClientFromTestQuery(verifyTest?.testId)
@@ -81,9 +81,9 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
     const screeningResults = drugTestQuery.data?.detectedSubstances ?? []
 
     // Fetch medications using TanStack Query
+    // Note: getClientMedications already filters to active medications
     const medicationsQuery = useGetClientMedicationsQuery(client?.id)
-    const allMedications = medicationsQuery.data?.medications ?? []
-    const activeMedications = allMedications.filter((med: any) => med.status === 'active')
+    const activeMedications = medicationsQuery.data?.medications ?? []
 
     // Initialize form with extracted confirmation results
     useEffect(() => {
@@ -92,7 +92,6 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [extractData?.confirmationResults])
-
 
     // Store screening results in form when they load
     useEffect(() => {
@@ -138,39 +137,22 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
       group.setFieldValue('confirmationResults', updated)
     }
 
-    return (
-      <div className={wizardContainerStyles.content}>
-        <FieldGroupHeader title={title} description={description} />
-        <div className={cn(wizardContainerStyles.fields, "text-base md:text-lg")}>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className={cn("bg-card border-border w-full rounded-xl border shadow-md", wizardContainerStyles.card)}>
-              {/* Header */}
-              <div className="mb-4">
-                <SectionHeader icon={<User className="text-primary h-5 w-5" />} title="Client" />
-              </div>
+    // Guard against missing client data
+    if (!client) {
+      return (
+        <WizardSection>
+          <FieldGroupHeader title={title} description={description} />
+          <EmptyState message="No client selected. Please go back and select a test." />
+        </WizardSection>
+      )
+    }
 
-            {/* Client Info */}
-            <div className="flex items-start gap-4">
-              <Avatar className="h-16 w-16 shrink-0">
-                <AvatarImage src={client?.headshot ?? undefined} alt={`${client?.firstName} ${client?.lastName}`} />
-                <AvatarFallback className="text-lg">
-                  {client?.firstName?.charAt(0)}{client?.lastName?.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 space-y-1">
-                <p className="text-foreground text-lg font-semibold">
-                  {client?.firstName} {client?.middleInitial ? `${client.middleInitial}. ` : ''}
-                  {client?.lastName}
-                </p>
-                <p className="text-muted-foreground text-sm">{client?.email}</p>
-                {client?.dob && (
-                  <p className="text-muted-foreground text-sm">
-                    DOB: {new Date(client.dob).toLocaleDateString()}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
+    return (
+      <WizardSection>
+        <FieldGroupHeader title={title} description={description} />
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <ClientInfoCard client={client} size="md" />
 
           {activeMedications.length > 0 && (
             <MedicationDisplayField medications={activeMedications} />
@@ -179,7 +161,7 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
 
         {/* Screening Results (Read-Only Context) */}
         {screeningResults.length > 0 && (
-          <Card className="border-muted bg-muted/30">
+          <Card className="border-muted bg-muted/30 shadow-md">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm tracking-wide uppercase">
                 Original Screening Results (Reference)
@@ -190,7 +172,7 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {screeningResults.map((substance) => (
+                {screeningResults.map((substance: string) => (
                   <Badge key={substance} variant="outline">
                     {substance}
                   </Badge>
@@ -201,7 +183,7 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
         )}
 
         {/* Confirmation Results (Editable) */}
-        <Card>
+        <Card className="shadow-md">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -229,7 +211,7 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
                     variant="ghost"
                     size="sm"
                     onClick={() => handleRemoveResult(index)}
-                    className="text-destructive hover:text-destructive absolute right-2 top-2"
+                    className="text-destructive hover:text-destructive absolute top-2 right-2"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -272,7 +254,6 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
                           </SelectContent>
                         </Select>
                       </div>
-
                     </div>
                   </CardContent>
                 </Card>
@@ -289,8 +270,7 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
             )
           }
         </group.Field>
-        </div>
-      </div>
+      </WizardSection>
     )
   },
 })

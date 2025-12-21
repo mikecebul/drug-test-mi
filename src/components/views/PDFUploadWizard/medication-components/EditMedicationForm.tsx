@@ -27,10 +27,10 @@ interface EditMedicationFormProps {
 export function EditMedicationForm({ medication, onSubmit, onCancel }: EditMedicationFormProps) {
   const [medicationName, setMedicationName] = useState(medication.medicationName)
   const [detectedAs, setDetectedAs] = useState<SubstanceValue[]>(
-    (medication.detectedAs as SubstanceValue[]) || []
+    (medication.detectedAs as SubstanceValue[]) || [],
   )
   const [requireConfirmation, setRequireConfirmation] = useState(
-    medication.requireConfirmation || false
+    medication.requireConfirmation || false,
   )
   const [notes, setNotes] = useState(medication.notes || '')
 
@@ -50,7 +50,7 @@ export function EditMedicationForm({ medication, onSubmit, onCancel }: EditMedic
 
   const toggleSubstance = (value: SubstanceValue) => {
     setDetectedAs((prev) =>
-      prev.includes(value) ? prev.filter((s) => s !== value) : [...prev, value]
+      prev.includes(value) ? prev.filter((s) => s !== value) : [...prev, value],
     )
   }
 
@@ -58,8 +58,8 @@ export function EditMedicationForm({ medication, onSubmit, onCancel }: EditMedic
     <Card className="border-primary/50">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Edit Medication</CardTitle>
-          <Button type="button" variant="ghost" size="icon" onClick={onCancel}>
+          <CardTitle className="">Edit Medication</CardTitle>
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -80,10 +80,7 @@ export function EditMedicationForm({ medication, onSubmit, onCancel }: EditMedic
 
           <div className="space-y-2">
             <Label>Detected As (Optional)</Label>
-            <p className="text-muted-foreground text-xs mb-2">
-              Select substances this medication may show as in drug tests
-            </p>
-            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
+            <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
               {allSubstanceOptions
                 .filter((option) => option.value !== 'none')
                 .map((option) => (
@@ -95,7 +92,7 @@ export function EditMedicationForm({ medication, onSubmit, onCancel }: EditMedic
                     />
                     <Label
                       htmlFor={`edit-substance-${option.value}`}
-                      className="text-sm font-normal cursor-pointer"
+                      className="cursor-pointer text-sm font-normal"
                     >
                       {option.label}
                     </Label>
@@ -103,7 +100,7 @@ export function EditMedicationForm({ medication, onSubmit, onCancel }: EditMedic
                 ))}
             </div>
             {detectedAs.length > 0 && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-muted-foreground text-sm">
                 Selected: {detectedAs.map((s) => formatSubstance(s)).join(', ')}
               </p>
             )}
@@ -116,12 +113,9 @@ export function EditMedicationForm({ medication, onSubmit, onCancel }: EditMedic
               onCheckedChange={(checked) => setRequireConfirmation(checked as boolean)}
             />
             <div className="space-y-1">
-              <Label htmlFor="requireConfirmation" className="font-normal cursor-pointer">
+              <Label htmlFor="requireConfirmation" className="cursor-pointer font-normal">
                 Required to test positive (Fail if missing)
               </Label>
-              <p className="text-xs text-muted-foreground">
-                Use this for MAT medications (buprenorphine, methadone) that must show on every test
-              </p>
             </div>
           </div>
 
@@ -136,7 +130,7 @@ export function EditMedicationForm({ medication, onSubmit, onCancel }: EditMedic
             />
           </div>
 
-          <div className="flex gap-2 justify-end">
+          <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancel
             </Button>

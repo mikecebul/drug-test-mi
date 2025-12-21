@@ -8,6 +8,7 @@ import {
   DetailRow,
   EmailLayout,
   ResultBadge,
+  SubstancesSection,
 } from './components'
 import { formatDate, formatTestType } from './utils/formatters'
 import { getResultLabel } from './utils/constants'
@@ -24,6 +25,9 @@ export function CompleteEmail(data: CompleteEmailData) {
     collectionDate,
     testType,
     initialScreenResult,
+    expectedPositives,
+    unexpectedPositives,
+    unexpectedNegatives,
     confirmationResults,
     finalStatus,
     isDilute,
@@ -71,6 +75,12 @@ export function CompleteEmail(data: CompleteEmailData) {
       {breathalyzerTaken && breathalyzerResult !== null && (
         <BreathalyzerResult bac={breathalyzerResult} result={breathalyzerResult > 0.0 ? 'positive' : 'negative'} />
       )}
+
+      <SubstancesSection
+        expectedPositives={expectedPositives}
+        unexpectedPositives={unexpectedPositives}
+        unexpectedNegatives={unexpectedNegatives}
+      />
 
       <ConfirmationSection confirmationResults={confirmationResults} />
 

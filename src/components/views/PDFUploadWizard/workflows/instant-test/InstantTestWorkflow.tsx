@@ -9,20 +9,19 @@ import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { Stepper, type Step } from '@/components/ui/stepper'
 import { Button } from '@/components/ui/button'
 import { useAppForm } from '@/blocks/Form/hooks/form'
-import { usePdfUploadFormOpts } from '../use-pdf-upload-form-opts'
+import { usePdfUploadFormOpts } from '../../use-pdf-upload-form-opts'
 import { useFormStepper } from '@/app/(frontend)/register/hooks/useFormStepper'
-import { stepSchemas } from '../schemas/pdfUploadSchemas'
-import { UploadFieldGroup } from '../field-groups/UploadFieldGroup'
-import { ExtractFieldGroup } from '../field-groups/ExtractFieldGroup'
-import { VerifyClientFieldGroup } from '../field-groups/VerifyClientFieldGroup'
-import { VerifyMedicationsFieldGroup } from '../field-groups/VerifyMedicationsFieldGroup'
-import { VerifyDataFieldGroup } from '../field-groups/VerifyDataFieldGroup'
-import { ConfirmFieldGroup } from '../field-groups/ConfirmFieldGroup'
-import { ReviewEmailsFieldGroup } from '../field-groups/ReviewEmailsFieldGroup'
-import { extractPdfQueryKey, type ExtractedPdfData } from '../queries'
-import { wizardContainerStyles, wizardWrapperStyles } from '../styles'
-import { cn } from '@/utilities/cn'
-import { WizardHeader } from '../components/WizardHeader'
+import { stepSchemas } from '../../schemas/pdfUploadSchemas'
+import { BaseUploadFieldGroup } from '../../field-groups/BaseUploadFieldGroup'
+import { BaseExtractFieldGroup } from '../../field-groups/BaseExtractFieldGroup'
+import { VerifyClientFieldGroup } from './VerifyClientFieldGroup'
+import { VerifyMedicationsFieldGroup } from './VerifyMedicationsFieldGroup'
+import { VerifyDataFieldGroup } from './VerifyDataFieldGroup'
+import { ConfirmFieldGroup } from './ConfirmFieldGroup'
+import { ReviewEmailsFieldGroup } from './ReviewEmailsFieldGroup'
+import { extractPdfQueryKey, type ExtractedPdfData } from '../../queries'
+import { wizardWrapperStyles } from '../../styles'
+import { WizardHeader } from '../../components/WizardHeader'
 
 type WizardStep =
   | 'upload'
@@ -38,17 +37,17 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
   const queryClient = useQueryClient()
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
 
+  // Workflow type constant
+  const WORKFLOW_TYPE = 'instant' as const
+
   const handleComplete = (testId: string) => {
     setCompletedTestId(testId)
   }
 
   // Get extracted data from query cache - called during form submission with form values
   const getExtractData = useCallback(
-    (
-      file: File,
-      testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab',
-    ) => {
-      const queryKey = extractPdfQueryKey(file, testType)
+    (file: File) => {
+      const queryKey = extractPdfQueryKey(file, WORKFLOW_TYPE)
       return queryClient.getQueryData<ExtractedPdfData>(queryKey)
     },
     [queryClient],
@@ -118,15 +117,29 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
   // Step component mapping
   const stepComponents: Record<number, React.ReactNode> = {
     1: (
-      <UploadFieldGroup
+      <BaseUploadFieldGroup
         form={form}
         fields="uploadData"
         title="Upload Drug Test PDF"
         description="Select a PDF file from your 15-panel instant test"
       />
     ),
-    2: <ExtractFieldGroup form={form} fields="extractData" title="Extract Data" />,
-    3: <VerifyClientFieldGroup form={form} fields="clientData" title="Verify Client" />,
+    2: (
+      <BaseExtractFieldGroup
+        form={form}
+        fields="extractData"
+        title="Extract Data"
+        workflowType={WORKFLOW_TYPE}
+      />
+    ),
+    3: (
+      <VerifyClientFieldGroup
+        form={form}
+        fields="clientData"
+        title="Verify Client"
+        workflowType={WORKFLOW_TYPE}
+      />
+    ),
     4: (
       <VerifyMedicationsFieldGroup
         form={form}
@@ -141,6 +154,7 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
         fields="verifyData"
         title="Verify Test Data"
         description="Review and adjust the extracted data before creating the test record"
+        workflowType={WORKFLOW_TYPE}
       />
     ),
     6: (
@@ -149,6 +163,7 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
         fields="confirmData"
         title="Confirm and Create"
         description="Review the final data before creating the drug test record"
+        workflowType={WORKFLOW_TYPE}
       />
     ),
     7: (
@@ -219,7 +234,13 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
 
         {/* Navigation Buttons */}
         <div className="flex justify-between">
-          <Button type="button" onClick={handlePrevious} variant="outline" size="lg" className="text-lg">
+          <Button
+            type="button"
+            onClick={handlePrevious}
+            variant="outline"
+            size="lg"
+            className="text-lg"
+          >
             <ChevronLeft className="mr-2 h-5 w-5" />
             {isFirstStep ? 'Cancel' : 'Back'}
           </Button>

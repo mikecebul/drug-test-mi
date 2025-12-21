@@ -10,23 +10,23 @@ import { ChevronRight, ChevronLeft, Check, User, CheckCircle2, XCircle } from 'l
 import { useStore } from '@tanstack/react-form'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { useFormStepper } from '@/app/(frontend)/register/hooks/useFormStepper'
-import { VerifyClientFieldGroup } from '../field-groups/VerifyClientFieldGroup'
-import { VerifyMedicationsFieldGroup } from '../field-groups/VerifyMedicationsFieldGroup'
-import { CollectionDetailsFieldGroup } from '../field-groups/CollectionDetailsFieldGroup'
-import { ReviewCollectionEmailsFieldGroup } from '../field-groups/ReviewCollectionEmailsFieldGroup'
+import { VerifyClientFieldGroup } from './VerifyClientFieldGroup'
+import { VerifyMedicationsFieldGroup } from './VerifyMedicationsFieldGroup'
+import { CollectionDetailsFieldGroup } from './CollectionDetailsFieldGroup'
+import { ReviewCollectionEmailsFieldGroup } from './ReviewCollectionEmailsFieldGroup'
 import { z } from 'zod'
-import { verifyClientFieldSchema } from '../field-groups/VerifyClientFieldGroup'
-import { verifyMedicationsFieldSchema } from '../field-groups/VerifyMedicationsFieldGroup'
-import { collectionDetailsFieldSchema } from '../field-groups/CollectionDetailsFieldGroup'
-import { reviewCollectionEmailsFieldSchema } from '../field-groups/ReviewCollectionEmailsFieldGroup'
-import { createCollectionWithEmailReview, updateClientMedications } from '../actions'
+import { verifyClientFieldSchema } from '../../field-groups/BaseVerifyClientFieldGroup'
+import { verifyMedicationsFieldSchema } from '../../field-groups/BaseVerifyMedicationsFieldGroup'
+import { collectionDetailsFieldSchema } from '../../field-groups/CollectionDetailsFieldGroup'
+import { reviewCollectionEmailsFieldSchema } from '../../field-groups/ReviewCollectionEmailsFieldGroup'
+import { createCollectionWithEmailReview, updateClientMedications } from '../../actions'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { format } from 'date-fns'
-import { wizardContainerStyles, wizardWrapperStyles } from '../styles'
+import { wizardContainerStyles, wizardWrapperStyles } from '../../styles'
 import { cn } from '@/utilities/cn'
-import { WizardHeader } from '../components/WizardHeader'
+import { WizardHeader } from '../../components/WizardHeader'
 
 // Step schemas
 const verifyClientSchema = z.object({
@@ -270,7 +270,12 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
       >
         <div className="wizard-content mb-8 flex-1">
           {currentStep === 1 && (
-            <VerifyClientFieldGroup form={form} fields="clientData" title="Select Client" />
+            <VerifyClientFieldGroup
+              form={form}
+              fields="clientData"
+              title="Select Client"
+              workflowType={'lab' as const}
+            />
           )}
 
           {currentStep === 2 && (
@@ -301,7 +306,9 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
               </div>
 
               <Card className={wizardContainerStyles.card}>
-                <CardContent className={cn(wizardContainerStyles.fields, 'text-base md:text-lg pt-6')}>
+                <CardContent
+                  className={cn(wizardContainerStyles.fields, 'pt-6 text-base md:text-lg')}
+                >
                   <div className="space-y-4">
                     <div>
                       <h3 className="text-muted-foreground flex items-center gap-2 text-sm font-medium">

@@ -4,7 +4,7 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import { extract15PanelInstant } from '@/utilities/extractors/extract15PanelInstant'
 import { extractLabTest } from '@/utilities/extractors/extractLabTest'
-import type { ParsedPDFData, ClientMatch, TestType } from './types'
+import type { ParsedPDFData, ClientMatch, WorkflowType } from './types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { calculateNameSimilarity, calculateSimilarity } from './utils/calculateSimilarity'
 import {
@@ -22,7 +22,7 @@ const TEST_EMAIL = process.env.EMAIL_TEST_ADDRESS || 'mike@midrugtest.com'
  */
 export async function extractPdfData(
   formData: FormData,
-  testType?: TestType,
+  workflowType?: WorkflowType,
 ): Promise<{
   success: boolean
   data?: ParsedPDFData
@@ -36,21 +36,15 @@ export async function extractPdfData(
   try {
     const buffer = Buffer.from(await file.arrayBuffer())
 
-    // Route to the appropriate parser based on test type
+    // Route to the appropriate parser based on workflow type
     let extracted: ParsedPDFData
 
-    switch (testType) {
-      case '11-panel-lab':
-      case '17-panel-sos-lab':
-      case 'etg-lab':
-        // All lab tests use the same extractor which auto-detects the specific type
-        extracted = await extractLabTest(buffer)
-        break
-      case '15-panel-instant':
-      default:
-        // Default to 15-panel instant for backward compatibility
-        extracted = await extract15PanelInstant(buffer)
-        break
+    if (workflowType === 'lab') {
+      // Lab extractor auto-detects specific type (11-panel, 17-panel, or etg)
+      extracted = await extractLabTest(buffer)
+    } else {
+      // Default to instant test (15-panel)
+      extracted = await extract15PanelInstant(buffer)
     }
 
     return { success: true, data: extracted }
@@ -769,15 +763,27 @@ export async function getConfirmationEmailPreview(data: {
     // Fetch client headshot for email embedding
     const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
 
+    // Fetch client medications for proper expected/unexpected calculation
+    const clientWithMeds = await payload.findByID({
+      collection: 'clients',
+      id: data.clientId,
+      depth: 0,
+    })
+    const medications = clientWithMeds?.medications || []
+
     // Use adjusted substances if provided (confirmed negatives removed),
     // otherwise fall back to original detected substances
     const substancesForPreview = data.adjustedSubstances ?? (drugTest.detectedSubstances as SubstanceValue[])
 
     // Compute initial test result for email (need this for complete email template)
+    // Pass medications so it can properly determine expected vs unexpected
     const previewResult = await computeTestResultPreview(
       data.clientId,
       substancesForPreview,
       drugTest.testType,
+      undefined, // breathalyzerTaken (from drugTest below)
+      undefined, // breathalyzerResult (from drugTest below)
+      medications, // Pass medications for proper expected/unexpected calculation
     )
 
     // Compute final status using service layer
@@ -1001,6 +1007,62 @@ export async function createDrugTestWithEmailReview(
       },
       overrideAccess: true,
     })
+
+    // 4a. Send admin notification if confirmation testing is requested
+    if (
+      testData.confirmationDecision === 'request-confirmation' &&
+      testData.confirmationSubstances &&
+      testData.confirmationSubstances.length > 0
+    ) {
+      try {
+        // Fetch client name for email
+        const client = await payload.findByID({
+          collection: 'clients',
+          id: testData.clientId,
+          depth: 0,
+        })
+        const clientName = `${client.firstName} ${client.lastName}`
+
+        // Format substances list
+        const substancesList = testData.confirmationSubstances
+          .map((s) => `  - ${s}`)
+          .join('\n')
+
+        await payload.sendEmail({
+          to: 'mike@midrugtest.com',
+          subject: '⚠️ Confirmation Testing Order Required',
+          html: `
+            <h2>Action Required: Order LC-MS/MS Confirmation Testing</h2>
+            <p>A new drug test requires confirmation testing to be ordered.</p>
+
+            <h3>Test Details:</h3>
+            <ul>
+              <li><strong>Client:</strong> ${clientName}</li>
+              <li><strong>Test ID:</strong> ${drugTest.id}</li>
+              <li><strong>Collection Date:</strong> ${new Date(testData.collectionDate).toLocaleString()}</li>
+              <li><strong>Test Type:</strong> ${testData.testType}</li>
+            </ul>
+
+            <h3>Substances Requiring Confirmation:</h3>
+            <pre>${substancesList}</pre>
+
+            <p>Please order LC-MS/MS confirmation testing for the above substances.</p>
+
+            <p><a href="${process.env.PAYLOAD_PUBLIC_SERVER_URL}/admin/collections/drug-tests/${drugTest.id}">View Drug Test in Admin Panel</a></p>
+          `,
+        })
+
+        payload.logger.info(
+          `Admin notification sent for confirmation testing request on test ${drugTest.id}`,
+        )
+      } catch (emailError) {
+        payload.logger.error(
+          'Failed to send admin notification for confirmation testing:',
+          emailError,
+        )
+        // Don't fail the whole operation if admin email fails
+      }
+    }
 
     // 3. Fetch client for email generation
     const client = await payload.findByID({
