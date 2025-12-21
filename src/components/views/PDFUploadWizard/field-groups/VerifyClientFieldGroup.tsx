@@ -207,9 +207,10 @@ export const VerifyClientFieldGroup = withFieldGroup({
                     {matches.map((match) => (
                       <Card
                         key={match.id}
-                        className={`hover:border-primary cursor-pointer transition-colors ${
-                          selectedClientId === match.id ? 'border-primary bg-primary/5' : ''
-                        }`}
+                        className={cn(`hover:border-primary cursor-pointer transition-colors`, {
+                          'border-success bg-success-muted hover:border-success/90 hover:bg-success-muted/90':
+                            selectedClientId === match.id,
+                        })}
                         onClick={() => {
                           // Update all client fields
                           group.setFieldValue('id', match.id)
@@ -240,7 +241,11 @@ export const VerifyClientFieldGroup = withFieldGroup({
                                 <div>
                                   <div className="flex items-center gap-2">
                                     <UserCheck className="text-muted-foreground h-5 w-5" />
-                                    <p className="text-lg font-semibold">
+                                    <p
+                                      className={cn('text-lg font-semibold', {
+                                        'text-success-foreground': selectedClientId === match.id,
+                                      })}
+                                    >
                                       {match.firstName}{' '}
                                       {match.middleInitial ? `${match.middleInitial}. ` : ''}
                                       {match.lastName}
@@ -248,7 +253,13 @@ export const VerifyClientFieldGroup = withFieldGroup({
                                   </div>
                                   <div className="mt-1 flex items-center gap-2">
                                     <Mail className="text-muted-foreground h-4 w-4" />
-                                    <p className="text-muted-foreground text-sm">{match.email}</p>
+                                    <p
+                                      className={cn('text-muted-foreground text-sm', {
+                                        'text-success-foreground': selectedClientId === match.id,
+                                      })}
+                                    >
+                                      {match.email}
+                                    </p>
                                   </div>
                                 </div>
                                 {match.matchType === 'exact' ? (
@@ -262,16 +273,6 @@ export const VerifyClientFieldGroup = withFieldGroup({
                                 )}
                               </div>
                             </div>
-                            <Button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                // The card's onClick will handle the selection
-                              }}
-                              size="sm"
-                            >
-                              Select
-                            </Button>
                           </div>
                         </CardContent>
                       </Card>
@@ -369,39 +370,6 @@ export const VerifyClientFieldGroup = withFieldGroup({
                   </ShadcnWrapper>
                 </DialogContent>
               </Dialog>
-
-              {/* Selected Client Confirmation */}
-              {selectedClientId && (
-                <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-12 w-12 shrink-0 border-2 border-green-300 dark:border-green-700">
-                      <AvatarImage
-                        src={selectedClientData.headshot ?? undefined}
-                        alt={`${selectedClientData.firstName} ${selectedClientData.lastName}`}
-                      />
-                      <AvatarFallback className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
-                        {selectedClientData.firstName.charAt(0)}
-                        {selectedClientData.lastName.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                        <p className="font-medium text-green-900 dark:text-green-100">
-                          Client Selected
-                        </p>
-                      </div>
-                      <p className="mt-1 text-sm text-green-700 dark:text-green-300">
-                        {selectedClientData.firstName}{' '}
-                        {selectedClientData.middleInitial
-                          ? `${selectedClientData.middleInitial}. `
-                          : ''}
-                        {selectedClientData.lastName} ({selectedClientData.email})
-                      </p>
-                    </div>
-                  </div>
-                </Alert>
-              )}
 
               {/* Validation Error */}
               {idField.state.meta.errors.length > 0 && (
