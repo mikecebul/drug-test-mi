@@ -316,13 +316,11 @@ export function useGetConfirmationEmailPreviewQuery(data: {
 }
 
 // Query key factory for PDF extraction
-export const extractPdfQueryKey = (
-  file: File | null | undefined,
-  wizardType: WizardType | undefined,
-) => ['extract-pdf', file?.name, file?.size, file?.lastModified, wizardType] as const
+export const extractPdfQueryKey = (file: File | null | undefined, wizardType: WizardType) =>
+  ['extract-pdf', file?.name, file?.size, file?.lastModified, wizardType] as const
 
 // Shared query function for PDF extraction
-const extractPdfQueryFn = async (file: File, wizardType: WizardType | undefined) => {
+const extractPdfQueryFn = async (file: File, wizardType: WizardType) => {
   const formData = new FormData()
   formData.append('file', file)
 
@@ -340,10 +338,7 @@ const extractPdfQueryFn = async (file: File, wizardType: WizardType | undefined)
  * Automatically extracts when file is uploaded and caches the result
  * Invalidates and re-extracts when file changes
  */
-export function useExtractPdfQuery(
-  file: File | null | undefined,
-  wizardType: WizardType | undefined,
-) {
+export function useExtractPdfQuery(file: File | null | undefined, wizardType: WizardType) {
   return useQuery({
     queryKey: extractPdfQueryKey(file, wizardType),
     queryFn: async () => {
@@ -365,7 +360,7 @@ export function useExtractPdfQuery(
 export function prefetchExtractPdf(
   queryClient: ReturnType<typeof import('@tanstack/react-query').useQueryClient>,
   file: File,
-  wizardType: WizardType | undefined,
+  wizardType: WizardType,
 ) {
   return queryClient.prefetchQuery({
     queryKey: extractPdfQueryKey(file, wizardType),

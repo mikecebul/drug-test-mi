@@ -85,7 +85,6 @@ export const VerifyDataFieldGroup = withFieldGroup({
   render: function Render({ group, title, description = '' }) {
     // Get form values
     const formValues = useStore(group.form.store, (state: any) => state.values)
-    console.log('formValues in VerifyDataFieldGroup:', formValues)
     const verifyTest = formValues?.verifyTest
 
     // Get uploaded file to access extracted data from query cache

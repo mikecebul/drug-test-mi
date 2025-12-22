@@ -78,6 +78,7 @@ const generateImage: GenerateImage<Page> = ({ doc }) => {
 export default buildConfig({
   // serverURL: baseUrl,
   admin: {
+    autoRefresh: true,
     avatar: 'default',
     components: {
       beforeDashboard: ['@/components/beforeDashboard/DrugTestStats'],

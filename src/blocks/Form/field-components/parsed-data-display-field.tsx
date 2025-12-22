@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { FileCheck2, Calendar, AlertTriangle, CheckCircle2, XCircle, User } from 'lucide-react'
 import type { ParsedPDFData } from '@/components/views/PDFUploadWizard/types'
+import { cn } from '@/utilities/cn'
 
 interface ParsedDataDisplayFieldProps {
   data: ParsedPDFData
@@ -18,14 +19,16 @@ export default function ParsedDataDisplayField({
 }: ParsedDataDisplayFieldProps) {
   const confidenceConfig = {
     high: {
+      type: 'success' as const,
       icon: CheckCircle2,
-      iconColor: 'text-green-600',
-      titleColor: 'text-green-900 dark:text-green-100',
-      descColor: 'text-green-800 dark:text-green-200',
-      bgColor: 'bg-green-50 dark:bg-green-950/30',
-      borderColor: 'border-green-200 dark:border-green-800',
+      iconColor: 'text-success-foreground',
+      titleColor: 'text-success-foreground dark:text-success-foreground',
+      descColor: 'text-success dark:text-success',
+      bgColor: 'bg-success-muted dark:bg-success-muted',
+      borderColor: 'border-success dark:border-success',
     },
     medium: {
+      type: 'warning' as const,
       icon: AlertTriangle,
       iconColor: 'text-amber-600',
       titleColor: 'text-amber-900 dark:text-amber-100',
@@ -34,6 +37,7 @@ export default function ParsedDataDisplayField({
       borderColor: 'border-amber-200 dark:border-amber-800',
     },
     low: {
+      type: 'destructive' as const,
       icon: XCircle,
       iconColor: 'text-red-600',
       titleColor: 'text-red-900 dark:text-red-100',
@@ -48,21 +52,17 @@ export default function ParsedDataDisplayField({
 
   return (
     <div className="space-y-6">
-      <Alert className={`${confidence.bgColor} ${confidence.borderColor}`}>
-        <div className="flex items-start gap-3">
-          <ConfidenceIcon className={`h-5 w-5 ${confidence.iconColor} mt-0.5 shrink-0`} />
-          <div className="flex-1 space-y-1">
-            <AlertTitle className={confidence.titleColor}>
-              Extracted with {data.confidence.toUpperCase()} Confidence
-            </AlertTitle>
-            <AlertDescription>
-              <p className={confidence.descColor}>
-                Successfully extracted test data from the PDF. Please review the information below
-                before proceeding.
-              </p>
-            </AlertDescription>
-          </div>
-        </div>
+      <Alert variant={confidence.type}>
+        <ConfidenceIcon className="" />
+        <AlertTitle className={confidence.titleColor}>
+          Extracted with {data.confidence.toUpperCase()} Confidence
+        </AlertTitle>
+        <AlertDescription>
+          <p>
+            Successfully extracted test data from the PDF. Please review the information below
+            before proceeding.
+          </p>
+        </AlertDescription>
       </Alert>
 
       <Card>
@@ -154,12 +154,12 @@ export default function ParsedDataDisplayField({
                         label: 'Confirmed Positive',
                       },
                       'confirmed-negative': {
-                        variant: 'default' as const,
+                        variant: 'success' as const,
                         icon: CheckCircle2,
                         label: 'Confirmed Negative',
                       },
                       inconclusive: {
-                        variant: 'secondary' as const,
+                        variant: 'warning' as const,
                         icon: AlertTriangle,
                         label: 'Inconclusive',
                       },

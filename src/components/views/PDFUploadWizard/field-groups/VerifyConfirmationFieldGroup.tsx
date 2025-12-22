@@ -68,7 +68,7 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
 
     // Get uploaded file to access extracted data from query cache
     const uploadedFile = formValues?.uploadData?.file as File | null
-    const wizardType = formValues?.uploadData?.testType as WizardType
+    const wizardType = formValues?.uploadData?.wizardType as WizardType
 
     // Get extracted data from query cache (cached from ExtractFieldGroup)
     const { data: extractData } = useExtractPdfQuery(uploadedFile, wizardType)
@@ -109,6 +109,8 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
       group.store,
       (state) => state.values.confirmationResults,
     ) as VerifyConfirmationData['confirmationResults']
+
+    console.log('confirmationResults', confirmationResults)
 
     // Get substance options based on test type
     const testType = verifyTest?.testType || '11-panel-lab'

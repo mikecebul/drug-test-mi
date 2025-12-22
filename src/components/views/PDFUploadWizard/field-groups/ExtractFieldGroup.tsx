@@ -44,13 +44,13 @@ export function ExtractFieldGroup({ form, title = 'Extract Data' }: ExtractField
   // Show loading state while extracting
   if (isLoading) {
     return (
-      <div className={wizardContainerStyles.content}>
+      <div className="space-y-8">
         <FieldGroupHeader title="Extracting Data..." description="Processing your PDF file" />
         <Card className={wizardContainerStyles.card}>
           <CardContent className="pt-6">
             <div className="flex items-center justify-center py-12">
               <div className="space-y-4 text-center">
-                <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
+                <Loader2 className="text-primary mx-auto h-12 w-12 animate-spin" />
                 <p className="text-muted-foreground text-lg">
                   Please wait while we extract the test data
                 </p>
@@ -66,12 +66,12 @@ export function ExtractFieldGroup({ form, title = 'Extract Data' }: ExtractField
   if (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     return (
-      <div className={wizardContainerStyles.content}>
+      <div className="spaace-y-8">
         <FieldGroupHeader title="Extraction Failed" description="Unable to process the PDF file" />
         <Alert variant="destructive">
           <FileX2 className="h-4 w-4" />
           <AlertDescription>
-            <p className="mb-1 font-medium text-base">{errorMessage}</p>
+            <p className="mb-1 text-base font-medium">{errorMessage}</p>
             <p className="text-sm">
               The PDF format may not be supported, or the file may be damaged. Please try a
               different file or contact support if this issue persists.
@@ -86,7 +86,7 @@ export function ExtractFieldGroup({ form, title = 'Extract Data' }: ExtractField
   if (!extractedData) {
     return (
       <div className={wizardContainerStyles.content}>
-        <FieldGroupHeader title="No Data" description="No file uploaded" />
+        <FieldGroupHeader title="No Data" description="No file uploaded. Please go back." />
       </div>
     )
   }
@@ -106,7 +106,7 @@ export function ExtractFieldGroup({ form, title = 'Extract Data' }: ExtractField
   }
 
   return (
-    <div className={wizardContainerStyles.content}>
+    <div className="space-y-8">
       <FieldGroupHeader title={title} description="Review the extracted data" />
 
       {/* Display extracted data directly from query */}

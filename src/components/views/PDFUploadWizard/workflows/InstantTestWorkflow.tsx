@@ -20,7 +20,6 @@ import { ConfirmFieldGroup } from '../field-groups/ConfirmFieldGroup'
 import { ReviewEmailsFieldGroup } from '../field-groups/ReviewEmailsFieldGroup'
 import { extractPdfQueryKey, type ExtractedPdfData } from '../queries'
 import { wizardContainerStyles, wizardWrapperStyles } from '../styles'
-import { cn } from '@/utilities/cn'
 import { WizardHeader } from '../components/WizardHeader'
 import { WizardType } from '../types'
 
@@ -115,7 +114,7 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
       <UploadFieldGroup
         form={form}
         fields="uploadData"
-        title="Upload Drug Test"
+        title="Upload 15 Panel Drug Test Report"
         description="Use the pdf report generated from Redwood Labs "
       />
     ),
@@ -183,16 +182,11 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
 
   return (
     <>
-      <div className={wizardWrapperStyles.header}>
-        <WizardHeader
-          title="Drug Test Upload Wizard"
-          description="Upload and process drug test PDFs quickly and accurately"
-        />
-      </div>
-
-      <div className={wizardWrapperStyles.stepper}>
-        <Stepper steps={steps} currentStepId={currentStepId} onStepClick={handleStepClick} />
-      </div>
+      <WizardHeader
+        title="Drug Test Upload Wizard"
+        description="Upload and process drug test PDFs quickly and accurately"
+      />
+      <Stepper steps={steps} currentStepId={currentStepId} onStepClick={handleStepClick} />
 
       <form
         onSubmit={(e) => {
