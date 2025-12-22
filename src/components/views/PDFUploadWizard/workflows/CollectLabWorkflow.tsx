@@ -3,7 +3,6 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Stepper, type Step } from '@/components/ui/stepper'
-import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronRight, ChevronLeft, Check, User, CheckCircle2, XCircle } from 'lucide-react'
@@ -24,27 +23,10 @@ import { format } from 'date-fns'
 import { wizardContainerStyles, wizardWrapperStyles } from '../styles'
 import { cn } from '@/utilities/cn'
 import { WizardHeader } from '../components/WizardHeader'
+import { TestCompleted } from '../components/TestCompleted'
+import { collectLabStepSchemas } from '../schemas/pdfUploadSchemas'
 
-// Step schemas
-const verifyClientSchema = z.object({
-  clientData: verifyClientFieldSchema,
-})
-
-const collectionDetailsSchema = z.object({
-  collectionDetails: collectionDetailsFieldSchema,
-})
-
-const confirmSchema = z.object({
-  confirmData: z.object({
-    confirmed: z.boolean(),
-  }),
-})
-
-const reviewEmailsSchema = z.object({
-  reviewEmailsData: reviewCollectionEmailsFieldSchema,
-})
-
-const stepSchemas = [verifyClientSchema, collectionDetailsSchema, confirmSchema, reviewEmailsSchema]
+const stepSchemas = collectLabStepSchemas
 
 // Complete form schema
 const completeCollectLabSchema = z.object({
@@ -186,38 +168,11 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
 
   // Show completion screen if collection was created successfully
   if (completedTestId) {
-    return (
-      <ShadcnWrapper className={wizardWrapperStyles.completion}>
-        <div className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <Check className="h-8 w-8 text-green-600" />
-          </div>
-          <h1 className="mb-2 text-3xl font-bold tracking-tight">
-            Collection Recorded Successfully!
-          </h1>
-          <p className="text-muted-foreground">
-            The specimen collection has been recorded and notification email has been sent.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Button onClick={onBack} size="lg">
-            Start New Workflow
-          </Button>
-          <Button
-            onClick={() => router.push(`/admin/collections/drug-tests/${completedTestId}`)}
-            variant="outline"
-            size="lg"
-          >
-            View Collection
-          </Button>
-        </div>
-      </ShadcnWrapper>
-    )
+    return <TestCompleted testId={completedTestId} onBack={onBack} />
   }
 
   return (
-    <ShadcnWrapper className={wizardWrapperStyles.workflow}>
+    <>
       <div className={wizardWrapperStyles.header}>
         <WizardHeader
           title="Collect Lab Specimen"
@@ -260,7 +215,9 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
               </div>
 
               <Card className={wizardContainerStyles.card}>
-                <CardContent className={cn(wizardContainerStyles.fields, 'text-base md:text-lg pt-6')}>
+                <CardContent
+                  className={cn(wizardContainerStyles.fields, 'pt-6 text-base md:text-lg')}
+                >
                   <div className="space-y-4">
                     <div>
                       <h3 className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
@@ -421,6 +378,6 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
           )}
         </div>
       </form>
-    </ShadcnWrapper>
+    </>
   )
 }

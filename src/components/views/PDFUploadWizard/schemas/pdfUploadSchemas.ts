@@ -3,8 +3,9 @@ import { uploadFieldSchema } from '../field-groups/UploadFieldGroup'
 import { extractFieldSchema } from '../field-groups/ExtractFieldGroup'
 import { verifyClientFieldSchema } from '../field-groups/VerifyClientFieldGroup'
 import { verifyDataFieldSchema } from '../field-groups/VerifyDataFieldGroup'
-import { confirmFieldSchema } from '../field-groups/ConfirmFieldGroup'
 import { reviewEmailsFieldSchema } from '../field-groups/ReviewEmailsFieldGroup'
+import { testSummaryFieldSchema } from '../field-groups/TestSummary'
+import { collectionDetailsFieldSchema } from '../field-groups/CollectionDetailsFieldGroup'
 
 // Step 1: Upload - reusing field group schema
 export const uploadSchema = z.object({
@@ -27,8 +28,8 @@ export const verifyDataSchema = z.object({
 })
 
 // Step 5: Confirm - reusing field group schema
-export const confirmSchema = z.object({
-  confirmData: confirmFieldSchema,
+export const testSummarySchema = z.object({
+  testSummary: testSummaryFieldSchema,
 })
 
 // Step 6: Review Emails - reusing field group schema
@@ -37,22 +38,44 @@ export const reviewEmailsSchema = z.object({
 })
 
 // Step schemas array for the stepper hook
-export const stepSchemas = [
+export const instantTestStepSchemas = [
   uploadSchema,
   extractSchema,
   verifyClientSchema,
   verifyDataSchema,
-  confirmSchema,
+  testSummarySchema,
   reviewEmailsSchema,
 ]
 
+// Collect Lab form step schemas
+// Step 1: Verify Client - reusing field group schema
+// Step 2: Collection Details
+export const collectionDetailsSchema = z.object({
+  collectionDetails: collectionDetailsFieldSchema,
+})
+
+// Step 3: Confirm Schema
+export const confirmSchema = z.object({
+  confirmData: z.object({
+    confirmed: z.boolean(),
+  }),
+})
+
+// Step 4: Review Emails - reusing field group schema
+
+export const collectLabStepSchemas = [
+  verifyClientSchema,
+  collectionDetailsSchema,
+  confirmSchema,
+  reviewEmailsSchema
+]
 // Complete form schema for final validation
 export const completePdfUploadSchema = z.object({
   uploadData: uploadSchema.shape.uploadData,
   extractData: extractSchema.shape.extractData,
   clientData: verifyClientSchema.shape.clientData,
   verifyData: verifyDataSchema.shape.verifyData,
-  confirmData: confirmSchema.shape.confirmData,
+  testSummary: testSummarySchema.shape.testSummary,
   reviewEmailsData: reviewEmailsSchema.shape.reviewEmailsData,
 })
 

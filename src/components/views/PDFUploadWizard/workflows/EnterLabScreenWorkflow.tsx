@@ -15,7 +15,7 @@ import { UploadFieldGroup, uploadFieldSchema } from '../field-groups/UploadField
 import { ExtractFieldGroup, extractFieldSchema } from '../field-groups/ExtractFieldGroup'
 import { VerifyTestFieldGroup, verifyTestFieldSchema } from '../field-groups/VerifyTestFieldGroup'
 import { VerifyDataFieldGroup, verifyDataFieldSchema } from '../field-groups/VerifyDataFieldGroup'
-import { ConfirmFieldGroup, confirmFieldSchema } from '../field-groups/ConfirmFieldGroup'
+import { TestSummaryFieldGroup, testSummaryFieldSchema } from '../field-groups/TestSummary'
 import {
   ReviewEmailsFieldGroup,
   reviewEmailsFieldSchema,
@@ -27,6 +27,7 @@ import { extractPdfQueryKey, type ExtractedPdfData } from '../queries'
 import { wizardWrapperStyles } from '../styles'
 import { WizardHeader } from '../components/WizardHeader'
 import { WizardType } from '../types'
+import { TestCompleted } from '../components/TestCompleted'
 
 // Step schemas
 const uploadSchema = z.object({
@@ -45,8 +46,8 @@ const verifyDataSchema = z.object({
   verifyData: verifyDataFieldSchema,
 })
 
-const confirmSchema = z.object({
-  confirmData: confirmFieldSchema,
+const testSummarySchema = z.object({
+  testSummary: testSummaryFieldSchema,
 })
 
 const reviewEmailsSchema = z.object({
@@ -58,7 +59,7 @@ const stepSchemas = [
   extractSchema,
   verifyTestSchema,
   verifyDataSchema,
-  confirmSchema,
+  testSummarySchema,
   reviewEmailsSchema,
 ]
 
@@ -68,7 +69,7 @@ const completeEnterLabScreenSchema = z.object({
   extractData: extractFieldSchema,
   verifyTest: verifyTestFieldSchema,
   verifyData: verifyDataFieldSchema,
-  confirmData: confirmFieldSchema,
+  testSummary: testSummaryFieldSchema,
   reviewEmailsData: reviewEmailsFieldSchema,
 })
 
@@ -127,7 +128,7 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
         confirmationDecision: null,
         confirmationSubstances: [],
       },
-      confirmData: {
+      testSummary: {
         previewComputed: false,
       },
       reviewEmailsData: {
@@ -244,39 +245,10 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
 
   // Show completion screen if test was updated successfully
   if (completedTestId) {
-    return (
-      <ShadcnWrapper className={wizardWrapperStyles.completion}>
-        <div className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <Check className="h-8 w-8 text-green-600" />
-          </div>
-          <h1 className="mb-2 text-3xl font-bold tracking-tight">
-            Lab Screening Results Uploaded Successfully!
-          </h1>
-          <p className="text-muted-foreground">
-            The screening results have been added and notification emails have been sent.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Button onClick={onBack} size="lg" className="text-lg">
-            Start New Workflow
-          </Button>
-          <Button
-            onClick={() => router.push(`/admin/collections/drug-tests/${completedTestId}`)}
-            variant="outline"
-            size="lg"
-            className="text-lg"
-          >
-            View Drug Test
-          </Button>
-        </div>
-      </ShadcnWrapper>
-    )
+    return <TestCompleted testId={completedTestId} onBack={onBack} />
   }
-
   return (
-    <ShadcnWrapper className={wizardWrapperStyles.workflow}>
+    <>
       <div className={wizardWrapperStyles.header}>
         <WizardHeader
           title="Enter Lab Screening Results"
@@ -329,9 +301,9 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
           )}
 
           {currentStep === 5 && (
-            <ConfirmFieldGroup
+            <TestSummaryFieldGroup
               form={form}
-              fields="confirmData"
+              fields="testSummary"
               title="Confirm Update"
               description=""
             />
@@ -389,6 +361,6 @@ export function EnterLabScreenWorkflow({ onBack }: EnterLabScreenWorkflowProps) 
           )}
         </div>
       </form>
-    </ShadcnWrapper>
+    </>
   )
 }

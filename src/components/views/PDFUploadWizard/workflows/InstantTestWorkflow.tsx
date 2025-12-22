@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { usePdfUploadFormOpts } from '../use-pdf-upload-form-opts'
 import { useFormStepper } from '@/app/(frontend)/register/hooks/useFormStepper'
-import { stepSchemas } from '../schemas/pdfUploadSchemas'
+import { instantTestStepSchemas } from '../schemas/pdfUploadSchemas'
 import { UploadFieldGroup } from '../field-groups/UploadFieldGroup'
 import { ExtractFieldGroup } from '../field-groups/ExtractFieldGroup'
 import { VerifyClientFieldGroup } from '../field-groups/VerifyClientFieldGroup'
@@ -19,9 +19,9 @@ import { VerifyDataFieldGroup } from '../field-groups/VerifyDataFieldGroup'
 import { ConfirmFieldGroup } from '../field-groups/ConfirmFieldGroup'
 import { ReviewEmailsFieldGroup } from '../field-groups/ReviewEmailsFieldGroup'
 import { extractPdfQueryKey, type ExtractedPdfData } from '../queries'
-import { wizardContainerStyles, wizardWrapperStyles } from '../styles'
 import { WizardHeader } from '../components/WizardHeader'
 import { WizardType } from '../types'
+import { TestCompleted } from '../components/TestCompleted'
 
 type WizardStep =
   | 'upload'
@@ -59,7 +59,7 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
     handleNextStepOrSubmit,
     handleCancelOrBack,
     setCurrentStep,
-  } = useFormStepper(stepSchemas)
+  } = useFormStepper(instantTestStepSchemas)
 
   // Get form values for display
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
@@ -131,7 +131,7 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
     5: (
       <ConfirmFieldGroup
         form={form}
-        fields="confirmData"
+        fields="testSummary"
         title="Confirm and Create"
         description="Review the final data before creating the drug test record"
       />
@@ -149,35 +149,7 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
 
   // Show completion screen if test was created successfully
   if (completedTestId) {
-    return (
-      <>
-        <div className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <Check className="h-8 w-8 text-green-600" />
-          </div>
-          <h1 className="mb-2 text-3xl font-bold tracking-tight">
-            Drug Test Created Successfully!
-          </h1>
-          <p className="text-muted-foreground">
-            The drug test has been created and notification emails have been sent.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Button onClick={onBack} size="lg" className="text-lg">
-            Start New Test
-          </Button>
-          <Button
-            onClick={() => router.push(`/admin/collections/drug-tests/${completedTestId}`)}
-            variant="outline"
-            size="lg"
-            className="text-lg"
-          >
-            View Drug Test
-          </Button>
-        </div>
-      </>
-    )
+    return <TestCompleted testId={completedTestId} onBack={onBack} />
   }
 
   return (

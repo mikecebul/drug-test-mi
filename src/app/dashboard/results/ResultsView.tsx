@@ -659,7 +659,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
         size: 240,
         cell: ({ row }) => {
           return (
-            <div className="min-w-[200px] py-1">
+            <div className="min-w-50 py-1">
               <ChainOfCustody result={row.original} />
             </div>
           )
@@ -795,7 +795,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                       value={dateRange}
                       onChange={setDateRange}
                       placeholder="Select date range"
-                      className="w-[240px]"
+                      className="w-60"
                     />
                   </div>
 
@@ -803,7 +803,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">Result:</span>
                     <Select value={resultFilter} onValueChange={setResultFilter}>
-                      <SelectTrigger className="w-[180px]">
+                      <SelectTrigger className="w-45">
                         <SelectValue placeholder="All results" />
                       </SelectTrigger>
                       <SelectContent>
@@ -821,7 +821,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">Test Type:</span>
                     <Select value={testTypeFilter} onValueChange={setTestTypeFilter}>
-                      <SelectTrigger className="w-[180px]">
+                      <SelectTrigger className="w-45">
                         <SelectValue placeholder="All types" />
                       </SelectTrigger>
                       <SelectContent>

@@ -5,7 +5,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogDescriptionDiv,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -37,7 +36,7 @@ export function EmailPreviewModal({
             <Mail className="h-5 w-5" />
             Email Preview
           </DialogTitle>
-          <DialogDescriptionDiv className="space-y-2">
+          <DialogDescription asChild className="space-y-2">
             <div className="flex items-center gap-2">
               <Badge variant={emailType === 'client' ? 'default' : 'secondary'}>
                 {emailType === 'client' ? 'Client Email' : 'Referral Email'}
@@ -50,14 +49,14 @@ export function EmailPreviewModal({
             <div>
               <strong>To:</strong> {recipients.join(', ')}
             </div>
-          </DialogDescriptionDiv>
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-auto rounded-md border">
           <iframe
             srcDoc={emailHtml}
             sandbox="allow-same-origin"
-            className="h-full min-h-[600px] w-full"
+            className="h-full min-h-150 w-full"
             title="Email Preview"
           />
         </div>

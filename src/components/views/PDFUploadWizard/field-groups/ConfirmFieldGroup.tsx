@@ -34,7 +34,7 @@ export const confirmFieldSchema = z.object({
   previewComputed: z.boolean(),
 })
 
-const defaultValues: PdfUploadFormType['confirmData'] = {
+const defaultValues: PdfUploadFormType['testSummary'] = {
   previewComputed: false,
 }
 

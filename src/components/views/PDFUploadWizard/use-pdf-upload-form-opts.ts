@@ -38,7 +38,7 @@ const defaultValues: PdfUploadFormType = {
     confirmationDecision: null,
     confirmationSubstances: [],
   },
-  confirmData: {
+  testSummary: {
     previewComputed: false,
   },
   reviewEmailsData: {

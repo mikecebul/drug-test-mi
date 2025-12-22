@@ -31,6 +31,7 @@ import { generateTestFilename } from '../utils/generateFilename'
 import { wizardContainerStyles, wizardWrapperStyles } from '../styles'
 import { cn } from '@/utilities/cn'
 import { WizardHeader } from '../components/WizardHeader'
+import { TestCompleted } from '../components/TestCompleted'
 
 // Step schemas
 const uploadSchema = z.object({
@@ -224,39 +225,11 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
 
   // Show completion screen if confirmation was updated successfully
   if (completedTestId) {
-    return (
-      <ShadcnWrapper className={wizardWrapperStyles.completion}>
-        <div className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <Check className="h-8 w-8 text-green-600" />
-          </div>
-          <h1 className="mb-2 text-3xl font-bold tracking-tight">
-            Lab Confirmation Results Uploaded Successfully!
-          </h1>
-          <p className="text-muted-foreground">
-            The confirmation results have been added and notification emails have been sent.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Button onClick={onBack} size="lg" className="text-lg">
-            Start New Workflow
-          </Button>
-          <Button
-            onClick={() => router.push(`/admin/collections/drug-tests/${completedTestId}`)}
-            variant="outline"
-            size="lg"
-            className="text-lg"
-          >
-            View Drug Test
-          </Button>
-        </div>
-      </ShadcnWrapper>
-    )
+    return <TestCompleted testId={completedTestId} onBack={onBack} />
   }
 
   return (
-    <ShadcnWrapper className={wizardWrapperStyles.workflow}>
+    <>
       <div className={wizardWrapperStyles.header}>
         <WizardHeader
           title="Enter Lab Confirmation Results"
@@ -369,6 +342,6 @@ export function EnterLabConfirmationWorkflow({ onBack }: EnterLabConfirmationWor
           )}
         </div>
       </form>
-    </ShadcnWrapper>
+    </>
   )
 }

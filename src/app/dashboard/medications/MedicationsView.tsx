@@ -302,7 +302,7 @@ export function MedicationsView({ medications }: MedicationsViewProps) {
       />
 
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-106.25">
           <DialogHeader>
             <DialogTitle>Delete Medication</DialogTitle>
             <DialogDescription>
