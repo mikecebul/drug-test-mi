@@ -9,11 +9,11 @@ import { ChevronRight, ChevronLeft, Check, User, CheckCircle2, XCircle } from 'l
 import { useStore } from '@tanstack/react-form'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { useFormStepper } from '@/app/(frontend)/register/hooks/useFormStepper'
-import { VerifyClientFieldGroup } from '../field-groups/VerifyClientFieldGroup'
+import { VerifyClientFieldGroup } from '../field-groups/VerifyClient/VerifyClientFieldGroup'
 import { CollectionDetailsFieldGroup } from '../field-groups/CollectionDetailsFieldGroup'
 import { ReviewCollectionEmailsFieldGroup } from '../field-groups/ReviewCollectionEmailsFieldGroup'
 import { z } from 'zod'
-import { verifyClientFieldSchema } from '../field-groups/VerifyClientFieldGroup'
+import { verifyClientFieldSchema } from '../field-groups/VerifyClient/VerifyClientFieldGroup'
 import { collectionDetailsFieldSchema } from '../field-groups/CollectionDetailsFieldGroup'
 import { reviewCollectionEmailsFieldSchema } from '../field-groups/ReviewCollectionEmailsFieldGroup'
 import { createCollectionWithEmailReview } from '../actions'
@@ -64,6 +64,10 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
         headshot: null,
         matchType: 'fuzzy' as const,
         score: 0,
+      },
+      medicationsData: {
+        verified: true,
+        medications: [],
       },
       collectionDetails: {
         testType: '11-panel-lab' as const,
@@ -173,12 +177,10 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
 
   return (
     <>
-      <div className={wizardWrapperStyles.header}>
-        <WizardHeader
-          title="Collect Lab Specimen"
-          description="Record specimen collection for laboratory testing"
-        />
-      </div>
+      <WizardHeader
+        title="Collect Lab Specimen"
+        description="Record specimen collection for laboratory testing"
+      />
 
       <div className={wizardWrapperStyles.stepper}>
         <Stepper steps={steps} currentStepId={currentStepId} onStepClick={handleStepClick} />
@@ -193,7 +195,12 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
       >
         <div className="wizard-content mb-8 flex-1">
           {currentStep === 1 && (
-            <VerifyClientFieldGroup form={form} fields="clientData" title="Select Client" />
+            <VerifyClientFieldGroup
+              form={form}
+              fields="clientData"
+              title="Select Client"
+              workflow="collect-lab"
+            />
           )}
 
           {currentStep === 2 && (

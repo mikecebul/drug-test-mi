@@ -14,14 +14,14 @@ import { useFormStepper } from '@/app/(frontend)/register/hooks/useFormStepper'
 import { instantTestStepSchemas } from '../schemas/pdfUploadSchemas'
 import { UploadFieldGroup } from '../field-groups/UploadFieldGroup'
 import { ExtractFieldGroup } from '../field-groups/ExtractFieldGroup'
-import { VerifyClientFieldGroup } from '../field-groups/VerifyClientFieldGroup'
+import { VerifyClientFieldGroup } from '../field-groups/VerifyClient/VerifyClientFieldGroup'
 import { VerifyDataFieldGroup } from '../field-groups/VerifyDataFieldGroup'
-import { ConfirmFieldGroup } from '../field-groups/ConfirmFieldGroup'
 import { ReviewEmailsFieldGroup } from '../field-groups/ReviewEmailsFieldGroup'
 import { extractPdfQueryKey, type ExtractedPdfData } from '../queries'
 import { WizardHeader } from '../components/WizardHeader'
 import { WizardType } from '../types'
 import { TestCompleted } from '../components/TestCompleted'
+import { TestSummaryFieldGroup } from '../field-groups/TestSummary'
 
 type WizardStep =
   | 'upload'
@@ -119,7 +119,14 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
       />
     ),
     2: <ExtractFieldGroup form={form} fields="extractData" title="Extract Data" />,
-    3: <VerifyClientFieldGroup form={form} fields="clientData" title="Verify Client" />,
+    3: (
+      <VerifyClientFieldGroup
+        form={form}
+        fields="clientData"
+        title="Verify Client"
+        workflow="15-panel-instant"
+      />
+    ),
     4: (
       <VerifyDataFieldGroup
         form={form}
@@ -129,7 +136,7 @@ export function InstantTestWorkflow({ onBack }: { onBack: () => void }) {
       />
     ),
     5: (
-      <ConfirmFieldGroup
+      <TestSummaryFieldGroup
         form={form}
         fields="testSummary"
         title="Confirm and Create"

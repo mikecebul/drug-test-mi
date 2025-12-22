@@ -30,24 +30,26 @@ export function EmailPreviewModal({
 }: EmailPreviewModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col overflow-hidden">
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
             Email Preview
           </DialogTitle>
           <DialogDescription asChild className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Badge variant={emailType === 'client' ? 'default' : 'secondary'}>
-                {emailType === 'client' ? 'Client Email' : 'Referral Email'}
-              </Badge>
-              <Badge variant="outline">screened</Badge>
-            </div>
             <div>
-              <strong>Subject:</strong> {subject}
-            </div>
-            <div>
-              <strong>To:</strong> {recipients.join(', ')}
+              <div className="flex items-center gap-2">
+                <Badge variant={emailType === 'client' ? 'default' : 'secondary'}>
+                  {emailType === 'client' ? 'Client Email' : 'Referral Email'}
+                </Badge>
+                <Badge variant="outline">screened</Badge>
+              </div>
+              <div>
+                <strong>Subject:</strong> {subject}
+              </div>
+              <div>
+                <strong>To:</strong> {recipients.join(', ')}
+              </div>
             </div>
           </DialogDescription>
         </DialogHeader>
