@@ -57,16 +57,22 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
     // Pattern: "Phone: (231)373-6341\nDennis D Erfourth"
 
     // Strategy 1: Look for name after phone number (most reliable)
-    let donorNameMatch = text.match(/Phone:\s*\(\d{3}\)\d{3}-\d{4}\s*\n\s*([A-Z][a-zA-Z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-zA-Z]+)/i)
+    let donorNameMatch = text.match(
+      /Phone:\s*\(\d{3}\)\d{3}-\d{4}\s*\n\s*([A-Z][a-zA-Z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-zA-Z]+)/i,
+    )
 
     // Strategy 2: Look for name before "iCup" test description
     if (!donorNameMatch) {
-      donorNameMatch = text.match(/([A-Z][a-zA-Z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-zA-Z]+)\s*\n\s*iCup\s+Urine/i)
+      donorNameMatch = text.match(
+        /([A-Z][a-zA-Z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-zA-Z]+)\s*\n\s*iCup\s+Urine/i,
+      )
     }
 
     // Strategy 3: Look for donor signature at bottom (before "Page X of Y")
     if (!donorNameMatch) {
-      donorNameMatch = text.match(/Donor Signature\s*\n\s*([A-Z][a-zA-Z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-zA-Z]+)/i)
+      donorNameMatch = text.match(
+        /Donor Signature\s*\n\s*([A-Z][a-zA-Z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-zA-Z]+)/i,
+      )
     }
 
     if (donorNameMatch) {
@@ -77,7 +83,9 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
     // Extract collection date
     // pdf-parse shows: "Collected:\n...\nMike Cebulski\n06:27 PM\t11/20/2025"
     // Pattern: time with tab separator then date
-    let collectedMatch = text.match(/(\d{1,2}:\d{2}\s*(?:AM|PM))\s*[\t\n]\s*(\d{1,2}\/\d{1,2}\/\d{4})/i)
+    let collectedMatch = text.match(
+      /(\d{1,2}:\d{2}\s*(?:AM|PM))\s*[\t\n]\s*(\d{1,2}\/\d{1,2}\/\d{4})/i,
+    )
 
     if (collectedMatch) {
       const timeStr = collectedMatch[1]
@@ -86,6 +94,7 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
       // Combine date and time
       const dateTimeStr = `${dateStr} ${timeStr}`
       const parsed = new Date(dateTimeStr)
+      // console.log(`Parsed date-time: ${dateTimeStr} -> ${parsed} -> ${parsed.toISOString()}`)
 
       if (!isNaN(parsed.getTime())) {
         // Return ISO string instead of Date object to avoid serialization issues
@@ -115,7 +124,9 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
     // The DOB and Sex labels are on separate lines, followed by their values
 
     // Strategy 1: Try combined pattern (DOB:Sex: followed by date and gender)
-    let dobSexMatch = text.match(/DOB:\s*\n?\s*Sex:\s*\n?\s*(\d{1,2}\/\d{1,2}\/\d{4})\s*\n?\s*([MF])/i)
+    let dobSexMatch = text.match(
+      /DOB:\s*\n?\s*Sex:\s*\n?\s*(\d{1,2}\/\d{1,2}\/\d{4})\s*\n?\s*([MF])/i,
+    )
 
     // Strategy 2: Try date+gender on same line (e.g., "03/13/1982M")
     if (!dobSexMatch) {
@@ -154,21 +165,21 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
     const substanceMapping: Record<string, SubstanceValue> = {
       '6-Monoacetylmorphine': '6-mam',
       '6-MAM': '6-mam',
-      'Amphetamines': 'amphetamines',
-      'Benzodiazepines': 'benzodiazepines',
-      'Buprenorphine': 'buprenorphine',
-      'Cocaine': 'cocaine',
-      'EtG': 'etg',
-      'Fentanyl': 'fentanyl',
-      'Methylenedioxymethamphetamine': 'mdma',
-      'MDMA': 'mdma',
-      'Methadone': 'methadone',
-      'Methamphetamine': 'methamphetamines',
-      'Opiates': 'opiates',
-      'Oxycodone': 'oxycodone',
+      Amphetamines: 'amphetamines',
+      Benzodiazepines: 'benzodiazepines',
+      Buprenorphine: 'buprenorphine',
+      Cocaine: 'cocaine',
+      EtG: 'etg',
+      Fentanyl: 'fentanyl',
+      Methylenedioxymethamphetamine: 'mdma',
+      MDMA: 'mdma',
+      Methadone: 'methadone',
+      Methamphetamine: 'methamphetamines',
+      Opiates: 'opiates',
+      Oxycodone: 'oxycodone',
       'Synthetic Cannabinoids': 'synthetic_cannabinoids',
-      'THC': 'thc',
-      'Tramadol': 'tramadol',
+      THC: 'thc',
+      Tramadol: 'tramadol',
     }
 
     // For each substance mapping, check if it's marked as positive in the PDF
@@ -178,7 +189,7 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
       // Results can be: "Negative", "Presumptive Positive", or just "Positive"
       const pattern = new RegExp(
         `${escapeRegex(pdfName)}[^\\n]{0,100}?(Negative|Presumptive Positive|Positive)`,
-        'i'
+        'i',
       )
 
       const match = text.match(pattern)
@@ -202,7 +213,9 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
 
     return result
   } catch (error) {
-    throw new Error(`Failed to extract 15-panel instant test data: ${error instanceof Error ? error.message : String(error)}`)
+    throw new Error(
+      `Failed to extract 15-panel instant test data: ${error instanceof Error ? error.message : String(error)}`,
+    )
   } finally {
     // Always destroy the parser to prevent memory leaks, even if an error occurs
     await parser.destroy()

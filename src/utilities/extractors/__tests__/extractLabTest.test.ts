@@ -52,7 +52,15 @@ describe('extractLabTest', () => {
 
       // Verify basic extraction
       expect(result.donorName).toBeTruthy()
-      expect(result.collectionDate).toBeInstanceOf(Date)
+      expect(typeof result.collectionDate).toBe('string')
+
+      if (!result.collectionDate) {
+        throw new Error('Expected collectionDate to be present')
+      }
+      const date = new Date(result.collectionDate)
+      expect(date instanceof Date).toBe(true)
+      expect(Number.isNaN(date.getTime())).toBe(false)
+      expect(date.toISOString()).toBe(result.collectionDate)
 
       // This PDF shows "Screened Positive" for Buprenorphine
       expect(result.detectedSubstances).toContain('buprenorphine')
@@ -165,7 +173,15 @@ describe('extractLabTest', () => {
 
       // Verify basic extraction
       expect(result.donorName).toBeTruthy()
-      expect(result.collectionDate).toBeInstanceOf(Date)
+      expect(typeof result.collectionDate).toBe('string')
+
+      if (!result.collectionDate) {
+        throw new Error('Expected collectionDate to be present')
+      }
+      const date = new Date(result.collectionDate)
+      expect(date instanceof Date).toBe(true)
+      expect(Number.isNaN(date.getTime())).toBe(false)
+      expect(date.toISOString()).toBe(result.collectionDate)
 
       // Should have confidence score
       expect(['high', 'medium', 'low']).toContain(result.confidence)
@@ -244,7 +260,15 @@ describe('extractLabTest', () => {
 
       // Verify basic extraction
       expect(result.donorName).toBeTruthy()
-      expect(result.collectionDate).toBeInstanceOf(Date)
+      expect(typeof result.collectionDate).toBe('string')
+
+      if (!result.collectionDate) {
+        throw new Error('Expected collectionDate to be present')
+      }
+      const date = new Date(result.collectionDate)
+      expect(date instanceof Date).toBe(true)
+      expect(Number.isNaN(date.getTime())).toBe(false)
+      expect(date.toISOString()).toBe(result.collectionDate)
 
       // Should have confidence score
       expect(['high', 'medium', 'low']).toContain(result.confidence)

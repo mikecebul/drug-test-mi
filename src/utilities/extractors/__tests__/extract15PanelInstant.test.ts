@@ -48,7 +48,16 @@ describe('extract15PanelInstant', () => {
 
     // Verify basic extraction
     expect(result.donorName).toBeTruthy()
-    expect(result.collectionDate).toBeInstanceOf(Date)
+
+    expect(typeof result.collectionDate).toBe('string')
+
+    if (!result.collectionDate) {
+      throw new Error('Expected collectionDate to be present')
+    }
+    const date = new Date(result.collectionDate)
+    expect(date instanceof Date).toBe(true)
+    expect(Number.isNaN(date.getTime())).toBe(false)
+    expect(date.toISOString()).toBe(result.collectionDate)
 
     // This PDF shows "Presumptive Positive" for Buprenorphine
     expect(result.detectedSubstances).toContain('buprenorphine')
@@ -299,7 +308,14 @@ describe('extract15PanelInstant', () => {
     expect(result.extractedFields.length).toBeGreaterThan(0)
 
     // All values should be valid field names
-    const validFields = ['donorName', 'collectionDate', 'detectedSubstances', 'isDilute']
+    const validFields = [
+      'donorName',
+      'collectionDate',
+      'detectedSubstances',
+      'isDilute',
+      'dob',
+      'gender',
+    ]
     for (const field of result.extractedFields) {
       expect(validFields).toContain(field)
     }
