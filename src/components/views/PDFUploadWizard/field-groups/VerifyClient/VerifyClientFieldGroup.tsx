@@ -5,20 +5,10 @@ import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogTitle, useDismissModal } from '@/components/ui/dialog'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command'
-import { Loader2, AlertCircle, UserCheck, Mail, CheckCircle2, Check, UserPlus } from 'lucide-react'
-import type { ClientMatch, WizardType } from '../../types'
+import { useDismissModal } from '@/components/ui/dialog'
+import { Loader2, Check, UserPlus } from 'lucide-react'
+import type { WizardType } from '../../types'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../../schemas/pdfUploadSchemas'
 import {
@@ -26,14 +16,12 @@ import {
   useGetAllClientsQuery,
   useExtractPdfQuery,
 } from '../../queries'
-import ShadcnWrapper from '@/components/ShadcnWrapper'
-import { RegisterClientDialog } from '../../components/RegisterClientDialog'
-import { toast } from 'sonner'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { wizardContainerStyles } from '../../styles'
 import { cn } from '@/utilities/cn'
 import { ClientDisplayCard } from './ClientDisplayCard'
 import { SearchDialog } from './SearchDialog'
+import { testWorkflowFormOpts } from '../../workflows/TestWorkflow/shared-form'
 
 // Export the schema for reuse in step validation
 export const verifyClientFieldSchema = z.object({
@@ -41,7 +29,7 @@ export const verifyClientFieldSchema = z.object({
   firstName: z.string(),
   lastName: z.string(),
   middleInitial: z.string().nullable(),
-  email: z.string().email(),
+  email: z.email(),
   dob: z.string().nullable(),
   headshot: z.string().nullable(),
   matchType: z.enum(['exact', 'fuzzy']),
@@ -65,10 +53,9 @@ export const VerifyClientFieldGroup = withFieldGroup({
 
   props: {
     title: 'Verify Client',
-    workflow: '' as WizardType,
   },
 
-  render: function Render({ group, title, workflow }) {
+  render: function Render({ group, title }) {
     const [showAllClients, setShowAllClients] = useState(false)
     const [open, setOpen] = useState(false)
     const [showRegisterDialog, setShowRegisterDialog] = useState(false)

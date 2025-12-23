@@ -15,12 +15,10 @@ import { Button } from '@/components/ui/button'
 
 // Export the schema for reuse in step validation
 export const verifyMedicationsFieldSchema = z.object({
-  verified: z.boolean().default(true),
   medications: z.array(z.any()).default([]), // Array of medications to be saved at the end
 })
 
 const defaultValues: PdfUploadFormType['medicationsData'] = {
-  verified: true,
   medications: [],
 }
 

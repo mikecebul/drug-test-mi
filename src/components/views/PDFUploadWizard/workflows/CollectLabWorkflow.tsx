@@ -125,7 +125,11 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   const { currentStep, isLastStep, handleNextStepOrSubmit, handleCancelOrBack, setCurrentStep } =
     useFormStepper(stepSchemas)
 
-  const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
+  const [formValues, isSubmitting, canSubmit] = useStore(form.store, (state) => [
+    state.values,
+    state.isSubmitting,
+    state.canSubmit,
+  ])
 
   const handleNext = async () => {
     await handleNextStepOrSubmit(form)
@@ -166,9 +170,6 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   }
 
   const currentStepId = stepMapping[currentStep]
-
-  // Get form values for confirmation
-  const formValues = useStore(form.store, (state) => state.values)
 
   // Show completion screen if collection was created successfully
   if (completedTestId) {
@@ -359,7 +360,13 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
           </Button>
 
           {!isLastStep ? (
-            <Button type="button" onClick={handleNext} size="lg" className="text-lg">
+            <Button
+              type="button"
+              onClick={handleNext}
+              size="lg"
+              className="text-lg"
+              disabled={canSubmit}
+            >
               Next
               <ChevronRight className="ml-2 h-5 w-5" />
             </Button>

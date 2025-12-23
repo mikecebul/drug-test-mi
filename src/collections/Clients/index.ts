@@ -4,6 +4,7 @@ import { baseUrl } from '@/utilities/baseUrl'
 import { anyone } from '@/access/anyone'
 import { notifyNewRegistration } from './hooks/notifyNewRegistration'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
+import { Sidebar } from 'lucide-react'
 
 export const Clients: CollectionConfig = {
   slug: 'clients',
@@ -157,13 +158,13 @@ export const Clients: CollectionConfig = {
   },
   admin: {
     defaultColumns: ['headshot', 'lastName', 'email', 'clientType'],
-    useAsTitle: 'name',
+    useAsTitle: 'fullName',
     listSearchableFields: ['email', 'firstName', 'lastName'],
   },
   fields: [
     // Sidebar fields - always visible
     {
-      name: 'name',
+      name: 'fullName',
       type: 'text',
       admin: {
         description: 'Full name (computed from first and last name)',
@@ -327,7 +328,8 @@ export const Clients: CollectionConfig = {
                   name: 'recipients',
                   type: 'array',
                   admin: {
-                    description: 'Recipients who will receive test results (probation officers, court clerks, etc.)',
+                    description:
+                      'Recipients who will receive test results (probation officers, court clerks, etc.)',
                   },
                   fields: [
                     {
@@ -371,7 +373,8 @@ export const Clients: CollectionConfig = {
                   name: 'recipients',
                   type: 'array',
                   admin: {
-                    description: 'Recipients who will receive test results (HR contacts, hiring managers, etc.)',
+                    description:
+                      'Recipients who will receive test results (HR contacts, hiring managers, etc.)',
                   },
                   fields: [
                     {
@@ -407,7 +410,8 @@ export const Clients: CollectionConfig = {
                   name: 'recipients',
                   type: 'array',
                   admin: {
-                    description: 'Optional additional recipients who will receive test results (family members, personal contacts, etc.). The client will always receive their own results.',
+                    description:
+                      'Optional additional recipients who will receive test results (family members, personal contacts, etc.). The client will always receive their own results.',
                   },
                   fields: [
                     {

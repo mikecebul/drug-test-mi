@@ -908,7 +908,7 @@ export interface Client {
   /**
    * Full name (computed from first and last name)
    */
-  name?: string | null;
+  fullName?: string | null;
   /**
    * Client headshot photo for identification during testing
    */
@@ -2597,7 +2597,7 @@ export interface TechniciansSelect<T extends boolean = true> {
  * via the `definition` "clients_select".
  */
 export interface ClientsSelect<T extends boolean = true> {
-  name?: T;
+  fullName?: T;
   headshot?: T;
   clientType?: T;
   isActive?: T;

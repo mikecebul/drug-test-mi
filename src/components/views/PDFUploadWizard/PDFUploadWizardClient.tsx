@@ -9,6 +9,7 @@ import { EnterLabConfirmationWorkflow } from './workflows/EnterLabConfirmationWo
 import { InstantTestWorkflow } from './workflows/InstantTestWorkflow'
 import type { WizardType } from './types'
 import { WizardHeader } from './components/WizardHeader'
+import { TestWorkflow } from './workflows/TestWorkflow'
 
 export function PDFUploadWizardClient() {
   const [selectedWorkflow, setSelectedWorkflow] = useState<WizardType | null>(null)
@@ -38,7 +39,7 @@ export function PDFUploadWizardClient() {
 
   // Route to appropriate workflow
   if (selectedWorkflow === 'collect-lab') {
-    return <CollectLabWorkflow onBack={handleBack} />
+    return <TestWorkflow />
   }
 
   if (selectedWorkflow === 'enter-lab-screen') {

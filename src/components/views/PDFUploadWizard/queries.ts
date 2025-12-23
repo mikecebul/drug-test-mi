@@ -12,6 +12,7 @@ import {
   getEmailPreview,
   getConfirmationEmailPreview,
   extractPdfData,
+  getClients,
 } from './actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import type { ParsedPDFData, WizardType } from './types'
@@ -48,6 +49,13 @@ export function useGetAllClientsQuery(enabled: boolean = true) {
     queryKey: ['all-clients'],
     queryFn: getAllClients,
     enabled,
+    staleTime: 30 * 1000, // 30 seconds - clients can be added/deleted frequently
+  })
+}
+export function useGetClientsQuery() {
+  return useQuery({
+    queryKey: ['clients'],
+    queryFn: getClients,
     staleTime: 30 * 1000, // 30 seconds - clients can be added/deleted frequently
   })
 }

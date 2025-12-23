@@ -4,7 +4,7 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import { extract15PanelInstant } from '@/utilities/extractors/extract15PanelInstant'
 import { extractLabTest } from '@/utilities/extractors/extractLabTest'
-import type { ParsedPDFData, ClientMatch, TestType, WizardType } from './types'
+import type { ParsedPDFData, ClientMatch, TestType, WizardType, SimpleClient } from './types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { calculateNameSimilarity, calculateSimilarity } from './utils/calculateSimilarity'
 import {
@@ -13,6 +13,7 @@ import {
   fetchDocument,
   sendEmails,
 } from '@/collections/DrugTests/services'
+import { Client } from '@/payload-types'
 
 const TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
 const TEST_EMAIL = process.env.EMAIL_TEST_ADDRESS || 'mike@midrugtest.com'
@@ -94,9 +95,10 @@ export async function findMatchingClients(
     return {
       matches: exactMatch.docs.map((client) => {
         // Prefer thumbnail for performance, fallback to full image
-        const headshot = typeof client.headshot === 'object' && client.headshot
-          ? (client.headshot.sizes?.thumbnail?.url || client.headshot.url || null)
-          : null
+        const headshot =
+          typeof client.headshot === 'object' && client.headshot
+            ? client.headshot.sizes?.thumbnail?.url || client.headshot.url || null
+            : null
         return {
           id: client.id,
           firstName: client.firstName,
@@ -163,9 +165,10 @@ export async function findMatchingClients(
       )
 
       // Prefer thumbnail for performance, fallback to full image
-      const headshot = typeof client.headshot === 'object' && client.headshot
-        ? (client.headshot.sizes?.thumbnail?.url || client.headshot.url || null)
-        : null
+      const headshot =
+        typeof client.headshot === 'object' && client.headshot
+          ? client.headshot.sizes?.thumbnail?.url || client.headshot.url || null
+          : null
 
       return {
         id: client.id,
@@ -266,12 +269,7 @@ export async function searchClients(searchTerm: string): Promise<{
           client.firstName,
           client.lastName,
         )
-        const lastScore = calculateNameSimilarity(
-          '',
-          singleTerm,
-          client.firstName,
-          client.lastName,
-        )
+        const lastScore = calculateNameSimilarity('', singleTerm, client.firstName, client.lastName)
         nameScore = Math.max(firstScore, lastScore)
       }
 
@@ -320,15 +318,25 @@ export async function getAllClients(): Promise<{
     sort: 'lastName',
     depth: 1, // Populate headshot relation
     overrideAccess: true,
+    select: {
+      id: true,
+      firstName: true,
+      middleInitial: true,
+      lastName: true,
+      email: true,
+      dob: true,
+      headshot: true,
+    },
   })
 
   payload.logger.info(`[getAllClients] Found ${clientsResult.docs.length} clients`)
 
   const clients = clientsResult.docs.map((client) => {
     // Prefer thumbnail for performance, fallback to full image
-    const headshot = typeof client.headshot === 'object' && client.headshot
-      ? (client.headshot.sizes?.thumbnail?.url || client.headshot.url || null)
-      : null
+    const headshot =
+      typeof client.headshot === 'object' && client.headshot
+        ? client.headshot.sizes?.thumbnail?.url || client.headshot.url || null
+        : null
 
     return {
       id: client.id,
@@ -346,10 +354,55 @@ export async function getAllClients(): Promise<{
   return { clients }
 }
 
+export async function getClients(): Promise<SimpleClient[]> {
+  const payload = await getPayload({ config })
+
+  const { docs: clientsResult } = await payload.find({
+    collection: 'clients',
+    limit: 1000,
+    sort: 'lastName',
+    depth: 2, // Populate headshot relation
+    overrideAccess: true,
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      middleInitial: true,
+      email: true,
+      dob: true,
+      headshot: true,
+    },
+  })
+  const clients = clientsResult.map((client): SimpleClient => {
+    // Prefer thumbnail for performance, fallback to full image
+    const headshot =
+      typeof client.headshot === 'object' && client.headshot
+        ? client.headshot.thumbnailURL || client.headshot.url || undefined
+        : undefined
+
+    return {
+      id: client.id,
+      firstName: client.firstName,
+      middleInitial: client.middleInitial ?? undefined,
+      lastName: client.lastName,
+      fullName: client.middleInitial
+        ? `${client.firstName} ${client.middleInitial} ${client.lastName}`
+        : `${client.firstName} ${client.lastName}`,
+      initials: `${client.firstName.charAt(0)}${client.lastName.charAt(0)}`,
+      email: client.email,
+      dob: client.dob ?? undefined,
+      headshot,
+    }
+  })
+  return clients
+}
+
 /**
  * Get client's active medications for preview
  */
-export async function getClientMedications(clientId: string): Promise<
+export async function getClientMedications(
+  clientId: string,
+): Promise<
   | { success: true; medications: Array<{ name: string; detectedAs: string[] }> }
   | { success: false; error: string }
 > {
@@ -457,7 +510,8 @@ export async function createDrugTest(data: {
     if (!existingClient) {
       return {
         success: false,
-        error: 'Client not found. They may have been deleted. Please go back and select a different client.',
+        error:
+          'Client not found. They may have been deleted. Please go back and select a different client.',
       }
     }
 
@@ -762,7 +816,8 @@ export async function getConfirmationEmailPreview(data: {
 
     // Use adjusted substances if provided (confirmed negatives removed),
     // otherwise fall back to original detected substances
-    const substancesForPreview = data.adjustedSubstances ?? (drugTest.detectedSubstances as SubstanceValue[])
+    const substancesForPreview =
+      data.adjustedSubstances ?? (drugTest.detectedSubstances as SubstanceValue[])
 
     // Compute initial test result for email (need this for complete email template)
     const previewResult = await computeTestResultPreview(
@@ -882,7 +937,8 @@ export async function createDrugTestWithEmailReview(
     if (!existingClient) {
       return {
         success: false,
-        error: 'Client not found. They may have been deleted. Please go back and select a different client.',
+        error:
+          'Client not found. They may have been deleted. Please go back and select a different client.',
       }
     }
 
@@ -1011,7 +1067,9 @@ export async function createDrugTestWithEmailReview(
 
       // Prepare recipient lists based on emailConfig
       const clientRecipients = emailConfig.clientEmailEnabled ? emailConfig.clientRecipients : []
-      const referralRecipients = emailConfig.referralEmailEnabled ? emailConfig.referralRecipients : []
+      const referralRecipients = emailConfig.referralEmailEnabled
+        ? emailConfig.referralRecipients
+        : []
 
       // Combine recipients for service call
       // Service will handle client vs referral distinction
@@ -1177,7 +1235,8 @@ export async function createCollectionWithEmailReview(
     if (!existingClient) {
       return {
         success: false,
-        error: 'Client not found. They may have been deleted. Please go back and select a different client.',
+        error:
+          'Client not found. They may have been deleted. Please go back and select a different client.',
       }
     }
 
@@ -1229,7 +1288,9 @@ export async function createCollectionWithEmailReview(
     })
 
     // 4. Send emails using service layer (no attachment for collected stage)
-    const referralRecipients = emailConfig.referralEmailEnabled ? emailConfig.referralRecipients : []
+    const referralRecipients = emailConfig.referralEmailEnabled
+      ? emailConfig.referralRecipients
+      : []
 
     const emailResult = await sendEmails({
       payload,
@@ -1526,9 +1587,10 @@ export async function getClientFromTest(testId: string): Promise<{
     }
 
     // Extract headshot URL (prefer thumbnail for performance)
-    const headshot = typeof client.headshot === 'object' && client.headshot
-      ? (client.headshot.sizes?.thumbnail?.url || client.headshot.url || null)
-      : null
+    const headshot =
+      typeof client.headshot === 'object' && client.headshot
+        ? client.headshot.sizes?.thumbnail?.url || client.headshot.url || null
+        : null
 
     // Return only the necessary client fields
     return {
@@ -1606,9 +1668,10 @@ export async function fetchPendingTests(filterStatus?: string[]): Promise<
       tests: result.docs.map((test) => {
         // Extract client headshot if available
         const client = typeof test.relatedClient === 'object' ? test.relatedClient : null
-        const clientHeadshot = client && typeof client.headshot === 'object' && client.headshot
-          ? (client.headshot.sizes?.thumbnail?.url || client.headshot.url || null)
-          : null
+        const clientHeadshot =
+          client && typeof client.headshot === 'object' && client.headshot
+            ? client.headshot.sizes?.thumbnail?.url || client.headshot.url || null
+            : null
 
         return {
           id: test.id,
@@ -1745,7 +1808,9 @@ export async function registerClientFromWizard(data: {
       overrideAccess: true,
     })
 
-    payload.logger.info(`[registerClientFromWizard] Created client ${newClient.id} for ${data.email}`)
+    payload.logger.info(
+      `[registerClientFromWizard] Created client ${newClient.id} for ${data.email}`,
+    )
 
     // Return client data formatted as ClientMatch
     return {

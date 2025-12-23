@@ -32,6 +32,17 @@ export interface ClientMatch {
   matchType: 'exact' | 'fuzzy'
   score?: number
 }
+export interface SimpleClient {
+  id: string
+  firstName: string
+  middleInitial?: string
+  lastName: string
+  fullName?: string
+  initials: string
+  email: string
+  dob?: string
+  headshot?: string
+}
 
 export interface ParsedPDFData {
   donorName: string | null
