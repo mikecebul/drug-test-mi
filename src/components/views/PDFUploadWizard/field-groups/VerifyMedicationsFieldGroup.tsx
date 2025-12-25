@@ -5,13 +5,13 @@ import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { User, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import { MedicationList } from '../components/medications/MedicationList'
-import { adminGetClientMedicationsAction } from '../actions/adminMedicationActions'
 import { FieldGroupHeader } from '../components/FieldGroupHeader'
 import { Button } from '@/components/ui/button'
+import { getClientMedications } from '../actions/adminMedicationActions'
 
 // Export the schema for reuse in step validation
 export const verifyMedicationsFieldSchema = z.object({
@@ -52,7 +52,7 @@ export const VerifyMedicationsFieldGroup = withFieldGroup({
       const fetchMedications = async () => {
         setIsLoading(true)
         try {
-          const result = await adminGetClientMedicationsAction(client.id)
+          const result = await getClientMedications(client.id)
           if (result.success) {
             // Store medications in form state
             group.setFieldValue('medications', result.medications)

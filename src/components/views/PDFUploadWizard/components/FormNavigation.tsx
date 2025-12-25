@@ -41,7 +41,6 @@ export function FormNavigation({
 
   return (
     <div className="mt-8 flex items-center justify-between border-t pt-4">
-      <p>Current Index: {currentIndex}</p>
       <Button
         type="button"
         onClick={handleBack}
@@ -54,11 +53,10 @@ export function FormNavigation({
       </Button>
 
       <Button
-        disabled={isSubmitting}
+        disabled={isSubmitting || !canSubmit}
         size="lg"
         className={cn('', {
           'bg-secondary text-secondary-foreground hover:bg-secondary/90': isLastStep,
-          'bg-destructive': !canSubmit,
         })}
       >
         {isSubmitting ? (

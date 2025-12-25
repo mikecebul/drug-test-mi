@@ -15,7 +15,7 @@ import type { Medication } from '@/app/dashboard/medications/types'
 /**
  * Get all medications for a client (for admin medication management)
  */
-export async function adminGetClientMedicationsAction(clientId: string) {
+export async function getClientMedications(clientId: string) {
   const payload = await getPayload({ config: configPromise })
 
   try {

@@ -48,6 +48,7 @@ import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc056
 import { default as default_562672c6d49401890858663241518d7e } from '@/components/views/Analytics'
 import { default as default_cd10ba55e3928e2da95a1a9c2ec66168 } from '@/components/views/DrugTestTracker'
 import { default as default_3e70a6826950773e051bd20f64041803 } from '@/components/views/PDFUploadWizard'
+import { CollectionCards as CollectionCards_ab83ff7e88da8d3530831f296ec4756a } from '@payloadcms/ui/rsc'
 
 export const importMap = {
   "@/fields/link/LinkRowLabel#default": default_88a731f1ba0e751fb9249907ce942610,
@@ -99,5 +100,6 @@ export const importMap = {
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
   "@/components/views/Analytics#default": default_562672c6d49401890858663241518d7e,
   "@/components/views/DrugTestTracker#default": default_cd10ba55e3928e2da95a1a9c2ec66168,
-  "@/components/views/PDFUploadWizard#default": default_3e70a6826950773e051bd20f64041803
+  "@/components/views/PDFUploadWizard#default": default_3e70a6826950773e051bd20f64041803,
+  "@payloadcms/ui/rsc#CollectionCards": CollectionCards_ab83ff7e88da8d3530831f296ec4756a
 }

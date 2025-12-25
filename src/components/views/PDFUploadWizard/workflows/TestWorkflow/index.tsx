@@ -49,10 +49,6 @@ export function TestWorkflow() {
             />
           )}
         </div>
-        {/* <Alert>
-          <AlertTitle>{errors.length > 0 ? errors[0].message : ""}</AlertTitle>
-        </Alert> */}
-
         <FormNavigation form={form} sections={steps} />
       </form>
     </>
