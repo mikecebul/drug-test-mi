@@ -2,19 +2,15 @@
 
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, Check, Loader2 } from 'lucide-react'
-import { cn } from '@/utilities/cn'
 import { withForm } from '@/blocks/Form/hooks/form'
-
 import { useStore } from '@tanstack/react-form'
-import { testWorkflowFormOpts } from '../workflows/collect-lab-workflow/shared-form'
+import { steps } from '../validators'
+import { collectLabFormOpts } from '../shared-form'
 
-export const FormNavigationComponent = withForm({
-  ...testWorkflowFormOpts,
-  props: {
-    steps: ['client'],
-  },
+export const CollectLabNavigation = withForm({
+  ...collectLabFormOpts,
 
-  render: function Render({ form, steps }) {
+  render: function Render({ form }) {
     const currentStep = useStore(form.store, (state) => state.values.step)
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
     const canSubmit = useStore(form.store, (state) => state.canSubmit)
@@ -45,13 +41,7 @@ export const FormNavigationComponent = withForm({
           {isFirstStep ? 'Cancel' : 'Back'}
         </Button>
 
-        <Button
-          disabled={isSubmitting || !canSubmit}
-          size="lg"
-          className={cn('', {
-            'bg-secondary text-secondary-foreground hover:bg-secondary/90': isLastStep,
-          })}
-        >
+        <Button disabled={isSubmitting || !canSubmit} size="lg">
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -59,7 +49,7 @@ export const FormNavigationComponent = withForm({
             </>
           ) : (
             <>
-              {isLastStep ? 'cancel' : 'Next'}
+              {isLastStep ? 'Submit' : 'Next'}
               {isLastStep ? (
                 <Check className="ml-2 h-5 w-5" />
               ) : (

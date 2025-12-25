@@ -1,15 +1,14 @@
 'use client'
 
-import React, { useState } from 'react'
-import { ShadcnWrapper } from '@/components/ShadcnWrapper'
+import React, { Suspense, useState } from 'react'
 import { WizardTypeSelector } from './WizardTypeSelector'
-import { CollectLabWorkflow } from './workflows/CollectLabWorkflow'
+import { WizardTypeSelectorSkeleton } from './WizardTypeSelectorSkeleton'
 import { EnterLabScreenWorkflow } from './workflows/EnterLabScreenWorkflow'
 import { EnterLabConfirmationWorkflow } from './workflows/EnterLabConfirmationWorkflow'
 import { InstantTestWorkflow } from './workflows/InstantTestWorkflow'
 import type { WizardType } from './types'
 import { WizardHeader } from './components/WizardHeader'
-import { TestWorkflow } from './workflows/TestWorkflow'
+import { CollectLabWorkflow } from './workflows/collect-lab-workflow/Workflow'
 
 export function PDFUploadWizardClient() {
   const [selectedWorkflow, setSelectedWorkflow] = useState<WizardType | null>(null)
@@ -32,14 +31,16 @@ export function PDFUploadWizardClient() {
           title="Drug Test Workflow"
           description="Select the type of workflow you want to perform"
         />
-        <WizardTypeSelector onSelect={handleWorkflowSelect} />
+        <Suspense fallback={<WizardTypeSelectorSkeleton />}>
+          <WizardTypeSelector onSelect={handleWorkflowSelect} />
+        </Suspense>
       </>
     )
   }
 
   // Route to appropriate workflow
   if (selectedWorkflow === 'collect-lab') {
-    return <TestWorkflow />
+    return <CollectLabWorkflow />
   }
 
   if (selectedWorkflow === 'enter-lab-screen') {

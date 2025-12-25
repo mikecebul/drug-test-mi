@@ -29,7 +29,6 @@ const defaultValues: PdfUploadFormType = {
     score: 0,
   },
   medicationsData: {
-    verified: true,
     medications: [],
   },
   verifyData: {

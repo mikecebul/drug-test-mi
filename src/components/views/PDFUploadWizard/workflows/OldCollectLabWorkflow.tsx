@@ -44,7 +44,7 @@ interface CollectLabWorkflowProps {
   onBack: () => void
 }
 
-export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
+export function OldCollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   const router = useRouter()
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
 

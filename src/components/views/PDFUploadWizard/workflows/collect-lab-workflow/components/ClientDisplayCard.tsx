@@ -1,12 +1,11 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/utilities/cn'
-import { CheckCircle2, Mail } from 'lucide-react'
-import { FormValues } from '../../workflows/TestWorkflow/validators'
+import { Mail } from 'lucide-react'
+import { FormValues } from '../validators'
 
 interface ClientCardProps {
-  client: FormValues['clientData']
+  client: FormValues['client']
   onClick?: () => void
   selected?: boolean
 }
@@ -38,10 +37,6 @@ export const ClientDisplayCard = ({ client, onClick, selected }: ClientCardProps
               {client.firstName} {client.middleInitial ? `${client.middleInitial}. ` : ''}
               {client.lastName}
             </p>
-            {/* {client.matchType === 'exact' && <Badge className="bg-green-600">Exact</Badge>}
-            {client.score > 0 && client.matchType !== 'exact' && (
-              <Badge variant="secondary">{Math.round(client.score * 100)}% Match</Badge>
-            )} */}
           </div>
           <div className="text-muted-foreground mt-1 flex items-center gap-2 text-sm">
             <Mail className="h-3.5 w-3.5" />

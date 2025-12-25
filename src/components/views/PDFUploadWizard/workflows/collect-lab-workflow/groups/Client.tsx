@@ -7,16 +7,17 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useDismissModal } from '@/components/ui/dialog'
 import { Check, UserPlus } from 'lucide-react'
-import { useGetClientsQuery } from '../../queries'
-import { wizardContainerStyles } from '../../styles'
-import { testWorkflowFormOpts } from '../../workflows/TestWorkflow/shared-form'
-import { ClientDisplayCard } from '../../field-groups/VerifyClient/ClientDisplayCard'
-import { SearchDialog } from '../../field-groups/VerifyClient/SearchDialog'
-import { FormValues } from './validators'
+import { useGetClientsQuery } from '../../../queries'
+import { collectLabFormOpts } from '../shared-form'
+import { ClientDisplayCard } from '../../../field-groups/VerifyClient/ClientDisplayCard'
+import { SearchDialog } from '../../../field-groups/VerifyClient/SearchDialog'
+import { FormValues } from '../validators'
+import { WizardHeader } from '../../../components/WizardHeader'
+import { FieldGroupHeader } from '../../../components/FieldGroupHeader'
 
 // Export the schema for reuse in step validation
 
-const defaultValues: FormValues['clientData'] = {
+const defaultValues: FormValues['client'] = {
   id: '',
   firstName: '',
   lastName: '',
@@ -26,11 +27,11 @@ const defaultValues: FormValues['clientData'] = {
   headshot: null,
 }
 
-export const VerifyClientFieldGroup = withForm({
-  ...testWorkflowFormOpts,
+export const ClientGroup = withForm({
+  ...collectLabFormOpts,
 
   props: {
-    title: 'Verify Client',
+    title: 'Choose a Client',
   },
 
   render: function Render({ form, title }) {
@@ -38,8 +39,8 @@ export const VerifyClientFieldGroup = withForm({
     const [showRegisterDialog, setShowRegisterDialog] = useState(false)
 
     // Get selected client ID and data from form state
-    const selectedClientId = useStore(form.store, (state) => state.values.clientData.id)
-    const selectedClientData = useStore(form.store, (state) => state.values.clientData)
+    const selectedClientId = useStore(form.store, (state) => state.values.client.id)
+    const selectedclient = useStore(form.store, (state) => state.values.client)
 
     // Query for all clients (only enabled when needed)
     const { data: clients } = useGetClientsQuery()
@@ -47,14 +48,13 @@ export const VerifyClientFieldGroup = withForm({
     const { dismiss } = useDismissModal()
 
     const handleSelectClient = (client: any) => {
-      console.log('Client:', client)
-      form.setFieldValue('clientData.id', client.id)
-      form.setFieldValue('clientData.firstName', client.firstName)
-      form.setFieldValue('clientData.lastName', client.lastName)
-      form.setFieldValue('clientData.middleInitial', client.middleInitial ?? null)
-      form.setFieldValue('clientData.email', client.email)
-      form.setFieldValue('clientData.dob', client.dob ?? null)
-      form.setFieldValue('clientData.headshot', client.headshot ?? null)
+      form.setFieldValue('client.id', client.id)
+      form.setFieldValue('client.firstName', client.firstName)
+      form.setFieldValue('client.lastName', client.lastName)
+      form.setFieldValue('client.middleInitial', client.middleInitial ?? null)
+      form.setFieldValue('client.email', client.email)
+      form.setFieldValue('client.dob', client.dob ?? null)
+      form.setFieldValue('client.headshot', client.headshot ?? null)
       try {
         dismiss()
       } catch (e) {
@@ -63,8 +63,9 @@ export const VerifyClientFieldGroup = withForm({
     }
 
     return (
-      <div className={wizardContainerStyles.content}>
-        <form.AppField name="clientData.id">
+      <div>
+        <FieldGroupHeader title={title} />
+        <form.AppField name="client.id">
           {(idField) => (
             <div className="space-y-6">
               {/* STATE 1: Confirming Selection */}
@@ -74,9 +75,9 @@ export const VerifyClientFieldGroup = withForm({
                     Selected Client
                   </h4>
                   <ClientDisplayCard
-                    client={selectedClientData}
+                    client={selectedclient}
                     selected={true}
-                    onClick={() => form.setFieldValue('clientData.id', '')}
+                    onClick={() => form.setFieldValue('client.id', '')}
                   />
                 </div>
               )}

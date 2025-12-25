@@ -21,7 +21,7 @@ import { wizardContainerStyles } from '../../styles'
 import { cn } from '@/utilities/cn'
 import { ClientDisplayCard } from './ClientDisplayCard'
 import { SearchDialog } from './SearchDialog'
-import { testWorkflowFormOpts } from '../../workflows/TestWorkflow/shared-form'
+import { testWorkflowFormOpts } from '../../workflows/collect-lab-workflow/shared-form'
 
 // Export the schema for reuse in step validation
 export const verifyClientFieldSchema = z.object({

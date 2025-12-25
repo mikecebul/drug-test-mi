@@ -1,17 +1,17 @@
 'use client'
 
 import { withForm } from '@/blocks/Form/hooks/form'
-import { testWorkflowFormOpts } from './shared-form'
+import { collectLabFormOpts } from '../shared-form'
 import { useStore } from '@tanstack/react-form'
 import { useQuery } from '@tanstack/react-query'
 import { sdk } from '@/lib/payload-sdk'
 import { Client } from '@/payload-types'
 import { Card, CardContent } from '@/components/ui/card'
-import { FieldGroupHeader } from '../../components/FieldGroupHeader'
+import { FieldGroupHeader } from '../../../components/FieldGroupHeader'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { RefreshCw } from 'lucide-react'
-import { MedicationList } from '../../components/medications/MedicationList'
+import { MedicationList } from '../../../components/medications/MedicationList'
 import { useEffect } from 'react'
 
 // Export the schema for reuse in step validation
@@ -24,8 +24,8 @@ const getClientMedications = async (clientId: string): Promise<Client['medicatio
   return client.medications || []
 }
 
-export const VerifyMedicationsFieldGroup = withForm({
-  ...testWorkflowFormOpts,
+export const MedicationsGroup = withForm({
+  ...collectLabFormOpts,
 
   props: {
     title: 'Verify Medications',
@@ -33,7 +33,7 @@ export const VerifyMedicationsFieldGroup = withForm({
   },
 
   render: function Render({ form, title, description = '' }) {
-    const client = useStore(form.store, (state) => state.values.clientData)
+    const client = useStore(form.store, (state) => state.values.client)
 
     const {
       data: medications,
@@ -50,13 +50,13 @@ export const VerifyMedicationsFieldGroup = withForm({
       const result = await refetch()
       if (result.data) {
         // Force the form to overwrite current edits with fresh server data
-        form.setFieldValue('medicationsData.medications', result.data)
+        form.setFieldValue('medications', result.data)
       }
     }
 
     useEffect(() => {
       if (medications && medications.length > 0) {
-        form.setFieldValue('medicationsData.medications', medications)
+        form.setFieldValue('medications', medications)
       }
     }, [medications, form])
 
@@ -141,7 +141,7 @@ export const VerifyMedicationsFieldGroup = withForm({
                 <p>Loading medications...</p>
               </div>
             ) : (
-              <form.AppField name="medicationsData.medications" mode="array">
+              <form.AppField name="medications" mode="array">
                 {(field) => {
                   // Filter to only show active medications
                   const activeMedications = field.state.value.filter(

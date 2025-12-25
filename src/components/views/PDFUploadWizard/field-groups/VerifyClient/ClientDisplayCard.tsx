@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/utilities/cn'
 import { CheckCircle2, Mail } from 'lucide-react'
-import { FormValues } from '../../workflows/TestWorkflow/validators'
+import { FormValues } from '../../workflows/collect-lab-workflow/validators'
 
 interface ClientCardProps {
   client: FormValues['clientData']
