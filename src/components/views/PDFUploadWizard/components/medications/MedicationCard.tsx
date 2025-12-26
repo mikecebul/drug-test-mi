@@ -3,19 +3,27 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Pill, Edit, XCircle } from 'lucide-react'
+import { Pill, Edit, XCircle, RotateCcw } from 'lucide-react'
 import { motion } from 'motion/react'
 import type { Medication } from '@/app/dashboard/medications/types'
 import { formatSubstance } from '@/lib/substances'
+import { cn } from '@/utilities/cn'
 
 interface MedicationCardProps {
   medication: Medication
   index: number
   onEdit: (index: number) => void
   onToggleStatus: (index: number) => void
+  isDiscontinued?: boolean
 }
 
-export function MedicationCard({ medication, index, onEdit, onToggleStatus }: MedicationCardProps) {
+export function MedicationCard({
+  medication,
+  index,
+  onEdit,
+  onToggleStatus,
+  isDiscontinued = false,
+}: MedicationCardProps) {
   return (
     <motion.div
       layout
@@ -24,31 +32,57 @@ export function MedicationCard({ medication, index, onEdit, onToggleStatus }: Me
       exit={{ opacity: 0, height: 0 }}
       transition={{ duration: 0.2 }}
     >
-      <Card>
+      <Card className={cn(isDiscontinued && 'bg-muted/30 opacity-60')}>
         <CardContent className="pt-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-1 items-start gap-3">
-              <div className="bg-primary/10 flex size-12 shrink-0 items-center justify-center rounded-full">
-                <Pill className="text-primary size-6" />
+              <div
+                className={cn(
+                  'flex size-12 shrink-0 items-center justify-center rounded-full',
+                  isDiscontinued ? 'bg-muted' : 'bg-primary/10',
+                )}
+              >
+                <Pill
+                  className={cn(
+                    'size-6',
+                    isDiscontinued ? 'text-muted-foreground' : 'text-primary',
+                  )}
+                />
               </div>
               <div className="flex-1 space-y-2">
                 <div>
-                  <h4 className="text-xl font-semibold">{medication.medicationName}</h4>
+                  <h4
+                    className={cn(
+                      'text-xl font-semibold',
+                      isDiscontinued && 'text-muted-foreground line-through',
+                    )}
+                  >
+                    {medication.medicationName}
+                  </h4>
                   {medication.detectedAs && medication.detectedAs.length > 0 && (
-                    <p className="text-warning mt-1 text-base">
+                    <p
+                      className={cn(
+                        'mt-1 text-base',
+                        isDiscontinued ? 'text-muted-foreground' : 'text-warning',
+                      )}
+                    >
                       {medication.detectedAs.map((s) => formatSubstance(s)).join(', ')}
                     </p>
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="default">Active</Badge>
+                  <Badge variant={isDiscontinued ? 'secondary' : 'default'}>
+                    {isDiscontinued ? 'Discontinued' : 'Active'}
+                  </Badge>
                   {medication.requireConfirmation && (
                     <Badge variant="outline" className="border-orange-300 text-orange-600">
                       Required
                     </Badge>
                   )}
                   <span className="text-muted-foreground text-xs">
-                    Started: {new Date(medication.startDate).toLocaleDateString()}
+                    {isDiscontinued && medication.endDate
+                      ? `Ended: ${new Date(medication.endDate).toLocaleDateString()}`
+                      : `Started: ${new Date(medication.startDate).toLocaleDateString()}`}
                   </span>
                 </div>
                 {medication.notes && (
@@ -57,24 +91,29 @@ export function MedicationCard({ medication, index, onEdit, onToggleStatus }: Me
               </div>
             </div>
             <div className="flex shrink-0 gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => onEdit(index)}
-                title="Edit medication"
-              >
-                <Edit className="size-5" />
-              </Button>
+              {!isDiscontinued && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onEdit(index)}
+                  title="Edit medication"
+                >
+                  <Edit className="size-5" />
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => onToggleStatus(index)}
-                title="Mark as discontinued"
-                className="text-muted-foreground hover:text-destructive"
+                title={isDiscontinued ? 'Reactivate medication' : 'Mark as discontinued'}
+                className={cn(
+                  'text-muted-foreground',
+                  isDiscontinued ? 'hover:text-green-600' : 'hover:text-destructive',
+                )}
               >
-                <XCircle className="size-5" />
+                {isDiscontinued ? <RotateCcw className="size-5" /> : <XCircle className="size-5" />}
               </Button>
             </div>
           </div>

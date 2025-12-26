@@ -35,16 +35,18 @@ export const VerifyMedicationsFieldGroup = withFieldGroup({
     const formValues = useStore(group.form.store, (state: any) => state.values)
     const client = formValues?.clientData
 
-    // Get medications from form state
-    const medications = useStore(group.store, (state) => state.values.medications || [])
+    const [, forceUpdate] = useState(0)
 
     // State for loading initial medications
     const [isLoading, setIsLoading] = useState(true)
     const [initialFetchDone, setInitialFetchDone] = useState(false)
 
-    // Fetch medications on mount and store in form state
+    // Fetch medications on mount if form doesn't already have them
     useEffect(() => {
-      if (!client?.id || initialFetchDone) {
+      const formMeds = group.getFieldValue('medications')
+      const formHasMeds = formMeds && formMeds.length > 0
+
+      if (!client?.id || initialFetchDone || formHasMeds) {
         setIsLoading(false)
         return
       }
@@ -54,7 +56,6 @@ export const VerifyMedicationsFieldGroup = withFieldGroup({
         try {
           const result = await getClientMedications(client.id)
           if (result.success) {
-            // Store medications in form state
             group.setFieldValue('medications', result.medications)
           }
         } catch (error) {
@@ -154,21 +155,21 @@ export const VerifyMedicationsFieldGroup = withFieldGroup({
               </div>
             ) : (
               <group.AppField name="medications" mode="array">
-                {(field) => {
-                  // Filter to only show active medications
-                  const activeMedications = field.state.value.filter(
-                    (med: any) => med.status === 'active',
-                  )
-                  const allMedications = field.state.value
-
-                  return (
-                    <MedicationList
-                      field={field}
-                      activeMedications={activeMedications}
-                      allMedications={allMedications}
-                    />
-                  )
-                }}
+                {(field) => (
+                  <MedicationList
+                    medications={field.state.value}
+                    onAddMedication={(medication) => {
+                      field.pushValue(medication)
+                      forceUpdate((n) => n + 1)
+                    }}
+                    onUpdateMedication={(index, updatedMedication) => {
+                      const newMedications = [...field.state.value]
+                      newMedications[index] = updatedMedication
+                      field.handleChange(newMedications)
+                      forceUpdate((n) => n + 1)
+                    }}
+                  />
+                )}
               </group.AppField>
             )}
           </CardContent>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
@@ -12,14 +12,33 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
 import { toast } from 'sonner'
 
 interface MedicationListProps {
-  field: any // TanStack Form field for medications array
-  activeMedications: Medication[]
-  allMedications: Medication[]
+  medications: Medication[]
+  onAddMedication: (medication: Medication) => void
+  onUpdateMedication: (index: number, updatedMedication: Medication) => void
 }
 
-export function MedicationList({ field, activeMedications, allMedications }: MedicationListProps) {
+export function MedicationList({
+  medications,
+  onAddMedication,
+  onUpdateMedication,
+}: MedicationListProps) {
   const [isAdding, setIsAdding] = useState(false)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
+
+  // Sort medications: active first, discontinued last, preserving original indices
+  const { activeMedications, discontinuedMedications } = useMemo(() => {
+    const withIndices = medications.map((medication, originalIndex) => ({
+      medication,
+      originalIndex,
+    }))
+
+    return {
+      activeMedications: withIndices.filter((item) => item.medication.status === 'active'),
+      discontinuedMedications: withIndices.filter(
+        (item) => item.medication.status === 'discontinued',
+      ),
+    }
+  }, [medications])
 
   const handleAdd = (data: {
     medicationName: string
@@ -27,7 +46,6 @@ export function MedicationList({ field, activeMedications, allMedications }: Med
     requireConfirmation: boolean
     notes: string
   }) => {
-    // Create new medication object
     const newMedication: Medication = {
       medicationName: data.medicationName,
       startDate: new Date().toISOString(),
@@ -38,8 +56,7 @@ export function MedicationList({ field, activeMedications, allMedications }: Med
       createdAt: new Date().toISOString(),
     }
 
-    // Add to medications array using field API
-    field.pushValue(newMedication)
+    onAddMedication(newMedication)
     setIsAdding(false)
     toast.success('Medication added')
   }
@@ -52,40 +69,45 @@ export function MedicationList({ field, activeMedications, allMedications }: Med
   }) => {
     if (editingIndex === null) return
 
-    // Find the actual index in the full medications array
-    const actualIndex = allMedications.findIndex((med) => med === activeMedications[editingIndex])
+    const existingMedication = medications[editingIndex]
 
-    // Update the medication
-    const updatedMedications = [...allMedications]
-    updatedMedications[actualIndex] = {
-      ...updatedMedications[actualIndex],
+    const updatedMedication: Medication = {
+      ...existingMedication,
       medicationName: data.medicationName,
       detectedAs: data.detectedAs as any,
       requireConfirmation: data.requireConfirmation,
       notes: data.notes,
     }
 
-    // Update field value
-    field.setValue(updatedMedications)
+    onUpdateMedication(editingIndex, updatedMedication)
     setEditingIndex(null)
     toast.success('Medication updated')
   }
 
-  const handleMarkInactive = (activeIndex: number) => {
-    // Find the actual index in the full medications array
-    const actualIndex = allMedications.findIndex((med) => med === activeMedications[activeIndex])
+  const handleMarkInactive = (originalIndex: number) => {
+    const existingMedication = medications[originalIndex]
 
-    // Mark as discontinued
-    const updatedMedications = [...allMedications]
-    updatedMedications[actualIndex] = {
-      ...updatedMedications[actualIndex],
+    const updatedMedication: Medication = {
+      ...existingMedication,
       status: 'discontinued',
       endDate: new Date().toISOString(),
     }
 
-    // Update field value
-    field.setValue(updatedMedications)
+    onUpdateMedication(originalIndex, updatedMedication)
     toast.success('Medication marked as discontinued')
+  }
+
+  const handleMarkActive = (originalIndex: number) => {
+    const existingMedication = medications[originalIndex]
+
+    const updatedMedication: Medication = {
+      ...existingMedication,
+      status: 'active',
+      endDate: undefined,
+    }
+
+    onUpdateMedication(originalIndex, updatedMedication)
+    toast.success('Medication reactivated')
   }
 
   return (
@@ -96,19 +118,19 @@ export function MedicationList({ field, activeMedications, allMedications }: Med
       {/* Edit form */}
       {editingIndex !== null && (
         <EditMedicationForm
-          medication={activeMedications[editingIndex]}
+          medication={medications[editingIndex]}
           onSubmit={handleEdit}
           onCancel={() => setEditingIndex(null)}
         />
       )}
 
-      {/* Medication list - only show active medications */}
+      {/* Active Medications */}
       <AnimatePresence mode="sync">
-        {activeMedications.map((medication, index) => (
+        {activeMedications.map(({ medication, originalIndex }) => (
           <MedicationCard
-            key={index}
+            key={`${medication.medicationName}-${medication.startDate}-${originalIndex}`}
             medication={medication}
-            index={index}
+            index={originalIndex}
             onEdit={(idx) => {
               setIsAdding(false)
               setEditingIndex(idx)
@@ -118,10 +140,36 @@ export function MedicationList({ field, activeMedications, allMedications }: Med
         ))}
       </AnimatePresence>
 
+      {/* Discontinued Medications Section */}
+      {discontinuedMedications.length > 0 && (
+        <>
+          <div className="border-t pt-4">
+            <h4 className="text-muted-foreground mb-2 text-sm font-medium">
+              Discontinued Medications
+            </h4>
+          </div>
+          <AnimatePresence mode="sync">
+            {discontinuedMedications.map(({ medication, originalIndex }) => (
+              <MedicationCard
+                key={`${medication.medicationName}-${medication.startDate}-${originalIndex}`}
+                medication={medication}
+                index={originalIndex}
+                onEdit={(idx) => {
+                  setIsAdding(false)
+                  setEditingIndex(idx)
+                }}
+                onToggleStatus={handleMarkActive}
+                isDiscontinued
+              />
+            ))}
+          </AnimatePresence>
+        </>
+      )}
+
       {/* Empty state */}
-      {activeMedications.length === 0 && !isAdding && (
+      {medications.length === 0 && !isAdding && (
         <div className="text-muted-foreground py-8 text-center">
-          <p className="mb-2">No active medications documented</p>
+          <p className="mb-2">No medications documented</p>
           <p className="text-sm">Add medications to ensure accurate drug test interpretation</p>
         </div>
       )}

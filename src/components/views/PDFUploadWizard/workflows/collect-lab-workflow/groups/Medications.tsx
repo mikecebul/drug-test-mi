@@ -12,9 +12,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { RefreshCw } from 'lucide-react'
 import { MedicationList } from '../../../components/medications/MedicationList'
-import { useEffect } from 'react'
-
-// Export the schema for reuse in step validation
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 const getClientMedications = async (clientId: string): Promise<Client['medications']> => {
   const client = await sdk.findByID({
@@ -33,16 +32,18 @@ export const MedicationsGroup = withForm({
   },
 
   render: function Render({ form, title, description = '' }) {
+    const router = useRouter()
     const client = useStore(form.store, (state) => state.values.client)
+    // const [, forceUpdate] = useState(0)
 
     const {
       data: medications,
       isLoading,
-      error,
       refetch,
     } = useQuery({
       queryKey: ['medications', client.id],
       queryFn: () => getClientMedications(client.id),
+      staleTime: Infinity,
       enabled: !!client.id,
     })
 
@@ -54,8 +55,11 @@ export const MedicationsGroup = withForm({
       }
     }
 
+    // Only initialize medications if form doesn't already have them
     useEffect(() => {
-      if (medications && medications.length > 0) {
+      const formMeds = form.getFieldValue('medications')
+      const formIsEmpty = !formMeds || formMeds.length === 0
+      if (formIsEmpty && medications && medications.length > 0) {
         form.setFieldValue('medications', medications)
       }
     }, [medications, form])
@@ -142,21 +146,21 @@ export const MedicationsGroup = withForm({
               </div>
             ) : (
               <form.AppField name="medications" mode="array">
-                {(field) => {
-                  // Filter to only show active medications
-                  const activeMedications = field.state.value.filter(
-                    (med: any) => med.status === 'active',
-                  )
-                  const allMedications = field.state.value
-
-                  return (
-                    <MedicationList
-                      field={field}
-                      activeMedications={activeMedications}
-                      allMedications={allMedications}
-                    />
-                  )
-                }}
+                {(field) => (
+                  <MedicationList
+                    medications={field.state.value}
+                    onAddMedication={(medication) => {
+                      field.pushValue(medication)
+                      router.refresh()
+                    }}
+                    onUpdateMedication={(index, updatedMedication) => {
+                      const newMedications = [...field.state.value]
+                      newMedications[index] = updatedMedication
+                      field.handleChange(newMedications)
+                      router.refresh()
+                    }}
+                  />
+                )}
               </form.AppField>
             )}
           </CardContent>
