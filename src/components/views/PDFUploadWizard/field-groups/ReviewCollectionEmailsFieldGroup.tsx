@@ -78,7 +78,6 @@ export const ReviewCollectionEmailsFieldGroup = withFieldGroup({
       clientId: clientData?.id,
       testType: collectionDetails?.testType,
       collectionDate: collectionDetails?.collectionDate,
-      collectionTime: collectionDetails?.collectionTime,
       breathalyzerTaken: collectionDetails?.breathalyzerTaken,
       breathalyzerResult: collectionDetails?.breathalyzerResult,
     })

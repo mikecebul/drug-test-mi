@@ -10,7 +10,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Check } from 'lucide-react'
-import type { SimpleClient } from '../../types'
+import type { SimpleClient } from '../queries/getClients'
 
 export const SearchDialog = ({
   allClients,

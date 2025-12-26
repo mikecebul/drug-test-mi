@@ -1,7 +1,8 @@
-import { formOptions } from '@tanstack/react-form'
+import { formOptions, revalidateLogic } from '@tanstack/react-form'
 import { collectionSchema, formSchema, type FormValues } from './validators'
 import { clientSchema } from './validators'
 import { medicationsSchema } from './validators'
+import { emailsSchema } from './validators'
 
 const defaultValues: FormValues = {
   step: 'client',
@@ -17,10 +18,13 @@ const defaultValues: FormValues = {
   medications: [],
   collection: {
     testType: '11-panel-lab' as const,
-    collectionDate: new Date().toISOString().split('T')[0],
-    collectionTime: new Date().toTimeString().slice(0, 5),
+    collectionDate: new Date().toISOString(),
     breathalyzerTaken: false,
     breathalyzerResult: null,
+  },
+  emails: {
+    referralEmailEnabled: true,
+    referralRecipients: [],
   },
 }
 
@@ -39,6 +43,9 @@ export const collectLabFormOpts = formOptions({
       }
       if (value.step === 'confirm') {
         return
+      }
+      if (value.step === 'reviewEmails') {
+        return formApi.parseValuesWithSchema(emailsSchema as typeof formSchema)
       }
     },
   },

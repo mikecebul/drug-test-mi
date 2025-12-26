@@ -63,13 +63,7 @@ export const ConfirmGroup = withForm({
                 </h3>
                 <p className="mt-1 pl-6 text-lg">
                   {formValues.collection.collectionDate &&
-                    formValues.collection.collectionTime &&
-                    format(
-                      new Date(
-                        `${formValues.collection.collectionDate} ${formValues.collection.collectionTime}`,
-                      ),
-                      'PPp',
-                    )}
+                    format(new Date(formValues.collection.collectionDate), 'PPp')}
                 </p>
               </div>
 
@@ -84,7 +78,7 @@ export const ConfirmGroup = withForm({
                           variant={
                             formValues.collection.breathalyzerResult! > 0.0
                               ? 'destructive'
-                              : formValues.collection.breathalyzerResult! > 0.0
+                              : formValues.collection.breathalyzerResult! === 0
                                 ? 'success'
                                 : 'default'
                           }

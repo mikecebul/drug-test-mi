@@ -6,6 +6,7 @@ import { PDFUploadWizardClient } from './PDFUploadWizardClient'
 import ShadcnWrapper from '@/components/ShadcnWrapper'
 import { WizsrdContainer } from './components/WizardContainer'
 import { redirect } from 'next/navigation'
+import { Toaster } from '@/components/ui/sonner'
 
 export default function PDFUploadWizard({ initPageResult, params, searchParams }: AdminViewProps) {
   const navItem = [
@@ -36,6 +37,7 @@ export default function PDFUploadWizard({ initPageResult, params, searchParams }
         <WizsrdContainer>
           <PDFUploadWizardClient />
         </WizsrdContainer>
+        <Toaster />
       </ShadcnWrapper>
     </DefaultTemplate>
   )

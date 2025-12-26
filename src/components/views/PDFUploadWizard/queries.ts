@@ -141,7 +141,6 @@ export function useGetCollectionEmailPreviewQuery(data: {
   clientId: string | null | undefined
   testType: '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | null | undefined
   collectionDate: string | null | undefined
-  collectionTime: string | null | undefined
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
 }) {
@@ -149,7 +148,6 @@ export function useGetCollectionEmailPreviewQuery(data: {
     clientId,
     testType,
     collectionDate,
-    collectionTime,
     breathalyzerTaken,
     breathalyzerResult,
   } = data
@@ -160,24 +158,22 @@ export function useGetCollectionEmailPreviewQuery(data: {
       clientId,
       testType,
       collectionDate,
-      collectionTime,
       breathalyzerTaken,
       breathalyzerResult,
     ],
     queryFn: async () => {
-      if (!clientId || !testType || !collectionDate || !collectionTime) {
+      if (!clientId || !testType || !collectionDate) {
         return null
       }
       return getCollectionEmailPreview({
         clientId,
         testType,
         collectionDate,
-        collectionTime,
         breathalyzerTaken,
         breathalyzerResult,
       })
     },
-    enabled: Boolean(clientId && testType && collectionDate && collectionTime),
+    enabled: Boolean(clientId && testType && collectionDate),
     staleTime: 30 * 1000, // 30 seconds - email previews should be relatively fresh
   })
 }

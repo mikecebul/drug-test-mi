@@ -3,7 +3,14 @@
 import React from 'react'
 import { withForm } from '@/blocks/Form/hooks/form'
 import { Card, CardContent } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -12,6 +19,14 @@ import { FieldGroupHeader } from '../../../components/FieldGroupHeader'
 import { wizardContainerStyles } from '../../../styles'
 import { cn } from '@/utilities/cn'
 import { collectLabFormOpts } from '../shared-form'
+import { labTests } from '../validators'
+import InputDateTimePicker from '@/components/input-datetime-picker'
+
+const TEST_LABELS: Record<(typeof labTests)[number], string> = {
+  '11-panel-lab': '11-Panel',
+  '17-panel-sos-lab': '17-Panel SOS',
+  'etg-lab': 'EtG',
+}
 
 export const CollectionGroup = withForm({
   ...collectLabFormOpts,
@@ -27,6 +42,13 @@ export const CollectionGroup = withForm({
       (state) => state.values.collection.breathalyzerTaken,
     )
 
+    // Access collectionDate value for the date picker
+    const collectionDateValue = useStore(
+      form.store,
+      (state) => state.values.collection.collectionDate,
+    )
+    const collectionDateTime = collectionDateValue ? new Date(collectionDateValue) : undefined
+
     return (
       <div className={wizardContainerStyles.content}>
         <FieldGroupHeader title={title} description={description} />
@@ -37,90 +59,52 @@ export const CollectionGroup = withForm({
                 {/* Test Type Selection */}
                 <form.Field name="collection.testType">
                   {(field) => (
-                    <div className="space-y-3">
-                      <Label>Test Type *</Label>
+                    <Field data-invalid={field.state.meta.errors.length > 0}>
+                      <FieldLabel>Lab Test Type</FieldLabel>
                       <RadioGroup
+                        defaultValue="11-panel-lab"
                         value={field.state.value}
                         onValueChange={(value) => field.handleChange(value as any)}
+                        aria-invalid={field.state.meta.errors.length > 0}
                       >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="11-panel-lab" id="11-panel" />
-                          <Label htmlFor="11-panel" className="cursor-pointer font-normal">
-                            11-Panel Lab Test
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="17-panel-sos-lab" id="17-panel-sos" />
-                          <Label htmlFor="17-panel-sos" className="cursor-pointer font-normal">
-                            17-Panel SOS Lab Test
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="etg-lab" id="etg" />
-                          <Label htmlFor="etg" className="cursor-pointer font-normal">
-                            EtG Lab Test
-                          </Label>
-                        </div>
+                        {labTests.map((test) => (
+                          <div key={test} className="flex items-center space-x-2">
+                            <RadioGroupItem value={test} id={test} />
+                            <FieldLabel htmlFor={test} className="text-base font-light">
+                              {TEST_LABELS[test]}
+                            </FieldLabel>
+                          </div>
+                        ))}
                       </RadioGroup>
-                      {field.state.meta.errors.length > 0 && (
-                        <p className="text-destructive text-sm">
-                          {field.state.meta.errors[0]?.message}
-                        </p>
-                      )}
-                    </div>
+                      <FieldError errors={field.state.meta.errors} />
+                    </Field>
                   )}
                 </form.Field>
 
-                {/* Collection Date */}
-                <form.Field name="collection.collectionDate">
+                {/* Collection Date & Time */}
+                <form.AppField name="collection.collectionDate">
                   {(field) => (
-                    <div className="space-y-2">
-                      <Label htmlFor="collectionDate">Collection Date *</Label>
-                      <Input
-                        id="collectionDate"
-                        type="date"
-                        value={field.state.value}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        onBlur={field.handleBlur}
-                        max={new Date().toISOString().split('T')[0]}
+                    <Field data-invalid={field.state.meta.errors.length > 0} className="max-w-sm">
+                      <InputDateTimePicker
+                        id="collection-date"
+                        label="Collection Date & Time"
+                        value={collectionDateTime}
+                        onChange={(date) => field.handleChange(date?.toISOString() || '')}
+                        placeholder="Select date"
+                        required
+                        aria-invalid={field.state.meta.errors.length > 0}
                       />
-                      {field.state.meta.errors.length > 0 && (
-                        <p className="text-destructive text-sm">
-                          {field.state.meta.errors[0]?.message}
-                        </p>
-                      )}
-                    </div>
+                      <FieldError errors={field.state.meta.errors} />
+                    </Field>
                   )}
-                </form.Field>
-
-                {/* Collection Time */}
-                <form.Field name="collection.collectionTime">
-                  {(field) => (
-                    <div className="space-y-2">
-                      <Label htmlFor="collectionTime">Collection Time *</Label>
-                      <Input
-                        id="collectionTime"
-                        type="time"
-                        value={field.state.value}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        onBlur={field.handleBlur}
-                      />
-                      {field.state.meta.errors.length > 0 && (
-                        <p className="text-destructive text-sm">
-                          {field.state.meta.errors[0]?.message}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </form.Field>
+                </form.AppField>
 
                 {/* Breathalyzer Section */}
-                <div className="bg-muted/50 space-y-4 rounded-lg border p-4">
-                  <h3 className="text-sm font-medium">Breathalyzer Test (Optional)</h3>
-
+                <FieldSet>
+                  <FieldLegend>Breathalyzer Test (Optional)</FieldLegend>
                   <form.Field name="collection.breathalyzerTaken">
                     {(field) => (
-                      <div className="flex items-center space-x-2">
+                      <Field orientation="horizontal">
                         <Checkbox
                           id="breathalyzerTaken"
                           checked={field.state.value}
@@ -132,47 +116,44 @@ export const CollectionGroup = withForm({
                             }
                           }}
                         />
-                        <Label htmlFor="breathalyzerTaken" className="cursor-pointer font-normal">
+                        <FieldLabel
+                          htmlFor="breathalyzerTaken"
+                          className="cursor-pointer font-normal"
+                        >
                           Breathalyzer test was administered
-                        </Label>
-                      </div>
+                        </FieldLabel>
+                      </Field>
                     )}
                   </form.Field>
-
-                  {breathalyzerTaken && (
-                    <form.Field name="collection.breathalyzerResult">
-                      {(field) => (
-                        <div className="space-y-2">
-                          <Label htmlFor="breathalyzerResult">
-                            BAC Result <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            type="number"
-                            step="0.001"
-                            min="0"
-                            max="1"
-                            id="breathalyzerResult"
-                            value={field.state.value ?? ''}
-                            onChange={(e) =>
-                              field.handleChange(e.target.value ? parseFloat(e.target.value) : null)
-                            }
-                            onBlur={field.handleBlur}
-                            placeholder="0.000"
-                          />
-                          <p className="text-muted-foreground text-xs">
-                            Enter result with 3 decimal places. Threshold: 0.000 (any detectable
-                            alcohol = positive)
-                          </p>
-                          {field.state.meta.errors.length > 0 && (
-                            <p className="text-destructive text-sm">
-                              {field.state.meta.errors[0]?.message}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </form.Field>
-                  )}
-                </div>
+                </FieldSet>
+                {breathalyzerTaken && (
+                  <form.Field name="collection.breathalyzerResult">
+                    {(field) => (
+                      <Field data-invalid={field.state.meta.errors.length > 0}>
+                        <FieldLabel htmlFor="breathalyzerResult">BAC Result</FieldLabel>
+                        <Input
+                          type="number"
+                          step="0.001"
+                          min="0"
+                          max="1"
+                          id="breathalyzerResult"
+                          value={field.state.value ?? ''}
+                          onChange={(e) =>
+                            field.handleChange(e.target.value ? parseFloat(e.target.value) : null)
+                          }
+                          onBlur={field.handleBlur}
+                          placeholder="0.000"
+                          aria-invalid={field.state.meta.errors.length > 0}
+                        />
+                        <FieldDescription>
+                          Enter result with up to 3 decimal places. Threshold: 0.000 (any detectable
+                          alcohol = positive)
+                        </FieldDescription>
+                        <FieldError errors={field.state.meta.errors} />
+                      </Field>
+                    )}
+                  </form.Field>
+                )}
               </div>
             </CardContent>
           </Card>

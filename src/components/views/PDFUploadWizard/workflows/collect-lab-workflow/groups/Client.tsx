@@ -1,35 +1,21 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { use, useState } from 'react'
 import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useDismissModal } from '@/components/ui/dialog'
 import { Check, UserPlus } from 'lucide-react'
-import { useGetClientsQuery } from '../../../queries'
 import { collectLabFormOpts } from '../shared-form'
-import { ClientDisplayCard } from '../../../field-groups/VerifyClient/ClientDisplayCard'
-import { SearchDialog } from '../../../field-groups/VerifyClient/SearchDialog'
-import { FormValues } from '../validators'
-import { WizardHeader } from '../../../components/WizardHeader'
+import { useQuery } from '@tanstack/react-query'
+import { getClients, SimpleClient } from '../queries/getClients'
 import { FieldGroupHeader } from '../../../components/FieldGroupHeader'
-
-// Export the schema for reuse in step validation
-
-const defaultValues: FormValues['client'] = {
-  id: '',
-  firstName: '',
-  lastName: '',
-  middleInitial: null,
-  email: '',
-  dob: null,
-  headshot: null,
-}
+import { ClientDisplayCard } from '../components/ClientDisplayCard'
+import { SearchDialog } from '../components/SearchDialog'
 
 export const ClientGroup = withForm({
   ...collectLabFormOpts,
-
   props: {
     title: 'Choose a Client',
   },
@@ -43,11 +29,15 @@ export const ClientGroup = withForm({
     const selectedclient = useStore(form.store, (state) => state.values.client)
 
     // Query for all clients (only enabled when needed)
-    const { data: clients } = useGetClientsQuery()
+    const { data: clients } = useQuery({
+      queryKey: ['clients'],
+      queryFn: getClients,
+      staleTime: 30 * 1000, // 30 seconds - clients can be added/deleted frequently
+    })
 
     const { dismiss } = useDismissModal()
 
-    const handleSelectClient = (client: any) => {
+    const handleSelectClient = (client: SimpleClient) => {
       form.setFieldValue('client.id', client.id)
       form.setFieldValue('client.firstName', client.firstName)
       form.setFieldValue('client.lastName', client.lastName)

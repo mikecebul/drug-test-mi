@@ -54,7 +54,9 @@ export default function InputDateTimePicker({
   const [open, setOpen] = React.useState(false)
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(value)
   const [selectedTime, setSelectedTime] = React.useState<string | null>(
-    value ? `${value.getHours().toString().padStart(2, '0')}:${value.getMinutes().toString().padStart(2, '0')}` : null
+    value
+      ? `${value.getHours().toString().padStart(2, '0')}:${value.getMinutes().toString().padStart(2, '0')}`
+      : null,
   )
   const [inputValue, setInputValue] = React.useState(formatDisplayDateTime(value))
 
@@ -72,7 +74,7 @@ export default function InputDateTimePicker({
     if (value) {
       setSelectedDate(value)
       setSelectedTime(
-        `${value.getHours().toString().padStart(2, '0')}:${value.getMinutes().toString().padStart(2, '0')}`
+        `${value.getHours().toString().padStart(2, '0')}:${value.getMinutes().toString().padStart(2, '0')}`,
       )
       setInputValue(formatDisplayDateTime(value))
     }
@@ -111,7 +113,7 @@ export default function InputDateTimePicker({
     if (!isNaN(parsed.getTime())) {
       setSelectedDate(parsed)
       setSelectedTime(
-        `${parsed.getHours().toString().padStart(2, '0')}:${parsed.getMinutes().toString().padStart(2, '0')}`
+        `${parsed.getHours().toString().padStart(2, '0')}:${parsed.getMinutes().toString().padStart(2, '0')}`,
       )
       onChange(parsed)
       setInputValue(formatDisplayDateTime(parsed))
@@ -135,7 +137,7 @@ export default function InputDateTimePicker({
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       {label && (
-        <Label htmlFor={id} className="px-1">
+        <Label htmlFor={id} className="px-1 text-base">
           {label}
           {required && <span className="text-destructive ml-1">*</span>}
         </Label>
@@ -145,7 +147,7 @@ export default function InputDateTimePicker({
           id={id}
           value={inputValue}
           placeholder={placeholder}
-          className="bg-background pr-10"
+          className="bg-background pr-10 text-base"
           onChange={handleInputChange}
           onBlur={handleInputBlur}
         />
@@ -155,9 +157,9 @@ export default function InputDateTimePicker({
               type="button"
               variant="ghost"
               size="icon"
-              className="absolute top-1/2 right-2 h-6 w-6 -translate-y-1/2"
+              className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
             >
-              <CalendarIcon className="size-3" />
+              <CalendarIcon className="size-4" />
               <span className="sr-only">Select date and time</span>
             </Button>
           </PopoverTrigger>
@@ -174,7 +176,7 @@ export default function InputDateTimePicker({
                     className="bg-transparent p-0"
                   />
                 </div>
-                <div className="no-scrollbar inset-y-0 right-0 flex max-h-72 w-full scroll-pb-6 flex-col gap-2 overflow-y-auto border-t p-3 md:absolute md:max-h-none md:w-48 md:border-l md:border-t-0">
+                <div className="no-scrollbar inset-y-0 right-0 flex max-h-72 w-full scroll-pb-6 flex-col gap-2 overflow-y-auto border-t p-3 md:absolute md:max-h-none md:w-48 md:border-t-0 md:border-l">
                   <div className="grid gap-1">
                     {timeSlots.map((time) => (
                       <Button

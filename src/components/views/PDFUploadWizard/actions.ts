@@ -687,7 +687,6 @@ export async function getCollectionEmailPreview(data: {
   clientId: string
   testType: '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
   collectionDate: string
-  collectionTime: string
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
 }): Promise<{
@@ -727,7 +726,7 @@ export async function getCollectionEmailPreview(data: {
     // Build collection email HTML using existing template builder
     const clientName = `${client.firstName} ${client.lastName}`
     const clientDob = client.dob || null
-    const dateTimeStr = `${data.collectionDate} ${data.collectionTime}`
+    const dateTimeStr = `${data.collectionDate}`
     const collectionDate = new Date(dateTimeStr).toISOString()
 
     const emailData = await buildCollectedEmail({

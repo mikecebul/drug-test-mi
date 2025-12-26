@@ -1,13 +1,14 @@
 import { useAppForm } from '@/blocks/Form/hooks/form'
-import { WizardHeader } from '../../components/WizardHeader'
 import { useStore } from '@tanstack/react-form'
 import { collectLabFormOpts } from './shared-form'
 import { CollectLabNavigation } from './components/Navigation'
 import { ClientGroup } from './groups/Client'
 import { MedicationsGroup } from './groups/Medications'
 import { CollectionGroup } from './groups/Collection'
-import { PDFUploadWizardClient } from '../../PDFUploadWizardClient'
 import { ConfirmGroup } from './groups/Confirm'
+import { EmailsGroup } from './groups/Emails'
+import { getClients } from './queries/getClients'
+import { Suspense } from 'react'
 
 export function CollectLabWorkflow() {
   const form = useAppForm({
@@ -25,7 +26,10 @@ export function CollectLabWorkflow() {
           formApi.setFieldValue('step', 'confirm')
           break
         case 'confirm':
-          alert(JSON.stringify(value.collection, null, 2))
+          formApi.setFieldValue('step', 'reviewEmails')
+          break
+        case 'reviewEmails':
+          alert(JSON.stringify(value.emails, null, 2))
           break
       }
     },
@@ -40,9 +44,17 @@ export function CollectLabWorkflow() {
       case 'medications':
         return <MedicationsGroup form={form} title="Verify Medications" description="" />
       case 'collection':
-        return <CollectionGroup form={form} title="Verify Collection Details" description="" />
+        return (
+          <CollectionGroup
+            form={form}
+            title="Collection Details"
+            description="Verify the collection details are correct."
+          />
+        )
       case 'confirm':
-        return <ConfirmGroup form={form} title="Confirm Collection Details" />
+        return <ConfirmGroup form={form} title="Confirm Collection" />
+      case 'reviewEmails':
+        return <EmailsGroup form={form} title="Review Collection Notification" description="" />
       default:
         return <ClientGroup form={form} title="Select Client" />
     }
