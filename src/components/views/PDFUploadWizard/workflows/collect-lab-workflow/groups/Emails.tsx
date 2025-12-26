@@ -2,11 +2,10 @@
 
 import React, { useEffect, useState } from 'react'
 import { withForm } from '@/blocks/Form/hooks/form'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Loader2, Eye, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { useStore } from '@tanstack/react-form'
 import { RecipientEditor } from '../../../components/RecipientEditor'
@@ -16,6 +15,15 @@ import { FieldGroupHeader } from '../../../components/FieldGroupHeader'
 import { wizardContainerStyles } from '../../../styles'
 import { cn } from '@/utilities/cn'
 import { collectLabFormOpts } from '../shared-form'
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSeparator,
+  FieldSet,
+} from '@/components/ui/field'
 
 export const EmailsGroup = withForm({
   ...collectLabFormOpts,
@@ -95,34 +103,36 @@ export const EmailsGroup = withForm({
         <FieldGroupHeader title={title} description={description} />
         <div className={cn(wizardContainerStyles.fields, 'text-base md:text-lg')}>
           {/* Referral Email Section */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">Referral Notification</CardTitle>
-                  <CardDescription>
-                    Notify referrals that specimen has been collected
-                  </CardDescription>
-                </div>
-                <form.Field name="emails.referralEmailEnabled">
-                  {(field) => (
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="referral-enabled"
-                        checked={field.state.value}
-                        onCheckedChange={(checked) => field.handleChange(checked === true)}
-                      />
-                      <Label htmlFor="referral-enabled" className="cursor-pointer font-normal">
-                        Send referral notifications
-                      </Label>
-                    </div>
-                  )}
-                </form.Field>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <Card className="p-6">
+            <FieldGroup>
+              <FieldSet>
+                <FieldLegend>Referral Notification</FieldLegend>
+                <FieldDescription>
+                  Notify referrals that specimen has been collected
+                </FieldDescription>
+                <FieldGroup data-slot="checkbox-group">
+                  <form.Field name="emails.referralEmailEnabled">
+                    {(field) => (
+                      <Field
+                        orientation="horizontal"
+                        data-invalid={field.state.meta.errors.length > 0}
+                      >
+                        <Checkbox
+                          id="referral-enabled"
+                          checked={field.state.value}
+                          onCheckedChange={(checked) => field.handleChange(checked === true)}
+                        />
+                        <FieldLabel htmlFor="referral-enabled">
+                          Send referral notifications
+                        </FieldLabel>
+                      </Field>
+                    )}
+                  </form.Field>
+                </FieldGroup>
+              </FieldSet>
+              <FieldSeparator />
               {emails.referralEmailEnabled && (
-                <>
+                <FieldSet>
                   <form.Field name="emails.referralRecipients">
                     {(field) => (
                       <>
@@ -151,25 +161,16 @@ export const EmailsGroup = withForm({
                     <Eye className="mr-2 h-4 w-4" />
                     Preview Notification Email
                   </Button>
-                </>
+                </FieldSet>
               )}
-
-              {!emails.referralEmailEnabled && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Referrals will not be notified about this specimen collection.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
+            </FieldGroup>
           </Card>
 
           {/* Summary */}
           <Alert>
-            <CheckCircle2 className="h-4 w-4" />
+            <CheckCircle2 className="size-5" />
+            <AlertTitle>Ready to send</AlertTitle>
             <AlertDescription>
-              <strong>Ready to send:</strong>{' '}
               {emails.referralEmailEnabled && emails.referralRecipients.length > 0 ? (
                 <span>
                   {emails.referralRecipients.length} referral notification

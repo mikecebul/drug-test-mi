@@ -12,8 +12,8 @@ interface FieldGroupHeaderProps {
  * Replaces the repetitive title + description pattern used across all field groups
  *
  * Features:
- * - Title: text-3xl (up from text-2xl)
- * - Description: text-lg (up from base size)
+ * - Title: text-3xl
+ * - Description: text-lg
  * - Consistent spacing: space-y-3
  */
 export function FieldGroupHeader({ title, description, className }: FieldGroupHeaderProps) {
