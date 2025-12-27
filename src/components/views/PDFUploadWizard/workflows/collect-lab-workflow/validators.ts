@@ -1,3 +1,4 @@
+import { Client } from '@/payload-types'
 import z from 'zod'
 
 export const steps = ['client', 'medications', 'collection', 'confirm', 'reviewEmails'] as const
@@ -19,7 +20,18 @@ export const clientSchema = z.object({
 })
 
 export const medicationsSchema = z.object({
-  medications: z.array(z.any()), // Array of medications to be saved at the end
+  medications: z.array(
+    z.object({
+      medicationName: z.string().min(1, 'Medication name is required'),
+      startDate: z.string().min(1, 'Start date is required'), // Payload stores dates as ISO strings
+      endDate: z.string().nullable().optional(),
+      status: z.enum(['active', 'discontinued']),
+      detectedAs: z.array(z.string()).optional(),
+      requireConfirmation: z.boolean().optional(),
+      notes: z.string().optional(),
+      createdAt: z.string().optional(), // May be set server-side
+    }),
+  ),
 })
 
 export const collectionSchema = z.object({

@@ -37,7 +37,7 @@ export default function PDFUploadWizard({ initPageResult, params, searchParams }
         <WizsrdContainer>
           <PDFUploadWizardClient />
         </WizsrdContainer>
-        <Toaster />
+        <Toaster richColors toastOptions={{}} />
       </ShadcnWrapper>
     </DefaultTemplate>
   )

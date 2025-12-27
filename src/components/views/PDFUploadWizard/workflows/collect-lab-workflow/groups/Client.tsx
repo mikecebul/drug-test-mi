@@ -64,11 +64,7 @@ export const ClientGroup = withForm({
                   <h4 className="text-muted-foreground px-1 text-sm font-medium">
                     Selected Client
                   </h4>
-                  <ClientDisplayCard
-                    client={selectedclient}
-                    selected={true}
-                    onClick={() => form.setFieldValue('client.id', '')}
-                  />
+                  <ClientDisplayCard client={selectedclient} selected={true} />
                 </div>
               )}
 

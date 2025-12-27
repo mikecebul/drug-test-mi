@@ -6,16 +6,14 @@ import { FormValues } from '../validators'
 
 interface ClientCardProps {
   client: FormValues['client']
-  onClick?: () => void
   selected?: boolean
 }
 
-export const ClientDisplayCard = ({ client, onClick, selected }: ClientCardProps) => (
+export const ClientDisplayCard = ({ client, selected }: ClientCardProps) => (
   <Card
-    className={cn('hover:border-primary cursor-pointer transition-all', {
-      'border-success bg-success-muted shadow-sm': selected,
+    className={cn('', {
+      'border-info bg-info-muted shadow-sm': selected,
     })}
-    onClick={onClick}
   >
     <CardContent className="pt-6">
       <div className="flex items-start gap-4">
@@ -28,12 +26,7 @@ export const ClientDisplayCard = ({ client, onClick, selected }: ClientCardProps
         </Avatar>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p
-              className={cn(
-                'truncate font-semibold',
-                selected ? 'text-success-foreground' : 'text-foreground',
-              )}
-            >
+            <p className={cn('truncate font-semibold')}>
               {client.firstName} {client.middleInitial ? `${client.middleInitial}. ` : ''}
               {client.lastName}
             </p>
