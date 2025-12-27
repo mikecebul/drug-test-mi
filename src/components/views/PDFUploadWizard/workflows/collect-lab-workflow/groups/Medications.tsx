@@ -15,13 +15,7 @@ import { ClientDisplayCard } from '../components/ClientDisplayCard'
 import { Field, FieldContent, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Badge } from '@/components/ui/badge'
@@ -223,12 +217,8 @@ export const MedicationsGroup = withForm({
                           const isNew = med._isNew === true
 
                           return (
-                            <MedicationMotionWrapper
-                              key={`${med.medicationName || 'new'}-${med.startDate || i}-${i}`}
-                            >
-                              <form.Subscribe
-                                selector={(state) => state.values.medications[i]?.status}
-                              >
+                            <MedicationMotionWrapper key={`${med.medicationName || 'new'}-${med.startDate || i}-${i}`}>
+                              <form.Subscribe selector={(state) => state.values.medications[i]?.status}>
                                 {(status) => {
                                   const isDiscontinued = status === 'discontinued'
                                   return (
@@ -238,296 +228,263 @@ export const MedicationsGroup = withForm({
                                         isDiscontinued && 'bg-muted/30 opacity-60',
                                       )}
                                     >
-                                <Collapsible defaultOpen={isNew}>
-                                  {/* Header - always visible, clickable to toggle */}
-                                  <CollapsibleTrigger asChild>
-                                    <div className="hover:bg-muted/50 flex cursor-pointer items-center justify-between p-4 transition-colors">
-                                      <div className="flex flex-1 items-center gap-3">
-                                        <div
-                                          className={cn(
-                                            'flex size-10 shrink-0 items-center justify-center rounded-full',
-                                            isDiscontinued ? 'bg-muted' : 'bg-primary/10',
-                                          )}
-                                        >
-                                          <Pill
-                                            className={cn(
-                                              'size-5',
-                                              isDiscontinued
-                                                ? 'text-muted-foreground'
-                                                : 'text-primary',
-                                            )}
-                                          />
-                                        </div>
-                                        <div className="flex flex-1 flex-col gap-0.5">
-                                          <div className="flex items-center gap-2">
-                                            <form.Subscribe
-                                              selector={(state) =>
-                                                state.values.medications[i]?.medicationName
-                                              }
-                                            >
-                                              {(medicationName) => (
-                                                <span
-                                                  className={cn(
-                                                    'text-lg font-medium',
-                                                    isDiscontinued &&
-                                                      'text-muted-foreground line-through',
-                                                  )}
-                                                >
-                                                  {medicationName || 'New Medication'}
-                                                </span>
-                                              )}
-                                            </form.Subscribe>
-                                            <Badge
-                                              variant={isDiscontinued ? 'secondary' : 'default'}
-                                              className="ml-1"
-                                            >
-                                              {isDiscontinued ? 'Discontinued' : 'Active'}
-                                            </Badge>
-                                          </div>
-                                          {med.detectedAs &&
-                                            Array.isArray(med.detectedAs) &&
-                                            med.detectedAs.length > 0 && (
-                                              <span
+                                      <Collapsible defaultOpen={isNew}>
+                                        {/* Header - always visible, clickable to toggle */}
+                                        <CollapsibleTrigger asChild>
+                                          <div className="hover:bg-muted/50 flex cursor-pointer items-center justify-between p-4 transition-colors">
+                                            <div className="flex flex-1 items-center gap-3">
+                                              <div
                                                 className={cn(
-                                                  'text-sm',
-                                                  isDiscontinued
-                                                    ? 'text-muted-foreground'
-                                                    : 'text-warning-foreground',
+                                                  'flex size-10 shrink-0 items-center justify-center rounded-full',
+                                                  isDiscontinued ? 'bg-muted' : 'bg-primary/10',
                                                 )}
                                               >
-                                                Shows as:{' '}
-                                                {med.detectedAs
-                                                  .map((s: string) => formatSubstance(s, true))
-                                                  .join(', ')}
-                                              </span>
-                                            )}
-                                        </div>
-                                      </div>
-
-                                      <div className="flex items-center gap-1">
-                                        {isNew && (
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              field.removeValue(i)
-                                            }}
-                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive size-8"
-                                            title="Remove medication"
-                                          >
-                                            <Trash2 className="size-4" />
-                                          </Button>
-                                        )}
-                                        <ChevronDown className="size-4 transition-transform duration-200 in-data-[state=open]:rotate-180" />
-                                      </div>
-                                    </div>
-                                  </CollapsibleTrigger>
-
-                                  {/* Content - collapsible */}
-                                  <CollapsibleContent>
-                                    <div className="space-y-4 border-t px-4 pt-4 pb-4">
-                                      {/* Medication Name */}
-                                      <form.Field name={`medications[${i}].medicationName`}>
-                                        {(subField) => (
-                                          <Field>
-                                            <FieldContent>
-                                              <FieldLabel>Medication Name *</FieldLabel>
-                                              <Input
-                                                value={subField.state.value ?? ''}
-                                                onChange={(e) =>
-                                                  subField.handleChange(e.target.value)
-                                                }
-                                                placeholder="e.g., Ibuprofen"
-                                                disabled={isLocked}
-                                                className={cn(
-                                                  isLocked && 'cursor-not-allowed opacity-50',
-                                                )}
-                                              />
-                                              <FieldError errors={subField.state.meta.errors} />
-                                            </FieldContent>
-                                          </Field>
-                                        )}
-                                      </form.Field>
-
-                                      {/* Date row */}
-                                      <div className="grid grid-cols-2 gap-4">
-                                        {/* Start Date */}
-                                        <form.Field name={`medications[${i}].startDate`}>
-                                          {(subField) => (
-                                            <Field>
-                                              <FieldContent>
-                                                <FieldLabel>Start Date *</FieldLabel>
-                                                <Input
-                                                  type="date"
-                                                  value={subField.state.value ?? ''}
-                                                  onChange={(e) =>
-                                                    subField.handleChange(e.target.value)
-                                                  }
-                                                  disabled={isLocked}
-                                                  className={cn(
-                                                    isLocked && 'cursor-not-allowed opacity-50',
-                                                  )}
+                                                <Pill
+                                                  className={cn('text-primary size-5', {
+                                                    'text-muted-foreground': isDiscontinued,
+                                                  })}
                                                 />
-                                                <FieldError errors={subField.state.meta.errors} />
-                                              </FieldContent>
-                                            </Field>
-                                          )}
-                                        </form.Field>
-
-                                        {/* End Date */}
-                                        <form.Field name={`medications[${i}].endDate`}>
-                                          {(subField) => (
-                                            <Field>
-                                              <FieldContent>
-                                                <FieldLabel>End Date</FieldLabel>
-                                                <Input
-                                                  type="date"
-                                                  value={subField.state.value || ''}
-                                                  onChange={(e) =>
-                                                    subField.handleChange(e.target.value || '')
-                                                  }
-                                                  disabled={isLocked}
-                                                  className={cn(
-                                                    isLocked && 'cursor-not-allowed opacity-50',
-                                                  )}
-                                                />
-                                              </FieldContent>
-                                            </Field>
-                                          )}
-                                        </form.Field>
-                                      </div>
-
-                                      {/* Status */}
-                                      <form.Field name={`medications[${i}].status`}>
-                                        {(subField) => (
-                                          <Field>
-                                            <FieldContent>
-                                              <FieldLabel>Status *</FieldLabel>
-                                              <Select
-                                                value={subField.state.value ?? 'active'}
-                                                onValueChange={(value) =>
-                                                  subField.handleChange(
-                                                    value as 'active' | 'discontinued',
-                                                  )
-                                                }
-                                                disabled={isLocked}
-                                              >
-                                                <SelectTrigger
-                                                  className={cn(
-                                                    isLocked && 'cursor-not-allowed opacity-50',
-                                                  )}
-                                                >
-                                                  <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                  <SelectItem value="active">Active</SelectItem>
-                                                  <SelectItem value="discontinued">
-                                                    Discontinued
-                                                  </SelectItem>
-                                                </SelectContent>
-                                              </Select>
-                                            </FieldContent>
-                                          </Field>
-                                        )}
-                                      </form.Field>
-
-                                      {/* Detected As - multi-select */}
-                                      <form.Field name={`medications[${i}].detectedAs`}>
-                                        {(subField) => {
-                                          const selectedValues = subField.state.value || []
-                                          const toggleSubstance = (value: string) => {
-                                            const current = selectedValues as string[]
-                                            if (current.includes(value)) {
-                                              subField.handleChange(
-                                                current.filter((v) => v !== value),
-                                              )
-                                            } else {
-                                              subField.handleChange([...current, value])
-                                            }
-                                          }
-                                          return (
-                                            <Field>
-                                              <FieldContent>
-                                                <FieldLabel>Detected As (on drug test)</FieldLabel>
-                                                <div className="border-border grid grid-cols-2 gap-2 rounded-md border p-3">
-                                                  {DRUG_TEST_SUBSTANCES.map((substance) => (
-                                                    <label
-                                                      key={substance.value}
+                                              </div>
+                                              <div className="flex flex-1 flex-col gap-0.5">
+                                                <div className="flex items-center gap-2">
+                                                  <form.Subscribe
+                                                    selector={(state) => state.values.medications[i]?.medicationName}
+                                                  >
+                                                    {(medicationName) => (
+                                                      <span
+                                                        className={cn('text-lg font-medium', {
+                                                          'text-muted-foreground line-through': isDiscontinued,
+                                                        })}
+                                                      >
+                                                        {medicationName || 'New Medication'}
+                                                      </span>
+                                                    )}
+                                                  </form.Subscribe>
+                                                  <Badge
+                                                    variant={isDiscontinued ? 'secondary' : 'default'}
+                                                    className="ml-1"
+                                                  >
+                                                    {isDiscontinued ? 'Discontinued' : 'Active'}
+                                                  </Badge>
+                                                </div>
+                                                {med.detectedAs &&
+                                                  Array.isArray(med.detectedAs) &&
+                                                  med.detectedAs.length > 0 && (
+                                                    <span
                                                       className={cn(
-                                                        'hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded p-1.5 text-sm transition-colors',
-                                                        isLocked && 'cursor-not-allowed opacity-50',
+                                                        'text-sm',
+                                                        isDiscontinued
+                                                          ? 'text-muted-foreground'
+                                                          : 'text-warning-foreground',
                                                       )}
                                                     >
-                                                      <Checkbox
-                                                        checked={(
-                                                          selectedValues as string[]
-                                                        ).includes(substance.value)}
-                                                        onCheckedChange={() =>
-                                                          toggleSubstance(substance.value)
-                                                        }
-                                                        disabled={isLocked}
-                                                      />
-                                                      <span>{substance.label}</span>
-                                                    </label>
-                                                  ))}
-                                                </div>
-                                              </FieldContent>
-                                            </Field>
-                                          )
-                                        }}
-                                      </form.Field>
+                                                      Shows as:{' '}
+                                                      {med.detectedAs
+                                                        .map((s: string) => formatSubstance(s, true))
+                                                        .join(', ')}
+                                                    </span>
+                                                  )}
+                                              </div>
+                                            </div>
 
-                                      {/* Require Confirmation */}
-                                      <form.Field name={`medications[${i}].requireConfirmation`}>
-                                        {(subField) => (
-                                          <Field orientation="horizontal">
-                                            <Checkbox
-                                              id={`requireConfirmation-${i}`}
-                                              checked={subField.state.value || false}
-                                              onCheckedChange={(checked) =>
-                                                subField.handleChange(checked as boolean)
-                                              }
-                                              disabled={isLocked}
-                                              className={cn(
-                                                isLocked && 'cursor-not-allowed opacity-50',
+                                            <div className="flex items-center gap-1">
+                                              {isNew && (
+                                                <Button
+                                                  type="button"
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    field.removeValue(i)
+                                                  }}
+                                                  className="text-destructive hover:bg-destructive/10 hover:text-destructive size-8"
+                                                  title="Remove medication"
+                                                >
+                                                  <Trash2 className="size-4" />
+                                                </Button>
                                               )}
-                                            />
-                                            <FieldLabel
-                                              htmlFor={`requireConfirmation-${i}`}
-                                              className={cn(isLocked && 'text-muted-foreground')}
-                                            >
-                                              Require confirmation (MAT medication)
-                                            </FieldLabel>
-                                          </Field>
-                                        )}
-                                      </form.Field>
+                                              <ChevronDown className="size-4 transition-transform duration-200 in-data-[state=open]:rotate-180" />
+                                            </div>
+                                          </div>
+                                        </CollapsibleTrigger>
 
-                                      {/* Notes */}
-                                      <form.Field name={`medications[${i}].notes`}>
-                                        {(subField) => (
-                                          <Field>
-                                            <FieldContent>
-                                              <FieldLabel>Notes</FieldLabel>
-                                              <Textarea
-                                                value={subField.state.value || ''}
-                                                onChange={(e) =>
-                                                  subField.handleChange(e.target.value)
-                                                }
-                                                placeholder="Additional notes about this medication"
-                                                className={cn(
-                                                  'min-h-20',
-                                                  isLocked && 'cursor-not-allowed opacity-50',
+                                        {/* Content - collapsible */}
+                                        <CollapsibleContent>
+                                          <div className="space-y-4 border-t px-4 pt-4 pb-4">
+                                            {/* Medication Name */}
+                                            <form.Field name={`medications[${i}].medicationName`}>
+                                              {(subField) => (
+                                                <Field>
+                                                  <FieldContent>
+                                                    <FieldLabel>Medication Name *</FieldLabel>
+                                                    <Input
+                                                      value={subField.state.value ?? ''}
+                                                      onChange={(e) => subField.handleChange(e.target.value)}
+                                                      placeholder="e.g., Ibuprofen"
+                                                      disabled={isLocked}
+                                                      className={cn(isLocked && 'cursor-not-allowed opacity-50')}
+                                                    />
+                                                    <FieldError errors={subField.state.meta.errors} />
+                                                  </FieldContent>
+                                                </Field>
+                                              )}
+                                            </form.Field>
+
+                                            {/* Date row */}
+                                            <div className="grid grid-cols-2 gap-4">
+                                              {/* Start Date */}
+                                              <form.Field name={`medications[${i}].startDate`}>
+                                                {(subField) => (
+                                                  <Field>
+                                                    <FieldContent>
+                                                      <FieldLabel>Start Date *</FieldLabel>
+                                                      <Input
+                                                        type="date"
+                                                        value={subField.state.value ?? ''}
+                                                        onChange={(e) => subField.handleChange(e.target.value)}
+                                                        disabled={isLocked}
+                                                        className={cn(isLocked && 'cursor-not-allowed opacity-50')}
+                                                      />
+                                                      <FieldError errors={subField.state.meta.errors} />
+                                                    </FieldContent>
+                                                  </Field>
                                                 )}
-                                                disabled={isLocked}
-                                              />
-                                            </FieldContent>
-                                          </Field>
-                                        )}
-                                      </form.Field>
-                                    </div>
-                                  </CollapsibleContent>
+                                              </form.Field>
+
+                                              {/* End Date */}
+                                              <form.Field name={`medications[${i}].endDate`}>
+                                                {(subField) => (
+                                                  <Field>
+                                                    <FieldContent>
+                                                      <FieldLabel>End Date</FieldLabel>
+                                                      <Input
+                                                        type="date"
+                                                        value={subField.state.value || ''}
+                                                        onChange={(e) => subField.handleChange(e.target.value || '')}
+                                                        disabled={isLocked}
+                                                        className={cn(isLocked && 'cursor-not-allowed opacity-50')}
+                                                      />
+                                                    </FieldContent>
+                                                  </Field>
+                                                )}
+                                              </form.Field>
+                                            </div>
+
+                                            {/* Status */}
+                                            <form.Field name={`medications[${i}].status`}>
+                                              {(subField) => (
+                                                <Field>
+                                                  <FieldContent>
+                                                    <FieldLabel>Status *</FieldLabel>
+                                                    <Select
+                                                      value={subField.state.value ?? 'active'}
+                                                      onValueChange={(value) =>
+                                                        subField.handleChange(value as 'active' | 'discontinued')
+                                                      }
+                                                      disabled={isLocked}
+                                                    >
+                                                      <SelectTrigger
+                                                        className={cn(isLocked && 'cursor-not-allowed opacity-50')}
+                                                      >
+                                                        <SelectValue />
+                                                      </SelectTrigger>
+                                                      <SelectContent>
+                                                        <SelectItem value="active">Active</SelectItem>
+                                                        <SelectItem value="discontinued">Discontinued</SelectItem>
+                                                      </SelectContent>
+                                                    </Select>
+                                                  </FieldContent>
+                                                </Field>
+                                              )}
+                                            </form.Field>
+
+                                            {/* Detected As - multi-select */}
+                                            <form.Field name={`medications[${i}].detectedAs`}>
+                                              {(subField) => {
+                                                const selectedValues = subField.state.value || []
+                                                const toggleSubstance = (value: string) => {
+                                                  const current = selectedValues as string[]
+                                                  if (current.includes(value)) {
+                                                    subField.handleChange(current.filter((v) => v !== value))
+                                                  } else {
+                                                    subField.handleChange([...current, value])
+                                                  }
+                                                }
+                                                return (
+                                                  <Field>
+                                                    <FieldContent>
+                                                      <FieldLabel>Detected As (on drug test)</FieldLabel>
+                                                      <div className="border-border grid grid-cols-2 gap-2 rounded-md border p-3">
+                                                        {DRUG_TEST_SUBSTANCES.map((substance) => (
+                                                          <label
+                                                            key={substance.value}
+                                                            className={cn(
+                                                              'hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded p-1.5 text-sm transition-colors',
+                                                              isLocked && 'cursor-not-allowed opacity-50',
+                                                            )}
+                                                          >
+                                                            <Checkbox
+                                                              checked={(selectedValues as string[]).includes(
+                                                                substance.value,
+                                                              )}
+                                                              onCheckedChange={() => toggleSubstance(substance.value)}
+                                                              disabled={isLocked}
+                                                            />
+                                                            <span>{substance.label}</span>
+                                                          </label>
+                                                        ))}
+                                                      </div>
+                                                    </FieldContent>
+                                                  </Field>
+                                                )
+                                              }}
+                                            </form.Field>
+
+                                            {/* Require Confirmation */}
+                                            <form.Field name={`medications[${i}].requireConfirmation`}>
+                                              {(subField) => (
+                                                <Field orientation="horizontal">
+                                                  <Checkbox
+                                                    id={`requireConfirmation-${i}`}
+                                                    checked={subField.state.value || false}
+                                                    onCheckedChange={(checked) =>
+                                                      subField.handleChange(checked as boolean)
+                                                    }
+                                                    disabled={isLocked}
+                                                    className={cn(isLocked && 'cursor-not-allowed opacity-50')}
+                                                  />
+                                                  <FieldLabel
+                                                    htmlFor={`requireConfirmation-${i}`}
+                                                    className={cn(isLocked && 'text-muted-foreground')}
+                                                  >
+                                                    Require confirmation (MAT medication)
+                                                  </FieldLabel>
+                                                </Field>
+                                              )}
+                                            </form.Field>
+
+                                            {/* Notes */}
+                                            <form.Field name={`medications[${i}].notes`}>
+                                              {(subField) => (
+                                                <Field>
+                                                  <FieldContent>
+                                                    <FieldLabel>Notes</FieldLabel>
+                                                    <Textarea
+                                                      value={subField.state.value || ''}
+                                                      onChange={(e) => subField.handleChange(e.target.value)}
+                                                      placeholder="Additional notes about this medication"
+                                                      className={cn(
+                                                        'min-h-20',
+                                                        isLocked && 'cursor-not-allowed opacity-50',
+                                                      )}
+                                                      disabled={isLocked}
+                                                    />
+                                                  </FieldContent>
+                                                </Field>
+                                              )}
+                                            </form.Field>
+                                          </div>
+                                        </CollapsibleContent>
                                       </Collapsible>
                                     </Card>
                                   )

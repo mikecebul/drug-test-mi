@@ -1,7 +1,8 @@
 {
+  "tabWidth": 2,
   "singleQuote": true,
   "trailingComma": "all",
-  "printWidth": 100,
+  "printWidth": 120,
   "semi": false,
   "plugins": ["prettier-plugin-tailwindcss"],
   "tailwindFunctions": ["clsx", "cn", "twMerge", "tw"]
