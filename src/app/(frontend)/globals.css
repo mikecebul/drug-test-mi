@@ -187,7 +187,28 @@
     --tracking-wide: calc(var(--tracking-normal) + 0.025em);
     --tracking-wider: calc(var(--tracking-normal) + 0.05em);
     --tracking-widest: calc(var(--tracking-normal) + 0.1em);
+
+    /* --animate-collapsible-down: collapsible-down 0.2s ease-out forwards;
+    --animate-collapsible-up: collapsible-up 0.2s ease-out forwards; */
   }
+
+  /* @keyframes collapsible-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-collapsible-content-height);
+    }
+  }
+
+  @keyframes collapsible-up {
+    from {
+      height: var(--radix-collapsible-content-height);
+    }
+    to {
+      height: 0;
+    }
+  } */
 
   body {
     letter-spacing: var(--tracking-normal);

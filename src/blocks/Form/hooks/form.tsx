@@ -22,6 +22,12 @@ import SubstanceChecklistField from '../field-components/substance-checklist-fie
 import MedicationDisplayField from '../field-components/medication-display-field'
 import ParsedDataDisplayField from '../field-components/parsed-data-display-field'
 import ClientSelectorField from '../field-components/client-selector-field'
+import MedicationNameField from '../field-components/medication-name-field'
+import MedicationDateField from '../field-components/medication-date-field'
+import MedicationStatusField from '../field-components/medication-status-field'
+import MedicationDetectedAsField from '../field-components/medication-detected-as-field'
+import MedicationRequireConfirmationField from '../field-components/medication-require-confirmation-field'
+import MedicationNotesField from '../field-components/medication-notes-field'
 
 export const { useAppForm, withForm, withFieldGroup } = createFormHook({
   fieldComponents: {
@@ -44,6 +50,12 @@ export const { useAppForm, withForm, withFieldGroup } = createFormHook({
     MedicationDisplayField,
     ParsedDataDisplayField,
     ClientSelectorField,
+    MedicationNameField,
+    MedicationDateField,
+    MedicationStatusField,
+    MedicationDetectedAsField,
+    MedicationRequireConfirmationField,
+    MedicationNotesField,
   },
   formComponents: {
     SubmitButton,
