@@ -15,20 +15,19 @@ interface MedicationCardHeaderProps extends React.HTMLAttributes<HTMLDivElement>
   onRemove: () => void
 }
 
-export const MedicationCardHeader = forwardRef<HTMLDivElement, MedicationCardHeaderProps>(
-  function MedicationCardHeader(
-    { medicationName, detectedAs, isDiscontinued, isNew, onRemove, className, ...props },
-    ref,
-  ) {
-    return (
-      <div
-        ref={ref}
-        className={cn(
-          'group hover:bg-muted/50 flex cursor-pointer items-center justify-between p-4 transition-colors',
-          className,
-        )}
-        {...props}
-      >
+export const MedicationCardHeader = forwardRef<HTMLDivElement, MedicationCardHeaderProps>(function MedicationCardHeader(
+  { medicationName, detectedAs, isDiscontinued, isNew, onRemove, className, ...props },
+  ref,
+) {
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        'group hover:bg-muted/50 flex cursor-pointer items-center justify-between p-4 transition-colors',
+        className,
+      )}
+      {...props}
+    >
       <div className="flex flex-1 items-center gap-3">
         <div
           className={cn(
@@ -36,9 +35,7 @@ export const MedicationCardHeader = forwardRef<HTMLDivElement, MedicationCardHea
             isDiscontinued ? 'bg-muted' : 'bg-primary/10',
           )}
         >
-          <Pill
-            className={cn('size-5', isDiscontinued ? 'text-muted-foreground' : 'text-primary')}
-          />
+          <Pill className={cn('size-5', isDiscontinued ? 'text-muted-foreground' : 'text-primary')} />
         </div>
         <div className="flex flex-1 flex-col gap-0.5">
           <div className="flex items-center gap-2">
@@ -54,12 +51,7 @@ export const MedicationCardHeader = forwardRef<HTMLDivElement, MedicationCardHea
             </Badge>
           </div>
           {detectedAs && Array.isArray(detectedAs) && detectedAs.length > 0 && (
-            <span
-              className={cn(
-                'text-sm',
-                isDiscontinued ? 'text-muted-foreground' : 'text-warning-foreground',
-              )}
-            >
+            <span className={cn('text-sm', isDiscontinued ? 'text-muted-foreground' : 'text-warning-foreground')}>
               Shows as: {detectedAs.map((s: string) => formatSubstance(s, true)).join(', ')}
             </span>
           )}
@@ -82,9 +74,8 @@ export const MedicationCardHeader = forwardRef<HTMLDivElement, MedicationCardHea
             <Trash2 className="size-4" />
           </Button>
         )}
-        <ChevronDown className="size-4 transition-transform duration-200 group-data-[panel-open]:rotate-180" />
+        <ChevronDown className="size-4 transition-transform duration-200 group-data-panel-open:rotate-180" />
       </div>
     </div>
   )
-  },
-)
+})
