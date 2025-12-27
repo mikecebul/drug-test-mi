@@ -1,6 +1,6 @@
 'use client'
 
-import { useFieldContext } from '../hooks/form-context'
+import { useFieldContext } from '../../hooks/form-context'
 import { Field, FieldContent, FieldLabel } from '@/components/ui/field'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/utilities/cn'
@@ -10,9 +10,7 @@ interface MedicationDetectedAsFieldProps {
   isLocked?: boolean
 }
 
-export default function MedicationDetectedAsField({
-  isLocked = false,
-}: MedicationDetectedAsFieldProps) {
+export default function MedicationDetectedAsField({ isLocked = false }: MedicationDetectedAsFieldProps) {
   const field = useFieldContext<string[]>()
 
   const selectedValues = field.state.value || []

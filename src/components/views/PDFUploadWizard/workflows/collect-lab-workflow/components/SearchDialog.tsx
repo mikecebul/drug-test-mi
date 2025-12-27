@@ -10,7 +10,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Check } from 'lucide-react'
-import type { SimpleClient } from '../queries/getClients'
+import type { SimpleClient } from '../steps/Client/getClients'
 
 export const SearchDialog = ({
   allClients,
@@ -27,9 +27,7 @@ export const SearchDialog = ({
     <CommandDialog title="Search and Select Client" trigger={children}>
       <CommandInput placeholder="Search by name or email..." className="h-14 text-lg" />
       <CommandList>
-        <CommandEmpty>
-          {allClients?.length === 0 ? 'Loading clients...' : 'No client found.'}
-        </CommandEmpty>
+        <CommandEmpty>{allClients?.length === 0 ? 'Loading clients...' : 'No client found.'}</CommandEmpty>
         <CommandGroup>
           {allClients?.map((client) => (
             <CommandItem
@@ -39,9 +37,7 @@ export const SearchDialog = ({
               onSelect={() => onSelect(client)}
             >
               <Check
-                className={`mr-3 size-6 shrink-0 ${
-                  selectedClientId === client.id ? 'opacity-100' : 'opacity-0'
-                }`}
+                className={`mr-3 size-6 shrink-0 ${selectedClientId === client.id ? 'opacity-100' : 'opacity-0'}`}
               />
               <Avatar className="mr-3 size-12 shrink-0">
                 <AvatarImage src={client.headshot} alt={client.fullName} />

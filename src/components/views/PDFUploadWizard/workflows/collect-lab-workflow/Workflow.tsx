@@ -2,13 +2,11 @@ import { useAppForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { collectLabFormOpts } from './shared-form'
 import { CollectLabNavigation } from './components/Navigation'
-import { ClientGroup } from './groups/Client'
-import { MedicationsGroup } from './groups/Medications'
-import { CollectionGroup } from './groups/Collection'
-import { ConfirmGroup } from './groups/Confirm'
-import { EmailsGroup } from './groups/Emails'
-import { getClients } from './queries/getClients'
-import { Suspense } from 'react'
+import { ClientStep } from './steps/Client/Step'
+import { MedicationsStep } from './steps/medications/Step'
+import { CollectionStep } from './steps/Collection'
+import { ConfirmStep } from './steps/Confirm'
+import { EmailsStep } from './steps/Emails'
 
 export function CollectLabWorkflow() {
   const form = useAppForm({
@@ -40,23 +38,17 @@ export function CollectLabWorkflow() {
   const renderStep = () => {
     switch (step) {
       case 'client':
-        return <ClientGroup form={form} title="Select Client" />
+        return <ClientStep form={form} />
       case 'medications':
-        return <MedicationsGroup form={form} title="Verify Medications" description="" />
+        return <MedicationsStep form={form} />
       case 'collection':
-        return (
-          <CollectionGroup
-            form={form}
-            title="Collection Details"
-            description="Verify the collection details are correct."
-          />
-        )
+        return <CollectionStep form={form} />
       case 'confirm':
-        return <ConfirmGroup form={form} title="Confirm Collection" />
+        return <ConfirmStep form={form} />
       case 'reviewEmails':
-        return <EmailsGroup form={form} title="Review Collection Notification" description="" />
+        return <EmailsStep form={form} />
       default:
-        return <ClientGroup form={form} title="Select Client" />
+        return <ClientStep form={form} />
     }
   }
 

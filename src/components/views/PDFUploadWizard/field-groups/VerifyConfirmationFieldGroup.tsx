@@ -8,14 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import MedicationDisplayField from '@/blocks/Form/field-components/medication-display-field'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import MedicationDisplayField from '@/blocks/Form/field-components/medications/medication-display-field'
 import { z } from 'zod'
 import { Trash2, Plus, User } from 'lucide-react'
 import { getSubstanceOptions } from '@/fields/substanceOptions'
@@ -132,10 +126,7 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
     }
 
     const handleAddResult = () => {
-      const updated = [
-        ...confirmationResults,
-        { substance: '', result: 'confirmed-negative' as const },
-      ]
+      const updated = [...confirmationResults, { substance: '', result: 'confirmed-negative' as const }]
       group.setFieldValue('confirmationResults', updated)
     }
 
@@ -144,12 +135,7 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
         <FieldGroupHeader title={title} description={description} />
         <div className={cn(wizardContainerStyles.fields, 'text-base md:text-lg')}>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div
-              className={cn(
-                'bg-card border-border w-full rounded-xl border shadow-md',
-                wizardContainerStyles.card,
-              )}
-            >
+            <div className={cn('bg-card border-border w-full rounded-xl border shadow-md', wizardContainerStyles.card)}>
               {/* Header */}
               <div className="mb-4">
                 <SectionHeader icon={<User className="text-primary h-5 w-5" />} title="Client" />
@@ -158,10 +144,7 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
               {/* Client Info */}
               <div className="flex items-start gap-4">
                 <Avatar className="h-16 w-16 shrink-0">
-                  <AvatarImage
-                    src={client?.headshot ?? undefined}
-                    alt={`${client?.firstName} ${client?.lastName}`}
-                  />
+                  <AvatarImage src={client?.headshot ?? undefined} alt={`${client?.firstName} ${client?.lastName}`} />
                   <AvatarFallback className="text-lg">
                     {client?.firstName?.charAt(0)}
                     {client?.lastName?.charAt(0)}
@@ -174,9 +157,7 @@ export const VerifyConfirmationFieldGroup = withFieldGroup({
                   </p>
                   <p className="text-muted-foreground text-sm">{client?.email}</p>
                   {client?.dob && (
-                    <p className="text-muted-foreground text-sm">
-                      DOB: {new Date(client.dob).toLocaleDateString()}
-                    </p>
+                    <p className="text-muted-foreground text-sm">DOB: {new Date(client.dob).toLocaleDateString()}</p>
                   )}
                 </div>
               </div>

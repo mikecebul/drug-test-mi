@@ -3,14 +3,7 @@
 import React from 'react'
 import { withForm } from '@/blocks/Form/hooks/form'
 import { Card, CardContent } from '@/components/ui/card'
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from '@/components/ui/field'
+import { Field, FieldDescription, FieldError, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -28,30 +21,20 @@ const TEST_LABELS: Record<(typeof labTests)[number], string> = {
   'etg-lab': 'EtG',
 }
 
-export const CollectionGroup = withForm({
+export const CollectionStep = withForm({
   ...collectLabFormOpts,
-  props: {
-    title: 'Collection Details',
-    description: '',
-  },
 
-  render: function Render({ form, title, description }) {
+  render: function Render({ form }) {
     // Access breathalyzerTaken value for conditional rendering
-    const breathalyzerTaken = useStore(
-      form.store,
-      (state) => state.values.collection.breathalyzerTaken,
-    )
+    const breathalyzerTaken = useStore(form.store, (state) => state.values.collection.breathalyzerTaken)
 
     // Access collectionDate value for the date picker
-    const collectionDateValue = useStore(
-      form.store,
-      (state) => state.values.collection.collectionDate,
-    )
+    const collectionDateValue = useStore(form.store, (state) => state.values.collection.collectionDate)
     const collectionDateTime = collectionDateValue ? new Date(collectionDateValue) : undefined
 
     return (
       <div className={wizardContainerStyles.content}>
-        <FieldGroupHeader title={title} description={description} />
+        <FieldGroupHeader title="Collection Details" description="Verify the collection details are correct." />
         <div className={cn(wizardContainerStyles.fields, 'text-base md:text-lg')}>
           <Card>
             <CardContent className="pt-6">
@@ -116,10 +99,7 @@ export const CollectionGroup = withForm({
                             }
                           }}
                         />
-                        <FieldLabel
-                          htmlFor="breathalyzerTaken"
-                          className="cursor-pointer font-normal"
-                        >
+                        <FieldLabel htmlFor="breathalyzerTaken" className="cursor-pointer font-normal">
                           Breathalyzer test was administered
                         </FieldLabel>
                       </Field>
@@ -138,16 +118,13 @@ export const CollectionGroup = withForm({
                           max="1"
                           id="breathalyzerResult"
                           value={field.state.value ?? ''}
-                          onChange={(e) =>
-                            field.handleChange(e.target.value ? parseFloat(e.target.value) : null)
-                          }
+                          onChange={(e) => field.handleChange(e.target.value ? parseFloat(e.target.value) : null)}
                           onBlur={field.handleBlur}
                           placeholder="0.000"
                           aria-invalid={field.state.meta.errors.length > 0}
                         />
                         <FieldDescription>
-                          Enter result with up to 3 decimal places. Threshold: 0.000 (any detectable
-                          alcohol = positive)
+                          Enter result with up to 3 decimal places. Threshold: 0.000 (any detectable alcohol = positive)
                         </FieldDescription>
                         <FieldError errors={field.state.meta.errors} />
                       </Field>

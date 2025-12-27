@@ -25,14 +25,10 @@ import {
   FieldSet,
 } from '@/components/ui/field'
 
-export const EmailsGroup = withForm({
+export const EmailsStep = withForm({
   ...collectLabFormOpts,
-  props: {
-    title: 'Review Collection Notification',
-    description: '',
-  },
 
-  render: function Render({ form, title, description }) {
+  render: function Render({ form }) {
     const [showReferralPreview, setShowReferralPreview] = useState(false)
 
     // Get data from previous steps
@@ -73,7 +69,7 @@ export const EmailsGroup = withForm({
     if (isLoading) {
       return (
         <div className={wizardContainerStyles.content}>
-          <FieldGroupHeader title={title} description={description} />
+          <FieldGroupHeader title="Review Collection Notification" />
           <Card>
             <CardContent className="flex items-center justify-center py-12">
               <div className="flex flex-col items-center gap-4">
@@ -89,7 +85,7 @@ export const EmailsGroup = withForm({
     if (error || !previewData) {
       return (
         <div className={wizardContainerStyles.content}>
-          <FieldGroupHeader title={title} description={description} />
+          <FieldGroupHeader title="Review Collection Notification" />
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error || 'Failed to load email preview'}</AlertDescription>
@@ -100,31 +96,24 @@ export const EmailsGroup = withForm({
 
     return (
       <div className={wizardContainerStyles.content}>
-        <FieldGroupHeader title={title} description={description} />
+        <FieldGroupHeader title="Review Collection Notification" />
         <div className={cn(wizardContainerStyles.fields, 'text-base md:text-lg')}>
           {/* Referral Email Section */}
           <Card className="p-6">
             <FieldGroup>
               <FieldSet>
                 <FieldLegend>Referral Notification</FieldLegend>
-                <FieldDescription>
-                  Notify referrals that specimen has been collected
-                </FieldDescription>
+                <FieldDescription>Notify referrals that specimen has been collected</FieldDescription>
                 <FieldGroup data-slot="checkbox-group">
                   <form.Field name="emails.referralEmailEnabled">
                     {(field) => (
-                      <Field
-                        orientation="horizontal"
-                        data-invalid={field.state.meta.errors.length > 0}
-                      >
+                      <Field orientation="horizontal" data-invalid={field.state.meta.errors.length > 0}>
                         <Checkbox
                           id="referral-enabled"
                           checked={field.state.value}
                           onCheckedChange={(checked) => field.handleChange(checked === true)}
                         />
-                        <FieldLabel htmlFor="referral-enabled">
-                          Send referral notifications
-                        </FieldLabel>
+                        <FieldLabel htmlFor="referral-enabled">Send referral notifications</FieldLabel>
                       </Field>
                     )}
                   </form.Field>
@@ -144,20 +133,13 @@ export const EmailsGroup = withForm({
                           maxRecipients={10}
                         />
                         {field.state.meta.errors.length > 0 && (
-                          <p className="text-destructive text-sm">
-                            {field.state.meta.errors[0]?.message}
-                          </p>
+                          <p className="text-destructive text-sm">{field.state.meta.errors[0]?.message}</p>
                         )}
                       </>
                     )}
                   </form.Field>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowReferralPreview(true)}
-                  >
+                  <Button type="button" variant="outline" size="sm" onClick={() => setShowReferralPreview(true)}>
                     <Eye className="mr-2 h-4 w-4" />
                     Preview Notification Email
                   </Button>

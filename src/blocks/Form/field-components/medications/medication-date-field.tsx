@@ -1,6 +1,6 @@
 'use client'
 
-import { useFieldContext } from '../hooks/form-context'
+import { useFieldContext } from '../../hooks/form-context'
 import { Field, FieldContent, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/utilities/cn'
@@ -11,11 +11,7 @@ interface MedicationDateFieldProps {
   required?: boolean
 }
 
-export default function MedicationDateField({
-  label,
-  isLocked = false,
-  required = false,
-}: MedicationDateFieldProps) {
+export default function MedicationDateField({ label, isLocked = false, required = false }: MedicationDateFieldProps) {
   const field = useFieldContext<string>()
 
   return (

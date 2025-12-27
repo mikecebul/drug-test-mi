@@ -8,16 +8,14 @@ import { format } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
 import { FieldGroupHeader } from '../../../components/FieldGroupHeader'
 
-export const ConfirmGroup = withForm({
+export const ConfirmStep = withForm({
   ...collectLabFormOpts,
-  props: {
-    title: 'Confirm Collection Details',
-  },
-  render: function Render({ form, title }) {
+
+  render: function Render({ form }) {
     const [formValues] = useStore(form.store, (state) => [state.values])
     return (
       <div>
-        <FieldGroupHeader title={title} />
+        <FieldGroupHeader title="Confirm Collection Details" />
         <Card>
           <CardContent className="space-y-6 pt-6 text-base md:text-lg">
             <div className="space-y-4">
@@ -58,9 +56,7 @@ export const ConfirmGroup = withForm({
               </div>
 
               <div className="border-t pt-4">
-                <h3 className="text-muted-foreground text-sm font-medium">
-                  Collection Date & Time
-                </h3>
+                <h3 className="text-muted-foreground text-sm font-medium">Collection Date & Time</h3>
                 <p className="mt-1 pl-6 text-lg">
                   {formValues.collection.collectionDate &&
                     format(new Date(formValues.collection.collectionDate), 'PPp')}

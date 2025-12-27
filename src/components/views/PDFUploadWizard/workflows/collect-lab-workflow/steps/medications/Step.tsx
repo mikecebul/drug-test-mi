@@ -1,20 +1,20 @@
 'use client'
 
 import { withForm } from '@/blocks/Form/hooks/form'
-import { collectLabFormOpts } from '../shared-form'
+import { collectLabFormOpts } from '../../shared-form'
 import { useStore } from '@tanstack/react-form'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
-import { FieldGroupHeader } from '../../../components/FieldGroupHeader'
+import { FieldGroupHeader } from '../../../../components/FieldGroupHeader'
 import { Button } from '@/components/ui/button'
 import { RefreshCw, Plus } from 'lucide-react'
 import { useEffect } from 'react'
-import { ClientDisplayCard } from '../components/ClientDisplayCard'
+import { ClientDisplayCard } from '../../components/ClientDisplayCard'
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { motion, AnimatePresence } from 'motion/react'
 import { cn } from '@/utilities/cn'
-import { MedicationCardHeader } from './medications/MedicationCardHeader'
-import { getTodayDateString, getClientMedications } from './medications/types'
+import { MedicationCardHeader } from './MedicationCardHeader'
+import { getTodayDateString, getClientMedications } from './helpers'
 
 // Motion wrapper for smooth animations
 const MedicationMotionWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -39,15 +39,10 @@ const MedicationMotionWrapper = ({ children }: { children: React.ReactNode }) =>
   </motion.div>
 )
 
-export const MedicationsGroup = withForm({
+export const MedicationsStep = withForm({
   ...collectLabFormOpts,
 
-  props: {
-    title: 'Verify Medications',
-    description: "Review and update the client's medications for accurate drug test interpretation",
-  },
-
-  render: function Render({ form, title, description = '' }) {
+  render: function Render({ form }) {
     const client = useStore(form.store, (state) => state.values.client)
 
     const {
@@ -80,7 +75,10 @@ export const MedicationsGroup = withForm({
     if (!client) {
       return (
         <div className="space-y-6">
-          <FieldGroupHeader title={title} description={description} />
+          <FieldGroupHeader
+            title="Verify Medications"
+            description="Review and update the client's medications for accurate drug test interpretation"
+          />
           <Card>
             <CardContent className="pt-6">
               <p className="text-muted-foreground text-center">
@@ -94,7 +92,10 @@ export const MedicationsGroup = withForm({
 
     return (
       <div className="space-y-6">
-        <FieldGroupHeader title={title} description={description} />
+        <FieldGroupHeader
+          title="Verify Medications"
+          description="Review and update the client's medications for accurate drug test interpretation"
+        />
         <ClientDisplayCard client={client} selected />
 
         {/* Medications Section */}

@@ -6,7 +6,7 @@ import { useStore } from '@tanstack/react-form'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import InputDateTimePicker from '@/components/input-datetime-picker'
-import MedicationDisplayField from '@/blocks/Form/field-components/medication-display-field'
+import MedicationDisplayField from '@/blocks/Form/field-components/medications/medication-display-field'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import {
@@ -40,19 +40,13 @@ export const verifyDataFieldSchema = z
     isDilute: z.boolean(),
     breathalyzerTaken: z.boolean().default(false),
     breathalyzerResult: z.number().nullable().optional(),
-    confirmationDecision: z
-      .enum(['accept', 'request-confirmation', 'pending-decision'])
-      .nullable()
-      .optional(),
+    confirmationDecision: z.enum(['accept', 'request-confirmation', 'pending-decision']).nullable().optional(),
     confirmationSubstances: z.array(z.string()).optional(),
   })
   .refine(
     (data) => {
       // If breathalyzer is checked, result must be provided
-      if (
-        data.breathalyzerTaken &&
-        (data.breathalyzerResult === null || data.breathalyzerResult === undefined)
-      ) {
+      if (data.breathalyzerTaken && (data.breathalyzerResult === null || data.breathalyzerResult === undefined)) {
         return false
       }
       return true
@@ -130,18 +124,9 @@ export const VerifyDataFieldGroup = withFieldGroup({
     const collectionDateValue = useStore(group.store, (state) => state.values.collectionDate)
     const collectionDateTime = collectionDateValue ? new Date(collectionDateValue) : undefined
     const testTypeValue = useStore(group.store, (state) => state.values.testType)
-    const detectedSubstancesValue = useStore(
-      group.store,
-      (state) => state.values.detectedSubstances,
-    )
-    const confirmationDecisionValue = useStore(
-      group.store,
-      (state) => state.values.confirmationDecision,
-    )
-    const confirmationSubstancesValue = useStore(
-      group.store,
-      (state) => state.values.confirmationSubstances,
-    )
+    const detectedSubstancesValue = useStore(group.store, (state) => state.values.detectedSubstances)
+    const confirmationDecisionValue = useStore(group.store, (state) => state.values.confirmationDecision)
+    const confirmationSubstancesValue = useStore(group.store, (state) => state.values.confirmationSubstances)
     const breathalyzerTaken = useStore(group.store, (state) => state.values.breathalyzerTaken)
 
     // Compute test result preview to detect unexpected positives
@@ -155,9 +140,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
     const requiresDecision = hasUnexpectedPositives && !preview?.autoAccept
 
     // Handler for confirmation decision changes
-    const handleConfirmationDecisionChange = (
-      value: 'accept' | 'request-confirmation' | 'pending-decision',
-    ) => {
+    const handleConfirmationDecisionChange = (value: 'accept' | 'request-confirmation' | 'pending-decision') => {
       group.setFieldValue('confirmationDecision', value)
 
       // Auto-populate confirmation substances when requesting confirmation
@@ -174,19 +157,11 @@ export const VerifyDataFieldGroup = withFieldGroup({
         <FieldGroupHeader title={title} description={description} />
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div
-            className={cn(
-              'bg-card border-border w-full rounded-xl border shadow-md',
-              wizardContainerStyles.card,
-            )}
-          >
+          <div className={cn('bg-card border-border w-full rounded-xl border shadow-md', wizardContainerStyles.card)}>
             {/* Client Info */}
             <div className="flex items-start gap-4">
               <Avatar className="h-16 w-16 shrink-0">
-                <AvatarImage
-                  src={clientHeadshot ?? undefined}
-                  alt={`${client?.firstName} ${client?.lastName}`}
-                />
+                <AvatarImage src={clientHeadshot ?? undefined} alt={`${client?.firstName} ${client?.lastName}`} />
                 <AvatarFallback className="text-lg">
                   {client?.firstName?.charAt(0)}
                   {client?.lastName?.charAt(0)}
@@ -199,9 +174,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
                 </p>
                 <p className="text-muted-foreground text-sm">{client?.email}</p>
                 {client?.dob && (
-                  <p className="text-muted-foreground text-sm">
-                    DOB: {new Date(client.dob).toLocaleDateString()}
-                  </p>
+                  <p className="text-muted-foreground text-sm">DOB: {new Date(client.dob).toLocaleDateString()}</p>
                 )}
               </div>
             </div>
@@ -245,9 +218,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
               )}
             </group.AppField>
 
-            <group.AppField name="isDilute">
-              {(field) => <field.CheckboxField label="Dilute Sample" />}
-            </group.AppField>
+            <group.AppField name="isDilute">{(field) => <field.CheckboxField label="Dilute Sample" />}</group.AppField>
 
             {/* Breathalyzer Section */}
             <div className="bg-muted/50 space-y-4 rounded-lg border p-4">
@@ -281,16 +252,13 @@ export const VerifyDataFieldGroup = withFieldGroup({
                         max="1"
                         id="breathalyzerResult"
                         value={field.state.value ?? ''}
-                        onChange={(e) =>
-                          field.handleChange(e.target.value ? parseFloat(e.target.value) : null)
-                        }
+                        onChange={(e) => field.handleChange(e.target.value ? parseFloat(e.target.value) : null)}
                         onBlur={field.handleBlur}
                         placeholder="0.000"
                         className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                       />
                       <p className="text-muted-foreground text-xs">
-                        Enter result with 3 decimal places. Threshold: 0.000 (any detectable alcohol
-                        = positive)
+                        Enter result with 3 decimal places. Threshold: 0.000 (any detectable alcohol = positive)
                       </p>
                       {field.state.meta.errors.length > 0 && (
                         <p className="text-destructive text-sm">{field.state.meta.errors[0]}</p>
@@ -343,9 +311,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
 
             {/* Unexpected Positives */}
             <div className="mb-5">
-              <p className="text-muted-foreground mb-2 text-sm font-medium">
-                Unexpected Positives:
-              </p>
+              <p className="text-muted-foreground mb-2 text-sm font-medium">Unexpected Positives:</p>
               <div className="flex flex-wrap gap-2">
                 {preview?.unexpectedPositives?.map((substance) => (
                   <Badge key={substance} variant="destructive">
@@ -361,9 +327,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-muted-foreground text-sm">Contact Client</p>
-                    <p className="text-foreground text-lg font-semibold tabular-nums">
-                      {client.phone}
-                    </p>
+                    <p className="text-foreground text-lg font-semibold tabular-nums">{client.phone}</p>
                   </div>
                   <Button variant="outline" size="sm" className="gap-2 bg-transparent" asChild>
                     <a href={`tel:${client.phone}`}>
@@ -378,16 +342,12 @@ export const VerifyDataFieldGroup = withFieldGroup({
             {/* Client Decision */}
             <div>
               <p className="text-muted-foreground mb-3 text-sm font-medium">
-                {testTypeValue !== '15-panel-instant'
-                  ? 'Client Decision:'
-                  : 'How would you like to proceed?'}
+                {testTypeValue !== '15-panel-instant' ? 'Client Decision:' : 'How would you like to proceed?'}
               </p>
               <RadioGroup
                 value={confirmationDecisionValue || ''}
                 onValueChange={(value) =>
-                  handleConfirmationDecisionChange(
-                    value as 'accept' | 'request-confirmation' | 'pending-decision',
-                  )
+                  handleConfirmationDecisionChange(value as 'accept' | 'request-confirmation' | 'pending-decision')
                 }
                 className="space-y-2.5"
               >
@@ -395,8 +355,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
                   htmlFor="accept"
                   className={cn(
                     'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
-                    confirmationDecisionValue === 'accept' &&
-                      'border-foreground/50 ring-foreground/20 ring-2',
+                    confirmationDecisionValue === 'accept' && 'border-foreground/50 ring-foreground/20 ring-2',
                   )}
                 >
                   <RadioGroupItem value="accept" id="accept" className="mt-0.5" />
@@ -418,15 +377,9 @@ export const VerifyDataFieldGroup = withFieldGroup({
                       'border-foreground/50 ring-foreground/20 ring-2',
                   )}
                 >
-                  <RadioGroupItem
-                    value="request-confirmation"
-                    id="request-confirmation"
-                    className="mt-0.5"
-                  />
+                  <RadioGroupItem value="request-confirmation" id="request-confirmation" className="mt-0.5" />
                   <div className="flex-1">
-                    <span className="text-foreground font-medium">
-                      Request Confirmation Testing
-                    </span>
+                    <span className="text-foreground font-medium">Request Confirmation Testing</span>
                     <p className="text-muted-foreground mt-0.5 text-sm">
                       {testTypeValue === '15-panel-instant'
                         ? 'Send sample to lab for LC-MS/MS confirmation testing on selected substances.'
@@ -444,16 +397,12 @@ export const VerifyDataFieldGroup = withFieldGroup({
                       'border-foreground/50 ring-foreground/20 ring-2',
                   )}
                 >
-                  <RadioGroupItem
-                    value="pending-decision"
-                    id="pending-decision"
-                    className="mt-0.5"
-                  />
+                  <RadioGroupItem value="pending-decision" id="pending-decision" className="mt-0.5" />
                   <div className="flex-1">
                     <span className="text-foreground font-medium">Pending Decision</span>
                     <p className="text-muted-foreground mt-0.5 text-sm">
-                      Decision not yet made. Sample will be held for 30 days. Instant tests:
-                      $30/substance, Lab tests: $45/substance.
+                      Decision not yet made. Sample will be held for 30 days. Instant tests: $30/substance, Lab tests:
+                      $45/substance.
                     </p>
                   </div>
                 </Label>
@@ -466,9 +415,7 @@ export const VerifyDataFieldGroup = withFieldGroup({
                 <ConfirmationSubstanceSelector
                   unexpectedPositives={preview?.unexpectedPositives ?? []}
                   selectedSubstances={confirmationSubstancesValue ?? []}
-                  onSelectionChange={(substances) =>
-                    group.setFieldValue('confirmationSubstances', substances)
-                  }
+                  onSelectionChange={(substances) => group.setFieldValue('confirmationSubstances', substances)}
                 />
               </div>
             )}
