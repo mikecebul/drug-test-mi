@@ -23,13 +23,16 @@ export const medicationsSchema = z.object({
   medications: z.array(
     z.object({
       medicationName: z.string().min(1, 'Medication name is required'),
-      startDate: z.string().min(1, 'Start date is required'), // Payload stores dates as ISO strings
+      startDate: z.string().min(1, 'Start date is required'),
       endDate: z.string().nullable().optional(),
       status: z.enum(['active', 'discontinued']),
-      detectedAs: z.array(z.string()).optional(),
-      requireConfirmation: z.boolean().optional(),
-      notes: z.string().optional(),
-      createdAt: z.string().optional(), // May be set server-side
+      detectedAs: z.array(z.string()).nullable().optional(),
+      requireConfirmation: z.boolean().nullable().optional(),
+      notes: z.string().nullable().optional(),
+      createdAt: z.string().nullable().optional(),
+      // UI state flags (not persisted to server)
+      _isNew: z.boolean().optional(),
+      _wasDiscontinued: z.boolean().optional(),
     }),
   ),
 })
