@@ -66,16 +66,6 @@ export const collectionSchema = z.object({
             message: 'Breathalyzer result cannot be greater than 1',
             path: ['breathalyzerResult'],
           })
-        } else {
-          // Check for exactly 3 decimal places
-          const decimalPlaces = (data.breathalyzerResult.toString().split('.')[1] || '').length
-          if (decimalPlaces !== 3) {
-            ctx.addIssue({
-              code: 'custom',
-              message: 'Breathalyzer result must have exactly 3 decimal places (e.g., 0.000)',
-              path: ['breathalyzerResult'],
-            })
-          }
         }
       }
     }),

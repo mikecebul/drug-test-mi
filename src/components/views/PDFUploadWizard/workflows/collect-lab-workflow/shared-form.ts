@@ -1,4 +1,4 @@
-import { formOptions, revalidateLogic } from '@tanstack/react-form'
+import { formOptions } from '@tanstack/react-form'
 import { collectionSchema, formSchema, type FormValues } from './validators'
 import { clientSchema } from './validators'
 import { medicationsSchema } from './validators'

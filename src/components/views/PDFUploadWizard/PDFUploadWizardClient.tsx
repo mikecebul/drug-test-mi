@@ -40,7 +40,7 @@ export function PDFUploadWizardClient() {
 
   // Route to appropriate workflow
   if (selectedWorkflow === 'collect-lab') {
-    return <CollectLabWorkflow />
+    return <CollectLabWorkflow onBack={handleBack} />
   }
 
   if (selectedWorkflow === 'enter-lab-screen') {

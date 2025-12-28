@@ -114,12 +114,9 @@ export const CollectionStep = withForm({
                         <Input
                           type="number"
                           step="0.001"
-                          min="0"
-                          max="1"
                           id="breathalyzerResult"
                           value={field.state.value ?? ''}
                           onChange={(e) => field.handleChange(e.target.value ? parseFloat(e.target.value) : null)}
-                          onBlur={field.handleBlur}
                           placeholder="0.000"
                           aria-invalid={field.state.meta.errors.length > 0}
                         />

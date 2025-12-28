@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
+import { toast } from 'sonner'
 import { collectLabFormOpts } from './shared-form'
 import { CollectLabNavigation } from './components/Navigation'
 import { ClientStep } from './steps/Client/Step'
@@ -7,33 +9,54 @@ import { MedicationsStep } from './steps/medications/Step'
 import { CollectionStep } from './steps/Collection'
 import { ConfirmStep } from './steps/Confirm'
 import { EmailsStep } from './steps/Emails'
+import { createCollectionWithEmailReview } from './actions'
+import { TestCompleted } from '../../components/TestCompleted'
+import { steps } from './validators'
 
-export function CollectLabWorkflow() {
+interface CollectLabWorkflowProps {
+  onBack: () => void
+}
+
+export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
+  const [completedTestId, setCompletedTestId] = useState<string | null>(null)
   const form = useAppForm({
     ...collectLabFormOpts,
-    onSubmit: ({ value, formApi }) => {
-      console.log('Submission')
-      switch (value.step) {
-        case 'client':
-          formApi.setFieldValue('step', 'medications')
-          break
-        case 'medications':
-          formApi.setFieldValue('step', 'collection')
-          break
-        case 'collection':
-          formApi.setFieldValue('step', 'confirm')
-          break
-        case 'confirm':
-          formApi.setFieldValue('step', 'reviewEmails')
-          break
-        case 'reviewEmails':
-          alert(JSON.stringify(value.emails, null, 2))
-          break
+    onSubmit: async ({ value, formApi }) => {
+      const currentStepIndex = steps.indexOf(value.step)
+      const nextStep = steps[currentStepIndex + 1]
+      const isLastStep = currentStepIndex === steps.length - 1
+      
+      if (isLastStep) {
+          const result = await createCollectionWithEmailReview(
+            {
+              clientId: value.client.id,
+              testType: value.collection.testType,
+              collectionDate: value.collection.collectionDate,
+              breathalyzerTaken: value.collection.breathalyzerTaken,
+              breathalyzerResult: value.collection.breathalyzerResult ?? null,
+            },
+            {
+              referralEmailEnabled: value.emails.referralEmailEnabled,
+              referralRecipients: value.emails.referralRecipients,
+            },
+          )
+
+          if (result.success && result.testId) {
+            setCompletedTestId(result.testId)
+          } else {
+            toast.error(result.error || 'Failed to create collection record')
+          }
+        } else {
+        formApi.setFieldValue('step', nextStep)
       }
     },
   })
 
   const [step] = useStore(form.store, (state) => [state.values.step])
+
+  if (completedTestId) {
+    return <TestCompleted testId={completedTestId} onBack={onBack} />
+  }
 
   const renderStep = () => {
     switch (step) {
@@ -61,7 +84,7 @@ export function CollectLabWorkflow() {
       className="flex flex-1 flex-col"
     >
       <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
-      <CollectLabNavigation form={form} />
+      <CollectLabNavigation form={form} onBack={onBack} />
     </form>
   )
 }

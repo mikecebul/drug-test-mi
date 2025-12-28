@@ -9,39 +9,61 @@ import { collectLabFormOpts } from '../shared-form'
 
 export const CollectLabNavigation = withForm({
   ...collectLabFormOpts,
+  props: {
+    onBack: (): void => {},
+  },
 
-  render: function Render({ form }) {
-    const currentStep = useStore(form.store, (state) => state.values.step)
-    const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
-    const canSubmit = useStore(form.store, (state) => state.canSubmit)
+  render: function Render({ form, onBack }) {
+    const [currentStep, isSubmitting, errors] = useStore(form.store, (state) => [
+      state.values.step,
+      state.isSubmitting,
+      state.errors,
+    ])
 
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
 
+    // Only consider errors from the current step for enabling/disabling navigation
+    const currentStepHasErrors = errors.some((errorObj) => {
+      if (!errorObj) return false
+      const fieldNames = Object.keys(errorObj)
+      return fieldNames.some((fieldName) => {
+        switch (currentStep) {
+          case 'client':
+            return fieldName.startsWith('client.')
+          case 'medications':
+            return fieldName.startsWith('medications')
+          case 'collection':
+            return fieldName.startsWith('collection.')
+          case 'confirm':
+            return false
+          case 'reviewEmails':
+            return fieldName.startsWith('emails.')
+          default:
+            return false
+        }
+      })
+    })
+
     const handleBack = () => {
       if (isFirstStep) {
-        console.log('Todo: do something')
+        onBack()
       } else {
         const prevStep = steps[currentIndex - 1]
-        form.setFieldValue('step', prevStep as any)
+        form.setFieldValue('step', prevStep)
+        form.validate('submit')
       }
     }
 
     return (
       <div className="mt-8 flex items-center justify-between border-t pt-4">
-        <Button
-          type="button"
-          onClick={handleBack}
-          variant="outline"
-          disabled={isSubmitting}
-          size="lg"
-        >
+        <Button type="button" onClick={handleBack} variant="outline" disabled={isSubmitting} size="lg">
           <ChevronLeft className="mr-2 h-5 w-5" />
           {isFirstStep ? 'Cancel' : 'Back'}
         </Button>
 
-        <Button disabled={isSubmitting || !canSubmit} size="lg">
+        <Button disabled={isSubmitting || currentStepHasErrors} size="lg">
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -50,11 +72,7 @@ export const CollectLabNavigation = withForm({
           ) : (
             <>
               {isLastStep ? 'Submit' : 'Next'}
-              {isLastStep ? (
-                <Check className="ml-2 h-5 w-5" />
-              ) : (
-                <ChevronRight className="ml-2 h-5 w-5" />
-              )}
+              {isLastStep ? <Check className="ml-2 h-5 w-5" /> : <ChevronRight className="ml-2 h-5 w-5" />}
             </>
           )}
         </Button>
