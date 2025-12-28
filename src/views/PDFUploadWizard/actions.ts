@@ -439,6 +439,7 @@ export async function getClientMedications(
  * Compute test result preview for wizard UI
  *
  * Wrapper around the service layer computeTestResults function.
+ * Fetches client's current active medications and uses them for preview.
  * Filters expected substances by test type to only check substances this panel actually screens for.
  * This prevents false "unexpected negatives" for substances not tested by the selected panel.
  */
@@ -463,9 +464,29 @@ export async function computeTestResultPreview(
 }> {
   const payload = await getPayload({ config })
 
+  // Fetch client's current medications for preview
+  const client = await payload.findByID({
+    collection: 'clients',
+    id: clientId,
+    depth: 0,
+  })
+
+  // Build medications array from current active medications
+  const medicationsAtTestTime =
+    client?.medications && Array.isArray(client.medications)
+      ? client.medications
+          .filter((med: any) => med.status === 'active')
+          .map((med: any) => ({
+            medicationName: med.medicationName,
+            detectedAs: med.detectedAs || [],
+            requireConfirmation: med.requireConfirmation,
+          }))
+      : []
+
   return await computeTestResults({
     clientId,
     detectedSubstances,
+    medicationsAtTestTime,
     testType, // Wizard filters by test type (only check substances this panel screens for)
     breathalyzerTaken,
     breathalyzerResult,
@@ -1111,8 +1132,7 @@ export async function createDrugTestWithEmailReview(
       sentAt: new Date().toISOString() || null,
       recipients: sentTo.join(', ') || null,
       status: failedTo.length > 0 ? 'failed' : 'sent',
-      optedOutBy: 'wizard',
-      originalRecipients:
+      intendedRecipients:
         [
           ...emailConfig.clientRecipients.map((e) => `Client: ${e}`),
           ...emailConfig.referralRecipients.map((e) => `Referral: ${e}`),
@@ -1311,8 +1331,7 @@ export async function createCollectionWithEmailReview(
       sentAt: new Date().toISOString() || null,
       recipients: sentTo.join(', ') || null,
       status: failedTo.length > 0 ? 'failed' : 'sent',
-      optedOutBy: 'wizard',
-      originalRecipients:
+      intendedRecipients:
         emailConfig.referralRecipients.map((e) => `Referral: ${e}`).join(', ') || null,
       errorMessage: failedTo.length > 0 ? `Failed to send to: ${failedTo.join(', ')}` : null,
     } as const

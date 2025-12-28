@@ -1,4 +1,5 @@
 import { Client } from '@/payload-types'
+import { allSubstanceOptions } from '@/fields/substanceOptions'
 import z from 'zod'
 
 export const steps = ['client', 'medications', 'collection', 'confirm', 'reviewEmails'] as const
@@ -6,6 +7,9 @@ export type Steps = typeof steps
 
 export const labTests = ['11-panel-lab', '17-panel-sos-lab', 'etg-lab'] as const
 export type LabTests = typeof labTests
+
+// Extract substance values from allSubstanceOptions
+const substanceValues = allSubstanceOptions.map((s) => s.value)
 
 export const clientSchema = z.object({
   client: z.object({
@@ -26,7 +30,7 @@ export const medicationsSchema = z.object({
       startDate: z.string().min(1, 'Start date is required'),
       endDate: z.string().nullable().optional(),
       status: z.enum(['active', 'discontinued']),
-      detectedAs: z.array(z.string()).nullable().optional(),
+      detectedAs: z.array(z.enum(substanceValues)).nullable().optional(),
       requireConfirmation: z.boolean().nullable().optional(),
       notes: z.string().nullable().optional(),
       createdAt: z.string().nullable().optional(),

@@ -328,8 +328,7 @@ export const Clients: CollectionConfig = {
                   name: 'recipients',
                   type: 'array',
                   admin: {
-                    description:
-                      'Recipients who will receive test results (probation officers, court clerks, etc.)',
+                    description: 'Recipients who will receive test results (probation officers, court clerks, etc.)',
                   },
                   fields: [
                     {
@@ -373,8 +372,7 @@ export const Clients: CollectionConfig = {
                   name: 'recipients',
                   type: 'array',
                   admin: {
-                    description:
-                      'Recipients who will receive test results (HR contacts, hiring managers, etc.)',
+                    description: 'Recipients who will receive test results (HR contacts, hiring managers, etc.)',
                   },
                   fields: [
                     {
@@ -474,6 +472,9 @@ export const Clients: CollectionConfig = {
               name: 'medications',
               type: 'array',
               admin: {
+                components: {
+                  RowLabel: '@/collections/Clients/RowLabel#default',
+                },
                 description: 'Track medications that may affect drug test results',
               },
               fields: [
@@ -528,8 +529,7 @@ export const Clients: CollectionConfig = {
                   hasMany: true,
                   options: allSubstanceOptions as any,
                   admin: {
-                    description:
-                      'What substance(s) this medication shows as in drug tests. Select all that apply.',
+                    description: 'What substance(s) this medication shows as in drug tests. Select all that apply.',
                   },
                 },
                 {
@@ -554,14 +554,11 @@ export const Clients: CollectionConfig = {
                   access: {
                     update: ({ req }) => {
                       // Only super admins can update createdAt
-                      return req?.user?.collection === 'admins'
-                        ? req?.user?.role === 'superAdmin'
-                        : false
+                      return req?.user?.collection === 'admins' ? req?.user?.role === 'superAdmin' : false
                     },
                   },
                   admin: {
-                    description:
-                      'When this medication was added to the system - editable by super admins only',
+                    description: 'When this medication was added to the system - editable by super admins only',
                     readOnly: false,
                   },
                 },

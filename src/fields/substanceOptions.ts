@@ -131,6 +131,8 @@ export const allSubstanceOptions = [
   { label: 'Does Not Show', value: 'none' },
 ] as const
 
+export type SubstanceOption = typeof allSubstanceOptions[number]
+
 /**
  * Get substance options based on test type
  */

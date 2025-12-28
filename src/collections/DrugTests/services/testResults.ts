@@ -6,6 +6,43 @@ import { classifyTestResult } from '../helpers/classifyTestResult'
 // Use 0.0001 to avoid floating point precision issues
 const BAC_EPSILON = 0.0001
 
+/**
+ * Applies breathalyzer override to test result
+ *
+ * Positive breathalyzer (BAC > 0.000) always overrides passing results to fail.
+ * If the result is already failing, it stays as the existing fail status.
+ *
+ * @param result - Current test result (InitialScreenResult or FinalStatus)
+ * @param breathalyzerTaken - Whether breathalyzer was administered
+ * @param breathalyzerResult - BAC value (null if not taken or no result)
+ * @returns Overridden result if breathalyzer is positive, otherwise unchanged
+ */
+function applyBreathalyzerOverride<T extends InitialScreenResult | FinalStatus>(
+  result: T,
+  breathalyzerTaken?: boolean,
+  breathalyzerResult?: number | null,
+): T {
+  // Only override if breathalyzer was taken and result is positive
+  if (!breathalyzerTaken || !breathalyzerResult || breathalyzerResult <= BAC_EPSILON) {
+    return result
+  }
+
+  // Define passing results that should be overridden
+  const passingResults: Array<InitialScreenResult | FinalStatus> = [
+    'negative',
+    'expected-positive',
+    'confirmed-negative',
+  ]
+
+  // If currently passing, change to fail
+  if (passingResults.includes(result)) {
+    return 'unexpected-positive' as T
+  }
+
+  // If already failing, keep the existing fail status
+  return result
+}
+
 export type TestType = '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
 
 export type InitialScreenResult =
@@ -27,8 +64,13 @@ export type FinalStatus =
   | 'inconclusive'
 
 export type ComputeTestResultsParams = {
-  clientId: string
+  clientId: string // Still needed for error messages
   detectedSubstances: string[]
+  medicationsAtTestTime: Array<{
+    medicationName: string
+    detectedAs: string[]
+    requireConfirmation?: boolean // Optional - for backward compatibility with old data
+  }>
   testType?: TestType // Optional - if provided, filters expected substances by test type
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
@@ -59,10 +101,10 @@ export type ComputeFinalStatusParams = {
 }
 
 /**
- * Computes test result classification by comparing detected substances with client medications
+ * Computes test result classification by comparing detected substances with medications at test time
  *
  * Business Logic:
- * 1. Fetches client's active medications at test time
+ * 1. Uses medicationsArrayAtTestTime snapshot (not current medications)
  * 2. Extracts expected substances from medication detectedAs fields
  * 3. Optionally filters by test type (e.g., 15-panel only tests for specific substances)
  * 4. Compares detected substances with expected substances
@@ -70,28 +112,23 @@ export type ComputeFinalStatusParams = {
  * 6. Determines overall result and whether to auto-accept
  * 7. Applies breathalyzer override if positive
  *
- * @param params - Client ID, detected substances, optional test type, breathalyzer data, payload
+ * @param params - Client ID, detected substances, medications snapshot, optional test type, breathalyzer data, payload
  * @returns Classification result with arrays and auto-accept flag
- * @throws Error if client not found or data access fails
  */
 export async function computeTestResults(
   params: ComputeTestResultsParams,
 ): Promise<ComputeTestResultsResult> {
-  const { clientId, detectedSubstances, testType, breathalyzerTaken, breathalyzerResult, payload } =
-    params
+  const {
+    clientId,
+    detectedSubstances,
+    medicationsAtTestTime,
+    testType,
+    breathalyzerTaken,
+    breathalyzerResult,
+    payload,
+  } = params
 
   try {
-    // Fetch client with medications
-    const client = await payload.findByID({
-      collection: 'clients',
-      id: clientId,
-      depth: 0,
-    })
-
-    if (!client) {
-      throw new Error(`Client not found: ${clientId}`)
-    }
-
     // If test type provided, get substances that this test type actually screens for
     let testTypeSubstanceValues: Set<string> | null = null
     if (testType) {
@@ -100,18 +137,16 @@ export async function computeTestResults(
       testTypeSubstanceValues = new Set(testTypeSubstances.map((s: { value: string }) => s.value))
     }
 
-    // Extract expected substances from active medications
+    // Extract expected substances from medications snapshot at test time
     // Track which substances require confirmation if missing
     const expectedSubstances = new Set<string>()
     const criticalSubstances = new Set<string>() // Substances that MUST show (requireConfirmation = true)
 
-    if (client.medications && Array.isArray(client.medications)) {
-      const activeMedications = client.medications.filter((med: any) => med.status === 'active')
+    if (medicationsAtTestTime && Array.isArray(medicationsAtTestTime)) {
+      medicationsAtTestTime.forEach((med) => {
+        const substances = (med.detectedAs || []).filter((s) => s !== 'none')
 
-      activeMedications.forEach((med: any) => {
-        const substances = ((med.detectedAs as string[]) || []).filter((s: string) => s !== 'none')
-
-        substances.forEach((substance: string) => {
+        substances.forEach((substance) => {
           // If test type filtering enabled, only include substances this test type screens for
           // This prevents false "missing negatives" for substances not tested by this panel
           if (!testTypeSubstanceValues || testTypeSubstanceValues.has(substance)) {
@@ -163,18 +198,16 @@ export async function computeTestResults(
       criticalNegativesCount: criticalNegatives.length,
     })
 
-    let finalResult = classification.initialScreenResult
-    let finalAutoAccept = classification.autoAccept
+    // Apply breathalyzer override if positive
+    const finalResult = applyBreathalyzerOverride(
+      classification.initialScreenResult,
+      breathalyzerTaken,
+      breathalyzerResult,
+    )
 
-    // Breathalyzer override: positive breathalyzer always fails the test
-    if (breathalyzerTaken && breathalyzerResult && breathalyzerResult > BAC_EPSILON) {
-      // If currently passing (negative or expected-positive), change to fail
-      if (finalResult === 'negative' || finalResult === 'expected-positive') {
-        finalResult = 'unexpected-positive'
-        finalAutoAccept = false // Don't auto-accept if breathalyzer is positive
-      }
-      // If already failing, keep the existing fail status
-    }
+    // Don't auto-accept if breathalyzer overrode the result
+    const finalAutoAccept =
+      finalResult !== classification.initialScreenResult ? false : classification.autoAccept
 
     return {
       initialScreenResult: finalResult,
@@ -283,14 +316,6 @@ export function computeFinalStatus(params: ComputeFinalStatusParams): FinalStatu
     }
   }
 
-  // Breathalyzer override for finalStatus: positive breathalyzer always fails
-  if (breathalyzerTaken && breathalyzerResult && breathalyzerResult > BAC_EPSILON) {
-    // If final status would be passing, change to fail
-    if (finalStatus === 'expected-positive' || finalStatus === 'confirmed-negative') {
-      finalStatus = 'unexpected-positive'
-    }
-    // If already failing, keep the existing fail status
-  }
-
-  return finalStatus
+  // Apply breathalyzer override if positive
+  return applyBreathalyzerOverride(finalStatus, breathalyzerTaken, breathalyzerResult)
 }

@@ -9,7 +9,7 @@ import { MedicationsStep } from './steps/medications/Step'
 import { CollectionStep } from './steps/Collection'
 import { ConfirmStep } from './steps/Confirm'
 import { EmailsStep } from './steps/Emails'
-import { createCollectionWithEmailReview } from './actions'
+import { createCollectionWithEmailReview } from './actions/createCollectionWithEmailReview'
 import { TestCompleted } from '../../components/TestCompleted'
 import { steps } from './validators'
 
@@ -35,6 +35,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
               breathalyzerTaken: value.collection.breathalyzerTaken,
               breathalyzerResult: value.collection.breathalyzerResult ?? null,
             },
+            value.medications,
             {
               referralEmailEnabled: value.emails.referralEmailEnabled,
               referralRecipients: value.emails.referralRecipients,

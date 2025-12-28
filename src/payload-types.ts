@@ -1176,7 +1176,7 @@ export interface DrugTest {
   id: string;
   clientName?: string | null;
   /**
-   * AUTO-UPDATED: Current workflow status based on entered data
+   * AUTO-UPDATED: Current workflow status based on entered data (SuperAdmin can override)
    */
   screeningStatus: 'collected' | 'screened' | 'confirmation-pending' | 'complete';
   /**
@@ -1184,7 +1184,7 @@ export interface DrugTest {
    */
   isInconclusive?: boolean | null;
   /**
-   * AUTO-COMPUTED: Initial screening result based on business logic
+   * AUTO-COMPUTED: Initial screening result based on business logic (SuperAdmin can override)
    */
   initialScreenResult?:
     | (
@@ -1197,7 +1197,7 @@ export interface DrugTest {
       )
     | null;
   /**
-   * AUTO-COMPUTED: Final result after confirmation testing
+   * AUTO-COMPUTED: Final result after confirmation testing (SuperAdmin can override)
    */
   finalStatus?:
     | (
@@ -1212,7 +1212,7 @@ export interface DrugTest {
       )
     | null;
   /**
-   * AUTO-COMPUTED: Complete when auto-accepted, manually accepted, or all confirmation results received
+   * AUTO-COMPUTED: Complete when auto-accepted, manually accepted, or all confirmation results received (SuperAdmin can override)
    */
   isComplete?: boolean | null;
   /**
@@ -1239,6 +1239,47 @@ export interface DrugTest {
    * Snapshot of active medications at time of test (auto-populated from client, editable by superAdmin only)
    */
   medicationsAtTestTime?: string | null;
+  /**
+   * Snapshot of active medications at time of test (auto-populated from client, editable by superAdmin only)
+   */
+  medicationsArrayAtTestTime?:
+    | {
+        /**
+         * Name of the prescription medication
+         */
+        medicationName: string;
+        /**
+         * Substances this medication is expected to show as on drug test
+         */
+        detectedAs?:
+          | (
+              | '6-mam'
+              | 'alcohol'
+              | 'amphetamines'
+              | 'barbiturates'
+              | 'benzodiazepines'
+              | 'buprenorphine'
+              | 'cocaine'
+              | 'etg'
+              | 'fentanyl'
+              | 'kratom'
+              | 'mdma'
+              | 'methadone'
+              | 'methamphetamines'
+              | 'opiates'
+              | 'oxycodone'
+              | 'pcp'
+              | 'propoxyphene'
+              | 'synthetic_cannabinoids'
+              | 'thc'
+              | 'tramadol'
+              | 'tricyclic_antidepressants'
+              | 'none'
+            )[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
   /**
    * Internal process notes and status updates
    */
@@ -1288,7 +1329,7 @@ export interface DrugTest {
       )[]
     | null;
   /**
-   * AUTO-COMPUTED: Substances expected to be positive based on client medications
+   * AUTO-COMPUTED: Substances expected to be positive based on client medications (SuperAdmin can override)
    */
   expectedPositives?:
     | (
@@ -1316,7 +1357,7 @@ export interface DrugTest {
       )[]
     | null;
   /**
-   * AUTO-COMPUTED: Substances that tested positive but were NOT expected (FAIL)
+   * AUTO-COMPUTED: Substances that tested positive but were NOT expected (FAIL) (SuperAdmin can override)
    */
   unexpectedPositives?:
     | (
@@ -1344,7 +1385,7 @@ export interface DrugTest {
       )[]
     | null;
   /**
-   * AUTO-COMPUTED: Medications that should show positive but DIDN'T (Warning - Yellow Flag)
+   * AUTO-COMPUTED: Medications that should show positive but DIDN'T (Warning - Yellow Flag) (SuperAdmin can override)
    */
   unexpectedNegatives?:
     | (
@@ -1449,36 +1490,32 @@ export interface DrugTest {
       }[]
     | null;
   /**
-   * Complete history of all email notifications sent for this test
+   * Email notification history from Drug Test Wizard (SuperAdmin can edit)
    */
   notificationsSent?:
     | {
         /**
-         * Workflow stage (collected, screened, complete, inconclusive)
+         * Workflow stage when email was sent (collected, screened, complete)
          */
         stage?: string | null;
         /**
-         * When the notification was sent
+         * Timestamp when email was sent
          */
         sentAt?: string | null;
         /**
-         * Who received the notification
+         * Actual recipients who received the email (comma-separated)
          */
         recipients?: string | null;
         /**
-         * Status of this notification
+         * Delivery status
          */
-        status?: ('sent' | 'failed' | 'opted-out') | null;
+        status?: ('sent' | 'failed') | null;
         /**
-         * How this email was skipped (wizard, manual-resend, etc.)
+         * Recipients selected in wizard before send (useful if TEST_MODE overrode addresses)
          */
-        optedOutBy?: string | null;
+        intendedRecipients?: string | null;
         /**
-         * Original computed recipients before any edits
-         */
-        originalRecipients?: string | null;
-        /**
-         * Error message if send failed
+         * Error details if delivery failed
          */
         errorMessage?: string | null;
         id?: string | null;
@@ -2696,6 +2733,13 @@ export interface DrugTestsSelect<T extends boolean = true> {
   collectionDate?: T;
   testType?: T;
   medicationsAtTestTime?: T;
+  medicationsArrayAtTestTime?:
+    | T
+    | {
+        medicationName?: T;
+        detectedAs?: T;
+        id?: T;
+      };
   processNotes?: T;
   testDocument?: T;
   isDilute?: T;
@@ -2723,8 +2767,7 @@ export interface DrugTestsSelect<T extends boolean = true> {
         sentAt?: T;
         recipients?: T;
         status?: T;
-        optedOutBy?: T;
-        originalRecipients?: T;
+        intendedRecipients?: T;
         errorMessage?: T;
         id?: T;
       };

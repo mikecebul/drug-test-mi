@@ -81,28 +81,28 @@ export default buildConfig({
     autoRefresh: true,
     avatar: 'default',
     components: {
-      beforeDashboard: ['@/components/beforeDashboard/DrugTestStats'],
-      afterDashboard: ['@/components/afterDashboard/Analytics'],
+      beforeDashboard: ['@/views/beforeDashboard/DrugTestStats'],
+      afterDashboard: ['@/views/afterDashboard/Analytics'],
       beforeNavLinks: [
-        '@/components/beforeNavLinks/DrugTestCollectorLink',
-        '@/components/beforeNavLinks/DrugTestTrackerLink',
+        '@/views/beforeNavLinks/DrugTestCollectorLink',
+        '@/views/beforeNavLinks/DrugTestTrackerLink',
       ],
-      afterNavLinks: ['@/components/afterNavLinks/LinkToAnalyticsDefaultRootView'],
+      afterNavLinks: ['@/views/afterNavLinks/LinkToAnalyticsDefaultRootView'],
       graphics: {
         Icon: '@/graphics/Icon',
         Logo: '@/components/Logo/Graphic',
       },
       views: {
         CustomRootView: {
-          Component: '@/components/views/Analytics',
+          Component: '@/views/Analytics',
           path: '/analytics',
         },
         DrugTestTracker: {
-          Component: '@/components/views/DrugTestTracker',
+          Component: '@/views/DrugTestTracker',
           path: '/drug-test-tracker',
         },
         PDFUploadWizard: {
-          Component: '@/components/views/PDFUploadWizard',
+          Component: '@/views/PDFUploadWizard',
           path: '/drug-test-upload',
         },
       },

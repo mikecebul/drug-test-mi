@@ -68,11 +68,12 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
 
   try {
     // Compute test results using service layer
-    // Filter by test type to only check substances this panel actually screens for
-    // This prevents false "unexpected negatives" for substances not tested by this panel
+    // Uses medicationsArrayAtTestTime snapshot instead of current medications
+    // This ensures test results are based on medications at time of test, not current state
     const result = await computeTestResultsService({
       clientId: relatedClient as string,
       detectedSubstances: detected,
+      medicationsAtTestTime: (data.medicationsArrayAtTestTime as any) || [],
       testType: data.testType as any, // Filter expected substances by what this test type screens for
       breathalyzerTaken: data.breathalyzerTaken,
       breathalyzerResult: data.breathalyzerResult,

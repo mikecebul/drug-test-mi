@@ -1,8 +1,8 @@
 import { CollectionConfig } from 'payload'
 import { superAdmin } from '@/access/superAdmin'
 import { admins } from '@/access/admins'
+import { superAdminFieldAccess } from '@/access/superAdminFieldAccess'
 import { computeTestResults } from './hooks/computeTestResults'
-import { sendNotificationEmails } from './hooks/sendNotificationEmails'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
 
 export const DrugTests: CollectionConfig = {
@@ -13,7 +13,6 @@ export const DrugTests: CollectionConfig = {
   },
   hooks: {
     beforeChange: [computeTestResults],
-    afterChange: [sendNotificationEmails],
   },
   access: {
     create: admins,
@@ -40,13 +39,7 @@ export const DrugTests: CollectionConfig = {
     update: admins,
   },
   admin: {
-    defaultColumns: [
-      'relatedClient',
-      'testType',
-      'screeningStatus',
-      'collectionDate',
-      'isComplete',
-    ],
+    defaultColumns: ['relatedClient', 'testType', 'screeningStatus', 'collectionDate', 'isComplete'],
     description: 'Track drug test results and workflow',
     useAsTitle: 'clientName',
   },
@@ -55,9 +48,9 @@ export const DrugTests: CollectionConfig = {
     {
       name: 'clientName',
       type: 'text',
+      access: superAdminFieldAccess,
       admin: {
         hidden: true,
-        readOnly: true,
       },
       hooks: {
         beforeChange: [
@@ -91,9 +84,9 @@ export const DrugTests: CollectionConfig = {
       ],
       required: true,
       defaultValue: 'collected',
+      access: superAdminFieldAccess,
       admin: {
-        description: 'AUTO-UPDATED: Current workflow status based on entered data',
-        readOnly: true,
+        description: 'AUTO-UPDATED: Current workflow status based on entered data (SuperAdmin can override)',
         position: 'sidebar',
       },
       hooks: {
@@ -128,9 +121,9 @@ export const DrugTests: CollectionConfig = {
         { label: 'Unexpected Negative - Warning', value: 'unexpected-negative-warning' },
         { label: 'Mixed Unexpected (FAIL)', value: 'mixed-unexpected' },
       ],
+      access: superAdminFieldAccess,
       admin: {
-        description: 'AUTO-COMPUTED: Initial screening result based on business logic',
-        readOnly: true,
+        description: 'AUTO-COMPUTED: Initial screening result based on business logic (SuperAdmin can override)',
         position: 'sidebar',
         condition: (_, siblingData) => {
           // Hide if test is marked inconclusive or when confirmation is complete
@@ -160,9 +153,9 @@ export const DrugTests: CollectionConfig = {
         { label: 'Mixed Unexpected (FAIL)', value: 'mixed-unexpected' },
         { label: 'Inconclusive', value: 'inconclusive' },
       ],
+      access: superAdminFieldAccess,
       admin: {
-        description: 'AUTO-COMPUTED: Final result after confirmation testing',
-        readOnly: true,
+        description: 'AUTO-COMPUTED: Final result after confirmation testing (SuperAdmin can override)',
         position: 'sidebar',
         condition: (_, siblingData) => {
           // Hide if test is marked inconclusive
@@ -183,10 +176,10 @@ export const DrugTests: CollectionConfig = {
     {
       name: 'isComplete',
       type: 'checkbox',
+      access: superAdminFieldAccess,
       admin: {
         description:
-          'AUTO-COMPUTED: Complete when auto-accepted, manually accepted, or all confirmation results received',
-        readOnly: true,
+          'AUTO-COMPUTED: Complete when auto-accepted, manually accepted, or all confirmation results received (SuperAdmin can override)',
         position: 'sidebar',
       },
     },
@@ -266,6 +259,7 @@ export const DrugTests: CollectionConfig = {
                 },
               },
               admin: {
+                hidden: true,
                 description:
                   'Snapshot of active medications at time of test (auto-populated from client, editable by superAdmin only)',
               },
@@ -296,6 +290,79 @@ export const DrugTests: CollectionConfig = {
                       } catch (error) {
                         console.error('Error fetching client medications:', error)
                         return 'Error fetching medications'
+                      }
+                    }
+
+                    // Return existing value if already set
+                    return value
+                  },
+                ],
+              },
+            },
+            {
+              name: 'medicationsArrayAtTestTime',
+              type: 'array',
+              access: {
+                update: ({ req }) => {
+                  // Only superAdmin can modify medication snapshots after creation
+                  return req.user?.collection === 'admins' && req.user?.role === 'superAdmin'
+                },
+              },
+              admin: {
+                components: {
+                  RowLabel: '@/collections/DrugTests/helpers/RowLabel#default',
+                },
+                description:
+                  'Snapshot of active medications at time of test (auto-populated from client, editable by superAdmin only)',
+              },
+              fields: [
+                {
+                  name: 'medicationName',
+                  type: 'text',
+                  required: true,
+                  admin: {
+                    description: 'Name of the prescription medication',
+                  },
+                },
+                {
+                  name: 'detectedAs',
+                  type: 'select',
+                  hasMany: true,
+                  options: allSubstanceOptions as any,
+                  admin: {
+                    description: 'Substances this medication is expected to show as on drug test',
+                  },
+                },
+              ],
+              hooks: {
+                beforeChange: [
+                  async ({ value, siblingData, req, operation }) => {
+                    // Only auto-populate on create for drug tests
+                    if (operation === 'create' && siblingData?.relatedClient) {
+                      try {
+                        const payload = req.payload
+                        const client = await payload.findByID({
+                          collection: 'clients',
+                          id: siblingData.relatedClient,
+                          depth: 0,
+                        })
+
+                        if (client?.medications && Array.isArray(client.medications)) {
+                          // Get active medications with their detectedAs substances
+                          const activeMeds = client.medications
+                            .filter((med: any) => med.status === 'active')
+                            .map((med: any) => ({
+                              medicationName: med.medicationName,
+                              detectedAs: med.detectedAs || [],
+                            }))
+
+                          return activeMeds.length > 0 ? activeMeds : []
+                        }
+
+                        return []
+                      } catch (error) {
+                        console.error('Error fetching client medications:', error)
+                        return []
                       }
                     }
 
@@ -353,7 +420,8 @@ export const DrugTests: CollectionConfig = {
               name: 'breathalyzerResult',
               type: 'number',
               admin: {
-                description: 'BAC result with 3 decimal places (e.g., 0.000). Any value > 0.000 is considered positive.',
+                description:
+                  'BAC result with 3 decimal places (e.g., 0.000). Any value > 0.000 is considered positive.',
                 condition: (data) => data.breathalyzerTaken === true,
               },
               validate: (value, { siblingData }) => {
@@ -373,8 +441,7 @@ export const DrugTests: CollectionConfig = {
                   options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
                   admin: {
                     width: '100%',
-                    description:
-                      'RAW TEST RESULTS: Which substances tested positive? Leave empty if all negative.',
+                    description: 'RAW TEST RESULTS: Which substances tested positive? Leave empty if all negative.',
                   },
                 },
               ],
@@ -384,8 +451,7 @@ export const DrugTests: CollectionConfig = {
               label: 'Computed Results (Auto-Generated)',
               admin: {
                 initCollapsed: false,
-                description:
-                  'These fields are automatically calculated based on client medications',
+                description: 'These fields are automatically calculated based on client medications',
               },
               fields: [
                 {
@@ -393,10 +459,10 @@ export const DrugTests: CollectionConfig = {
                   type: 'select',
                   hasMany: true,
                   options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
+                  access: superAdminFieldAccess,
                   admin: {
                     description:
-                      'AUTO-COMPUTED: Substances expected to be positive based on client medications',
-                    readOnly: true,
+                      'AUTO-COMPUTED: Substances expected to be positive based on client medications (SuperAdmin can override)',
                   },
                 },
                 {
@@ -404,10 +470,10 @@ export const DrugTests: CollectionConfig = {
                   type: 'select',
                   hasMany: true,
                   options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
+                  access: superAdminFieldAccess,
                   admin: {
                     description:
-                      'AUTO-COMPUTED: Substances that tested positive but were NOT expected (FAIL)',
-                    readOnly: true,
+                      'AUTO-COMPUTED: Substances that tested positive but were NOT expected (FAIL) (SuperAdmin can override)',
                   },
                 },
                 {
@@ -415,10 +481,10 @@ export const DrugTests: CollectionConfig = {
                   type: 'select',
                   hasMany: true,
                   options: allSubstanceOptions.filter((opt) => opt.value !== 'none') as any,
+                  access: superAdminFieldAccess,
                   admin: {
                     description:
-                      "AUTO-COMPUTED: Medications that should show positive but DIDN'T (Warning - Yellow Flag)",
-                    readOnly: true,
+                      "AUTO-COMPUTED: Medications that should show positive but DIDN'T (Warning - Yellow Flag) (SuperAdmin can override)",
                   },
                 },
               ],
@@ -435,8 +501,7 @@ export const DrugTests: CollectionConfig = {
               type: 'date',
               admin: {
                 description: 'Date and time confirmation was requested',
-                condition: (_, siblingData) =>
-                  siblingData?.confirmationDecision === 'request-confirmation',
+                condition: (_, siblingData) => siblingData?.confirmationDecision === 'request-confirmation',
                 date: {
                   pickerAppearance: 'default',
                 },
@@ -479,8 +544,7 @@ export const DrugTests: CollectionConfig = {
               hasMany: true,
               admin: {
                 description: 'Which substances require confirmation testing',
-                condition: (_, siblingData) =>
-                  siblingData?.confirmationDecision === 'request-confirmation',
+                condition: (_, siblingData) => siblingData?.confirmationDecision === 'request-confirmation',
               },
             },
             {
@@ -535,25 +599,25 @@ export const DrugTests: CollectionConfig = {
             {
               name: 'notificationsSent',
               type: 'array',
+              access: superAdminFieldAccess,
               admin: {
-                readOnly: true,
-                description: 'Complete history of all email notifications sent for this test',
+                description: 'Email notification history from Drug Test Wizard (SuperAdmin can edit)',
               },
               fields: [
                 {
                   name: 'stage',
                   type: 'text',
+                  access: superAdminFieldAccess,
                   admin: {
-                    readOnly: true,
-                    description: 'Workflow stage (collected, screened, complete, inconclusive)',
+                    description: 'Workflow stage when email was sent (collected, screened, complete)',
                   },
                 },
                 {
                   name: 'sentAt',
                   type: 'date',
+                  access: superAdminFieldAccess,
                   admin: {
-                    readOnly: true,
-                    description: 'When the notification was sent',
+                    description: 'Timestamp when email was sent',
                     date: {
                       pickerAppearance: 'dayAndTime',
                     },
@@ -562,46 +626,37 @@ export const DrugTests: CollectionConfig = {
                 {
                   name: 'recipients',
                   type: 'textarea',
+                  access: superAdminFieldAccess,
                   admin: {
-                    readOnly: true,
-                    description: 'Who received the notification',
+                    description: 'Actual recipients who received the email (comma-separated)',
                   },
                 },
                 {
                   name: 'status',
                   type: 'select',
                   options: [
-                    { label: 'Sent', value: 'sent' },
-                    { label: 'Failed', value: 'failed' },
-                    { label: 'Opted Out', value: 'opted-out' },
+                    { label: 'Sent Successfully', value: 'sent' },
+                    { label: 'Failed to Send', value: 'failed' },
                   ],
+                  access: superAdminFieldAccess,
                   admin: {
-                    readOnly: true,
-                    description: 'Status of this notification',
+                    description: 'Delivery status',
                   },
                 },
                 {
-                  name: 'optedOutBy',
-                  type: 'text',
-                  admin: {
-                    readOnly: true,
-                    description: 'How this email was skipped (wizard, manual-resend, etc.)',
-                  },
-                },
-                {
-                  name: 'originalRecipients',
+                  name: 'intendedRecipients',
                   type: 'textarea',
+                  access: superAdminFieldAccess,
                   admin: {
-                    readOnly: true,
-                    description: 'Original computed recipients before any edits',
+                    description: 'Recipients selected in wizard before send (useful if TEST_MODE overrode addresses)',
                   },
                 },
                 {
                   name: 'errorMessage',
                   type: 'textarea',
+                  access: superAdminFieldAccess,
                   admin: {
-                    readOnly: true,
-                    description: 'Error message if send failed',
+                    description: 'Error details if delivery failed',
                   },
                 },
               ],
