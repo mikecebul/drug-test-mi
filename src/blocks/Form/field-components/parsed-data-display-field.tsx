@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { FileCheck2, Calendar, AlertTriangle, CheckCircle2, XCircle, User } from 'lucide-react'
-import type { ParsedPDFData } from '@/components/views/PDFUploadWizard/types'
+import type { ParsedPDFData } from '@/views/PDFUploadWizard/types'
 import { cn } from '@/utilities/cn'
 
 interface ParsedDataDisplayFieldProps {
@@ -13,10 +13,7 @@ interface ParsedDataDisplayFieldProps {
   showRawText?: boolean
 }
 
-export default function ParsedDataDisplayField({
-  data,
-  showRawText = true,
-}: ParsedDataDisplayFieldProps) {
+export default function ParsedDataDisplayField({ data, showRawText = true }: ParsedDataDisplayFieldProps) {
   const confidenceConfig = {
     high: {
       type: 'success' as const,
@@ -58,10 +55,7 @@ export default function ParsedDataDisplayField({
           Extracted with {data.confidence.toUpperCase()} Confidence
         </AlertTitle>
         <AlertDescription>
-          <p>
-            Successfully extracted test data from the PDF. Please review the information below
-            before proceeding.
-          </p>
+          <p>Successfully extracted test data from the PDF. Please review the information below before proceeding.</p>
         </AlertDescription>
       </Alert>
 
@@ -76,9 +70,7 @@ export default function ParsedDataDisplayField({
               Donor Name
             </div>
             <p className="pl-6 text-lg font-medium">
-              {data.donorName || (
-                <span className="text-muted-foreground text-base italic">Not found</span>
-              )}
+              {data.donorName || <span className="text-muted-foreground text-base italic">Not found</span>}
             </p>
           </div>
 
@@ -111,9 +103,7 @@ export default function ParsedDataDisplayField({
           )}
 
           <div className="space-y-2 border-t pt-2">
-            <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
-              Detected Substances
-            </div>
+            <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">Detected Substances</div>
             <div className="pl-6">
               {data.detectedSubstances.length > 0 ? (
                 <div className="space-y-2">
@@ -138,64 +128,55 @@ export default function ParsedDataDisplayField({
             </div>
           </div>
 
-          {data.hasConfirmation &&
-            data.confirmationResults &&
-            data.confirmationResults.length > 0 && (
-              <div className="space-y-2 border-t pt-2">
-                <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
-                  Confirmation Results (LC-MS/MS)
-                </div>
-                <div className="space-y-2 pl-6">
-                  {data.confirmationResults.map((result, index) => {
-                    const resultConfig = {
-                      'confirmed-positive': {
-                        variant: 'destructive' as const,
-                        icon: XCircle,
-                        label: 'Confirmed Positive',
-                      },
-                      'confirmed-negative': {
-                        variant: 'success' as const,
-                        icon: CheckCircle2,
-                        label: 'Confirmed Negative',
-                      },
-                      inconclusive: {
-                        variant: 'warning' as const,
-                        icon: AlertTriangle,
-                        label: 'Inconclusive',
-                      },
-                    }
-
-                    const config = resultConfig[result.result]
-                    const ResultIcon = config.icon
-
-                    return (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between rounded-md border p-2"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {result.substance}
-                          </Badge>
-                          <Badge variant={config.variant} className="gap-1 text-xs">
-                            <ResultIcon className="h-3 w-3" />
-                            {config.label}
-                          </Badge>
-                        </div>
-                        {result.notes && (
-                          <span className="text-muted-foreground text-xs">{result.notes}</span>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
+          {data.hasConfirmation && data.confirmationResults && data.confirmationResults.length > 0 && (
+            <div className="space-y-2 border-t pt-2">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+                Confirmation Results (LC-MS/MS)
               </div>
-            )}
+              <div className="space-y-2 pl-6">
+                {data.confirmationResults.map((result, index) => {
+                  const resultConfig = {
+                    'confirmed-positive': {
+                      variant: 'destructive' as const,
+                      icon: XCircle,
+                      label: 'Confirmed Positive',
+                    },
+                    'confirmed-negative': {
+                      variant: 'success' as const,
+                      icon: CheckCircle2,
+                      label: 'Confirmed Negative',
+                    },
+                    inconclusive: {
+                      variant: 'warning' as const,
+                      icon: AlertTriangle,
+                      label: 'Inconclusive',
+                    },
+                  }
+
+                  const config = resultConfig[result.result]
+                  const ResultIcon = config.icon
+
+                  return (
+                    <div key={index} className="flex items-center justify-between rounded-md border p-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {result.substance}
+                        </Badge>
+                        <Badge variant={config.variant} className="gap-1 text-xs">
+                          <ResultIcon className="h-3 w-3" />
+                          {config.label}
+                        </Badge>
+                      </div>
+                      {result.notes && <span className="text-muted-foreground text-xs">{result.notes}</span>}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-1 border-t pt-2">
-            <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
-              Dilute Sample
-            </div>
+            <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">Dilute Sample</div>
             <div className="pl-6">
               {data.isDilute ? (
                 <Badge variant="secondary" className="gap-1">
@@ -217,12 +198,8 @@ export default function ParsedDataDisplayField({
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">View Raw Extracted Text</span>
-                  <span className="text-muted-foreground text-xs group-open:hidden">
-                    Click to expand
-                  </span>
-                  <span className="text-muted-foreground hidden text-xs group-open:inline">
-                    Click to collapse
-                  </span>
+                  <span className="text-muted-foreground text-xs group-open:hidden">Click to expand</span>
+                  <span className="text-muted-foreground hidden text-xs group-open:inline">Click to collapse</span>
                 </div>
               </CardContent>
             </Card>

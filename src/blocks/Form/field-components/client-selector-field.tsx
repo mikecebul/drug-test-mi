@@ -6,15 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { UserCheck, Mail } from 'lucide-react'
-import type { ClientMatch } from '@/components/views/PDFUploadWizard/types'
+import type { ClientMatch } from '@/views/PDFUploadWizard/types'
 
 interface ClientSelectorFieldProps {
   matches: ClientMatch[]
@@ -47,7 +41,7 @@ export default function ClientSelectorField({
   return (
     <div className="space-y-4">
       {label && (
-        <Label className="text-sm font-medium text-foreground">
+        <Label className="text-foreground text-sm font-medium">
           {label}
           {required && <span className="text-destructive ml-1">*</span>}
         </Label>
@@ -58,7 +52,7 @@ export default function ClientSelectorField({
           {matches.map((match) => (
             <Card
               key={match.id}
-              className={`cursor-pointer transition-colors hover:border-primary ${
+              className={`hover:border-primary cursor-pointer transition-colors ${
                 field.state.value?.id === match.id ? 'border-primary bg-primary/5' : ''
               }`}
               onClick={() => field.handleChange(match)}
@@ -69,16 +63,15 @@ export default function ClientSelectorField({
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="flex items-center gap-2">
-                          <UserCheck className="h-5 w-5 text-muted-foreground" />
+                          <UserCheck className="text-muted-foreground h-5 w-5" />
                           <p className="text-lg font-semibold">
-                            {match.firstName}{' '}
-                            {match.middleInitial ? `${match.middleInitial}. ` : ''}
+                            {match.firstName} {match.middleInitial ? `${match.middleInitial}. ` : ''}
                             {match.lastName}
                           </p>
                         </div>
                         <div className="mt-1 flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-muted-foreground" />
-                          <p className="text-sm text-muted-foreground">{match.email}</p>
+                          <Mail className="text-muted-foreground h-4 w-4" />
+                          <p className="text-muted-foreground text-sm">{match.email}</p>
                         </div>
                       </div>
                       {match.matchType === 'exact' ? (
@@ -86,9 +79,7 @@ export default function ClientSelectorField({
                           Exact Match
                         </Badge>
                       ) : (
-                        <Badge variant="secondary">
-                          {Math.round((match.score || 0) * 100)}% Match
-                        </Badge>
+                        <Badge variant="secondary">{Math.round((match.score || 0) * 100)}% Match</Badge>
                       )}
                     </div>
                   </div>
@@ -137,12 +128,7 @@ export default function ClientSelectorField({
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              type="button"
-              onClick={handleSelectFromDropdown}
-              disabled={!selectedClientId}
-              className="w-full"
-            >
+            <Button type="button" onClick={handleSelectFromDropdown} disabled={!selectedClientId} className="w-full">
               Select Client
             </Button>
           </CardContent>
@@ -156,7 +142,7 @@ export default function ClientSelectorField({
       )}
 
       {field.state.meta.errors.length > 0 && (
-        <p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>
+        <p className="text-destructive text-sm">{String(field.state.meta.errors[0])}</p>
       )}
     </div>
   )

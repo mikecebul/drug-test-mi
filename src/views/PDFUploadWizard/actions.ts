@@ -13,7 +13,6 @@ import {
   fetchDocument,
   sendEmails,
 } from '@/collections/DrugTests/services'
-import { Client } from '@/payload-types'
 
 const TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
 const TEST_EMAIL = process.env.EMAIL_TEST_ADDRESS || 'mike@midrugtest.com'
