@@ -13,7 +13,7 @@ import { RecipientEditor } from '../components/RecipientEditor'
 import { EmailPreviewModal } from '../components/EmailPreviewModal'
 import { z } from 'zod'
 import { useGetCollectionEmailPreviewQuery } from '../queries'
-import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { FieldGroupHeader } from '../workflows/components/FieldGroupHeader'
 import { wizardContainerStyles } from '../styles'
 import { cn } from '@/utilities/cn'
 
@@ -24,22 +24,27 @@ type EmailPreviewData = {
 }
 
 // Export the schema for reuse in step validation
-export const reviewCollectionEmailsFieldSchema = z.object({
-  clientEmailEnabled: z.boolean(),
-  clientRecipients: z.array(z.string().email()),
-  referralEmailEnabled: z.boolean(),
-  referralRecipients: z.array(z.string().email()),
-  previewsLoaded: z.boolean(),
-}).refine((data) => {
-  // For collection, only referral emails are relevant
-  // If referral email enabled, must have at least one recipient
-  if (data.referralEmailEnabled && data.referralRecipients.length === 0) {
-    return false
-  }
-  return true
-}, {
-  message: 'Referral emails must have at least one recipient'
-})
+export const reviewCollectionEmailsFieldSchema = z
+  .object({
+    clientEmailEnabled: z.boolean(),
+    clientRecipients: z.array(z.string().email()),
+    referralEmailEnabled: z.boolean(),
+    referralRecipients: z.array(z.string().email()),
+    previewsLoaded: z.boolean(),
+  })
+  .refine(
+    (data) => {
+      // For collection, only referral emails are relevant
+      // If referral email enabled, must have at least one recipient
+      if (data.referralEmailEnabled && data.referralRecipients.length === 0) {
+        return false
+      }
+      return true
+    },
+    {
+      message: 'Referral emails must have at least one recipient',
+    },
+  )
 
 type ReviewCollectionEmailsFields = {
   clientEmailEnabled: boolean
@@ -137,92 +142,81 @@ export const ReviewCollectionEmailsFieldGroup = withFieldGroup({
     return (
       <div className={wizardContainerStyles.content}>
         <FieldGroupHeader title={title} description={description} />
-        <div className={cn(wizardContainerStyles.fields, "text-base md:text-lg")}>
+        <div className={cn(wizardContainerStyles.fields, 'text-base md:text-lg')}>
           {/* Referral Email Section */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg">Referral Notification</CardTitle>
-                <CardDescription>
-                  Notify referrals that specimen has been collected
-                </CardDescription>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Referral Notification</CardTitle>
+                  <CardDescription>Notify referrals that specimen has been collected</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="referral-enabled"
+                    checked={currentValues.referralEmailEnabled}
+                    onCheckedChange={(checked) => group.setFieldValue('referralEmailEnabled', checked === true)}
+                  />
+                  <Label htmlFor="referral-enabled" className="cursor-pointer font-normal">
+                    Send referral notifications
+                  </Label>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="referral-enabled"
-                  checked={currentValues.referralEmailEnabled}
-                  onCheckedChange={(checked) =>
-                    group.setFieldValue('referralEmailEnabled', checked === true)
-                  }
-                />
-                <Label htmlFor="referral-enabled" className="cursor-pointer font-normal">
-                  Send referral notifications
-                </Label>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {currentValues.referralEmailEnabled && (
-              <>
-                <RecipientEditor
-                  initialRecipients={previewData.referralEmails}
-                  onChange={(recipients) => group.setFieldValue('referralRecipients', recipients)}
-                  label="Recipient Email Addresses"
-                  required={true}
-                  maxRecipients={10}
-                />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {currentValues.referralEmailEnabled && (
+                <>
+                  <RecipientEditor
+                    initialRecipients={previewData.referralEmails}
+                    onChange={(recipients) => group.setFieldValue('referralRecipients', recipients)}
+                    label="Recipient Email Addresses"
+                    required={true}
+                    maxRecipients={10}
+                  />
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowReferralPreview(true)}
-                >
-                  <Eye className="mr-2 h-4 w-4" />
-                  Preview Notification Email
-                </Button>
-              </>
-            )}
+                  <Button type="button" variant="outline" size="sm" onClick={() => setShowReferralPreview(true)}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    Preview Notification Email
+                  </Button>
+                </>
+              )}
 
-            {!currentValues.referralEmailEnabled && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Referrals will not be notified about this specimen collection.
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
+              {!currentValues.referralEmailEnabled && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>Referrals will not be notified about this specimen collection.</AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Summary */}
-        <Alert>
-          <CheckCircle2 className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Ready to send:</strong>{' '}
-            {currentValues.referralEmailEnabled && currentValues.referralRecipients.length > 0 ? (
-              <span>
-                {currentValues.referralRecipients.length} referral notification
-                {currentValues.referralRecipients.length !== 1 ? 's' : ''}
-              </span>
-            ) : (
-              <span className="text-destructive">No notifications will be sent</span>
-            )}
-          </AlertDescription>
-        </Alert>
+          {/* Summary */}
+          <Alert>
+            <CheckCircle2 className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Ready to send:</strong>{' '}
+              {currentValues.referralEmailEnabled && currentValues.referralRecipients.length > 0 ? (
+                <span>
+                  {currentValues.referralRecipients.length} referral notification
+                  {currentValues.referralRecipients.length !== 1 ? 's' : ''}
+                </span>
+              ) : (
+                <span className="text-destructive">No notifications will be sent</span>
+              )}
+            </AlertDescription>
+          </Alert>
 
-        {/* Email Preview Modal */}
-        {showReferralPreview && (
-          <EmailPreviewModal
-            isOpen={showReferralPreview}
-            onClose={() => setShowReferralPreview(false)}
-            emailHtml={previewData.referralHtml}
-            subject={previewData.referralSubject}
-            recipients={currentValues.referralRecipients}
-            emailType="referral"
-          />
-        )}
+          {/* Email Preview Modal */}
+          {showReferralPreview && (
+            <EmailPreviewModal
+              isOpen={showReferralPreview}
+              onClose={() => setShowReferralPreview(false)}
+              emailHtml={previewData.referralHtml}
+              subject={previewData.referralSubject}
+              recipients={currentValues.referralRecipients}
+              emailType="referral"
+            />
+          )}
         </div>
       </div>
     )

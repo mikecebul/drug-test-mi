@@ -13,12 +13,8 @@ import { RecipientEditor } from '../components/RecipientEditor'
 import { EmailPreviewModal } from '../components/EmailPreviewModal'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
-import {
-  useGetEmailPreviewQuery,
-  useGetConfirmationEmailPreviewQuery,
-  useGetClientFromTestQuery,
-} from '../queries'
-import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { useGetEmailPreviewQuery, useGetConfirmationEmailPreviewQuery, useGetClientFromTestQuery } from '../queries'
+import { FieldGroupHeader } from '../workflows/components/FieldGroupHeader'
 import { wizardContainerStyles } from '../styles'
 import { cn } from '@/utilities/cn'
 
@@ -35,30 +31,39 @@ type EmailPreviewData = {
 }
 
 // Export the schema for reuse in step validation
-export const reviewEmailsFieldSchema = z.object({
-  clientEmailEnabled: z.boolean(),
-  clientRecipients: z.array(z.string().email()),
-  referralEmailEnabled: z.boolean(),
-  referralRecipients: z.array(z.string().email()),
-  previewsLoaded: z.boolean(),
-}).refine((data) => {
-  // At least one email type must be enabled
-  return data.clientEmailEnabled || data.referralEmailEnabled
-}, {
-  message: 'At least one email type must be enabled'
-}).refine((data) => {
-  // If client email enabled, must have at least one recipient
-  if (data.clientEmailEnabled && data.clientRecipients.length === 0) {
-    return false
-  }
-  // If referral email enabled, must have at least one recipient
-  if (data.referralEmailEnabled && data.referralRecipients.length === 0) {
-    return false
-  }
-  return true
-}, {
-  message: 'Enabled email types must have at least one recipient'
-})
+export const reviewEmailsFieldSchema = z
+  .object({
+    clientEmailEnabled: z.boolean(),
+    clientRecipients: z.array(z.string().email()),
+    referralEmailEnabled: z.boolean(),
+    referralRecipients: z.array(z.string().email()),
+    previewsLoaded: z.boolean(),
+  })
+  .refine(
+    (data) => {
+      // At least one email type must be enabled
+      return data.clientEmailEnabled || data.referralEmailEnabled
+    },
+    {
+      message: 'At least one email type must be enabled',
+    },
+  )
+  .refine(
+    (data) => {
+      // If client email enabled, must have at least one recipient
+      if (data.clientEmailEnabled && data.clientRecipients.length === 0) {
+        return false
+      }
+      // If referral email enabled, must have at least one recipient
+      if (data.referralEmailEnabled && data.referralRecipients.length === 0) {
+        return false
+      }
+      return true
+    },
+    {
+      message: 'Enabled email types must have at least one recipient',
+    },
+  )
 
 const defaultValues: PdfUploadFormType['reviewEmailsData'] = {
   clientEmailEnabled: false,
@@ -200,179 +205,160 @@ export const ReviewEmailsFieldGroup = withFieldGroup({
     return (
       <div className={wizardContainerStyles.content}>
         <FieldGroupHeader title={title} description={description} />
-        <div className={cn(wizardContainerStyles.fields, "text-base md:text-lg")}>
+        <div className={cn(wizardContainerStyles.fields, 'text-base md:text-lg')}>
           {/* Client Email Section (for probation/employment only) */}
-        {smartGrouping === 'separate' && (
+          {smartGrouping === 'separate' && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg">Client Email</CardTitle>
+                    <CardDescription>
+                      Email sent to {clientData.firstName} {clientData.lastName}
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="client-enabled"
+                      checked={currentValues.clientEmailEnabled}
+                      onCheckedChange={(checked) => group.setFieldValue('clientEmailEnabled', checked === true)}
+                    />
+                    <Label htmlFor="client-enabled" className="cursor-pointer font-normal">
+                      Send client email
+                    </Label>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {currentValues.clientEmailEnabled && (
+                  <>
+                    <RecipientEditor
+                      initialRecipients={previewData.clientEmail ? [previewData.clientEmail] : []}
+                      onChange={(recipients) => group.setFieldValue('clientRecipients', recipients)}
+                      label="Client Email Address"
+                      required={true}
+                      maxRecipients={1}
+                    />
+
+                    <Button type="button" variant="outline" size="sm" onClick={() => setShowClientPreview(true)}>
+                      <Eye className="mr-2 h-4 w-4" />
+                      Preview Client Email
+                    </Button>
+                  </>
+                )}
+
+                {!currentValues.clientEmailEnabled && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>Client will not receive an email notification for this test.</AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Referral Email Section */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-lg">Client Email</CardTitle>
+                  <CardTitle className="text-lg">
+                    {smartGrouping === 'combined' ? 'Your Email' : 'Referral Emails'}
+                  </CardTitle>
                   <CardDescription>
-                    Email sent to {clientData.firstName} {clientData.lastName}
+                    {smartGrouping === 'combined'
+                      ? 'Email sent to the client (self-pay)'
+                      : 'Emails sent to court officers, probation officers, or employers'}
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
                   <Checkbox
-                    id="client-enabled"
-                    checked={currentValues.clientEmailEnabled}
-                    onCheckedChange={(checked) =>
-                      group.setFieldValue('clientEmailEnabled', checked === true)
-                    }
+                    id="referral-enabled"
+                    checked={currentValues.referralEmailEnabled}
+                    onCheckedChange={(checked) => group.setFieldValue('referralEmailEnabled', checked === true)}
+                    disabled={smartGrouping === 'combined'} // Can't disable for self-pay
                   />
-                  <Label htmlFor="client-enabled" className="cursor-pointer font-normal">
-                    Send client email
+                  <Label htmlFor="referral-enabled" className="cursor-pointer font-normal">
+                    Send {smartGrouping === 'combined' ? 'email' : 'referral emails'}
                   </Label>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {currentValues.clientEmailEnabled && (
+              {currentValues.referralEmailEnabled && (
                 <>
                   <RecipientEditor
-                    initialRecipients={previewData.clientEmail ? [previewData.clientEmail] : []}
-                    onChange={(recipients) => group.setFieldValue('clientRecipients', recipients)}
-                    label="Client Email Address"
-                    required={true}
-                    maxRecipients={1}
+                    initialRecipients={previewData.referralEmails}
+                    onChange={(recipients) => group.setFieldValue('referralRecipients', recipients)}
+                    label="Recipient Email Addresses"
+                    required={smartGrouping === 'combined'} // Always required for self-pay
+                    maxRecipients={10}
                   />
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowClientPreview(true)}
-                  >
+                  <Button type="button" variant="outline" size="sm" onClick={() => setShowReferralPreview(true)}>
                     <Eye className="mr-2 h-4 w-4" />
-                    Preview Client Email
+                    Preview {smartGrouping === 'combined' ? 'Email' : 'Referral Email'}
                   </Button>
                 </>
               )}
 
-              {!currentValues.clientEmailEnabled && (
-                <Alert>
+              {!currentValues.referralEmailEnabled && smartGrouping !== 'combined' && (
+                <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    Client will not receive an email notification for this test.
+                    Referrals will not receive email notifications for this test. This is not recommended for{' '}
+                    {clientData.clientType === 'probation' ? 'probation' : 'employment'} clients.
                   </AlertDescription>
                 </Alert>
               )}
             </CardContent>
           </Card>
-        )}
 
-        {/* Referral Email Section */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg">
-                  {smartGrouping === 'combined' ? 'Your Email' : 'Referral Emails'}
-                </CardTitle>
-                <CardDescription>
-                  {smartGrouping === 'combined'
-                    ? 'Email sent to the client (self-pay)'
-                    : 'Emails sent to court officers, probation officers, or employers'}
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="referral-enabled"
-                  checked={currentValues.referralEmailEnabled}
-                  onCheckedChange={(checked) =>
-                    group.setFieldValue('referralEmailEnabled', checked === true)
-                  }
-                  disabled={smartGrouping === 'combined'} // Can't disable for self-pay
-                />
-                <Label htmlFor="referral-enabled" className="cursor-pointer font-normal">
-                  Send {smartGrouping === 'combined' ? 'email' : 'referral emails'}
-                </Label>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {currentValues.referralEmailEnabled && (
-              <>
-                <RecipientEditor
-                  initialRecipients={previewData.referralEmails}
-                  onChange={(recipients) => group.setFieldValue('referralRecipients', recipients)}
-                  label="Recipient Email Addresses"
-                  required={smartGrouping === 'combined'} // Always required for self-pay
-                  maxRecipients={10}
-                />
+          {/* Summary */}
+          <Alert>
+            <CheckCircle2 className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Ready to send:</strong>{' '}
+              {currentValues.clientEmailEnabled && currentValues.clientRecipients.length > 0 && (
+                <span>
+                  {currentValues.clientRecipients.length} client email
+                  {currentValues.referralEmailEnabled && currentValues.referralRecipients.length > 0 && ', '}
+                </span>
+              )}
+              {currentValues.referralEmailEnabled && currentValues.referralRecipients.length > 0 && (
+                <span>
+                  {currentValues.referralRecipients.length} referral email
+                  {currentValues.referralRecipients.length !== 1 ? 's' : ''}
+                </span>
+              )}
+              {!currentValues.clientEmailEnabled && !currentValues.referralEmailEnabled && (
+                <span className="text-destructive">No emails will be sent</span>
+              )}
+            </AlertDescription>
+          </Alert>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowReferralPreview(true)}
-                >
-                  <Eye className="mr-2 h-4 w-4" />
-                  Preview {smartGrouping === 'combined' ? 'Email' : 'Referral Email'}
-                </Button>
-              </>
-            )}
+          {/* Email Preview Modals */}
+          {showClientPreview && smartGrouping === 'separate' && (
+            <EmailPreviewModal
+              isOpen={showClientPreview}
+              onClose={() => setShowClientPreview(false)}
+              emailHtml={previewData.clientHtml}
+              subject={previewData.clientSubject}
+              recipients={currentValues.clientRecipients}
+              emailType="client"
+            />
+          )}
 
-            {!currentValues.referralEmailEnabled && smartGrouping !== 'combined' && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Referrals will not receive email notifications for this test. This is not
-                  recommended for{' '}
-                  {clientData.clientType === 'probation' ? 'probation' : 'employment'} clients.
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Summary */}
-        <Alert>
-          <CheckCircle2 className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Ready to send:</strong>{' '}
-            {currentValues.clientEmailEnabled && currentValues.clientRecipients.length > 0 && (
-              <span>
-                {currentValues.clientRecipients.length} client email
-                {currentValues.referralEmailEnabled &&
-                  currentValues.referralRecipients.length > 0 &&
-                  ', '}
-              </span>
-            )}
-            {currentValues.referralEmailEnabled && currentValues.referralRecipients.length > 0 && (
-              <span>
-                {currentValues.referralRecipients.length} referral email
-                {currentValues.referralRecipients.length !== 1 ? 's' : ''}
-              </span>
-            )}
-            {!currentValues.clientEmailEnabled && !currentValues.referralEmailEnabled && (
-              <span className="text-destructive">No emails will be sent</span>
-            )}
-          </AlertDescription>
-        </Alert>
-
-        {/* Email Preview Modals */}
-        {showClientPreview && smartGrouping === 'separate' && (
-          <EmailPreviewModal
-            isOpen={showClientPreview}
-            onClose={() => setShowClientPreview(false)}
-            emailHtml={previewData.clientHtml}
-            subject={previewData.clientSubject}
-            recipients={currentValues.clientRecipients}
-            emailType="client"
-          />
-        )}
-
-        {showReferralPreview && (
-          <EmailPreviewModal
-            isOpen={showReferralPreview}
-            onClose={() => setShowReferralPreview(false)}
-            emailHtml={previewData.referralHtml}
-            subject={previewData.referralSubject}
-            recipients={currentValues.referralRecipients}
-            emailType="referral"
-          />
-        )}
+          {showReferralPreview && (
+            <EmailPreviewModal
+              isOpen={showReferralPreview}
+              onClose={() => setShowReferralPreview(false)}
+              emailHtml={previewData.referralHtml}
+              subject={previewData.referralSubject}
+              recipients={currentValues.referralRecipients}
+              emailType="referral"
+            />
+          )}
         </div>
       </div>
     )

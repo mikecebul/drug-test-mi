@@ -51,3 +51,48 @@ export async function getClients(): Promise<SimpleClient[]> {
   })
   return clients
 }
+
+export async function getClientById(
+  id: string
+): Promise<SimpleClient | null> {
+  try {
+    const client = await sdk.findByID({
+      collection: 'clients',
+      id,
+      depth: 2,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        middleInitial: true,
+        email: true,
+        dob: true,
+        headshot: true,
+      },
+    })
+
+    if (!client) return null
+
+    const headshot =
+      typeof client.headshot === 'object' && client.headshot
+        ? client.headshot.thumbnailURL || client.headshot.url || undefined
+        : undefined
+
+    return {
+      id: client.id,
+      firstName: client.firstName,
+      middleInitial: client.middleInitial ?? undefined,
+      lastName: client.lastName,
+      fullName: client.middleInitial
+        ? `${client.firstName} ${client.middleInitial} ${client.lastName}`
+        : `${client.firstName} ${client.lastName}`,
+      initials: `${client.firstName.charAt(0)}${client.lastName.charAt(0)}`,
+      email: client.email,
+      dob: client.dob ?? undefined,
+      headshot,
+    }
+  } catch (err) {
+    // Payload throws if not found
+    return null
+  }
+}

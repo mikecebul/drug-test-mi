@@ -19,7 +19,7 @@ import {
   useGetDrugTestQuery,
   useExtractPdfQuery,
 } from '../queries'
-import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { FieldGroupHeader } from '../workflows/components/FieldGroupHeader'
 import { SectionHeader } from '../components/SectionHeader'
 import { wizardContainerStyles } from '../styles'
 import { cn } from '@/utilities/cn'

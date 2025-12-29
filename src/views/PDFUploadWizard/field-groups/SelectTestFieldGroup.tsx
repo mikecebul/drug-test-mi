@@ -11,7 +11,7 @@ import { z } from 'zod'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { format } from 'date-fns'
 import { useFetchPendingTestsQuery } from '../queries'
-import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { FieldGroupHeader } from '../workflows/components/FieldGroupHeader'
 import { wizardContainerStyles } from '../styles'
 import { cn } from '@/utilities/cn'
 
@@ -74,88 +74,82 @@ export const SelectTestFieldGroup = withFieldGroup({
     return (
       <div className={wizardContainerStyles.content}>
         <FieldGroupHeader title={title} description={description} />
-        <div className={cn(wizardContainerStyles.fields, "text-base md:text-lg")}>
+        <div className={cn(wizardContainerStyles.fields, 'text-base md:text-lg')}>
           {loading && (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        )}
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+            </div>
+          )}
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              {error instanceof Error ? error.message : 'Failed to load pending tests'}
-            </AlertDescription>
-          </Alert>
-        )}
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {error instanceof Error ? error.message : 'Failed to load pending tests'}
+              </AlertDescription>
+            </Alert>
+          )}
 
-        {!loading && !error && tests.length === 0 && (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              No pending drug tests found. Please collect a specimen first.
-            </AlertDescription>
-          </Alert>
-        )}
+          {!loading && !error && tests.length === 0 && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>No pending drug tests found. Please collect a specimen first.</AlertDescription>
+            </Alert>
+          )}
 
-        {!loading && !error && tests.length > 0 && (
-          <group.Field name="testId">
-            {(field) => (
-              <div className="space-y-4">
-                <RadioGroup value={selectedTestId} onValueChange={handleTestSelect}>
-                  <div className="space-y-3">
-                    {tests.map((test) => {
-                      const isSelected = selectedTestId === test.id
-                      const collectionDate = new Date(test.collectionDate)
+          {!loading && !error && tests.length > 0 && (
+            <group.Field name="testId">
+              {(field) => (
+                <div className="space-y-4">
+                  <RadioGroup value={selectedTestId} onValueChange={handleTestSelect}>
+                    <div className="space-y-3">
+                      {tests.map((test) => {
+                        const isSelected = selectedTestId === test.id
+                        const collectionDate = new Date(test.collectionDate)
 
-                      return (
-                        <Card
-                          key={test.id}
-                          className={`cursor-pointer transition-all hover:shadow-md ${
-                            isSelected ? 'border-primary border-2 bg-accent/50' : ''
-                          }`}
-                          onClick={() => handleTestSelect(test.id)}
-                        >
-                          <CardHeader className="pb-3">
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-start gap-3">
-                                <RadioGroupItem
-                                  value={test.id}
-                                  id={test.id}
-                                  className="mt-1"
-                                />
-                                <div className="space-y-1">
-                                  <CardTitle className="text-base flex items-center gap-2">
-                                    <User className="h-4 w-4 text-muted-foreground" />
-                                    {test.clientName}
-                                  </CardTitle>
-                                  <CardDescription className="flex items-center gap-2">
-                                    <Calendar className="h-3 w-3" />
-                                    {format(collectionDate, 'PPp')}
-                                  </CardDescription>
+                        return (
+                          <Card
+                            key={test.id}
+                            className={`cursor-pointer transition-all hover:shadow-md ${
+                              isSelected ? 'border-primary bg-accent/50 border-2' : ''
+                            }`}
+                            onClick={() => handleTestSelect(test.id)}
+                          >
+                            <CardHeader className="pb-3">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3">
+                                  <RadioGroupItem value={test.id} id={test.id} className="mt-1" />
+                                  <div className="space-y-1">
+                                    <CardTitle className="flex items-center gap-2 text-base">
+                                      <User className="text-muted-foreground h-4 w-4" />
+                                      {test.clientName}
+                                    </CardTitle>
+                                    <CardDescription className="flex items-center gap-2">
+                                      <Calendar className="h-3 w-3" />
+                                      {format(collectionDate, 'PPp')}
+                                    </CardDescription>
+                                  </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                  <Badge variant="outline">{test.testType}</Badge>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {test.screeningStatus}
+                                  </Badge>
                                 </div>
                               </div>
-                              <div className="flex flex-col gap-2">
-                                <Badge variant="outline">{test.testType}</Badge>
-                                <Badge variant="secondary" className="text-xs">
-                                  {test.screeningStatus}
-                                </Badge>
-                              </div>
-                            </div>
-                          </CardHeader>
-                        </Card>
-                      )
-                    })}
-                  </div>
-                </RadioGroup>
-                {field.state.meta.errors.length > 0 && (
-                  <p className="text-destructive text-sm">{field.state.meta.errors[0]}</p>
-                )}
-              </div>
-            )}
-          </group.Field>
-        )}
+                            </CardHeader>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  </RadioGroup>
+                  {field.state.meta.errors.length > 0 && (
+                    <p className="text-destructive text-sm">{field.state.meta.errors[0]}</p>
+                  )}
+                </div>
+              )}
+            </group.Field>
+          )}
         </div>
       </div>
     )

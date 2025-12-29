@@ -1,8 +1,9 @@
 import type { SubstanceValue } from '@/fields/substanceOptions'
 
 export const WIZARD_OPTIONS = [
-  '15-panel-instant',
+  'register-client',
   'collect-lab',
+  '15-panel-instant',
   'enter-lab-screen',
   'enter-lab-confirmation',
 ] as const

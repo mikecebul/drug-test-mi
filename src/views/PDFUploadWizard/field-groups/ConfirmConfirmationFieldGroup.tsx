@@ -13,7 +13,7 @@ import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import { generateTestFilename } from '../utils/generateFilename'
 import { useComputeTestResultPreviewQuery, useGetClientFromTestQuery } from '../queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
-import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { FieldGroupHeader } from '../workflows/components/FieldGroupHeader'
 import { wizardContainerStyles } from '../styles'
 import { cn } from '@/utilities/cn'
 
@@ -98,10 +98,7 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
                 </div>
                 <div className="flex items-start gap-3 pl-6">
                   <Avatar className="h-12 w-12 shrink-0">
-                    <AvatarImage
-                      src={client?.headshot ?? undefined}
-                      alt={`${client?.firstName} ${client?.lastName}`}
-                    />
+                    <AvatarImage src={client?.headshot ?? undefined} alt={`${client?.firstName} ${client?.lastName}`} />
                     <AvatarFallback className="text-sm">
                       {client?.firstName?.charAt(0)}
                       {client?.lastName?.charAt(0)}
@@ -151,18 +148,12 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
                       const ResultIcon = config.icon
 
                       return (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between rounded-md border p-2"
-                        >
+                        <div key={index} className="flex items-center justify-between rounded-md border p-2">
                           <div className="flex items-center gap-2">
                             <Badge variant="outline" className="text-xs">
                               {result.substance}
                             </Badge>
-                            <Badge
-                              variant={config.variant}
-                              className={`gap-1 text-xs ${config.className}`}
-                            >
+                            <Badge variant={config.variant} className={`gap-1 text-xs ${config.className}`}>
                               <ResultIcon className="h-3 w-3" />
                               {config.label}
                             </Badge>
@@ -192,9 +183,7 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
                         <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
                           <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                           <AlertDescription>
-                            <p className="font-semibold text-green-900 dark:text-green-100">
-                              All Negative (Pass)
-                            </p>
+                            <p className="font-semibold text-green-900 dark:text-green-100">All Negative (Pass)</p>
                             <p className="mt-1 text-sm text-green-800 dark:text-green-200">
                               All confirmation tests came back negative.
                             </p>
@@ -206,17 +195,13 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
                         <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
                           <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                           <AlertDescription>
-                            <p className="font-semibold text-green-900 dark:text-green-100">
-                              Expected Positive (Pass)
-                            </p>
+                            <p className="font-semibold text-green-900 dark:text-green-100">Expected Positive (Pass)</p>
                             <p className="mt-1 text-sm text-green-800 dark:text-green-200">
                               All confirmed substances match client&apos;s prescribed medications.
                             </p>
                             {preview.expectedPositives.length > 0 && (
                               <div className="mt-2">
-                                <p className="mb-1 text-xs text-green-700 dark:text-green-300">
-                                  Expected substances:
-                                </p>
+                                <p className="mb-1 text-xs text-green-700 dark:text-green-300">Expected substances:</p>
                                 <div className="flex flex-wrap gap-1">
                                   {preview.expectedPositives.map((substance) => (
                                     <Badge
@@ -240,19 +225,14 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
                           <AlertDescription>
                             <p className="font-semibold">Unexpected Positive (Fail)</p>
                             <p className="mt-1 text-sm">
-                              Confirmed substances that are NOT in client&apos;s prescribed
-                              medications.
+                              Confirmed substances that are NOT in client&apos;s prescribed medications.
                             </p>
                             {preview.unexpectedPositives.length > 0 && (
                               <div className="mt-2">
                                 <p className="mb-1 text-xs">Unexpected substances:</p>
                                 <div className="flex flex-wrap gap-1">
                                   {preview.unexpectedPositives.map((substance) => (
-                                    <Badge
-                                      key={substance}
-                                      variant="destructive"
-                                      className="text-xs"
-                                    >
+                                    <Badge key={substance} variant="destructive" className="text-xs">
                                       {substance}
                                     </Badge>
                                   ))}
@@ -268,9 +248,7 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
                         preview.initialScreenResult === 'mixed-unexpected') && (
                         <Alert
                           variant={
-                            preview.initialScreenResult === 'unexpected-negative-warning'
-                              ? 'default'
-                              : 'destructive'
+                            preview.initialScreenResult === 'unexpected-negative-warning' ? 'default' : 'destructive'
                           }
                           className={
                             preview.initialScreenResult === 'unexpected-negative-warning'
@@ -295,8 +273,7 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
                                 'Unexpected Negative - Critical (Fail)'}
                               {preview.initialScreenResult === 'unexpected-negative-warning' &&
                                 'Unexpected Negative - Warning (Pass with Note)'}
-                              {preview.initialScreenResult === 'mixed-unexpected' &&
-                                'Mixed Unexpected Results (Fail)'}
+                              {preview.initialScreenResult === 'mixed-unexpected' && 'Mixed Unexpected Results (Fail)'}
                             </p>
                             {preview.unexpectedNegatives.length > 0 && (
                               <div className="mt-2">
@@ -341,9 +318,7 @@ export const ConfirmConfirmationFieldGroup = withFieldGroup({
                     <p className="text-primary font-mono text-sm font-semibold">{newFilename}</p>
                   </div>
                   <p className="text-muted-foreground text-xs">
-                    {uploadData?.file
-                      ? `${(uploadData.file.size / 1024).toFixed(2)} KB`
-                      : 'No file uploaded'}
+                    {uploadData?.file ? `${(uploadData.file.size / 1024).toFixed(2)} KB` : 'No file uploaded'}
                   </p>
                 </div>
               </div>

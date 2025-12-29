@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CheckCircle2, User, FileText, AlertTriangle } from 'lucide-react'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../../schemas/pdfUploadSchemas'
-import { FieldGroupHeader } from '../../components/FieldGroupHeader'
+import { FieldGroupHeader } from '../../workflows/components/FieldGroupHeader'
 import { wizardContainerStyles } from '../../styles'
 import { cn } from '@/utilities/cn'
 import { useConfirmFieldLogic } from './useConfirmFieldLogic'
@@ -32,8 +32,7 @@ export const TestSummaryFieldGroup = withFieldGroup({
   },
 
   render: function Render({ group, title, description = '' }) {
-    const { client, verifyData, extractData, preview, isLoading, filenames } =
-      useConfirmFieldLogic(group)
+    const { client, verifyData, extractData, preview, isLoading, filenames } = useConfirmFieldLogic(group)
 
     return (
       <div className={wizardContainerStyles.content}>

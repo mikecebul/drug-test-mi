@@ -1,10 +1,7 @@
 'use client'
 
 import React from 'react'
-import {
-  QueryClient,
-  QueryClientProvider as TanStackQueryClientProvider,
-} from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider as TanStackQueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 
 function makeQueryClient() {
@@ -52,9 +49,7 @@ export function QueryClientProvider({ children }: QueryClientProviderProps) {
     <TanStackQueryClientProvider client={queryClient}>
       {children}
       {/* Show React Query DevTools in development */}
-      {process.env.NODE_ENV === 'development' && (
-        <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-right" />
-      )}
+      {false && <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-right" />}
     </TanStackQueryClientProvider>
   )
 }

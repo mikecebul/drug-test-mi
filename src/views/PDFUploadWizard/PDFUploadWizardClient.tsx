@@ -1,7 +1,7 @@
 'use client'
 
 import React, { Suspense } from 'react'
-import { useQueryState, parseAsStringLiteral } from 'nuqs'
+import { parseAsStringLiteral, parseAsString, useQueryStates } from 'nuqs'
 import { WizardTypeSelector } from './WizardTypeSelector'
 import { WizardTypeSelectorSkeleton } from './WizardTypeSelectorSkeleton'
 import { EnterLabScreenWorkflow } from './workflows/EnterLabScreenWorkflow'
@@ -10,38 +10,66 @@ import { InstantTestWorkflow } from './workflows/InstantTestWorkflow'
 import type { WizardType } from './types'
 import { WizardHeader } from './components/WizardHeader'
 import { CollectLabWorkflow } from './workflows/collect-lab-workflow/Workflow'
-import { steps } from './workflows/collect-lab-workflow/validators'
+import { steps as collectLabSteps } from './workflows/collect-lab-workflow/validators'
+import { RegisterClientWorkflow } from './workflows/register-client-workflow/Workflow'
+import { steps as registerClientSteps } from './workflows/register-client-workflow/validators'
 
-const workflowTypes = ['collect-lab', 'enter-lab-screen', 'enter-lab-confirmation', '15-panel-instant'] as const
+const workflowTypes = [
+  'register-client',
+  'collect-lab',
+  'enter-lab-screen',
+  'enter-lab-confirmation',
+  '15-panel-instant',
+] as const
 
 export function PDFUploadWizardClient() {
-  // Store workflow selection in URL
-  const [selectedWorkflowRaw, setSelectedWorkflow] = useQueryState(
-    'workflow',
-    parseAsStringLiteral(workflowTypes as readonly string[])
-  )
-  const selectedWorkflow = selectedWorkflowRaw as WizardType | null
-
-  // Also manage step param to clear it when returning to selector
-  // Use same parser config as Workflow.tsx and Navigation.tsx for consistency
-  const [, setStep] = useQueryState(
-    'step',
-    parseAsStringLiteral(steps as readonly string[]).withDefault('client')
+  const [states, setStates] = useQueryStates(
+    {
+      workflow: parseAsStringLiteral(workflowTypes),
+      step: parseAsString, // Use generic string so it accepts all workflow step types
+      clientId: parseAsString,
+    },
+    {
+      history: 'push', // Default all updates to push to history
+    },
   )
 
-  // Reset workflow selection and clear step param
+  const { workflow } = states
+
+  const firstStepMap: Record<string, string> = {
+    'register-client': registerClientSteps[0],
+    'collect-lab': collectLabSteps[0],
+  }
+
+  // Reset workflow selection and clear step params
   const handleBack = async () => {
-    await setSelectedWorkflow(null)
-    await setStep(null)
+    setStates({
+      workflow: null,
+      step: null,
+      clientId: null,
+    })
   }
 
   // Handle workflow type selection
-  const handleWorkflowSelect = async (wizardType: WizardType) => {
-    await setSelectedWorkflow(wizardType, { history: 'push' })
+  const handleWorkflowSelect = (wizardType: WizardType) => {
+    setStates({
+      workflow: wizardType,
+      step: firstStepMap[wizardType] ?? null,
+      clientId: null,
+    })
+  }
+
+  // Handle client creation from register workflow
+  const handleClientCreated = async (clientId: string) => {
+    setStates({
+      workflow: 'collect-lab',
+      step: firstStepMap['collect-lab'],
+      clientId: clientId,
+    })
   }
 
   // Show workflow type selector if no workflow is selected
-  if (!selectedWorkflow) {
+  if (!workflow) {
     return (
       <>
         <WizardHeader title="Drug Test Workflow" description="Select the type of workflow you want to perform" />
@@ -53,19 +81,23 @@ export function PDFUploadWizardClient() {
   }
 
   // Route to appropriate workflow
-  if (selectedWorkflow === 'collect-lab') {
+  if (workflow === 'register-client') {
+    return <RegisterClientWorkflow onBack={handleBack} onClientCreated={handleClientCreated} />
+  }
+
+  if (workflow === 'collect-lab') {
     return <CollectLabWorkflow onBack={handleBack} />
   }
 
-  if (selectedWorkflow === 'enter-lab-screen') {
+  if (workflow === 'enter-lab-screen') {
     return <EnterLabScreenWorkflow onBack={handleBack} />
   }
 
-  if (selectedWorkflow === 'enter-lab-confirmation') {
+  if (workflow === 'enter-lab-confirmation') {
     return <EnterLabConfirmationWorkflow onBack={handleBack} />
   }
 
-  if (selectedWorkflow === '15-panel-instant') {
+  if (workflow === '15-panel-instant') {
     return <InstantTestWorkflow onBack={handleBack} />
   }
 

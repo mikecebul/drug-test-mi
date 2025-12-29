@@ -32,9 +32,7 @@ export default function PhoneField({ label, colSpan, required }: PhoneFieldUIPro
           autoComplete="tel"
         />
       </div>
-      <div>
-        {errors && <em className="text-destructive text-sm first:mt-1">{errors[0]?.message}</em>}
-      </div>
+      <div>{errors && <em className="text-destructive text-sm first:mt-1">{errors[0]?.message}</em>}</div>
     </div>
   )
 }

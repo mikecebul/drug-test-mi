@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { toast } from 'sonner'
-import { useQueryState, parseAsStringLiteral } from 'nuqs'
+import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { getCollectLabFormOpts } from './shared-form'
 import { CollectLabNavigation } from './components/Navigation'
 import { ClientStep } from './steps/Client/Step'
@@ -14,6 +14,7 @@ import { EmailsStep } from './steps/Emails'
 import { createCollectionWithEmailReview } from './actions/createCollectionWithEmailReview'
 import { TestCompleted } from '../../components/TestCompleted'
 import { steps } from './validators'
+import { getClientById } from './steps/Client/getClients'
 
 interface CollectLabWorkflowProps {
   onBack: () => void
@@ -28,6 +29,9 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
     parseAsStringLiteral(steps as readonly string[]).withDefault('client'),
   )
   const currentStep = currentStepRaw as (typeof steps)[number]
+
+  // Manage clientId param for pre-populating from registration workflow
+  const [clientId, setClientId] = useQueryState('clientId', parseAsString)
 
   // Track previous step to detect navigation direction
   const prevStepRef = useRef(currentStep)
@@ -88,6 +92,39 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
     // Update ref for next comparison
     prevStepRef.current = currentStep
   }, [currentStep, form, setCurrentStep])
+
+  // Handle client pre-population from registration workflow
+  useEffect(() => {
+    if (clientId && currentStep === 'client' && !form.state.values.client.id) {
+      // Fetch client by ID and populate form
+      const fetchAndPopulateClient = async () => {
+        try {
+          const client = await getClientById(clientId)
+          if (client) {
+            form.setFieldValue('client.id', client.id)
+            form.setFieldValue('client.firstName', client.firstName)
+            form.setFieldValue('client.lastName', client.lastName)
+            form.setFieldValue('client.middleInitial', client.middleInitial ?? null)
+            form.setFieldValue('client.email', client.email)
+            form.setFieldValue('client.dob', client.dob ?? null)
+            form.setFieldValue('client.headshot', client.headshot ?? null)
+
+            toast.success(`Client ${client.firstName} ${client.lastName} pre-selected`)
+
+            // Clear the clientId param after population
+            setClientId(null)
+          }
+        } catch (error) {
+          console.error('Failed to fetch client:', error)
+          toast.error('Failed to load client information')
+          // Clear the clientId param on error
+          setClientId(null)
+        }
+      }
+
+      fetchAndPopulateClient()
+    }
+  }, [clientId, currentStep, form, setClientId])
 
   if (completedTestId) {
     return <TestCompleted testId={completedTestId} onBack={onBack} />

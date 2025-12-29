@@ -6,7 +6,7 @@ import { withForm } from '@/blocks/Form/hooks/form'
 import { getCollectLabFormOpts } from '../shared-form'
 import { format } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
-import { FieldGroupHeader } from '../../../components/FieldGroupHeader'
+import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 
 export const ConfirmStep = withForm({
   ...getCollectLabFormOpts('confirm'),

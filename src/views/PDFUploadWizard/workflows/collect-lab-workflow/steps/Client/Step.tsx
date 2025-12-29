@@ -10,7 +10,7 @@ import { Check, UserPlus } from 'lucide-react'
 import { getCollectLabFormOpts } from '../../shared-form'
 import { useQuery } from '@tanstack/react-query'
 import { getClients, SimpleClient } from './getClients'
-import { FieldGroupHeader } from '../../../../components/FieldGroupHeader'
+import { FieldGroupHeader } from '../../../components/FieldGroupHeader'
 import { ClientDisplayCard } from '../../components/ClientDisplayCard'
 import { SearchDialog } from './SearchDialog'
 

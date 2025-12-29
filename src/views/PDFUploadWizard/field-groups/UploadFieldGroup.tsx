@@ -3,19 +3,14 @@
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
-import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { FieldGroupHeader } from '../workflows/components/FieldGroupHeader'
 import { wizardContainerStyles } from '../styles'
 import { cn } from '@/utilities/cn'
 import { WIZARD_OPTIONS } from '../types'
 
 // Export the schema for reuse in step validation
 export const uploadFieldSchema = z.object({
-  wizardType: z.enum([
-    '15-panel-instant',
-    'collect-lab',
-    'enter-lab-screen',
-    'enter-lab-confirmation',
-  ]),
+  wizardType: z.enum(['15-panel-instant', 'collect-lab', 'enter-lab-screen', 'enter-lab-confirmation']),
   file: z.instanceof(File, { message: 'Please upload a PDF file' }),
 })
 

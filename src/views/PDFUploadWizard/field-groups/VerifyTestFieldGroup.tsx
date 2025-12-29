@@ -13,12 +13,8 @@ import { useStore } from '@tanstack/react-form'
 import { format } from 'date-fns'
 import { fetchPendingTests } from '../actions'
 import { useExtractPdfQuery } from '../queries'
-import {
-  getRankedTestMatches,
-  type DrugTest as TestMatchDrugTest,
-  type TestType,
-} from '../utils/testMatching'
-import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { getRankedTestMatches, type DrugTest as TestMatchDrugTest, type TestType } from '../utils/testMatching'
+import { FieldGroupHeader } from '../workflows/components/FieldGroupHeader'
 import { wizardContainerStyles } from '../styles'
 import { cn } from '@/utilities/cn'
 import { WizardType } from '../types'
@@ -178,9 +174,7 @@ export const VerifyTestFieldGroup = withFieldGroup({
           <FieldGroupHeader title={title} description={description} />
           <Alert>
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              No pending tests found with status: {filterStatus.join(', ')}
-            </AlertDescription>
+            <AlertDescription>No pending tests found with status: {filterStatus.join(', ')}</AlertDescription>
           </Alert>
         </div>
       )
@@ -210,9 +204,7 @@ export const VerifyTestFieldGroup = withFieldGroup({
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 <strong>Extracted from PDF:</strong> {extractData.donorName}
-                {extractData.collectionDate && (
-                  <span> • {format(new Date(extractData.collectionDate), 'PPp')}</span>
-                )}
+                {extractData.collectionDate && <span> • {format(new Date(extractData.collectionDate), 'PPp')}</span>}
                 {detectedTestType && (
                   <span className="text-muted-foreground mt-1 block text-xs">
                     Detected Test Type: {detectedTestType}
@@ -240,10 +232,7 @@ export const VerifyTestFieldGroup = withFieldGroup({
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex flex-1 items-start gap-3">
                         <Avatar className="h-12 w-12 shrink-0">
-                          <AvatarImage
-                            src={test.clientHeadshot ?? undefined}
-                            alt={test.clientName}
-                          />
+                          <AvatarImage src={test.clientHeadshot ?? undefined} alt={test.clientName} />
                           <AvatarFallback className="text-sm">
                             {test.clientName
                               .split(' ')
@@ -264,9 +253,7 @@ export const VerifyTestFieldGroup = withFieldGroup({
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         {isHighConfidence && <Badge variant="default">High Match ({score}%)</Badge>}
-                        {isMediumConfidence && (
-                          <Badge variant="secondary">Medium Match ({score}%)</Badge>
-                        )}
+                        {isMediumConfidence && <Badge variant="secondary">Medium Match ({score}%)</Badge>}
                         {!isHighConfidence && !isMediumConfidence && score > 0 && (
                           <Badge variant="outline">Low Match ({score}%)</Badge>
                         )}
@@ -283,12 +270,7 @@ export const VerifyTestFieldGroup = withFieldGroup({
           </div>
 
           {!showAllTests && testsWithScores.length > 3 && (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => setShowAllTests(true)}
-            >
+            <Button type="button" variant="outline" className="w-full" onClick={() => setShowAllTests(true)}>
               <ChevronDown className="mr-2 h-4 w-4" />
               Show {testsWithScores.length - 3} more pending tests
             </Button>

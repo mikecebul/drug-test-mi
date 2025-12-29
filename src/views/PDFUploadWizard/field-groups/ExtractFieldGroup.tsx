@@ -10,7 +10,7 @@ import type { ParsedPDFData, WizardType } from '../types'
 import { z } from 'zod'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { useExtractPdfQuery } from '../queries'
-import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { FieldGroupHeader } from '../workflows/components/FieldGroupHeader'
 import { wizardContainerStyles } from '../styles'
 
 // Minimal schema - extraction data lives in TanStack Query cache
@@ -51,9 +51,7 @@ export function ExtractFieldGroup({ form, title = 'Extract Data' }: ExtractField
             <div className="flex items-center justify-center py-12">
               <div className="space-y-4 text-center">
                 <Loader2 className="text-primary mx-auto h-12 w-12 animate-spin" />
-                <p className="text-muted-foreground text-lg">
-                  Please wait while we extract the test data
-                </p>
+                <p className="text-muted-foreground text-lg">Please wait while we extract the test data</p>
               </div>
             </div>
           </CardContent>
@@ -73,8 +71,8 @@ export function ExtractFieldGroup({ form, title = 'Extract Data' }: ExtractField
           <AlertDescription>
             <p className="mb-1 text-base font-medium">{errorMessage}</p>
             <p className="text-sm">
-              The PDF format may not be supported, or the file may be damaged. Please try a
-              different file or contact support if this issue persists.
+              The PDF format may not be supported, or the file may be damaged. Please try a different file or contact
+              support if this issue persists.
             </p>
           </AlertDescription>
         </Alert>

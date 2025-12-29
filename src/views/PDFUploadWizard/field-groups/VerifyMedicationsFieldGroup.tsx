@@ -9,7 +9,7 @@ import { RefreshCw } from 'lucide-react'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import { MedicationList } from '../components/medications/MedicationList'
-import { FieldGroupHeader } from '../components/FieldGroupHeader'
+import { FieldGroupHeader } from '../workflows/components/FieldGroupHeader'
 import { Button } from '@/components/ui/button'
 import { getClientMedications } from '../actions/adminMedicationActions'
 
@@ -100,10 +100,7 @@ export const VerifyMedicationsFieldGroup = withFieldGroup({
           {/* Client Info */}
           <div className="flex items-start gap-8">
             <Avatar className="size-24 shrink-0">
-              <AvatarImage
-                src={client.headshot ?? undefined}
-                alt={`${client.firstName} ${client.lastName}`}
-              />
+              <AvatarImage src={client.headshot ?? undefined} alt={`${client.firstName} ${client.lastName}`} />
               <AvatarFallback className="text-lg">
                 {client.firstName?.charAt(0)}
                 {client.lastName?.charAt(0)}
@@ -117,9 +114,7 @@ export const VerifyMedicationsFieldGroup = withFieldGroup({
               <div>
                 <p className="text-muted-foreground text-lg">{client.email}</p>
                 {client.dob && (
-                  <p className="text-muted-foreground text-lg">
-                    DOB: {new Date(client.dob).toLocaleDateString()}
-                  </p>
+                  <p className="text-muted-foreground text-lg">DOB: {new Date(client.dob).toLocaleDateString()}</p>
                 )}
               </div>
             </div>

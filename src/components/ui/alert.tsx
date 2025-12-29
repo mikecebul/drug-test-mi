@@ -11,10 +11,9 @@ const alertVariants = cva(
         default: 'bg-background text-foreground',
         destructive:
           'text-destructive bg-card [&>svg]:text-current *:data-[slot=alert-description]:text-destructive/90',
-        success:
-          'text-success bg-card [&>svg]:text-current *:data-[slot=alert-description]:text-success/90',
-        warning:
-          'text-warning bg-card [&>svg]:text-current *:data-[slot=alert-description]:text-warning/90',
+        success: 'text-success bg-card [&>svg]:text-current *:data-[slot=alert-description]:text-success/90',
+        warning: 'text-warning bg-card [&>svg]:text-current *:data-[slot=alert-description]:text-warning/90',
+        info: 'text-info-foreground bg-info-muted [&>svg]:text-current *:data-[slot=alert-description]:text-info-foreground/70 border border-info',
       },
     },
     defaultVariants: {
@@ -22,19 +21,8 @@ const alertVariants = cva(
     },
   },
 )
-function Alert({
-  className,
-  variant,
-  ...props
-}: React.ComponentProps<'div'> & VariantProps<typeof alertVariants>) {
-  return (
-    <div
-      data-slot="alert"
-      role="alert"
-      className={cn(alertVariants({ variant }), className)}
-      {...props}
-    />
-  )
+function Alert({ className, variant, ...props }: React.ComponentProps<'div'> & VariantProps<typeof alertVariants>) {
+  return <div data-slot="alert" role="alert" className={cn(alertVariants({ variant }), className)} {...props} />
 }
 function AlertTitle({ className, ...props }: React.ComponentProps<'div'>) {
   return (

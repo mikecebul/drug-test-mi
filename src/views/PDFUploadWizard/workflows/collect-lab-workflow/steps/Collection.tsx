@@ -8,12 +8,13 @@ import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useStore } from '@tanstack/react-form'
-import { FieldGroupHeader } from '../../../components/FieldGroupHeader'
+import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { wizardContainerStyles } from '../../../styles'
 import { cn } from '@/utilities/cn'
 import { getCollectLabFormOpts } from '../shared-form'
-import { labTests } from '../validators'
+import { collectionSchema, labTests } from '../validators'
 import InputDateTimePicker from '@/components/input-datetime-picker'
+import { collectionDetailsSchema } from '@/views/PDFUploadWizard/schemas/pdfUploadSchemas'
 
 const TEST_LABELS: Record<(typeof labTests)[number], string> = {
   '11-panel-lab': '11-Panel',
@@ -107,7 +108,12 @@ export const CollectionStep = withForm({
                   </form.Field>
                 </FieldSet>
                 {breathalyzerTaken && (
-                  <form.Field name="collection.breathalyzerResult">
+                  <form.Field
+                    name="collection.breathalyzerResult"
+                    validators={{
+                      onChange: collectionSchema.shape.collection.shape.breathalyzerResult,
+                    }}
+                  >
                     {(field) => (
                       <Field data-invalid={field.state.meta.errors.length > 0}>
                         <FieldLabel htmlFor="breathalyzerResult">BAC Result</FieldLabel>

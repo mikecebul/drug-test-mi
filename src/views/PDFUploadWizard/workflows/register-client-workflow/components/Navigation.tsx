@@ -6,10 +6,10 @@ import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { useQueryState, parseAsStringLiteral } from 'nuqs'
 import { steps } from '../validators'
-import { collectLabFormOpts } from '../shared-form'
+import { registerClientFormOpts } from '../shared-form'
 
-export const CollectLabNavigation = withForm({
-  ...collectLabFormOpts,
+export const RegisterClientNavigation = withForm({
+  ...registerClientFormOpts,
   props: {
     onBack: (): void => {},
   },
@@ -18,36 +18,23 @@ export const CollectLabNavigation = withForm({
     // Read step from URL (single source of truth)
     const [currentStepRaw, setCurrentStep] = useQueryState(
       'step',
-      parseAsStringLiteral(steps as readonly string[]).withDefault('client'),
+      parseAsStringLiteral(steps as readonly string[]).withDefault('personalInfo'),
     )
     const currentStep = currentStepRaw as (typeof steps)[number]
 
-    const [isSubmitting, errors] = useStore(form.store, (state) => [state.isSubmitting, state.errors])
+    const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
+    const fieldMeta = useStore(form.store, (state) => state.fieldMeta)
 
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
 
-    // Only consider errors from the current step for enabling/disabling navigation
-    const currentStepHasErrors = errors.some((errorObj) => {
-      if (!errorObj) return false
-      const fieldNames = Object.keys(errorObj)
-      return fieldNames.some((fieldName) => {
-        switch (currentStep) {
-          case 'client':
-            return fieldName.startsWith('client.')
-          case 'medications':
-            return fieldName.startsWith('medications')
-          case 'collection':
-            return fieldName.startsWith('collection.')
-          case 'confirm':
-            return false
-          case 'reviewEmails':
-            return fieldName.startsWith('emails.')
-          default:
-            return false
-        }
-      })
+    // Check field-level errors for the current step only
+    const currentStepHasErrors = Object.entries(fieldMeta).some(([fieldName, meta]) => {
+      // Only check fields that belong to the current step
+      if (!fieldName.startsWith(`${currentStep}.`)) return false
+      // Check if this field has errors
+      return meta.errors && meta.errors.length > 0
     })
 
     const handleBack = () => {
@@ -55,7 +42,13 @@ export const CollectLabNavigation = withForm({
         onBack()
       } else {
         const prevStep = steps[currentIndex - 1]
-        setCurrentStep(prevStep, { history: 'push' }) // Update URL, triggers validation reset in Workflow.tsx
+        setCurrentStep(prevStep, { history: 'push' })
+        form.validate('submit')
+        form.setFieldMeta('accountInfo.email', (prev) => ({
+          ...prev,
+          errors: [],
+          errorMap: {},
+        }))
       }
     }
 
@@ -70,11 +63,11 @@ export const CollectLabNavigation = withForm({
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Processing...
+              Validating...
             </>
           ) : (
             <>
-              {isLastStep ? 'Submit' : 'Next'}
+              {isLastStep ? 'Register Client' : 'Next'}
               {isLastStep ? <Check className="ml-2 h-5 w-5" /> : <ChevronRight className="ml-2 h-5 w-5" />}
             </>
           )}

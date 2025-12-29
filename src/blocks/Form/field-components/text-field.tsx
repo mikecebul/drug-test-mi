@@ -35,11 +35,9 @@ export default function TextField({ label, placeholder, description, colSpan, re
           onChange={(e) => field.handleChange(e.target.value)}
           placeholder={placeholder || undefined}
         />
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+        {description && <p className="text-muted-foreground text-sm">{description}</p>}
       </div>
-      <div>
-        {errors && <em className="text-destructive text-sm first:mt-1">{errors[0]?.message}</em>}
-      </div>
+      <div>{errors && <em className="text-destructive text-sm first:mt-1">{errors[0]?.message}</em>}</div>
     </div>
   )
 }
