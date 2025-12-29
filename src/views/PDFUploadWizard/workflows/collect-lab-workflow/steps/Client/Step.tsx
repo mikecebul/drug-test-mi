@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useDismissModal } from '@/components/ui/dialog'
 import { Check, UserPlus } from 'lucide-react'
-import { collectLabFormOpts } from '../../shared-form'
+import { getCollectLabFormOpts } from '../../shared-form'
 import { useQuery } from '@tanstack/react-query'
 import { getClients, SimpleClient } from './getClients'
 import { FieldGroupHeader } from '../../../../components/FieldGroupHeader'
@@ -15,7 +15,7 @@ import { ClientDisplayCard } from '../../components/ClientDisplayCard'
 import { SearchDialog } from './SearchDialog'
 
 export const ClientStep = withForm({
-  ...collectLabFormOpts,
+  ...getCollectLabFormOpts('client'),
 
   render: function Render({ form }) {
     const [open, setOpen] = useState(false)

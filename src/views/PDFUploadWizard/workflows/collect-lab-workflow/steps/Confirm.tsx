@@ -3,13 +3,13 @@ import { CheckCircle2, User, XCircle } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useStore } from '@tanstack/react-form'
 import { withForm } from '@/blocks/Form/hooks/form'
-import { collectLabFormOpts } from '../shared-form'
+import { getCollectLabFormOpts } from '../shared-form'
 import { format } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
 import { FieldGroupHeader } from '../../../components/FieldGroupHeader'
 
 export const ConfirmStep = withForm({
-  ...collectLabFormOpts,
+  ...getCollectLabFormOpts('confirm'),
 
   render: function Render({ form }) {
     const [formValues] = useStore(form.store, (state) => [state.values])

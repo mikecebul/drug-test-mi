@@ -1,4 +1,3 @@
-import { Client } from '@/payload-types'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
 import z from 'zod'
 
@@ -94,7 +93,6 @@ export const emailsSchema = z
   })
 
 export const formSchema = z.object({
-  step: z.enum(steps),
   ...clientSchema.shape,
   ...medicationsSchema.shape,
   ...collectionSchema.shape,

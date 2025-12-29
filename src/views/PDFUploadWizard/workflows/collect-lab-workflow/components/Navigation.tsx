@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, Check, Loader2 } from 'lucide-react'
 import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
+import { useQueryState, parseAsStringLiteral } from 'nuqs'
 import { steps } from '../validators'
 import { collectLabFormOpts } from '../shared-form'
 
@@ -14,8 +15,14 @@ export const CollectLabNavigation = withForm({
   },
 
   render: function Render({ form, onBack }) {
-    const [currentStep, isSubmitting, errors] = useStore(form.store, (state) => [
-      state.values.step,
+    // Read step from URL (single source of truth)
+    const [currentStepRaw, setCurrentStep] = useQueryState(
+      'step',
+      parseAsStringLiteral(steps as readonly string[]).withDefault('client')
+    )
+    const currentStep = currentStepRaw as typeof steps[number]
+
+    const [isSubmitting, errors] = useStore(form.store, (state) => [
       state.isSubmitting,
       state.errors,
     ])
@@ -51,8 +58,7 @@ export const CollectLabNavigation = withForm({
         onBack()
       } else {
         const prevStep = steps[currentIndex - 1]
-        form.setFieldValue('step', prevStep)
-        form.validate('submit')
+        setCurrentStep(prevStep, { history: 'push' }) // Update URL, triggers validation reset in Workflow.tsx
       }
     }
 

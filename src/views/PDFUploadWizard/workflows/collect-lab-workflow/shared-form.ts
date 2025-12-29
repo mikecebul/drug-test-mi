@@ -1,11 +1,15 @@
 import { formOptions } from '@tanstack/react-form'
-import { collectionSchema, formSchema, type FormValues } from './validators'
-import { clientSchema } from './validators'
-import { medicationsSchema } from './validators'
-import { emailsSchema } from './validators'
+import {
+  clientSchema,
+  collectionSchema,
+  emailsSchema,
+  formSchema,
+  medicationsSchema,
+  type FormValues,
+  type Steps,
+} from './validators'
 
 const defaultValues: FormValues = {
-  step: 'client',
   client: {
     id: '',
     firstName: '',
@@ -28,25 +32,33 @@ const defaultValues: FormValues = {
   },
 }
 
+// Basic form opts for withForm components that just need types (e.g., Navigation)
+// Validation happens in Workflow.tsx with step-specific validators
 export const collectLabFormOpts = formOptions({
   defaultValues,
-  validators: {
-    onSubmit: ({ value, formApi }) => {
-      if (value.step === 'client') {
-        return formApi.parseValuesWithSchema(clientSchema as typeof formSchema)
-      }
-      if (value.step === 'medications') {
-        return formApi.parseValuesWithSchema(medicationsSchema as typeof formSchema)
-      }
-      if (value.step === 'collection') {
-        return formApi.parseValuesWithSchema(collectionSchema as typeof formSchema)
-      }
-      if (value.step === 'confirm') {
-        return
-      }
-      if (value.step === 'reviewEmails') {
-        return formApi.parseValuesWithSchema(emailsSchema as typeof formSchema)
-      }
-    },
-  },
 })
+
+// Step-aware form options for Workflow.tsx
+export const getCollectLabFormOpts = (step: Steps[number]) =>
+  formOptions({
+    defaultValues,
+    validators: {
+      onSubmit: ({ formApi }) => {
+        if (step === 'client') {
+          return formApi.parseValuesWithSchema(clientSchema as typeof formSchema)
+        }
+        if (step === 'medications') {
+          return formApi.parseValuesWithSchema(medicationsSchema as typeof formSchema)
+        }
+        if (step === 'collection') {
+          return formApi.parseValuesWithSchema(collectionSchema as typeof formSchema)
+        }
+        if (step === 'confirm') {
+          return undefined
+        }
+        if (step === 'reviewEmails') {
+          return formApi.parseValuesWithSchema(emailsSchema as typeof formSchema)
+        }
+      },
+    },
+  })

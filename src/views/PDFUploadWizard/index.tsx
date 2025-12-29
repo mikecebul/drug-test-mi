@@ -1,14 +1,15 @@
 import React from 'react'
+import { NuqsAdapter } from 'nuqs/adapters/next/app'
 import { DefaultTemplate } from '@payloadcms/next/templates'
 import { SetStepNav } from '@payloadcms/ui'
-import type { AdminViewProps } from 'payload'
+import type { AdminViewServerProps } from 'payload'
 import { PDFUploadWizardClient } from './PDFUploadWizardClient'
 import ShadcnWrapper from '@/components/ShadcnWrapper'
-import { WizsrdContainer } from './components/WizardContainer'
+import { WizardContainer } from './components/WizardContainer'
 import { redirect } from 'next/navigation'
 import { Toaster } from '@/components/ui/sonner'
 
-export default function PDFUploadWizard({ initPageResult, params, searchParams }: AdminViewProps) {
+export default function PDFUploadWizard({ initPageResult, params, searchParams }: AdminViewServerProps) {
   const navItem = [
     {
       label: 'PDF Upload Wizard',
@@ -33,12 +34,14 @@ export default function PDFUploadWizard({ initPageResult, params, searchParams }
       visibleEntities={initPageResult.visibleEntities}
     >
       <SetStepNav nav={navItem} />
-      <ShadcnWrapper>
-        <WizsrdContainer>
-          <PDFUploadWizardClient />
-        </WizsrdContainer>
-        <Toaster richColors toastOptions={{}} />
-      </ShadcnWrapper>
+      <NuqsAdapter>
+        <ShadcnWrapper>
+          <WizardContainer>
+            <PDFUploadWizardClient />
+          </WizardContainer>
+          <Toaster richColors toastOptions={{}} />
+        </ShadcnWrapper>
+      </NuqsAdapter>
     </DefaultTemplate>
   )
 }

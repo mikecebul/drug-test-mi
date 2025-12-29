@@ -1,26 +1,26 @@
-import { useState, useCallback } from 'react';
-import type { AnyFormApi } from '@tanstack/react-form';
-import type { ZodObject } from 'zod';
-import { toast } from 'sonner';
+import { useState, useCallback } from 'react'
+import type { AnyFormApi } from '@tanstack/react-form'
+import type { ZodObject } from 'zod'
+import { toast } from 'sonner'
 
 /**
  * Options for handling cancel/back actions
  */
 type HandleCancelOrBackOpts = {
-  onBack?: VoidFunction;
-  onCancel?: VoidFunction;
-};
+  onBack?: VoidFunction
+  onCancel?: VoidFunction
+}
 
 /**
  * State of the current step
  */
 type StepState = {
-  value: number;
-  count: number;
-  goToNextStep: () => void;
-  goToPrevStep: () => void;
-  isCompleted: boolean;
-};
+  value: number
+  count: number
+  goToNextStep: () => void
+  goToPrevStep: () => void
+  isCompleted: boolean
+}
 
 /**
  * Hook for managing multi-step form navigation and validation
@@ -29,16 +29,16 @@ type StepState = {
  * @returns Object with stepper state and methods
  */
 export function useFormStepper(schemas: ZodObject<any>[]) {
-  const stepCount = schemas.length;
-  const [currentStep, setCurrentStep] = useState(1); // Start from 1
+  const stepCount = schemas.length
+  const [currentStep, setCurrentStep] = useState(1) // Start from 1
 
   const goToNextStep = useCallback(() => {
-    setCurrentStep((prev) => Math.min(prev + 1, stepCount));
-  }, [stepCount]);
+    setCurrentStep((prev) => Math.min(prev + 1, stepCount))
+  }, [stepCount])
 
   const goToPrevStep = useCallback(() => {
-    setCurrentStep((prev) => Math.max(prev - 1, 1));
-  }, []);
+    setCurrentStep((prev) => Math.max(prev - 1, 1))
+  }, [])
 
   const step: StepState = {
     value: currentStep,
@@ -46,73 +46,73 @@ export function useFormStepper(schemas: ZodObject<any>[]) {
     goToNextStep,
     goToPrevStep,
     isCompleted: currentStep === stepCount,
-  };
+  }
 
-  const currentValidator = schemas[currentStep - 1]; // Convert to 0-based for array access
-  const isFirstStep = currentStep === 1;
-  const isLastStep = currentStep === stepCount;
+  const currentValidator = schemas[currentStep - 1] // Convert to 0-based for array access
+  const isFirstStep = currentStep === 1
+  const isLastStep = currentStep === stepCount
 
   const triggerFormGroup = async (form: AnyFormApi) => {
     // Validate all fields to trigger field-level error display
-    await form.validateAllFields('change');
+    await form.validateAllFields('change')
 
     // Get all form values
-    const allValues = form.baseStore.state.values;
+    const allValues = form.baseStore.state.values
 
     // Extract only the values for the current step fields
-    const currentStepFields = Object.keys(currentValidator.shape);
-    const stepValues: Record<string, any> = {};
+    const currentStepFields = Object.keys(currentValidator.shape)
+    const stepValues: Record<string, any> = {}
 
     for (const fieldName of currentStepFields) {
       if (fieldName in allValues) {
-        stepValues[fieldName] = allValues[fieldName];
+        stepValues[fieldName] = allValues[fieldName]
       }
     }
 
-    const result = currentValidator.safeParse(stepValues);
+    const result = currentValidator.safeParse(stepValues)
     if (!result.success) {
       // Show validation errors but don't submit the form
       // Display the first validation error as a toast
-      console.log('Validation failed:', { stepValues, errors: result.error });
-      const firstError = result.error?.issues?.[0];
+      console.log('Validation failed:', { stepValues, errors: result.error })
+      const firstError = result.error?.issues?.[0]
       if (firstError) {
-        toast.error(firstError.message || 'Please complete all required fields');
+        toast.error(firstError.message || 'Please complete all required fields')
       } else {
-        toast.error('Please complete all required fields');
+        toast.error('Please complete all required fields')
       }
-      return result;
+      return result
     }
 
-    return result;
-  };
+    return result
+  }
 
   const handleNextStepOrSubmit = async (form: AnyFormApi) => {
-    const result = await triggerFormGroup(form);
+    const result = await triggerFormGroup(form)
     if (!result.success) {
-      return;
+      return
     }
 
     if (currentStep < stepCount) {
-      goToNextStep();
-      return;
+      goToNextStep()
+      return
     }
 
     if (currentStep === stepCount) {
-      form.handleSubmit();
+      form.handleSubmit()
     }
-  };
+  }
 
   const handleCancelOrBack = (opts?: HandleCancelOrBackOpts) => {
     if (isFirstStep) {
-      opts?.onCancel?.();
-      return;
+      opts?.onCancel?.()
+      return
     }
 
     if (currentStep > 1) {
-      opts?.onBack?.();
-      goToPrevStep();
+      opts?.onBack?.()
+      goToPrevStep()
     }
-  };
+  }
 
   return {
     step, // Current step state
@@ -124,5 +124,5 @@ export function useFormStepper(schemas: ZodObject<any>[]) {
     triggerFormGroup, // Validate current step fields
     handleNextStepOrSubmit, // Handle next/submit action
     handleCancelOrBack, // Handle back/cancel action
-  };
+  }
 }

@@ -14,7 +14,7 @@ import { useGetCollectionEmailPreviewQuery } from '../../../queries'
 import { FieldGroupHeader } from '../../../components/FieldGroupHeader'
 import { wizardContainerStyles } from '../../../styles'
 import { cn } from '@/utilities/cn'
-import { collectLabFormOpts } from '../shared-form'
+import { getCollectLabFormOpts } from '../shared-form'
 import {
   Field,
   FieldDescription,
@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/field'
 
 export const EmailsStep = withForm({
-  ...collectLabFormOpts,
+  ...getCollectLabFormOpts('reviewEmails'),
 
   render: function Render({ form }) {
     const [showReferralPreview, setShowReferralPreview] = useState(false)

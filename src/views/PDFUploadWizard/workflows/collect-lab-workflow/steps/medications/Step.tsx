@@ -1,7 +1,7 @@
 'use client'
 
 import { withForm } from '@/blocks/Form/hooks/form'
-import { collectLabFormOpts } from '../../shared-form'
+import { getCollectLabFormOpts } from '../../shared-form'
 import { useStore } from '@tanstack/react-form'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
@@ -40,7 +40,7 @@ const MedicationMotionWrapper = ({ children }: { children: React.ReactNode }) =>
 )
 
 export const MedicationsStep = withForm({
-  ...collectLabFormOpts,
+  ...getCollectLabFormOpts('medications'),
 
   render: function Render({ form }) {
     const client = useStore(form.store, (state) => state.values.client)
@@ -59,7 +59,7 @@ export const MedicationsStep = withForm({
     const handleRefresh = async () => {
       const result = await refetch()
       if (result.data) {
-        form.setFieldValue('medications', result.data)
+        form.setFieldValue('medications', result.data as any)
       }
     }
 
@@ -68,7 +68,7 @@ export const MedicationsStep = withForm({
       const formMeds = form.getFieldValue('medications')
       const formIsEmpty = !formMeds || formMeds.length === 0
       if (formIsEmpty && medications && medications.length > 0) {
-        form.setFieldValue('medications', medications)
+        form.setFieldValue('medications', medications as any)
       }
     }, [medications, form])
 

@@ -11,7 +11,7 @@ import { useStore } from '@tanstack/react-form'
 import { FieldGroupHeader } from '../../../components/FieldGroupHeader'
 import { wizardContainerStyles } from '../../../styles'
 import { cn } from '@/utilities/cn'
-import { collectLabFormOpts } from '../shared-form'
+import { getCollectLabFormOpts } from '../shared-form'
 import { labTests } from '../validators'
 import InputDateTimePicker from '@/components/input-datetime-picker'
 
@@ -22,7 +22,7 @@ const TEST_LABELS: Record<(typeof labTests)[number], string> = {
 }
 
 export const CollectionStep = withForm({
-  ...collectLabFormOpts,
+  ...getCollectLabFormOpts('collection'),
 
   render: function Render({ form }) {
     // Access breathalyzerTaken value for conditional rendering
