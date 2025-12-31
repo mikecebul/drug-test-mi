@@ -4,8 +4,7 @@ import React, { useState } from 'react'
 import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
-import { useDismissModal } from '@/components/ui/dialog'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Check, UserPlus } from 'lucide-react'
 import { getCollectLabFormOpts } from '../../shared-form'
 import { useQuery } from '@tanstack/react-query'
@@ -13,17 +12,16 @@ import { getClients, SimpleClient } from './getClients'
 import { FieldGroupHeader } from '../../../components/FieldGroupHeader'
 import { ClientDisplayCard } from '../../components/ClientDisplayCard'
 import { SearchDialog } from './SearchDialog'
+import { cn } from '@/utilities/cn'
+import Link from 'next/link'
+import { useDismissModal } from '@/components/ui/dialog'
 
 export const ClientStep = withForm({
   ...getCollectLabFormOpts('client'),
 
   render: function Render({ form }) {
-    const [open, setOpen] = useState(false)
-    const [showRegisterDialog, setShowRegisterDialog] = useState(false)
-
     // Get selected client ID and data from form state
-    const selectedClientId = useStore(form.store, (state) => state.values.client.id)
-    const selectedclient = useStore(form.store, (state) => state.values.client)
+    const selectedClient = useStore(form.store, (state) => state.values.client)
 
     // Query for all clients (only enabled when needed)
     const { data: clients } = useQuery({
@@ -56,25 +54,28 @@ export const ClientStep = withForm({
           {(idField) => (
             <div className="space-y-6">
               {/* STATE 1: Confirming Selection */}
-              {selectedClientId && (
+              {selectedClient.id && (
                 <div className="animate-in fade-in slide-in-from-bottom-2 space-y-3">
                   <h4 className="text-muted-foreground px-1 text-sm font-medium">Selected Client</h4>
-                  <ClientDisplayCard client={selectedclient} selected={true} />
+                  <ClientDisplayCard client={selectedClient} selected={true} />
                 </div>
               )}
 
               {/* Actions: Always available */}
               <div className="flex flex-col justify-start gap-6 pt-4 sm:flex-row">
-                <SearchDialog allClients={clients} selectedClientId={selectedClientId} onSelect={handleSelectClient}>
+                <SearchDialog allClients={clients} selectedClientId={selectedClient.id} onSelect={handleSelectClient}>
                   <Button size="xl" variant="default">
                     <Check className="size-5" />
-                    {selectedClientId ? 'Change Client' : 'Search All Clients'}
+                    {selectedClient.id ? 'Change Client' : 'Search All Clients'}
                   </Button>
                 </SearchDialog>
-                <Button size="xl" type="button" variant="secondary" onClick={() => setShowRegisterDialog(true)}>
+                <Link
+                  className={cn(buttonVariants({ size: 'xl', variant: 'secondary' }))}
+                  href="/admin/drug-test-upload?workflow=register-client&step=personalInfo"
+                >
                   <UserPlus className="size-5" />
                   Register New Client
-                </Button>
+                </Link>
               </div>
               {/* Error Message */}
               {idField.state.meta.errors.length > 0 && (

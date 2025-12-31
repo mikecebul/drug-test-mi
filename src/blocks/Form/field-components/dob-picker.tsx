@@ -28,6 +28,41 @@ function formatDate(date: Date | undefined) {
   return `${month}/${day}/${year}`
 }
 
+/**
+ * Expands a 2-digit year to 4 digits for DOB context.
+ * Years 00 to current year => 20xx
+ * Years after current year to 99 => 19xx
+ */
+function expandTwoDigitYear(year: number): number {
+  const currentYear = new Date().getFullYear()
+  const currentTwoDigit = currentYear % 100
+
+  if (year <= currentTwoDigit) {
+    return 2000 + year
+  } else {
+    return 1900 + year
+  }
+}
+
+/**
+ * Parses a date string, expanding 2-digit years appropriately for DOB.
+ */
+function parseDateWithYearExpansion(value: string): Date {
+  // Match MM/DD/YY or MM-DD-YY (2-digit year)
+  const twoDigitYearMatch = value.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/)
+
+  if (twoDigitYearMatch) {
+    const [, monthStr, dayStr, yearStr] = twoDigitYearMatch
+    const month = parseInt(monthStr, 10)
+    const day = parseInt(dayStr, 10)
+    const year = expandTwoDigitYear(parseInt(yearStr, 10))
+    return new Date(year, month - 1, day)
+  }
+
+  // For 4-digit years or other formats, let Date parse normally
+  return new Date(value)
+}
+
 function isValidDate(date: Date | undefined) {
   if (!date) {
     return false
@@ -110,7 +145,7 @@ export default function DobPicker({ label, colSpan, required }: DobFieldUIProps)
             // Debounce the field update for complete date patterns
             debounceRef.current = setTimeout(() => {
               if (datePattern.test(value)) {
-                const date = new Date(value)
+                const date = parseDateWithYearExpansion(value)
                 if (isValidDate(date)) {
                   const formatted = formatDate(date)
                   field.handleChange(formatted)
@@ -118,7 +153,7 @@ export default function DobPicker({ label, colSpan, required }: DobFieldUIProps)
                   setInputValue(formatted)
                 }
               }
-            }, 500)
+            }, 1200)
           }}
           onBlur={() => {
             // Only parse if input matches valid date pattern
@@ -130,7 +165,7 @@ export default function DobPicker({ label, colSpan, required }: DobFieldUIProps)
               return
             }
 
-            const date = new Date(inputValue)
+            const date = parseDateWithYearExpansion(inputValue)
             if (isValidDate(date)) {
               const formatted = formatDate(date)
               field.handleChange(formatted)

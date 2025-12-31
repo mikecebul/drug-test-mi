@@ -1,8 +1,8 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { CheckCircle2, Copy, Check, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { CheckCircle2, Copy, Check, Eye, EyeOff } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
@@ -13,71 +13,69 @@ interface SuccessStepProps {
 }
 
 export function SuccessStep({ clientName, password, onContinue }: SuccessStepProps) {
-  const [passwordCopied, setPasswordCopied] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
-  const handleCopyPassword = async () => {
+  const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(password)
-      setPasswordCopied(true)
+      setCopied(true)
       toast.success('Password copied to clipboard')
-      setTimeout(() => setPasswordCopied(false), 2000)
+      setTimeout(() => setCopied(false), 2000)
     } catch {
       toast.error('Failed to copy password')
     }
   }
 
   return (
-    <div className="space-y-6 py-4">
-      <div className="text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-          <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+    <Card className="mx-auto w-full max-w-xl border-2">
+      <CardContent className="space-y-8 px-6 pt-12 pb-8">
+        {/* Success Icon */}
+        <div className="flex justify-center">
+          <div className="bg-success/10 rounded-full p-4">
+            <CheckCircle2 className="text-success h-12 w-12" />
+          </div>
         </div>
-        <h3 className="text-lg font-semibold">Client Registered Successfully!</h3>
-        <p className="text-muted-foreground mt-1">{clientName} has been added to the system.</p>
-      </div>
 
-      <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
-        <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-        <AlertDescription className="space-y-3">
-          <p className="font-medium text-amber-900 dark:text-amber-100">
-            Client Password (Save this now!)
-          </p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 rounded bg-amber-100 px-3 py-2 font-mono text-lg dark:bg-amber-900/50">
-              {showPassword ? password : '••••••••••••'}
-            </code>
+        {/* Success Message */}
+        <div className="space-y-3">
+          <h1 className="text-center text-4xl font-semibold text-balance">{clientName} Registered!</h1>
+        </div>
+
+        {/* Password Section */}
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <h3 className="font-medium">Client Password</h3>
+          </div>
+
+          {/* Password Display */}
+          <div className="bg-muted/50 flex items-center gap-2 rounded-lg border p-3">
+            <div className="flex-1 font-mono text-sm">{showPassword ? password : '•'.repeat(password.length)}</div>
             <Button
               type="button"
-              variant="outline"
-              size="sm"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
               onClick={() => setShowPassword(!showPassword)}
-              className="shrink-0"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              <span className="sr-only">{showPassword ? 'Hide password' : 'Show password'}</span>
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleCopyPassword}
-              className="shrink-0"
-            >
-              {passwordCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handleCopy}>
+              {copied ? <Check className="text-success h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              <span className="sr-only">Copy password</span>
             </Button>
           </div>
-          <p className="text-sm text-amber-700 dark:text-amber-300">
-            The client can use this password to log in and reset it later if they choose to use the
-            dashboard.
+          <p className="text-muted-foreground leading-relaxed">
+            The client can use this password to log in and reset it later if they choose to use the dashboard.
           </p>
-        </AlertDescription>
-      </Alert>
+        </div>
 
-      <div className="flex justify-center">
-        <Button onClick={onContinue} className="min-w-50">
+        {/* Action Button */}
+        <Button className="w-full cursor-pointer" size="lg" onClick={onContinue}>
           Continue with Collection
         </Button>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }
