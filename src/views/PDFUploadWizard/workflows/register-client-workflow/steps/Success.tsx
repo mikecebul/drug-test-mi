@@ -10,11 +10,23 @@ interface SuccessStepProps {
   clientName: string
   password: string
   onContinue: () => void
+  returnTo?: string | null
 }
 
-export function SuccessStep({ clientName, password, onContinue }: SuccessStepProps) {
+export function SuccessStep({ clientName, password, onContinue, returnTo }: SuccessStepProps) {
   const [copied, setCopied] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+
+  // Determine button text based on where user came from
+  const getButtonText = () => {
+    if (returnTo === 'instant-test') {
+      return 'Continue with 15 Panel Test'
+    }
+    if (returnTo === 'collect-lab') {
+      return 'Continue with Lab Collection'
+    }
+    return 'Back to Workflow Selector'
+  }
 
   const handleCopy = async () => {
     try {
@@ -73,7 +85,7 @@ export function SuccessStep({ clientName, password, onContinue }: SuccessStepPro
 
         {/* Action Button */}
         <Button className="w-full cursor-pointer" size="lg" onClick={onContinue}>
-          Continue with Collection
+          {getButtonText()}
         </Button>
       </CardContent>
     </Card>

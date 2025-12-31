@@ -34,7 +34,11 @@ export function calculateSimilarity(str1: string, str2: string): number {
 
 /**
  * Calculate weighted name similarity with separate scoring for first and last names
- * Prioritizes last name matches (60% weight) over first name matches (40% weight)
+ * Heavily prioritizes last name matches (85% weight) over first name matches (15% weight)
+ * This ensures:
+ * - Exact last name match alone = 85% confidence
+ * - Exact last + fuzzy first (0.8) = ~97% confidence
+ * - Exact last + exact first = 100% confidence
  *
  * @param searchFirst - First name from search
  * @param searchLast - Last name from search
@@ -56,21 +60,16 @@ export function calculateNameSimilarity(
   const lastNameScore = calculateSimilarity(searchLast, clientLast)
   const firstNameScore = calculateSimilarity(searchFirst, clientFirst)
 
-  // Calculate middle initial similarity if both are provided
-  let middleScore = 1 // Default to 1 if no middle name to compare
+  // Boost first name score if middle initial also matches
+  let adjustedFirstNameScore = firstNameScore
   if (searchMiddle && clientMiddle) {
-    middleScore = calculateSimilarity(searchMiddle, clientMiddle)
-  } else if (searchMiddle || clientMiddle) {
-    // If only one has a middle initial, don't penalize heavily
-    middleScore = 0.8
+    const middleScore = calculateSimilarity(searchMiddle, clientMiddle)
+    // If middle matches, boost first name score by up to 10%
+    adjustedFirstNameScore = Math.min(1.0, firstNameScore + middleScore * 0.1)
   }
 
-  // Weighted average: Last name is most important (60%), first name (30%), middle (10%)
-  const weightedScore = (
-    lastNameScore * 0.6 +
-    firstNameScore * 0.3 +
-    middleScore * 0.1
-  )
+  // Weighted average: Last name is critically important (85%), first name + middle (15%)
+  const weightedScore = lastNameScore * 0.85 + adjustedFirstNameScore * 0.15
 
   return weightedScore
 }

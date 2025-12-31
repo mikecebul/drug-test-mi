@@ -1,15 +1,16 @@
 'use client'
 
 import { withForm } from '@/blocks/Form/hooks/form'
-import { getCollectLabFormOpts } from '../../shared-form'
+import { getInstantTestFormOpts } from '../shared-form'
 import { useEffect } from 'react'
 import { useStore } from '@tanstack/react-form'
 import { useQuery } from '@tanstack/react-query'
-import { getClientMedications } from '../../../components/medications/helpers'
-import { MedicationFieldGroup } from '../../../components/medications/MedicationFieldGroup'
+import { getClientMedications } from '../../components/medications/helpers'
+import { MedicationFieldGroup } from '../../components/medications/MedicationFieldGroup'
+import { SimpleClient } from '../../components/client/getClients'
 
 export const MedicationsStep = withForm({
-  ...getCollectLabFormOpts('medications'),
+  ...getInstantTestFormOpts('medications'),
 
   render: function Render({ form }) {
     const client = useStore(form.store, (state) => state.values.client)

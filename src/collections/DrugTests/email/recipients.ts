@@ -4,6 +4,7 @@ import type { Client } from '@/payload-types'
 export type RecipientList = {
   clientEmail: string
   referralEmails: string[]
+  referralTitle: string // Organization name (employer, court, etc.)
 }
 
 /**
@@ -16,9 +17,9 @@ export type RecipientList = {
  *
  * For "self" clients: The client's own email is ALWAYS added to referralEmails
  *
- * @param clientId - ID of the client
+ *@param clientId - ID of the client
  * @param payload - Payload instance for database queries
- * @returns Object with client email and array of referral emails
+ * @returns Object with client email, array of referral emails, and referral organization name
  */
 export async function getRecipients(clientId: string, payload: Payload): Promise<RecipientList> {
   try {
@@ -33,11 +34,22 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
       return {
         clientEmail: '',
         referralEmails: [],
+        referralTitle: '',
       }
     }
 
     const clientEmail = client.email
     const referralEmails: string[] = []
+
+    // Get title for referral source (employer name, court name, etc.)
+    let referralTitle = ''
+    if (client.clientType === 'probation') {
+      referralTitle = client.courtInfo?.courtName || 'Court'
+    } else if (client.clientType === 'employment') {
+      referralTitle = client.employmentInfo?.employerName || 'Employer'
+    } else if (client.clientType === 'self') {
+      referralTitle = 'Self'
+    }
 
     // Get recipients based on client type
     const recipientSources = {
@@ -67,12 +79,14 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
     return {
       clientEmail,
       referralEmails: uniqueReferrals,
+      referralTitle,
     }
   } catch (error) {
     payload.logger.error(`Failed to fetch recipients for client ${clientId}:`, error)
     return {
       clientEmail: '',
       referralEmails: [],
+      referralTitle: '',
     }
   }
 }

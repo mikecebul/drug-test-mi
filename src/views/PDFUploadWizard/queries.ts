@@ -90,6 +90,12 @@ export function useComputeTestResultPreviewQuery(
   testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | null | undefined,
   breathalyzerTaken?: boolean,
   breathalyzerResult?: number | null,
+  medications?: Array<{
+    medicationName: string
+    detectedAs?: string[]
+    requireConfirmation?: boolean
+    status?: 'active' | 'discontinued'
+  }>,
 ) {
   return useQuery({
     queryKey: [
@@ -99,6 +105,7 @@ export function useComputeTestResultPreviewQuery(
       testType,
       breathalyzerTaken,
       breathalyzerResult,
+      medications,
     ],
     queryFn: async () => {
       if (!clientId || !testType) {
@@ -110,6 +117,7 @@ export function useComputeTestResultPreviewQuery(
         testType,
         breathalyzerTaken,
         breathalyzerResult,
+        medications,
       )
     },
     enabled: Boolean(clientId && testType),

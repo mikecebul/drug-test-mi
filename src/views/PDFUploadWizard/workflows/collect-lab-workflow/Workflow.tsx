@@ -14,7 +14,7 @@ import { EmailsStep } from './steps/Emails'
 import { createCollectionWithEmailReview } from './actions/createCollectionWithEmailReview'
 import { TestCompleted } from '../../components/TestCompleted'
 import { steps } from './validators'
-import { getClientById } from './steps/Client/getClients'
+import { getClientById } from '../components/client/getClients'
 
 interface CollectLabWorkflowProps {
   onBack: () => void

@@ -3,8 +3,8 @@
 import React from 'react'
 import { useFieldContext } from '../hooks/form-context'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Label } from '@/components/ui/label'
 import { getSubstanceOptions, type SubstanceValue } from '@/fields/substanceOptions'
+import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 
 interface SubstanceChecklistFieldProps {
   label?: string
@@ -36,39 +36,37 @@ export default function SubstanceChecklistField({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 pb-2">
       {label && (
-        <Label className="text-sm font-medium text-foreground">
+        <FieldLegend className="mb-0">
           {label}
           {required && <span className="text-destructive ml-1">*</span>}
-        </Label>
+        </FieldLegend>
       )}
-      {description && <p className="text-xs text-muted-foreground">{description}</p>}
+      {description && <p className="text-muted-foreground">{description}</p>}
 
-      <div className="grid max-h-96 grid-cols-2 gap-3 overflow-y-auto rounded-lg border p-4">
-        {substanceOptions.map((substance) => (
-          <div key={substance.value} className="flex items-start space-x-2">
-            <Checkbox
-              id={`${field.name}-${substance.value}`}
-              checked={selectedSubstances.includes(substance.value)}
-              onCheckedChange={() => toggleSubstance(substance.value)}
-            />
-            <Label
-              htmlFor={`${field.name}-${substance.value}`}
-              className="cursor-pointer font-normal"
-            >
-              {substance.label}
-            </Label>
-          </div>
-        ))}
-      </div>
+      {/* <FieldGroup className="border-border grid grid-cols-2 gap-3 overflow-y-auto rounded-lg border p-4"> */}
+      <FieldGroup className="border-border rounded-lg border p-4">
+        <FieldSet className="grid grid-cols-2 gap-3">
+          {substanceOptions.map((substance) => (
+            <Field key={substance.value} orientation="horizontal">
+              <Checkbox
+                id={`${field.name}-${substance.value}`}
+                checked={selectedSubstances.includes(substance.value)}
+                onCheckedChange={() => toggleSubstance(substance.value)}
+              />
+              <FieldLabel htmlFor={`${field.name}-${substance.value}`} className="cursor-pointer font-normal">
+                {substance.label}
+              </FieldLabel>
+            </Field>
+          ))}
+        </FieldSet>
+      </FieldGroup>
 
-      <p className="text-sm text-muted-foreground">
-        Selected: {selectedSubstances.length} positive result(s)
-      </p>
+      <p className="text-muted-foreground text-sm">Selected: {selectedSubstances.length} positive result(s)</p>
 
       {field.state.meta.errors.length > 0 && (
-        <p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>
+        <p className="text-destructive text-sm">{String(field.state.meta.errors[0])}</p>
       )}
     </div>
   )

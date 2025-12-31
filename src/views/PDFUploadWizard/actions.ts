@@ -449,6 +449,12 @@ export async function computeTestResultPreview(
   testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab',
   breathalyzerTaken?: boolean,
   breathalyzerResult?: number | null,
+  medications?: Array<{
+    medicationName: string
+    detectedAs?: string[]
+    requireConfirmation?: boolean
+    status?: 'active' | 'discontinued'
+  }>,
 ): Promise<{
   initialScreenResult:
     | 'negative'
@@ -464,24 +470,42 @@ export async function computeTestResultPreview(
 }> {
   const payload = await getPayload({ config })
 
-  // Fetch client's current medications for preview
-  const client = await payload.findByID({
-    collection: 'clients',
-    id: clientId,
-    depth: 0,
-  })
+  let medicationsAtTestTime: Array<{
+    medicationName: string
+    detectedAs: string[]
+    requireConfirmation?: boolean
+  }> = []
 
-  // Build medications array from current active medications
-  const medicationsAtTestTime =
-    client?.medications && Array.isArray(client.medications)
-      ? client.medications
-          .filter((med: any) => med.status === 'active')
-          .map((med: any) => ({
-            medicationName: med.medicationName,
-            detectedAs: med.detectedAs || [],
-            requireConfirmation: med.requireConfirmation,
-          }))
-      : []
+  // Use provided medications if available, otherwise fetch from database
+  if (medications) {
+    // Use medications from wizard (may have been modified)
+    medicationsAtTestTime = medications
+      .filter((med) => med.status === 'active')
+      .map((med) => ({
+        medicationName: med.medicationName,
+        detectedAs: med.detectedAs || [],
+        requireConfirmation: med.requireConfirmation,
+      }))
+  } else {
+    // Fetch client's current medications for preview
+    const client = await payload.findByID({
+      collection: 'clients',
+      id: clientId,
+      depth: 0,
+    })
+
+    // Build medications array from current active medications
+    medicationsAtTestTime =
+      client?.medications && Array.isArray(client.medications)
+        ? client.medications
+            .filter((med: any) => med.status === 'active')
+            .map((med: any) => ({
+              medicationName: med.medicationName,
+              detectedAs: med.detectedAs || [],
+              requireConfirmation: med.requireConfirmation,
+            }))
+        : []
+  }
 
   return await computeTestResults({
     clientId,
@@ -616,6 +640,7 @@ export async function getEmailPreview(data: {
   data?: {
     clientEmail: string
     referralEmails: string[]
+    referralTitle: string
     clientHtml: string
     referralHtml: string
     smartGrouping: 'separate' | 'combined'
@@ -644,7 +669,7 @@ export async function getEmailPreview(data: {
     }
 
     // Get recipients using existing helper
-    const { clientEmail, referralEmails } = await getRecipients(data.clientId, payload)
+    const { clientEmail, referralEmails, referralTitle } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
     const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
@@ -684,6 +709,7 @@ export async function getEmailPreview(data: {
       data: {
         clientEmail,
         referralEmails,
+        referralTitle,
         clientHtml: emailData.client.html,
         referralHtml: emailData.referrals.html,
         smartGrouping,
@@ -713,6 +739,7 @@ export async function getCollectionEmailPreview(data: {
   success: boolean
   data?: {
     referralEmails: string[]
+    referralTitle: string
     referralHtml: string
     referralSubject: string
   }
@@ -738,7 +765,7 @@ export async function getCollectionEmailPreview(data: {
     }
 
     // Get recipients using existing helper
-    const { referralEmails } = await getRecipients(data.clientId, payload)
+    const { referralEmails, referralTitle } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
     const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
@@ -763,6 +790,7 @@ export async function getCollectionEmailPreview(data: {
       success: true,
       data: {
         referralEmails,
+        referralTitle,
         referralHtml: emailData.html,
         referralSubject: emailData.subject,
       },
@@ -793,6 +821,7 @@ export async function getConfirmationEmailPreview(data: {
   data?: {
     clientEmail: string
     referralEmails: string[]
+    referralTitle: string
     clientHtml: string
     referralHtml: string
     smartGrouping: 'separate' | 'combined'
@@ -828,7 +857,7 @@ export async function getConfirmationEmailPreview(data: {
     }
 
     // Get recipients using existing helper
-    const { clientEmail, referralEmails } = await getRecipients(data.clientId, payload)
+    const { clientEmail, referralEmails, referralTitle } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
     const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
@@ -892,6 +921,7 @@ export async function getConfirmationEmailPreview(data: {
       data: {
         clientEmail,
         referralEmails,
+        referralTitle,
         clientHtml: emailData.client.html,
         referralHtml: emailData.referrals.html,
         smartGrouping,

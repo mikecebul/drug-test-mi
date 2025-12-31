@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { toast } from 'sonner'
-import { useQueryState, parseAsStringLiteral } from 'nuqs'
+import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
 import { getRegisterClientFormOpts } from './shared-form'
 import { steps } from './validators'
@@ -20,10 +20,9 @@ import { useRouter } from 'next/navigation'
 
 interface RegisterClientWorkflowProps {
   onBack: () => void
-  onClientCreated?: (clientId: string) => void
 }
 
-export function RegisterClientWorkflow({ onBack, onClientCreated }: RegisterClientWorkflowProps) {
+export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [registrationComplete, setRegistrationComplete] = useState(false)
@@ -37,6 +36,9 @@ export function RegisterClientWorkflow({ onBack, onClientCreated }: RegisterClie
     parseAsStringLiteral(steps as readonly string[]).withDefault('personalInfo'),
   )
   const currentStep = currentStepRaw as (typeof steps)[number]
+
+  // Get returnTo param to know where user came from
+  const [returnTo] = useQueryState('returnTo', parseAsString)
 
   // Track previous step for navigation direction
   const prevStepRef = useRef(currentStep)
@@ -61,6 +63,9 @@ export function RegisterClientWorkflow({ onBack, onClientCreated }: RegisterClie
         setCreatedClientName(`${result.clientFirstName} ${result.clientLastName}`)
         setUsedPassword(value.accountInfo.password)
         setRegistrationComplete(true)
+
+        // Clear the step param so browser back goes to wizard selector
+        await setCurrentStep(null)
 
         // Invalidate client queries
         queryClient.invalidateQueries({ queryKey: ['clients'] })
@@ -92,12 +97,29 @@ export function RegisterClientWorkflow({ onBack, onClientCreated }: RegisterClie
   // If registration complete, show success screen
   if (registrationComplete && createdClientId) {
     const handleContinue = async () => {
-      if (onClientCreated) {
-        onClientCreated(createdClientId)
+      // Determine where to navigate based on returnTo param
+      if (returnTo === 'instant-test') {
+        // Navigate to instant-test workflow with new client
+        router.push(
+          `/admin/drug-test-upload?workflow=15-panel-instant&step=client&clientId=${createdClientId}`,
+        )
+      } else if (returnTo === 'collect-lab') {
+        // Navigate to collect-lab workflow with new client
+        router.push(`/admin/drug-test-upload?workflow=collect-lab&step=client&clientId=${createdClientId}`)
+      } else {
+        // No specific workflow, return to wizard selector
+        onBack()
       }
     }
 
-    return <SuccessStep clientName={createdClientName} password={usedPassword} onContinue={handleContinue} />
+    return (
+      <SuccessStep
+        clientName={createdClientName}
+        password={usedPassword}
+        onContinue={handleContinue}
+        returnTo={returnTo}
+      />
+    )
   }
 
   const renderStep = () => {

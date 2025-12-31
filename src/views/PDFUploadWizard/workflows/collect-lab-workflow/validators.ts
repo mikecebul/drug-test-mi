@@ -1,5 +1,6 @@
 import { allSubstanceOptions } from '@/fields/substanceOptions'
 import z from 'zod'
+import { clientSchema, medicationsSchema } from '../shared-validators'
 
 export const steps = ['client', 'medications', 'collection', 'confirm', 'reviewEmails'] as const
 export type Steps = typeof steps
@@ -7,38 +8,7 @@ export type Steps = typeof steps
 export const labTests = ['11-panel-lab', '17-panel-sos-lab', 'etg-lab'] as const
 export type LabTests = typeof labTests
 
-// Extract substance values from allSubstanceOptions
-const substanceValues = allSubstanceOptions.map((s) => s.value)
-
-export const clientSchema = z.object({
-  client: z.object({
-    id: z.string().min(1, 'Please select a client'),
-    firstName: z.string(),
-    lastName: z.string(),
-    middleInitial: z.string().nullable(),
-    email: z.string(),
-    dob: z.string().nullable(),
-    headshot: z.string().nullable(),
-  }),
-})
-
-export const medicationsSchema = z.object({
-  medications: z.array(
-    z.object({
-      medicationName: z.string().min(1, 'Medication name is required'),
-      startDate: z.string().min(1, 'Start date is required'),
-      endDate: z.string().nullable().optional(),
-      status: z.enum(['active', 'discontinued']),
-      detectedAs: z.array(z.enum(substanceValues)).nullable().optional(),
-      requireConfirmation: z.boolean().nullable().optional(),
-      notes: z.string().nullable().optional(),
-      createdAt: z.string().nullable().optional(),
-      // UI state flags (not persisted to server)
-      _isNew: z.boolean().optional(),
-      _wasDiscontinued: z.boolean().optional(),
-    }),
-  ),
-})
+export { clientSchema, medicationsSchema }
 
 export const collectionSchema = z.object({
   collection: z
@@ -77,6 +47,8 @@ export const collectionSchema = z.object({
 export const emailsSchema = z
   .object({
     emails: z.object({
+      clientEmailEnabled: z.boolean(),
+      clientRecipients: z.array(z.string()),
       referralEmailEnabled: z.boolean(),
       referralRecipients: z.array(z.string()),
     }),

@@ -10,6 +10,8 @@ export interface SimpleClient {
   email: string
   dob?: string
   headshot?: string
+  matchType?: 'exact' | 'fuzzy'
+  score?: number
 }
 
 export async function getClients(): Promise<SimpleClient[]> {

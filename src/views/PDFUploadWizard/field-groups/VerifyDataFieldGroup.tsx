@@ -6,7 +6,7 @@ import { useStore } from '@tanstack/react-form'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import InputDateTimePicker from '@/components/input-datetime-picker'
-import MedicationDisplayField from '@/blocks/Form/field-components/medications/medication-display-field'
+import MedicationDisplayField from '@/views/PDFUploadWizard/workflows/components/medications/medication-display-field'
 import { z } from 'zod'
 import type { PdfUploadFormType } from '../schemas/pdfUploadSchemas'
 import {

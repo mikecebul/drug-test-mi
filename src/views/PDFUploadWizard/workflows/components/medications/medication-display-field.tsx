@@ -2,14 +2,10 @@
 
 import React from 'react'
 import { Pill } from 'lucide-react'
-
-interface Medication {
-  name: string
-  detectedAs: string[]
-}
+import { FormMedications } from '../../shared-validators'
 
 interface MedicationDisplayFieldProps {
-  medications: Medication[]
+  medications: FormMedications
   title?: string
   description?: string
 }
@@ -24,7 +20,7 @@ export default function MedicationDisplayField({
   }
 
   return (
-    <div className="border-warning/50 bg-warning-muted/50 w-full rounded-xl border-1 p-6 shadow-md">
+    <div className="border-warning/50 bg-warning-muted/50 w-full rounded-xl border p-6 shadow-md">
       {/* Header */}
       <div className="mb-4">
         <div className="flex items-center gap-2.5">
@@ -41,8 +37,8 @@ export default function MedicationDisplayField({
         {medications.map((med, i) => (
           <li key={i} className="text-foreground text-sm">
             <div className="font-medium">
-              • {med.name}
-              {med.detectedAs.length > 0 && (
+              • {med.medicationName}
+              {med.detectedAs && med.detectedAs.length > 0 && (
                 <span className="text-muted-foreground capitalize"> ({med.detectedAs.join(', ')})</span>
               )}
             </div>

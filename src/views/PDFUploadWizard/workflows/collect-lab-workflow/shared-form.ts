@@ -27,6 +27,8 @@ const defaultValues: FormValues = {
     breathalyzerResult: null,
   },
   emails: {
+    clientEmailEnabled: false,
+    clientRecipients: [],
     referralEmailEnabled: true,
     referralRecipients: [],
   },

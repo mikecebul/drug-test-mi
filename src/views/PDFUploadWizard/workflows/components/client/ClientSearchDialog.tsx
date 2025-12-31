@@ -12,7 +12,7 @@ import {
 import { Check } from 'lucide-react'
 import type { SimpleClient } from './getClients'
 
-export const SearchDialog = ({
+export const ClientSearchDialog = ({
   allClients,
   children,
   selectedClientId,
