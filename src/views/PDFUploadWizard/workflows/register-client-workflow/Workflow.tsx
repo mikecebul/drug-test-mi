@@ -92,7 +92,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
       router.push('/admin/drug-test-upload')
     }
     prevStepRef.current = currentStep
-  }, [currentStep, form])
+  }, [currentStep, form, router])
 
   // If registration complete, show success screen
   if (registrationComplete && createdClientId) {

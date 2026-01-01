@@ -47,6 +47,5 @@
   ],
   "exclude": [
     "node_modules",
-    "src/views/PDFUploadWizard/old"
   ]
 }

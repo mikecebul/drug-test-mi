@@ -9,11 +9,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useStore } from '@tanstack/react-form'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
-import { cn } from '@/utilities/cn'
 import { getCollectLabFormOpts } from '../shared-form'
 import { collectionSchema, labTests } from '../validators'
 import InputDateTimePicker from '@/components/input-datetime-picker'
-import { collectionDetailsSchema } from '@/views/PDFUploadWizard/old/schemas/pdfUploadSchemas'
 
 const TEST_LABELS: Record<(typeof labTests)[number], string> = {
   '11-panel-lab': '11-Panel',

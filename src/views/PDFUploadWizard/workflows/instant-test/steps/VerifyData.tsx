@@ -66,7 +66,7 @@ export const VerifyDataStep = withForm({
         form.setFieldValue('verifyData.confirmationDecisionRequired', false)
         form.validate('submit')
       }
-    }, [requiresDecision])
+    }, [requiresDecision, form])
 
     // Get confirmation decision from form state
     const confirmationDecisionValue = verifyData?.confirmationDecision

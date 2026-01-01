@@ -69,7 +69,7 @@ export const LabScreenDataStep = withForm({
         form.setFieldValue('labScreenData.confirmationDecisionRequired', false)
         form.validate('submit')
       }
-    }, [requiresDecision])
+    }, [requiresDecision, form])
 
     // Get confirmation decision from form state
     const confirmationDecisionValue = labScreenData?.confirmationDecision

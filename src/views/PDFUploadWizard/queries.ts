@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query'
 import {
   findMatchingClients,
   getAllClients,
-  getClientMedications,
   computeTestResultPreview,
   getCollectionEmailPreview,
   getEmailPreview,
@@ -61,27 +60,6 @@ export function useGetClientsQuery() {
     queryKey: ['clients'],
     queryFn: getClients,
     staleTime: 30 * 1000, // 30 seconds - clients can be added/deleted frequently
-  })
-}
-
-/**
- * Query hook for getting client medications
- */
-export function useGetClientMedicationsQuery(clientId: string | null | undefined) {
-  return useQuery({
-    queryKey: ['client-medications', clientId],
-    queryFn: async () => {
-      if (!clientId) {
-        return { medications: [] }
-      }
-      const result = await getClientMedications(clientId)
-      if (!result.success) {
-        throw new Error(result.error)
-      }
-      return { medications: result.medications }
-    },
-    enabled: Boolean(clientId),
-    staleTime: Infinity
   })
 }
 

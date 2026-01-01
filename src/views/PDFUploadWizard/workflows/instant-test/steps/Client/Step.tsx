@@ -2,7 +2,7 @@
 
 import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
-import { useMemo, useEffect, useRef } from 'react'
+import { useMemo, useEffect, useRef, useCallback } from 'react'
 import { getInstantTestFormOpts } from '../../shared-form'
 import { SimpleClient } from '../../../components/client/getClients'
 import { ClientStepUI } from '../../../components/client/ClientStepUI'
@@ -62,15 +62,18 @@ export const ClientStep = withForm({
       }))
     }, [matchingClientsQuery.data?.matches])
 
-    const handleSelectClient = (client: SimpleClient) => {
-      form.setFieldValue('client.id', client.id)
-      form.setFieldValue('client.firstName', client.firstName)
-      form.setFieldValue('client.lastName', client.lastName)
-      form.setFieldValue('client.middleInitial', client.middleInitial ?? null)
-      form.setFieldValue('client.email', client.email)
-      form.setFieldValue('client.dob', client.dob ?? null)
-      form.setFieldValue('client.headshot', client.headshot ?? null)
-    }
+    const handleSelectClient = useCallback(
+      (client: SimpleClient) => {
+        form.setFieldValue('client.id', client.id)
+        form.setFieldValue('client.firstName', client.firstName)
+        form.setFieldValue('client.lastName', client.lastName)
+        form.setFieldValue('client.middleInitial', client.middleInitial ?? null)
+        form.setFieldValue('client.email', client.email)
+        form.setFieldValue('client.dob', client.dob ?? null)
+        form.setFieldValue('client.headshot', client.headshot ?? null)
+      },
+      [form],
+    )
 
     // Auto-select high-confidence matches
     useEffect(() => {
@@ -85,14 +88,13 @@ export const ClientStep = withForm({
       // 1. Exact match (matchType === 'exact'), OR
       // 2. High-confidence fuzzy match (score >= 0.85 / 85%)
       const shouldAutoSelect =
-        topMatch.matchType === 'exact' ||
-        (topMatch.matchType === 'fuzzy' && (topMatch.score ?? 0) >= 0.85)
+        topMatch.matchType === 'exact' || (topMatch.matchType === 'fuzzy' && (topMatch.score ?? 0) >= 0.85)
 
       if (shouldAutoSelect) {
         handleSelectClient(topMatch)
         hasAutoSelected.current = true
       }
-    }, [suggestedMatches, selectedClient.id])
+    }, [suggestedMatches, selectedClient.id, handleSelectClient])
 
     // Save file to localStorage before navigating to registration
     const handleRegisterNewClient = () => {
