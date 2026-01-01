@@ -18,13 +18,12 @@ export const EmailsStep = withForm({
     const formValues = useStore(form.store, (state) => state.values)
 
     // Use lab screen email preview hook
+    // Note: medications and breathalyzer info are automatically fetched from the matched test
     const { data: previewData, isLoading, error } = useLabScreenEmailPreview({
       testId: formValues?.matchCollection?.testId,
       testType: formValues?.labScreenData?.testType,
       detectedSubstances: (formValues?.labScreenData?.detectedSubstances || []) as SubstanceValue[],
       isDilute: formValues?.labScreenData?.isDilute || false,
-      breathalyzerTaken: formValues?.labScreenData?.breathalyzerTaken,
-      breathalyzerResult: formValues?.labScreenData?.breathalyzerResult,
     })
 
     // Initialize form fields when preview data loads

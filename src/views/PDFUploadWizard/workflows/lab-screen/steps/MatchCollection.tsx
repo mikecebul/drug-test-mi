@@ -6,75 +6,78 @@ import { useStore } from '@tanstack/react-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, AlertCircle, Check, ChevronDown } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Loader2, AlertCircle, Check, ChevronDown, Info } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
-import { fetchPendingTests } from '@/views/PDFUploadWizard/actions'
-import { useExtractPdfQuery } from '@/views/PDFUploadWizard/queries'
+import { useExtractPdfQuery, useFetchPendingTestsQuery } from '@/views/PDFUploadWizard/queries'
 import { getRankedTestMatches, type DrugTest } from '@/views/PDFUploadWizard/utils/testMatching'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
-import { cn } from '@/utilities/cn'
 import { getLabScreenFormOpts } from '../shared-form'
 
 export const MatchCollectionStep = withForm({
   ...getLabScreenFormOpts('matchCollection'),
 
   render: function Render({ form }) {
-    const [isLoading, setIsLoading] = useState(true)
-    const [pendingTests, setPendingTests] = useState<DrugTest[]>([])
     const [matchedTest, setMatchedTest] = useState<DrugTest | null>(null)
     const [showAllTests, setShowAllTests] = useState(false)
-    const [error, setError] = useState<string | null>(null)
 
     // Get uploaded file from form to access extracted data
     const uploadedFile = useStore(form.store, (state) => state.values.upload.file)
     const { data: extractData } = useExtractPdfQuery(uploadedFile, 'enter-lab-screen')
 
+    // Fetch pending tests using query hook
+    const { data: pendingTests, isLoading, error: queryError } = useFetchPendingTestsQuery(['collected'])
+
+    // Restore previous selection or auto-match if we have extracted data
     useEffect(() => {
-      async function loadPendingTests() {
-        try {
-          setIsLoading(true)
-          const result = await fetchPendingTests(['collected']) // Only 'collected' tests
-          if (!result.success) throw new Error(result.error)
+      if (!pendingTests || pendingTests.length === 0) return
 
-          const tests = result.tests
-          setPendingTests(tests)
-
-          // Auto-match if we have extracted data
-          if (extractData?.donorName || extractData?.collectionDate) {
-            const testsWithScores = getRankedTestMatches(
-              tests,
-              extractData.donorName ?? null,
-              extractData.collectionDate ?? null,
-              extractData.testType,
-              true, // isScreenWorkflow = true
-            )
-
-            if (testsWithScores.length > 0 && testsWithScores[0].score >= 60) {
-              const bestMatch = testsWithScores[0]
-              setMatchedTest(bestMatch.test)
-              form.setFieldValue('matchCollection.testId', bestMatch.test.id)
-              form.setFieldValue('matchCollection.clientName', bestMatch.test.clientName)
-              form.setFieldValue('matchCollection.testType', bestMatch.test.testType)
-              form.setFieldValue('matchCollection.collectionDate', bestMatch.test.collectionDate)
-              form.setFieldValue('matchCollection.screeningStatus', bestMatch.test.screeningStatus)
-              form.setFieldValue('matchCollection.matchType', bestMatch.score === 100 ? 'exact' : 'fuzzy')
-              form.setFieldValue('matchCollection.score', bestMatch.score)
-            }
-          }
-
-          setIsLoading(false)
-        } catch (err) {
-          console.error('Failed to load pending tests:', err)
-          setError(err instanceof Error ? err.message : 'Failed to load pending tests')
-          setIsLoading(false)
+      // Check if we already have a selection in the form
+      const existingTestId = form.getFieldValue('matchCollection.testId')
+      if (existingTestId) {
+        // Restore local state from form values
+        if (!matchedTest) {
+          const test = pendingTests.find((t) => t.id === existingTestId)
+          if (test) setMatchedTest(test)
         }
+        return
       }
 
-      loadPendingTests()
+      // Only auto-match if we don't have a selection yet and have extracted data
+      if (!extractData) return
+
+      if (extractData?.donorName || extractData?.collectionDate) {
+        const testsWithScores = getRankedTestMatches(
+          pendingTests,
+          extractData.donorName ?? null,
+          extractData.collectionDate ?? null,
+          extractData.testType,
+          true, // isScreenWorkflow = true
+        )
+
+        if (testsWithScores.length > 0 && testsWithScores[0].score >= 60) {
+          const bestMatch = testsWithScores[0]
+          setMatchedTest(bestMatch.test)
+          form.setFieldValue('matchCollection.testId', bestMatch.test.id)
+          form.setFieldValue('matchCollection.clientName', bestMatch.test.clientName)
+          form.setFieldValue('matchCollection.headshot', bestMatch.test.clientHeadshot)
+          form.setFieldValue('matchCollection.testType', bestMatch.test.testType)
+          form.setFieldValue('matchCollection.collectionDate', bestMatch.test.collectionDate)
+          form.setFieldValue('matchCollection.screeningStatus', bestMatch.test.screeningStatus)
+          form.setFieldValue('matchCollection.matchType', bestMatch.score === 100 ? 'exact' : 'fuzzy')
+          form.setFieldValue('matchCollection.score', bestMatch.score)
+          // Auto-sync extracted data to form when available
+          form.setFieldValue('labScreenData.collectionDate', bestMatch.test.collectionDate)
+          if (bestMatch.test.testType !== '15-panel-instant')
+            form.setFieldValue(
+              'labScreenData.testType',
+              bestMatch.test.testType as '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab',
+            )
+        }
+      }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [pendingTests, extractData])
 
     const handleTestSelect = (test: DrugTest) => {
       setMatchedTest(test)
@@ -85,6 +88,11 @@ export const MatchCollectionStep = withForm({
       form.setFieldValue('matchCollection.screeningStatus', test.screeningStatus)
       form.setFieldValue('matchCollection.matchType', 'manual')
       form.setFieldValue('matchCollection.score', 100)
+
+      // Auto-sync extracted data to form when available
+      form.setFieldValue('labScreenData.collectionDate', test.collectionDate)
+      if (test.testType !== '15-panel-instant')
+        form.setFieldValue('labScreenData.testType', test.testType as '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab')
     }
 
     // Loading state
@@ -105,20 +113,22 @@ export const MatchCollectionStep = withForm({
     }
 
     // Error state
-    if (error) {
+    if (queryError) {
       return (
         <div className="space-y-8">
           <FieldGroupHeader title="Match Pending Test" description="" />
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>
+              {queryError instanceof Error ? queryError.message : 'Failed to load pending tests'}
+            </AlertDescription>
           </Alert>
         </div>
       )
     }
 
     // No tests found
-    if (pendingTests.length === 0) {
+    if (!pendingTests || pendingTests.length === 0) {
       return (
         <div className="space-y-8">
           <FieldGroupHeader title="Match Pending Test" description="" />
@@ -148,12 +158,14 @@ export const MatchCollectionStep = withForm({
           title="Match Pending Test"
           description="Select the test that this screening result belongs to"
         />
-        <div className="text-base md:text-lg">
+        <div className="space-y-8 text-base md:text-lg">
           {extractData?.donorName && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
+            <Alert variant="info">
+              <Info className="h-4 w-4" />
+              <AlertTitle>
                 <strong>Extracted from PDF:</strong> {extractData.donorName}
+              </AlertTitle>
+              <AlertDescription>
                 {extractData.collectionDate && <span> • {format(new Date(extractData.collectionDate), 'PPp')}</span>}
               </AlertDescription>
             </Alert>

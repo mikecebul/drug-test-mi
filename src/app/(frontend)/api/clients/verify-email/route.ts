@@ -9,10 +9,7 @@ export async function POST(request: NextRequest) {
     const { email } = await request.json()
 
     if (!email) {
-      return NextResponse.json(
-        { errors: [{ message: 'Email is required' }] },
-        { status: 400 }
-      )
+      return NextResponse.json({ errors: [{ message: 'Email is required' }] }, { status: 400 })
     }
 
     const payload = await getPayload({ config })
@@ -28,20 +25,14 @@ export async function POST(request: NextRequest) {
     })
 
     if (users.docs.length === 0) {
-      return NextResponse.json(
-        { errors: [{ message: 'No account found with this email address' }] },
-        { status: 404 }
-      )
+      return NextResponse.json({ errors: [{ message: 'No account found with this email address' }] }, { status: 404 })
     }
 
     const user = users.docs[0]
 
     // Check if user is already verified
     if (user._verified) {
-      return NextResponse.json(
-        { errors: [{ message: 'Account is already verified' }] },
-        { status: 400 }
-      )
+      return NextResponse.json({ errors: [{ message: 'Account is already verified' }] }, { status: 400 })
     }
 
     // Generate a new verification token like PayloadCMS does
@@ -53,7 +44,7 @@ export async function POST(request: NextRequest) {
       id: user.id,
       data: {
         _verificationToken: verificationToken,
-      }
+      },
     })
 
     // Generate verification URL (same pattern as Clients collection config)
@@ -84,7 +75,7 @@ export async function POST(request: NextRequest) {
                 <h1>Verify Your Email Address</h1>
               </div>
 
-              <p>Hello ${user.firstName || user.name || email},</p>
+              <p>Hello ${user.firstName || user.fullName || email},</p>
 
               <p>Thank you for registering with MI Drug Test! To complete your registration and activate your account, please verify your email address by clicking the button below:</p>
 
@@ -111,9 +102,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Verification email sent successfully' })
   } catch (error) {
     console.error('Error sending verification email:', error)
-    return NextResponse.json(
-      { errors: [{ message: 'Failed to send verification email' }] },
-      { status: 500 }
-    )
+    return NextResponse.json({ errors: [{ message: 'Failed to send verification email' }] }, { status: 500 })
   }
 }

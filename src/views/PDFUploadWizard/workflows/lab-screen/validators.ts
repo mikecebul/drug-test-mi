@@ -10,6 +10,7 @@ export const matchCollectionSchema = z.object({
   matchCollection: z.object({
     testId: z.string().min(1, 'Test selection is required'),
     clientName: z.string().min(1),
+    headshot: z.string().nullable().optional(),
     testType: z.string().min(1),
     collectionDate: z.string().min(1),
     screeningStatus: z.string().min(1),
@@ -25,21 +26,12 @@ export const labScreenDataSchema = z.object({
       collectionDate: z.string().min(1, 'Collection date is required'),
       detectedSubstances: z.array(z.string()),
       isDilute: z.boolean(),
-      breathalyzerTaken: z.boolean(),
-      breathalyzerResult: z.number().nullable().optional(),
       confirmationDecisionRequired: z.boolean(),
       confirmationDecision: z.enum(['accept', 'request-confirmation', 'pending-decision']).optional(),
       confirmationSubstances: z.array(z.string()).optional(),
     })
     .superRefine((data, ctx) => {
-      // Validate breathalyzer result when breathalyzer is taken
-      if (data.breathalyzerTaken && (data.breathalyzerResult === null || data.breathalyzerResult === undefined)) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Breathalyzer result is required when breathalyzer is taken',
-          path: ['breathalyzerResult'],
-        })
-      }
+      // Validate confirmation decision when unexpected positives are detected
       if (data.confirmationDecisionRequired === true && data.confirmationDecision === undefined) {
         ctx.addIssue({
           code: 'custom',
@@ -48,19 +40,8 @@ export const labScreenDataSchema = z.object({
         })
       }
 
-      // Validate confirmation decision when substances are detected
-      // Note: This is a simplified check. The UI shows the decision only for unexpected positives,
-      // but we validate if any substances are detected to ensure data consistency
-      if (data.detectedSubstances.length > 0 && !data.confirmationDecision) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Please select how you want to proceed with the detected substances',
-          path: ['confirmationDecision'],
-        })
-      }
-
       // Validate confirmation substances when requesting confirmation
-      if (data.confirmationDecision === 'request-confirmation') {
+      if (data.confirmationDecisionRequired === true && data.confirmationDecision === 'request-confirmation') {
         if (!data.confirmationSubstances || data.confirmationSubstances.length === 0) {
           ctx.addIssue({
             code: 'custom',

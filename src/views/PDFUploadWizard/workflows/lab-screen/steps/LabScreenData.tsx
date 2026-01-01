@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import InputDateTimePicker from '@/components/input-datetime-picker'
@@ -14,16 +14,18 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldGroup, FieldLabel, FieldError, FieldLegend } from '@/components/ui/field'
 import {
-  useExtractPdfQuery,
-  useGetClientMedicationsQuery,
   useComputeTestResultPreviewQuery,
   useGetClientFromTestQuery,
+  useGetDrugTestWithMedicationsQuery,
 } from '../../../queries'
 import { formatSubstance } from '@/lib/substances'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { ConfirmationSubstanceSelector } from '@/blocks/Form/field-components/confirmation-substance-selector'
 import { cn } from '@/utilities/cn'
 import { AlertTriangle } from 'lucide-react'
+import { format } from 'date-fns'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 
 export const LabScreenDataStep = withForm({
   ...getLabScreenFormOpts('labScreenData'),
@@ -32,27 +34,26 @@ export const LabScreenDataStep = withForm({
     const formValues = useStore(form.store, (state) => state.values)
     const matchCollection = formValues.matchCollection
     const labScreenData = formValues.labScreenData
-    const uploadedFile = formValues.upload.file
 
     // Fetch client from matched test
     const { data: client } = useGetClientFromTestQuery(matchCollection?.testId)
 
-    // Fetch client medications
-    const medicationsQuery = useGetClientMedicationsQuery(client?.id)
-    const clientMedications = (medicationsQuery.data?.medications ?? []).map((med) => ({
-      medicationName: med.name,
-      detectedAs: med.detectedAs as any,
-      startDate: '',
-      status: 'active' as const,
-    }))
+    // Fetch matched test with medications snapshot
+    const { data: matchedTest } = useGetDrugTestWithMedicationsQuery(matchCollection?.testId)
+
+    // Use medications from matched test (snapshot at collection time)
+    // These are the only relevant medications - those active at the time of collection
+    const clientMedications: MedicationSnapshot[] =
+      matchedTest?.medicationsArrayAtTestTime?.map((med) => ({
+        medicationName: med.medicationName,
+        detectedAs: med.detectedAs,
+      })) ?? []
 
     // Compute test result preview to detect unexpected positives
     const { data: preview } = useComputeTestResultPreviewQuery(
       client?.id,
       (labScreenData?.detectedSubstances ?? []) as SubstanceValue[],
       labScreenData?.testType ?? '11-panel-lab',
-      labScreenData?.breathalyzerTaken ?? false,
-      labScreenData?.breathalyzerResult ?? null,
     )
 
     const hasUnexpectedPositives = (preview?.unexpectedPositives?.length ?? 0) > 0
@@ -87,25 +88,6 @@ export const LabScreenDataStep = withForm({
       }
     }
 
-    // Initialize form with extracted data
-    // useEffect(() => {
-    //   if (extractData) {
-    //     if (extractData.collectionDate) {
-    //       form.setFieldValue('labScreenData.collectionDate', extractData.collectionDate)
-    //     }
-    //     if (extractData.detectedSubstances) {
-    //       form.setFieldValue('labScreenData.detectedSubstances', extractData.detectedSubstances)
-    //     }
-    //     if (extractData.isDilute !== undefined) {
-    //       form.setFieldValue('labScreenData.isDilute', extractData.isDilute)
-    //     }
-    //     if (extractData.testType) {
-    //       form.setFieldValue('labScreenData.testType', extractData.testType)
-    //     }
-    //   }
-    //   // eslint-disable-next-line react-hooks/exhaustive-deps
-    // }, [extractData])
-
     return (
       <div className="space-y-6">
         <FieldGroupHeader
@@ -117,20 +99,51 @@ export const LabScreenDataStep = withForm({
         {client && (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
             <ClientInfoCard client={client} />
-            {clientMedications.length > 0 && <MedicationDisplayField medications={clientMedications} />}
+            {clientMedications.length > 0 && (
+              <MedicationDisplayField
+                medicationSnapshot={clientMedications}
+                title="Medications at Collection Time"
+                description="Medications that were active when this test was collected"
+              />
+            )}
           </div>
         )}
 
         {/* Matched Test Info */}
         {matchCollection && matchCollection.clientName && (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-2">
-                <p className="text-muted-foreground text-sm">Matched Test</p>
-                <p className="font-medium">{matchCollection.clientName}</p>
-                <p className="text-muted-foreground text-sm">{matchCollection.testType}</p>
+          <Card className="transition-all">
+            <CardHeader>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-1 items-start gap-3">
+                  <Avatar className="h-12 w-12 shrink-0">
+                    <AvatarImage src={matchCollection.headshot ?? undefined} alt={matchCollection.clientName} />
+                    <AvatarFallback className="text-sm">
+                      {matchCollection.clientName
+                        .split(' ')
+                        .map((n) => n.charAt(0))
+                        .join('')
+                        .slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  <div className="flex-1">
+                    <CardTitle className="text-lg">{matchCollection.clientName}</CardTitle>
+                    <CardDescription className="mt-1">
+                      {/* Using PPp for consistent date formatting */}
+                      {format(new Date(matchCollection.collectionDate), 'PPp')} • {matchCollection.testType}
+                    </CardDescription>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end gap-2">
+                  {/* If you have a score for the final match, display it here */}
+                  <Badge variant="default" className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/10">
+                    Confirmed Match
+                  </Badge>
+                  <Badge variant="outline">{matchCollection.screeningStatus}</Badge>
+                </div>
               </div>
-            </CardContent>
+            </CardHeader>
           </Card>
         )}
 
@@ -197,54 +210,6 @@ export const LabScreenDataStep = withForm({
                 Sample is Dilute
               </FieldLabel>
             </Field>
-
-            {/* Breathalyzer Section */}
-            <div className="bg-muted/50 border-border space-y-4 rounded-lg border p-4">
-              <FieldLegend>Breathalyzer Test (Optional)</FieldLegend>
-              <Field orientation="horizontal">
-                <form.Field name="labScreenData.breathalyzerTaken">
-                  {(field) => (
-                    <Checkbox
-                      id="breathalyzerTaken"
-                      checked={field.state.value}
-                      onCheckedChange={(checked) => field.handleChange(checked as boolean)}
-                    />
-                  )}
-                </form.Field>
-                <FieldLabel htmlFor="breathalyzerTaken" className="cursor-pointer font-normal">
-                  Breathalyzer test was administered
-                </FieldLabel>
-              </Field>
-
-              {labScreenData?.breathalyzerTaken && (
-                <form.Field name="labScreenData.breathalyzerResult">
-                  {(field) => (
-                    <Field>
-                      <FieldLabel htmlFor="breathalyzerResult">
-                        BAC Result <span className="text-destructive">*</span>
-                      </FieldLabel>
-                      <Input
-                        id="breathalyzerResult"
-                        type="number"
-                        step="0.001"
-                        min="0"
-                        max="1"
-                        value={field.state.value ?? ''}
-                        onChange={(e) => {
-                          const value = e.target.value === '' ? null : parseFloat(e.target.value)
-                          field.handleChange(value)
-                        }}
-                        placeholder="0.000"
-                      />
-                      <p className="text-muted-foreground text-xs">
-                        Enter result with 3 decimal places. Threshold: 0.000 (any detectable alcohol = positive)
-                      </p>
-                      <FieldError errors={field.state.meta.errors} />
-                    </Field>
-                  )}
-                </form.Field>
-              )}
-            </div>
           </CardContent>
         </Card>
 

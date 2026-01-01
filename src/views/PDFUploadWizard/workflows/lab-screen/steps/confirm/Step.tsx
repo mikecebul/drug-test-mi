@@ -2,20 +2,25 @@
 
 import { withForm } from '@/blocks/Form/hooks/form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { CheckCircle2, User, FileText } from 'lucide-react'
+import { CheckCircle2, User, FileText, AlertTriangle, Pill } from 'lucide-react'
 import { getLabScreenFormOpts } from '../../shared-form'
 import { FieldGroupHeader } from '../../../components/FieldGroupHeader'
 import { useStore } from '@tanstack/react-form'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/utilities/cn'
-import { formatSubstance } from '@/lib/substances'
+import { useConfirmLogic } from './useConfirmLogic'
+import { ClientInfoContent } from '../../../components/client/ClientDisplayCard'
+import {
+  BreathalyzerDisplay,
+  ClassificationAlert,
+} from '../../../instant-test/steps/confirm/components'
 
 export const ConfirmStep = withForm({
   ...getLabScreenFormOpts('confirm'),
 
   render: function Render({ form }) {
     const formValues = useStore(form.store, (state) => state.values)
-    const { matchCollection, labScreenData } = formValues
+    const { client, matchedTest, labScreenData, medications, preview, filenames } = useConfirmLogic(formValues)
 
     return (
       <div>
@@ -32,43 +37,84 @@ export const ConfirmStep = withForm({
           </CardHeader>
 
           <CardContent className="space-y-6 pt-6">
-            {/* Matched Test */}
-            <SummarySection icon={User} title="Matched Test">
-              <p className="font-medium">{matchCollection?.clientName}</p>
-              <p className="text-sm text-muted-foreground">{matchCollection?.testType}</p>
+            {/* 1. Client Info */}
+            <SummarySection icon={User} title="Client">
+              {client ? (
+                <ClientInfoContent client={client} />
+              ) : (
+                <p className="text-sm text-muted-foreground">Loading client information...</p>
+              )}
             </SummarySection>
 
-            {/* Test Details */}
-            <SummarySection icon={FileText} title="Screening Results">
-              <p className="text-sm">
-                <span className="font-medium">Test Type:</span> {labScreenData?.testType}
-              </p>
-              <p className="text-sm">
-                <span className="font-medium">Collection Date:</span>{' '}
+            {/* 2. Test Type */}
+            <SummarySection icon={FileText} title="Test Type">
+              <p className="text-lg font-medium">{labScreenData?.testType}</p>
+            </SummarySection>
+
+            {/* 3. Collection Date */}
+            <SummarySection icon={FileText} title="Collection Date">
+              <p className="font-medium">
                 {labScreenData?.collectionDate ? new Date(labScreenData.collectionDate).toLocaleString() : 'Not set'}
               </p>
-              {labScreenData?.isDilute && <Badge variant="outline">Dilute Sample</Badge>}
             </SummarySection>
 
-            {/* Detected Substances */}
-            {labScreenData?.detectedSubstances && labScreenData.detectedSubstances.length > 0 && (
-              <SummarySection icon={FileText} title="Detected Substances">
-                <div className="flex flex-wrap gap-2">
-                  {labScreenData.detectedSubstances.map((substance) => (
-                    <Badge key={substance} variant="destructive">
-                      {formatSubstance(substance)}
-                    </Badge>
+            {/* 4. Sample Status */}
+            {labScreenData?.isDilute && (
+              <SummarySection icon={AlertTriangle} title="Sample Status">
+                <Badge variant="outline">Dilute Sample</Badge>
+              </SummarySection>
+            )}
+
+            {/* 5. Classification */}
+            <SummarySection icon={FileText} title="Classification">
+              <ClassificationAlert preview={preview} />
+            </SummarySection>
+
+            {/* 6. Breathalyzer (from matched test if available) */}
+            {matchedTest?.breathalyzerTaken && (
+              <SummarySection icon={AlertTriangle} title="Breathalyzer">
+                <BreathalyzerDisplay result={matchedTest.breathalyzerResult} />
+              </SummarySection>
+            )}
+
+            {/* 7. Medications (from matched test) */}
+            {medications && medications.length > 0 && (
+              <SummarySection icon={Pill} title="Client Medications">
+                <div className="space-y-2">
+                  {medications.map((med: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <span className="text-sm">{med.medicationName}</span>
+                      {med.detectedAs && med.detectedAs.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {med.detectedAs.filter((s: string) => s !== 'none').map((substance: string) => (
+                            <Badge key={substance} variant="secondary" className="text-[10px]">
+                              {substance}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </SummarySection>
             )}
 
-            {/* Breathalyzer */}
-            {labScreenData?.breathalyzerTaken && (
-              <SummarySection icon={FileText} title="Breathalyzer">
-                <p className="text-sm">BAC: {labScreenData.breathalyzerResult ?? 'N/A'}</p>
-              </SummarySection>
-            )}
+            {/* 8. Filenames */}
+            <SummarySection icon={FileText} title="PDF Document">
+              <div className="font-mono text-sm">
+                <div className="flex flex-col gap-1">
+                  <div>
+                    <span className="text-muted-foreground text-xs">Original:</span> {filenames.original}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-xs">New:</span> {filenames.new}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-xs">Size:</span> {filenames.size}
+                  </div>
+                </div>
+              </div>
+            </SummarySection>
           </CardContent>
         </Card>
       </div>

@@ -3,7 +3,6 @@
 import { Button } from '@/components/ui/button'
 import { Check } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import test from 'node:test'
 
 export const TestCompleted = ({ testId, onBack }: { testId: string; onBack: () => void }) => {
   const router = useRouter()

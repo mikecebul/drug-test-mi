@@ -36,6 +36,7 @@ export const LabScreenNavigation = withForm({
 
     return (
       <div className="flex justify-between">
+        <p>{JSON.stringify(errors)}</p>
         <Button type="button" variant="outline" onClick={handleBack} disabled={isSubmitting}>
           {isFirstStep ? 'Cancel' : 'Back'}
         </Button>

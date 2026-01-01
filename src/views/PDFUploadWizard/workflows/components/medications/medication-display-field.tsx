@@ -3,22 +3,25 @@
 import React from 'react'
 import { Pill } from 'lucide-react'
 import { FormMedications } from '../../shared-validators'
+import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 
 interface MedicationDisplayFieldProps {
-  medications: FormMedications
+  medications?: FormMedications
+  medicationSnapshot?: MedicationSnapshot[]
   title?: string
   description?: string
 }
 
 export default function MedicationDisplayField({
   medications,
+  medicationSnapshot,
   title = 'Active Medications',
   description = 'Expected to test positive for the following substances',
 }: MedicationDisplayFieldProps) {
   // Filter to show all active medications (even if detectedAs is missing)
-  const activeMedications = medications.filter(med => med.status === 'active')
+  const activeMedications = medications ? medications.filter(med => med.status === 'active') : medicationSnapshot
 
-  if (activeMedications.length === 0) {
+  if (!activeMedications || activeMedications.length === 0) {
     return null
   }
 

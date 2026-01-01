@@ -1,3 +1,5 @@
+'use client'
+
 import { sdk } from '@/lib/payload-sdk'
 
 export interface SimpleClient {
@@ -144,6 +146,58 @@ export async function getClientFromTestId(testId: string): Promise<SimpleClient 
     }
   } catch (err) {
     console.error('Error fetching client from test:', err)
+    return null
+  }
+}
+
+export interface DrugTestWithMedications {
+  id: string
+  testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
+  collectionDate: string | null | undefined
+  screeningStatus: 'collected' | 'screened' | 'confirmation-pending' | 'complete'
+  medicationsArrayAtTestTime: any[]
+  relatedClient: any
+  breathalyzerTaken: boolean
+  breathalyzerResult: number | null
+}
+
+/**
+ * Fetch drug test with medications snapshot
+ * Returns the drug test with medicationsAtTestTime for displaying the medications
+ * that were active when the test was collected
+ */
+export async function getDrugTestWithMedications(testId: string): Promise<DrugTestWithMedications | null> {
+  try {
+    const drugTest = await sdk.findByID({
+      collection: 'drug-tests',
+      id: testId,
+      depth: 2,
+      select: {
+        id: true,
+        testType: true,
+        collectionDate: true,
+        screeningStatus: true,
+        medicationsArrayAtTestTime: true,
+        relatedClient: true,
+        breathalyzerTaken: true,
+        breathalyzerResult: true,
+      },
+    })
+
+    if (!drugTest) return null
+
+    return {
+      id: drugTest.id,
+      testType: drugTest.testType,
+      collectionDate: drugTest.collectionDate,
+      screeningStatus: drugTest.screeningStatus,
+      medicationsArrayAtTestTime: drugTest.medicationsArrayAtTestTime || [],
+      relatedClient: drugTest.relatedClient,
+      breathalyzerTaken: drugTest.breathalyzerTaken || false,
+      breathalyzerResult: drugTest.breathalyzerResult || null,
+    }
+  } catch (err) {
+    console.error('Error fetching drug test with medications:', err)
     return null
   }
 }

@@ -389,40 +389,40 @@ export async function getClients(): Promise<SimpleClient[]> {
 /**
  * Get client's active medications for preview
  */
-export async function getClientMedications(
-  clientId: string,
-): Promise<
-  { success: true; medications: Array<{ name: string; detectedAs: string[] }> } | { success: false; error: string }
-> {
-  const payload = await getPayload({ config })
+// export async function getClientMedications(
+//   clientId: string,
+// ): Promise<
+//   { success: true; medications: MedicationSnapshot } | { success: false; error: string }
+// > {
+//   const payload = await getPayload({ config })
 
-  try {
-    const client = await payload.findByID({
-      collection: 'clients',
-      id: clientId,
-      depth: 0,
-    })
+//   try {
+//     const client = await payload.findByID({
+//       collection: 'clients',
+//       id: clientId,
+//       depth: 0,
+//     })
 
-    if (!client?.medications || !Array.isArray(client.medications)) {
-      return { success: true, medications: [] }
-    }
+//     if (!client?.medications || !Array.isArray(client.medications)) {
+//       return { success: true, medications: [] }
+//     }
 
-    const activeMeds = client.medications
-      .filter((med: any) => med.status === 'active')
-      .map((med: any) => ({
-        name: med.medicationName,
-        detectedAs: (med.detectedAs || []).filter((s: string) => s !== 'none'),
-      }))
+//     const activeMeds = client.medications
+//       .filter((med: any) => med.status === 'active')
+//       .map((med: any) => ({
+//         name: med.medicationName,
+//         detectedAs: (med.detectedAs || []).filter((s: string) => s !== 'none'),
+//       }))
 
-    return { success: true, medications: activeMeds }
-  } catch (error) {
-    payload.logger.error('Error fetching client medications:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch client medications',
-    }
-  }
-}
+//     return { success: true, medications: activeMeds }
+//   } catch (error) {
+//     payload.logger.error('Error fetching client medications:', error)
+//     return {
+//       success: false,
+//       error: error instanceof Error ? error.message : 'Failed to fetch client medications',
+//     }
+//   }
+// }
 
 /**
  * Compute test result preview for wizard UI

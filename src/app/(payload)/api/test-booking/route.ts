@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
       },
       client: client.docs.length > 0 ? {
         id: client.docs[0].id,
-        name: client.docs[0].name,
+        name: client.docs[0].fullName,
         email: client.docs[0].email,
       } : null,
       type: testType,

@@ -21,6 +21,7 @@ const defaultValues: FormValues = {
   matchCollection: {
     testId: '',
     clientName: '',
+    headshot: '',
     testType: '',
     collectionDate: '',
     screeningStatus: '',
@@ -32,8 +33,6 @@ const defaultValues: FormValues = {
     collectionDate: new Date().toISOString(),
     detectedSubstances: [],
     isDilute: false,
-    breathalyzerTaken: false,
-    breathalyzerResult: null,
     confirmationDecisionRequired: false,
     confirmationDecision: undefined,
     confirmationSubstances: [],

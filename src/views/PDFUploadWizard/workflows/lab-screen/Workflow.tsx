@@ -13,7 +13,7 @@ import { MatchCollectionStep } from './steps/MatchCollection'
 import { LabScreenDataStep } from './steps/LabScreenData'
 import { ConfirmStep } from './steps/confirm/Step'
 import { EmailsStep } from './steps/Emails'
-import { updateLabScreenAction } from './actions/updateLabScreen'
+import { updateLabScreenWithEmailReview } from './actions/updateLabScreenWithEmailReview'
 import { TestCompleted } from '../../components/TestCompleted'
 import { steps } from './validators'
 import { extractPdfQueryKey } from '../../queries'
@@ -50,11 +50,11 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
         return
       }
 
-      // Final submit: Update drug test with lab screening results
+      // Final submit: Update drug test with lab screening results and send emails
       const queryKey = extractPdfQueryKey(value.upload.file, 'enter-lab-screen')
       const extractedData = queryClient.getQueryData<any>(queryKey)
 
-      const result = await updateLabScreenAction(value, extractedData)
+      const result = await updateLabScreenWithEmailReview(value, extractedData)
 
       if (result.success && result.testId) {
         setCompletedTestId(result.testId)

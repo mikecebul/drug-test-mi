@@ -6,17 +6,24 @@ import {
   getAllClients,
   getClientMedications,
   computeTestResultPreview,
-  fetchPendingTests,
   getCollectionEmailPreview,
   getEmailPreview,
   getConfirmationEmailPreview,
   extractPdfData,
   getClients,
 } from './actions'
-import { getClientFromTestId } from './workflows/components/client/getClients'
+import { getClientFromTestId, getDrugTestWithMedications } from './workflows/components/client/getClients'
+import { fetchPendingTests } from './workflows/lab-screen/components/fetchPendingTests'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import type { ParsedPDFData, WizardType } from './types'
-import { FormMedications } from './workflows/shared-validators'
+import type { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
+
+// Minimal medication interface that both FormMedications and MedicationSnapshot satisfy
+type MedicationInput = {
+  medicationName: string
+  detectedAs?: string[] | null
+  [key: string]: any // Allow additional fields from FormMedications
+}
 
 // Re-export ParsedPDFData as ExtractedPdfData for clarity in query consumers
 export type ExtractedPdfData = ParsedPDFData
@@ -74,12 +81,13 @@ export function useGetClientMedicationsQuery(clientId: string | null | undefined
       return { medications: result.medications }
     },
     enabled: Boolean(clientId),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: Infinity
   })
 }
 
 /**
  * Query hook for computing test result preview
+ * Accepts medications from both form input (instant tests) and matched test snapshots (lab tests)
  */
 export function useComputeTestResultPreviewQuery(
   clientId: string | null | undefined,
@@ -87,7 +95,7 @@ export function useComputeTestResultPreviewQuery(
   testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | null | undefined,
   breathalyzerTaken?: boolean,
   breathalyzerResult?: number | null,
-  medications?: FormMedications,
+  medications?: MedicationInput[],
 ) {
   return useQuery({
     queryKey: [
@@ -103,13 +111,18 @@ export function useComputeTestResultPreviewQuery(
       if (!clientId || !testType) {
         return null
       }
+      // Convert medications to MedicationSnapshot format
+      const medicationSnapshot: MedicationSnapshot[] | undefined = medications?.map((med) => ({
+        medicationName: med.medicationName,
+        detectedAs: (med.detectedAs || []) as any, // Cast to bypass strict type checking
+      }))
       return computeTestResultPreview(
         clientId,
         detectedSubstances,
         testType,
         breathalyzerTaken,
         breathalyzerResult,
-        medications,
+        medicationSnapshot,
       )
     },
     enabled: Boolean(clientId && testType),
@@ -184,6 +197,24 @@ export function useGetClientFromTestQuery(testId: string | null | undefined) {
 }
 
 /**
+ * Query hook for getting drug test with medications snapshot
+ * Uses client-side SDK to fetch test data including medicationsAtTestTime
+ */
+export function useGetDrugTestWithMedicationsQuery(testId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['drug-test-with-medications', testId],
+    queryFn: async () => {
+      if (!testId) {
+        return null
+      }
+      return getDrugTestWithMedications(testId)
+    },
+    enabled: Boolean(testId),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  })
+}
+
+/**
  * Query hook for getting drug test details by ID
  * This fetches the full test data including screening results
  */
@@ -219,7 +250,7 @@ export function useGetEmailPreviewQuery(data: {
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
   confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
-  medications?: FormMedications
+  medications?: MedicationInput[]
 }) {
   const {
     clientId,

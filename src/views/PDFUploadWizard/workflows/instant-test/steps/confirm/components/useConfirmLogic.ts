@@ -1,4 +1,3 @@
-import { useStore } from '@tanstack/react-form'
 import {
   useComputeTestResultPreviewQuery,
   useExtractPdfQuery,
@@ -6,7 +5,6 @@ import {
 import { generateTestFilename } from '@/views/PDFUploadWizard/utils/generateFilename'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import type { FormValues } from '../../../validators'
-import { Form } from '@/payload-types'
 
 export function useConfirmLogic(formValues: FormValues) {
   const client = formValues.client
