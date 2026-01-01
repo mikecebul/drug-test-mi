@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Info } from 'lucide-react'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { useStore } from '@tanstack/react-form'
+import { QueryErrorResetBoundary } from '@tanstack/react-query'
 
 export const AccountInfoStep = withForm({
   ...getRegisterClientFormOpts('accountInfo'),

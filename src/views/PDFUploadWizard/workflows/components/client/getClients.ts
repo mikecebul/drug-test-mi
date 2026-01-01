@@ -12,6 +12,7 @@ export interface SimpleClient {
   headshot?: string
   matchType?: 'exact' | 'fuzzy'
   score?: number
+  phone?: string
 }
 
 export async function getClients(): Promise<SimpleClient[]> {
@@ -54,9 +55,7 @@ export async function getClients(): Promise<SimpleClient[]> {
   return clients
 }
 
-export async function getClientById(
-  id: string
-): Promise<SimpleClient | null> {
+export async function getClientById(id: string): Promise<SimpleClient | null> {
   try {
     const client = await sdk.findByID({
       collection: 'clients',
@@ -70,6 +69,7 @@ export async function getClientById(
         email: true,
         dob: true,
         headshot: true,
+        phone: true,
       },
     })
 
@@ -91,10 +91,59 @@ export async function getClientById(
       initials: `${client.firstName.charAt(0)}${client.lastName.charAt(0)}`,
       email: client.email,
       dob: client.dob ?? undefined,
+      phone: client.phone ?? undefined,
       headshot,
     }
   } catch (err) {
     // Payload throws if not found
+    return null
+  }
+}
+
+/**
+ * Fetch client from a drug test ID
+ * This is useful in workflows where you're updating an existing test and need the client info
+ */
+export async function getClientFromTestId(testId: string): Promise<SimpleClient | null> {
+  try {
+    // Fetch the drug test with the related client
+    const drugTest = await sdk.findByID({
+      collection: 'drug-tests',
+      id: testId,
+      depth: 2, // Depth 2 needed to populate relatedClient and headshot
+      select: {
+        relatedClient: true,
+      },
+    })
+
+    if (!drugTest || !drugTest.relatedClient) return null
+
+    // Type guard to check if relatedClient is an object
+    const client = typeof drugTest.relatedClient === 'object' ? drugTest.relatedClient : null
+    if (!client) return null
+
+    // Extract headshot URL (prefer thumbnail for performance)
+    const headshot =
+      typeof client.headshot === 'object' && client.headshot
+        ? client.headshot.thumbnailURL || client.headshot.url || undefined
+        : undefined
+
+    return {
+      id: client.id,
+      firstName: client.firstName,
+      middleInitial: client.middleInitial ?? undefined,
+      lastName: client.lastName,
+      fullName: client.middleInitial
+        ? `${client.firstName} ${client.middleInitial} ${client.lastName}`
+        : `${client.firstName} ${client.lastName}`,
+      initials: `${client.firstName.charAt(0)}${client.lastName.charAt(0)}`,
+      email: client.email,
+      dob: client.dob ?? undefined,
+      phone: client.phone ?? undefined,
+      headshot,
+    }
+  } catch (err) {
+    console.error('Error fetching client from test:', err)
     return null
   }
 }

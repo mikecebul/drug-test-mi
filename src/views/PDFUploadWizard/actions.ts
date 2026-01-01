@@ -7,12 +7,9 @@ import { extractLabTest } from '@/utilities/extractors/extractLabTest'
 import type { ParsedPDFData, ClientMatch, TestType, WizardType, SimpleClient } from './types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { calculateNameSimilarity, calculateSimilarity } from './utils/calculateSimilarity'
-import {
-  computeTestResults,
-  computeFinalStatus,
-  fetchDocument,
-  sendEmails,
-} from '@/collections/DrugTests/services'
+import { computeTestResults, computeFinalStatus, fetchDocument, sendEmails } from '@/collections/DrugTests/services'
+import { FormMedications } from './workflows/shared-validators'
+import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 
 const TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
 const TEST_EMAIL = process.env.EMAIL_TEST_ADDRESS || 'mike@midrugtest.com'
@@ -72,9 +69,7 @@ export async function findMatchingClients(
 }> {
   const payload = await getPayload({ config })
 
-  const searchTerm = middleInitial
-    ? `${firstName} ${middleInitial} ${lastName}`
-    : `${firstName} ${lastName}`
+  const searchTerm = middleInitial ? `${firstName} ${middleInitial} ${lastName}` : `${firstName} ${lastName}`
 
   // 1. Try exact match first (fastest and most accurate)
   const exactMatch = await payload.find({
@@ -262,12 +257,7 @@ export async function searchClients(searchTerm: string): Promise<{
       } else if (searchParts.length === 1) {
         // Single word - check against both first and last name
         const singleTerm = searchParts[0]
-        const firstScore = calculateNameSimilarity(
-          singleTerm,
-          '',
-          client.firstName,
-          client.lastName,
-        )
+        const firstScore = calculateNameSimilarity(singleTerm, '', client.firstName, client.lastName)
         const lastScore = calculateNameSimilarity('', singleTerm, client.firstName, client.lastName)
         nameScore = Math.max(firstScore, lastScore)
       }
@@ -402,8 +392,7 @@ export async function getClients(): Promise<SimpleClient[]> {
 export async function getClientMedications(
   clientId: string,
 ): Promise<
-  | { success: true; medications: Array<{ name: string; detectedAs: string[] }> }
-  | { success: false; error: string }
+  { success: true; medications: Array<{ name: string; detectedAs: string[] }> } | { success: false; error: string }
 > {
   const payload = await getPayload({ config })
 
@@ -449,12 +438,7 @@ export async function computeTestResultPreview(
   testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab',
   breathalyzerTaken?: boolean,
   breathalyzerResult?: number | null,
-  medications?: Array<{
-    medicationName: string
-    detectedAs?: string[]
-    requireConfirmation?: boolean
-    status?: 'active' | 'discontinued'
-  }>,
+  medications?: MedicationSnapshot[],
 ): Promise<{
   initialScreenResult:
     | 'negative'
@@ -470,22 +454,11 @@ export async function computeTestResultPreview(
 }> {
   const payload = await getPayload({ config })
 
-  let medicationsAtTestTime: Array<{
-    medicationName: string
-    detectedAs: string[]
-    requireConfirmation?: boolean
-  }> = []
-
+  let medicationSnapshot: MedicationSnapshot[]
   // Use provided medications if available, otherwise fetch from database
   if (medications) {
     // Use medications from wizard (may have been modified)
-    medicationsAtTestTime = medications
-      .filter((med) => med.status === 'active')
-      .map((med) => ({
-        medicationName: med.medicationName,
-        detectedAs: med.detectedAs || [],
-        requireConfirmation: med.requireConfirmation,
-      }))
+    medicationSnapshot = medications
   } else {
     // Fetch client's current medications for preview
     const client = await payload.findByID({
@@ -495,14 +468,13 @@ export async function computeTestResultPreview(
     })
 
     // Build medications array from current active medications
-    medicationsAtTestTime =
+    medicationSnapshot =
       client?.medications && Array.isArray(client.medications)
         ? client.medications
             .filter((med: any) => med.status === 'active')
             .map((med: any) => ({
               medicationName: med.medicationName,
               detectedAs: med.detectedAs || [],
-              requireConfirmation: med.requireConfirmation,
             }))
         : []
   }
@@ -510,7 +482,7 @@ export async function computeTestResultPreview(
   return await computeTestResults({
     clientId,
     detectedSubstances,
-    medicationsAtTestTime,
+    medicationsAtTestTime: medicationSnapshot,
     testType, // Wizard filters by test type (only check substances this panel screens for)
     breathalyzerTaken,
     breathalyzerResult,
@@ -554,8 +526,7 @@ export async function createDrugTest(data: {
     if (!existingClient) {
       return {
         success: false,
-        error:
-          'Client not found. They may have been deleted. Please go back and select a different client.',
+        error: 'Client not found. They may have been deleted. Please go back and select a different client.',
       }
     }
 
@@ -635,6 +606,7 @@ export async function getEmailPreview(data: {
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
   confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
+  medications?: FormMedications
 }): Promise<{
   success: boolean
   data?: {
@@ -679,6 +651,9 @@ export async function getEmailPreview(data: {
       data.clientId,
       data.detectedSubstances,
       data.testType,
+      data.breathalyzerTaken,
+      data.breathalyzerResult,
+      data.medications, // Pass medications for accurate preview
     )
 
     // Build email HTML using existing template builder
@@ -864,15 +839,10 @@ export async function getConfirmationEmailPreview(data: {
 
     // Use adjusted substances if provided (confirmed negatives removed),
     // otherwise fall back to original detected substances
-    const substancesForPreview =
-      data.adjustedSubstances ?? (drugTest.detectedSubstances as SubstanceValue[])
+    const substancesForPreview = data.adjustedSubstances ?? (drugTest.detectedSubstances as SubstanceValue[])
 
     // Compute initial test result for email (need this for complete email template)
-    const previewResult = await computeTestResultPreview(
-      data.clientId,
-      substancesForPreview,
-      drugTest.testType,
-    )
+    const previewResult = await computeTestResultPreview(data.clientId, substancesForPreview, drugTest.testType)
 
     // Compute final status using service layer
     const finalStatus = computeFinalStatus({
@@ -961,6 +931,13 @@ export async function createDrugTestWithEmailReview(
     confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
     confirmationSubstances?: SubstanceValue[]
   },
+  medicationsAtTestTime:
+    | Array<{
+        medicationName: string
+        detectedAs: string[]
+        requireConfirmation: boolean
+      }>
+    | undefined,
   emailConfig: {
     clientEmailEnabled: boolean
     clientRecipients: string[]
@@ -986,8 +963,7 @@ export async function createDrugTestWithEmailReview(
     if (!existingClient) {
       return {
         success: false,
-        error:
-          'Client not found. They may have been deleted. Please go back and select a different client.',
+        error: 'Client not found. They may have been deleted. Please go back and select a different client.',
       }
     }
 
@@ -1014,7 +990,15 @@ export async function createDrugTestWithEmailReview(
       overrideAccess: true,
     })
 
-    // 2. Prepare drug test data
+    // 2. Use medications snapshot passed from wizard (already filtered to active meds)
+    const medicationsSnapshot = medicationsAtTestTime || []
+    payload.logger.info({
+      msg: '[createDrugTestWithEmailReview] Using medications snapshot',
+      count: medicationsSnapshot.length,
+      medications: medicationsSnapshot,
+    })
+
+    // 3. Prepare drug test data
     const drugTestData: any = {
       relatedClient: testData.clientId,
       testType: testData.testType,
@@ -1025,6 +1009,7 @@ export async function createDrugTestWithEmailReview(
       breathalyzerResult: testData.breathalyzerResult,
       testDocument: uploadedFile.id,
       screeningStatus: 'screened',
+      medicationsArrayAtTestTime: medicationsSnapshot, // CRITICAL: Store medications snapshot
       processNotes: testData.hasConfirmation
         ? 'Created via PDF upload wizard with email review and lab confirmation results'
         : 'Created via PDF upload wizard with email review',
@@ -1032,11 +1017,7 @@ export async function createDrugTestWithEmailReview(
     }
 
     // 3. Add confirmation data if present (lab tests with embedded confirmation)
-    if (
-      testData.hasConfirmation &&
-      testData.confirmationResults &&
-      testData.confirmationResults.length > 0
-    ) {
+    if (testData.hasConfirmation && testData.confirmationResults && testData.confirmationResults.length > 0) {
       const confirmationSubstances = testData.confirmationResults.map((r) => r.substance)
 
       drugTestData.confirmationDecision = 'request-confirmation'
@@ -1079,12 +1060,27 @@ export async function createDrugTestWithEmailReview(
     // 3a. Fetch client headshot for email embedding
     const clientHeadshotDataUri = await fetchClientHeadshot(testData.clientId, payload)
 
-    // 4. Compute test results for email content
+    // 4. Compute test results for email content using medications snapshot
+    payload.logger.info({
+      msg: '[createDrugTestWithEmailReview] Computing test results',
+      detectedSubstances: testData.detectedSubstances,
+      medications: medicationsSnapshot,
+    })
     const previewResult = await computeTestResultPreview(
       testData.clientId,
       testData.detectedSubstances,
       testData.testType,
+      testData.breathalyzerTaken,
+      testData.breathalyzerResult,
+      medicationsSnapshot as any, // Use snapshot from wizard
     )
+    payload.logger.info({
+      msg: '[createDrugTestWithEmailReview] Test result classification',
+      initialScreenResult: previewResult.initialScreenResult,
+      expectedPositives: previewResult.expectedPositives,
+      unexpectedPositives: previewResult.unexpectedPositives,
+      autoAccept: previewResult.autoAccept,
+    })
 
     // 5. Build email content
     const clientName = `${client.firstName} ${client.lastName}`
@@ -1116,9 +1112,7 @@ export async function createDrugTestWithEmailReview(
 
       // Prepare recipient lists based on emailConfig
       const clientRecipients = emailConfig.clientEmailEnabled ? emailConfig.clientRecipients : []
-      const referralRecipients = emailConfig.referralEmailEnabled
-        ? emailConfig.referralRecipients
-        : []
+      const referralRecipients = emailConfig.referralEmailEnabled ? emailConfig.referralRecipients : []
 
       // Combine recipients for service call
       // Service will handle client vs referral distinction
@@ -1283,8 +1277,7 @@ export async function createCollectionWithEmailReview(
     if (!existingClient) {
       return {
         success: false,
-        error:
-          'Client not found. They may have been deleted. Please go back and select a different client.',
+        error: 'Client not found. They may have been deleted. Please go back and select a different client.',
       }
     }
 
@@ -1336,9 +1329,7 @@ export async function createCollectionWithEmailReview(
     })
 
     // 4. Send emails using service layer (no attachment for collected stage)
-    const referralRecipients = emailConfig.referralEmailEnabled
-      ? emailConfig.referralRecipients
-      : []
+    const referralRecipients = emailConfig.referralEmailEnabled ? emailConfig.referralRecipients : []
 
     const emailResult = await sendEmails({
       payload,
@@ -1361,8 +1352,7 @@ export async function createCollectionWithEmailReview(
       sentAt: new Date().toISOString() || null,
       recipients: sentTo.join(', ') || null,
       status: failedTo.length > 0 ? 'failed' : 'sent',
-      intendedRecipients:
-        emailConfig.referralRecipients.map((e) => `Referral: ${e}`).join(', ') || null,
+      intendedRecipients: emailConfig.referralRecipients.map((e) => `Referral: ${e}`).join(', ') || null,
       errorMessage: failedTo.length > 0 ? `Failed to send to: ${failedTo.join(', ')}` : null,
     } as const
 
@@ -1441,9 +1431,7 @@ export async function updateTestWithScreening(data: {
     }
 
     const clientId =
-      typeof existingTest.relatedClient === 'string'
-        ? existingTest.relatedClient
-        : existingTest.relatedClient.id
+      typeof existingTest.relatedClient === 'string' ? existingTest.relatedClient : existingTest.relatedClient.id
 
     // 2. Upload PDF to private-media
     const buffer = Buffer.from(data.pdfBuffer)
@@ -1543,9 +1531,7 @@ export async function updateTestWithConfirmation(data: {
     }
 
     const clientId =
-      typeof existingTest.relatedClient === 'string'
-        ? existingTest.relatedClient
-        : existingTest.relatedClient.id
+      typeof existingTest.relatedClient === 'string' ? existingTest.relatedClient : existingTest.relatedClient.id
 
     // 2. Upload confirmation PDF to private-media (as drug-test-report)
     const buffer = Buffer.from(data.pdfBuffer)
@@ -1597,70 +1583,9 @@ export async function updateTestWithConfirmation(data: {
 
 /**
  * Get client data from a drug test
+ * @deprecated Use getClientFromTestId from workflows/components/client/getClients.ts with useGetClientFromTestQuery instead
+ * This server action has been replaced with a client-side SDK function for better type safety
  */
-export async function getClientFromTest(testId: string): Promise<{
-  success: boolean
-  client?: {
-    id: string
-    firstName: string
-    lastName: string
-    middleInitial?: string | null
-    email: string
-    dob?: string | null
-    phone?: string | null
-    headshot?: string | null
-  }
-  error?: string
-}> {
-  const payload = await getPayload({ config })
-
-  try {
-    // Fetch the drug test with the related client
-    const drugTest = await payload.findByID({
-      collection: 'drug-tests',
-      id: testId,
-      depth: 2, // Depth 2 needed to populate relatedClient.headshot
-    })
-
-    if (!drugTest) {
-      return { success: false, error: 'Drug test not found' }
-    }
-
-    // Extract client data
-    const client = typeof drugTest.relatedClient === 'object' ? drugTest.relatedClient : null
-
-    if (!client) {
-      return { success: false, error: 'No client associated with this test' }
-    }
-
-    // Extract headshot URL (prefer thumbnail for performance)
-    const headshot =
-      typeof client.headshot === 'object' && client.headshot
-        ? client.headshot.sizes?.thumbnail?.url || client.headshot.url || null
-        : null
-
-    // Return only the necessary client fields
-    return {
-      success: true,
-      client: {
-        id: client.id,
-        firstName: client.firstName,
-        lastName: client.lastName,
-        middleInitial: client.middleInitial,
-        email: client.email,
-        dob: client.dob,
-        phone: client.phone,
-        headshot,
-      },
-    }
-  } catch (error) {
-    payload.logger.error('Error fetching client from drug test:', error)
-    return {
-      success: false,
-      error: `Failed to fetch client: ${error instanceof Error ? error.message : String(error)}`,
-    }
-  }
-}
 
 /**
  * Fetch pending drug tests
@@ -1855,9 +1780,7 @@ export async function registerClientFromWizard(data: {
       overrideAccess: true,
     })
 
-    payload.logger.info(
-      `[registerClientFromWizard] Created client ${newClient.id} for ${data.email}`,
-    )
+    payload.logger.info(`[registerClientFromWizard] Created client ${newClient.id} for ${data.email}`)
 
     // Return client data formatted as ClientMatch
     return {

@@ -6,7 +6,7 @@ import { cn } from '@/utilities/cn'
 import { withForm } from '@/blocks/Form/hooks/form'
 
 import { useStore } from '@tanstack/react-form'
-import { testWorkflowFormOpts } from '../workflows/collect-lab-workflow/shared-form'
+import { testWorkflowFormOpts } from '../workflows/collect-lab/shared-form'
 
 export const FormNavigationComponent = withForm({
   ...testWorkflowFormOpts,
@@ -34,13 +34,7 @@ export const FormNavigationComponent = withForm({
 
     return (
       <div className="mt-8 flex items-center justify-between border-t pt-4">
-        <Button
-          type="button"
-          onClick={handleBack}
-          variant="outline"
-          disabled={isSubmitting}
-          size="lg"
-        >
+        <Button type="button" onClick={handleBack} variant="outline" disabled={isSubmitting} size="lg">
           <ChevronLeft className="mr-2 h-5 w-5" />
           {isFirstStep ? 'Cancel' : 'Back'}
         </Button>
@@ -60,11 +54,7 @@ export const FormNavigationComponent = withForm({
           ) : (
             <>
               {isLastStep ? 'cancel' : 'Next'}
-              {isLastStep ? (
-                <Check className="ml-2 h-5 w-5" />
-              ) : (
-                <ChevronRight className="ml-2 h-5 w-5" />
-              )}
+              {isLastStep ? <Check className="ml-2 h-5 w-5" /> : <ChevronRight className="ml-2 h-5 w-5" />}
             </>
           )}
         </Button>

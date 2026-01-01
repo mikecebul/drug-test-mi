@@ -1,5 +1,6 @@
 import type { Payload } from 'payload'
 import { classifyTestResult } from '../helpers/classifyTestResult'
+import { MedicationSnapshot } from '../helpers/getActiveMedications'
 
 // Epsilon threshold for breathalyzer BAC comparisons
 // BAC values are reported to 3 decimal places (e.g., 0.080)
@@ -66,11 +67,7 @@ export type FinalStatus =
 export type ComputeTestResultsParams = {
   clientId: string // Still needed for error messages
   detectedSubstances: string[]
-  medicationsAtTestTime: Array<{
-    medicationName: string
-    detectedAs: string[]
-    requireConfirmation?: boolean // Optional - for backward compatibility with old data
-  }>
+  medicationsAtTestTime: MedicationSnapshot[]
   testType?: TestType // Optional - if provided, filters expected substances by test type
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
@@ -115,9 +112,7 @@ export type ComputeFinalStatusParams = {
  * @param params - Client ID, detected substances, medications snapshot, optional test type, breathalyzer data, payload
  * @returns Classification result with arrays and auto-accept flag
  */
-export async function computeTestResults(
-  params: ComputeTestResultsParams,
-): Promise<ComputeTestResultsResult> {
+export async function computeTestResults(params: ComputeTestResultsParams): Promise<ComputeTestResultsResult> {
   const {
     clientId,
     detectedSubstances,
@@ -151,7 +146,7 @@ export async function computeTestResults(
           // This prevents false "missing negatives" for substances not tested by this panel
           if (!testTypeSubstanceValues || testTypeSubstanceValues.has(substance)) {
             expectedSubstances.add(substance)
-            if (med.requireConfirmation === true) {
+            if (med.required === true) {
               criticalSubstances.add(substance)
             }
           }
@@ -206,8 +201,7 @@ export async function computeTestResults(
     )
 
     // Don't auto-accept if breathalyzer overrode the result
-    const finalAutoAccept =
-      finalResult !== classification.initialScreenResult ? false : classification.autoAccept
+    const finalAutoAccept = finalResult !== classification.initialScreenResult ? false : classification.autoAccept
 
     return {
       initialScreenResult: finalResult,
@@ -248,16 +242,12 @@ export function computeFinalStatus(params: ComputeFinalStatusParams): FinalStatu
   } = params
 
   // Count the types of confirmation results
-  const confirmedPositiveCount = confirmationResults.filter(
-    (r) => r.result === 'confirmed-positive',
-  ).length
+  const confirmedPositiveCount = confirmationResults.filter((r) => r.result === 'confirmed-positive').length
   const inconclusiveCount = confirmationResults.filter((r) => r.result === 'inconclusive').length
 
   // Determine which unexpected positives were NOT sent for confirmation
   // These represent substances the client accepted as failures without confirmation
-  const confirmedSubstances = new Set(
-    confirmationResults.map((r) => r.substance.toLowerCase()),
-  )
+  const confirmedSubstances = new Set(confirmationResults.map((r) => r.substance.toLowerCase()))
   const unconfirmedUnexpectedPositives = unexpectedPositives.filter(
     (substance) => !confirmedSubstances.has(substance.toLowerCase()),
   )
@@ -298,10 +288,7 @@ export function computeFinalStatus(params: ComputeFinalStatusParams): FinalStatu
     // The initial "unexpected positive" was a false alarm
 
     // Check if there were unexpected negatives from initial screen
-    if (
-      initialScreenResult === 'unexpected-negative-critical' ||
-      initialScreenResult === 'mixed-unexpected'
-    ) {
+    if (initialScreenResult === 'unexpected-negative-critical' || initialScreenResult === 'mixed-unexpected') {
       // Critical medications missing = still FAIL
       finalStatus = 'unexpected-negative-critical'
     } else if (initialScreenResult === 'unexpected-negative-warning') {

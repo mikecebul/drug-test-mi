@@ -333,6 +333,10 @@ export const DrugTests: CollectionConfig = {
                     description: 'Substances this medication is expected to show as on drug test',
                   },
                 },
+                {
+                  name: 'required',
+                  type: 'checkbox'
+                },
               ],
               hooks: {
                 beforeChange: [

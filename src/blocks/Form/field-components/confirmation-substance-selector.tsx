@@ -9,12 +9,14 @@ interface ConfirmationSubstanceSelectorProps {
   unexpectedPositives: string[]
   selectedSubstances: string[]
   onSelectionChange: (substances: string[]) => void
+  error?: string
 }
 
 export function ConfirmationSubstanceSelector({
   unexpectedPositives,
   selectedSubstances,
   onSelectionChange,
+  error,
 }: ConfirmationSubstanceSelectorProps) {
   const toggleSubstance = (substance: string) => {
     if (selectedSubstances.includes(substance)) {
@@ -73,6 +75,12 @@ export function ConfirmationSubstanceSelector({
       <p className="text-muted-foreground text-xs">
         Selected: {selectedSubstances.length} of {unexpectedPositives.length} substances
       </p>
+
+      {error && (
+        <p className="text-destructive text-sm font-medium">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

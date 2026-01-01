@@ -1277,6 +1277,7 @@ export interface DrugTest {
               | 'none'
             )[]
           | null;
+        required?: boolean | null;
         id?: string | null;
       }[]
     | null;
@@ -2738,6 +2739,7 @@ export interface DrugTestsSelect<T extends boolean = true> {
     | {
         medicationName?: T;
         detectedAs?: T;
+        required?: T;
         id?: T;
       };
   processNotes?: T;

@@ -5,10 +5,10 @@ import { SetStepNav } from '@payloadcms/ui'
 import type { AdminViewServerProps } from 'payload'
 import { PDFUploadWizardClient } from './PDFUploadWizardClient'
 import ShadcnWrapper from '@/components/ShadcnWrapper'
-import { WizardContainer } from './components/WizardContainer'
+import { WizardContainer } from './components/main-wizard/WizardContainer'
 import { redirect } from 'next/navigation'
 import { Toaster } from '@/components/ui/sonner'
-import { ResetForm } from './ResetForm'
+import { ResetFormButton } from './components/main-wizard/ResetFormButton'
 
 export default function PDFUploadWizard({ initPageResult, params, searchParams }: AdminViewServerProps) {
   const navItem = [
@@ -40,7 +40,7 @@ export default function PDFUploadWizard({ initPageResult, params, searchParams }
           <WizardContainer>
             <div className="relative">
               <PDFUploadWizardClient />
-              <ResetForm />
+              <ResetFormButton />
             </div>
           </WizardContainer>
           <Toaster richColors toastOptions={{}} />

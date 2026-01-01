@@ -5,7 +5,6 @@ import { useFieldContext } from '../hooks/form-context'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/utilities/cn'
-import { EmailFormField } from '@/payload-types'
 
 export interface EmailFieldUIProps {
   label?: string | null

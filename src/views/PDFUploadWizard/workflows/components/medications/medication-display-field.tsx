@@ -15,7 +15,10 @@ export default function MedicationDisplayField({
   title = 'Active Medications',
   description = 'Expected to test positive for the following substances',
 }: MedicationDisplayFieldProps) {
-  if (medications.length === 0) {
+  // Filter to show all active medications (even if detectedAs is missing)
+  const activeMedications = medications.filter(med => med.status === 'active')
+
+  if (activeMedications.length === 0) {
     return null
   }
 
@@ -34,12 +37,14 @@ export default function MedicationDisplayField({
 
       {/* Medications List */}
       <ul className="space-y-2">
-        {medications.map((med, i) => (
+        {activeMedications.map((med, i) => (
           <li key={i} className="text-foreground text-sm">
             <div className="font-medium">
               • {med.medicationName}
-              {med.detectedAs && med.detectedAs.length > 0 && (
+              {med.detectedAs && med.detectedAs.length > 0 ? (
                 <span className="text-muted-foreground capitalize"> ({med.detectedAs.join(', ')})</span>
+              ) : (
+                <span className="text-destructive italic"> (Not marked for detection)</span>
               )}
             </div>
           </li>

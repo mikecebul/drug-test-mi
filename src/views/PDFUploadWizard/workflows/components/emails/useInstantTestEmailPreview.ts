@@ -2,6 +2,7 @@
 
 import { useGetEmailPreviewQuery } from '../../../queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
+import { FormMedications } from '../../shared-validators'
 
 interface UseInstantTestEmailPreviewParams {
   clientId?: string | null
@@ -12,6 +13,7 @@ interface UseInstantTestEmailPreviewParams {
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
   confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
+  medications?: FormMedications
 }
 
 /**
@@ -27,6 +29,7 @@ export function useInstantTestEmailPreview({
   breathalyzerTaken,
   breathalyzerResult,
   confirmationDecision,
+  medications,
 }: UseInstantTestEmailPreviewParams) {
   const emailPreviewQuery = useGetEmailPreviewQuery({
     clientId,
@@ -37,6 +40,7 @@ export function useInstantTestEmailPreview({
     breathalyzerTaken,
     breathalyzerResult,
     confirmationDecision,
+    medications,
   })
 
   const previewData = emailPreviewQuery.data?.data ?? null

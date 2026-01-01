@@ -43,6 +43,7 @@ export interface SimpleClient {
   email: string
   dob?: string
   headshot?: string
+  phone?: string
 }
 
 export interface ParsedPDFData {

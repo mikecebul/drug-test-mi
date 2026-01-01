@@ -82,11 +82,38 @@ export const registerClientFormOpts = formOptions({
 export const getRegisterClientFormOpts = (step: Steps[number]) =>
   formOptions({
     defaultValues,
-    validationLogic: revalidateLogic(),
+    // validationLogic: revalidateLogic(),
     validators: {
-      onDynamic: ({ formApi }) => {
+      onSubmitAsync: async ({ value }) => {
+        if (step === 'accountInfo') {
+          const email = value.accountInfo.email
+          if (!email || !z.email().safeParse(email).success) {
+            return undefined // Skip validation if email is empty or invalid format
+          }
+          try {
+            const emailExists = await checkEmailExists(email)
+            if (emailExists) {
+              return {
+                fields: {
+                  'accountInfo.email': 'An account with this email already exists',
+                },
+                // 'accountInfo.email': 'An account with this email already exists',
+              }
+              // return 'An account with this email already exists'
+              // return {
+              //   message: 'An account with this email already exists',
+              //   path: 'accountInfo.email',
+              // }
+            }
+          } catch (error) {
+            console.warn('Failed to check email existence:', error)
+            // Don't block registration if the check fails
+          }
+          return undefined
+        }
+      },
+      onSubmit: ({ formApi }) => {
         if (step === 'personalInfo') {
-          console.log('Validating personal info schema:', formApi.getFieldValue('personalInfo.dob'))
           return formApi.parseValuesWithSchema(personalInfoSchema as typeof formSchema)
         }
         if (step === 'accountInfo') {
@@ -103,42 +130,6 @@ export const getRegisterClientFormOpts = (step: Steps[number]) =>
         }
         return undefined
       },
-      onSubmitAsync: async ({ value }) => {
-        if (step === 'accountInfo') {
-          const email = value.accountInfo.email
-          if (!email || !z.email().safeParse(email).success) {
-            return undefined // Skip validation if email is empty or invalid format
-          }
-          try {
-            const emailExists = await checkEmailExists(email)
-            if (emailExists) {
-              return 'An account with this email already exists'
-            }
-          } catch (error) {
-            console.warn('Failed to check email existence:', error)
-            // Don't block registration if the check fails
-          }
-          return undefined
-        }
-      },
-      // onDynamicSubmit: ({ formApi }) => {
-      //   if (step === 'personalInfo') {
-      //     return formApi.parseValuesWithSchema(personalInfoSchema as typeof formSchema)
-      //   }
-      //   if (step === 'accountInfo') {
-      //     return formApi.parseValuesWithSchema(accountInfoSchema as typeof formSchema)
-      //   }
-      //   if (step === 'screeningType') {
-      //     return formApi.parseValuesWithSchema(screeningTypeSchema as typeof formSchema)
-      //   }
-      //   if (step === 'recipients') {
-      //     return formApi.parseValuesWithSchema(recipientsSchema as typeof formSchema)
-      //   }
-      //   if (step === 'terms') {
-      //     return formApi.parseValuesWithSchema(termsSchema as typeof formSchema)
-      //   }
-      //   return undefined
-      // },
     },
   })
 

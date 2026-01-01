@@ -4,6 +4,12 @@ import { allSubstanceOptions } from '@/fields/substanceOptions'
 // Extract substance values from allSubstanceOptions
 const substanceValues = allSubstanceOptions.map((s) => s.value)
 
+export const uploadSchema = z.object({
+  upload: z.object({
+    file: z.instanceof(File, { message: 'Please upload a PDF file' }),
+  }),
+})
+
 // Shared client schema used by both collect-lab and instant-test workflows
 export const clientSchema = z.object({
   client: z.object({
@@ -17,8 +23,11 @@ export const clientSchema = z.object({
   }),
 })
 
-// Type for the client object in form values
-export type FormClient = z.infer<typeof clientSchema>['client']
+export const extractSchema = z.object({
+  extract: z.object({
+    extracted: z.boolean(),
+  }),
+})
 
 // Shared medication schema used by both collect-lab and instant-test workflows
 export const medicationsSchema = z.object({
@@ -49,5 +58,29 @@ export const medicationsSchema = z.object({
   ),
 })
 
+export const emailsSchema = z
+  .object({
+    emails: z.object({
+      clientEmailEnabled: z.boolean(),
+      clientRecipients: z.array(z.string()),
+      referralEmailEnabled: z.boolean(),
+      referralRecipients: z.array(z.string()),
+    }),
+  })
+  .superRefine((data, ctx) => {
+    // If referral email enabled, must have at least one recipient
+    if (data.emails.referralEmailEnabled && data.emails.referralRecipients.length === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Referral emails must have at least one recipient',
+        path: ['reviewEmails', 'referralRecipients'],
+      })
+    }
+  })
+
 // Type for the client object in form values
+export type FormUpload = z.infer<typeof uploadSchema>['upload']
+export type FormExtract = z.infer<typeof extractSchema>['extract']
+export type FormClient = z.infer<typeof clientSchema>['client']
 export type FormMedications = z.infer<typeof medicationsSchema>['medications']
+export type FormEmails = z.infer<typeof emailsSchema>['emails']

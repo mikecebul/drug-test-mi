@@ -2,7 +2,7 @@
 
 import { formOptions, revalidateLogic } from '@tanstack/react-form'
 import { toast } from 'sonner'
-import type { PdfUploadFormType } from './schemas/pdfUploadSchemas'
+import type { PdfUploadFormType } from './old/schemas/pdfUploadSchemas'
 import { createDrugTestWithEmailReview } from './actions'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { generateTestFilename } from './utils/generateFilename'
@@ -85,10 +85,7 @@ export const usePdfUploadFormOpts = ({
         }
 
         // Validate email configuration
-        if (
-          !value.reviewEmailsData.clientEmailEnabled &&
-          !value.reviewEmailsData.referralEmailEnabled
-        ) {
+        if (!value.reviewEmailsData.clientEmailEnabled && !value.reviewEmailsData.referralEmailEnabled) {
           toast.error('At least one email type must be enabled')
           throw new Error('At least one email type must be enabled')
         }
@@ -123,6 +120,7 @@ export const usePdfUploadFormOpts = ({
             confirmationDecision: value.verifyData.confirmationDecision,
             confirmationSubstances: value.verifyData.confirmationSubstances as SubstanceValue[],
           },
+          undefined, // No medications in old form - will fetch from client
           {
             clientEmailEnabled: value.reviewEmailsData.clientEmailEnabled,
             clientRecipients: value.reviewEmailsData.clientRecipients,
@@ -148,11 +146,7 @@ export const usePdfUploadFormOpts = ({
           !error.message.includes('required') &&
           !error.message.includes('enabled')
         ) {
-          toast.error(
-            error instanceof Error
-              ? error.message
-              : 'Failed to create drug test. Please try again.',
-          )
+          toast.error(error instanceof Error ? error.message : 'Failed to create drug test. Please try again.')
         }
         throw error
       }

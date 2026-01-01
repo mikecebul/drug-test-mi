@@ -8,14 +8,15 @@ import {
   computeTestResultPreview,
   fetchPendingTests,
   getCollectionEmailPreview,
-  getClientFromTest,
   getEmailPreview,
   getConfirmationEmailPreview,
   extractPdfData,
   getClients,
 } from './actions'
+import { getClientFromTestId } from './workflows/components/client/getClients'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import type { ParsedPDFData, WizardType } from './types'
+import { FormMedications } from './workflows/shared-validators'
 
 // Re-export ParsedPDFData as ExtractedPdfData for clarity in query consumers
 export type ExtractedPdfData = ParsedPDFData
@@ -23,11 +24,7 @@ export type ExtractedPdfData = ParsedPDFData
 /**
  * Query hook for finding matching clients based on donor name
  */
-export function useFindMatchingClientsQuery(
-  firstName?: string,
-  lastName?: string,
-  middleInitial?: string,
-) {
+export function useFindMatchingClientsQuery(firstName?: string, lastName?: string, middleInitial?: string) {
   return useQuery({
     queryKey: ['matching-clients', firstName, lastName, middleInitial],
     queryFn: async () => {
@@ -90,12 +87,7 @@ export function useComputeTestResultPreviewQuery(
   testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | null | undefined,
   breathalyzerTaken?: boolean,
   breathalyzerResult?: number | null,
-  medications?: Array<{
-    medicationName: string
-    detectedAs?: string[]
-    requireConfirmation?: boolean
-    status?: 'active' | 'discontinued'
-  }>,
+  medications?: FormMedications,
 ) {
   return useQuery({
     queryKey: [
@@ -152,23 +144,10 @@ export function useGetCollectionEmailPreviewQuery(data: {
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
 }) {
-  const {
-    clientId,
-    testType,
-    collectionDate,
-    breathalyzerTaken,
-    breathalyzerResult,
-  } = data
+  const { clientId, testType, collectionDate, breathalyzerTaken, breathalyzerResult } = data
 
   return useQuery({
-    queryKey: [
-      'collection-email-preview',
-      clientId,
-      testType,
-      collectionDate,
-      breathalyzerTaken,
-      breathalyzerResult,
-    ],
+    queryKey: ['collection-email-preview', clientId, testType, collectionDate, breathalyzerTaken, breathalyzerResult],
     queryFn: async () => {
       if (!clientId || !testType || !collectionDate) {
         return null
@@ -188,6 +167,7 @@ export function useGetCollectionEmailPreviewQuery(data: {
 
 /**
  * Query hook for getting client from test
+ * Uses client-side SDK for better type safety and performance
  */
 export function useGetClientFromTestQuery(testId: string | null | undefined) {
   return useQuery({
@@ -196,11 +176,7 @@ export function useGetClientFromTestQuery(testId: string | null | undefined) {
       if (!testId) {
         return null
       }
-      const result = await getClientFromTest(testId)
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to get client from test')
-      }
-      return result.client ?? null
+      return getClientFromTestId(testId)
     },
     enabled: Boolean(testId),
     staleTime: 2 * 60 * 1000, // 2 minutes
@@ -221,8 +197,7 @@ export function useGetDrugTestQuery(testId: string | null | undefined) {
       const response = await fetch(`/api/drug-tests/${testId}`)
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        const message =
-          errorData.error || errorData.message || `Failed to fetch drug test (${response.status})`
+        const message = errorData.error || errorData.message || `Failed to fetch drug test (${response.status})`
         throw new Error(message)
       }
       return response.json()
@@ -244,6 +219,7 @@ export function useGetEmailPreviewQuery(data: {
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
   confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
+  medications?: FormMedications
 }) {
   const {
     clientId,
@@ -254,6 +230,7 @@ export function useGetEmailPreviewQuery(data: {
     breathalyzerTaken,
     breathalyzerResult,
     confirmationDecision,
+    medications,
   } = data
 
   return useQuery({
@@ -267,6 +244,7 @@ export function useGetEmailPreviewQuery(data: {
       breathalyzerTaken,
       breathalyzerResult,
       confirmationDecision,
+      medications,
     ],
     queryFn: async () => {
       if (!clientId || !testType || !collectionDate) {
@@ -281,6 +259,7 @@ export function useGetEmailPreviewQuery(data: {
         breathalyzerTaken,
         breathalyzerResult,
         confirmationDecision,
+        medications: medications as any,
       })
     },
     enabled: Boolean(clientId && testType && collectionDate),
@@ -304,13 +283,7 @@ export function useGetConfirmationEmailPreviewQuery(data: {
   const { clientId, testId, confirmationResults, adjustedSubstances } = data
 
   return useQuery({
-    queryKey: [
-      'confirmation-email-preview',
-      clientId,
-      testId,
-      confirmationResults,
-      adjustedSubstances,
-    ],
+    queryKey: ['confirmation-email-preview', clientId, testId, confirmationResults, adjustedSubstances],
     queryFn: async () => {
       if (!clientId || !testId || !confirmationResults || confirmationResults.length === 0) {
         return null

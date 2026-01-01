@@ -2,18 +2,19 @@
 
 import React, { Suspense } from 'react'
 import { parseAsStringLiteral, parseAsString, useQueryStates } from 'nuqs'
-import { WizardTypeSelector } from './WizardTypeSelector'
-import { WizardTypeSelectorSkeleton } from './WizardTypeSelectorSkeleton'
-import { EnterLabScreenWorkflow } from './workflows/EnterLabScreenWorkflow'
-import { EnterLabConfirmationWorkflow } from './workflows/EnterLabConfirmationWorkflow'
-import { InstantTestWorkflow } from './workflows/instant-test-workflow/Workflow'
+import { WizardTypeSelector } from './components/main-wizard/WizardTypeSelector'
+import { WizardTypeSelectorSkeleton } from './components/main-wizard/WizardTypeSelectorSkeleton'
+import { LabScreenWorkflow } from './workflows/lab-screen/Workflow'
+import { EnterLabConfirmationWorkflow } from './old/EnterLabConfirmationWorkflow'
+import { InstantTestWorkflow } from './workflows/instant-test/Workflow'
 import type { WizardType } from './types'
-import { WizardHeader } from './components/WizardHeader'
-import { CollectLabWorkflow } from './workflows/collect-lab-workflow/Workflow'
-import { steps as collectLabSteps } from './workflows/collect-lab-workflow/validators'
+import { WizardHeader } from './components/main-wizard/WizardHeader'
+import { CollectLabWorkflow } from './workflows/collect-lab/Workflow'
+import { steps as collectLabSteps } from './workflows/collect-lab/validators'
 import { RegisterClientWorkflow } from './workflows/register-client-workflow/Workflow'
 import { steps as registerClientSteps } from './workflows/register-client-workflow/validators'
-import { steps as instantTestSteps } from './workflows/instant-test-workflow/validators'
+import { steps as instantTestSteps } from './workflows/instant-test/validators'
+import { steps as labScreenSteps } from './workflows/lab-screen/validators'
 
 const workflowTypes = [
   'register-client',
@@ -22,6 +23,8 @@ const workflowTypes = [
   'enter-lab-confirmation',
   '15-panel-instant',
 ] as const
+
+type Workflows = typeof workflowTypes
 
 export function PDFUploadWizardClient() {
   const [states, setStates] = useQueryStates(
@@ -37,10 +40,12 @@ export function PDFUploadWizardClient() {
 
   const { workflow } = states
 
-  const firstStepMap: Record<string, string> = {
+  const firstStepMap: Record<Workflows[number], string> = {
     'register-client': registerClientSteps[0],
     'collect-lab': collectLabSteps[0],
     '15-panel-instant': instantTestSteps[0],
+    'enter-lab-screen': labScreenSteps[0],
+    'enter-lab-confirmation': 'upload', // TODO: Import labConfirmationSteps when workflow is refactored
   }
 
   // Reset workflow selection and clear step params
@@ -83,12 +88,12 @@ export function PDFUploadWizardClient() {
   }
 
   if (workflow === 'enter-lab-screen') {
-    return <EnterLabScreenWorkflow onBack={handleBack} />
+    return <LabScreenWorkflow onBack={handleBack} />
   }
 
-  if (workflow === 'enter-lab-confirmation') {
-    return <EnterLabConfirmationWorkflow onBack={handleBack} />
-  }
+  // if (workflow === 'enter-lab-confirmation') {
+  //   return <EnterLabConfirmationWorkflow onBack={handleBack} />
+  // }
 
   if (workflow === '15-panel-instant') {
     return <InstantTestWorkflow onBack={handleBack} />
