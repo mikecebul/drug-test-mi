@@ -27,12 +27,11 @@ export const EmailsStep = withForm({
 
     // Initialize form fields when preview data loads
     useEffect(() => {
-      if (previewData) {
+      if (previewData && previewData.referralEmails.length > 0 && formValues.emails.referralRecipients.length === 0) {
         form.setFieldValue('emails.referralEmailEnabled', true)
         form.setFieldValue('emails.referralRecipients', previewData.referralEmails)
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [previewData])
+    }, [previewData, formValues.emails.referralRecipients.length, form])
 
     return (
       <EmailsFieldGroup

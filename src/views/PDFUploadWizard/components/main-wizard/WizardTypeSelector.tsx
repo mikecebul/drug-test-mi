@@ -53,15 +53,15 @@ const wizardOptions: WizardOption[] = [
     borderColor: 'border-indigo-300 dark:border-indigo-700',
     bgColor: 'bg-indigo-50 dark:bg-indigo-950/30',
   },
-  // {
-  //   id: 'enter-lab-confirmation',
-  //   icon: CheckCircle,
-  //   title: 'Enter Lab Confirmation Data',
-  //   description: 'Enter confirmation results for 11-panel, 17-panel, or EtG lab',
-  //   color: 'text-orange-600',
-  //   borderColor: 'border-orange-300 dark:border-orange-700',
-  //   bgColor: 'bg-orange-50 dark:bg-orange-950/30',
-  // },
+  {
+    id: 'enter-lab-confirmation',
+    icon: CheckCircle,
+    title: 'Enter Lab Confirmation Data',
+    description: 'Enter confirmation results for 11-panel, 17-panel, or EtG lab',
+    color: 'text-orange-600',
+    borderColor: 'border-orange-300 dark:border-orange-700',
+    bgColor: 'bg-orange-50 dark:bg-orange-950/30',
+  },
 ]
 
 interface WizardTypeSelectorProps {

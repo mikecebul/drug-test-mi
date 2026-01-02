@@ -14,6 +14,7 @@ import {
   FileUploadItemMetadata,
   FileUploadItemDelete,
 } from '@/components/ui/file-upload'
+import { useStore } from '@tanstack/react-form'
 
 interface FileUploadFieldProps {
   label?: string
@@ -33,6 +34,7 @@ export default function FileUploadField({
   required = false,
 }: FileUploadFieldProps) {
   const field = useFieldContext<File | null>()
+  const fieldErrors = useStore(field.store, (state) => state.meta.errors)
   const [error, setError] = React.useState<string>('')
 
   const files = field.state.value ? [field.state.value] : []
@@ -92,8 +94,7 @@ export default function FileUploadField({
           <div className="flex min-h-32 flex-col items-center justify-center space-y-2 text-center">
             <p className="text-sm font-medium">Click to upload or drag and drop</p>
             <p className="text-muted-foreground text-xs">
-              {accept.includes('pdf') ? 'PDF files' : 'Files'} up to{' '}
-              {(maxSize / 1024 / 1024).toFixed(0)}MB
+              {accept.includes('pdf') ? 'PDF files' : 'Files'} up to {(maxSize / 1024 / 1024).toFixed(0)}MB
             </p>
           </div>
         </FileUploadDropzone>
@@ -113,11 +114,12 @@ export default function FileUploadField({
         </FileUploadList>
       </FileUpload>
 
-      {(error || field.state.meta.errors.length > 0) && (
-        <Alert variant="destructive">
-          <AlertDescription>{error || String(field.state.meta.errors[0])}</AlertDescription>
-        </Alert>
-      )}
+      {error ||
+        (fieldErrors.length > 0 && (
+          <Alert variant="destructive">
+            <AlertDescription>{error || fieldErrors[0].message}</AlertDescription>
+          </Alert>
+        ))}
     </div>
   )
 }

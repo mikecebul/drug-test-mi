@@ -3,13 +3,13 @@
 import { useEffect, useState } from 'react'
 import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
-import { getLabScreenFormOpts } from '../shared-form'
-import { useLabScreenEmailPreview } from '../../components/emails/useLabScreenEmailPreview'
+import { getLabConfirmationFormOpts } from '../shared-form'
+import { useLabConfirmationEmailPreview } from '../../components/emails/useLabConfirmationEmailPreview'
 import { EmailsFieldGroup } from '../../components/emails/EmailsFieldGroup'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 
 export const EmailsStep = withForm({
-  ...getLabScreenFormOpts('emails'),
+  ...getLabConfirmationFormOpts('emails'),
 
   render: function Render({ form }) {
     const [showReferralPreview, setShowReferralPreview] = useState(false)
@@ -17,17 +17,14 @@ export const EmailsStep = withForm({
     // Get typed form values
     const formValues = useStore(form.store, (state) => state.values)
 
-    // Use lab screen email preview hook
-    // Note: medications and breathalyzer info are automatically fetched from the matched test
-    const {
-      data: previewData,
-      isLoading,
-      error,
-    } = useLabScreenEmailPreview({
+    // Use lab confirmation email preview hook
+    const { data: previewData, isLoading, error } = useLabConfirmationEmailPreview({
       testId: formValues?.matchCollection?.testId,
-      testType: formValues?.labScreenData?.testType,
-      detectedSubstances: (formValues?.labScreenData?.detectedSubstances || []) as SubstanceValue[],
-      isDilute: formValues?.labScreenData?.isDilute || false,
+      confirmationResults: formValues?.labConfirmationData?.confirmationResults?.map((r) => ({
+        ...r,
+        substance: r.substance as SubstanceValue,
+      })),
+      originalDetectedSubstances: (formValues?.labConfirmationData?.originalDetectedSubstances || []) as SubstanceValue[],
     })
 
     // Initialize form fields when preview data loads
@@ -55,9 +52,9 @@ export const EmailsStep = withForm({
         error={error?.message || null}
         showPreview={showReferralPreview}
         setShowPreview={setShowReferralPreview}
-        showClientEmail={true}
-        title="Review Screening Notification Emails"
-        description="Configure email recipients for lab screening results"
+        showClientEmail={true} // Confirmation results go to clients
+        title="Review Confirmation Notification Emails"
+        description="Configure email recipients for final lab-confirmed test results"
       />
     )
   },

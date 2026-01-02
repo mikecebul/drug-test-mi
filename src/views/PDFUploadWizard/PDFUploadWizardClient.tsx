@@ -5,6 +5,7 @@ import { parseAsStringLiteral, parseAsString, useQueryStates } from 'nuqs'
 import { WizardTypeSelector } from './components/main-wizard/WizardTypeSelector'
 import { WizardTypeSelectorSkeleton } from './components/main-wizard/WizardTypeSelectorSkeleton'
 import { LabScreenWorkflow } from './workflows/lab-screen/Workflow'
+import { LabConfirmationWorkflow } from './workflows/lab-confirmation/Workflow'
 import { InstantTestWorkflow } from './workflows/instant-test/Workflow'
 import type { WizardType } from './types'
 import { WizardHeader } from './components/main-wizard/WizardHeader'
@@ -14,6 +15,7 @@ import { RegisterClientWorkflow } from './workflows/register-client-workflow/Wor
 import { steps as registerClientSteps } from './workflows/register-client-workflow/validators'
 import { steps as instantTestSteps } from './workflows/instant-test/validators'
 import { steps as labScreenSteps } from './workflows/lab-screen/validators'
+import { steps as labConfirmationSteps } from './workflows/lab-confirmation/validators'
 
 const workflowTypes = [
   'register-client',
@@ -44,7 +46,7 @@ export function PDFUploadWizardClient() {
     'collect-lab': collectLabSteps[0],
     '15-panel-instant': instantTestSteps[0],
     'enter-lab-screen': labScreenSteps[0],
-    'enter-lab-confirmation': 'upload', // TODO: Import labConfirmationSteps when workflow is refactored
+    'enter-lab-confirmation': labConfirmationSteps[0],
   }
 
   // Reset workflow selection and clear step params
@@ -90,9 +92,9 @@ export function PDFUploadWizardClient() {
     return <LabScreenWorkflow onBack={handleBack} />
   }
 
-  // if (workflow === 'enter-lab-confirmation') {
-  //   return <EnterLabConfirmationWorkflow onBack={handleBack} />
-  // }
+  if (workflow === 'enter-lab-confirmation') {
+    return <LabConfirmationWorkflow onBack={handleBack} />
+  }
 
   if (workflow === '15-panel-instant') {
     return <InstantTestWorkflow onBack={handleBack} />

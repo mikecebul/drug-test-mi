@@ -6,7 +6,7 @@ import {
   uploadSchema,
   extractSchema,
   matchCollectionSchema,
-  labScreenDataSchema,
+  labConfirmationDataSchema,
   emailsSchema,
   type Steps,
 } from './validators'
@@ -28,17 +28,13 @@ const defaultValues: FormValues = {
     matchType: 'manual' as const,
     score: 0,
   },
-  labScreenData: {
-    testType: '11-panel-lab' as const,
-    collectionDate: new Date().toISOString(),
-    detectedSubstances: [],
-    isDilute: false,
-    confirmationDecisionRequired: false,
-    confirmationDecision: undefined,
-    confirmationSubstances: [],
+  labConfirmationData: {
+    originalDetectedSubstances: [],
+    originalIsDilute: false,
+    confirmationResults: [],
   },
   emails: {
-    clientEmailEnabled: true,
+    clientEmailEnabled: true, // Default true for complete stage (results are final)
     clientRecipients: [],
     referralEmailEnabled: true,
     referralRecipients: [],
@@ -49,12 +45,12 @@ const defaultValues: FormValues = {
 export { steps }
 
 // Basic form opts (for Navigation component - just needs type info)
-export const labScreenFormOpts = formOptions({
+export const labConfirmationFormOpts = formOptions({
   defaultValues,
 })
 
 // Step-aware form options (for Workflow and step components)
-export const getLabScreenFormOpts = (step: Steps[number]) =>
+export const getLabConfirmationFormOpts = (step: Steps[number]) =>
   formOptions({
     defaultValues,
     validators: {
@@ -68,8 +64,8 @@ export const getLabScreenFormOpts = (step: Steps[number]) =>
         if (step === 'matchCollection') {
           return formApi.parseValuesWithSchema(matchCollectionSchema as typeof formSchema)
         }
-        if (step === 'labScreenData') {
-          return formApi.parseValuesWithSchema(labScreenDataSchema as typeof formSchema)
+        if (step === 'labConfirmationData') {
+          return formApi.parseValuesWithSchema(labConfirmationDataSchema as typeof formSchema)
         }
         if (step === 'confirm') {
           return undefined // No validation on confirm step

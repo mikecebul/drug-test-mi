@@ -4,10 +4,10 @@ import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { parseAsStringLiteral, useQueryState } from 'nuqs'
 import { Button } from '@/components/ui/button'
-import { labScreenFormOpts, steps } from '../shared-form'
+import { labConfirmationFormOpts, steps } from '../shared-form'
 
-export const LabScreenNavigation = withForm({
-  ...labScreenFormOpts,
+export const LabConfirmationNavigation = withForm({
+  ...labConfirmationFormOpts,
   props: { onBack: (): void => {} },
 
   render: function Render({ form, onBack }) {
@@ -22,7 +22,6 @@ export const LabScreenNavigation = withForm({
     const isFirstStep = currentStepIndex === 0
     const isLastStep = currentStepIndex === steps.length - 1
 
-    // Determine if current step has errors
     const fieldNames = Object.keys(errors)
     const currentStepHasErrors = fieldNames.some((fieldName) => fieldName.startsWith(`${currentStep}.`))
 
