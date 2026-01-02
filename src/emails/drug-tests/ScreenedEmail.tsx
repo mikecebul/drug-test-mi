@@ -229,7 +229,7 @@ export function ScreenedEmail(data: ScreenedEmailData) {
           If you have questions, please contact MI Drug Test.
         </Text>
         <Text style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#6b7280' }}>
-          Notification sent: {new Date().toLocaleString()}
+          Notification sent: {formatDate(new Date().toISOString())}
         </Text>
       </Section>
     </EmailLayout>

@@ -57,7 +57,7 @@ jobs:
             UNSPLASH_ACCESS_KEY=${{ secrets.UNSPLASH_ACCESS_KEY }}
             UNSPLASH_URL=${{ secrets.UNSPLASH_URL }}
             # TESTING: Remove this line when ready to send emails to actual clients/referrals
-            EMAIL_TEST_MODE=true
+            EMAIL_TEST_MODE=false
 
   build-and-push-dockerfile-image-staging:
     if: github.ref == 'refs/heads/staging'

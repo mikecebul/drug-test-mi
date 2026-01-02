@@ -86,7 +86,7 @@ export function CompleteEmailReferral(data: CompleteEmailData) {
           This is an automated notification from MI Drug Test.
         </Text>
         <Text style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#6b7280' }}>
-          Notification sent: {new Date().toLocaleString()}
+          Notification sent: {formatDate(new Date().toISOString())}
         </Text>
       </Section>
     </EmailLayout>

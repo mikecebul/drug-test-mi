@@ -5,6 +5,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/ca
 import { Zap, Beaker, ClipboardList, CheckCircle, UserPlus } from 'lucide-react'
 import { cn } from '@/utilities/cn'
 import type { WizardType } from '../../types'
+import { Separator } from '@/components/ui/separator'
 
 interface WizardOption {
   id: WizardType
@@ -69,32 +70,55 @@ interface WizardTypeSelectorProps {
 }
 
 export function WizardTypeSelector({ onSelect }: WizardTypeSelectorProps) {
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-2">
-        {wizardOptions.map((option) => {
-          const Icon = option.icon
+  const renderOption = (id: WizardType) => {
+    const option = wizardOptions.find((o) => o.id === id)
+    if (!option) return null
+    const Icon = option.icon
 
-          return (
-            <Card
-              key={option.id}
-              className={cn('cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md', 'border')}
-              onClick={() => onSelect(option.id)}
-            >
-              <CardHeader>
-                <div className="flex items-start gap-4">
-                  <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-lg', option.bgColor)}>
-                    <Icon className={cn('h-6 w-6', option.color)} />
-                  </div>
-                  <div className="flex-1">
-                    <CardTitle className="text-xl">{option.title}</CardTitle>
-                    <CardDescription className="mt-1.5 text-base">{option.description}</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-            </Card>
-          )
-        })}
+    return (
+      <Card
+        key={option.id}
+        className={cn('cursor-pointer transition-all hover:translate-x-1 hover:shadow-md', 'border')}
+        onClick={() => onSelect(option.id)}
+      >
+        <CardHeader className="p-4">
+          <div className="flex items-center gap-6">
+            <div className={cn('flexsize-12 shrink-0 items-center justify-center rounded-lg', option.bgColor)}>
+              <Icon className={cn('size-6', option.color)} />
+            </div>
+            <div className="flex-1">
+              <CardTitle className="text-xl">{option.title}</CardTitle>
+              <CardDescription className="mt-1.5 text-base">{option.description}</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+    )
+  }
+  return (
+    <div className="max-w-2xl space-y-6">
+      {/* Group 1: Registration */}
+      <div className="space-y-3">
+        <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Onboarding</h3>
+        {renderOption('register-client')}
+      </div>
+      {/* Group 2: Physical Actions */}
+      <Separator />
+      <div className="space-y-3">
+        <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Specimen Collection</h3>
+        <div className="grid gap-4">
+          {renderOption('15-panel-instant')}
+          {renderOption('collect-lab')}
+        </div>
+      </div>
+      <Separator />
+      {/* Group 3: Administrative / Data Entry */}
+      <div className="space-y-3">
+        <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Data Entry & Results</h3>
+        <div className="grid gap-4">
+          {renderOption('enter-lab-screen')}
+          {renderOption('enter-lab-confirmation')}
+        </div>
       </div>
     </div>
   )
