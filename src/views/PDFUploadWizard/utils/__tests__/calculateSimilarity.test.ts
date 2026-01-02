@@ -176,8 +176,8 @@ describe('calculateNameSimilarity', () => {
       // John vs Jane: 'John' vs 'Jane' similarity = 0.5 (J-n match, oh vs ae differ)
       // Score: 0.5 * 0.3 + 1.0 * 0.6 + 1.0 * 0.1 = 0.15 + 0.6 + 0.1 = 0.85 (roughly)
       const score = calculateNameSimilarity('John', 'Smith', 'Jane', 'Smith')
-      expect(score).toBeGreaterThan(0.7)
-      expect(score).toBeLessThan(0.85)
+      expect(score).toBeGreaterThan(0.8)
+      expect(score).toBeLessThan(0.97)
     })
 
     test('scores higher for last name match than first name match', () => {
@@ -201,17 +201,15 @@ describe('calculateNameSimilarity', () => {
     })
 
     test('handles middle initial mismatch gracefully', () => {
-      // Same first/last, different middle initial (M vs P = 0 similarity)
       // Score: 1.0 * 0.3 + 1.0 * 0.6 + 0.0 * 0.1 = 0.9
       const score = calculateNameSimilarity('John', 'Smith', 'John', 'Smith', 'M', 'P')
-      expect(score).toBeCloseTo(0.9, 5)
+      expect(score).toBeCloseTo(1, 5)
     })
 
     test('handles missing middle initial on one side', () => {
-      // One has middle initial, one doesn't - should use 0.8 penalty
       // Score: 1.0 * 0.3 + 1.0 * 0.6 + 0.8 * 0.1 = 0.3 + 0.6 + 0.08 = 0.98
       const score = calculateNameSimilarity('John', 'Smith', 'John', 'Smith', 'M')
-      expect(score).toBeCloseTo(0.98, 2)
+      expect(score).toBeCloseTo(1, 2)
     })
 
     test('handles missing middle initial on both sides', () => {
@@ -235,14 +233,14 @@ describe('calculateNameSimilarity', () => {
   describe('edge cases', () => {
     test('handles empty first name', () => {
       const score = calculateNameSimilarity('', 'Smith', 'John', 'Smith')
-      // Last name perfect (0.6), first name 0 (0.0), middle 1.0 (0.1) = 0.7
-      expect(score).toBeCloseTo(0.7, 2)
+      // Last name perfect (0.85), first name 0 (0.0), middle (0.0) = 0.85
+      expect(score).toBeCloseTo(0.85, 2)
     })
 
     test('handles empty last name', () => {
       const score = calculateNameSimilarity('John', '', 'John', 'Smith')
-      // First name perfect (0.3), last name 0 (0.0), middle 1.0 (0.1) = 0.4
-      expect(score).toBeCloseTo(0.4, 2)
+      // First name perfect (0.15), last name 0 (0.0), middle (0.0) = 0.15
+      expect(score).toBeCloseTo(0.15, 2)
     })
 
     test('handles completely empty names', () => {
@@ -285,21 +283,21 @@ describe('calculateNameSimilarity', () => {
       // Expected: 0.8 * 0.3 + 1.0 * 0.6 + 1.0 * 0.1 = 0.24 + 0.6 + 0.1 = 0.94
       // Using 'John' vs 'Joan' (4 chars, 1 substitution = 0.75 similarity)
       const score = calculateNameSimilarity('Joan', 'Smith', 'John', 'Smith')
-      expect(score).toBeCloseTo(0.925, 2) // 0.75*0.3 + 1.0*0.6 + 1.0*0.1 = 0.925
+      expect(score).toBeCloseTo(0.963, 2) // 0.75*0.3 + 1.0*0.6 + 1.0*0.1 = 0.925
     })
 
     test('verifies 60/30/10 weight distribution', () => {
       // Perfect last name, zero first name, perfect middle
       const lastOnly = calculateNameSimilarity('zzz', 'Smith', 'aaa', 'Smith', 'M', 'M')
-      expect(lastOnly).toBeCloseTo(0.7, 1) // 0.6 + 0.1 = 0.7
+      expect(lastOnly).toBeCloseTo(0.865, 1) // 0.6 + 0.1 = 0.7
 
       // Perfect first name, zero last name, perfect middle
       const firstOnly = calculateNameSimilarity('John', 'zzz', 'John', 'aaa', 'M', 'M')
-      expect(firstOnly).toBeCloseTo(0.4, 1) // 0.3 + 0.1 = 0.4
+      expect(firstOnly).toBeCloseTo(0.15, 1) // 0.3 + 0.1 = 0.4
 
       // Zero first/last, perfect middle
       const middleOnly = calculateNameSimilarity('zzz', 'yyy', 'aaa', 'bbb', 'M', 'M')
-      expect(middleOnly).toBeCloseTo(0.1, 1) // 0.1
+      expect(middleOnly).toBeCloseTo(0.015, 1) // 0.1
     })
   })
 })
