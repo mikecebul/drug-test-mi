@@ -25,9 +25,26 @@ export async function extractPdfData(
   data?: ParsedPDFData
   error?: string
 }> {
+  const payload = await getPayload({ config })
   const file = formData.get('file') as File
+
   if (!file) {
     return { success: false, error: 'No file provided' }
+  }
+
+  // Validate file size BEFORE attempting extraction (10MB limit)
+  const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB in bytes
+  if (file.size > MAX_FILE_SIZE) {
+    payload.logger.error({
+      msg: 'PDF file too large',
+      size: file.size,
+      filename: file.name,
+      maxSize: MAX_FILE_SIZE,
+    })
+    return {
+      success: false,
+      error: `PDF file is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is 10MB. Please ensure you uploaded the correct file.`,
+    }
   }
 
   try {
@@ -49,9 +66,37 @@ export async function extractPdfData(
 
     return { success: true, data: extracted }
   } catch (error) {
+    // Log full error context for debugging
+    payload.logger.error({
+      msg: 'PDF extraction failed',
+      error,
+      wizardType,
+      fileSize: file.size,
+      fileName: file.name,
+      errorType: error?.constructor?.name,
+      stack: error instanceof Error ? error.stack : undefined,
+    })
+
+    // Provide specific error messages based on error type
+    const errorMessage = error instanceof Error ? error.message : String(error)
+
+    if (errorMessage.includes('Invalid PDF') || errorMessage.includes('PDF header')) {
+      return {
+        success: false,
+        error: 'This file appears to be corrupt or not a valid PDF. Please check the file and try again.',
+      }
+    }
+
+    if (errorMessage.includes('password') || errorMessage.includes('encrypted')) {
+      return {
+        success: false,
+        error: 'This PDF is password-protected. Please remove the password and try again.',
+      }
+    }
+
     return {
       success: false,
-      error: `Failed to extract PDF data: ${error instanceof Error ? error.message : String(error)}`,
+      error: `Failed to extract PDF data: ${errorMessage}. Please try a different file or contact support if the problem persists.`,
     }
   }
 }
@@ -952,7 +997,9 @@ export async function createDrugTestWithEmailReview(
   const payload = await getPayload({ config })
 
   try {
-    // Validate client exists before proceeding
+    // === VALIDATION PHASE - Check everything BEFORE creating any resources ===
+
+    // 1. Validate client exists
     const existingClient = await payload.findByID({
       collection: 'clients',
       id: testData.clientId,
@@ -967,6 +1014,69 @@ export async function createDrugTestWithEmailReview(
       }
     }
 
+    // 2. Validate PDF buffer size (max 10MB)
+    const MAX_PDF_SIZE = 10 * 1024 * 1024 // 10MB
+    const bufferSize = testData.pdfBuffer.length
+    if (bufferSize > MAX_PDF_SIZE) {
+      payload.logger.error({
+        msg: 'PDF buffer too large in createDrugTestWithEmailReview',
+        size: bufferSize,
+        clientId: testData.clientId,
+      })
+      return {
+        success: false,
+        error: `PDF is too large (${(bufferSize / 1024 / 1024).toFixed(1)}MB). Maximum size is 10MB.`,
+      }
+    }
+
+    // 3. Prepare medications snapshot
+    const medicationsSnapshot = medicationsAtTestTime || []
+    payload.logger.info({
+      msg: '[createDrugTestWithEmailReview] Using medications snapshot',
+      count: medicationsSnapshot.length,
+      medications: medicationsSnapshot,
+    })
+
+    // 4. Compute test results to validate if confirmation decision is needed
+    payload.logger.info({
+      msg: '[createDrugTestWithEmailReview] Computing test results for validation',
+      detectedSubstances: testData.detectedSubstances,
+      medications: medicationsSnapshot,
+    })
+    const previewResult = await computeTestResultPreview(
+      testData.clientId,
+      testData.detectedSubstances,
+      testData.testType,
+      testData.breathalyzerTaken,
+      testData.breathalyzerResult,
+      medicationsSnapshot as any,
+    )
+    payload.logger.info({
+      msg: '[createDrugTestWithEmailReview] Test result classification',
+      initialScreenResult: previewResult.initialScreenResult,
+      expectedPositives: previewResult.expectedPositives,
+      unexpectedPositives: previewResult.unexpectedPositives,
+      autoAccept: previewResult.autoAccept,
+    })
+
+    // 5. Validate confirmation decision if unexpected positives detected
+    const hasUnexpectedPositives = previewResult.unexpectedPositives.length > 0
+    const requiresDecision = hasUnexpectedPositives && !previewResult.autoAccept
+
+    if (requiresDecision && !testData.confirmationDecision) {
+      payload.logger.warn({
+        msg: 'Confirmation decision missing for unexpected positives',
+        clientId: testData.clientId,
+        unexpectedPositives: previewResult.unexpectedPositives,
+      })
+      return {
+        success: false,
+        error: 'Confirmation decision is required when unexpected positive substances are detected. Please go back and select how to proceed.',
+      }
+    }
+
+    // === RESOURCE CREATION PHASE - Validation passed, safe to create resources ===
+
     // Import email functions
     const { buildScreenedEmail } = await import('@/collections/DrugTests/email/render')
     const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
@@ -974,7 +1084,7 @@ export async function createDrugTestWithEmailReview(
     // Convert number array back to Buffer
     const buffer = Buffer.from(testData.pdfBuffer)
 
-    // 1. Upload PDF to private-media collection
+    // 6. Upload PDF to private-media collection
     const uploadedFile = await payload.create({
       collection: 'private-media',
       data: {
@@ -988,14 +1098,6 @@ export async function createDrugTestWithEmailReview(
         size: buffer.length,
       },
       overrideAccess: true,
-    })
-
-    // 2. Use medications snapshot passed from wizard (already filtered to active meds)
-    const medicationsSnapshot = medicationsAtTestTime || []
-    payload.logger.info({
-      msg: '[createDrugTestWithEmailReview] Using medications snapshot',
-      count: medicationsSnapshot.length,
-      medications: medicationsSnapshot,
     })
 
     // 3. Prepare drug test data
@@ -1040,7 +1142,7 @@ export async function createDrugTestWithEmailReview(
       }
     }
 
-    // 4. Create drug test record with skipNotificationHook context
+    // 7. Create drug test record with skipNotificationHook context
     const drugTest = await payload.create({
       collection: 'drug-tests',
       data: drugTestData,
@@ -1050,39 +1152,37 @@ export async function createDrugTestWithEmailReview(
       overrideAccess: true,
     })
 
-    // 3. Fetch client for email generation
+    // 8. Validate drug test was created successfully
+    if (!drugTest || !drugTest.id) {
+      payload.logger.error({
+        msg: 'Drug test creation returned invalid result',
+        clientId: testData.clientId,
+        result: drugTest,
+      })
+      return {
+        success: false,
+        error: 'Failed to create drug test record - database returned invalid result. Please try again or contact support.',
+      }
+    }
+
+    payload.logger.info({
+      msg: 'Drug test created successfully',
+      testId: drugTest.id,
+      clientId: testData.clientId,
+      testType: testData.testType,
+    })
+
+    // 9. Fetch client data for email generation
     const client = await payload.findByID({
       collection: 'clients',
       id: testData.clientId,
       depth: 0,
     })
 
-    // 3a. Fetch client headshot for email embedding
+    // 10. Fetch client headshot for email embedding
     const clientHeadshotDataUri = await fetchClientHeadshot(testData.clientId, payload)
 
-    // 4. Compute test results for email content using medications snapshot
-    payload.logger.info({
-      msg: '[createDrugTestWithEmailReview] Computing test results',
-      detectedSubstances: testData.detectedSubstances,
-      medications: medicationsSnapshot,
-    })
-    const previewResult = await computeTestResultPreview(
-      testData.clientId,
-      testData.detectedSubstances,
-      testData.testType,
-      testData.breathalyzerTaken,
-      testData.breathalyzerResult,
-      medicationsSnapshot as any, // Use snapshot from wizard
-    )
-    payload.logger.info({
-      msg: '[createDrugTestWithEmailReview] Test result classification',
-      initialScreenResult: previewResult.initialScreenResult,
-      expectedPositives: previewResult.expectedPositives,
-      unexpectedPositives: previewResult.unexpectedPositives,
-      autoAccept: previewResult.autoAccept,
-    })
-
-    // 5. Build email content
+    // 11. Build email content using test results computed during validation
     const clientName = `${client.firstName} ${client.lastName}`
     const clientDob = client.dob || null
     const emailData = await buildScreenedEmail({
@@ -1102,7 +1202,7 @@ export async function createDrugTestWithEmailReview(
       clientDob,
     })
 
-    // 6-8. Fetch document and send emails using service layer
+    // 12. Fetch document and send emails using service layer
     let sentTo: string[] = []
     let failedTo: string[] = []
 

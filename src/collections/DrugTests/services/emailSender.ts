@@ -94,9 +94,40 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
         sentTo.push(`Client: ${toAddress}${TEST_MODE ? ' (TEST MODE)' : ''}`)
         payload.logger.info(`Successfully sent ${emailStage} email to client ${toAddress}`)
       } catch (emailError) {
-        payload.logger.error(`Failed to send email to client ${toAddress}:`, emailError)
-        sentTo.push(`Client: ${toAddress} (FAILED)`)
+        const errorMessage = emailError instanceof Error ? emailError.message : String(emailError)
+        const smtpCode = (emailError as any)?.responseCode || (emailError as any)?.code
+
+        payload.logger.error({
+          msg: 'Failed to send email to client',
+          recipient: toAddress,
+          emailStage,
+          error: emailError,
+          errorMessage,
+          smtpCode,
+          isTransient: smtpCode ? smtpCode >= 400 && smtpCode < 500 : false,
+        })
+
         failedRecipients.push(toAddress)
+
+        // CRITICAL: Alert admin when client email fails (not just referrals)
+        await createAdminAlert(payload, {
+          severity: 'high',
+          alertType: 'email-failure',
+          title: `Client email failed - ${clientName}`,
+          message: `Failed to send ${emailStage} results email${attachment ? ' with attachment' : ''} to client.\n\nClient: ${clientName}\nClient Email: ${toAddress}\nStage: ${emailStage}\nDrug Test ID: ${drugTestId}${attachment ? `\nDocument: ${attachment.filename}` : ''}${smtpCode ? `\nSMTP Code: ${smtpCode}` : ''}\nError: ${errorMessage}\n\nPlease send results manually or investigate email configuration.`,
+          context: {
+            drugTestId,
+            clientId,
+            clientName,
+            recipientEmail: toAddress,
+            recipientType: 'client',
+            emailStage,
+            documentFilename: attachment?.filename,
+            smtpCode,
+            errorMessage,
+            errorStack: emailError instanceof Error ? emailError.stack : undefined,
+          },
+        })
       }
     } else {
       payload.logger.info(
@@ -134,8 +165,19 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
         sentTo.push(`Referral: ${email}${TEST_MODE ? ' (TEST MODE)' : ''}`)
         payload.logger.info(`Successfully sent ${emailStage} email to referral ${email}`)
       } catch (emailError) {
-        payload.logger.error(`Failed to send email to referral ${email}:`, emailError)
-        sentTo.push(`Referral: ${email} (FAILED)`)
+        const errorMessage = emailError instanceof Error ? emailError.message : String(emailError)
+        const smtpCode = (emailError as any)?.responseCode || (emailError as any)?.code
+
+        payload.logger.error({
+          msg: 'Failed to send email to referral',
+          recipient: email,
+          emailStage,
+          error: emailError,
+          errorMessage,
+          smtpCode,
+          isTransient: smtpCode ? smtpCode >= 400 && smtpCode < 500 : false,
+        })
+
         failedRecipients.push(email)
 
         // CRITICAL: Alert admin immediately when referral email fails
@@ -143,7 +185,7 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
           severity: 'critical',
           alertType: 'email-failure',
           title: `Referral email failed - ${clientName}`,
-          message: `URGENT: Failed to send ${emailStage} results email${attachment ? ' with attachment' : ''} to referral.\n\nIMMEDIATE ACTION REQUIRED: Manually send results to this referral.\n\nClient: ${clientName}\nReferral Email: ${email}\nStage: ${emailStage}\nDrug Test ID: ${drugTestId}${attachment ? `\nDocument: ${attachment.filename}` : ''}\nError: ${emailError instanceof Error ? emailError.message : String(emailError)}\n\nThis referral is expecting these results${attachment ? ' with the test report PDF' : ''}. Please send manually ASAP.`,
+          message: `URGENT: Failed to send ${emailStage} results email${attachment ? ' with attachment' : ''} to referral.\n\nIMMEDIATE ACTION REQUIRED: Manually send results to this referral.\n\nClient: ${clientName}\nReferral Email: ${email}\nStage: ${emailStage}\nDrug Test ID: ${drugTestId}${attachment ? `\nDocument: ${attachment.filename}` : ''}${smtpCode ? `\nSMTP Code: ${smtpCode}` : ''}\nError: ${errorMessage}\n\nThis referral is expecting these results${attachment ? ' with the test report PDF' : ''}. Please send manually ASAP.`,
           context: {
             drugTestId,
             clientId,
@@ -152,7 +194,8 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
             recipientType: 'referral',
             emailStage,
             documentFilename: attachment?.filename,
-            errorMessage: emailError instanceof Error ? emailError.message : String(emailError),
+            smtpCode,
+            errorMessage,
             errorStack: emailError instanceof Error ? emailError.stack : undefined,
           },
         })

@@ -30,8 +30,14 @@ export async function fetchDocument(
   })
 
   if (!document || !document.filename) {
+    payload.logger.error({
+      msg: 'Document fetch failed - not found in database',
+      documentId,
+      documentExists: !!document,
+      hasFilename: !!document?.filename,
+    })
     throw new Error(
-      `Document ${documentId} not found in database or has no filename. This indicates a data integrity issue.`,
+      `Document ${documentId} not found in database or has no filename. This indicates a data integrity issue. Please contact support.`,
     )
   }
 
@@ -47,46 +53,118 @@ export async function fetchDocument(
     // Production: Fetch from S3 using AWS SDK
     payload.logger.info(`Fetching document from S3: ${filename}`)
 
-    // Initialize S3 client with credentials
-    const s3Client = new S3Client({
-      credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
-      },
-      endpoint: process.env.S3_ENDPOINT,
-      forcePathStyle: true,
-      region: process.env.S3_REGION,
-    })
+    try {
+      // Initialize S3 client with credentials
+      const s3Client = new S3Client({
+        credentials: {
+          accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+        },
+        endpoint: process.env.S3_ENDPOINT,
+        forcePathStyle: true,
+        region: process.env.S3_REGION,
+      })
 
-    // Fetch file from S3
-    const command = new GetObjectCommand({
-      Bucket: process.env.S3_BUCKET!,
-      Key: `private/${filename}`,
-    })
+      // Fetch file from S3
+      const command = new GetObjectCommand({
+        Bucket: process.env.S3_BUCKET!,
+        Key: `private/${filename}`,
+      })
 
-    const response = await s3Client.send(command)
+      const response = await s3Client.send(command)
 
-    if (!response.Body) {
-      throw new Error('S3 response body is empty')
+      if (!response.Body) {
+        payload.logger.error({
+          msg: 'S3 response body is empty',
+          documentId,
+          filename,
+          bucket: process.env.S3_BUCKET,
+          key: `private/${filename}`,
+        })
+        throw new Error(`S3 returned empty response for document: ${filename}. The file may be corrupted.`)
+      }
+
+      // Convert stream to buffer
+      const chunks: Uint8Array[] = []
+      for await (const chunk of response.Body as any) {
+        chunks.push(chunk)
+      }
+      fileBuffer = Buffer.concat(chunks)
+
+      payload.logger.info(`Successfully fetched document from S3: ${filename}`)
+    } catch (s3Error) {
+      const errorCode = (s3Error as any)?.Code || (s3Error as any)?.name
+      const errorMessage = s3Error instanceof Error ? s3Error.message : String(s3Error)
+
+      payload.logger.error({
+        msg: 'S3 document fetch failed',
+        documentId,
+        filename,
+        bucket: process.env.S3_BUCKET,
+        key: `private/${filename}`,
+        error: s3Error,
+        errorCode,
+        errorMessage,
+      })
+
+      // Provide specific error messages based on S3 error code
+      if (errorCode === 'NoSuchKey') {
+        throw new Error(
+          `Document file not found in S3 storage: ${filename}. The file may have been deleted. Please contact support.`,
+        )
+      }
+
+      if (errorCode === 'AccessDenied' || errorCode === 'InvalidAccessKeyId') {
+        throw new Error(
+          `Access denied to S3 storage. This indicates a configuration issue. Please contact support.`,
+        )
+      }
+
+      throw new Error(
+        `Failed to retrieve document from S3: ${errorMessage}. Please try again or contact support.`,
+      )
     }
-
-    // Convert stream to buffer
-    const chunks: Uint8Array[] = []
-    for await (const chunk of response.Body as any) {
-      chunks.push(chunk)
-    }
-    fileBuffer = Buffer.concat(chunks)
-
-    payload.logger.info(`Successfully fetched document from S3: ${filename}`)
   } else {
     // Development: Read directly from local disk
     const localPath = path.join(process.cwd(), 'private-media', filename)
     payload.logger.info(`Reading document from local disk: ${localPath}`)
 
-    await fsPromises.access(localPath)
-    fileBuffer = await fsPromises.readFile(localPath)
+    try {
+      await fsPromises.access(localPath)
+      fileBuffer = await fsPromises.readFile(localPath)
 
-    payload.logger.info(`Successfully read document from disk: ${filename}`)
+      payload.logger.info(`Successfully read document from disk: ${filename}`)
+    } catch (fsError) {
+      const errorCode = (fsError as any)?.code
+      const errorMessage = fsError instanceof Error ? fsError.message : String(fsError)
+
+      payload.logger.error({
+        msg: 'Local file read failed',
+        documentId,
+        filename,
+        localPath,
+        error: fsError,
+        errorCode,
+        errorMessage,
+      })
+
+      // Provide specific error messages based on file system error code
+      if (errorCode === 'ENOENT') {
+        throw new Error(
+          `Document file not found on disk: ${filename}. The file may have been deleted. Please contact support.`,
+        )
+      }
+
+      if (errorCode === 'EACCES') {
+        throw new Error(
+          `Permission denied reading document file: ${filename}. This indicates a file permission issue. Please contact support.`,
+        )
+      }
+
+      throw new Error(
+        `Failed to read document from disk: ${errorMessage}. Please try again or contact support.`,
+      )
+    }
   }
 
   return {
