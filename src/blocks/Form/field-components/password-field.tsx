@@ -14,7 +14,12 @@ export interface PasswordFieldUIProps {
   autoComplete?: string
 }
 
-export default function PasswordField({ label, colSpan, required, autoComplete = "current-password" }: PasswordFieldUIProps) {
+export default function PasswordField({
+  label,
+  colSpan,
+  required,
+  autoComplete = 'current-password',
+}: PasswordFieldUIProps) {
   const field = useFieldContext<string>()
   const errors = useStore(field.store, (state) => state.meta.errors)
 

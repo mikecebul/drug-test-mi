@@ -51,13 +51,13 @@ export const ResultsRecipientGroup = withFieldGroup({
         <group.AppField name="useSelfAsRecipient">
           {(field) => (
             <div className="space-y-3">
-              <label className="text-foreground block text-sm font-medium">
-                Who should receive the test results?
-              </label>
+              <label className="text-foreground block text-sm font-medium">Who should receive the test results?</label>
               <div className="space-y-2">
-                <label className={`hover:bg-accent/50 flex cursor-pointer items-center rounded-lg border-2 p-3 transition-all ${
-                  useSelfAsRecipient ? 'border-primary bg-primary/10' : 'border-border'
-                }`}>
+                <label
+                  className={`hover:bg-accent/50 flex cursor-pointer items-center rounded-lg border-2 p-3 transition-all ${
+                    useSelfAsRecipient ? 'border-primary bg-primary/10' : 'border-border'
+                  }`}
+                >
                   <input
                     type="radio"
                     name={field.name}
@@ -67,9 +67,11 @@ export const ResultsRecipientGroup = withFieldGroup({
                   />
                   <span className="text-foreground ml-3 text-sm font-medium">Send results to me</span>
                 </label>
-                <label className={`hover:bg-accent/50 flex cursor-pointer items-center rounded-lg border-2 p-3 transition-all ${
-                  useSelfAsRecipient === false ? 'border-primary bg-primary/10' : 'border-border'
-                }`}>
+                <label
+                  className={`hover:bg-accent/50 flex cursor-pointer items-center rounded-lg border-2 p-3 transition-all ${
+                    useSelfAsRecipient === false ? 'border-primary bg-primary/10' : 'border-border'
+                  }`}
+                >
                   <input
                     type="radio"
                     name={field.name}
@@ -98,10 +100,7 @@ export const ResultsRecipientGroup = withFieldGroup({
             <group.AppField
               name="alternativeRecipientEmail"
               validators={{
-                onChange: z
-                  .string()
-                  .min(1, 'Recipient email is required')
-                  .email('Please enter a valid email address'),
+                onChange: z.string().min(1, 'Recipient email is required').email('Please enter a valid email address'),
               }}
             >
               {(field) => <field.EmailField label="Recipient Email" required />}
@@ -135,7 +134,7 @@ export const ResultsRecipientGroup = withFieldGroup({
                   onChange={(e) => {
                     field.handleChange(e.target.value)
                   }}
-                  className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2"
+                  className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
                 >
                   <option value="">-- Select an employer --</option>
                   {Object.entries(EMPLOYER_CONFIGS).map(([key, config]) => (
@@ -145,7 +144,7 @@ export const ResultsRecipientGroup = withFieldGroup({
                   ))}
                 </select>
                 {field.state.meta.errors.length > 0 && (
-                  <p className="text-destructive text-sm">{String(field.state.meta.errors[0])}</p>
+                  <p className="text-destructive text-sm">{String(field.state.meta.errors[0]?.message)}</p>
                 )}
               </div>
             )}
@@ -189,10 +188,7 @@ export const ResultsRecipientGroup = withFieldGroup({
               <group.AppField
                 name="contactEmail"
                 validators={{
-                  onChange: z
-                    .string()
-                    .min(1, 'Contact email is required')
-                    .email('Please enter a valid email address'),
+                  onChange: z.string().min(1, 'Contact email is required').email('Please enter a valid email address'),
                 }}
               >
                 {(field) => <field.EmailField label="HR Contact or Hiring Manager Email" required />}
@@ -227,7 +223,7 @@ export const ResultsRecipientGroup = withFieldGroup({
                   onChange={(e) => {
                     field.handleChange(e.target.value)
                   }}
-                  className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2"
+                  className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
                 >
                   <option value="">-- Select a court --</option>
                   {Object.entries(COURT_CONFIGS).map(([key, config]) => (
@@ -237,7 +233,7 @@ export const ResultsRecipientGroup = withFieldGroup({
                   ))}
                 </select>
                 {field.state.meta.errors.length > 0 && (
-                  <p className="text-destructive text-sm">{String(field.state.meta.errors[0])}</p>
+                  <p className="text-destructive text-sm">{String(field.state.meta.errors[0]?.message)}</p>
                 )}
               </div>
             )}
@@ -300,7 +296,7 @@ export const ResultsRecipientGroup = withFieldGroup({
         case 'self':
           return 'Choose who should receive your test results. You can have them sent to yourself or to someone else.'
         case 'employment':
-          return 'Please provide your employer\'s information so we can send the test results directly to them.'
+          return "Please provide your employer's information so we can send the test results directly to them."
         case 'probation':
           return 'Please provide your court and probation officer information so we can send the test results to the appropriate authorities.'
         default:
@@ -316,9 +312,7 @@ export const ResultsRecipientGroup = withFieldGroup({
         </div>
 
         <div className="bg-chart-1/20 border-chart-1/40 mb-6 rounded-lg border p-4">
-          <p className="text-chart-1 text-sm">
-            {getDescription()}
-          </p>
+          <p className="text-chart-1 text-sm">{getDescription()}</p>
         </div>
 
         {requestedBy === 'self' && renderSelfPayFields()}

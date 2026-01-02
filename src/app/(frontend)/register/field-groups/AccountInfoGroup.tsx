@@ -8,10 +8,12 @@ import { checkEmailExists } from '../actions'
 
 // Export the schema for reuse in step validation
 export const accountInfoFieldSchema = z.object({
-  email: z.string()
+  email: z
+    .string()
     .min(1, { error: 'Email is required' })
     .pipe(z.email({ error: 'Please enter a valid email address' })),
-  password: z.string()
+  password: z
+    .string()
     .min(8, { error: 'Password must be at least 8 characters' })
     .regex(/[A-Z]/, { error: 'Password must contain at least one uppercase letter' })
     .regex(/[a-z]/, { error: 'Password must contain at least one lowercase letter' })
@@ -64,12 +66,7 @@ export const AccountInfoGroup = withFieldGroup({
             },
           }}
         >
-          {(field) => (
-            <field.EmailField
-              label='Email Address'
-              required
-            />
-          )}
+          {(field) => <field.EmailField label="Email Address" required />}
         </group.AppField>
 
         <group.AppField
@@ -84,12 +81,9 @@ export const AccountInfoGroup = withFieldGroup({
         <group.AppField
           name="confirmPassword"
           validators={{
-            onChange: accountInfoFieldSchema.shape.confirmPassword,
-            onBlur: ({ value, fieldApi }) => {
-              const password = fieldApi.form.getFieldValue('accountInfo.password')
-              if (value && password && value !== password) {
-                return 'Passwords do not match'
-              }
+            onChangeListenTo: ['password'],
+            onChange: ({ value }) => {
+              if (value !== group.getFieldValue('password')) return { message: 'Passwords do not match' }
               return undefined
             },
           }}
