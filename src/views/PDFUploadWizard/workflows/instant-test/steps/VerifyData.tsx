@@ -170,7 +170,13 @@ export const VerifyDataStep = withForm({
                     <Checkbox
                       id="breathalyzerTaken"
                       checked={field.state.value}
-                      onCheckedChange={(checked) => field.handleChange(checked as boolean)}
+                      onCheckedChange={(checked) => {
+                        field.handleChange(checked as boolean)
+                        // Clear result when unchecking - validation errors clear automatically
+                        if (!checked) {
+                          form.setFieldValue('verifyData.breathalyzerResult', null)
+                        }
+                      }}
                     />
                   )}
                 </form.Field>
@@ -190,8 +196,6 @@ export const VerifyDataStep = withForm({
                         id="breathalyzerResult"
                         type="number"
                         step="0.001"
-                        min="0"
-                        max="1"
                         value={field.state.value ?? ''}
                         onChange={(e) => {
                           const value = e.target.value === '' ? null : parseFloat(e.target.value)
