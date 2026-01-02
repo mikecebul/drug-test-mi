@@ -1,4 +1,5 @@
 import React from 'react'
+import { formatDateOnly } from '@/lib/date-utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Alert } from '@/components/ui/alert'
 import { CheckCircle2 } from 'lucide-react'
@@ -96,7 +97,7 @@ export function ClientInfoCard({
           <p className={cn('text-muted-foreground', emailSizeClass)}>{client.email}</p>
           {client.dob && (
             <p className={cn('text-muted-foreground', emailSizeClass)}>
-              DOB: {new Date(client.dob).toLocaleDateString()}
+              DOB: {formatDateOnly(client.dob)}
             </p>
           )}
         </div>

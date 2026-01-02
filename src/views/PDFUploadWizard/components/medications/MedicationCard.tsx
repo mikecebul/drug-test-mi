@@ -1,5 +1,6 @@
 'use client'
 
+import { formatDateOnly } from '@/lib/date-utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -81,8 +82,8 @@ export function MedicationCard({
                   )}
                   <span className="text-muted-foreground text-xs">
                     {isDiscontinued && medication.endDate
-                      ? `Ended: ${new Date(medication.endDate).toLocaleDateString()}`
-                      : `Started: ${new Date(medication.startDate).toLocaleDateString()}`}
+                      ? `Ended: ${formatDateOnly(medication.endDate)}`
+                      : `Started: ${formatDateOnly(medication.startDate)}`}
                   </span>
                 </div>
                 {medication.notes && (

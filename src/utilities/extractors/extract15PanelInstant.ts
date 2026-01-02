@@ -1,4 +1,5 @@
 import type { SubstanceValue } from '@/fields/substanceOptions'
+import { TZDate } from '@date-fns/tz'
 
 /**
  * Extracted data from 15-panel instant test PDF
@@ -91,12 +92,10 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
       const timeStr = collectedMatch[1]
       const dateStr = collectedMatch[2]
 
-      // Combine date and time
-      const dateTimeStr = `${dateStr} ${timeStr}`
-      const parsed = new Date(dateTimeStr)
-      // console.log(`Parsed date-time: ${dateTimeStr} -> ${parsed} -> ${parsed.toISOString()}`)
+      // Parse as EST/EDT timezone
+      const parsed = parseDateTimeInEST(dateStr, timeStr)
 
-      if (!isNaN(parsed.getTime())) {
+      if (parsed && !isNaN(parsed.getTime())) {
         // Return ISO string instead of Date object to avoid serialization issues
         result.collectionDate = parsed.toISOString()
         result.extractedFields.push('collectionDate')
@@ -108,10 +107,10 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
         const dateStr = collectedMatch[1]
         const timeStr = collectedMatch[2]
 
-        const dateTimeStr = `${dateStr} ${timeStr}`
-        const parsed = new Date(dateTimeStr)
+        // Parse as EST/EDT timezone
+        const parsed = parseDateTimeInEST(dateStr, timeStr)
 
-        if (!isNaN(parsed.getTime())) {
+        if (parsed && !isNaN(parsed.getTime())) {
           // Return ISO string instead of Date object to avoid serialization issues
           result.collectionDate = parsed.toISOString()
           result.extractedFields.push('collectionDate')
@@ -227,4 +226,45 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
  */
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * Parse a date/time string as Eastern Time (EST/EDT) and convert to UTC
+ *
+ * Drug test collection times are always recorded in America/New_York timezone
+ * regardless of where the server runs. This ensures consistent timestamps.
+ *
+ * @param dateStr - Date in MM/DD/YYYY format (e.g., "11/20/2025")
+ * @param timeStr - Time in 12-hour format (e.g., "06:27 PM")
+ * @returns Date object in UTC, or null if parsing fails
+ */
+function parseDateTimeInEST(dateStr: string, timeStr: string): Date | null {
+  try {
+    // Parse date components: "11/20/2025" -> month=11, day=20, year=2025
+    const [monthStr, dayStr, yearStr] = dateStr.split('/')
+    const year = parseInt(yearStr, 10)
+    const month = parseInt(monthStr, 10) - 1 // JavaScript months are 0-indexed
+    const day = parseInt(dayStr, 10)
+
+    // Parse time components: "06:27 PM" -> hours=18, minutes=27
+    const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i)
+    if (!timeMatch) return null
+
+    let hours = parseInt(timeMatch[1], 10)
+    const minutes = parseInt(timeMatch[2], 10)
+    const isPM = timeMatch[3].toUpperCase() === 'PM'
+
+    // Convert to 24-hour format
+    if (isPM && hours !== 12) {
+      hours += 12
+    } else if (!isPM && hours === 12) {
+      hours = 0
+    }
+
+    // Create a TZDate which interprets these values as America/New_York time
+    // and returns a proper UTC Date object
+    return new TZDate(year, month, day, hours, minutes, 0, 'America/New_York')
+  } catch {
+    return null
+  }
 }

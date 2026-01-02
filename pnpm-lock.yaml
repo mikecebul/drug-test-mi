@@ -20,6 +20,9 @@ importers:
       '@calcom/embed-react':
         specifier: ^1.5.3
         version: 1.5.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@date-fns/tz':
+        specifier: ^1.4.1
+        version: 1.4.1
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)

@@ -11,6 +11,8 @@ import {
   ColumnDef,
   ColumnFiltersState,
 } from '@tanstack/react-table'
+import { formatCollectionDateShort, APP_TIMEZONE } from '@/lib/date-utils'
+import { TZDate } from '@date-fns/tz'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -465,12 +467,15 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
     // Apply date filter
     if (dateRange?.from || dateRange?.to) {
       filtered = filtered.filter((result) => {
-        const resultDate = new Date(result.collectionDate || result.createdAt)
-        // Reset time to start of day for accurate comparison
+        // Convert UTC collection date to EST for accurate date comparison
+        const utcDate = new Date(result.collectionDate || result.createdAt)
+        const estDate = TZDate.tz(APP_TIMEZONE, utcDate)
+
+        // Reset time to start of day for accurate comparison (in EST)
         const resultDateOnly = new Date(
-          resultDate.getFullYear(),
-          resultDate.getMonth(),
-          resultDate.getDate(),
+          estDate.getFullYear(),
+          estDate.getMonth(),
+          estDate.getDate(),
         )
 
         if (dateRange.from) {
@@ -540,14 +545,9 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
         cell: ({ row }) => {
           const collectionDate = row.original.collectionDate
           const createdAt = row.original.createdAt
-          const date = new Date(collectionDate || createdAt)
           return (
             <div className="whitespace-nowrap text-sm">
-              {date.toLocaleDateString('en-US', {
-                month: '2-digit',
-                day: '2-digit',
-                year: '2-digit',
-              })}
+              {formatCollectionDateShort(collectionDate || createdAt)}
             </div>
           )
         },

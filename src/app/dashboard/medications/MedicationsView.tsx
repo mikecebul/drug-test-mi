@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { formatDateOnly } from "@/lib/date-utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -240,7 +241,7 @@ export function MedicationsView({ medications }: MedicationsViewProps) {
                       <p className="text-muted-foreground">Start Date</p>
                       <p className="font-medium">
                         {medication.startDate
-                          ? new Date(medication.startDate).toLocaleDateString()
+                          ? formatDateOnly(medication.startDate)
                           : 'Not specified'
                         }
                       </p>
@@ -249,7 +250,7 @@ export function MedicationsView({ medications }: MedicationsViewProps) {
                       <div>
                         <p className="text-muted-foreground">End Date</p>
                         <p className="font-medium">
-                          {new Date(medication.endDate).toLocaleDateString()}
+                          {formatDateOnly(medication.endDate)}
                         </p>
                       </div>
                     )}

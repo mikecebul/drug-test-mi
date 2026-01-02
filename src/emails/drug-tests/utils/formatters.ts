@@ -2,20 +2,16 @@
  * Utility functions for formatting data in email templates
  */
 
+import { formatCollectionDate as formatDateUtil, formatDob as formatDobUtil } from '@/lib/date-utils'
+
 /**
  * Format date for display in emails
- * @param dateString - ISO date string
- * @returns Formatted date string (e.g., "December 10, 2025, 3:45 PM")
+ * Always displays in EST/EDT to match the PDF collection time
+ * @param dateString - ISO date string in UTC
+ * @returns Formatted date string in EST/EDT (e.g., "December 10, 2025, 3:45 PM EST")
  */
 export function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  })
+  return formatDateUtil(dateString)
 }
 
 /**
@@ -24,11 +20,7 @@ export function formatDate(dateString: string): string {
  * @returns Formatted DOB (e.g., "12/10/1990")
  */
 export function formatDob(dobString: string): string {
-  return new Date(dobString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
+  return formatDobUtil(dobString)
 }
 
 /**

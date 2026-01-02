@@ -1,5 +1,6 @@
 'use client'
 
+import { formatDateOnly } from '@/lib/date-utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/utilities/cn'
 import { SimpleClient } from './getClients'
@@ -38,7 +39,7 @@ export function ClientInfoCard({ client }: ClientInfoCardProps) {
         {/* Details */}
         <div className="text-muted-foreground">
           <p>{client.email}</p>
-          {client.dob && <p>DOB: {new Date(client.dob).toLocaleDateString()}</p>}
+          {client.dob && <p>DOB: {formatDateOnly(client.dob)}</p>}
           {client.phone && <p>Phone: {client.phone}</p>}
         </div>
       </div>

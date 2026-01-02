@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { formatDateOnly } from "@/lib/date-utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -175,7 +176,7 @@ ${clientName}`)
           {user?.dob && (
             <div className="flex items-center space-x-2">
               <Calendar className="w-4 h-4 text-muted-foreground" />
-              <span>{new Date(user?.dob).toLocaleDateString()}</span>
+              <span>{formatDateOnly(user?.dob)}</span>
             </div>
           )}
           <div className="flex items-center space-x-2">
@@ -381,7 +382,7 @@ ${clientName}`)
                     <div>
                       <p className="text-sm font-medium">Date of Birth</p>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {user?.dob ? new Date(user.dob).toLocaleDateString() : 'Not provided'}
+                        {user?.dob ? formatDateOnly(user.dob) : 'Not provided'}
                       </p>
                     </div>
                     <div>

@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCollectionDateShort, formatCollectionDate } from '@/lib/date-utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -228,19 +229,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
                   <div>
                     <p className="font-medium">{nextAppointment.type}</p>
                     <p className="text-muted-foreground text-sm">
-                      {new Date(nextAppointment.date).toLocaleDateString('en-US', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </p>
-                    <p className="text-muted-foreground text-sm">
-                      {new Date(nextAppointment.date).toLocaleTimeString('en-US', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        timeZoneName: 'short',
-                      })}
+                      {formatCollectionDate(nextAppointment.date)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -279,9 +268,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
                 <div className="space-y-3">
                   <div>
                     <p className="text-muted-foreground text-sm">
-                      {new Date(recentTest.date).toLocaleDateString('en-US', {
-                        timeZone: 'UTC',
-                      })}
+                      {formatCollectionDateShort(recentTest.date)}
                     </p>
                     <div className="mt-1 flex items-center space-x-2">
                       <Badge variant={getResultBadgeVariant(recentTest.result)}>

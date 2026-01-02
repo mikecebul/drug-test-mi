@@ -1,5 +1,6 @@
 'use client'
 
+import { formatDateOnly } from '@/lib/date-utils'
 import { withForm } from '@/blocks/Form/hooks/form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CheckCircle2, User, FileText, AlertTriangle, XCircle, Pill } from 'lucide-react'
@@ -65,7 +66,7 @@ export const ConfirmStep = withForm({
                     </p>
                     <p className="text-muted-foreground text-sm">{client?.email}</p>
                     {client?.dob && (
-                      <p className="text-muted-foreground text-sm">DOB: {new Date(client.dob).toLocaleDateString()}</p>
+                      <p className="text-muted-foreground text-sm">DOB: {formatDateOnly(client.dob)}</p>
                     )}
                   </div>
                 </div>
