@@ -5,6 +5,14 @@ const TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
 const TEST_EMAIL = 'mike@midrugtest.com'
 const DRUG_TEST_FROM_EMAIL = 'mike@midrugtest.com'
 
+// Rate limiting: 2 requests per second max, so we use 600ms delay to be safe
+const EMAIL_SEND_DELAY_MS = 600
+
+/**
+ * Delay helper to prevent rate limiting
+ */
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 export type EmailContent = {
   subject: string
   html: string
@@ -93,6 +101,9 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
 
         sentTo.push(`Client: ${toAddress}${TEST_MODE ? ' (TEST MODE)' : ''}`)
         payload.logger.info(`Successfully sent ${emailStage} email to client ${toAddress}`)
+
+        // Delay before sending referral emails to prevent rate limiting
+        await delay(EMAIL_SEND_DELAY_MS)
       } catch (emailError) {
         const errorMessage = emailError instanceof Error ? emailError.message : String(emailError)
         const smtpCode = (emailError as any)?.responseCode || (emailError as any)?.code
@@ -128,11 +139,12 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
             errorStack: emailError instanceof Error ? emailError.stack : undefined,
           },
         })
+
+        // Delay even after failed send to prevent rate limiting on retry
+        await delay(EMAIL_SEND_DELAY_MS)
       }
     } else {
-      payload.logger.info(
-        `Skipping separate client email for ${clientEmail} - already in referral list (self client)`,
-      )
+      payload.logger.info(`Skipping separate client email for ${clientEmail} - already in referral list (self client)`)
     }
   }
 
@@ -147,9 +159,7 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
         await payload.sendEmail({
           to: email,
           from: DRUG_TEST_FROM_EMAIL,
-          subject: TEST_MODE
-            ? `[TEST MODE] ${referralEmailData.subject}`
-            : referralEmailData.subject,
+          subject: TEST_MODE ? `[TEST MODE] ${referralEmailData.subject}` : referralEmailData.subject,
           html: referralEmailData.html,
           attachments: attachment
             ? [
@@ -164,6 +174,9 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
 
         sentTo.push(`Referral: ${email}${TEST_MODE ? ' (TEST MODE)' : ''}`)
         payload.logger.info(`Successfully sent ${emailStage} email to referral ${email}`)
+
+        // Delay between each referral email to prevent rate limiting
+        await delay(EMAIL_SEND_DELAY_MS)
       } catch (emailError) {
         const errorMessage = emailError instanceof Error ? emailError.message : String(emailError)
         const smtpCode = (emailError as any)?.responseCode || (emailError as any)?.code
@@ -199,6 +212,9 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
             errorStack: emailError instanceof Error ? emailError.stack : undefined,
           },
         })
+
+        // Delay even after failed send to prevent rate limiting on retry
+        await delay(EMAIL_SEND_DELAY_MS)
       }
     }
 
