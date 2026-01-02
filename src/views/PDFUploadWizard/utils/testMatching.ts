@@ -1,4 +1,3 @@
-import { format } from 'date-fns'
 import { calculateNameSimilarity } from './calculateSimilarity'
 
 export interface DrugTest {
@@ -119,8 +118,9 @@ export function calculateTestMatchScore(
 
   // Date matching (40 points max)
   if (extractedDate) {
-    // extractedDate is now an ISO string, format it for comparison
-    const extractedDateStr = format(new Date(extractedDate), 'yyyy-MM-dd')
+    // Extract just the date portion from both ISO strings for comparison
+    // This avoids timezone conversion issues
+    const extractedDateStr = extractedDate.split('T')[0]
     const testDateStr = test.collectionDate.split('T')[0]
 
     if (extractedDateStr === testDateStr) {

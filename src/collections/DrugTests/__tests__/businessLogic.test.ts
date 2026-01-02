@@ -52,11 +52,11 @@ describe('Drug Test Business Logic', () => {
     })
 
     test('Scenario 2: Expected Positive - Client on Oxycodone, test shows Oxycodone', async () => {
-      const medications = [
+      const medicationsSnapshot = [
         {
           medicationName: 'Oxycodone',
-          status: 'active',
           detectedAs: ['oxycodone'],
+          required: false,
         },
       ]
 
@@ -64,9 +64,10 @@ describe('Drug Test Business Logic', () => {
         detectedSubstances: ['oxycodone'],
         relatedClient: 'client-1',
         screeningStatus: 'screened',
+        medicationsArrayAtTestTime: medicationsSnapshot,
       }
 
-      const req = createMockReq(medications)
+      const req = createMockReq([])
 
       await computeTestResults({
         data,
@@ -83,16 +84,16 @@ describe('Drug Test Business Logic', () => {
     })
 
     test('Scenario 3: Expected Positive - Multiple medications all showing correctly', async () => {
-      const medications = [
+      const medicationsSnapshot = [
         {
           medicationName: 'Oxycodone',
-          status: 'active',
           detectedAs: ['oxycodone'],
+          requireConfirmation: false,
         },
         {
           medicationName: 'Xanax',
-          status: 'active',
           detectedAs: ['benzodiazepines'],
+          requireConfirmation: false,
         },
       ]
 
@@ -100,9 +101,10 @@ describe('Drug Test Business Logic', () => {
         detectedSubstances: ['oxycodone', 'benzodiazepines'],
         relatedClient: 'client-1',
         screeningStatus: 'screened',
+        medicationsArrayAtTestTime: medicationsSnapshot,
       }
 
-      const req = createMockReq(medications)
+      const req = createMockReq([])
 
       await computeTestResults({
         data,
@@ -144,12 +146,11 @@ describe('Drug Test Business Logic', () => {
     })
 
     test('Scenario 2a: Critical Unexpected Negative - Client on MAT medication (requireConfirmation=true) but NOT detected', async () => {
-      const medications = [
+      const medicationsSnapshot = [
         {
           medicationName: 'Buprenorphine',
-          status: 'active',
           detectedAs: ['buprenorphine'],
-          requireConfirmation: true, // MAT medication must show
+          required: true, // MAT medication must show
         },
       ]
 
@@ -157,9 +158,10 @@ describe('Drug Test Business Logic', () => {
         detectedSubstances: [],
         relatedClient: 'client-1',
         screeningStatus: 'screened',
+        medicationsArrayAtTestTime: medicationsSnapshot,
       }
 
-      const req = createMockReq(medications)
+      const req = createMockReq([])
 
       await computeTestResults({
         data,
@@ -176,12 +178,11 @@ describe('Drug Test Business Logic', () => {
     })
 
     test('Scenario 2b: Warning Unexpected Negative - Non-critical medication (requireConfirmation=false) not detected', async () => {
-      const medications = [
+      const medicationsSnapshot = [
         {
           medicationName: 'Oxycodone',
-          status: 'active',
           detectedAs: ['oxycodone'],
-          requireConfirmation: false, // Not critical - just monitor
+          required: false, // Not critical - just monitor
         },
       ]
 
@@ -189,9 +190,10 @@ describe('Drug Test Business Logic', () => {
         detectedSubstances: [],
         relatedClient: 'client-1',
         screeningStatus: 'screened',
+        medicationsArrayAtTestTime: medicationsSnapshot,
       }
 
-      const req = createMockReq(medications)
+      const req = createMockReq([])
 
       await computeTestResults({
         data,
@@ -208,11 +210,11 @@ describe('Drug Test Business Logic', () => {
     })
 
     test('Scenario 3: Mixed Unexpected - THC positive (unexpected) + Missing Oxycodone (expected)', async () => {
-      const medications = [
+      const medicationsSnapshot = [
         {
           medicationName: 'Oxycodone',
-          status: 'active',
           detectedAs: ['oxycodone'],
+          required: false,
         },
       ]
 
@@ -220,9 +222,10 @@ describe('Drug Test Business Logic', () => {
         detectedSubstances: ['thc'],
         relatedClient: 'client-1',
         screeningStatus: 'screened',
+        medicationsArrayAtTestTime: medicationsSnapshot,
       }
 
-      const req = createMockReq(medications)
+      const req = createMockReq([])
 
       await computeTestResults({
         data,
@@ -237,11 +240,11 @@ describe('Drug Test Business Logic', () => {
     })
 
     test('Scenario 4: Unexpected Positive - Client on Oxycodone (expected) + Cocaine (unexpected)', async () => {
-      const medications = [
+      const medicationsSnapshot = [
         {
           medicationName: 'Oxycodone',
-          status: 'active',
           detectedAs: ['oxycodone'],
+          required: false,
         },
       ]
 
@@ -249,9 +252,10 @@ describe('Drug Test Business Logic', () => {
         detectedSubstances: ['oxycodone', 'cocaine'],
         relatedClient: 'client-1',
         screeningStatus: 'screened',
+        medicationsArrayAtTestTime: medicationsSnapshot,
       }
 
-      const req = createMockReq(medications)
+      const req = createMockReq([])
 
       await computeTestResults({
         data,
@@ -268,26 +272,23 @@ describe('Drug Test Business Logic', () => {
 
   describe('Edge Cases', () => {
     test('Should ignore discontinued medications', async () => {
-      const medications = [
-        {
-          medicationName: 'Old Med',
-          status: 'discontinued',
-          detectedAs: ['oxycodone'],
-        },
+      const medicationsSnapshot = [
         {
           medicationName: 'Current Med',
-          status: 'active',
           detectedAs: ['benzodiazepines'],
+          required: false,
         },
+        // Note: Discontinued medications should not be in the snapshot at test time
       ]
 
       const data: any = {
         detectedSubstances: ['oxycodone'],
         relatedClient: 'client-1',
         screeningStatus: 'screened',
+        medicationsArrayAtTestTime: medicationsSnapshot,
       }
 
-      const req = createMockReq(medications)
+      const req = createMockReq([])
 
       await computeTestResults({
         data,
@@ -295,7 +296,7 @@ describe('Drug Test Business Logic', () => {
         operation: 'create',
       } as any)
 
-      // Oxycodone should be unexpected because the active med is discontinued
+      // Oxycodone should be unexpected because no active medication for it
       expect(data.expectedPositives).toEqual([])
       expect(data.unexpectedPositives).toEqual(['oxycodone'])
       expect(data.unexpectedNegatives).toEqual(['benzodiazepines'])
@@ -331,11 +332,11 @@ describe('Drug Test Business Logic', () => {
     })
 
     test('Should handle medication that shows as multiple substances', async () => {
-      const medications = [
+      const medicationsSnapshot = [
         {
           medicationName: 'Multi-Substance Med',
-          status: 'active',
           detectedAs: ['opiates', 'oxycodone'],
+          required: false,
         },
       ]
 
@@ -343,9 +344,10 @@ describe('Drug Test Business Logic', () => {
         detectedSubstances: ['opiates', 'oxycodone'],
         relatedClient: 'client-1',
         screeningStatus: 'screened',
+        medicationsArrayAtTestTime: medicationsSnapshot,
       }
 
-      const req = createMockReq(medications)
+      const req = createMockReq([])
 
       await computeTestResults({
         data,
@@ -487,18 +489,16 @@ describe('Drug Test Business Logic', () => {
 
   describe('requireConfirmation Field Scenarios', () => {
     test('Mix of critical and warning medications - only critical missing should fail', async () => {
-      const medications = [
+      const medicationsSnapshot = [
         {
           medicationName: 'Buprenorphine (MAT)',
-          status: 'active',
           detectedAs: ['buprenorphine'],
-          requireConfirmation: true, // Critical
+          required: true, // Critical
         },
         {
           medicationName: 'Gabapentin',
-          status: 'active',
           detectedAs: ['gabapentin'],
-          requireConfirmation: false, // Not critical
+          required: false, // Not critical
         },
       ]
 
@@ -506,9 +506,10 @@ describe('Drug Test Business Logic', () => {
         detectedSubstances: ['gabapentin'], // Only non-critical showing
         relatedClient: 'client-1',
         screeningStatus: 'screened',
+        medicationsArrayAtTestTime: medicationsSnapshot,
       }
 
-      const req = createMockReq(medications)
+      const req = createMockReq([])
 
       await computeTestResults({
         data,
@@ -525,18 +526,16 @@ describe('Drug Test Business Logic', () => {
     })
 
     test('Mix of critical and warning medications - only warning missing should pass', async () => {
-      const medications = [
+      const medicationsSnapshot = [
         {
           medicationName: 'Buprenorphine (MAT)',
-          status: 'active',
           detectedAs: ['buprenorphine'],
-          requireConfirmation: true, // Critical
+          required: true, // Critical
         },
         {
           medicationName: 'Gabapentin',
-          status: 'active',
           detectedAs: ['gabapentin'],
-          requireConfirmation: false, // Not critical
+          required: false, // Not critical
         },
       ]
 
@@ -544,9 +543,10 @@ describe('Drug Test Business Logic', () => {
         detectedSubstances: ['buprenorphine'], // Only critical showing
         relatedClient: 'client-1',
         screeningStatus: 'screened',
+        medicationsArrayAtTestTime: medicationsSnapshot,
       }
 
-      const req = createMockReq(medications)
+      const req = createMockReq([])
 
       await computeTestResults({
         data,
@@ -563,12 +563,11 @@ describe('Drug Test Business Logic', () => {
     })
 
     test('Default behavior when requireConfirmation not set should be non-critical', async () => {
-      const medications = [
+      const medicationsSnapshot = [
         {
           medicationName: 'Oxycodone',
-          status: 'active',
           detectedAs: ['oxycodone'],
-          // requireConfirmation not set - defaults to false
+          // required not set - defaults to false
         },
       ]
 
@@ -576,9 +575,10 @@ describe('Drug Test Business Logic', () => {
         detectedSubstances: [],
         relatedClient: 'client-1',
         screeningStatus: 'screened',
+        medicationsArrayAtTestTime: medicationsSnapshot,
       }
 
-      const req = createMockReq(medications)
+      const req = createMockReq([])
 
       await computeTestResults({
         data,
