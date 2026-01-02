@@ -156,14 +156,14 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
 
     // Send email notification
     await payload.sendEmail({
-      to: 'mike@midrugtest.com',
+      to: ['mike@midrugtest.com', 'tom@midrugtest.com'],
       from: payload.email.defaultFromAddress,
       subject: `New Client Registration - ${doc.firstName} ${doc.lastName}`,
       html: emailBody,
     })
 
     payload.logger.info(
-      `New registration notification sent to mike@midrugtest.com for client ${doc.email}`,
+      `New registration notification sent to mike@midrugtest.com and tom@midrugtest.com for client ${doc.email}`,
     )
   } catch (error) {
     // Log error but don't fail the registration
