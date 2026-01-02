@@ -56,8 +56,6 @@ jobs:
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
             UNSPLASH_ACCESS_KEY=${{ secrets.UNSPLASH_ACCESS_KEY }}
             UNSPLASH_URL=${{ secrets.UNSPLASH_URL }}
-            # TESTING: Remove this line when ready to send emails to actual clients/referrals
-            EMAIL_TEST_MODE=false
 
   build-and-push-dockerfile-image-staging:
     if: github.ref == 'refs/heads/staging'
@@ -113,5 +111,3 @@ jobs:
             STRIPE_WEBHOOKS_ENDPOINT_SECRET=${{ secrets.STRIPE_WEBHOOKS_ENDPOINT_SECRET }}
             UNSPLASH_ACCESS_KEY=${{ secrets.UNSPLASH_ACCESS_KEY }}
             UNSPLASH_URL=${{ secrets.UNSPLASH_URL }}
-            # TESTING: Remove this line when ready to send emails to actual clients/referrals
-            EMAIL_TEST_MODE=true
