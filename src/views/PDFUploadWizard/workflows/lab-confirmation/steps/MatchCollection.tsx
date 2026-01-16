@@ -26,8 +26,8 @@ export const MatchCollectionStep = withForm({
     const uploadedFile = useStore(form.store, (state) => state.values.upload.file)
     const { data: extractData } = useExtractPdfQuery(uploadedFile, 'enter-lab-confirmation')
 
-    // Fetch pending tests - for confirmation workflow, we need tests with status 'screened' or 'confirmation-pending'
-    const { data: pendingTests, isLoading, error: queryError } = useFetchPendingTestsQuery(['screened', 'confirmation-pending'])
+    // Fetch pending tests - for confirmation workflow, we need tests with status 'confirmation-pending'
+    const { data: pendingTests, isLoading, error: queryError } = useFetchPendingTestsQuery(['confirmation-pending'])
 
     // Restore previous selection or auto-match if we have extracted data
     useEffect(() => {
@@ -130,11 +130,13 @@ export const MatchCollectionStep = withForm({
     }
 
     // Calculate scores for all tests
+    // Note: passing undefined for testType to show ALL tests regardless of type
+    // This allows matching confirmation results to any pending test
     const testsWithScores = getRankedTestMatches(
       pendingTests,
       extractData?.donorName ?? null,
       extractData?.collectionDate ?? null,
-      extractData?.testType,
+      undefined, // Don't filter by test type - show all pending confirmation tests
       false, // isScreenWorkflow = false
     )
 
