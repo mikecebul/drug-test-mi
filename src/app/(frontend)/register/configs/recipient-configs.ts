@@ -18,6 +18,13 @@ export const EMPLOYER_CONFIGS = {
     label: 'LCEMS (Lake Charlevoix EMS)',
     recipients: [{ name: 'Melanie Kroll', email: 'melaniek@lcemsami.gov' }],
   },
+  'harbor-industries': {
+    label: 'Harbor Industries',
+    recipients: [
+      { name: 'Charisse Saur', email: 'charisse_saur@harborretail.com' },
+      { name: 'Lauren Terryn', email: 'lauren_terryn@harborretail.com' },
+    ],
+  },
   other: {
     label: 'Other',
     recipients: [],

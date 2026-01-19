@@ -1,5 +1,4 @@
 import type { Payload } from 'payload'
-import type { Client } from '@/payload-types'
 
 export type RecipientList = {
   clientEmail: string
