@@ -245,13 +245,35 @@ export default buildConfig({
       },
     }),
     importExportPlugin({
-      collections: ['form-submissions'],
-      overrideExportCollection: (collection) => {
-        collection.admin.group = 'Admin'
-        collection.upload.staticDir = path.resolve(dirname, 'uploads')
-        return collection
+      collections: [
+        {
+          slug: 'form-submissions',
+          export: {
+            disableJobsQueue: true,
+          },
+          import: {
+            disableJobsQueue: true,
+          },
+        },
+      ],
+      overrideExportCollection: ({ collection }) => {
+        return {
+          ...collection,
+          admin: {
+            ...(typeof collection.admin === 'object' ? collection.admin : {}),
+            group: 'Admin',
+          },
+          upload:
+            typeof collection.upload === 'object'
+              ? {
+                  ...collection.upload,
+                  staticDir: path.resolve(dirname, 'uploads'),
+                }
+              : {
+                  staticDir: path.resolve(dirname, 'uploads'),
+                },
+        }
       },
-      disableJobsQueue: true,
     }),
     sentryPlugin({
       enabled: false,
