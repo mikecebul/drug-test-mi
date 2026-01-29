@@ -6,6 +6,11 @@ const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
+  },
   output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
   // Required for pdf-parse to work correctly in Next.js
   serverExternalPackages: ['pdf-parse', '@napi-rs/canvas'],
@@ -14,9 +19,7 @@ const nextConfig = {
       ...[
         baseUrl,
         'https://maps.googleapis.com',
-        process.env.NEXT_PUBLIC_S3_HOSTNAME
-          ? `https://${process.env.NEXT_PUBLIC_S3_HOSTNAME}`
-          : null,
+        process.env.NEXT_PUBLIC_S3_HOSTNAME ? `https://${process.env.NEXT_PUBLIC_S3_HOSTNAME}` : null,
       ]
         .filter(Boolean)
         .map((item) => {
@@ -54,7 +57,4 @@ const sentryConfig = {
   automaticVercelMonitors: true,
 }
 
-export default withSentryConfig(
-  withPayload(nextConfig, { devBundleServerPackages: false }),
-  sentryConfig,
-)
+export default withSentryConfig(withPayload(nextConfig, { devBundleServerPackages: false }), sentryConfig)

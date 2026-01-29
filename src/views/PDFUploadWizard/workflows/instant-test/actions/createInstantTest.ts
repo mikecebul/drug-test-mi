@@ -6,6 +6,7 @@ import config from '@payload-config'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { FormMedications } from '../../shared-validators'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
+import { createAdminAlert } from '@/lib/admin-alerts'
 
 // interface MedicationInput {
 //   medicationName: string
@@ -51,15 +52,31 @@ export async function createInstantTest(
 }> {
   const payload = await getPayload({ config })
 
+  const pdfSizeKB = (testData.pdfBuffer.length / 1024).toFixed(2)
+  payload.logger.info({
+    msg: '[createInstantTest] Server action called',
+    clientId: testData.clientId,
+    pdfSizeKB: `${pdfSizeKB}KB`,
+    medicationsCount: medications.length,
+    emailConfig: {
+      clientEnabled: emailConfig.clientEmailEnabled,
+      clientRecipients: emailConfig.clientRecipients.length,
+      referralEnabled: emailConfig.referralEmailEnabled,
+      referralRecipients: emailConfig.referralRecipients.length,
+    },
+  })
+
   try {
     // 1. Update client medications if provided
     if (medications.length > 0) {
+      payload.logger.info('[createInstantTest] Updating client medications...')
       await payload.update({
         collection: 'clients',
         id: testData.clientId,
         data: { medications },
         overrideAccess: true,
       })
+      payload.logger.info('[createInstantTest] Medications updated')
     }
 
     // 2. Prepare medications snapshot for test (active medications only)
@@ -73,11 +90,27 @@ export async function createInstantTest(
       }))
 
     // 3. Create drug test using existing action
+    payload.logger.info('[createInstantTest] Calling createDrugTestWithEmailReview...')
     const result = await createDrugTestWithEmailReview(testData, medicationsAtTestTime, emailConfig)
+    payload.logger.info({ msg: '[createInstantTest] Result from createDrugTestWithEmailReview', success: result.success, testId: result.testId, error: result.error })
 
     return result
   } catch (error) {
-    console.error('Error creating instant test:', error)
+    payload.logger.error({ msg: '[createInstantTest] Unexpected error', error })
+
+    await createAdminAlert(payload, {
+      severity: 'high',
+      alertType: 'other',
+      title: `Instant test submission failed`,
+      message: `Failed during instant test submission (before drug test creation).\n\nClient ID: ${testData.clientId}\nError: ${error instanceof Error ? error.message : String(error)}`,
+      context: {
+        clientId: testData.clientId,
+        testType: testData.testType,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+    })
+
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',

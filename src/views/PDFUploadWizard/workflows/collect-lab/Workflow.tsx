@@ -49,25 +49,30 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
       }
 
       // Final submit only happens on last step
-      const result = await createCollectionWithEmailReview(
-        {
-          clientId: value.client.id,
-          testType: value.collection.testType,
-          collectionDate: value.collection.collectionDate,
-          breathalyzerTaken: value.collection.breathalyzerTaken,
-          breathalyzerResult: value.collection.breathalyzerResult ?? null,
-        },
-        value.medications,
-        {
-          referralEmailEnabled: value.emails.referralEmailEnabled,
-          referralRecipients: value.emails.referralRecipients,
-        },
-      )
+      try {
+        const result = await createCollectionWithEmailReview(
+          {
+            clientId: value.client.id,
+            testType: value.collection.testType,
+            collectionDate: value.collection.collectionDate,
+            breathalyzerTaken: value.collection.breathalyzerTaken,
+            breathalyzerResult: value.collection.breathalyzerResult ?? null,
+          },
+          value.medications,
+          {
+            referralEmailEnabled: value.emails.referralEmailEnabled,
+            referralRecipients: value.emails.referralRecipients,
+          },
+        )
 
-      if (result.success && result.testId) {
-        setCompletedTestId(result.testId)
-      } else {
-        toast.error(result.error || 'Failed to create collection record')
+        if (result.success && result.testId) {
+          setCompletedTestId(result.testId)
+        } else {
+          toast.error(result.error || 'Failed to create collection record')
+        }
+      } catch (error) {
+        console.error('Unexpected error during submission:', error)
+        toast.error('An unexpected error occurred. Please try again.')
       }
     },
   })

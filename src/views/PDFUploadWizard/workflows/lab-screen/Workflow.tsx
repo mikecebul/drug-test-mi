@@ -51,15 +51,20 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
       }
 
       // Final submit: Update drug test with lab screening results and send emails
-      const queryKey = extractPdfQueryKey(value.upload.file, 'enter-lab-screen')
-      const extractedData = queryClient.getQueryData<any>(queryKey)
+      try {
+        const queryKey = extractPdfQueryKey(value.upload.file, 'enter-lab-screen')
+        const extractedData = queryClient.getQueryData<any>(queryKey)
 
-      const result = await updateLabScreenWithEmailReview(value, extractedData)
+        const result = await updateLabScreenWithEmailReview(value, extractedData)
 
-      if (result.success && result.testId) {
-        setCompletedTestId(result.testId)
-      } else {
-        toast.error(result.error || 'Failed to update test with screening results')
+        if (result.success && result.testId) {
+          setCompletedTestId(result.testId)
+        } else {
+          toast.error(result.error || 'Failed to update test with screening results')
+        }
+      } catch (error) {
+        console.error('Unexpected error during submission:', error)
+        toast.error('An unexpected error occurred. Please try again.')
       }
     },
   })

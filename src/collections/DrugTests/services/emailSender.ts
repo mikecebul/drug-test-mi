@@ -70,6 +70,16 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
     clientName,
   } = params
 
+  payload.logger.info({
+    msg: '[sendEmails] Starting email send process',
+    emailStage,
+    drugTestId,
+    hasClientEmail: !!clientEmail,
+    referralCount: referralEmails.length,
+    hasAttachment: !!attachment,
+    attachmentSize: attachment ? `${(attachment.content.length / 1024).toFixed(2)}KB` : 'N/A',
+  })
+
   const sentTo: string[] = []
   const failedRecipients: string[] = []
 
@@ -83,6 +93,7 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
       const toAddress = TEST_MODE ? TEST_EMAIL : clientEmail
 
       try {
+        payload.logger.info({ msg: '[sendEmails] Sending to client', toAddress, testMode: TEST_MODE })
         await payload.sendEmail({
           to: toAddress,
           from: DRUG_TEST_FROM_EMAIL,
@@ -156,6 +167,7 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
 
     for (const email of recipients) {
       try {
+        payload.logger.info({ msg: '[sendEmails] Sending to referral', email, testMode: TEST_MODE })
         await payload.sendEmail({
           to: email,
           from: DRUG_TEST_FROM_EMAIL,
@@ -225,5 +237,10 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
     )
   }
 
+  payload.logger.info({
+    msg: '[sendEmails] Completed',
+    sentTo,
+    failedRecipients,
+  })
   return { sentTo, failedRecipients }
 }

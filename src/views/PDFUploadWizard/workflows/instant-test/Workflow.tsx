@@ -53,6 +53,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     onSubmit: async ({ value }) => {
       const currentStepIndex = steps.indexOf(currentStep)
       const isLastStep = currentStepIndex === steps.length - 1
+      console.log(`[InstantTest] onSubmit called - step: ${currentStep}, isLastStep: ${isLastStep}`)
 
       if (!isLastStep) {
         // Navigate to next step
@@ -62,43 +63,64 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       }
 
       // Final submit: Create drug test
-      const queryKey = extractPdfQueryKey(value.upload.file, '15-panel-instant')
-      const extractedData = queryClient.getQueryData<any>(queryKey)
+      console.log(`[InstantTest] Starting final submission...`)
+      try {
+        const queryKey = extractPdfQueryKey(value.upload.file, '15-panel-instant')
+        const extractedData = queryClient.getQueryData<any>(queryKey)
+        console.log(`[InstantTest] Extracted data from query cache:`, extractedData ? 'found' : 'not found')
 
-      // Convert File to buffer array
-      const arrayBuffer = await value.upload.file.arrayBuffer()
+        // Convert File to buffer array
+        console.log(`[InstantTest] Converting file to array buffer...`)
+        const arrayBuffer = await value.upload.file.arrayBuffer()
+        const pdfBuffer = Array.from(new Uint8Array(arrayBuffer))
+        console.log(`[InstantTest] Buffer conversion complete`)
 
-      const result = await createInstantTest(
-        {
-          clientId: value.client.id,
-          testType: value.verifyData.testType,
-          collectionDate: value.verifyData.collectionDate,
-          detectedSubstances: value.verifyData.detectedSubstances as any,
-          isDilute: value.verifyData.isDilute,
-          breathalyzerTaken: value.verifyData.breathalyzerTaken,
-          breathalyzerResult: value.verifyData.breathalyzerResult ?? null,
-          pdfBuffer: Array.from(new Uint8Array(arrayBuffer)),
-          pdfFilename: value.upload.file.name,
-          hasConfirmation: extractedData?.hasConfirmation,
-          confirmationResults: extractedData?.confirmationResults,
-          confirmationDecision: value.verifyData.confirmationDecision ?? null,
-          confirmationSubstances: value.verifyData.confirmationSubstances as any,
-        },
-        value.medications,
-        {
-          clientEmailEnabled: value.emails.clientEmailEnabled,
-          clientRecipients: value.emails.clientEmailEnabled ? [value.client.email] : [],
-          referralEmailEnabled: value.emails.referralEmailEnabled,
-          referralRecipients: value.emails.referralRecipients,
-        },
-      )
+        // Log payload sizes for debugging
+        const originalSizeMB = (value.upload.file.size / 1024 / 1024).toFixed(2)
+        const bufferSizeMB = (arrayBuffer.byteLength / 1024 / 1024).toFixed(2)
+        const jsonSizeMB = (JSON.stringify(pdfBuffer).length / 1024 / 1024).toFixed(2)
+        console.log(`[InstantTest] PDF Sizes - Original: ${originalSizeMB}MB, Buffer: ${bufferSizeMB}MB, JSON: ${jsonSizeMB}MB`)
+        console.log(`[InstantTest] Calling createInstantTest server action...`)
 
-      if (result.success && result.testId) {
-        setCompletedTestId(result.testId)
-        // Clear stored file after successful submission
-        clearFileStorage()
-      } else {
-        toast.error(result.error || 'Failed to create drug test')
+        const result = await createInstantTest(
+          {
+            clientId: value.client.id,
+            testType: value.verifyData.testType,
+            collectionDate: value.verifyData.collectionDate,
+            detectedSubstances: value.verifyData.detectedSubstances as any,
+            isDilute: value.verifyData.isDilute,
+            breathalyzerTaken: value.verifyData.breathalyzerTaken,
+            breathalyzerResult: value.verifyData.breathalyzerResult ?? null,
+            pdfBuffer,
+            pdfFilename: value.upload.file.name,
+            hasConfirmation: extractedData?.hasConfirmation,
+            confirmationResults: extractedData?.confirmationResults,
+            confirmationDecision: value.verifyData.confirmationDecision ?? null,
+            confirmationSubstances: value.verifyData.confirmationSubstances as any,
+          },
+          value.medications,
+          {
+            clientEmailEnabled: value.emails.clientEmailEnabled,
+            clientRecipients: value.emails.clientEmailEnabled ? [value.client.email] : [],
+            referralEmailEnabled: value.emails.referralEmailEnabled,
+            referralRecipients: value.emails.referralRecipients,
+          },
+        )
+
+        console.log(`[InstantTest] Server action returned:`, result)
+
+        if (result.success && result.testId) {
+          console.log(`[InstantTest] Success! Test ID: ${result.testId}`)
+          setCompletedTestId(result.testId)
+          // Clear stored file after successful submission
+          clearFileStorage()
+        } else {
+          console.error(`[InstantTest] Server action failed:`, result.error)
+          toast.error(result.error || 'Failed to create drug test')
+        }
+      } catch (error) {
+        console.error('[InstantTest] Unexpected error during submission:', error)
+        toast.error('An unexpected error occurred. Please try again.')
       }
     },
   })

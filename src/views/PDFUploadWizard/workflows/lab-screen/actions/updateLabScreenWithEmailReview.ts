@@ -5,6 +5,7 @@ import config from '@payload-config'
 import { generateTestFilename } from '@/views/PDFUploadWizard/utils/generateFilename'
 import { computeTestResultPreview } from '@/views/PDFUploadWizard/actions'
 import { fetchDocument, sendEmails } from '@/collections/DrugTests/services'
+import { createAdminAlert } from '@/lib/admin-alerts'
 import type { FormValues } from '../validators'
 import type { ExtractedPdfData } from '@/views/PDFUploadWizard/queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
@@ -274,6 +275,20 @@ export async function updateLabScreenWithEmailReview(
     }
   } catch (error) {
     payload.logger.error('Error updating lab screen with email review:', error)
+
+    await createAdminAlert(payload, {
+      severity: 'high',
+      alertType: 'other',
+      title: `Lab screen submission failed`,
+      message: `Failed to update drug test with lab screening results.\n\nTest ID: ${formValues.matchCollection.testId}\nClient: ${formValues.matchCollection.clientName}\nError: ${error instanceof Error ? error.message : String(error)}`,
+      context: {
+        testId: formValues.matchCollection.testId,
+        clientName: formValues.matchCollection.clientName,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+    })
+
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to update test record',

@@ -6,6 +6,7 @@ import { sendEmails } from '@/collections/DrugTests/services'
 import { getActiveMedications } from '@/collections/DrugTests/helpers/getActiveMedications'
 import { buildCollectedEmail } from '@/collections/DrugTests/email/render'
 import { fetchClientHeadshot } from '@/collections/DrugTests/email/fetch-headshot'
+import { createAdminAlert } from '@/lib/admin-alerts'
 import type { Client } from '@/payload-types'
 
 // Extract medication type from Client payload type
@@ -176,6 +177,21 @@ export async function createCollectionWithEmailReview(
     return { success: true, testId: drugTest.id }
   } catch (error) {
     payload.logger.error('Error creating collection with email review:', error)
+
+    await createAdminAlert(payload, {
+      severity: 'high',
+      alertType: 'other',
+      title: `Lab collection submission failed`,
+      message: `Failed to create lab collection record.\n\nClient ID: ${testData.clientId}\nTest Type: ${testData.testType}\nError: ${error instanceof Error ? error.message : String(error)}`,
+      context: {
+        clientId: testData.clientId,
+        testType: testData.testType,
+        collectionDate: testData.collectionDate,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+    })
+
     return {
       success: false,
       error: `Failed to create collection: ${error instanceof Error ? error.message : String(error)}`,

@@ -6,6 +6,7 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
 import { computeTestResultPreview } from '@/views/PDFUploadWizard/actions'
 import { fetchDocument, sendEmails } from '@/collections/DrugTests/services'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
+import { createAdminAlert } from '@/lib/admin-alerts'
 
 /**
  * Create drug test and send approved emails (instant-test workflow final step)
@@ -44,8 +45,11 @@ export async function createDrugTestWithEmailReview(
 }> {
   const payload = await getPayload({ config })
 
+  payload.logger.info('[createDrugTestWithEmailReview] Starting...')
+
   try {
     // Validate client exists before proceeding
+    payload.logger.info('[createDrugTestWithEmailReview] Validating client exists...')
     const existingClient = await payload.findByID({
       collection: 'clients',
       id: testData.clientId,
@@ -61,13 +65,17 @@ export async function createDrugTestWithEmailReview(
     }
 
     // Import email functions
+    payload.logger.info('[createDrugTestWithEmailReview] Importing email functions...')
     const { buildScreenedEmail } = await import('@/collections/DrugTests/email/render')
     const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
 
     // Convert number array back to Buffer
+    payload.logger.info('[createDrugTestWithEmailReview] Converting PDF buffer...')
     const buffer = Buffer.from(testData.pdfBuffer)
+    payload.logger.info({ msg: '[createDrugTestWithEmailReview] Buffer size', sizeKB: (buffer.length / 1024).toFixed(2) })
 
     // 1. Upload PDF to private-media collection
+    payload.logger.info('[createDrugTestWithEmailReview] Uploading PDF to private-media...')
     const uploadedFile = await payload.create({
       collection: 'private-media',
       data: {
@@ -82,6 +90,7 @@ export async function createDrugTestWithEmailReview(
       },
       overrideAccess: true,
     })
+    payload.logger.info({ msg: '[createDrugTestWithEmailReview] PDF uploaded', fileId: uploadedFile.id })
 
     // 2. Use medications snapshot passed from wizard (already filtered to active meds)
     const medicationsSnapshot = medicationsAtTestTime || []
@@ -134,11 +143,13 @@ export async function createDrugTestWithEmailReview(
     }
 
     // 4. Create drug test record with skipNotificationHook context
+    payload.logger.info('[createDrugTestWithEmailReview] Creating drug test record...')
     const drugTest = await payload.create({
       collection: 'drug-tests',
       data: drugTestData,
       overrideAccess: true,
     })
+    payload.logger.info({ msg: '[createDrugTestWithEmailReview] Drug test created', testId: drugTest.id })
 
     // 3. Fetch client for email generation
     const client = await payload.findByID({
@@ -205,12 +216,15 @@ export async function createDrugTestWithEmailReview(
     })
 
     // 6-8. Fetch document and send emails using service layer
+    payload.logger.info('[createDrugTestWithEmailReview] Preparing to send emails...')
     let sentTo: string[] = []
     let failedTo: string[] = []
 
     try {
       // Fetch document using service layer
+      payload.logger.info('[createDrugTestWithEmailReview] Fetching document for attachment...')
       const document = await fetchDocument(uploadedFile.id, payload)
+      payload.logger.info({ msg: '[createDrugTestWithEmailReview] Document fetched', filename: document.filename })
 
       // Prepare recipient lists based on emailConfig
       const clientRecipients = emailConfig.clientEmailEnabled ? emailConfig.clientRecipients : []
@@ -222,6 +236,11 @@ export async function createDrugTestWithEmailReview(
       const allReferralRecipients = referralRecipients
 
       // Send emails using service layer
+      payload.logger.info({
+        msg: '[createDrugTestWithEmailReview] Calling sendEmails...',
+        clientRecipients: allClientRecipients.length,
+        referralRecipients: allReferralRecipients.length,
+      })
       const emailResult = await sendEmails({
         payload,
         clientEmail: allClientRecipients.length > 0 ? allClientRecipients[0] : null,
@@ -237,6 +256,11 @@ export async function createDrugTestWithEmailReview(
         drugTestId: drugTest.id,
         clientId: testData.clientId,
         clientName,
+      })
+      payload.logger.info({
+        msg: '[createDrugTestWithEmailReview] sendEmails completed',
+        sentTo: emailResult.sentTo,
+        failedRecipients: emailResult.failedRecipients,
       })
 
       sentTo = emailResult.sentTo
@@ -295,9 +319,26 @@ export async function createDrugTestWithEmailReview(
       }
     }
 
+    payload.logger.info({ msg: '[createDrugTestWithEmailReview] Completed successfully', testId: drugTest.id })
     return { success: true, testId: drugTest.id }
   } catch (error) {
-    payload.logger.error('Error creating drug test with email review:', error)
+    payload.logger.error({ msg: '[createDrugTestWithEmailReview] Unexpected error', error })
+
+    // Create admin alert for unexpected failures
+    await createAdminAlert(payload, {
+      severity: 'high',
+      alertType: 'other',
+      title: `Drug test creation failed - Instant Test Workflow`,
+      message: `Failed to create drug test via instant test workflow.\n\nClient ID: ${testData.clientId}\nTest Type: ${testData.testType}\nError: ${error instanceof Error ? error.message : String(error)}`,
+      context: {
+        clientId: testData.clientId,
+        testType: testData.testType,
+        collectionDate: testData.collectionDate,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+    })
+
     return {
       success: false,
       error: `Failed to create drug test: ${error instanceof Error ? error.message : String(error)}`,
