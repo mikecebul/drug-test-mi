@@ -18,6 +18,7 @@ import DobField from '../field-components/dob-picker'
 import DateField from '../field-components/date-field'
 import DatePickerField from '../field-components/date-picker-field'
 import FileUploadField from '../field-components/file-upload-field'
+import ImageUploadField from '../field-components/image-upload-field'
 import SubstanceChecklistField from '../field-components/substance-checklist-field'
 import MedicationDisplayField from '../../../views/PDFUploadWizard/workflows/components/medications/medication-display-field'
 import ParsedDataDisplayField from '../field-components/parsed-data-display-field'
@@ -46,6 +47,7 @@ export const { useAppForm, withForm, withFieldGroup } = createFormHook({
     SelectField,
     MultiSelectField,
     FileUploadField,
+    ImageUploadField,
     SubstanceChecklistField,
     MedicationDisplayField,
     ParsedDataDisplayField,

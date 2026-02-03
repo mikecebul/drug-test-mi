@@ -34,7 +34,7 @@ export const RegisterClientNavigation = withForm({
       // Only check fields that belong to the current step
       if (!fieldName.startsWith(`${currentStep}.`)) return false
       // Check if this field has errors
-      return meta.errors && meta.errors.length > 0
+      return meta?.errors && meta.errors.length > 0
     })
 
     const handleBack = () => {

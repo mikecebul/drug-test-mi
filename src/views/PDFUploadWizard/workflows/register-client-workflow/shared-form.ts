@@ -43,9 +43,11 @@ const defaultValues: FormValues = {
   personalInfo: {
     firstName: '',
     lastName: '',
+    middleInitial: '',
     gender: '',
     dob: '',
     phone: '',
+    headshot: null,
   },
   accountInfo: {
     email: '',
