@@ -9,7 +9,7 @@ import {
   type Steps,
 } from './validators'
 
-const defaultValues: FormValues = {
+const getDefaultValues = (): FormValues => ({
   client: {
     id: '',
     firstName: '',
@@ -32,18 +32,18 @@ const defaultValues: FormValues = {
     referralEmailEnabled: true,
     referralRecipients: [],
   },
-}
+})
 
 // Basic form opts for withForm components that just need types (e.g., Navigation)
 // Validation happens in Workflow.tsx with step-specific validators
 export const collectLabFormOpts = formOptions({
-  defaultValues,
+  defaultValues: getDefaultValues(),
 })
 
 // Step-aware form options for Workflow.tsx
 export const getCollectLabFormOpts = (step: Steps[number]) =>
   formOptions({
-    defaultValues,
+    defaultValues: getDefaultValues(),
     validators: {
       onSubmit: ({ formApi }) => {
         if (step === 'client') {

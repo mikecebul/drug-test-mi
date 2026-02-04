@@ -11,7 +11,7 @@ import {
   type Steps,
 } from './validators'
 
-const defaultValues: FormValues = {
+const getDefaultValues = (): FormValues => ({
   upload: {
     file: null as any, // Will be set by user
   },
@@ -43,20 +43,20 @@ const defaultValues: FormValues = {
     referralEmailEnabled: true,
     referralRecipients: [],
   },
-}
+})
 
 // Export steps for Navigation component
 export { steps }
 
 // Basic form opts (for Navigation component - just needs type info)
 export const labScreenFormOpts = formOptions({
-  defaultValues,
+  defaultValues: getDefaultValues(),
 })
 
 // Step-aware form options (for Workflow and step components)
 export const getLabScreenFormOpts = (step: Steps[number]) =>
   formOptions({
-    defaultValues,
+    defaultValues: getDefaultValues(),
     validators: {
       onSubmit: ({ formApi }) => {
         if (step === 'upload') {
