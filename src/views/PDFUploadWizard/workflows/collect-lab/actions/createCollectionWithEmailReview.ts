@@ -22,6 +22,9 @@ export async function createCollectionWithEmailReview(
     collectionDate: string
     breathalyzerTaken: boolean
     breathalyzerResult: number | null
+    newHeadshotBuffer?: number[]
+    newHeadshotMimetype?: string
+    newHeadshotName?: string
   },
   medications: MedicationInput[],
   emailConfig: {
@@ -51,7 +54,39 @@ export async function createCollectionWithEmailReview(
       }
     }
 
-    // 1. Update client medications if there are changes
+    // 1. Upload headshot if provided
+    if (testData.newHeadshotBuffer && testData.newHeadshotMimetype && testData.newHeadshotName) {
+      try {
+        const buffer = Buffer.from(testData.newHeadshotBuffer)
+        const uploadedHeadshot = await payload.create({
+          collection: 'private-media',
+          data: {
+            documentType: 'headshot',
+            relatedClient: testData.clientId,
+          },
+          file: {
+            data: buffer,
+            mimetype: testData.newHeadshotMimetype,
+            name: testData.newHeadshotName,
+            size: buffer.length,
+          },
+          overrideAccess: true,
+        })
+
+        await payload.update({
+          collection: 'clients',
+          id: testData.clientId,
+          data: { headshot: uploadedHeadshot.id },
+          overrideAccess: true,
+        })
+        payload.logger.info(`[createCollectionWithEmailReview] Uploaded and linked headshot ${uploadedHeadshot.id} for client ${testData.clientId}`)
+      } catch (error) {
+        payload.logger.error('[createCollectionWithEmailReview] Failed to upload headshot:', error)
+        // Non-critical: continue with collection creation
+      }
+    }
+
+    // 2. Update client medications if there are changes
     if (medications.length > 0) {
       // Filter out UI-only flags and prepare for database
       const cleanedMedications = medications.map((med) => {
@@ -76,7 +111,7 @@ export async function createCollectionWithEmailReview(
       })
     }
 
-    // 2. Fetch updated active medications for drug test snapshot
+    // 3. Fetch updated active medications for drug test snapshot
     const activeMedications = await getActiveMedications(testData.clientId, payload)
 
     // 3. Create drug test

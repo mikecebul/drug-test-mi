@@ -20,6 +20,7 @@ export const clientSchema = z.object({
     email: z.string(),
     dob: z.string().nullable(),
     headshot: z.string().nullable(),
+    newHeadshot: z.instanceof(File).optional().nullable(),
   }),
 })
 

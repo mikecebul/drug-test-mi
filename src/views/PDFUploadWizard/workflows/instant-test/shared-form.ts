@@ -27,6 +27,7 @@ const getDefaultValues = (): FormValues => ({
     email: '',
     dob: null,
     headshot: null,
+    newHeadshot: null,
   },
   medications: [],
   verifyData: {

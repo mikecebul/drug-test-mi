@@ -11,8 +11,9 @@ import { Plus, RefreshCw } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { MedicationMotionWrapper } from './MedicationWrapper'
 import { FieldGroupHeader } from '../FieldGroupHeader'
-import { ClientDisplayCard, ClientInfoContent } from '../client/ClientDisplayCard'
+import { ClientInfoCardEditable } from '../client/ClientInfoCardEditable'
 import type { FormClient } from '../../shared-validators'
+import type { SimpleClient } from '../client/getClients'
 
 // Default values for a single medication
 const defaultValues = {
@@ -25,8 +26,11 @@ export const MedicationFieldGroup = withFieldGroup({
     client: {} as FormClient,
     isLoading: false,
     handleRefresh: () => {},
+    currentNewHeadshot: null as File | null,
+    onHeadshotChange: (() => {}) as (file: File | null) => void,
+    onHeadshotUploaded: undefined as ((url: string) => void) | undefined,
   },
-  render: function Render({ group, client, isLoading, handleRefresh }) {
+  render: function Render({ group, client, isLoading, handleRefresh, currentNewHeadshot, onHeadshotChange, onHeadshotUploaded }) {
     if (!client) {
       return (
         <div className="space-y-6">
@@ -51,9 +55,12 @@ export const MedicationFieldGroup = withFieldGroup({
           title="Verify Medications"
           description="Review and update the client's medications for accurate drug test interpretation"
         />
-        <ClientDisplayCard selected>
-          <ClientInfoContent client={client} />
-        </ClientDisplayCard>
+        <ClientInfoCardEditable
+          client={client as SimpleClient}
+          currentNewHeadshot={currentNewHeadshot}
+          onHeadshotChange={onHeadshotChange}
+          onHeadshotUploaded={onHeadshotUploaded}
+        />
 
         {/* Medications Section */}
         <Card className="shadow-md">

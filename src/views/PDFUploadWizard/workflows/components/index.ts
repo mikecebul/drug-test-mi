@@ -8,5 +8,6 @@
  */
 
 export { ClientInfoCard } from './client/ClientInfoCard'
+export { ClientInfoCardEditable } from './client/ClientInfoCardEditable'
 export { FieldGroupHeader } from './FieldGroupHeader'
 export { default as MedicationDisplayField } from '@/views/PDFUploadWizard/workflows/components/medications/medication-display-field'

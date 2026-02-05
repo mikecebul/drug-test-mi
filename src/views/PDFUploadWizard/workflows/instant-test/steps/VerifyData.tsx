@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import InputDateTimePicker from '@/components/input-datetime-picker'
-import { ClientInfoCard, MedicationDisplayField, FieldGroupHeader } from '../../components'
+import { ClientInfoCardEditable, MedicationDisplayField, FieldGroupHeader } from '../../components'
 import { getInstantTestFormOpts } from '../shared-form'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -95,7 +95,20 @@ export const VerifyDataStep = withForm({
         {/* Client Info & Medications */}
         {client && (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
-            <ClientInfoCard client={client} />
+            <form.AppField name="client.newHeadshot">
+              {(field) => (
+                <ClientInfoCardEditable
+                  client={client}
+                  currentNewHeadshot={field.state.value ?? null}
+                  onHeadshotChange={(file) => field.handleChange(file)}
+                  onHeadshotUploaded={(url) => {
+                    // Clear the file (already uploaded) and update the headshot URL
+                    field.handleChange(null)
+                    form.setFieldValue('client.headshot', url)
+                  }}
+                />
+              )}
+            </form.AppField>
             {medications.length > 0 && <MedicationDisplayField medications={medications} />}
           </div>
         )}

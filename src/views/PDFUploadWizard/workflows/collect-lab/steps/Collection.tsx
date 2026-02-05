@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useStore } from '@tanstack/react-form'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
+import { ClientInfoCardEditable } from '../../components'
 import { getCollectLabFormOpts } from '../shared-form'
 import { collectionSchema, labTests } from '../validators'
 import InputDateTimePicker from '@/components/input-datetime-picker'
@@ -30,9 +31,42 @@ export const CollectionStep = withForm({
     const collectionDateValue = useStore(form.store, (state) => state.values.collection.collectionDate)
     const collectionDateTime = collectionDateValue ? new Date(collectionDateValue) : undefined
 
+    // Access client for the editable info card
+    const formClient = useStore(form.store, (state) => state.values.client)
+    const client = formClient?.id
+      ? {
+          ...formClient,
+          middleInitial: formClient.middleInitial ?? undefined,
+          dob: formClient.dob ?? undefined,
+          headshot: formClient.headshot ?? undefined,
+          fullName: formClient.middleInitial
+            ? `${formClient.firstName} ${formClient.middleInitial} ${formClient.lastName}`
+            : `${formClient.firstName} ${formClient.lastName}`,
+          initials: `${formClient.firstName.charAt(0)}${formClient.lastName.charAt(0)}`,
+        }
+      : undefined
+
     return (
       <div className="space-y-8">
         <FieldGroupHeader title="Collection Details" description="Verify the collection details are correct." />
+
+        {client && (
+          <form.AppField name="client.newHeadshot">
+            {(field) => (
+              <ClientInfoCardEditable
+                client={client}
+                currentNewHeadshot={field.state.value ?? null}
+                onHeadshotChange={(file) => field.handleChange(file)}
+                onHeadshotUploaded={(url) => {
+                  // Clear the file (already uploaded) and update the headshot URL
+                  field.handleChange(null)
+                  form.setFieldValue('client.headshot', url)
+                }}
+              />
+            )}
+          </form.AppField>
+        )}
+
         <Card>
           <CardContent className="pt-6">
             <div className="space-y-6">

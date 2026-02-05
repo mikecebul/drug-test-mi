@@ -37,6 +37,9 @@ export async function createInstantTest(
     }>
     confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
     confirmationSubstances?: SubstanceValue[]
+    newHeadshotBuffer?: number[]
+    newHeadshotMimetype?: string
+    newHeadshotName?: string
   },
   medications: FormMedications,
   emailConfig: {
@@ -67,7 +70,39 @@ export async function createInstantTest(
   })
 
   try {
-    // 1. Update client medications if provided
+    // 1. Upload headshot if provided
+    if (testData.newHeadshotBuffer && testData.newHeadshotMimetype && testData.newHeadshotName) {
+      try {
+        const buffer = Buffer.from(testData.newHeadshotBuffer)
+        const uploadedHeadshot = await payload.create({
+          collection: 'private-media',
+          data: {
+            documentType: 'headshot',
+            relatedClient: testData.clientId,
+          },
+          file: {
+            data: buffer,
+            mimetype: testData.newHeadshotMimetype,
+            name: testData.newHeadshotName,
+            size: buffer.length,
+          },
+          overrideAccess: true,
+        })
+
+        await payload.update({
+          collection: 'clients',
+          id: testData.clientId,
+          data: { headshot: uploadedHeadshot.id },
+          overrideAccess: true,
+        })
+        payload.logger.info(`[createInstantTest] Uploaded and linked headshot ${uploadedHeadshot.id} for client ${testData.clientId}`)
+      } catch (error) {
+        payload.logger.error('[createInstantTest] Failed to upload headshot:', error)
+        // Non-critical: continue with test creation
+      }
+    }
+
+    // 2. Update client medications if provided
     if (medications.length > 0) {
       payload.logger.info('[createInstantTest] Updating client medications...')
       await payload.update({
@@ -79,7 +114,7 @@ export async function createInstantTest(
       payload.logger.info('[createInstantTest] Medications updated')
     }
 
-    // 2. Prepare medications snapshot for test (active medications only)
+    // 3. Prepare medications snapshot for test (active medications only)
     const medicationsAtTestTime: MedicationSnapshot[] = medications
       .filter((med) => med.status === 'active')
       .map((med) => ({
