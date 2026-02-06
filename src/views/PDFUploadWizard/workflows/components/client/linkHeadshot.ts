@@ -10,7 +10,7 @@ import config from '@payload-config'
 export async function linkHeadshot(
   clientId: string,
   headshotId: string,
-): Promise<{ success: boolean; url?: string }> {
+): Promise<{ success: boolean; url?: string; id?: string }> {
   const payload = await getPayload({ config })
 
   try {
@@ -30,7 +30,7 @@ export async function linkHeadshot(
 
     payload.logger.info(`[linkHeadshot] Linked headshot ${headshotId} to client ${clientId}`)
 
-    return { success: true, url: headshot.thumbnailURL || headshot.url || undefined }
+    return { success: true, url: headshot.thumbnailURL || headshot.url || undefined, id: headshotId }
   } catch (error) {
     payload.logger.error('[linkHeadshot] Failed:', error)
     return { success: false }

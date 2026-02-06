@@ -18,37 +18,63 @@ interface HeadshotDrawerCardProps {
     email: string
     dob?: string | null
     headshot?: string | null
+    headshotId?: string | null
     phone?: string | null
   }
-  onHeadshotLinked?: (url: string) => void
+  onHeadshotLinked?: (url: string, docId: string) => void
 }
 
 /**
- * PoC: Client card that opens Payload's native DocumentDrawer to create a
+ * Client card that opens Payload's native DocumentDrawer to create or edit a
  * private-media headshot. Payload handles the entire upload pipeline (resize,
- * thumbnail, S3). On save we just link the new doc to the client.
+ * thumbnail, S3). On save we link the doc to the client.
  */
 export function HeadshotDrawerCard({ client, onHeadshotLinked }: HeadshotDrawerCardProps) {
   const [headshotUrl, setHeadshotUrl] = useState<string | undefined>(client.headshot ?? undefined)
+  const [currentHeadshotId, setCurrentHeadshotId] = useState<string | undefined>(client.headshotId ?? undefined)
 
-  const [DocumentDrawer, , { openDrawer }] = useDocumentDrawer({
+  // Single hook — id is reactive: undefined = create mode, string = edit mode
+  const [DocumentDrawer, , { openDrawer, closeDrawer }] = useDocumentDrawer({
     collectionSlug: 'private-media',
-    // no id → Payload renders the "create new" form
+    id: currentHeadshotId,
   })
 
   const handleSave = async ({ doc, operation }: { doc: { id: string | number }; operation: string }) => {
-    if (operation !== 'create') return
+    if (operation === 'create') {
+      // New headshot created
+      try {
+        const result = await linkHeadshot(client.id, String(doc.id))
+        if (result.success && result.url && result.id) {
+          setHeadshotUrl(result.url)
+          onHeadshotLinked?.(result.url, result.id)
+          toast.success('Headshot uploaded and linked')
 
-    try {
-      const result = await linkHeadshot(client.id, String(doc.id))
-      if (result.success && result.url) {
-        setHeadshotUrl(result.url)
-        onHeadshotLinked?.(result.url)
-        toast.success('Headshot uploaded and linked')
+          // Close drawer first to avoid state conflicts when updating currentHeadshotId
+          closeDrawer()
+
+          // Delay state update to ensure drawer is fully closed
+          setTimeout(() => {
+            setCurrentHeadshotId(result.id)
+          }, 100)
+        }
+      } catch (error) {
+        console.error('[HeadshotDrawerCard] Failed to link headshot:', error)
+        toast.error('Headshot was saved but could not be linked to the client')
       }
-    } catch (error) {
-      console.error('[HeadshotDrawerCard] Failed to link headshot:', error)
-      toast.error('Headshot was saved but could not be linked to the client')
+    } else if (operation === 'update') {
+      // Existing headshot updated - re-fetch to get new URL
+      try {
+        const result = await linkHeadshot(client.id, String(doc.id))
+        if (result.success && result.url && result.id) {
+          setHeadshotUrl(result.url)
+          onHeadshotLinked?.(result.url, result.id)
+          toast.success('Headshot updated')
+          closeDrawer()
+        }
+      } catch (error) {
+        console.error('[HeadshotDrawerCard] Failed to update headshot:', error)
+        toast.error('Headshot was saved but could not be linked to the client')
+      }
     }
   }
 
@@ -100,13 +126,12 @@ export function HeadshotDrawerCard({ client, onHeadshotLinked }: HeadshotDrawerC
         </div>
       </div>
 
-      {/* Payload's document creation drawer — opens on camera button click */}
       <DocumentDrawer
-        initialData={{
+        initialData={!currentHeadshotId ? {
           documentType: 'headshot',
           relatedClient: client.id,
           alt: `${client.firstName} ${client.lastName}`,
-        }}
+        } : undefined}
         onSave={handleSave}
         redirectAfterCreate={false}
       />

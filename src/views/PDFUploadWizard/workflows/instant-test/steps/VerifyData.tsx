@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import InputDateTimePicker from '@/components/input-datetime-picker'
-import { ClientInfoCardEditable, MedicationDisplayField, FieldGroupHeader } from '../../components'
+import { MedicationDisplayField, FieldGroupHeader, HeadshotDrawerCard } from '../../components'
 import { getInstantTestFormOpts } from '../shared-form'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -36,6 +36,7 @@ export const VerifyDataStep = withForm({
           middleInitial: formClient.middleInitial ?? undefined,
           dob: formClient.dob ?? undefined,
           headshot: formClient.headshot ?? undefined,
+          headshotId: formClient.headshotId ?? undefined,
           fullName: formClient.middleInitial
             ? `${formClient.firstName} ${formClient.middleInitial} ${formClient.lastName}`
             : `${formClient.firstName} ${formClient.lastName}`,
@@ -95,20 +96,13 @@ export const VerifyDataStep = withForm({
         {/* Client Info & Medications */}
         {client && (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
-            <form.AppField name="client.newHeadshot">
-              {(field) => (
-                <ClientInfoCardEditable
-                  client={client}
-                  currentNewHeadshot={field.state.value ?? null}
-                  onHeadshotChange={(file) => field.handleChange(file)}
-                  onHeadshotUploaded={(url) => {
-                    // Clear the file (already uploaded) and update the headshot URL
-                    field.handleChange(null)
-                    form.setFieldValue('client.headshot', url)
-                  }}
-                />
-              )}
-            </form.AppField>
+            <HeadshotDrawerCard
+              client={client}
+              onHeadshotLinked={(url: string, docId: string) => {
+                form.setFieldValue('client.headshot', url)
+                form.setFieldValue('client.headshotId', docId)
+              }}
+            />
             {medications.length > 0 && <MedicationDisplayField medications={medications} />}
           </div>
         )}

@@ -27,7 +27,14 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
   const queryClient = useQueryClient()
   const [registrationComplete, setRegistrationComplete] = useState(false)
   const [createdClientId, setCreatedClientId] = useState<string | null>(null)
-  const [createdClientName, setCreatedClientName] = useState<string>('')
+  const [createdClientData, setCreatedClientData] = useState<{
+    firstName: string
+    lastName: string
+    middleInitial?: string | null
+    email: string
+    dob: string
+    phone: string
+  } | null>(null)
   const [usedPassword, setUsedPassword] = useState<string>('')
 
   // URL is single source of truth for current step
@@ -60,7 +67,16 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
 
       if (result.success && result.clientId) {
         setCreatedClientId(result.clientId)
-        setCreatedClientName(`${result.clientFirstName} ${result.clientLastName}`)
+        setCreatedClientData({
+          firstName: value.personalInfo.firstName,
+          lastName: value.personalInfo.lastName,
+          middleInitial: value.personalInfo.middleInitial,
+          email: value.accountInfo.email,
+          dob: typeof value.personalInfo.dob === 'string'
+            ? value.personalInfo.dob
+            : value.personalInfo.dob.toISOString(),
+          phone: value.personalInfo.phone,
+        })
         setUsedPassword(value.accountInfo.password)
         setRegistrationComplete(true)
 
@@ -95,7 +111,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
   }, [currentStep, form, router])
 
   // If registration complete, show success screen
-  if (registrationComplete && createdClientId) {
+  if (registrationComplete && createdClientId && createdClientData) {
     const handleContinue = async () => {
       // Determine where to navigate based on returnTo param
       if (returnTo === 'instant-test') {
@@ -114,7 +130,13 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
 
     return (
       <SuccessStep
-        clientName={createdClientName}
+        clientId={createdClientId}
+        firstName={createdClientData.firstName}
+        lastName={createdClientData.lastName}
+        email={createdClientData.email}
+        middleInitial={createdClientData.middleInitial}
+        dob={createdClientData.dob}
+        phone={createdClientData.phone}
         password={usedPassword}
         onContinue={handleContinue}
         returnTo={returnTo}

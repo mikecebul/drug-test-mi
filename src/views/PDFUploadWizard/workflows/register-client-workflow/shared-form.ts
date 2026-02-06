@@ -47,7 +47,6 @@ const defaultValues: FormValues = {
     gender: '',
     dob: '',
     phone: '',
-    headshot: null,
   },
   accountInfo: {
     email: '',

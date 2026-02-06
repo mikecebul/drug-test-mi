@@ -81,17 +81,6 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
         const jsonSizeMB = (JSON.stringify(pdfBuffer).length / 1024 / 1024).toFixed(2)
         console.log(`[InstantTest] PDF Sizes - Original: ${originalSizeMB}MB, Buffer: ${bufferSizeMB}MB, JSON: ${jsonSizeMB}MB`)
 
-        // Serialize headshot File if provided
-        let newHeadshotBuffer: number[] | undefined
-        let newHeadshotMimetype: string | undefined
-        let newHeadshotName: string | undefined
-        if (value.client.newHeadshot) {
-          const headshotArrayBuffer = await value.client.newHeadshot.arrayBuffer()
-          newHeadshotBuffer = Array.from(new Uint8Array(headshotArrayBuffer))
-          newHeadshotMimetype = value.client.newHeadshot.type
-          newHeadshotName = value.client.newHeadshot.name
-        }
-
         console.log(`[InstantTest] Calling createInstantTest server action...`)
 
         const result = await createInstantTest(
@@ -109,9 +98,6 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
             confirmationResults: extractedData?.confirmationResults,
             confirmationDecision: value.verifyData.confirmationDecision ?? null,
             confirmationSubstances: value.verifyData.confirmationSubstances as any,
-            newHeadshotBuffer,
-            newHeadshotMimetype,
-            newHeadshotName,
           },
           value.medications,
           {

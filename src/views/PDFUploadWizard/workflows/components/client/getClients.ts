@@ -12,6 +12,7 @@ export interface SimpleClient {
   email: string
   dob?: string
   headshot?: string
+  headshotId?: string
   matchType?: 'exact' | 'fuzzy'
   score?: number
   phone?: string
@@ -40,6 +41,11 @@ export async function getClients(): Promise<SimpleClient[]> {
         ? client.headshot.thumbnailURL || client.headshot.url || undefined
         : undefined
 
+    const headshotId =
+      typeof client.headshot === 'object' && client.headshot
+        ? client.headshot.id
+        : undefined
+
     return {
       id: client.id,
       firstName: client.firstName,
@@ -52,6 +58,7 @@ export async function getClients(): Promise<SimpleClient[]> {
       email: client.email,
       dob: client.dob ?? undefined,
       headshot,
+      headshotId,
     }
   })
   return clients
@@ -82,6 +89,11 @@ export async function getClientById(id: string): Promise<SimpleClient | null> {
         ? client.headshot.thumbnailURL || client.headshot.url || undefined
         : undefined
 
+    const headshotId =
+      typeof client.headshot === 'object' && client.headshot
+        ? client.headshot.id
+        : undefined
+
     return {
       id: client.id,
       firstName: client.firstName,
@@ -95,6 +107,7 @@ export async function getClientById(id: string): Promise<SimpleClient | null> {
       dob: client.dob ?? undefined,
       phone: client.phone ?? undefined,
       headshot,
+      headshotId,
     }
   } catch (err) {
     // Payload throws if not found
@@ -130,6 +143,11 @@ export async function getClientFromTestId(testId: string): Promise<SimpleClient 
         ? client.headshot.thumbnailURL || client.headshot.url || undefined
         : undefined
 
+    const headshotId =
+      typeof client.headshot === 'object' && client.headshot
+        ? client.headshot.id
+        : undefined
+
     return {
       id: client.id,
       firstName: client.firstName,
@@ -143,6 +161,7 @@ export async function getClientFromTestId(testId: string): Promise<SimpleClient 
       dob: client.dob ?? undefined,
       phone: client.phone ?? undefined,
       headshot,
+      headshotId,
     }
   } catch (err) {
     console.error('Error fetching client from test:', err)

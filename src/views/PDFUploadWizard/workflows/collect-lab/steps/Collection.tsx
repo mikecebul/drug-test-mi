@@ -9,7 +9,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useStore } from '@tanstack/react-form'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
-import { ClientInfoCardEditable } from '../../components'
+import { HeadshotDrawerCard } from '../../components'
 import { getCollectLabFormOpts } from '../shared-form'
 import { collectionSchema, labTests } from '../validators'
 import InputDateTimePicker from '@/components/input-datetime-picker'
@@ -39,6 +39,7 @@ export const CollectionStep = withForm({
           middleInitial: formClient.middleInitial ?? undefined,
           dob: formClient.dob ?? undefined,
           headshot: formClient.headshot ?? undefined,
+          headshotId: formClient.headshotId ?? undefined,
           fullName: formClient.middleInitial
             ? `${formClient.firstName} ${formClient.middleInitial} ${formClient.lastName}`
             : `${formClient.firstName} ${formClient.lastName}`,
@@ -51,20 +52,13 @@ export const CollectionStep = withForm({
         <FieldGroupHeader title="Collection Details" description="Verify the collection details are correct." />
 
         {client && (
-          <form.AppField name="client.newHeadshot">
-            {(field) => (
-              <ClientInfoCardEditable
-                client={client}
-                currentNewHeadshot={field.state.value ?? null}
-                onHeadshotChange={(file) => field.handleChange(file)}
-                onHeadshotUploaded={(url) => {
-                  // Clear the file (already uploaded) and update the headshot URL
-                  field.handleChange(null)
-                  form.setFieldValue('client.headshot', url)
-                }}
-              />
-            )}
-          </form.AppField>
+          <HeadshotDrawerCard
+            client={client}
+            onHeadshotLinked={(url: string, docId: string) => {
+              form.setFieldValue('client.headshot', url)
+              form.setFieldValue('client.headshotId', docId)
+            }}
+          />
         )}
 
         <Card>

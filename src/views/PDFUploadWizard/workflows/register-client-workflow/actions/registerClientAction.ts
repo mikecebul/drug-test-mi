@@ -37,32 +37,6 @@ export async function registerClientAction(formData: FormValues): Promise<{
       }
     }
 
-    // Upload headshot if provided
-    let headshotId: string | undefined
-    if (personalInfo.headshot) {
-      try {
-        const buffer = Buffer.from(await personalInfo.headshot.arrayBuffer())
-        const uploadedHeadshot = await payload.create({
-          collection: 'private-media',
-          data: {
-            documentType: 'headshot',
-          },
-          file: {
-            data: buffer,
-            mimetype: personalInfo.headshot.type,
-            name: personalInfo.headshot.name,
-            size: buffer.length,
-          },
-          overrideAccess: true,
-        })
-        headshotId = uploadedHeadshot.id
-        payload.logger.info(`[registerClientAction] Uploaded headshot ${headshotId}`)
-      } catch (error) {
-        payload.logger.error('[registerClientAction] Failed to upload headshot:', error)
-        // Continue with registration even if headshot upload fails
-      }
-    }
-
     // Build client data
     const clientData: any = {
       firstName: personalInfo.firstName,
@@ -76,7 +50,6 @@ export async function registerClientAction(formData: FormValues): Promise<{
       clientType: screeningType.requestedBy,
       preferredContactMethod: 'email',
       _verified: true, // Auto-verify admin-created clients
-      ...(headshotId && { headshot: headshotId }),
     }
 
     // Add type-specific recipient info
@@ -133,24 +106,6 @@ export async function registerClientAction(formData: FormValues): Promise<{
       data: clientData,
       overrideAccess: true,
     })
-
-    // Update headshot with relatedClient reference
-    if (headshotId) {
-      try {
-        await payload.update({
-          collection: 'private-media',
-          id: headshotId,
-          data: {
-            relatedClient: newClient.id,
-          },
-          overrideAccess: true,
-        })
-        payload.logger.info(`[registerClientAction] Linked headshot to client ${newClient.id}`)
-      } catch (error) {
-        payload.logger.error('[registerClientAction] Failed to link headshot to client:', error)
-        // Non-critical error, continue
-      }
-    }
 
     payload.logger.info(`[registerClientAction] Created client ${newClient.id} for ${accountInfo.email}`)
 

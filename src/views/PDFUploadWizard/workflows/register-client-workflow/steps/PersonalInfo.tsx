@@ -48,18 +48,6 @@ export const PersonalInfoStep = withForm({
             {(field) => <field.PhoneField label="Phone Number" required />}
           </form.AppField>
         </div>
-
-        <form.AppField name="personalInfo.headshot">
-          {(field) => (
-            <field.ImageUploadField
-              label="Headshot Photo"
-              description="Optional photo for identification during testing. You can take a photo or upload one."
-              accept="image/*"
-              maxSize={10 * 1024 * 1024}
-              aspectRatio={1}
-            />
-          )}
-        </form.AppField>
       </div>
     )
   },

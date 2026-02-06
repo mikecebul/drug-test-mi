@@ -50,7 +50,10 @@ export const MedicationsStep = withForm({
         client={client}
         isLoading={isLoading}
         handleRefresh={handleRefresh}
-        onHeadshotLinked={(url) => form.setFieldValue('client.headshot', url)}
+        onHeadshotLinked={(url, docId) => {
+          form.setFieldValue('client.headshot', url)
+          form.setFieldValue('client.headshotId', docId)
+        }}
       />
     )
   },

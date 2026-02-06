@@ -50,17 +50,6 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
 
       // Final submit only happens on last step
       try {
-        // Serialize headshot File if provided
-        let newHeadshotBuffer: number[] | undefined
-        let newHeadshotMimetype: string | undefined
-        let newHeadshotName: string | undefined
-        if (value.client.newHeadshot) {
-          const headshotArrayBuffer = await value.client.newHeadshot.arrayBuffer()
-          newHeadshotBuffer = Array.from(new Uint8Array(headshotArrayBuffer))
-          newHeadshotMimetype = value.client.newHeadshot.type
-          newHeadshotName = value.client.newHeadshot.name
-        }
-
         const result = await createCollectionWithEmailReview(
           {
             clientId: value.client.id,
@@ -68,9 +57,6 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
             collectionDate: value.collection.collectionDate,
             breathalyzerTaken: value.collection.breathalyzerTaken,
             breathalyzerResult: value.collection.breathalyzerResult ?? null,
-            newHeadshotBuffer,
-            newHeadshotMimetype,
-            newHeadshotName,
           },
           value.medications,
           {
