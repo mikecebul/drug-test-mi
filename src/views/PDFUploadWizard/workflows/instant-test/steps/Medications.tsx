@@ -41,8 +41,6 @@ export const MedicationsStep = withForm({
       }
     }, [medications, form])
 
-    const newHeadshot = useStore(form.store, (state) => state.values.client.newHeadshot)
-
     return (
       <MedicationFieldGroup
         form={form}
@@ -52,12 +50,7 @@ export const MedicationsStep = withForm({
         client={client}
         isLoading={isLoading}
         handleRefresh={handleRefresh}
-        currentNewHeadshot={newHeadshot ?? null}
-        onHeadshotChange={(file) => form.setFieldValue('client.newHeadshot', file)}
-        onHeadshotUploaded={(url) => {
-          form.setFieldValue('client.newHeadshot', null)
-          form.setFieldValue('client.headshot', url)
-        }}
+        onHeadshotLinked={(url) => form.setFieldValue('client.headshot', url)}
       />
     )
   },
