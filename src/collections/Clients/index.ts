@@ -160,6 +160,11 @@ export const Clients: CollectionConfig = {
     defaultColumns: ['headshot', 'lastName', 'email', 'clientType'],
     useAsTitle: 'fullName',
     listSearchableFields: ['email', 'firstName', 'lastName'],
+    components: {
+      edit: {
+        beforeDocumentControls: ['@/collections/Clients/components/QuickBookButton'],
+      },
+    },
   },
   fields: [
     // Sidebar fields - always visible
