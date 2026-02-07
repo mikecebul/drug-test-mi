@@ -53,7 +53,7 @@ export async function createCollectionWithEmailReview(
 
     // 1. Update client medications if there are changes
     if (medications.length > 0) {
-      // Filter out UI-only flags and prepare for database
+      // Remove UI-only flags (_isNew, _wasDiscontinued) and prepare for database
       const cleanedMedications = medications.map((med) => {
         const { _isNew, _wasDiscontinued, ...cleanMed } = med
         // Ensure createdAt is set for new medications
@@ -76,7 +76,7 @@ export async function createCollectionWithEmailReview(
       })
     }
 
-    // 3. Fetch updated active medications for drug test snapshot
+    // 2. Fetch updated active medications for drug test snapshot
     const activeMedications = await getActiveMedications(testData.clientId, payload)
 
     // 3. Create drug test
@@ -120,7 +120,7 @@ export async function createCollectionWithEmailReview(
       clientDob,
     })
 
-    // 4. Send emails using service layer (no attachment for collected stage)
+    // 7. Send emails using service layer (no attachment for collected stage)
     const referralRecipients = emailConfig.referralEmailEnabled ? emailConfig.referralRecipients : []
 
     const emailResult = await sendEmails({
@@ -138,7 +138,7 @@ export async function createCollectionWithEmailReview(
     const sentTo = emailResult.sentTo
     const failedTo = emailResult.failedRecipients
 
-    // 5. Update notification history
+    // 8. Update notification history
     const notificationEntry = {
       stage: 'collected',
       sentAt: new Date().toISOString() || null,

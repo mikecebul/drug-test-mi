@@ -9,6 +9,14 @@ import { formatDateOnly } from '@/lib/date-utils'
 import { toast } from 'sonner'
 import { linkHeadshot } from './linkHeadshot'
 
+/**
+ * Delay before updating currentHeadshotId after closing the drawer.
+ * This prevents a race condition where the drawer re-renders in edit mode
+ * while the close animation is still running (PayloadCMS v3.74 default transition).
+ * Increase this value if you see flickering or drawer state issues on slower devices.
+ */
+const DRAWER_CLOSE_DELAY_MS = 150
+
 interface HeadshotDrawerCardProps {
   client: {
     id: string
@@ -44,36 +52,100 @@ export function HeadshotDrawerCard({ client, onHeadshotLinked }: HeadshotDrawerC
       // New headshot created
       try {
         const result = await linkHeadshot(client.id, String(doc.id))
-        if (result.success && result.url && result.id) {
-          setHeadshotUrl(result.url)
-          onHeadshotLinked?.(result.url, result.id)
-          toast.success('Headshot uploaded and linked')
 
-          // Close drawer first to avoid state conflicts when updating currentHeadshotId
-          closeDrawer()
+        if (!result.success) {
+          // Handle specific error from server action
+          const errorMessage = result.error || 'Failed to link headshot to client'
+          console.error('[HeadshotDrawerCard] Link failed:', {
+            clientId: client.id,
+            headshotId: String(doc.id),
+            error: errorMessage,
+            errorCode: result.errorCode,
+          })
 
-          // Delay state update to ensure drawer is fully closed
-          setTimeout(() => {
-            setCurrentHeadshotId(result.id)
-          }, 100)
+          toast.error(
+            `Upload failed: ${errorMessage}. The headshot was saved but not linked. Please try again or contact support.`,
+            { duration: 5000 }
+          )
+          return // Don't update state if link failed
         }
+
+        if (!result.url || !result.id) {
+          console.error('[HeadshotDrawerCard] Missing URL or ID in success response:', result)
+          toast.error('Headshot was linked but URL is missing. Please refresh the page.')
+          return
+        }
+
+        // Only update state on complete success
+        setHeadshotUrl(result.url)
+        onHeadshotLinked?.(result.url, result.id)
+        toast.success('Headshot uploaded and linked successfully')
+
+        // Close drawer first to prevent race condition where drawer re-renders with new ID before unmounting
+        closeDrawer()
+
+        // Delay state update until drawer completes its close animation and unmount
+        setTimeout(() => {
+          setCurrentHeadshotId(result.id)
+        }, DRAWER_CLOSE_DELAY_MS)
       } catch (error) {
-        console.error('[HeadshotDrawerCard] Failed to link headshot:', error)
-        toast.error('Headshot was saved but could not be linked to the client')
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        console.error('[HeadshotDrawerCard] Unexpected error during headshot creation:', {
+          clientId: client.id,
+          headshotId: String(doc.id),
+          error: errorMessage,
+          errorStack: error instanceof Error ? error.stack : undefined,
+        })
+
+        toast.error(
+          `An unexpected error occurred during headshot upload: ${errorMessage}. Please try again or contact support.`,
+          { duration: 6000 }
+        )
       }
     } else if (operation === 'update') {
       // Existing headshot updated - re-fetch to get new URL
       try {
         const result = await linkHeadshot(client.id, String(doc.id))
-        if (result.success && result.url && result.id) {
-          setHeadshotUrl(result.url)
-          onHeadshotLinked?.(result.url, result.id)
-          toast.success('Headshot updated')
-          closeDrawer()
+
+        if (!result.success) {
+          const errorMessage = result.error || 'Failed to update headshot link'
+          console.error('[HeadshotDrawerCard] Update link failed:', {
+            clientId: client.id,
+            headshotId: String(doc.id),
+            error: errorMessage,
+            errorCode: result.errorCode,
+          })
+
+          toast.error(
+            `Update failed: ${errorMessage}. The changes were saved but not linked. Please try again.`,
+            { duration: 5000 }
+          )
+          return
         }
+
+        if (!result.url || !result.id) {
+          console.error('[HeadshotDrawerCard] Missing URL or ID in update response:', result)
+          toast.error('Headshot was updated but URL is missing. Please refresh the page.')
+          return
+        }
+
+        setHeadshotUrl(result.url)
+        onHeadshotLinked?.(result.url, result.id)
+        toast.success('Headshot updated successfully')
+        closeDrawer()
       } catch (error) {
-        console.error('[HeadshotDrawerCard] Failed to update headshot:', error)
-        toast.error('Headshot was saved but could not be linked to the client')
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        console.error('[HeadshotDrawerCard] Unexpected error during headshot update:', {
+          clientId: client.id,
+          headshotId: String(doc.id),
+          error: errorMessage,
+          errorStack: error instanceof Error ? error.stack : undefined,
+        })
+
+        toast.error(
+          `An unexpected error occurred during headshot update: ${errorMessage}. Please try again.`,
+          { duration: 6000 }
+        )
       }
     }
   }

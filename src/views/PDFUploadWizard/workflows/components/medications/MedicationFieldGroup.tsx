@@ -7,7 +7,7 @@ import { cn } from '@/utilities/cn'
 import { MedicationCardHeader } from './MedicationCardHeader'
 import { getTodayDateString, type MedicationWithUIState } from './helpers'
 import { Button } from '@/components/ui/button'
-import { Plus, RefreshCw } from 'lucide-react'
+import { Plus, RefreshCw, AlertCircle } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { MedicationMotionWrapper } from './MedicationWrapper'
 import { FieldGroupHeader } from '../FieldGroupHeader'
@@ -24,10 +24,11 @@ export const MedicationFieldGroup = withFieldGroup({
   props: {
     client: {} as FormClient,
     isLoading: false,
+    error: null as Error | null,
     handleRefresh: () => {},
     onHeadshotLinked: ((url: string, docId: string) => {}) as (url: string, docId: string) => void,
   },
-  render: function Render({ group, client, isLoading, handleRefresh, onHeadshotLinked }) {
+  render: function Render({ group, client, isLoading, error, handleRefresh, onHeadshotLinked }) {
     if (!client) {
       return (
         <div className="space-y-6">
@@ -76,7 +77,22 @@ export const MedicationFieldGroup = withFieldGroup({
               </Button>
             </div>
 
-            {isLoading ? (
+            {error ? (
+              <div className="text-destructive py-8 text-center">
+                <AlertCircle className="mx-auto mb-2 h-8 w-8" />
+                <p className="font-semibold">Failed to load medications</p>
+                <p className="text-sm mt-1">{error.message}</p>
+                <Button
+                  onClick={handleRefresh}
+                  variant="outline"
+                  className="mt-4"
+                  type="button"
+                >
+                  <RefreshCw className="mr-2 size-4" />
+                  Try Again
+                </Button>
+              </div>
+            ) : isLoading ? (
               <div className="text-muted-foreground py-8 text-center">
                 <RefreshCw className="mx-auto mb-2 h-8 w-8 animate-spin" />
                 <p>Loading medications...</p>

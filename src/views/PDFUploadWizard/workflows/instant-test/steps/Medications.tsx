@@ -17,12 +17,15 @@ export const MedicationsStep = withForm({
     const {
       data: medications,
       isLoading,
+      error,
       refetch,
     } = useQuery({
       queryKey: ['medications', client.id],
       queryFn: () => getClientMedications(client.id),
       staleTime: Infinity,
       enabled: !!client.id,
+      retry: 2, // Retry failed requests
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     })
 
     const handleRefresh = async () => {
@@ -49,6 +52,7 @@ export const MedicationsStep = withForm({
         }}
         client={client}
         isLoading={isLoading}
+        error={error}
         handleRefresh={handleRefresh}
         onHeadshotLinked={(url, docId) => {
           form.setFieldValue('client.headshot', url)

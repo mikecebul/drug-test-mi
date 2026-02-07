@@ -8,16 +8,6 @@ import { FormMedications } from '../../shared-validators'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 import { createAdminAlert } from '@/lib/admin-alerts'
 
-// interface MedicationInput {
-//   medicationName: string
-//   startDate: string | null
-//   endDate: string | null
-//   status: 'active' | 'discontinued'
-//   detectedAs?: string[]
-//   requireConfirmation?: boolean
-//   notes?: string
-// }
-
 export async function createInstantTest(
   testData: {
     clientId: string
@@ -79,7 +69,7 @@ export async function createInstantTest(
       payload.logger.info('[createInstantTest] Medications updated')
     }
 
-    // 3. Prepare medications snapshot for test (active medications only)
+    // 2. Prepare medications snapshot for test (active medications only)
     const medicationsAtTestTime: MedicationSnapshot[] = medications
       .filter((med) => med.status === 'active')
       .map((med) => ({
