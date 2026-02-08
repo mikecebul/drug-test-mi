@@ -15,6 +15,7 @@ export interface EmailFieldUIProps {
 export default function EmailField({ label, colSpan, required }: EmailFieldUIProps) {
   const field = useFieldContext<string>()
   const errors = useStore(field.store, (state) => state.meta.errors)
+  const hasErrors = !!errors && errors.length > 0
 
   return (
     <div className={cn('col-span-2 w-full', { '@lg:col-span-1': colSpan === '1' })}>
@@ -31,6 +32,7 @@ export default function EmailField({ label, colSpan, required }: EmailFieldUIPro
           onBlur={() => field.handleBlur()}
           onChange={(e) => field.handleChange(e.target.value)}
           autoComplete="email"
+          aria-invalid={hasErrors || undefined}
         />
       </div>
       <div>

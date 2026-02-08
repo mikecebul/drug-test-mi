@@ -15,6 +15,7 @@ export interface PhoneFieldUIProps {
 export default function PhoneField({ label, colSpan, required }: PhoneFieldUIProps) {
   const field = useFieldContext<string>()
   const errors = useStore(field.store, (state) => state.meta.errors)
+  const hasErrors = !!errors && errors.length > 0
 
   return (
     <div className={cn('col-span-2 w-full', { '@lg:col-span-1': colSpan === '1' })}>
@@ -25,11 +26,13 @@ export default function PhoneField({ label, colSpan, required }: PhoneFieldUIPro
         </Label>
         <Input
           id={field.name}
+          name={field.name}
           type="text"
           value={field.state.value ?? ''}
           onBlur={() => field.handleBlur()}
           onChange={(e) => field.handleChange(e.target.value)}
           autoComplete="tel"
+          aria-invalid={hasErrors || undefined}
         />
       </div>
       <div>{errors && <em className="text-destructive text-sm first:mt-1">{errors[0]?.message}</em>}</div>

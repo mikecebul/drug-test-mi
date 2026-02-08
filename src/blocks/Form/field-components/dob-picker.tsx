@@ -1,6 +1,7 @@
 'use client'
 
 import { useFieldContext } from '../hooks/form-context'
+import { useStore } from '@tanstack/react-form'
 import { Label } from '@/components/ui/label'
 import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
@@ -78,7 +79,8 @@ function isValidDate(date: Date | undefined) {
 
 export default function DobPicker({ label, colSpan, required }: DobFieldUIProps) {
   const field = useFieldContext<string | Date | undefined>()
-  const errors = field.state.meta.errors
+  const errors = useStore(field.store, (state) => state.meta.errors)
+  const hasErrors = !!errors && errors.length > 0
   const [open, setOpen] = React.useState(false)
 
   // Handle both string and Date values
@@ -125,6 +127,7 @@ export default function DobPicker({ label, colSpan, required }: DobFieldUIProps)
       <div className="relative flex gap-2">
         <Input
           id={field.name}
+          name={field.name}
           value={inputValue}
           placeholder="01/01/1900"
           className="pr-10"
@@ -182,6 +185,7 @@ export default function DobPicker({ label, colSpan, required }: DobFieldUIProps)
               setOpen(true)
             }
           }}
+          aria-invalid={hasErrors || undefined}
         />
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>

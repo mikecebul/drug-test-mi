@@ -3,6 +3,7 @@
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import type { FormValues } from '../validators'
+import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
 import {
   COURT_CONFIGS,
   EMPLOYER_CONFIGS,
@@ -21,6 +22,10 @@ export async function registerClientAction(formData: FormValues): Promise<{
 
   try {
     const { personalInfo, accountInfo, screeningType, recipients } = formData
+    const formattedFirstName = formatPersonName(personalInfo.firstName)
+    const formattedLastName = formatPersonName(personalInfo.lastName)
+    const formattedMiddleInitial = formatMiddleInitial(personalInfo.middleInitial)
+    const formattedPhone = formatPhoneNumber(personalInfo.phone)
 
     // Check if email already exists
     const existingClient = await payload.find({
@@ -39,14 +44,14 @@ export async function registerClientAction(formData: FormValues): Promise<{
 
     // Build client data
     const clientData: any = {
-      firstName: personalInfo.firstName,
-      lastName: personalInfo.lastName,
-      ...(personalInfo.middleInitial && { middleInitial: personalInfo.middleInitial }),
+      firstName: formattedFirstName,
+      lastName: formattedLastName,
+      ...(formattedMiddleInitial && { middleInitial: formattedMiddleInitial }),
       email: accountInfo.email,
       password: accountInfo.password, // Use password from form (could be auto-generated or custom)
       gender: personalInfo.gender,
       dob: personalInfo.dob,
-      phone: personalInfo.phone,
+      phone: formattedPhone,
       clientType: screeningType.requestedBy,
       preferredContactMethod: 'email',
       _verified: true, // Auto-verify admin-created clients

@@ -6,7 +6,7 @@
  * with PDF timestamps and legal documentation.
  */
 
-import { format } from 'date-fns'
+import { format, parse } from 'date-fns'
 import { TZDate } from '@date-fns/tz'
 
 /**
@@ -65,6 +65,46 @@ export function formatCollectionDateShort(dateString: string | Date): string {
 export function formatDateOnly(dateString: string | Date): string {
   const date = typeof dateString === 'string' ? new Date(dateString) : dateString
   return format(date, 'MM/dd/yyyy')
+}
+
+/**
+ * Format date-only values for storage (YYYY-MM-DD)
+ * Uses local calendar date (no timezone conversion)
+ */
+export function formatDateOnlyISO(dateString: string | Date): string {
+  if (typeof dateString === 'string') {
+    const trimmed = dateString.trim()
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed
+    }
+    if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{4}$/.test(trimmed)) {
+      const normalized = trimmed.replace(/-/g, '/')
+      const parsed = parse(normalized, 'MM/dd/yyyy', new Date())
+      if (!Number.isNaN(parsed.getTime())) {
+        return format(parsed, 'yyyy-MM-dd')
+      }
+    }
+    const parsed = new Date(trimmed)
+    if (Number.isNaN(parsed.getTime())) {
+      return trimmed
+    }
+    return format(parsed, 'yyyy-MM-dd')
+  }
+  return format(dateString, 'yyyy-MM-dd')
+}
+
+/**
+ * Get today's date for date-only fields (YYYY-MM-DD)
+ */
+export function getTodayDateOnlyISO(): string {
+  return format(new Date(), 'yyyy-MM-dd')
+}
+
+/**
+ * Get current timestamp (ISO)
+ */
+export function getCurrentIsoTimestamp(): string {
+  return new Date().toISOString()
 }
 
 /**

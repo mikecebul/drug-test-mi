@@ -1,32 +1,16 @@
 'use client'
 
-import { withFieldGroup } from '@/blocks/Form/hooks/form'
-import { FileText } from 'lucide-react'
-import { z } from 'zod'
-import type { RegistrationFormType } from '../schemas/registrationSchemas'
+import { withForm } from '@/blocks/Form/hooks/form'
+import { getRegisterClientFormOpts } from '../shared-form'
 
-// Export the schema for reuse in step validation
-export const termsAndConditionsFieldSchema = z.object({
-  agreeToTerms: z.boolean().refine((val) => val === true, {
-    error: 'You must agree to the terms and conditions',
-  }),
-})
+export const TermsStep = withForm({
+  ...getRegisterClientFormOpts('terms'),
 
-const defaultValues: RegistrationFormType['termsAndConditions'] = {
-  agreeToTerms: false,
-}
-export const TermsAndConditionsGroup = withFieldGroup({
-  defaultValues,
-  props: {
-    title: 'Terms & Conditions',
-  },
-
-  render: function Render({ group, title }) {
+  render: function Render({ form }) {
     return (
       <div className="space-y-6">
         <div className="flex items-center mb-6">
-          <FileText className="w-6 h-6 text-primary mr-3" />
-          <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+          <h2 className="text-xl font-semibold text-foreground">Terms & Conditions</h2>
         </div>
 
         <div className="bg-muted rounded-lg p-6 max-h-64 overflow-y-auto border border-border">
@@ -47,14 +31,7 @@ export const TermsAndConditionsGroup = withFieldGroup({
           </div>
         </div>
 
-        <group.AppField
-          name="agreeToTerms"
-          validators={{
-            onChange: z.boolean().refine((val) => val === true, {
-              message: 'You must agree to the terms and conditions to continue',
-            }),
-          }}
-        >
+        <form.AppField name="terms.agreeToTerms">
           {(field) => (
             <div>
               <label className="flex items-start">
@@ -76,7 +53,7 @@ export const TermsAndConditionsGroup = withFieldGroup({
               )}
             </div>
           )}
-        </group.AppField>
+        </form.AppField>
       </div>
     )
   },

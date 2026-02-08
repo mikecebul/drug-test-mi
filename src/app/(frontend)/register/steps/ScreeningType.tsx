@@ -1,54 +1,32 @@
 'use client'
 
-import { withFieldGroup } from '@/blocks/Form/hooks/form'
-import { ClipboardCheck } from 'lucide-react'
-import { z } from 'zod'
-import { useStore } from '@tanstack/react-form'
+import { withForm } from '@/blocks/Form/hooks/form'
+import { getRegisterClientFormOpts } from '../shared-form'
 import { SCREENING_TYPES } from '../types'
-import type { RegistrationFormType } from '../schemas/registrationSchemas'
+import { useStore } from '@tanstack/react-form'
 
-// Export the schema for reuse in step validation
-export const screeningRequestFieldSchema = z.object({
-  requestedBy: z.enum(['probation', 'employment', 'self', ''], {
-    error: 'Please select who is requesting this screening',
-  }).refine((val) => val !== '', {
-    error: 'Please select who is requesting this screening',
-  }),
-})
+export const ScreeningTypeStep = withForm({
+  ...getRegisterClientFormOpts('screeningType'),
 
-const defaultValues: RegistrationFormType['screeningRequest'] = {
-  requestedBy: '',
-}
-
-export const ScreeningRequestGroup = withFieldGroup({
-  defaultValues,
-  props: {
-    title: 'Screening Request',
-  },
-
-  render: function Render({ group, title }) {
-    const requestedBy = useStore(group.store, (state) => state.values.requestedBy)
+  render: function Render({ form }) {
+    const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
 
     return (
       <div className="space-y-6">
         <div className="mb-6 flex items-center">
-          <ClipboardCheck className="text-primary mr-3 h-6 w-6" />
-          <h2 className="text-foreground text-xl font-semibold">{title}</h2>
+          <h2 className="text-foreground text-xl font-semibold">Screening Request</h2>
         </div>
 
-        <group.AppField
-          name="requestedBy"
-          validators={{
-            onChange: screeningRequestFieldSchema.shape.requestedBy,
-          }}
-        >
-          {(field) => (
+        <form.AppField name="screeningType.requestedBy">
+          {(field) => {
+            const hasErrors = field.state.meta.errors.length > 0
+            return (
             <div>
               <label className="text-foreground mb-4 block text-sm font-medium">
                 Who is requesting this drug screening?
               </label>
               <div className="space-y-3">
-                {SCREENING_TYPES.map((option: { value: 'probation' | 'employment' | 'self'; label: string; description: string }) => (
+                {SCREENING_TYPES.map((option) => (
                   <label
                     key={option.value}
                     className={`hover:bg-accent/50 flex cursor-pointer items-center rounded-lg border-2 p-4 transition-all ${
@@ -62,8 +40,9 @@ export const ScreeningRequestGroup = withFieldGroup({
                       name={field.name}
                       value={option.value}
                       checked={requestedBy === option.value}
-                      onChange={(e) => field.handleChange(e.target.value as 'probation' | 'employment' | 'self')}
+                      onChange={(e) => field.handleChange(e.target.value as (typeof SCREENING_TYPES)[number]['value'])}
                       className="text-primary border-border focus:ring-primary h-5 w-5"
+                      aria-invalid={hasErrors || undefined}
                     />
                     <div className="ml-3">
                       <span className="text-foreground text-base font-medium">{option.label}</span>
@@ -78,8 +57,8 @@ export const ScreeningRequestGroup = withFieldGroup({
                 </em>
               )}
             </div>
-          )}
-        </group.AppField>
+          )}}
+        </form.AppField>
       </div>
     )
   },

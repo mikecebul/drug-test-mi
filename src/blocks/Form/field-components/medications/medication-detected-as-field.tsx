@@ -1,7 +1,8 @@
 'use client'
 
 import { useFieldContext } from '../../hooks/form-context'
-import { Field, FieldContent, FieldLabel } from '@/components/ui/field'
+import { useStore } from '@tanstack/react-form'
+import { Field, FieldContent, FieldError, FieldLabel } from '@/components/ui/field'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/utilities/cn'
 import { DRUG_TEST_SUBSTANCES } from '@/app/dashboard/medications/constants/drugTestSubstances'
@@ -12,6 +13,8 @@ interface MedicationDetectedAsFieldProps {
 
 export default function MedicationDetectedAsField({ isLocked = false }: MedicationDetectedAsFieldProps) {
   const field = useFieldContext<string[]>()
+  const errors = useStore(field.store, (state) => state.meta.errors)
+  const hasErrors = !!errors && errors.length > 0
 
   const selectedValues = field.state.value || []
 
@@ -28,7 +31,12 @@ export default function MedicationDetectedAsField({ isLocked = false }: Medicati
     <Field>
       <FieldContent>
         <FieldLabel>Detected As (on drug test)</FieldLabel>
-        <div className="border-border grid grid-cols-2 gap-2 rounded-md border p-3">
+        <div
+          id={field.name}
+          className="border-border grid grid-cols-2 gap-2 rounded-md border p-3"
+          tabIndex={-1}
+          aria-invalid={hasErrors || undefined}
+        >
           {DRUG_TEST_SUBSTANCES.map((substance) => (
             <label
               key={substance.value}
@@ -46,6 +54,7 @@ export default function MedicationDetectedAsField({ isLocked = false }: Medicati
             </label>
           ))}
         </div>
+        <FieldError errors={errors} />
       </FieldContent>
     </Field>
   )

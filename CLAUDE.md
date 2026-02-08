@@ -103,8 +103,6 @@ Pages are built using a flexible block system (`src/blocks/`):
 
 The client dashboard (`src/app/dashboard/`) has been fully migrated from TanStack Query to a simpler Next.js server component pattern using Payload's local API.
 
-**✅ Migration Complete**: Successfully moved away from TanStack Query to eliminate hydration mismatches and reduce complexity. All core dashboard pages now use the server component pattern.
-
 **New Pattern (Preferred)**:
 1. Server components fetch data directly using Payload's local API (`getPayload()`)
 2. Data is computed and passed as props to client components

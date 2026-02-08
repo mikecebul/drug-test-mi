@@ -10,6 +10,7 @@ import { calculateNameSimilarity, calculateSimilarity } from './utils/calculateS
 import { computeTestResults, computeFinalStatus, fetchDocument, sendEmails } from '@/collections/DrugTests/services'
 import { FormMedications } from './workflows/shared-validators'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
+import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
 
 const TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
 const TEST_EMAIL = process.env.EMAIL_TEST_ADDRESS || 'mike@midrugtest.com'
@@ -1848,17 +1849,21 @@ export async function registerClientFromWizard(data: {
 
     // Generate a random password
     const generatedPassword = generateSecurePassword()
+    const formattedFirstName = formatPersonName(data.firstName)
+    const formattedLastName = formatPersonName(data.lastName)
+    const formattedMiddleInitial = formatMiddleInitial(data.middleInitial)
+    const formattedPhone = formatPhoneNumber(data.phone)
 
     // Build client data
     const clientData: any = {
-      firstName: data.firstName,
-      lastName: data.lastName,
-      middleInitial: data.middleInitial || undefined,
+      firstName: formattedFirstName,
+      lastName: formattedLastName,
+      middleInitial: formattedMiddleInitial,
       email: data.email,
       password: generatedPassword,
       gender: data.gender,
       dob: data.dob,
-      phone: data.phone,
+      phone: formattedPhone,
       clientType: data.clientType,
       preferredContactMethod: 'email',
       _verified: true, // Skip email verification for admin-created clients

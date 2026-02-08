@@ -1,8 +1,67 @@
 import { z } from 'zod'
-import { personalInfoFieldSchema } from '@/app/(frontend)/register/field-groups/PersonalInfoGroup'
-import { accountInfoFieldSchema } from '@/app/(frontend)/register/field-groups/AccountInfoGroup'
-import { screeningRequestFieldSchema } from '@/app/(frontend)/register/field-groups/ScreeningRequestGroup'
-import { termsAndConditionsFieldSchema } from '@/app/(frontend)/register/field-groups/TermsAndConditionsGroup'
+
+export const personalInfoFieldSchema = z.object({
+  firstName: z.string().min(1, { error: 'First name is required' }),
+  lastName: z.string().min(1, { error: 'Last name is required' }),
+  middleInitial: z.string().max(1, { error: 'Middle initial must be a single character' }).optional(),
+  gender: z.string().min(1, { error: 'Please select a gender' }),
+  dob: z.union([
+    z.string().min(1, { error: 'Date of birth is required' }),
+    z.date({ error: 'Date of birth is required' }),
+  ])
+    .refine((val) => {
+      const date = typeof val === 'string' ? new Date(val) : val
+      if (isNaN(date.getTime())) return false
+      const year = date.getFullYear()
+      const currentYear = new Date().getFullYear()
+      return year >= 1900 && year <= currentYear
+    }, {
+      message: 'Please enter a valid date',
+    })
+    .refine((val) => {
+      const date = typeof val === 'string' ? new Date(val) : val
+      const thirteenYearsAgo = new Date()
+      thirteenYearsAgo.setFullYear(thirteenYearsAgo.getFullYear() - 13)
+      return date <= thirteenYearsAgo
+    }, {
+      message: 'You must be at least 13 years old',
+    }),
+  phone: z
+    .string()
+    .min(1, { error: 'Phone number is required' })
+    .regex(/^(?:\+?1[-. ]?)?\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/, {
+      error: 'Please enter a valid phone number',
+    }),
+  headshot: z.instanceof(File).optional().nullable(),
+})
+
+export const accountInfoFieldSchema = z.object({
+  email: z
+    .string()
+    .min(1, { error: 'Email is required' })
+    .pipe(z.email({ error: 'Please enter a valid email address' })),
+  password: z
+    .string()
+    .min(8, { error: 'Password must be at least 8 characters' })
+    .regex(/[A-Z]/, { error: 'Password must contain at least one uppercase letter' })
+    .regex(/[a-z]/, { error: 'Password must contain at least one lowercase letter' })
+    .regex(/[0-9]/, { error: 'Password must contain at least one number' }),
+  confirmPassword: z.string().min(1, { error: 'Please confirm your password' }),
+})
+
+export const screeningRequestFieldSchema = z.object({
+  requestedBy: z.enum(['probation', 'employment', 'self', ''], {
+    error: 'Please select who is requesting this screening',
+  }).refine((val) => val !== '', {
+    error: 'Please select who is requesting this screening',
+  }),
+})
+
+export const termsAndConditionsFieldSchema = z.object({
+  agreeToTerms: z.boolean().refine((val) => val === true, {
+    error: 'You must agree to the terms and conditions',
+  }),
+})
 
 // Define step names for the workflow
 export const steps = [
@@ -171,3 +230,11 @@ export const formSchema = z.object({
 
 // Type inference
 export type FormValues = z.infer<typeof formSchema>
+
+export const stepSchemas = [
+  personalInfoSchema,
+  accountInfoSchema,
+  screeningTypeSchema,
+  recipientsSchema,
+  termsSchema,
+]

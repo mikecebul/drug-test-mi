@@ -33,6 +33,7 @@ function isGroup(option: SelectFieldOption): option is SelectGroup {
 export default function SelectField({ label, colSpan, options, required }: SelectFieldUIProps) {
   const field = useFieldContext<string>()
   const errors = useStore(field.store, (state) => state.meta.errors)
+  const hasErrors = !!errors && errors.length > 0
 
   return (
     <div className={cn('col-span-2 w-full', { '@lg:col-span-1': colSpan === '1' })}>
@@ -42,7 +43,7 @@ export default function SelectField({ label, colSpan, options, required }: Selec
           {required ? <span className="text-destructive">*</span> : null}
         </Label>
         <Select onValueChange={(e) => field.handleChange(e)} value={field.state.value || ''}>
-          <SelectTrigger id={field.name}>
+          <SelectTrigger id={field.name} aria-invalid={hasErrors || undefined}>
             <SelectValue placeholder={`Select a ${label || 'option'}`} />
           </SelectTrigger>
           <SelectContent>

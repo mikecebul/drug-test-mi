@@ -30,19 +30,21 @@ import type { ClientMatch } from '../types'
 import { registerClientFromWizard } from '../actions'
 import ShadcnWrapper from '@/components/ShadcnWrapper'
 import {
-  PersonalInfoGroup,
-  AccountInfoGroup,
-  ScreeningRequestGroup,
-  ResultsRecipientGroup,
-  TermsAndConditionsGroup,
-} from '@/app/(frontend)/register/field-groups'
+  PersonalInfoStep,
+  AccountInfoStep,
+  ScreeningTypeStep,
+  RecipientsStep,
+  TermsStep,
+} from '@/app/(frontend)/register/steps'
 import {
   COURT_CONFIGS,
   EMPLOYER_CONFIGS,
   isValidEmployerType,
   isValidCourtType,
 } from '@/app/(frontend)/register/configs/recipient-configs'
-import { stepSchemas } from '@/app/(frontend)/register/schemas/registrationSchemas'
+import { stepSchemas } from '@/views/PDFUploadWizard/workflows/register-client-workflow/validators'
+import { defaultValues, getRegisterClientFormOpts } from '@/app/(frontend)/register/shared-form'
+import type { FormValues } from '@/app/(frontend)/register/validators'
 
 interface RegisterClientDialogProps {
   open: boolean
@@ -115,44 +117,36 @@ export function RegisterClientDialog({
   }
 
   // Initialize form with pre-filled data and generated password
-  const form = useAppForm({
-    defaultValues: {
-      personalInfo: {
-        firstName: prefillFirstName,
-        lastName: prefillLastName,
-        gender: mapGenderValue(prefillGender),
-        dob: prefillDob || '',
-        phone: '',
-      },
-      accountInfo: {
-        email: '',
-        password: generatedPassword,
-        confirmPassword: generatedPassword,
-      },
-      screeningRequest: {
-        requestedBy: '',
-      },
-      resultsRecipient: {
-        useSelfAsRecipient: true,
-        alternativeRecipientName: '',
-        alternativeRecipientEmail: '',
-        selectedEmployer: '',
-        employerName: '',
-        contactName: '',
-        contactEmail: '',
-        selectedCourt: '',
-        courtName: '',
-        probationOfficerName: '',
-        probationOfficerEmail: '',
-      },
-      termsAndConditions: {
-        agreeToTerms: true, // Auto-agree for admin registration
-      },
+  const dialogDefaultValues: FormValues = {
+    ...defaultValues,
+    personalInfo: {
+      ...defaultValues.personalInfo,
+      firstName: prefillFirstName,
+      lastName: prefillLastName,
+      middleInitial: prefillMiddleInitial,
+      gender: mapGenderValue(prefillGender),
+      dob: prefillDob || '',
+      headshot: null,
     },
+    accountInfo: {
+      ...defaultValues.accountInfo,
+      email: '',
+      password: generatedPassword,
+      confirmPassword: generatedPassword,
+    },
+    terms: {
+      ...defaultValues.terms,
+      agreeToTerms: true, // Auto-agree for admin registration
+    },
+  }
+
+  const form = useAppForm({
+    ...getRegisterClientFormOpts('personalInfo'),
+    defaultValues: dialogDefaultValues,
   })
 
   const formValues = useStore(form.store, (state: any) => state.values)
-  const requestedBy = formValues.screeningRequest?.requestedBy || ''
+  const requestedBy = formValues.screeningType?.requestedBy || ''
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
@@ -176,13 +170,13 @@ export function RegisterClientDialog({
       const stepData: any = {}
       if (step === 0) stepData.personalInfo = formValues.personalInfo
       if (step === 1) stepData.accountInfo = formValues.accountInfo
-      if (step === 2) stepData.screeningRequest = formValues.screeningRequest
+      if (step === 2) stepData.screeningType = formValues.screeningType
       if (step === 3) {
-        // Results recipient validation needs screeningRequest.requestedBy to determine which rules to apply
-        stepData.resultsRecipient = formValues.resultsRecipient
-        stepData.screeningRequest = formValues.screeningRequest
+        // Results recipient validation needs screeningType.requestedBy to determine which rules to apply
+        stepData.recipients = formValues.recipients
+        stepData.screeningType = formValues.screeningType
       }
-      if (step === 4) stepData.termsAndConditions = formValues.termsAndConditions
+      if (step === 4) stepData.terms = formValues.terms
 
       const result = schema.safeParse(stepData)
       if (!result.success) {
@@ -214,24 +208,24 @@ export function RegisterClientDialog({
     setIsSubmitting(true)
 
     try {
-      const { personalInfo, accountInfo, screeningRequest, resultsRecipient } = formValues
+      const { personalInfo, accountInfo, screeningType, recipients } = formValues
 
       const data: Parameters<typeof registerClientFromWizard>[0] = {
         firstName: personalInfo.firstName,
         lastName: personalInfo.lastName,
-        middleInitial: undefined,
+        middleInitial: personalInfo.middleInitial || undefined,
         gender: personalInfo.gender,
         dob: personalInfo.dob,
         phone: personalInfo.phone,
         email: accountInfo.email,
-        clientType: screeningRequest.requestedBy as 'self' | 'employment' | 'probation',
+        clientType: screeningType.requestedBy as 'self' | 'employment' | 'probation',
       }
 
       // Add type-specific recipient info
-      const clientType = screeningRequest.requestedBy
+      const clientType = screeningType.requestedBy
       if (clientType === 'probation') {
-        const court = isValidCourtType(resultsRecipient.selectedCourt)
-          ? resultsRecipient.selectedCourt
+        const court = isValidCourtType(recipients.selectedCourt)
+          ? recipients.selectedCourt
           : null
         if (court && court !== 'other') {
           const config = COURT_CONFIGS[court]
@@ -239,20 +233,20 @@ export function RegisterClientDialog({
             courtName: config.label,
             recipients: [...config.recipients],
           }
-        } else if (resultsRecipient.selectedCourt === 'other') {
+        } else if (recipients.selectedCourt === 'other') {
           data.courtInfo = {
-            courtName: resultsRecipient.courtName,
+            courtName: recipients.courtName,
             recipients: [
               {
-                name: resultsRecipient.probationOfficerName,
-                email: resultsRecipient.probationOfficerEmail,
+                name: recipients.probationOfficerName,
+                email: recipients.probationOfficerEmail,
               },
             ],
           }
         }
       } else if (clientType === 'employment') {
-        const employer = isValidEmployerType(resultsRecipient.selectedEmployer)
-          ? resultsRecipient.selectedEmployer
+        const employer = isValidEmployerType(recipients.selectedEmployer)
+          ? recipients.selectedEmployer
           : null
         if (employer && employer !== 'other') {
           const config = EMPLOYER_CONFIGS[employer]
@@ -260,20 +254,20 @@ export function RegisterClientDialog({
             employerName: config.label,
             recipients: [...config.recipients],
           }
-        } else if (resultsRecipient.selectedEmployer === 'other') {
+        } else if (recipients.selectedEmployer === 'other') {
           data.employmentInfo = {
-            employerName: resultsRecipient.employerName,
+            employerName: recipients.employerName,
             recipients: [
-              { name: resultsRecipient.contactName, email: resultsRecipient.contactEmail },
+              { name: recipients.contactName, email: recipients.contactEmail },
             ],
           }
         }
-      } else if (clientType === 'self' && !resultsRecipient.useSelfAsRecipient) {
+      } else if (clientType === 'self' && !recipients.useSelfAsRecipient) {
         data.selfInfo = {
           recipients: [
             {
-              name: resultsRecipient.alternativeRecipientName,
-              email: resultsRecipient.alternativeRecipientEmail,
+              name: recipients.alternativeRecipientName,
+              email: recipients.alternativeRecipientEmail,
             },
           ],
         }
@@ -382,11 +376,11 @@ export function RegisterClientDialog({
 
     switch (currentStep) {
       case 0:
-        return <PersonalInfoGroup form={form} fields="personalInfo" title="Personal Information" />
+        return <PersonalInfoStep form={form} />
       case 1:
         return (
           <div className="space-y-6">
-            <AccountInfoGroup form={form} fields="accountInfo" title="Account Info" />
+            <AccountInfoStep form={form} />
             <Alert>
               <AlertDescription className="text-muted-foreground text-sm">
                 Password is auto-generated but can be changed if the client requests a specific
@@ -396,31 +390,11 @@ export function RegisterClientDialog({
           </div>
         )
       case 2:
-        return (
-          <ScreeningRequestGroup
-            form={form}
-            // @ts-expect-error - Known TypeScript limitation with nested field inference. Same pattern used in RegistrationForm.tsx:82
-            fields="screeningRequest"
-            title="Screening Request"
-          />
-        )
+        return <ScreeningTypeStep form={form} />
       case 3:
-        return (
-          <ResultsRecipientGroup
-            form={form}
-            fields="resultsRecipient"
-            title="Results Recipient"
-            requestedBy={requestedBy}
-          />
-        )
+        return <RecipientsStep form={form} />
       case 4:
-        return (
-          <TermsAndConditionsGroup
-            form={form}
-            fields="termsAndConditions"
-            title="Terms & Conditions"
-          />
-        )
+        return <TermsStep form={form} />
       default:
         return null
     }

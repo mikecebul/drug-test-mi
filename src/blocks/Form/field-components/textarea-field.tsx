@@ -18,6 +18,7 @@ export interface TextareaFieldUIProps {
 export default function TextareaField({ label, placeholder, description, colSpan, required }: TextareaFieldUIProps) {
   const field = useFieldContext<string>()
   const errors = useStore(field.store, (state) => state.meta.errors)
+  const hasErrors = !!errors && errors.length > 0
 
   return (
     <div className={cn('col-span-2 w-full', { '@md:col-span-1': colSpan === '1' })}>
@@ -25,12 +26,14 @@ export default function TextareaField({ label, placeholder, description, colSpan
         <Label htmlFor={field.name}>{label}</Label>
         <Textarea
           id={field.name}
+          name={field.name}
           value={field.state.value ?? ''}
           onBlur={() => field.handleBlur()}
           onChange={(e) => field.handleChange(e.target.value)}
           placeholder={placeholder || undefined}
           required={!!required}
           autoComplete="off"
+          aria-invalid={hasErrors || undefined}
         />
         {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>

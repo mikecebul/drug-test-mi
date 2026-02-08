@@ -22,6 +22,7 @@ export default function PasswordField({
 }: PasswordFieldUIProps) {
   const field = useFieldContext<string>()
   const errors = useStore(field.store, (state) => state.meta.errors)
+  const hasErrors = !!errors && errors.length > 0
 
   return (
     <div className={cn('col-span-2 w-full', { '@lg:col-span-1': colSpan === '1' })}>
@@ -39,6 +40,7 @@ export default function PasswordField({
           onBlur={() => field.handleBlur()}
           onChange={(e) => field.handleChange(e.target.value)}
           autoComplete={autoComplete}
+          aria-invalid={hasErrors || undefined}
         />
       </div>
       <div>

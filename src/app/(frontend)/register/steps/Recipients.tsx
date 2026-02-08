@@ -1,54 +1,31 @@
 'use client'
 
-import { withFieldGroup } from '@/blocks/Form/hooks/form'
-import { FileText } from 'lucide-react'
-import { z } from 'zod'
+import { withForm } from '@/blocks/Form/hooks/form'
+import { getRegisterClientFormOpts } from '../shared-form'
 import { useStore } from '@tanstack/react-form'
-import type { RegistrationFormType } from '../schemas/registrationSchemas'
 import {
   EMPLOYER_CONFIGS,
   COURT_CONFIGS,
   isValidEmployerType,
   isValidCourtType,
-  type EmployerType,
-  type CourtType,
 } from '../configs/recipient-configs'
 import type { RecipientInfo } from '../types/recipient-types'
 
-const defaultValues: RegistrationFormType['resultsRecipient'] = {
-  useSelfAsRecipient: true,
-  alternativeRecipientName: '',
-  alternativeRecipientEmail: '',
-  selectedEmployer: '',
-  employerName: '',
-  contactName: '',
-  contactEmail: '',
-  selectedCourt: '',
-  courtName: '',
-  probationOfficerName: '',
-  probationOfficerEmail: '',
-}
+export const RecipientsStep = withForm({
+  ...getRegisterClientFormOpts('recipients'),
 
-export const ResultsRecipientGroup = withFieldGroup({
-  defaultValues,
+  render: function Render({ form }) {
+    const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
+    const useSelfAsRecipient = useStore(form.store, (state) => state.values.recipients.useSelfAsRecipient)
+    const selectedEmployerValue = useStore(form.store, (state) => state.values.recipients.selectedEmployer)
+    const selectedCourtValue = useStore(form.store, (state) => state.values.recipients.selectedCourt)
 
-  props: {
-    title: 'Results Recipient',
-    requestedBy: '', // We'll pass this as a prop
-  },
-
-  render: function Render({ group, title, requestedBy }) {
-    const useSelfAsRecipient = useStore(group.store, (state) => state.values.useSelfAsRecipient)
-    const selectedEmployerValue = useStore(group.store, (state) => state.values.selectedEmployer)
-    const selectedCourtValue = useStore(group.store, (state) => state.values.selectedCourt)
-
-    // Type-safe access with runtime validation
     const selectedEmployer = isValidEmployerType(selectedEmployerValue) ? selectedEmployerValue : null
     const selectedCourt = isValidCourtType(selectedCourtValue) ? selectedCourtValue : null
 
     const renderSelfPayFields = () => (
       <>
-        <group.AppField name="useSelfAsRecipient">
+        <form.AppField name="recipients.useSelfAsRecipient">
           {(field) => (
             <div className="space-y-3">
               <label className="text-foreground block text-sm font-medium">Who should receive the test results?</label>
@@ -84,27 +61,17 @@ export const ResultsRecipientGroup = withFieldGroup({
               </div>
             </div>
           )}
-        </group.AppField>
+        </form.AppField>
 
         {useSelfAsRecipient === false && (
           <>
-            <group.AppField
-              name="alternativeRecipientName"
-              validators={{
-                onChange: z.string().min(1, 'Recipient name is required'),
-              }}
-            >
+            <form.AppField name="recipients.alternativeRecipientName">
               {(field) => <field.TextField label="Recipient Name" required />}
-            </group.AppField>
+            </form.AppField>
 
-            <group.AppField
-              name="alternativeRecipientEmail"
-              validators={{
-                onChange: z.string().min(1, 'Recipient email is required').email('Please enter a valid email address'),
-              }}
-            >
+            <form.AppField name="recipients.alternativeRecipientEmail">
               {(field) => <field.EmailField label="Recipient Email" required />}
-            </group.AppField>
+            </form.AppField>
           </>
         )}
       </>
@@ -116,14 +83,10 @@ export const ResultsRecipientGroup = withFieldGroup({
 
       return (
         <>
-          {/* Employer Selection Dropdown */}
-          <group.AppField
-            name="selectedEmployer"
-            validators={{
-              onChange: z.string().min(1, 'Please select an employer'),
-            }}
-          >
-            {(field) => (
+          <form.AppField name="recipients.selectedEmployer">
+            {(field) => {
+              const hasErrors = field.state.meta.errors.length > 0
+              return (
               <div className="space-y-2">
                 <label htmlFor="employer-select" className="text-foreground block text-sm font-medium">
                   Select Employer <span className="text-destructive">*</span>
@@ -134,6 +97,7 @@ export const ResultsRecipientGroup = withFieldGroup({
                   onChange={(e) => {
                     field.handleChange(e.target.value)
                   }}
+                  aria-invalid={hasErrors || undefined}
                   className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
                 >
                   <option value="">-- Select an employer --</option>
@@ -147,10 +111,9 @@ export const ResultsRecipientGroup = withFieldGroup({
                   <p className="text-destructive text-sm">{String(field.state.meta.errors[0]?.message)}</p>
                 )}
               </div>
-            )}
-          </group.AppField>
+            )}}
+          </form.AppField>
 
-          {/* Display pre-configured recipients for selected employers */}
           {employerConfig && employerConfig.recipients.length > 0 && (
             <div className="bg-primary/10 border-primary/20 rounded-lg border p-4">
               <p className="text-foreground mb-2 text-sm font-medium">Results will be sent to:</p>
@@ -164,35 +127,19 @@ export const ResultsRecipientGroup = withFieldGroup({
             </div>
           )}
 
-          {/* Manual entry fields for "Other" employers */}
           {requiresManualEntry && (
             <>
-              <group.AppField
-                name="employerName"
-                validators={{
-                  onChange: z.string().min(1, 'Employer name is required'),
-                }}
-              >
+              <form.AppField name="recipients.employerName">
                 {(field) => <field.TextField label="Employer/Company Name" required />}
-              </group.AppField>
+              </form.AppField>
 
-              <group.AppField
-                name="contactName"
-                validators={{
-                  onChange: z.string().min(1, 'Contact name is required'),
-                }}
-              >
+              <form.AppField name="recipients.contactName">
                 {(field) => <field.TextField label="HR Contact or Hiring Manager Name" required />}
-              </group.AppField>
+              </form.AppField>
 
-              <group.AppField
-                name="contactEmail"
-                validators={{
-                  onChange: z.string().min(1, 'Contact email is required').email('Please enter a valid email address'),
-                }}
-              >
+              <form.AppField name="recipients.contactEmail">
                 {(field) => <field.EmailField label="HR Contact or Hiring Manager Email" required />}
-              </group.AppField>
+              </form.AppField>
             </>
           )}
         </>
@@ -205,14 +152,10 @@ export const ResultsRecipientGroup = withFieldGroup({
 
       return (
         <>
-          {/* Court Selection Dropdown */}
-          <group.AppField
-            name="selectedCourt"
-            validators={{
-              onChange: z.string().min(1, 'Please select a court'),
-            }}
-          >
-            {(field) => (
+          <form.AppField name="recipients.selectedCourt">
+            {(field) => {
+              const hasErrors = field.state.meta.errors.length > 0
+              return (
               <div className="space-y-2">
                 <label htmlFor="court-select" className="text-foreground block text-sm font-medium">
                   Select Court <span className="text-destructive">*</span>
@@ -223,6 +166,7 @@ export const ResultsRecipientGroup = withFieldGroup({
                   onChange={(e) => {
                     field.handleChange(e.target.value)
                   }}
+                  aria-invalid={hasErrors || undefined}
                   className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
                 >
                   <option value="">-- Select a court --</option>
@@ -236,10 +180,9 @@ export const ResultsRecipientGroup = withFieldGroup({
                   <p className="text-destructive text-sm">{String(field.state.meta.errors[0]?.message)}</p>
                 )}
               </div>
-            )}
-          </group.AppField>
+            )}}
+          </form.AppField>
 
-          {/* Display pre-configured recipients for selected courts */}
           {courtConfig && courtConfig.recipients.length > 0 && (
             <div className="bg-primary/10 border-primary/20 rounded-lg border p-4">
               <p className="text-foreground mb-2 text-sm font-medium">Results will be sent to:</p>
@@ -253,38 +196,19 @@ export const ResultsRecipientGroup = withFieldGroup({
             </div>
           )}
 
-          {/* Manual entry fields for "Other" or courts without pre-configured recipients */}
           {requiresManualEntry && (
             <>
-              <group.AppField
-                name="courtName"
-                validators={{
-                  onChange: z.string().min(1, 'Court name is required'),
-                }}
-              >
+              <form.AppField name="recipients.courtName">
                 {(field) => <field.TextField label="Court Name" required />}
-              </group.AppField>
+              </form.AppField>
 
-              <group.AppField
-                name="probationOfficerName"
-                validators={{
-                  onChange: z.string().min(1, 'Probation officer name is required'),
-                }}
-              >
+              <form.AppField name="recipients.probationOfficerName">
                 {(field) => <field.TextField label="Probation Officer Name" required />}
-              </group.AppField>
+              </form.AppField>
 
-              <group.AppField
-                name="probationOfficerEmail"
-                validators={{
-                  onChange: z
-                    .string()
-                    .min(1, 'Probation officer email is required')
-                    .email('Please enter a valid email address'),
-                }}
-              >
+              <form.AppField name="recipients.probationOfficerEmail">
                 {(field) => <field.EmailField label="Probation Officer Email" required />}
-              </group.AppField>
+              </form.AppField>
             </>
           )}
         </>
@@ -307,8 +231,7 @@ export const ResultsRecipientGroup = withFieldGroup({
     return (
       <div className="space-y-6">
         <div className="mb-6 flex items-center">
-          <FileText className="text-primary mr-3 h-6 w-6" />
-          <h2 className="text-foreground text-xl font-semibold">{title}</h2>
+          <h2 className="text-foreground text-xl font-semibold">Results Recipient</h2>
         </div>
 
         <div className="bg-chart-1/20 border-chart-1/40 mb-6 rounded-lg border p-4">

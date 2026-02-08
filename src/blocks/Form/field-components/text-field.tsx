@@ -18,6 +18,7 @@ export interface TextFieldUIProps {
 export default function TextField({ label, placeholder, description, colSpan, required }: TextFieldUIProps) {
   const field = useFieldContext<string>()
   const errors = useStore(field.store, (state) => state.meta.errors)
+  const hasErrors = !!errors && errors.length > 0
 
   return (
     <div className={cn('col-span-2 w-full', { '@lg:col-span-1': colSpan === '1' })}>
@@ -29,11 +30,13 @@ export default function TextField({ label, placeholder, description, colSpan, re
 
         <Input
           id={field.name}
+          name={field.name}
           type="text"
           value={field.state.value ?? ''}
           onBlur={() => field.handleBlur()}
           onChange={(e) => field.handleChange(e.target.value)}
           placeholder={placeholder || undefined}
+          aria-invalid={hasErrors || undefined}
         />
         {description && <p className="text-muted-foreground text-sm">{description}</p>}
       </div>

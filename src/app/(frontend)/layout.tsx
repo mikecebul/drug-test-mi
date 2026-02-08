@@ -10,6 +10,7 @@ import { ThemeProvider } from 'next-themes'
 import { baseUrl } from '@/utilities/baseUrl'
 import Script from 'next/script'
 import { Toaster } from '@/components/ui/sonner'
+import { NuqsAdapter } from 'nuqs/adapters/next/app'
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -25,10 +26,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       </head>
       <body className="bg-background flex min-h-dvh flex-col">
         <ThemeProvider forcedTheme="light">
-          <Header />
-          <div className="flex grow flex-col">{children}</div>
-          <Footer />
-          <Toaster />
+          <NuqsAdapter>
+            <Header />
+            <div className="flex grow flex-col">{children}</div>
+            <Footer />
+            <Toaster />
+          </NuqsAdapter>
         </ThemeProvider>
       </body>
     </html>
