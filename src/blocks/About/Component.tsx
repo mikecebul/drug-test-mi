@@ -21,8 +21,8 @@ const sections = [
   { id: 'services', title: 'Our Services' },
   { id: 'how-it-works', title: 'How It Works' },
   { id: 'pricing', title: 'Pricing' },
+  { id: 'contact', title: 'Contact & Availability' },
   { id: 'register', title: 'Get Started' },
-  { id: 'contact', title: 'Contact & Scheduling' },
 ]
 
 export function AboutBlock() {
@@ -323,52 +323,6 @@ export function AboutBlock() {
             </div>
           </section>
 
-          <section id="register" className="scroll-mt-8 lg:scroll-mt-32">
-            <div className="space-y-6">
-              <div>
-                <Badge variant="secondary" className="mb-3">
-                  Get Started
-                </Badge>
-                <h2 className="mb-4 text-3xl font-semibold text-balance">Ready to Schedule?</h2>
-              </div>
-
-              <Card className="from-primary/10 to-accent/10 border-primary/20 bg-gradient-to-br p-8">
-                <div className="mx-auto max-w-2xl space-y-6 text-center">
-                  <div className="space-y-3">
-                    <h3 className="text-2xl font-semibold text-balance">Create Your Account</h3>
-                    <p className="text-muted-foreground text-lg leading-relaxed">
-                      Register for an account to schedule appointments, access your testing history,
-                      and manage your results all in one place.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col justify-center gap-4 pt-4 sm:flex-row">
-                    <Button asChild size="lg" className="text-base">
-                      <Link href="/register">
-                        Register Now
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Link>
-                    </Button>
-                    <Button
-                      asChild
-                      variant="outline"
-                      size="lg"
-                      className="bg-transparent text-base"
-                    >
-                      <Link href="/sign-in">Already have an account? Sign In</Link>
-                    </Button>
-                  </div>
-
-                  <div className="border-border/50 border-t pt-6">
-                    <p className="text-muted-foreground text-sm">
-                      Questions about registration? Contact us and we&apos;ll help you get started.
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            </div>
-          </section>
-
           {/* Contact Section */}
           <section id="contact" className="scroll-mt-8 lg:scroll-mt-32">
             <div className="space-y-6">
@@ -376,15 +330,37 @@ export function AboutBlock() {
                 <Badge variant="secondary" className="mb-3">
                   Get In Touch
                 </Badge>
-                <h2 className="mb-4 text-3xl font-semibold text-balance">Contact & Scheduling</h2>
+                <h2 className="mb-4 text-3xl font-semibold text-balance">Contact & Availability</h2>
               </div>
 
               <Card className="from-primary/5 to-accent/5 bg-gradient-to-br p-8">
                 <div className="space-y-6">
                   <p className="text-lg leading-relaxed">
-                    Need to reschedule or have questions? Contact us directly. We&apos;re here to make
-                    the process as smooth and professional as possible.
+                    Review our current appointment windows below. For questions, rescheduling, or
+                    general help, contact us directly and we&apos;ll make the process as smooth and
+                    professional as possible.
                   </p>
+
+                  <Card className="border-border/60 bg-background/80 p-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                      <div className="bg-primary/10 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg">
+                        <Clock className="text-primary h-5 w-5" />
+                      </div>
+                      <div className="space-y-2 sm:flex-1">
+                        <h3 className="text-lg font-semibold">Current Scheduling Availability</h3>
+                        <div className="text-muted-foreground space-y-1 text-sm">
+                          <p>Monday-Friday: 6:00 p.m. - 7:00 p.m.</p>
+                          <p>Saturday-Sunday: 10:50 a.m. - 11:30 a.m.</p>
+                        </div>
+                        <div className="border-border/60 mt-3 space-y-1 border-t pt-3 text-sm">
+                          <p className="text-muted-foreground">Open seven days a week.</p>
+                          <p className="text-muted-foreground">
+                            Closed on Christmas Day and Thanksgiving Day.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
 
                   <div className="grid gap-6 pt-4 sm:grid-cols-2 lg:grid-cols-3">
                     <a
@@ -433,6 +409,52 @@ export function AboutBlock() {
                         </p>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="border-border/50 border-t pt-6">
+                    <p className="text-muted-foreground text-sm">
+                      Questions about registration? Contact us and we&apos;ll help you get started.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </section>
+
+          <section id="register" className="scroll-mt-8 lg:scroll-mt-32">
+            <div className="space-y-6">
+              <div>
+                <Badge variant="secondary" className="mb-3">
+                  Get Started
+                </Badge>
+                <h2 className="mb-4 text-3xl font-semibold text-balance">Ready to Schedule?</h2>
+              </div>
+
+              <Card className="from-primary/10 to-accent/10 border-primary/20 bg-gradient-to-br p-8">
+                <div className="mx-auto max-w-2xl space-y-6 text-center">
+                  <div className="space-y-3">
+                    <h3 className="text-2xl font-semibold text-balance">Create Your Account</h3>
+                    <p className="text-muted-foreground text-lg leading-relaxed">
+                      Register for an account to schedule appointments, access your testing history,
+                      and manage your results all in one place.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col justify-center gap-4 pt-4 sm:flex-row">
+                    <Button asChild size="lg" className="text-base">
+                      <Link href="/register">
+                        Register Now
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="lg"
+                      className="bg-transparent text-base"
+                    >
+                      <Link href="/sign-in">Already have an account? Sign In</Link>
+                    </Button>
                   </div>
 
                   <div className="border-t pt-4">
