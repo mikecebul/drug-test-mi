@@ -162,7 +162,10 @@ export const Clients: CollectionConfig = {
     listSearchableFields: ['email', 'firstName', 'lastName'],
     components: {
       edit: {
-        beforeDocumentControls: ['@/collections/Clients/components/QuickBookButton'],
+        beforeDocumentControls: [
+          '@/collections/Clients/components/QuickBookButton',
+          '@/collections/Clients/components/SyncRedwoodHeadshotButton',
+        ],
       },
     },
   },

@@ -1,10 +1,18 @@
-FROM node:20-alpine AS base
+FROM node:20-bookworm-slim AS base
+
+# Shared OS dependencies for build/runtime:
+# - jq is used later in the Dockerfile to read package.json
+# - Playwright install-deps ensures Chromium runtime libraries are present
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  ca-certificates \
+  jq \
+  && rm -rf /var/lib/apt/lists/*
+RUN npx -y playwright@1.51.1 install-deps chromium
 
 # Install dependencies only when needed
 FROM base AS deps
-# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
-RUN apk add --no-cache libc6-compat
 WORKDIR /app
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Update and enable Corepack
 RUN npm install -g corepack@latest
@@ -18,6 +26,9 @@ RUN \
 
 # install require in the middle package
 RUN pnpm add require-in-the-middle@"$(jq -r '.dependencies["require-in-the-middle"]' < package.json)"
+
+# Install Playwright Chromium during image build
+RUN pnpm exec playwright install chromium
 
 
 # Rebuild the source code only when needed
@@ -38,6 +49,8 @@ RUN --mount=type=secret,id=DATABASE_URI \
   --mount=type=secret,id=NEXT_PUBLIC_UPLOAD_PREFIX \
   --mount=type=secret,id=PAYLOAD_SECRET \
   --mount=type=secret,id=PREVIEW_SECRET \
+  --mount=type=secret,id=REDWOOD_PASSWORD \
+  --mount=type=secret,id=REDWOOD_USERNAME \
   --mount=type=secret,id=RESEND_API_KEY \
   --mount=type=secret,id=S3_ACCESS_KEY_ID \
   --mount=type=secret,id=S3_BUCKET \
@@ -59,6 +72,8 @@ RUN --mount=type=secret,id=DATABASE_URI \
   echo "NEXT_PUBLIC_UPLOAD_PREFIX=$(cat /run/secrets/NEXT_PUBLIC_UPLOAD_PREFIX)" && \
   echo "PAYLOAD_SECRET=$(cat /run/secrets/PAYLOAD_SECRET)" && \
   echo "PREVIEW_SECRET=$(cat /run/secrets/PREVIEW_SECRET)" && \
+  echo "REDWOOD_PASSWORD=$(cat /run/secrets/REDWOOD_PASSWORD)" && \
+  echo "REDWOOD_USERNAME=$(cat /run/secrets/REDWOOD_USERNAME)" && \
   echo "RESEND_API_KEY=$(cat /run/secrets/RESEND_API_KEY)" && \
   echo "S3_ACCESS_KEY_ID=$(cat /run/secrets/S3_ACCESS_KEY_ID)" && \
   echo "S3_BUCKET=$(cat /run/secrets/S3_BUCKET)" && \
@@ -91,11 +106,13 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/public ./public
+COPY --from=deps /ms-playwright /ms-playwright
 
 # Set the correct permission for prerender cache
 RUN mkdir .next

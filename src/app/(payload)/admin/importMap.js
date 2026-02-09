@@ -27,6 +27,7 @@ import { default as default_bca575eca602f69aa53c5f42e11636da } from '@/collectio
 import { RoleSelectClient as RoleSelectClient_538158afd69a55f062cbf2533bebd38f } from '@/collections/Admins/RoleSelect.client'
 import { default as default_10614e5826ed2552da1904fc41085884 } from '@/collections/Clients/RowLabel'
 import { default as default_8ada3e871304a01023e059aa2a63dc18 } from '@/collections/Clients/components/QuickBookButton'
+import { default as default_23a84364c8f15b8f5bbf7dc963c88534 } from '@/collections/Clients/components/SyncRedwoodHeadshotButton'
 import { default as default_3096841c11f481e2d8b1d51a89238cfb } from '@/collections/DrugTests/helpers/RowLabel'
 import { LinkToDoc as LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
 import { ReindexButton as ReindexButton_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
@@ -87,6 +88,7 @@ export const importMap = {
   "@/collections/Admins/RoleSelect.client#RoleSelectClient": RoleSelectClient_538158afd69a55f062cbf2533bebd38f,
   "@/collections/Clients/RowLabel#default": default_10614e5826ed2552da1904fc41085884,
   "@/collections/Clients/components/QuickBookButton#default": default_8ada3e871304a01023e059aa2a63dc18,
+  "@/collections/Clients/components/SyncRedwoodHeadshotButton#default": default_23a84364c8f15b8f5bbf7dc963c88534,
   "@/collections/DrugTests/helpers/RowLabel#default": default_3096841c11f481e2d8b1d51a89238cfb,
   "@payloadcms/plugin-search/client#LinkToDoc": LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634,
   "@payloadcms/plugin-search/client#ReindexButton": ReindexButton_aead06e4cbf6b2620c5c51c9ab283634,
