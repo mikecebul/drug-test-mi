@@ -363,9 +363,242 @@ export interface About {
    * Toggle to show/hide the about section on the page
    */
   enabled?: boolean | null;
+  sections: (
+    | AboutMissionBlock
+    | AboutServicesBlock
+    | AboutProcessBlock
+    | AboutPricingBlock
+    | AboutContactBlock
+    | AboutRegisterBlock
+  )[];
   id?: string | null;
   blockName?: string | null;
   blockType: 'about';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "AboutMissionBlock".
+ */
+export interface AboutMissionBlock {
+  /**
+   * Used for on-page anchor; must be unique and lowercase with dashes
+   */
+  anchorId: string;
+  navLabel: string;
+  badge?: string | null;
+  heading?: string | null;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'aboutMission';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "AboutServicesBlock".
+ */
+export interface AboutServicesBlock {
+  /**
+   * Used for on-page anchor; must be unique and lowercase with dashes
+   */
+  anchorId: string;
+  navLabel: string;
+  badge?: string | null;
+  heading?: string | null;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  services?:
+    | {
+        title: string;
+        description?: string | null;
+        icon?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  testPanels?:
+    | {
+        title: string;
+        description?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'aboutServices';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "AboutProcessBlock".
+ */
+export interface AboutProcessBlock {
+  /**
+   * Used for on-page anchor; must be unique and lowercase with dashes
+   */
+  anchorId: string;
+  navLabel: string;
+  badge?: string | null;
+  heading?: string | null;
+  steps?:
+    | {
+        title: string;
+        description?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'aboutProcess';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "AboutPricingBlock".
+ */
+export interface AboutPricingBlock {
+  /**
+   * Used for on-page anchor; must be unique and lowercase with dashes
+   */
+  anchorId: string;
+  navLabel: string;
+  badge?: string | null;
+  heading?: string | null;
+  pricingCards?:
+    | {
+        title: string;
+        price?: string | null;
+        description?: string | null;
+        featured?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
+  confirmation?: {
+    title?: string | null;
+    rows?:
+      | {
+          label?: string | null;
+          value?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'aboutPricing';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "AboutContactBlock".
+ */
+export interface AboutContactBlock {
+  /**
+   * Used for on-page anchor; must be unique and lowercase with dashes
+   */
+  anchorId: string;
+  navLabel: string;
+  badge?: string | null;
+  heading?: string | null;
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  availability?: {
+    title?: string | null;
+    times?:
+      | {
+          text?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+    notes?:
+      | {
+          text?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  contactItems?:
+    | {
+        title: string;
+        description?: string | null;
+        href?: string | null;
+        icon?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  footerText?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'aboutContact';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "AboutRegisterBlock".
+ */
+export interface AboutRegisterBlock {
+  /**
+   * Used for on-page anchor; must be unique and lowercase with dashes
+   */
+  anchorId: string;
+  navLabel: string;
+  badge?: string | null;
+  heading?: string | null;
+  title?: string | null;
+  body?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  links?: LinkGroup;
+  footerText?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'aboutRegister';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2095,6 +2328,165 @@ export interface LinkSelect<T extends boolean = true> {
  */
 export interface AboutSelect<T extends boolean = true> {
   enabled?: T;
+  sections?:
+    | T
+    | {
+        aboutMission?: T | AboutMissionBlockSelect<T>;
+        aboutServices?: T | AboutServicesBlockSelect<T>;
+        aboutProcess?: T | AboutProcessBlockSelect<T>;
+        aboutPricing?: T | AboutPricingBlockSelect<T>;
+        aboutContact?: T | AboutContactBlockSelect<T>;
+        aboutRegister?: T | AboutRegisterBlockSelect<T>;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "AboutMissionBlock_select".
+ */
+export interface AboutMissionBlockSelect<T extends boolean = true> {
+  anchorId?: T;
+  navLabel?: T;
+  badge?: T;
+  heading?: T;
+  intro?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "AboutServicesBlock_select".
+ */
+export interface AboutServicesBlockSelect<T extends boolean = true> {
+  anchorId?: T;
+  navLabel?: T;
+  badge?: T;
+  heading?: T;
+  intro?: T;
+  services?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        icon?: T;
+        id?: T;
+      };
+  testPanels?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "AboutProcessBlock_select".
+ */
+export interface AboutProcessBlockSelect<T extends boolean = true> {
+  anchorId?: T;
+  navLabel?: T;
+  badge?: T;
+  heading?: T;
+  steps?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "AboutPricingBlock_select".
+ */
+export interface AboutPricingBlockSelect<T extends boolean = true> {
+  anchorId?: T;
+  navLabel?: T;
+  badge?: T;
+  heading?: T;
+  pricingCards?:
+    | T
+    | {
+        title?: T;
+        price?: T;
+        description?: T;
+        featured?: T;
+        id?: T;
+      };
+  confirmation?:
+    | T
+    | {
+        title?: T;
+        rows?:
+          | T
+          | {
+              label?: T;
+              value?: T;
+              id?: T;
+            };
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "AboutContactBlock_select".
+ */
+export interface AboutContactBlockSelect<T extends boolean = true> {
+  anchorId?: T;
+  navLabel?: T;
+  badge?: T;
+  heading?: T;
+  intro?: T;
+  availability?:
+    | T
+    | {
+        title?: T;
+        times?:
+          | T
+          | {
+              text?: T;
+              id?: T;
+            };
+        notes?:
+          | T
+          | {
+              text?: T;
+              id?: T;
+            };
+      };
+  contactItems?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        href?: T;
+        icon?: T;
+        id?: T;
+      };
+  footerText?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "AboutRegisterBlock_select".
+ */
+export interface AboutRegisterBlockSelect<T extends boolean = true> {
+  anchorId?: T;
+  navLabel?: T;
+  badge?: T;
+  heading?: T;
+  title?: T;
+  body?: T;
+  links?: T | LinkGroupSelect<T>;
+  footerText?: T;
   id?: T;
   blockName?: T;
 }
