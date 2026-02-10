@@ -192,7 +192,7 @@ export const LabScreenDataStep = withForm({
                 },
               }}
             >
-              {(field) => <field.SubstanceChecklistField />}
+              {(field) => <field.SubstanceChecklistField testType={labScreenData?.testType ?? '11-panel-lab'} />}
             </form.AppField>
 
             {/* Dilute Sample */}
