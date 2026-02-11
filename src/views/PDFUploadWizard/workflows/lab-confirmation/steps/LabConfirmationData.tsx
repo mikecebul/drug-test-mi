@@ -1,30 +1,34 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
+import { useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { ClientInfoCard, MedicationDisplayField, FieldGroupHeader } from '../../components'
+import { HeadshotCaptureCard, MedicationDisplayField, FieldGroupHeader } from '../../components'
 import { getLabConfirmationFormOpts } from '../shared-form'
 import { Plus, Trash2 } from 'lucide-react'
 import {
   useGetClientFromTestQuery,
+  useGetDrugTestWithMedicationsQuery,
   useGetDrugTestQuery,
   useExtractPdfQuery,
 } from '../../../queries'
 import { getSubstanceOptions } from '@/fields/substanceOptions'
 import { cn } from '@/utilities/cn'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
+import { format } from 'date-fns'
 
 export const LabConfirmationDataStep = withForm({
   ...getLabConfirmationFormOpts('labConfirmationData'),
 
   render: function Render({ form }) {
+    const queryClient = useQueryClient()
     const formValues = useStore(form.store, (state) => state.values)
     const { matchCollection, labConfirmationData, upload } = formValues
 
@@ -33,13 +37,15 @@ export const LabConfirmationDataStep = withForm({
 
     // Fetch matched test to get original screening data
     const { data: matchedTest } = useGetDrugTestQuery(matchCollection?.testId)
+    // Fetch matched test with medications snapshot for consistent meds rendering
+    const { data: matchedTestWithMedications } = useGetDrugTestWithMedicationsQuery(matchCollection?.testId)
 
     // Get extracted data from query cache (if PDF has confirmation results)
     const { data: extractData } = useExtractPdfQuery(upload.file, 'enter-lab-confirmation')
 
     // Get medications snapshot from matched test
     const clientMedications: MedicationSnapshot[] =
-      matchedTest?.medicationsArrayAtTestTime?.map((med: any) => ({
+      matchedTestWithMedications?.medicationsArrayAtTestTime?.map((med: any) => ({
         medicationName: med.medicationName,
         detectedAs: med.detectedAs,
       })) ?? []
@@ -82,6 +88,27 @@ export const LabConfirmationDataStep = withForm({
       form.setFieldValue('labConfirmationData.confirmationResults', updated)
     }
 
+    const handleHeadshotLinked = useCallback(
+      (url: string, docId: string) => {
+        form.setFieldValue('matchCollection.headshot', url)
+
+        if (!matchCollection?.testId) return
+
+        queryClient.setQueryData(
+          ['client-from-test', matchCollection.testId],
+          (currentClient: typeof client | null | undefined) => {
+            if (!currentClient) return currentClient
+            return {
+              ...currentClient,
+              headshot: url,
+              headshotId: docId,
+            }
+          },
+        )
+      },
+      [client, form, matchCollection?.testId, queryClient],
+    )
+
     return (
       <div className="space-y-6">
         <FieldGroupHeader
@@ -91,20 +118,65 @@ export const LabConfirmationDataStep = withForm({
 
         {/* Client Info & Medications */}
         {client && (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
-            <ClientInfoCard client={client} />
-            {clientMedications.length > 0 && (
-              <MedicationDisplayField
-                medicationSnapshot={clientMedications}
-                title="Medications at Collection Time"
-                description="Medications that were active when this test was collected"
-              />
-            )}
-          </div>
+          <HeadshotCaptureCard client={client} onHeadshotLinked={handleHeadshotLinked} />
         )}
 
-        {/* Original Screening Results (Read-Only) */}
-        {labConfirmationData?.originalDetectedSubstances &&
+        {clientMedications.length > 0 && (
+          <MedicationDisplayField
+            medicationSnapshot={clientMedications}
+            title="Medications at Collection Time"
+          />
+        )}
+
+        {/* Matched Test Context + Original Screening Results */}
+        {matchCollection?.testId && (
+          <Card className="border-info/30 bg-info/5 transition-all">
+            <CardContent className="space-y-5 pt-0">
+              <div className="grid gap-x-10 gap-y-3 text-sm sm:grid-cols-2">
+                <div className="space-y-1">
+                  <p className="text-muted-foreground text-[11px] font-medium tracking-[0.12em] uppercase">
+                    Collection Date
+                  </p>
+                  <p className="text-base leading-tight font-medium">{format(new Date(matchCollection.collectionDate), 'PPp')}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground text-[11px] font-medium tracking-[0.12em] uppercase">Test Type</p>
+                  <p className="text-base leading-tight font-medium">{matchCollection.testType}</p>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-muted-foreground text-[11px] font-medium tracking-[0.12em] uppercase">Record Status</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="default" className="border-primary/20 bg-primary/10 text-primary hover:bg-primary/10">
+                    Confirmed Match
+                  </Badge>
+                  {matchCollection.screeningStatus && <Badge variant="outline">{matchCollection.screeningStatus}</Badge>}
+                </div>
+              </div>
+
+              {(labConfirmationData?.originalDetectedSubstances?.length ?? 0) > 0 && (
+                <div className="border-border/70 space-y-2.5 border-t pt-4">
+                  <p className="text-muted-foreground text-[11px] font-medium tracking-[0.12em] uppercase">
+                    Original Screening Results
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {labConfirmationData.originalDetectedSubstances.map((substance: string) => (
+                      <Badge key={substance} variant="outline">
+                        {substance}
+                      </Badge>
+                    ))}
+                    {labConfirmationData.originalIsDilute && <Badge variant="secondary">Dilute Sample</Badge>}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Original Screening Results (Read-Only) fallback */}
+        {!matchCollection?.testId &&
+          labConfirmationData?.originalDetectedSubstances &&
           labConfirmationData.originalDetectedSubstances.length > 0 && (
             <Card className="border-muted bg-muted/30">
               <CardHeader className="pb-3">

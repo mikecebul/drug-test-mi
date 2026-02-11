@@ -1,14 +1,14 @@
 'use client'
 
-import React, { useState, useCallback, useRef } from 'react'
-import { useFieldContext } from '../hooks/form-context'
-import { Button } from '@/components/ui/button'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Camera, Upload, XCircle, Crop, Check, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'react'
+import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop'
 import { useStore } from '@tanstack/react-form'
-import Cropper, { type Area } from 'react-easy-crop'
+import { useFieldContext } from '../hooks/form-context'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Slider } from '@/components/ui/slider'
+import { Camera, Check, Crop as CropIcon, Upload, X, XCircle } from 'lucide-react'
+import { createCenteredAspectCrop, cropImageToJpegBlob, toJpegFileName } from '@/lib/image-crop'
 
 interface ImageUploadFieldProps {
   label?: string
@@ -19,155 +19,135 @@ interface ImageUploadFieldProps {
   aspectRatio?: number
 }
 
-// Helper function to create cropped image
-const createCroppedImage = async (
-  imageSrc: string,
-  pixelCrop: Area,
-): Promise<Blob> => {
-  const image = new Image()
-  image.src = imageSrc
-
-  await new Promise((resolve) => {
-    image.onload = resolve
-  })
-
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
-
-  if (!ctx) {
-    throw new Error('No 2d context')
-  }
-
-  canvas.width = pixelCrop.width
-  canvas.height = pixelCrop.height
-
-  ctx.drawImage(
-    image,
-    pixelCrop.x,
-    pixelCrop.y,
-    pixelCrop.width,
-    pixelCrop.height,
-    0,
-    0,
-    pixelCrop.width,
-    pixelCrop.height,
-  )
-
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        reject(new Error('Canvas is empty'))
-        return
-      }
-      resolve(blob)
-    }, 'image/jpeg', 0.95)
-  })
-}
-
 export default function ImageUploadField({
   label,
   description,
   accept = 'image/*',
-  maxSize = 10 * 1024 * 1024, // 10MB default
+  maxSize = 10 * 1024 * 1024,
   required = false,
-  aspectRatio = 1, // Square by default (for headshots)
+  aspectRatio = 1,
 }: ImageUploadFieldProps) {
   const field = useFieldContext<File | null>()
   const fieldErrors = useStore(field.store, (state) => state.meta.errors)
 
   const [preview, setPreview] = useState<string | null>(null)
-  const [error, setError] = useState<string>('')
+  const [error, setError] = useState('')
   const [showCropper, setShowCropper] = useState(false)
   const [tempImage, setTempImage] = useState<string | null>(null)
-  const [crop, setCrop] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
-  const [originalFileName, setOriginalFileName] = useState<string>('image.jpg')
+  const [crop, setCrop] = useState<Crop>()
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null)
+  const [originalFileName, setOriginalFileName] = useState('image.jpg')
 
+  const imageRef = useRef<HTMLImageElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
-  const handleFileValidate = (file: File): string | null => {
-    // Validate file type
-    if (accept && !file.type.match(accept.replace('*', '.*'))) {
-      return `Please select a valid image file`
+  useEffect(() => {
+    return () => {
+      if (preview?.startsWith('blob:')) {
+        URL.revokeObjectURL(preview)
+      }
     }
+  }, [preview])
 
-    // Validate file size
-    if (maxSize && file.size > maxSize) {
-      return `File size must be less than ${(maxSize / 1024 / 1024).toFixed(0)}MB`
-    }
-
-    return null
-  }
-
-  const handleFileSelect = (file: File) => {
-    const validationError = handleFileValidate(file)
-    if (validationError) {
-      setError(validationError)
-      return
-    }
-
-    setError('')
-    setOriginalFileName(file.name)
-
-    // Create preview and open cropper
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      setTempImage(reader.result as string)
-      setShowCropper(true)
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const onCropComplete = useCallback((_croppedArea: Area, croppedAreaPixels: Area) => {
-    setCroppedAreaPixels(croppedAreaPixels)
+  const resetCropState = useCallback(() => {
+    setShowCropper(false)
+    setTempImage(null)
+    setCrop(undefined)
+    setCompletedCrop(null)
   }, [])
 
-  const handleCropSave = async () => {
-    if (!tempImage || !croppedAreaPixels) return
+  const handleFileValidate = useCallback(
+    (file: File): string | null => {
+      if (accept && !file.type.match(accept.replace('*', '.*'))) {
+        return 'Please select a valid image file'
+      }
+
+      if (maxSize && file.size > maxSize) {
+        return `File size must be less than ${(maxSize / 1024 / 1024).toFixed(0)}MB`
+      }
+
+      return null
+    },
+    [accept, maxSize],
+  )
+
+  const handleFileSelect = useCallback(
+    (file: File) => {
+      const validationError = handleFileValidate(file)
+      if (validationError) {
+        setError(validationError)
+        return
+      }
+
+      setError('')
+      setOriginalFileName(file.name)
+
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setTempImage((reader.result as string) ?? null)
+        setShowCropper(true)
+      }
+      reader.readAsDataURL(file)
+    },
+    [handleFileValidate],
+  )
+
+  const onImageLoad = useCallback(
+    (event: SyntheticEvent<HTMLImageElement>) => {
+      const { width, height } = event.currentTarget
+      if (aspectRatio > 0) {
+        setCrop(createCenteredAspectCrop(width, height, aspectRatio))
+      } else {
+        setCrop({ unit: '%', x: 5, y: 5, width: 90, height: 90 })
+      }
+    },
+    [aspectRatio],
+  )
+
+  const handleCropSave = useCallback(async () => {
+    if (!tempImage || !imageRef.current || !completedCrop) return
 
     try {
-      const croppedBlob = await createCroppedImage(tempImage, croppedAreaPixels)
+      const croppedBlob = await cropImageToJpegBlob(imageRef.current, completedCrop, {
+        maxOutputSize: 1600,
+        quality: 0.95,
+      })
 
-      // Convert blob to File
-      const croppedFile = new File([croppedBlob], originalFileName, {
+      const croppedFile = new File([croppedBlob], toJpegFileName(originalFileName), {
         type: 'image/jpeg',
       })
 
-      // Update field value
       field.handleChange(croppedFile)
 
-      // Create preview
       const previewUrl = URL.createObjectURL(croppedBlob)
-      setPreview(previewUrl)
+      setPreview((previousPreview) => {
+        if (previousPreview?.startsWith('blob:')) {
+          URL.revokeObjectURL(previousPreview)
+        }
+        return previewUrl
+      })
 
-      // Close cropper
-      setShowCropper(false)
-      setTempImage(null)
-      setCrop({ x: 0, y: 0 })
-      setZoom(1)
-    } catch (error) {
-      console.error('Error cropping image:', error)
+      resetCropState()
+    } catch (cropError) {
+      console.error('Error cropping image:', cropError)
       setError('Failed to crop image. Please try again.')
     }
-  }
+  }, [completedCrop, field, originalFileName, resetCropState, tempImage])
 
-  const handleCropCancel = () => {
-    setShowCropper(false)
-    setTempImage(null)
-    setCrop({ x: 0, y: 0 })
-    setZoom(1)
-    setCroppedAreaPixels(null)
-  }
-
-  const handleRemove = () => {
+  const handleRemove = useCallback(() => {
     field.handleChange(null)
-    setPreview(null)
     setError('')
+    setPreview((previousPreview) => {
+      if (previousPreview?.startsWith('blob:')) {
+        URL.revokeObjectURL(previousPreview)
+      }
+      return null
+    })
+
     if (fileInputRef.current) fileInputRef.current.value = ''
     if (cameraInputRef.current) cameraInputRef.current.value = ''
-  }
+  }, [field])
 
   return (
     <div className="space-y-4">
@@ -179,134 +159,97 @@ export default function ImageUploadField({
       )}
       {description && <p className="text-muted-foreground text-sm">{description}</p>}
 
-      {/* Preview */}
       {preview && !showCropper && (
-        <div className="relative w-48 h-48 border-2 border-border rounded-lg overflow-hidden bg-muted">
-          <img
-            src={preview}
-            alt="Preview"
-            className="w-full h-full object-cover"
-          />
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            className="absolute top-2 right-2"
-            onClick={handleRemove}
-          >
+        <div className="bg-muted relative h-48 w-48 overflow-hidden rounded-lg border-2 border-border">
+          <img src={preview} alt="Preview" className="h-full w-full object-cover" />
+          <Button type="button" size="sm" variant="destructive" className="absolute top-2 right-2" onClick={handleRemove}>
             <XCircle className="h-4 w-4" />
           </Button>
         </div>
       )}
 
-      {/* Upload buttons */}
       {!preview && !showCropper && (
         <div className="flex flex-col gap-2 sm:flex-row">
-          {/* Camera input (mobile devices) */}
           <input
             ref={cameraInputRef}
             type="file"
             accept={accept}
-            capture="environment" // Use rear camera
+            capture="environment"
             className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
+            onChange={(event) => {
+              const file = event.target.files?.[0]
               if (file) handleFileSelect(file)
+              event.currentTarget.value = ''
             }}
           />
-          <Button
-            type="button"
-            variant="outline"
-            className="flex-1"
-            onClick={() => cameraInputRef.current?.click()}
-          >
+          <Button type="button" variant="outline" className="flex-1" onClick={() => cameraInputRef.current?.click()}>
             <Camera className="mr-2 h-4 w-4" />
             Take Photo
           </Button>
 
-          {/* File picker */}
           <input
             ref={fileInputRef}
             type="file"
             accept={accept}
             className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
+            onChange={(event) => {
+              const file = event.target.files?.[0]
               if (file) handleFileSelect(file)
+              event.currentTarget.value = ''
             }}
           />
-          <Button
-            type="button"
-            variant="outline"
-            className="flex-1"
-            onClick={() => fileInputRef.current?.click()}
-          >
+          <Button type="button" variant="outline" className="flex-1" onClick={() => fileInputRef.current?.click()}>
             <Upload className="mr-2 h-4 w-4" />
             Upload File
           </Button>
         </div>
       )}
 
-      {/* Error messages */}
       {(error || fieldErrors.length > 0) && (
         <Alert variant="destructive">
           <AlertDescription>{error || fieldErrors[0]?.message}</AlertDescription>
         </Alert>
       )}
 
-      {/* Cropper Dialog */}
-      <Dialog open={showCropper} onOpenChange={setShowCropper}>
-        <DialogContent className="max-w-3xl">
+      <Dialog open={showCropper} onOpenChange={(open) => (!open ? resetCropState() : setShowCropper(true))}>
+        <DialogContent className="max-h-[94vh] w-[95vw] max-w-4xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Crop className="h-5 w-5" />
+              <CropIcon className="h-5 w-5" />
               Crop Image
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Cropper */}
-            <div className="relative h-96 bg-muted rounded-lg overflow-hidden">
+            <div className="max-h-[65vh] overflow-auto rounded-lg bg-muted p-2">
               {tempImage && (
-                <Cropper
-                  image={tempImage}
+                <ReactCrop
                   crop={crop}
-                  zoom={zoom}
-                  aspect={aspectRatio}
-                  onCropChange={setCrop}
-                  onZoomChange={setZoom}
-                  onCropComplete={onCropComplete}
-                />
+                  onChange={(_, percentCrop) => setCrop(percentCrop)}
+                  onComplete={(pixelCrop) =>
+                    setCompletedCrop(pixelCrop.width > 0 && pixelCrop.height > 0 ? pixelCrop : null)
+                  }
+                  aspect={aspectRatio > 0 ? aspectRatio : undefined}
+                  keepSelection={true}
+                  className="mx-auto w-fit"
+                >
+                  <img
+                    ref={imageRef}
+                    src={tempImage}
+                    alt="Crop preview"
+                    onLoad={onImageLoad}
+                    className="max-h-[60vh] w-auto max-w-full object-contain"
+                  />
+                </ReactCrop>
               )}
             </div>
 
-            {/* Zoom slider */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Zoom</label>
-              <Slider
-                value={[zoom]}
-                onValueChange={([value]) => setZoom(value)}
-                min={1}
-                max={3}
-                step={0.1}
-                className="w-full"
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2 justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCropCancel}
-              >
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={resetCropState}>
                 <X className="mr-2 h-4 w-4" />
                 Cancel
               </Button>
-              <Button
-                type="button"
-                onClick={handleCropSave}
-              >
+              <Button type="button" onClick={handleCropSave} disabled={!completedCrop}>
                 <Check className="mr-2 h-4 w-4" />
                 Apply Crop
               </Button>

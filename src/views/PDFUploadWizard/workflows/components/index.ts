@@ -3,12 +3,12 @@
  *
  * These components are reusable across different workflows with consistent theming:
  * - ClientInfoCard: Neutral theme (info) - displays client details
- * - HeadshotDrawerCard: Editable client info with Payload DocumentDrawer for headshot uploads
+ * - HeadshotCaptureCard: Editable client info with custom camera/upload + crop headshot flow
  * - MedicationDisplayField: Warning theme - alerts about expected positive substances
  * - FieldGroupHeader: Standard header for form sections
  */
 
 export { ClientInfoCard } from './client/ClientInfoCard'
-export { HeadshotDrawerCard } from './client/HeadshotDrawerCard'
+export { HeadshotCaptureCard } from './client/HeadshotCaptureCard'
 export { FieldGroupHeader } from './FieldGroupHeader'
 export { default as MedicationDisplayField } from '@/views/PDFUploadWizard/workflows/components/medications/medication-display-field'

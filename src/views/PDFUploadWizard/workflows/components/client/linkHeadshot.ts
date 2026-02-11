@@ -7,7 +7,7 @@ import { createAdminAlert } from '@/lib/admin-alerts'
 
 /**
  * Links an existing private-media document to a client's headshot field.
- * Called after Payload's DocumentDrawer successfully creates the upload.
+ * Kept for backward compatibility with older headshot upload flows.
  *
  * Requires admin authentication.
  */

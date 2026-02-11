@@ -11,7 +11,7 @@ import { Plus, RefreshCw, AlertCircle } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { MedicationMotionWrapper } from './MedicationWrapper'
 import { FieldGroupHeader } from '../FieldGroupHeader'
-import { HeadshotDrawerCard } from '../client/HeadshotDrawerCard'
+import { HeadshotCaptureCard } from '../client/HeadshotCaptureCard'
 import type { FormClient } from '../../shared-validators'
 
 // Default values for a single medication
@@ -53,7 +53,7 @@ export const MedicationFieldGroup = withFieldGroup({
           title="Verify Medications"
           description="Review and update the client's medications for accurate drug test interpretation"
         />
-        <HeadshotDrawerCard client={client} onHeadshotLinked={onHeadshotLinked} />
+        <HeadshotCaptureCard client={client} onHeadshotLinked={onHeadshotLinked} />
 
         {/* Medications Section */}
         <Card className="shadow-md">

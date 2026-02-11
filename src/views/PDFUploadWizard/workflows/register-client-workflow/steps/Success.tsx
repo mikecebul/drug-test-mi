@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { CheckCircle2, Copy, Check, Eye, EyeOff } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { HeadshotDrawerCard } from '../../components'
+import { HeadshotCaptureCard } from '../../components'
 
 interface SuccessStepProps {
   clientId: string
@@ -112,7 +112,7 @@ export function SuccessStep({
           <h3 className="text-lg font-medium">Add Headshot Photo (Optional)</h3>
           <p className="text-muted-foreground text-sm">Upload a photo to help identify the client</p>
         </div>
-        <HeadshotDrawerCard
+        <HeadshotCaptureCard
           client={{
             id: clientId,
             firstName,

@@ -83,6 +83,7 @@ export const MatchCollectionStep = withForm({
       setMatchedTest(test)
       form.setFieldValue('matchCollection.testId', test.id)
       form.setFieldValue('matchCollection.clientName', test.clientName)
+      form.setFieldValue('matchCollection.headshot', test.clientHeadshot)
       form.setFieldValue('matchCollection.testType', test.testType)
       form.setFieldValue('matchCollection.collectionDate', test.collectionDate)
       form.setFieldValue('matchCollection.screeningStatus', test.screeningStatus)

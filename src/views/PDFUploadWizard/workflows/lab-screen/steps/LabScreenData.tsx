@@ -1,13 +1,14 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
+import { useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import InputDateTimePicker from '@/components/input-datetime-picker'
-import { ClientInfoCard, MedicationDisplayField, FieldGroupHeader } from '../../components'
+import { HeadshotCaptureCard, MedicationDisplayField, FieldGroupHeader } from '../../components'
 import { getLabScreenFormOpts } from '../shared-form'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -24,13 +25,13 @@ import { ConfirmationSubstanceSelector } from '@/blocks/Form/field-components/co
 import { cn } from '@/utilities/cn'
 import { AlertTriangle } from 'lucide-react'
 import { format } from 'date-fns'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 
 export const LabScreenDataStep = withForm({
   ...getLabScreenFormOpts('labScreenData'),
 
   render: function Render({ form }) {
+    const queryClient = useQueryClient()
     const formValues = useStore(form.store, (state) => state.values)
     const matchCollection = formValues.matchCollection
     const labScreenData = formValues.labScreenData
@@ -88,6 +89,27 @@ export const LabScreenDataStep = withForm({
       }
     }
 
+    const handleHeadshotLinked = useCallback(
+      (url: string, docId: string) => {
+        form.setFieldValue('matchCollection.headshot', url)
+
+        if (!matchCollection?.testId) return
+
+        queryClient.setQueryData(
+          ['client-from-test', matchCollection.testId],
+          (currentClient: typeof client | null | undefined) => {
+            if (!currentClient) return currentClient
+            return {
+              ...currentClient,
+              headshot: url,
+              headshotId: docId,
+            }
+          },
+        )
+      },
+      [client, form, matchCollection?.testId, queryClient],
+    )
+
     return (
       <div className="space-y-6">
         <FieldGroupHeader
@@ -96,54 +118,40 @@ export const LabScreenDataStep = withForm({
         />
 
         {/* Client Info & Medications */}
-        {client && (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
-            <ClientInfoCard client={client} />
-            {clientMedications.length > 0 && (
-              <MedicationDisplayField
-                medicationSnapshot={clientMedications}
-                title="Medications at Collection Time"
-                description="Medications that were active when this test was collected"
-              />
-            )}
-          </div>
+        {client && <HeadshotCaptureCard client={client} onHeadshotLinked={handleHeadshotLinked} />}
+
+        {clientMedications.length > 0 && (
+          <MedicationDisplayField medicationSnapshot={clientMedications} title="Medications at Collection Time" />
         )}
 
-        {/* Matched Test Info */}
-        {matchCollection && matchCollection.clientName && (
-          <Card className="transition-all">
-            <CardHeader>
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex flex-1 items-start gap-3">
-                  <Avatar className="h-12 w-12 shrink-0">
-                    <AvatarImage src={matchCollection.headshot ?? undefined} alt={matchCollection.clientName} />
-                    <AvatarFallback className="text-sm">
-                      {matchCollection.clientName
-                        .split(' ')
-                        .map((n) => n.charAt(0))
-                        .join('')
-                        .slice(0, 2)}
-                    </AvatarFallback>
-                  </Avatar>
-
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{matchCollection.clientName}</CardTitle>
-                    <CardDescription className="mt-1">
-                      {/* Using PPp for consistent date formatting */}
-                      {format(new Date(matchCollection.collectionDate), 'PPp')} • {matchCollection.testType}
-                    </CardDescription>
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-end gap-2">
-                  {/* If you have a score for the final match, display it here */}
-                  <Badge variant="default" className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/10">
+        {/* Matched Test Context */}
+        {matchCollection && (
+          <Card className="border-info/30 bg-info/5 transition-all">
+            <CardContent className="grid gap-x-8 gap-y-3 pt-6 text-sm sm:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-1.5">
+                <p className="text-muted-foreground text-[11px] font-medium tracking-[0.12em] uppercase">
+                  Collection Date
+                </p>
+                <p className="text-base leading-tight font-medium">
+                  {format(new Date(matchCollection.collectionDate), 'PPp')}
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-muted-foreground text-[11px] font-medium tracking-[0.12em] uppercase">Test Type</p>
+                <p className="text-base leading-tight font-medium">{matchCollection.testType}</p>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-muted-foreground text-[11px] font-medium tracking-[0.12em] uppercase">
+                  Record Status
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="default" className="border-primary/20 bg-primary/10 text-primary hover:bg-primary/10">
                     Confirmed Match
                   </Badge>
                   <Badge variant="outline">{matchCollection.screeningStatus}</Badge>
                 </div>
               </div>
-            </CardHeader>
+            </CardContent>
           </Card>
         )}
 

@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import InputDateTimePicker from '@/components/input-datetime-picker'
-import { MedicationDisplayField, FieldGroupHeader, HeadshotDrawerCard } from '../../components'
+import { MedicationDisplayField, FieldGroupHeader, HeadshotCaptureCard } from '../../components'
 import { getInstantTestFormOpts } from '../shared-form'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -95,17 +95,16 @@ export const VerifyDataStep = withForm({
 
         {/* Client Info & Medications */}
         {client && (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
-            <HeadshotDrawerCard
-              client={client}
-              onHeadshotLinked={(url: string, docId: string) => {
-                form.setFieldValue('client.headshot', url)
-                form.setFieldValue('client.headshotId', docId)
-              }}
-            />
-            {medications.length > 0 && <MedicationDisplayField medications={medications} />}
-          </div>
+          <HeadshotCaptureCard
+            client={client}
+            onHeadshotLinked={(url: string, docId: string) => {
+              form.setFieldValue('client.headshot', url)
+              form.setFieldValue('client.headshotId', docId)
+            }}
+          />
         )}
+
+        {medications.length > 0 && <MedicationDisplayField medications={medications} />}
 
         {/* Test Data Form */}
         <Card className="@container shadow-md">

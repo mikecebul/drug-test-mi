@@ -16,7 +16,6 @@ export default function MedicationDisplayField({
   medications,
   medicationSnapshot,
   title = 'Active Medications',
-  description = 'Expected to test positive for the following substances',
 }: MedicationDisplayFieldProps) {
   // Filter to show all active medications (even if detectedAs is missing)
   const activeMedications = medications ? medications.filter(med => med.status === 'active') : medicationSnapshot
@@ -35,7 +34,6 @@ export default function MedicationDisplayField({
           </div>
           <h3 className="text-foreground text-xl font-semibold">{title}</h3>
         </div>
-        <p className="text-warning-foreground mt-2 text-sm">{description}</p>
       </div>
 
       {/* Medications List */}
