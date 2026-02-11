@@ -6,7 +6,7 @@ import { TZDate } from '@date-fns/tz'
  */
 export interface ExtractedLabData {
   donorName: string | null
-  collectionDate: string | null // ISO string in UTC
+  collectionDate: string | null // ISO string with timezone offset (or UTC Z)
   detectedSubstances: SubstanceValue[] // From "Screen" column
   isDilute: boolean
   rawText: string

@@ -48,7 +48,7 @@ export interface SimpleClient {
 
 export interface ParsedPDFData {
   donorName: string | null
-  collectionDate: string | null // ISO string in UTC
+  collectionDate: string | null // ISO string with timezone offset (or UTC Z)
   dob?: string | null // Date of birth in MM/DD/YYYY format (15-panel instant only)
   gender?: string | null // M or F (15-panel instant only)
   detectedSubstances: SubstanceValue[]

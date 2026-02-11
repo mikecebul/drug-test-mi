@@ -80,6 +80,26 @@ describe('uploadHeadshot', () => {
     expect(payloadMock.update).not.toHaveBeenCalled()
   })
 
+  it('returns PAYLOAD_TOO_LARGE for oversized buffers', async () => {
+    const oversizedBuffer = new Array(10 * 1024 * 1024 + 1) as number[]
+
+    const result = await uploadHeadshot('client-1', oversizedBuffer, 'image/jpeg', 'headshot.jpg')
+
+    expect(result.success).toBe(false)
+    expect(result.errorCode).toBe('PAYLOAD_TOO_LARGE')
+    expect(payloadMock.create).not.toHaveBeenCalled()
+    expect(payloadMock.update).not.toHaveBeenCalled()
+  })
+
+  it('returns INVALID_INPUT for invalid byte values in headshot buffer', async () => {
+    const result = await uploadHeadshot('client-1', [1, -2, 260], 'image/jpeg', 'headshot.jpg')
+
+    expect(result.success).toBe(false)
+    expect(result.errorCode).toBe('INVALID_INPUT')
+    expect(payloadMock.create).not.toHaveBeenCalled()
+    expect(payloadMock.update).not.toHaveBeenCalled()
+  })
+
   it('creates a new private-media headshot and links it to the client', async () => {
     payloadMock.create.mockResolvedValue({
       id: 'media-1',
@@ -107,6 +127,42 @@ describe('uploadHeadshot', () => {
       expect.objectContaining({
         collection: 'clients',
         id: 'client-1',
+      }),
+    )
+  })
+
+  it('re-fetches media doc when create response is missing URL fields', async () => {
+    payloadMock.create.mockResolvedValue({
+      id: 'media-2',
+      thumbnailURL: null,
+      url: null,
+    })
+    payloadMock.update.mockResolvedValue({ id: 'client-1' })
+    payloadMock.findByID
+      .mockResolvedValueOnce({
+        id: 'client-1',
+        firstName: 'John',
+        middleInitial: 'Q',
+        lastName: 'Public',
+      })
+      .mockResolvedValueOnce({
+        id: 'media-2',
+        thumbnailURL: '/media/refetched-thumb.jpg',
+        url: '/media/refetched-full.jpg',
+      })
+
+    const result = await uploadHeadshot('client-1', [1, 2, 3], 'image/jpeg', 'headshot.jpg')
+
+    expect(result).toEqual({
+      success: true,
+      id: 'media-2',
+      url: '/media/refetched-thumb.jpg',
+    })
+    expect(payloadMock.findByID).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        collection: 'private-media',
+        id: 'media-2',
       }),
     )
   })

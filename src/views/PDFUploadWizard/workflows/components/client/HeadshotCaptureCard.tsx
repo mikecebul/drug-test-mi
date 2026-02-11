@@ -28,6 +28,7 @@ interface HeadshotCaptureCardProps {
 }
 
 const MAX_HEADSHOT_SIZE_BYTES = 10 * 1024 * 1024
+const PAYLOAD_TOO_LARGE_MESSAGE = 'Image too large after processing; retry with a smaller crop/photo.'
 
 /**
  * Client card with custom camera/upload + crop flow for iPad-friendly headshot updates.
@@ -112,17 +113,24 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
         currentHeadshotId,
       )
 
-      if (!result.success || !result.id || !result.url) {
-        const uploadError = result.error || 'Failed to upload and link headshot'
+      if (!result.success || !result.id) {
+        const uploadError =
+          result.errorCode === 'PAYLOAD_TOO_LARGE'
+            ? PAYLOAD_TOO_LARGE_MESSAGE
+            : result.error || 'Failed to upload and link headshot'
         setErrorMessage(uploadError)
         toast.error(uploadError)
         return
       }
 
-      setHeadshotUrl(result.url)
       setCurrentHeadshotId(result.id)
-      onHeadshotLinked?.(result.url, result.id)
-      toast.success(currentHeadshotId ? 'Headshot updated successfully' : 'Headshot uploaded successfully')
+      if (result.url) {
+        setHeadshotUrl(result.url)
+        onHeadshotLinked?.(result.url, result.id)
+        toast.success(currentHeadshotId ? 'Headshot updated successfully' : 'Headshot uploaded successfully')
+      } else {
+        toast.info('Headshot saved successfully. Preview may take a moment to appear.')
+      }
       resetCropState()
     } catch (error) {
       const uploadError = error instanceof Error ? error.message : String(error)

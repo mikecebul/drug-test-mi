@@ -59,6 +59,11 @@ export const LabScreenDataStep = withForm({
 
     const hasUnexpectedPositives = (preview?.unexpectedPositives?.length ?? 0) > 0
     const requiresDecision = hasUnexpectedPositives && !preview?.autoAccept
+    const matchedCollectionDate = matchCollection?.collectionDate ? new Date(matchCollection.collectionDate) : null
+    const matchedCollectionDateLabel =
+      matchedCollectionDate && !Number.isNaN(matchedCollectionDate.getTime())
+        ? format(matchedCollectionDate, 'PPp')
+        : 'Unknown'
 
     // Clear error if no decision required
     useEffect(() => {
@@ -125,16 +130,14 @@ export const LabScreenDataStep = withForm({
         )}
 
         {/* Matched Test Context */}
-        {matchCollection && (
+        {matchCollection?.testId && (
           <Card className="border-info/30 bg-info/5 transition-all">
             <CardContent className="grid gap-x-8 gap-y-3 pt-6 text-sm sm:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-1.5">
                 <p className="text-muted-foreground text-[11px] font-medium tracking-[0.12em] uppercase">
                   Collection Date
                 </p>
-                <p className="text-base leading-tight font-medium">
-                  {format(new Date(matchCollection.collectionDate), 'PPp')}
-                </p>
+                <p className="text-base leading-tight font-medium">{matchedCollectionDateLabel}</p>
               </div>
               <div className="space-y-1.5">
                 <p className="text-muted-foreground text-[11px] font-medium tracking-[0.12em] uppercase">Test Type</p>

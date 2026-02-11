@@ -13,6 +13,8 @@ interface UploadHeadshotResult {
   errorCode?: string
 }
 
+const MAX_HEADSHOT_UPLOAD_BYTES = 10 * 1024 * 1024
+
 function buildClientHeadshotAlt(client: {
   firstName?: string | null
   middleInitial?: string | null
@@ -87,6 +89,22 @@ export async function uploadHeadshot(
       }
     }
 
+    if (headshotBuffer.length > MAX_HEADSHOT_UPLOAD_BYTES) {
+      return {
+        success: false,
+        error: 'Image too large after processing; retry with a smaller crop/photo.',
+        errorCode: 'PAYLOAD_TOO_LARGE',
+      }
+    }
+
+    if (headshotBuffer.some((value) => !Number.isInteger(value) || value < 0 || value > 255)) {
+      return {
+        success: false,
+        error: 'Invalid upload payload: headshot buffer must contain byte values.',
+        errorCode: 'INVALID_INPUT',
+      }
+    }
+
     if (!headshotMimetype.startsWith('image/')) {
       return {
         success: false,
@@ -156,7 +174,26 @@ export async function uploadHeadshot(
     })
 
     const headshotId = String(mediaDoc.id)
-    const url = mediaDoc.thumbnailURL || mediaDoc.url || undefined
+    let url = mediaDoc.thumbnailURL || mediaDoc.url || undefined
+    if (!url) {
+      try {
+        const fetchedMediaDoc = await payload.findByID({
+          collection: 'private-media',
+          id: mediaDoc.id,
+          depth: 0,
+          overrideAccess: true,
+        })
+        url = fetchedMediaDoc?.thumbnailURL || fetchedMediaDoc?.url || undefined
+      } catch (refetchError) {
+        payload.logger.error({
+          msg: '[uploadHeadshot] Failed to re-fetch media URL after upload',
+          clientId,
+          headshotId,
+          refetchError:
+            refetchError instanceof Error ? refetchError.message : String(refetchError),
+        })
+      }
+    }
 
     payload.logger.info({
       msg: '[uploadHeadshot] Headshot upload complete',
@@ -165,6 +202,7 @@ export async function uploadHeadshot(
       operation: existingHeadshotId ? 'update' : 'create',
       hasThumbnail: !!mediaDoc.thumbnailURL,
       hasUrl: !!mediaDoc.url,
+      hasResolvedUrl: !!url,
     })
 
     return {
