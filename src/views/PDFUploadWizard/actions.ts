@@ -659,6 +659,11 @@ export async function getEmailPreview(data: {
     clientEmail: string
     referralEmails: string[]
     referralTitle: string
+    referralRecipientsDetailed: Array<{
+      name: string
+      email: string
+    }>
+    clientType: 'probation' | 'employment' | 'self'
     clientHtml: string
     referralHtml: string
     smartGrouping: 'separate' | 'combined'
@@ -687,7 +692,7 @@ export async function getEmailPreview(data: {
     }
 
     // Get recipients using existing helper
-    const { clientEmail, referralEmails, referralTitle } = await getRecipients(data.clientId, payload)
+    const { clientEmail, referralEmails, referralTitle, referralRecipientsDetailed } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
     const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
@@ -724,6 +729,10 @@ export async function getEmailPreview(data: {
 
     // Determine smart grouping based on client type
     const smartGrouping = client.clientType === 'self' ? 'combined' : 'separate'
+    const clientType =
+      client.clientType === 'probation' || client.clientType === 'employment' || client.clientType === 'self'
+        ? client.clientType
+        : 'self'
 
     return {
       success: true,
@@ -731,6 +740,8 @@ export async function getEmailPreview(data: {
         clientEmail,
         referralEmails,
         referralTitle,
+        referralRecipientsDetailed,
+        clientType,
         clientHtml: emailData.client.html,
         referralHtml: emailData.referrals.html,
         smartGrouping,
@@ -761,6 +772,11 @@ export async function getCollectionEmailPreview(data: {
   data?: {
     referralEmails: string[]
     referralTitle: string
+    referralRecipientsDetailed: Array<{
+      name: string
+      email: string
+    }>
+    clientType: 'probation' | 'employment' | 'self'
     referralHtml: string
     referralSubject: string
   }
@@ -786,7 +802,7 @@ export async function getCollectionEmailPreview(data: {
     }
 
     // Get recipients using existing helper
-    const { referralEmails, referralTitle } = await getRecipients(data.clientId, payload)
+    const { referralEmails, referralTitle, referralRecipientsDetailed } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
     const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
@@ -807,11 +823,18 @@ export async function getCollectionEmailPreview(data: {
       clientDob,
     })
 
+    const clientType =
+      client.clientType === 'probation' || client.clientType === 'employment' || client.clientType === 'self'
+        ? client.clientType
+        : 'self'
+
     return {
       success: true,
       data: {
         referralEmails,
         referralTitle,
+        referralRecipientsDetailed,
+        clientType,
         referralHtml: emailData.html,
         referralSubject: emailData.subject,
       },
@@ -843,6 +866,11 @@ export async function getConfirmationEmailPreview(data: {
     clientEmail: string
     referralEmails: string[]
     referralTitle: string
+    referralRecipientsDetailed: Array<{
+      name: string
+      email: string
+    }>
+    clientType: 'probation' | 'employment' | 'self'
     clientHtml: string
     referralHtml: string
     smartGrouping: 'separate' | 'combined'
@@ -878,7 +906,7 @@ export async function getConfirmationEmailPreview(data: {
     }
 
     // Get recipients using existing helper
-    const { clientEmail, referralEmails, referralTitle } = await getRecipients(data.clientId, payload)
+    const { clientEmail, referralEmails, referralTitle, referralRecipientsDetailed } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
     const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
@@ -931,6 +959,10 @@ export async function getConfirmationEmailPreview(data: {
 
     // Determine smart grouping based on client type
     const smartGrouping = client.clientType === 'self' ? 'combined' : 'separate'
+    const clientType =
+      client.clientType === 'probation' || client.clientType === 'employment' || client.clientType === 'self'
+        ? client.clientType
+        : 'self'
 
     return {
       success: true,
@@ -938,6 +970,8 @@ export async function getConfirmationEmailPreview(data: {
         clientEmail,
         referralEmails,
         referralTitle,
+        referralRecipientsDetailed,
+        clientType,
         clientHtml: emailData.client.html,
         referralHtml: emailData.referrals.html,
         smartGrouping,

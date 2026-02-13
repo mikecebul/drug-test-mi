@@ -4,14 +4,16 @@ import { withForm } from '@/blocks/Form/hooks/form'
 import { getInstantTestFormOpts } from '../shared-form'
 import { useEffect } from 'react'
 import { useStore } from '@tanstack/react-form'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getClientMedications } from '../../components/medications/helpers'
 import { MedicationFieldGroup } from '../../components/medications/MedicationFieldGroup'
+import { invalidateWizardClientDerivedData } from '../../../queries'
 
 export const MedicationsStep = withForm({
   ...getInstantTestFormOpts('medications'),
 
   render: function Render({ form }) {
+    const queryClient = useQueryClient()
     const client = useStore(form.store, (state) => state.values.client)
 
     const {
@@ -57,6 +59,7 @@ export const MedicationsStep = withForm({
         onHeadshotLinked={(url, docId) => {
           form.setFieldValue('client.headshot', url)
           form.setFieldValue('client.headshotId', docId)
+          invalidateWizardClientDerivedData(queryClient, { clientId: client.id })
         }}
       />
     )

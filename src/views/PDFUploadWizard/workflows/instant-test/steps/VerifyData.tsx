@@ -2,6 +2,7 @@
 
 import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
+import { useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -12,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldGroup, FieldLabel, FieldError, FieldLegend } from '@/components/ui/field'
-import { useComputeTestResultPreviewQuery } from '../../../queries'
+import { useComputeTestResultPreviewQuery, invalidateWizardClientDerivedData } from '../../../queries'
 import { formatSubstance } from '@/lib/substances'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { ConfirmationSubstanceSelector } from '@/blocks/Form/field-components/confirmation-substance-selector'
@@ -24,6 +25,7 @@ export const VerifyDataStep = withForm({
   ...getInstantTestFormOpts('verifyData'),
 
   render: function Render({ form }) {
+    const queryClient = useQueryClient()
     const formValues = useStore(form.store, (state) => state.values)
     const formClient = formValues.client
     const verifyData = formValues.verifyData
@@ -100,6 +102,7 @@ export const VerifyDataStep = withForm({
             onHeadshotLinked={(url: string, docId: string) => {
               form.setFieldValue('client.headshot', url)
               form.setFieldValue('client.headshotId', docId)
+              invalidateWizardClientDerivedData(queryClient, { clientId: client.id })
             }}
           />
         )}

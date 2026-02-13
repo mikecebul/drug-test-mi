@@ -40,6 +40,7 @@ export const ClientStepUI = ({
     queryKey: ['clients'],
     queryFn: getClients,
     staleTime: 30 * 1000, // 30 seconds - clients can be added/deleted frequently
+    refetchOnMount: 'always',
   })
 
   const { dismiss } = useDismissModal()

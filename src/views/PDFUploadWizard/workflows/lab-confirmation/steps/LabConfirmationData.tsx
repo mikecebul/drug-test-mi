@@ -14,6 +14,7 @@ import { HeadshotCaptureCard, MedicationDisplayField, FieldGroupHeader } from '.
 import { getLabConfirmationFormOpts } from '../shared-form'
 import { Plus, Trash2 } from 'lucide-react'
 import {
+  invalidateWizardClientDerivedData,
   useGetClientFromTestQuery,
   useGetDrugTestWithMedicationsQuery,
   useGetDrugTestQuery,
@@ -105,6 +106,11 @@ export const LabConfirmationDataStep = withForm({
             }
           },
         )
+
+        invalidateWizardClientDerivedData(queryClient, {
+          clientId: client?.id,
+          testId: matchCollection.testId,
+        })
       },
       [client, form, matchCollection?.testId, queryClient],
     )

@@ -8,11 +8,13 @@ import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useStore } from '@tanstack/react-form'
+import { useQueryClient } from '@tanstack/react-query'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { HeadshotCaptureCard } from '../../components'
 import { getCollectLabFormOpts } from '../shared-form'
 import { collectionSchema, labTests } from '../validators'
 import InputDateTimePicker from '@/components/input-datetime-picker'
+import { invalidateWizardClientDerivedData } from '../../../queries'
 
 const TEST_LABELS: Record<(typeof labTests)[number], string> = {
   '11-panel-lab': '11-Panel',
@@ -24,6 +26,7 @@ export const CollectionStep = withForm({
   ...getCollectLabFormOpts('collection'),
 
   render: function Render({ form }) {
+    const queryClient = useQueryClient()
     // Access breathalyzerTaken value for conditional rendering
     const breathalyzerTaken = useStore(form.store, (state) => state.values.collection.breathalyzerTaken)
 
@@ -57,6 +60,7 @@ export const CollectionStep = withForm({
             onHeadshotLinked={(url: string, docId: string) => {
               form.setFieldValue('client.headshot', url)
               form.setFieldValue('client.headshotId', docId)
+              invalidateWizardClientDerivedData(queryClient, { clientId: client.id })
             }}
           />
         )}

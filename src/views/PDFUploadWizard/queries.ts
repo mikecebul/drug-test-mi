@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, type QueryClient } from '@tanstack/react-query'
 import {
   findMatchingClients,
   getAllClients,
@@ -27,6 +27,60 @@ type MedicationInput = {
 // Re-export ParsedPDFData as ExtractedPdfData for clarity in query consumers
 export type ExtractedPdfData = ParsedPDFData
 
+const WIZARD_QUERY_ROOTS = [
+  'clients',
+  'all-clients',
+  'matching-clients',
+  'email-preview',
+  'collection-email-preview',
+  'lab-screen-email-preview',
+  'confirmation-email-preview',
+  'client-from-test',
+  'drug-test-with-medications',
+  'drug-test',
+  'test-result-preview',
+  'medications',
+  'extract-pdf',
+] as const
+
+export function clearWizardQueryCache(queryClient: QueryClient) {
+  for (const root of WIZARD_QUERY_ROOTS) {
+    queryClient.removeQueries({
+      queryKey: [root],
+    })
+  }
+}
+
+export function invalidateWizardClientDerivedData(
+  queryClient: QueryClient,
+  options?: {
+    clientId?: string | null
+    testId?: string | null
+  },
+) {
+  const { clientId, testId } = options || {}
+
+  queryClient.invalidateQueries({ queryKey: ['clients'] })
+  queryClient.invalidateQueries({ queryKey: ['all-clients'] })
+  queryClient.invalidateQueries({ queryKey: ['matching-clients'] })
+  queryClient.invalidateQueries({ queryKey: ['email-preview'] })
+  queryClient.invalidateQueries({ queryKey: ['collection-email-preview'] })
+  queryClient.invalidateQueries({ queryKey: ['lab-screen-email-preview'] })
+  queryClient.invalidateQueries({ queryKey: ['confirmation-email-preview'] })
+  queryClient.invalidateQueries({ queryKey: ['test-result-preview'] })
+  queryClient.invalidateQueries({ queryKey: ['medications'] })
+
+  if (clientId) {
+    queryClient.invalidateQueries({ queryKey: ['test-result-preview', clientId] })
+  }
+
+  if (testId) {
+    queryClient.invalidateQueries({ queryKey: ['client-from-test', testId] })
+    queryClient.invalidateQueries({ queryKey: ['drug-test-with-medications', testId] })
+    queryClient.invalidateQueries({ queryKey: ['drug-test', testId] })
+  }
+}
+
 /**
  * Query hook for finding matching clients based on donor name
  */
@@ -41,6 +95,7 @@ export function useFindMatchingClientsQuery(firstName?: string, lastName?: strin
     },
     enabled: Boolean(firstName && lastName),
     staleTime: 30 * 1000, // 30 seconds - clients can be added/deleted frequently
+    refetchOnMount: 'always',
   })
 }
 
@@ -53,6 +108,7 @@ export function useGetAllClientsQuery(enabled: boolean = true) {
     queryFn: getAllClients,
     enabled,
     staleTime: 30 * 1000, // 30 seconds - clients can be added/deleted frequently
+    refetchOnMount: 'always',
   })
 }
 export function useGetClientsQuery() {
@@ -60,6 +116,7 @@ export function useGetClientsQuery() {
     queryKey: ['clients'],
     queryFn: getClients,
     staleTime: 30 * 1000, // 30 seconds - clients can be added/deleted frequently
+    refetchOnMount: 'always',
   })
 }
 
@@ -105,6 +162,7 @@ export function useComputeTestResultPreviewQuery(
     },
     enabled: Boolean(clientId && testType),
     staleTime: 1 * 60 * 1000, // 1 minute
+    refetchOnMount: 'always',
   })
 }
 
@@ -153,6 +211,7 @@ export function useGetCollectionEmailPreviewQuery(data: {
     },
     enabled: Boolean(clientId && testType && collectionDate),
     staleTime: 30 * 1000, // 30 seconds - email previews should be relatively fresh
+    refetchOnMount: 'always',
   })
 }
 
@@ -171,6 +230,7 @@ export function useGetClientFromTestQuery(testId: string | null | undefined) {
     },
     enabled: Boolean(testId),
     staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchOnMount: 'always',
   })
 }
 
@@ -189,6 +249,7 @@ export function useGetDrugTestWithMedicationsQuery(testId: string | null | undef
     },
     enabled: Boolean(testId),
     staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchOnMount: 'always',
   })
 }
 
@@ -213,6 +274,7 @@ export function useGetDrugTestQuery(testId: string | null | undefined) {
     },
     enabled: Boolean(testId),
     staleTime: 1 * 60 * 1000, // 1 minute
+    refetchOnMount: 'always',
   })
 }
 
@@ -273,6 +335,7 @@ export function useGetEmailPreviewQuery(data: {
     },
     enabled: Boolean(clientId && testType && collectionDate),
     staleTime: 30 * 1000, // 30 seconds - email previews should be relatively fresh
+    refetchOnMount: 'always',
   })
 }
 
@@ -306,6 +369,7 @@ export function useGetConfirmationEmailPreviewQuery(data: {
     },
     enabled: Boolean(clientId && testId && confirmationResults && confirmationResults.length > 0),
     staleTime: 30 * 1000, // 30 seconds - email previews should be relatively fresh
+    refetchOnMount: 'always',
   })
 }
 

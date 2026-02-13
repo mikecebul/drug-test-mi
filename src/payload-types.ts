@@ -1231,6 +1231,10 @@ export interface Client {
    */
   selfInfo?: {
     /**
+     * Optional referral name used in notifications when this self-pay profile is acting as an external referral.
+     */
+    referralName?: string | null;
+    /**
      * Optional additional recipients who will receive test results (family members, personal contacts, etc.). The client will always receive their own results.
      */
     recipients?:
@@ -3101,6 +3105,7 @@ export interface ClientsSelect<T extends boolean = true> {
   selfInfo?:
     | T
     | {
+        referralName?: T;
         recipients?:
           | T
           | {

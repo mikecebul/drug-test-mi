@@ -410,6 +410,14 @@ export const Clients: CollectionConfig = {
               },
               fields: [
                 {
+                  name: 'referralName',
+                  type: 'text',
+                  admin: {
+                    description:
+                      'Optional referral name used in notifications when this self-pay profile is acting as an external referral.',
+                  },
+                },
+                {
                   name: 'recipients',
                   type: 'array',
                   admin: {

@@ -2,6 +2,7 @@
 
 import React, { Suspense } from 'react'
 import { parseAsStringLiteral, parseAsString, useQueryStates } from 'nuqs'
+import { useQueryClient } from '@tanstack/react-query'
 import { WizardTypeSelector } from './components/main-wizard/WizardTypeSelector'
 import { WizardTypeSelectorSkeleton } from './components/main-wizard/WizardTypeSelectorSkeleton'
 import { LabScreenWorkflow } from './workflows/lab-screen/Workflow'
@@ -16,6 +17,7 @@ import { steps as registerClientSteps } from './workflows/register-client-workfl
 import { steps as instantTestSteps } from './workflows/instant-test/validators'
 import { steps as labScreenSteps } from './workflows/lab-screen/validators'
 import { steps as labConfirmationSteps } from './workflows/lab-confirmation/validators'
+import { clearWizardQueryCache } from './queries'
 
 const workflowTypes = [
   'register-client',
@@ -28,6 +30,7 @@ const workflowTypes = [
 type Workflows = typeof workflowTypes
 
 export function PDFUploadWizardClient() {
+  const queryClient = useQueryClient()
   const [states, setStates] = useQueryStates(
     {
       workflow: parseAsStringLiteral(workflowTypes),
@@ -60,6 +63,8 @@ export function PDFUploadWizardClient() {
 
   // Handle workflow type selection
   const handleWorkflowSelect = (wizardType: WizardType) => {
+    clearWizardQueryCache(queryClient)
+
     setStates({
       workflow: wizardType,
       step: firstStepMap[wizardType] ?? null,

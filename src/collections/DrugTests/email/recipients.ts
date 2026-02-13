@@ -4,6 +4,10 @@ export type RecipientList = {
   clientEmail: string
   referralEmails: string[]
   referralTitle: string // Organization name (employer, court, etc.)
+  referralRecipientsDetailed: Array<{
+    name: string
+    email: string
+  }>
 }
 
 /**
@@ -34,11 +38,18 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
         clientEmail: '',
         referralEmails: [],
         referralTitle: '',
+        referralRecipientsDetailed: [],
       }
     }
 
     const clientEmail = client.email
-    const referralEmails: string[] = []
+    const recipientMap = new Map<
+      string,
+      {
+        name: string
+        email: string
+      }
+    >()
 
     // Get title for referral source (employer name, court name, etc.)
     let referralTitle = ''
@@ -47,7 +58,7 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
     } else if (client.clientType === 'employment') {
       referralTitle = client.employmentInfo?.employerName || 'Employer'
     } else if (client.clientType === 'self') {
-      referralTitle = 'Self'
+      referralTitle = ((client.selfInfo as any)?.referralName as string | undefined)?.trim() || 'Self'
     }
 
     // Get recipients based on client type
@@ -60,8 +71,22 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
     const recipientsArray = recipientSources[client.clientType as keyof typeof recipientSources]
     if (Array.isArray(recipientsArray)) {
       recipientsArray.forEach((recipient: any) => {
-        if (recipient.email) {
-          referralEmails.push(recipient.email)
+        const email = typeof recipient.email === 'string' ? recipient.email.trim() : ''
+        if (!email) {
+          return
+        }
+
+        const key = email.toLowerCase()
+        const name = typeof recipient.name === 'string' ? recipient.name.trim() : ''
+        const existing = recipientMap.get(key)
+
+        if (!existing) {
+          recipientMap.set(key, { name, email })
+          return
+        }
+
+        if (!existing.name && name) {
+          recipientMap.set(key, { name, email: existing.email })
         }
       })
     }
@@ -69,16 +94,22 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
     // For "self" clients: Always add the client's own email to referralEmails
     // This ensures self clients receive their own test results
     if (client.clientType === 'self') {
-      referralEmails.push(clientEmail)
+      const key = clientEmail.toLowerCase()
+      const fallbackName =
+        [client.firstName, client.middleInitial, client.lastName].filter(Boolean).join(' ') || 'Self'
+      if (!recipientMap.has(key)) {
+        recipientMap.set(key, { name: fallbackName, email: clientEmail })
+      }
     }
 
-    // Deduplicate emails (in case client email was also in recipients array)
-    const uniqueReferrals = [...new Set(referralEmails)]
+    const referralRecipientsDetailed = Array.from(recipientMap.values())
+    const referralEmails = referralRecipientsDetailed.map((recipient) => recipient.email)
 
     return {
       clientEmail,
-      referralEmails: uniqueReferrals,
+      referralEmails,
       referralTitle,
+      referralRecipientsDetailed,
     }
   } catch (error) {
     payload.logger.error(`Failed to fetch recipients for client ${clientId}:`, error)
@@ -86,6 +117,7 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
       clientEmail: '',
       referralEmails: [],
       referralTitle: '',
+      referralRecipientsDetailed: [],
     }
   }
 }

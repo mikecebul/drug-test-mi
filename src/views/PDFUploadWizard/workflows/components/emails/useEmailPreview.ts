@@ -27,6 +27,7 @@ export function useEmailPreview({
 
   const previewData = emailPreviewQuery.data?.data ?? null
   const isLoading = emailPreviewQuery.isLoading
+  const isFetching = emailPreviewQuery.isFetching
   const error = emailPreviewQuery.error
     ? emailPreviewQuery.error instanceof Error
       ? emailPreviewQuery.error.message
@@ -38,6 +39,8 @@ export function useEmailPreview({
   return {
     previewData,
     isLoading,
+    isFetching,
     error,
+    refetch: emailPreviewQuery.refetch,
   }
 }

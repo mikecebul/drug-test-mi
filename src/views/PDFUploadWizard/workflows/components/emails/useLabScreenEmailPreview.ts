@@ -16,8 +16,13 @@ export interface EmailPreviewData {
   clientTitle?: string
   clientHtml?: string
   clientSubject?: string
+  clientType?: 'probation' | 'employment' | 'self'
   referralEmails: string[]
   referralTitle: string
+  referralRecipientsDetailed?: Array<{
+    name: string
+    email: string
+  }>
   referralHtml: string
   referralSubject: string
 }
@@ -44,8 +49,10 @@ export function useLabScreenEmailPreview(params: UseLabScreenEmailPreviewParams)
     queryFn: async () => {
       if (!client?.id || !params.testType || !matchedTest) {
         return {
+          clientType: undefined,
           referralEmails: [],
           referralTitle: 'Screening Results',
+          referralRecipientsDetailed: [],
           referralHtml: '<p>Loading email preview...</p>',
           referralSubject: 'Lab Screening Results',
         }
@@ -77,13 +84,16 @@ export function useLabScreenEmailPreview(params: UseLabScreenEmailPreviewParams)
         clientEmail: result.data.clientEmail,
         clientHtml: result.data.clientHtml,
         clientSubject: result.data.clientSubject,
+        clientType: result.data.clientType,
         referralEmails: result.data.referralEmails,
         referralTitle: result.data.referralTitle,
+        referralRecipientsDetailed: result.data.referralRecipientsDetailed,
         referralHtml: result.data.referralHtml,
         referralSubject: result.data.referralSubject,
       }
     },
     enabled: Boolean(params.testId && client?.id && params.testType && matchedTest),
     staleTime: 30 * 1000, // 30 seconds
+    refetchOnMount: 'always',
   })
 }

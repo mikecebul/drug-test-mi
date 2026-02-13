@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldGroup, FieldLabel, FieldError, FieldLegend } from '@/components/ui/field'
 import {
+  invalidateWizardClientDerivedData,
   useComputeTestResultPreviewQuery,
   useGetClientFromTestQuery,
   useGetDrugTestWithMedicationsQuery,
@@ -111,6 +112,11 @@ export const LabScreenDataStep = withForm({
             }
           },
         )
+
+        invalidateWizardClientDerivedData(queryClient, {
+          clientId: client?.id,
+          testId: matchCollection.testId,
+        })
       },
       [client, form, matchCollection?.testId, queryClient],
     )

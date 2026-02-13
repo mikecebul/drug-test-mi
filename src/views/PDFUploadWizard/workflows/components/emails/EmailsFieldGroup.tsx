@@ -2,14 +2,17 @@
 
 import React from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
+import { useQueryClient } from '@tanstack/react-query'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Loader2, Eye, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Loader2, Eye, AlertCircle, CheckCircle2, Pencil } from 'lucide-react'
 import { RecipientEditor } from '../../../components/RecipientEditor'
 import { EmailPreviewModal } from './EmailPreviewModal'
 import { FieldGroupHeader } from '../FieldGroupHeader'
+import { invalidateWizardClientDerivedData } from '../../../queries'
+import { ReferralProfileDialog } from './ReferralProfileDialog'
 import {
   Field,
   FieldDescription,
@@ -21,11 +24,18 @@ import {
   FieldSet,
 } from '@/components/ui/field'
 
+type RecipientDetail = {
+  name: string
+  email: string
+}
+
 interface EmailPreviewData {
   clientEmail?: string
   clientHtml?: string
   clientSubject?: string
+  clientType?: 'probation' | 'employment' | 'self'
   referralEmails: string[]
+  referralRecipientsDetailed?: RecipientDetail[]
   referralTitle: string // Organization name (employer, court, etc.)
   referralHtml: string
   referralSubject: string
@@ -55,16 +65,76 @@ export const EmailsFieldGroup = withFieldGroup({
     showPreview: false,
     setShowPreview: (() => {}) as (show: boolean) => void,
     showClientEmail: false, // Show client email section (for instant tests)
+    clientId: null as string | null,
+    onReferralProfileSaved: (() => {}) as (data: {
+      referralTitle: string
+      referralEmails: string[]
+      clientType: 'probation' | 'employment' | 'self'
+    }) => void,
   },
 
-  render: function Render({ group, title, description, previewData, isLoading, error, showPreview, setShowPreview, showClientEmail }) {
+  render: function Render({
+    group,
+    title,
+    description,
+    previewData,
+    isLoading,
+    error,
+    showPreview,
+    setShowPreview,
+    showClientEmail,
+    clientId,
+    onReferralProfileSaved,
+  }) {
+    const queryClient = useQueryClient()
     const [showClientPreview, setShowClientPreview] = React.useState(false)
+    const [showReferralEditor, setShowReferralEditor] = React.useState(false)
+    const [referralEditorVersion, setReferralEditorVersion] = React.useState(0)
 
     // Get current field group values
     const clientEmailEnabled = group.getFieldValue('clientEmailEnabled')
     const clientRecipients = group.getFieldValue('clientRecipients')
     const referralEmailEnabled = group.getFieldValue('referralEmailEnabled')
     const referralRecipients = group.getFieldValue('referralRecipients')
+
+    function setEmailFieldValue(
+      name: 'clientRecipients' | 'referralRecipients' | 'clientEmailEnabled' | 'referralEmailEnabled',
+      value: unknown,
+    ) {
+      const unsafeGroup = group as any
+
+      if (typeof unsafeGroup.setFieldValue === 'function') {
+        unsafeGroup.setFieldValue(name, value)
+        return
+      }
+
+      if (
+        unsafeGroup?.form &&
+        typeof unsafeGroup.form.setFieldValue === 'function' &&
+        typeof unsafeGroup.name === 'string'
+      ) {
+        unsafeGroup.form.setFieldValue(`${unsafeGroup.name}.${name}`, value)
+      }
+    }
+
+    function handleReferralProfileSavedFromDialog(data: {
+      referralTitle: string
+      referralEmails: string[]
+      clientType: 'probation' | 'employment' | 'self'
+      referralRecipientsDetailed: RecipientDetail[]
+    }) {
+      setEmailFieldValue('referralEmailEnabled', data.referralEmails.length > 0)
+      setEmailFieldValue('referralRecipients', data.referralEmails)
+      setReferralEditorVersion((version) => version + 1)
+
+      invalidateWizardClientDerivedData(queryClient, { clientId })
+
+      onReferralProfileSaved({
+        referralTitle: data.referralTitle,
+        referralEmails: data.referralEmails,
+        clientType: data.clientType,
+      })
+    }
 
     if (isLoading) {
       return (
@@ -99,7 +169,7 @@ export const EmailsFieldGroup = withFieldGroup({
         <FieldGroupHeader title={title} description={description} />
         <div className="space-y-6 text-base md:text-lg">
           {/* Client Email Section */}
-          {showClientEmail && previewData?.clientEmail && (
+          {showClientEmail && previewData.clientEmail && (
             <Card className="p-6">
               <FieldGroup>
                 <FieldSet>
@@ -156,12 +226,24 @@ export const EmailsFieldGroup = withFieldGroup({
           <Card className="p-6">
             <FieldGroup>
               <FieldSet>
-                <FieldLegend>
-                  Referral Notification
-                  {previewData.referralTitle && (
-                    <span className="text-muted-foreground ml-2 font-normal">({previewData.referralTitle})</span>
-                  )}
-                </FieldLegend>
+                <div className="flex items-center justify-between gap-4">
+                  <FieldLegend>
+                    Referral Notification
+                    {previewData.referralTitle && (
+                      <span className="text-muted-foreground ml-2 font-normal">({previewData.referralTitle})</span>
+                    )}
+                  </FieldLegend>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowReferralEditor(true)}
+                    disabled={!clientId || !previewData.clientType}
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit Referral
+                  </Button>
+                </div>
                 <FieldDescription>Notify referrals that specimen has been collected</FieldDescription>
                 <FieldGroup data-slot="checkbox-group">
                   <group.Field name="referralEmailEnabled">
@@ -185,7 +267,8 @@ export const EmailsFieldGroup = withFieldGroup({
                     {(field) => (
                       <>
                         <RecipientEditor
-                          initialRecipients={previewData.referralEmails}
+                          key={`referral-editor-${referralEditorVersion}`}
+                          initialRecipients={referralRecipients?.length ? referralRecipients : previewData.referralEmails}
                           onChange={(recipients) => field.handleChange(recipients)}
                           label="Recipient Email Addresses"
                           required={true}
@@ -237,7 +320,7 @@ export const EmailsFieldGroup = withFieldGroup({
           </Alert>
 
           {/* Email Preview Modals */}
-          {showClientPreview && previewData?.clientHtml && (
+          {showClientPreview && previewData.clientHtml && (
             <EmailPreviewModal
               isOpen={showClientPreview}
               onClose={() => setShowClientPreview(false)}
@@ -257,6 +340,14 @@ export const EmailsFieldGroup = withFieldGroup({
               emailType="referral"
             />
           )}
+          <ReferralProfileDialog
+            open={showReferralEditor}
+            onOpenChange={setShowReferralEditor}
+            clientId={clientId}
+            previewData={previewData}
+            fallbackReferralEmails={referralRecipients?.length ? referralRecipients : previewData.referralEmails}
+            onSaved={handleReferralProfileSavedFromDialog}
+          />
         </div>
       </div>
     )
