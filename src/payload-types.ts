@@ -162,13 +162,7 @@ export interface Config {
     'company-info': CompanyInfoSelect<false> | CompanyInfoSelect<true>;
   };
   locale: null;
-  user:
-    | (Admin & {
-        collection: 'admins';
-      })
-    | (Client & {
-        collection: 'clients';
-      });
+  user: Admin | Client;
   jobs: {
     tasks: {
       createCollectionExport: TaskCreateCollectionExport;
@@ -1363,6 +1357,7 @@ export interface Client {
       }[]
     | null;
   password?: string | null;
+  collection: 'clients';
 }
 /**
  * Secure file storage for sensitive documents
@@ -1809,6 +1804,7 @@ export interface Admin {
       }[]
     | null;
   password?: string | null;
+  collection: 'admins';
 }
 /**
  * Business-critical alerts requiring admin attention
@@ -1923,7 +1919,7 @@ export interface Search {
 export interface Export {
   id: string;
   name?: string | null;
-  format?: ('csv' | 'json') | null;
+  format: 'csv' | 'json';
   limit?: number | null;
   page?: number | null;
   sort?: string | null;
@@ -3533,7 +3529,7 @@ export interface CompanyInfoSelect<T extends boolean = true> {
 export interface TaskCreateCollectionExport {
   input: {
     name?: string | null;
-    format?: ('csv' | 'json') | null;
+    format: 'csv' | 'json';
     limit?: number | null;
     page?: number | null;
     sort?: string | null;
@@ -3553,7 +3549,8 @@ export interface TaskCreateCollectionExport {
       | null;
     userID?: string | null;
     userCollection?: string | null;
-    exportsCollection?: string | null;
+    exportCollection?: string | null;
+    maxLimit?: number | null;
   };
   output?: unknown;
 }
@@ -3563,49 +3560,14 @@ export interface TaskCreateCollectionExport {
  */
 export interface TaskCreateCollectionImport {
   input: {
-    collectionSlug:
-      | 'pages'
-      | 'bookings'
-      | 'forms'
-      | 'form-submissions'
-      | 'media'
-      | 'private-media'
-      | 'admins'
-      | 'admin-alerts'
-      | 'technicians'
-      | 'clients'
-      | 'drug-tests'
-      | 'search'
-      | 'exports'
-      | 'imports';
-    importMode?: ('create' | 'update' | 'upsert') | null;
-    matchField?: string | null;
-    status?: ('pending' | 'completed' | 'partial' | 'failed') | null;
-    summary?: {
-      imported?: number | null;
-      updated?: number | null;
-      total?: number | null;
-      issues?: number | null;
-      issueDetails?:
-        | {
-            [k: string]: unknown;
-          }
-        | unknown[]
-        | string
-        | number
-        | boolean
-        | null;
-    };
-    user?: string | null;
+    importId: string;
+    importCollection: string;
+    userID?: string | null;
     userCollection?: string | null;
-    importsCollection?: string | null;
-    file?: {
-      data?: string | null;
-      mimetype?: string | null;
-      name?: string | null;
-    };
-    format?: ('csv' | 'json') | null;
+    batchSize?: number | null;
     debug?: boolean | null;
+    defaultVersionStatus?: ('draft' | 'published') | null;
+    maxLimit?: number | null;
   };
   output?: unknown;
 }
