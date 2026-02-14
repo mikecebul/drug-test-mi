@@ -39,8 +39,18 @@
     --muted-foreground: oklch(0.5544 0.0407 257.4166);
     --accent: oklch(0.9288 0.0126 255.5078);
     --accent-foreground: oklch(0.2077 0.0398 265.7549);
+    --info: oklch(0.488 0.243 264.376);
+    --info-foreground: oklch(0.26 0.08 265);
+    --info-muted: oklch(0.95 0.03 265);
+    --warning: oklch(0.75 0.18 55);
+    --warning-foreground: oklch(0.35 0.12 55);
+    --warning-muted: oklch(0.96 0.03 85);
+    --success: oklch(0.72 0.18 145);
+    --success-foreground: oklch(0.3 0.1 145);
+    --success-muted: oklch(0.95 0.04 150);
     --destructive: oklch(0.6368 0.2078 25.3313);
     --destructive-foreground: oklch(1 0 0);
+    --destructive-muted: oklch(0.93 0.05 30);
     --border: oklch(0.9288 0.0126 255.5078);
     --input: oklch(0.9288 0.0126 255.5078);
     --ring: oklch(0.4598 0.129 249.6498);
@@ -88,8 +98,18 @@
     --muted-foreground: oklch(0.7137 0.0192 261.3246);
     --accent: oklch(0.3729 0.0306 259.7328);
     --accent-foreground: oklch(0.9846 0.0017 247.8389);
+    --info: oklch(40.473% 0.12973 266.804);
+    --info-foreground: oklch(79.938% 0.03684 269.843);
+    --info-muted: oklch(15.819% 0.03315 267.795);
+    --warning: oklch(0.78 0.16 70);
+    --warning-foreground: oklch(0.92 0.08 85);
+    --warning-muted: oklch(0.25 0.04 60);
+    --success: oklch(49.567% 0.0947 150.721);
+    --success-foreground: oklch(0.92 0.08 150);
+    --success-muted: oklch(21.04% 0.03855 145.344);
     --destructive: oklch(0.7106 0.1661 22.2162);
     --destructive-foreground: oklch(0.2781 0.0296 256.848);
+    --destructive-muted: oklch(22.031% 0.05887 23.212);
     --border: oklch(0.3729 0.0306 259.7328);
     --input: oklch(0.3729 0.0306 259.7328);
     --ring: oklch(0.6231 0.188 259.8145);
@@ -214,25 +234,6 @@
   body {
     letter-spacing: var(--tracking-normal);
   }
-}
-
-/* Sonner Toast Styles */
-[data-sonner-toaster] {
-  --normal-bg: var(--color-popover) !important;
-  --normal-text: var(--color-popover-foreground) !important;
-  --normal-border: var(--color-border) !important;
-  --success-bg: hsl(142 76% 94%) !important;
-  --success-text: hsl(140 84% 18%) !important;
-  --success-border: hsl(145 57% 83%) !important;
-  --error-bg: hsl(0 93% 95%) !important;
-  --error-text: hsl(0 84% 28%) !important;
-  --error-border: hsl(0 72% 86%) !important;
-  --warning-bg: hsl(48 100% 94%) !important;
-  --warning-text: hsl(31 92% 23%) !important;
-  --warning-border: hsl(48 96% 77%) !important;
-  --info-bg: hsl(214 100% 95%) !important;
-  --info-text: hsl(214 84% 25%) !important;
-  --info-border: hsl(214 76% 81%) !important;
 }
 
 :root {

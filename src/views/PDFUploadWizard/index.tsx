@@ -43,7 +43,7 @@ export default function PDFUploadWizard({ initPageResult, params, searchParams }
               <ResetFormButton />
             </div>
           </WizardContainer>
-          <Toaster richColors toastOptions={{}} />
+          <Toaster />
         </ShadcnWrapper>
       </NuqsAdapter>
     </DefaultTemplate>
