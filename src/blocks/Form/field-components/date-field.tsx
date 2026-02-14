@@ -3,10 +3,10 @@
 import * as React from 'react'
 import { CalendarIcon } from 'lucide-react'
 import { useFieldContext } from '../hooks/form-context'
-import { Label } from '@/components/ui/label'
 import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/utilities/cn'
 
@@ -66,6 +66,7 @@ export default function DateField({
 }: DateFieldUIProps) {
   const field = useFieldContext<string | Date | undefined>()
   const errors = field.state.meta.errors
+  const hasErrors = errors.length > 0
   const [open, setOpen] = React.useState(false)
 
   // Handle both string and Date values
@@ -112,64 +113,62 @@ export default function DateField({
 
   return (
     <div className={cn('col-span-2 flex w-full flex-col', { '@lg:col-span-1': colSpan === '1' })}>
-      <Label htmlFor={field.name} className="px-1 pb-2">
-        {label}
-        {required ? <span className="text-destructive">*</span> : null}
-      </Label>
+      <Field data-invalid={hasErrors}>
+        <FieldLabel htmlFor={field.name} className="px-1">
+          {label}
+          {required ? <span className="text-destructive">*</span> : null}
+        </FieldLabel>
 
-      <div className="relative flex gap-2">
-        <Input
-          id={field.name}
-          value={inputValue}
-          placeholder={placeholder || 'Select date'}
-          disabled={disabled}
-          onChange={handleInputChange}
-          onBlur={field.handleBlur}
-          onKeyDown={handleKeyDown}
-          className="bg-background pr-10"
-        />
+        <div className="relative flex gap-2">
+          <Input
+            id={field.name}
+            value={inputValue}
+            placeholder={placeholder || 'Select date'}
+            disabled={disabled}
+            onChange={handleInputChange}
+            onBlur={field.handleBlur}
+            onKeyDown={handleKeyDown}
+            className="bg-background pr-10"
+            aria-invalid={hasErrors || undefined}
+          />
 
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              disabled={disabled}
-              className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
-              type="button"
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                disabled={disabled}
+                className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
+                type="button"
+              >
+                <CalendarIcon className="size-3.5" />
+                <span className="sr-only">Open calendar</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-auto overflow-hidden p-0"
+              align="end"
+              alignOffset={-8}
+              sideOffset={10}
             >
-              <CalendarIcon className="size-3.5" />
-              <span className="sr-only">Open calendar</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent
-            className="w-auto overflow-hidden p-0"
-            align="end"
-            alignOffset={-8}
-            sideOffset={10}
-          >
-            <Calendar
-              mode="single"
-              selected={dateValue}
-              onSelect={handleCalendarSelect}
-              captionLayout="dropdown"
-              disabled={(date) => {
-                if (disabled) return true
-                if (minDate && date < minDate) return true
-                if (maxDate && date > maxDate) return true
-                return false
-              }}
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
+              <Calendar
+                mode="single"
+                selected={dateValue}
+                onSelect={handleCalendarSelect}
+                captionLayout="dropdown"
+                disabled={(date) => {
+                  if (disabled) return true
+                  if (minDate && date < minDate) return true
+                  if (maxDate && date > maxDate) return true
+                  return false
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
 
-      {description && (
-        <p className="text-xs text-muted-foreground mt-1 px-1">{description}</p>
-      )}
-
-      {errors && (
-        <em className="text-destructive text-sm first:mt-2">{errors[0]}</em>
-      )}
+        {description ? <FieldDescription>{description}</FieldDescription> : null}
+        <FieldError errors={errors} />
+      </Field>
     </div>
   )
 }

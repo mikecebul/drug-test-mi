@@ -2,10 +2,9 @@
 
 import { useStore } from '@tanstack/react-form'
 import { useFieldContext } from '../hooks/form-context'
-import { Label } from '@/components/ui/label'
 import { cn } from '@/utilities/cn'
 import { Checkbox } from '@/components/ui/checkbox'
-import { CheckboxFormField } from '@/payload-types'
+import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 
 export interface CheckboxFieldUIProps {
   label?: string | null
@@ -24,7 +23,7 @@ export default function CheckboxField({ label, colSpan, required }: CheckboxFiel
         '@lg:col-span-1': colSpan === '1',
       })}
     >
-      <div className={cn('flex items-center space-x-2')}>
+      <Field orientation="horizontal" data-invalid={hasErrors}>
         <Checkbox
           id={field.name}
           checked={field.state.value ?? false}
@@ -33,9 +32,12 @@ export default function CheckboxField({ label, colSpan, required }: CheckboxFiel
           required={!!required}
           aria-invalid={hasErrors || undefined}
         />
-        <Label htmlFor={field.name}>{label}</Label>
-      </div>
-      <div>{errors && <em className="text-destructive text-sm first:mt-1">{errors[0]}</em>}</div>
+        <FieldLabel htmlFor={field.name} className="font-normal">
+          {label}
+          {required ? <span className="text-destructive">*</span> : null}
+        </FieldLabel>
+      </Field>
+      <FieldError errors={errors} />
     </div>
   )
 }

@@ -5,7 +5,7 @@ import { useFieldContext } from '../hooks/form-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Label } from '@/components/ui/label'
+import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { UserCheck, Mail } from 'lucide-react'
 import type { ClientMatch } from '@/views/PDFUploadWizard/types'
@@ -28,6 +28,7 @@ export default function ClientSelectorField({
   required = false,
 }: ClientSelectorFieldProps) {
   const field = useFieldContext<ClientMatch | null>()
+  const hasErrors = field.state.meta.errors.length > 0
   const [selectedClientId, setSelectedClientId] = React.useState<string>('')
 
   const handleSelectFromDropdown = () => {
@@ -39,13 +40,13 @@ export default function ClientSelectorField({
   }
 
   return (
-    <div className="space-y-4">
-      {label && (
-        <Label className="text-foreground text-sm font-medium">
+    <Field data-invalid={hasErrors} className="space-y-4">
+      {label ? (
+        <FieldLabel>
           {label}
           {required && <span className="text-destructive ml-1">*</span>}
-        </Label>
-      )}
+        </FieldLabel>
+      ) : null}
 
       {matches.length > 0 && (
         <div className="space-y-3">
@@ -105,9 +106,9 @@ export default function ClientSelectorField({
         <Card>
           <CardContent className="space-y-4 pt-6">
             <div className="space-y-2">
-              <Label htmlFor="client-select" className="flex items-center gap-2">
+              <FieldLabel htmlFor="client-select" className="flex items-center gap-2">
                 Select Client from All Clients
-              </Label>
+              </FieldLabel>
               <Select value={selectedClientId} onValueChange={setSelectedClientId}>
                 <SelectTrigger id="client-select">
                   <SelectValue placeholder="Choose a client..." />
@@ -141,9 +142,7 @@ export default function ClientSelectorField({
         </Button>
       )}
 
-      {field.state.meta.errors.length > 0 && (
-        <p className="text-destructive text-sm">{String(field.state.meta.errors[0])}</p>
-      )}
-    </div>
+      <FieldError errors={field.state.meta.errors} />
+    </Field>
   )
 }

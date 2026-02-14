@@ -5,6 +5,7 @@ import { useStore } from '@tanstack/react-form'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { FieldError } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -39,18 +40,6 @@ type ReferralProfileDialogProps = {
     referralEmails: string[]
     referralRecipientsDetailed: RecipientDetail[]
   }) => void
-}
-
-function getErrorText(error: unknown): string {
-  if (typeof error === 'string') {
-    return error
-  }
-
-  if (error && typeof error === 'object' && 'message' in error) {
-    return String((error as { message?: unknown }).message || 'Invalid value')
-  }
-
-  return 'Invalid value'
 }
 
 export function ReferralProfileDialog({
@@ -250,9 +239,7 @@ export function ReferralProfileDialog({
                   onBlur={field.handleBlur}
                   placeholder="Court, employer, or referral name"
                 />
-                {field.state.meta.errors.length > 0 && (
-                  <p className="text-destructive text-sm">{getErrorText(field.state.meta.errors[0])}</p>
-                )}
+                <FieldError errors={field.state.meta.errors} />
               </div>
             )}
           </form.Field>
@@ -262,7 +249,12 @@ export function ReferralProfileDialog({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label>Recipients</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={() => field.pushValue(createRecipientRow())}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => field.pushValue(createRecipientRow())}
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Add Recipient
                   </Button>
@@ -279,9 +271,7 @@ export function ReferralProfileDialog({
                             onBlur={nameField.handleBlur}
                             placeholder="Recipient name"
                           />
-                          {nameField.state.meta.errors.length > 0 && (
-                            <p className="text-destructive text-xs">{getErrorText(nameField.state.meta.errors[0])}</p>
-                          )}
+                          <FieldError errors={nameField.state.meta.errors} className="text-xs" />
                         </div>
                       )}
                     </form.Field>
@@ -296,9 +286,7 @@ export function ReferralProfileDialog({
                             placeholder="recipient@example.com"
                             type="email"
                           />
-                          {emailField.state.meta.errors.length > 0 && (
-                            <p className="text-destructive text-xs">{getErrorText(emailField.state.meta.errors[0])}</p>
-                          )}
+                          <FieldError errors={emailField.state.meta.errors} className="text-xs" />
                         </div>
                       )}
                     </form.Field>
@@ -315,9 +303,7 @@ export function ReferralProfileDialog({
                   </div>
                 ))}
 
-                {field.state.meta.errors.length > 0 && (
-                  <p className="text-destructive text-sm">{getErrorText(field.state.meta.errors[0])}</p>
-                )}
+                <FieldError errors={field.state.meta.errors} />
               </div>
             )}
           </form.Field>

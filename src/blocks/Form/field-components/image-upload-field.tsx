@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'r
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop'
 import { useStore } from '@tanstack/react-form'
 import { useFieldContext } from '../hooks/form-context'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
 import { Camera, Check, Crop as CropIcon, Upload, X, XCircle } from 'lucide-react'
 import { createCenteredAspectCrop, cropImageToJpegBlob, toJpegFileName } from '@/lib/image-crop'
 
@@ -32,6 +32,8 @@ export default function ImageUploadField({
 
   const [preview, setPreview] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const combinedErrors = error ? [error, ...fieldErrors] : fieldErrors
+  const hasErrors = combinedErrors.length > 0
   const [showCropper, setShowCropper] = useState(false)
   const [tempImage, setTempImage] = useState<string | null>(null)
   const [crop, setCrop] = useState<Crop>()
@@ -150,14 +152,14 @@ export default function ImageUploadField({
   }, [field])
 
   return (
-    <div className="space-y-4">
-      {label && (
-        <label className="text-foreground text-sm font-medium">
+    <Field className="space-y-4" data-invalid={hasErrors}>
+      {label ? (
+        <FieldLabel>
           {label}
           {required && <span className="text-destructive ml-1">*</span>}
-        </label>
-      )}
-      {description && <p className="text-muted-foreground text-sm">{description}</p>}
+        </FieldLabel>
+      ) : null}
+      {description ? <FieldDescription>{description}</FieldDescription> : null}
 
       {preview && !showCropper && (
         <div className="bg-muted relative h-48 w-48 overflow-hidden rounded-lg border-2 border-border">
@@ -205,11 +207,7 @@ export default function ImageUploadField({
         </div>
       )}
 
-      {(error || fieldErrors.length > 0) && (
-        <Alert variant="destructive">
-          <AlertDescription>{error || fieldErrors[0]?.message}</AlertDescription>
-        </Alert>
-      )}
+      <FieldError errors={combinedErrors} />
 
       <Dialog open={showCropper} onOpenChange={(open) => (!open ? resetCropState() : setShowCropper(true))}>
         <DialogContent className="max-h-[94vh] w-[95vw] max-w-4xl overflow-y-auto">
@@ -257,6 +255,6 @@ export default function ImageUploadField({
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </Field>
   )
 }

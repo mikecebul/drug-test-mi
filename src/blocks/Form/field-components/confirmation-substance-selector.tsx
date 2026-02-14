@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Label } from '@/components/ui/label'
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { formatSubstance } from '@/lib/substances'
 
 interface ConfirmationSubstanceSelectorProps {
@@ -35,9 +35,9 @@ export function ConfirmationSubstanceSelector({
   }
 
   return (
-    <div className="border-muted bg-card space-y-3 rounded-md border p-4">
+    <FieldSet className="border-muted bg-card space-y-3 rounded-md border p-4">
       <div className="flex items-center justify-between">
-        <Label className="text-sm font-medium">Select Substances for Confirmation</Label>
+        <FieldLegend variant="label">Select Substances for Confirmation</FieldLegend>
         <div className="flex gap-2">
           <button
             type="button"
@@ -57,30 +57,26 @@ export function ConfirmationSubstanceSelector({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <FieldGroup className="grid grid-cols-2 gap-2">
         {unexpectedPositives.map((substance) => (
-          <div key={substance} className="flex items-center space-x-2">
+          <Field key={substance} orientation="horizontal">
             <Checkbox
               id={`confirm-${substance}`}
               checked={selectedSubstances.includes(substance)}
               onCheckedChange={() => toggleSubstance(substance)}
             />
-            <Label htmlFor={`confirm-${substance}`} className="cursor-pointer text-sm font-normal">
+            <FieldLabel htmlFor={`confirm-${substance}`} className="cursor-pointer text-sm font-normal">
               {formatSubstance(substance)}
-            </Label>
-          </div>
+            </FieldLabel>
+          </Field>
         ))}
-      </div>
+      </FieldGroup>
 
-      <p className="text-muted-foreground text-xs">
+      <FieldDescription className="text-xs">
         Selected: {selectedSubstances.length} of {unexpectedPositives.length} substances
-      </p>
+      </FieldDescription>
 
-      {error && (
-        <p className="text-destructive text-sm font-medium">
-          {error}
-        </p>
-      )}
-    </div>
+      <FieldError>{error}</FieldError>
+    </FieldSet>
   )
 }

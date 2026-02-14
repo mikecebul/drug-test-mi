@@ -5,6 +5,7 @@ import { getRegisterClientFormOpts } from '../shared-form'
 import { useStore } from '@tanstack/react-form'
 import { SCREENING_TYPES } from '@/app/(frontend)/register/types'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
+import { FieldError } from '@/components/ui/field'
 
 export const ScreeningTypeStep = withForm({
   ...getRegisterClientFormOpts('screeningType'),
@@ -42,9 +43,7 @@ export const ScreeningTypeStep = withForm({
                   </label>
                 ),
               )}
-              {field.state.meta.errors.length > 0 && (
-                <p className="text-destructive text-sm">{field.state.meta.errors[0]?.message}</p>
-              )}
+              <FieldError errors={field.state.meta.errors} />
             </div>
           )}
         </form.AppField>

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { FieldError } from '@/components/ui/field'
 import { HeadshotCaptureCard, MedicationDisplayField, FieldGroupHeader } from '../../components'
 import { getLabConfirmationFormOpts } from '../shared-form'
 import { Plus, Trash2 } from 'lucide-react'
@@ -298,11 +299,7 @@ export const LabConfirmationDataStep = withForm({
 
         {/* Validation Error */}
         <form.Field name="labConfirmationData.confirmationResults">
-          {(field) =>
-            field.state.meta.errors.length > 0 && (
-              <p className="text-destructive text-sm">{String(field.state.meta.errors[0])}</p>
-            )
-          }
+          {(field) => <FieldError errors={field.state.meta.errors} />}
         </form.Field>
       </div>
     )

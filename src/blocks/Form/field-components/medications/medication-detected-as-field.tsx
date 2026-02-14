@@ -38,20 +38,24 @@ export default function MedicationDetectedAsField({ isLocked = false }: Medicati
           aria-invalid={hasErrors || undefined}
         >
           {DRUG_TEST_SUBSTANCES.map((substance) => (
-            <label
+            <Field
               key={substance.value}
+              orientation="horizontal"
               className={cn(
                 'hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded p-1.5 text-sm transition-colors',
                 isLocked && 'cursor-not-allowed opacity-50',
               )}
             >
               <Checkbox
+                id={`${field.name}-${substance.value}`}
                 checked={selectedValues.includes(substance.value)}
                 onCheckedChange={() => toggleSubstance(substance.value)}
                 disabled={isLocked}
               />
-              <span>{substance.label}</span>
-            </label>
+              <FieldLabel htmlFor={`${field.name}-${substance.value}`} className="cursor-pointer text-sm font-normal">
+                {substance.label}
+              </FieldLabel>
+            </Field>
           ))}
         </div>
         <FieldError errors={errors} />

@@ -13,7 +13,7 @@ import {
 import type { RecipientInfo } from '@/app/(frontend)/register/types/recipient-types'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Field, FieldLabel } from '@/components/ui/field'
+import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 export const RecipientsStep = withForm({
@@ -111,9 +111,7 @@ export const RecipientsStep = withForm({
                     </option>
                   ))}
                 </select>
-                {field.state.meta.errors.length > 0 && (
-                  <p className="text-destructive text-sm">{typeof field.state.meta.errors[0] === 'object' && field.state.meta.errors[0] !== null && 'message' in field.state.meta.errors[0] ? field.state.meta.errors[0].message : String(field.state.meta.errors[0])}</p>
-                )}
+                <FieldError errors={field.state.meta.errors} />
               </div>
             )}
           </form.AppField>
@@ -177,9 +175,7 @@ export const RecipientsStep = withForm({
                     ))}
                   </SelectContent>
                 </Select>
-                {field.state.meta.errors.length > 0 && (
-                  <p className="text-destructive text-sm">{typeof field.state.meta.errors[0] === 'object' && field.state.meta.errors[0] !== null && 'message' in field.state.meta.errors[0] ? field.state.meta.errors[0].message : String(field.state.meta.errors[0])}</p>
-                )}
+                <FieldError errors={field.state.meta.errors} />
               </Field>
             )}
           </form.AppField>

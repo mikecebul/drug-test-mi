@@ -5,6 +5,7 @@ import { getRegisterClientFormOpts } from '../shared-form'
 import { AlertCircle, FileCheck, Info, TriangleAlert } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
+import { FieldError } from '@/components/ui/field'
 
 export const TermsStep = withForm({
   ...getRegisterClientFormOpts('terms'),
@@ -59,9 +60,7 @@ export const TermsStep = withForm({
                   I confirm the client has been informed and consents to testing
                 </span>
               </label>
-              {field.state.meta.errors.length > 0 && (
-                <p className="text-destructive mt-2 text-sm">{field.state.meta.errors[0]?.message}</p>
-              )}
+              <FieldError errors={field.state.meta.errors} className="mt-2" />
             </div>
           )}
         </form.AppField>

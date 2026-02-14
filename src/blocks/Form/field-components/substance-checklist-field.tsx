@@ -4,7 +4,15 @@ import React from 'react'
 import { useFieldContext } from '../hooks/form-context'
 import { Checkbox } from '@/components/ui/checkbox'
 import { getSubstanceOptions, type SubstanceValue } from '@/fields/substanceOptions'
-import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from '@/components/ui/field'
 
 interface SubstanceChecklistFieldProps {
   label?: string
@@ -35,21 +43,22 @@ export default function SubstanceChecklistField({
     }
   }
 
+  const hasErrors = field.state.meta.errors.length > 0
+
   return (
-    <div className="space-y-2 pb-2">
+    <FieldSet className="space-y-2 pb-2">
       {label && (
         <FieldLegend className="mb-0">
           {label}
           {required && <span className="text-destructive ml-1">*</span>}
         </FieldLegend>
       )}
-      {description && <p className="text-muted-foreground">{description}</p>}
+      {description ? <FieldDescription>{description}</FieldDescription> : null}
 
-      {/* <FieldGroup className="border-border grid grid-cols-2 gap-3 overflow-y-auto rounded-lg border p-4"> */}
       <FieldGroup className="border-border rounded-lg border p-4">
-        <FieldSet className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {substanceOptions.map((substance) => (
-            <Field key={substance.value} orientation="horizontal">
+            <Field key={substance.value} orientation="horizontal" data-invalid={hasErrors}>
               <Checkbox
                 id={`${field.name}-${substance.value}`}
                 checked={selectedSubstances.includes(substance.value)}
@@ -60,14 +69,12 @@ export default function SubstanceChecklistField({
               </FieldLabel>
             </Field>
           ))}
-        </FieldSet>
+        </div>
       </FieldGroup>
 
-      <p className="text-muted-foreground text-sm">Selected: {selectedSubstances.length} positive result(s)</p>
+      <FieldDescription>Selected: {selectedSubstances.length} positive result(s)</FieldDescription>
 
-      {field.state.meta.errors.length > 0 && (
-        <p className="text-destructive text-sm">{String(field.state.meta.errors[0])}</p>
-      )}
-    </div>
+      <FieldError errors={field.state.meta.errors} />
+    </FieldSet>
   )
 }

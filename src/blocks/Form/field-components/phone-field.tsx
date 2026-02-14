@@ -2,8 +2,8 @@
 
 import { useStore } from '@tanstack/react-form'
 import { useFieldContext } from '../hooks/form-context'
-import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { cn } from '@/utilities/cn'
 
 export interface PhoneFieldUIProps {
@@ -19,11 +19,11 @@ export default function PhoneField({ label, colSpan, required }: PhoneFieldUIPro
 
   return (
     <div className={cn('col-span-2 w-full', { '@lg:col-span-1': colSpan === '1' })}>
-      <div className={cn('grid w-full gap-2')}>
-        <Label htmlFor={field.name}>
+      <Field data-invalid={hasErrors}>
+        <FieldLabel htmlFor={field.name}>
           {label}
           {required ? <span className="text-destructive">*</span> : null}
-        </Label>
+        </FieldLabel>
         <Input
           id={field.name}
           name={field.name}
@@ -34,8 +34,8 @@ export default function PhoneField({ label, colSpan, required }: PhoneFieldUIPro
           autoComplete="tel"
           aria-invalid={hasErrors || undefined}
         />
-      </div>
-      <div>{errors && <em className="text-destructive text-sm first:mt-1">{errors[0]?.message}</em>}</div>
+        <FieldError errors={errors} />
+      </Field>
     </div>
   )
 }

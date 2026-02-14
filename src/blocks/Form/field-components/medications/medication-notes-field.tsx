@@ -1,7 +1,8 @@
 'use client'
 
 import { useFieldContext } from '../../hooks/form-context'
-import { Field, FieldContent, FieldLabel } from '@/components/ui/field'
+import { useStore } from '@tanstack/react-form'
+import { Field, FieldContent, FieldError, FieldLabel } from '@/components/ui/field'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/utilities/cn'
 
@@ -11,9 +12,11 @@ interface MedicationNotesFieldProps {
 
 export default function MedicationNotesField({ isLocked = false }: MedicationNotesFieldProps) {
   const field = useFieldContext<string>()
+  const errors = useStore(field.store, (state) => state.meta.errors)
+  const hasErrors = errors.length > 0
 
   return (
-    <Field>
+    <Field data-invalid={hasErrors}>
       <FieldContent>
         <FieldLabel>Notes</FieldLabel>
         <Textarea
@@ -22,7 +25,9 @@ export default function MedicationNotesField({ isLocked = false }: MedicationNot
           placeholder="Additional notes about this medication"
           className={cn('min-h-20', isLocked && 'cursor-not-allowed opacity-50')}
           disabled={isLocked}
+          aria-invalid={hasErrors || undefined}
         />
+        <FieldError errors={errors} />
       </FieldContent>
     </Field>
   )

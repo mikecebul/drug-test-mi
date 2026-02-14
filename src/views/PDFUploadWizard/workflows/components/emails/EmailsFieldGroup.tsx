@@ -12,7 +12,7 @@ import { RecipientEditor } from '../../../components/RecipientEditor'
 import { EmailPreviewModal } from './EmailPreviewModal'
 import { FieldGroupHeader } from '../FieldGroupHeader'
 import { invalidateWizardClientDerivedData } from '../../../queries'
-import { ReferralProfileDialog } from './ReferralProfileDialog'
+import { ReferralProfileDialog } from './referrals/ReferralProfileDialog'
 import {
   Field,
   FieldDescription,
@@ -203,11 +203,7 @@ export const EmailsFieldGroup = withFieldGroup({
                             required={true}
                             maxRecipients={1}
                           />
-                          {field.state.meta.errors.length > 0 && (
-                            <FieldError>
-                              {String((field.state.meta.errors[0] as any)?.message || 'Invalid value')}
-                            </FieldError>
-                          )}
+                          <FieldError errors={field.state.meta.errors} />
                         </>
                       )}
                     </group.Field>
@@ -268,17 +264,15 @@ export const EmailsFieldGroup = withFieldGroup({
                       <>
                         <RecipientEditor
                           key={`referral-editor-${referralEditorVersion}`}
-                          initialRecipients={referralRecipients?.length ? referralRecipients : previewData.referralEmails}
+                          initialRecipients={
+                            referralRecipients?.length ? referralRecipients : previewData.referralEmails
+                          }
                           onChange={(recipients) => field.handleChange(recipients)}
                           label="Recipient Email Addresses"
                           required={true}
                           maxRecipients={10}
                         />
-                        {field.state.meta.errors.length > 0 && (
-                          <FieldError>
-                            {String((field.state.meta.errors[0] as any)?.message || 'Invalid value')}
-                          </FieldError>
-                        )}
+                        <FieldError errors={field.state.meta.errors} />
                       </>
                     )}
                   </group.Field>
@@ -298,8 +292,12 @@ export const EmailsFieldGroup = withFieldGroup({
             <AlertTitle>Ready to send</AlertTitle>
             <AlertDescription>
               {(() => {
-                const clientCount = clientEmailEnabled && clientRecipients && clientRecipients.length > 0 ? clientRecipients.length : 0
-                const referralCount = referralEmailEnabled && referralRecipients && referralRecipients.length > 0 ? referralRecipients.length : 0
+                const clientCount =
+                  clientEmailEnabled && clientRecipients && clientRecipients.length > 0 ? clientRecipients.length : 0
+                const referralCount =
+                  referralEmailEnabled && referralRecipients && referralRecipients.length > 0
+                    ? referralRecipients.length
+                    : 0
                 const totalCount = clientCount + referralCount
 
                 if (totalCount === 0) {

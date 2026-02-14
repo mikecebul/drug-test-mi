@@ -1,4 +1,4 @@
-# AGENT.md
+# AGENTS.md
 
 This file gives fast, practical context for working in this repo: high-level structure and the design rules to keep UI consistent.
 
@@ -21,6 +21,10 @@ This file gives fast, practical context for working in this repo: high-level str
 
 ## Workflows & Forms
 - **Form system**: TanStack Form with custom field components in `src/blocks/Form/field-components/`
+- **Forms quick-reference contexts (progressive discovery)**: `docs/forms/contexts.md`
+  - Only open this doc when a task touches form UX, validation, or field components.
+- **Field UI reference (shadcn + repo conventions)**: `docs/forms/field-ui.md`
+  - Use this when creating/updating form fields.
 - **PDF Upload Wizard (Admin workflows)**: `src/views/PDFUploadWizard/`
   - `PDFUploadWizardClient.tsx` routes between workflows:
     - Register clients

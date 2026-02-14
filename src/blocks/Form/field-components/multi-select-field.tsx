@@ -2,9 +2,9 @@
 
 import { useStore } from '@tanstack/react-form'
 import { useFieldContext } from '../hooks/form-context'
-import { Label } from '@/components/ui/label'
 import { cn } from '@/utilities/cn'
 import { CheckCircleIcon } from 'lucide-react'
+import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 
 export interface MultiSelectFieldUIProps {
   label?: string | null
@@ -29,6 +29,7 @@ export default function MultiSelectField({
 }: MultiSelectFieldUIProps) {
   const field = useFieldContext<string[]>()
   const errors = useStore(field.store, (state) => state.meta.errors)
+  const hasErrors = !!errors && errors.length > 0
   const value: string[] = Array.isArray(field.state.value) ? field.state.value : []
 
   function toggleOption(option: string) {
@@ -41,8 +42,8 @@ export default function MultiSelectField({
 
   return (
     <div className={cn('col-span-2 w-full', { '@lg:col-span-1': colSpan === '1' })}>
-      <div className={cn('grid w-full gap-2')}>
-        <Label htmlFor={field.name}>{label}</Label>
+      <Field data-invalid={hasErrors}>
+        <FieldLabel>{label}</FieldLabel>
         <div className="flex flex-wrap gap-2">
           {options.map((option) => {
             const selected = value.includes(option)
@@ -65,12 +66,8 @@ export default function MultiSelectField({
             )
           })}
         </div>
-      </div>
-      <div>
-        {errors && (
-          <em className="text-destructive text-sm first:mt-1">{errors[0]?.message || errors[0]}</em>
-        )}
-      </div>
+        <FieldError errors={errors} />
+      </Field>
     </div>
   )
 }

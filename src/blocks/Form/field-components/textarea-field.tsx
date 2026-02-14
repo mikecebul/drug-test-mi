@@ -2,10 +2,9 @@
 
 import { useStore } from '@tanstack/react-form'
 import { useFieldContext } from '../hooks/form-context'
-import { Label } from '@/components/ui/label'
 import { cn } from '@/utilities/cn'
 import { Textarea } from '@/components/ui/textarea'
-import { TextareaFormField } from '@/payload-types'
+import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
 
 export interface TextareaFieldUIProps {
   label?: string | null
@@ -22,8 +21,11 @@ export default function TextareaField({ label, placeholder, description, colSpan
 
   return (
     <div className={cn('col-span-2 w-full', { '@md:col-span-1': colSpan === '1' })}>
-      <div className={cn('grid w-full gap-2')}>
-        <Label htmlFor={field.name}>{label}</Label>
+      <Field data-invalid={hasErrors}>
+        <FieldLabel htmlFor={field.name}>
+          {label}
+          {required ? <span className="text-destructive">*</span> : null}
+        </FieldLabel>
         <Textarea
           id={field.name}
           name={field.name}
@@ -35,11 +37,9 @@ export default function TextareaField({ label, placeholder, description, colSpan
           autoComplete="off"
           aria-invalid={hasErrors || undefined}
         />
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
-      </div>
-      <div>
-        {errors && <em className="text-destructive text-sm first:mt-1">{errors[0]?.message}</em>}
-      </div>
+        {description ? <FieldDescription>{description}</FieldDescription> : null}
+        <FieldError errors={errors} />
+      </Field>
     </div>
   )
 }

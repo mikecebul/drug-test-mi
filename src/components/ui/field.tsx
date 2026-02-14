@@ -7,6 +7,66 @@ import { cn } from '@/utilities/cn'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 
+function normalizeFieldError(error: unknown): string[] {
+  if (error == null) {
+    return []
+  }
+
+  if (typeof error === 'string') {
+    return error.trim() ? [error] : ['Invalid value']
+  }
+
+  if (typeof error === 'number' || typeof error === 'boolean' || typeof error === 'bigint') {
+    return [String(error)]
+  }
+
+  if (Array.isArray(error)) {
+    return error.flatMap((item) => normalizeFieldError(item))
+  }
+
+  if (error instanceof Error) {
+    return error.message ? [error.message] : ['Invalid value']
+  }
+
+  if (typeof error === 'object') {
+    const candidate = error as {
+      message?: unknown
+      errors?: unknown
+      issues?: unknown
+    }
+
+    if ('message' in candidate) {
+      const message = normalizeFieldError(candidate.message)
+      return message.length > 0 ? message : ['Invalid value']
+    }
+
+    if (Array.isArray(candidate.errors)) {
+      const nestedErrors = candidate.errors.flatMap((item) => normalizeFieldError(item))
+      if (nestedErrors.length > 0) {
+        return nestedErrors
+      }
+    }
+
+    if (Array.isArray(candidate.issues)) {
+      const issueMessages = candidate.issues.flatMap((issue) => {
+        if (issue && typeof issue === 'object' && 'message' in issue) {
+          return normalizeFieldError((issue as { message?: unknown }).message)
+        }
+
+        return normalizeFieldError(issue)
+      })
+
+      if (issueMessages.length > 0) {
+        return issueMessages
+      }
+    }
+
+    return ['Invalid value']
+  }
+
+  return ['Invalid value']
+}
+
 function FieldSet({ className, ...props }: React.ComponentProps<'fieldset'>) {
   return (
     <fieldset
@@ -30,12 +90,7 @@ function FieldLegend({
     <legend
       data-slot="field-legend"
       data-variant={variant}
-      className={cn(
-        'mb-3 font-medium',
-        'data-[variant=legend]:text-lg',
-        'data-[variant=label]:text-base',
-        className,
-      )}
+      className={cn('mb-3 font-medium', 'data-[variant=legend]:text-lg', 'data-[variant=label]:text-base', className)}
       {...props}
     />
   )
@@ -156,10 +211,7 @@ function FieldSeparator({
     <div
       data-slot="field-separator"
       data-content={!!children}
-      className={cn(
-        'relative -my-2 h-5 text-sm group-data-[variant=outline]/field-group:-mb-2',
-        className,
-      )}
+      className={cn('relative -my-2 h-5 text-sm group-data-[variant=outline]/field-group:-mb-2', className)}
       {...props}
     >
       <Separator className="absolute inset-0 top-1/2" />
@@ -181,24 +233,32 @@ function FieldError({
   errors,
   ...props
 }: React.ComponentProps<'div'> & {
-  errors?: Array<{ message?: string } | undefined>
+  errors?: unknown[]
 }) {
   const content = useMemo(() => {
     if (children) {
       return children
     }
 
-    if (!errors) {
+    if (!errors?.length) {
       return null
     }
 
-    if (errors?.length === 1 && errors[0]?.message) {
-      return errors[0].message
+    const messages = Array.from(new Set(errors.flatMap((error) => normalizeFieldError(error))))
+
+    if (messages.length === 0) {
+      return 'Invalid value'
+    }
+
+    if (messages.length === 1) {
+      return messages[0]
     }
 
     return (
-      <ul className="ml-4 flex list-disc flex-col gap-1">
-        {errors.map((error, index) => error?.message && <li key={index}>{error.message}</li>)}
+      <ul className="ml-4 flex flex-col gap-0.5 text-sm">
+        {messages.map((message, index) => (
+          <li key={`${index}-${message}`}>{message}</li>
+        ))}
       </ul>
     )
   }, [children, errors])
