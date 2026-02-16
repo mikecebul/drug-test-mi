@@ -1,49 +1,11 @@
 import type { Block } from 'payload'
 import { linkGroup } from '@/fields/link/linkGroup'
-import { link } from '@/fields/link'
 import { createNormalizeEditorUrlHook } from '@/hooks/normalizeEditorUrl'
 
 const normalizeDirectionsUrlHook = createNormalizeEditorUrlHook({
   allowRelative: true,
   errorMessage: 'Directions URL must be a relative path or valid URL.',
 })
-
-const createHeroCtaField = ({
-  name,
-  label,
-  defaultUrl,
-  defaultAppearance,
-}: {
-  name: string
-  label: string
-  defaultUrl: string
-  defaultAppearance: 'default' | 'outline'
-}) => {
-  const ctaField = link({
-    appearances: ['default', 'outline'],
-    overrides: {
-      name,
-      label,
-      admin: {
-        width: '50%',
-      },
-    },
-  }) as any
-
-  const typeField = ctaField.fields?.[0]?.fields?.find((field: any) => field?.name === 'type')
-  if (typeField) typeField.defaultValue = 'custom'
-
-  const urlField = ctaField.fields?.[1]?.fields?.find((field: any) => field?.name === 'url')
-  if (urlField) urlField.defaultValue = defaultUrl
-
-  const labelField = ctaField.fields?.[1]?.fields?.find((field: any) => field?.name === 'label')
-  if (labelField) labelField.defaultValue = label
-
-  const appearanceField = ctaField.fields?.find((field: any) => field?.name === 'appearance')
-  if (appearanceField) appearanceField.defaultValue = defaultAppearance
-
-  return ctaField
-}
 
 export const Hero: Block = {
   slug: 'hero',
@@ -198,21 +160,36 @@ export const Hero: Block = {
           required: true,
         },
         {
-          type: 'row',
-          fields: [
-            createHeroCtaField({
-              name: 'registerCta',
-              label: 'Register',
-              defaultUrl: '/register',
-              defaultAppearance: 'default',
-            }),
-            createHeroCtaField({
-              name: 'callCta',
-              label: 'Call',
-              defaultUrl: 'tel:2313736341',
-              defaultAppearance: 'outline',
-            }),
-          ],
+          ...linkGroup({
+            overrides: {
+              maxRows: 2,
+              defaultValue: [
+                {
+                  link: {
+                    type: 'custom',
+                    url: '/register',
+                    label: 'Register',
+                    appearance: 'default',
+                    newTab: false,
+                  },
+                },
+                {
+                  link: {
+                    type: 'custom',
+                    url: 'tel:2313736341',
+                    label: 'Call',
+                    appearance: 'outline',
+                    newTab: false,
+                  },
+                },
+              ],
+              admin: {
+                components: {
+                  RowLabel: '@/fields/link/LinkRowLabel',
+                },
+              },
+            },
+          }),
         },
         {
           type: 'row',
@@ -241,13 +218,6 @@ export const Hero: Block = {
           name: 'mapImage',
           type: 'upload',
           relationTo: 'media',
-        },
-        {
-          name: 'mapImageAlt',
-          type: 'text',
-          defaultValue:
-            'Satellite map of MI Drug Test location on Clinton Street in downtown Charlevoix, Michigan',
-          required: true,
         },
         {
           type: 'row',

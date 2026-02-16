@@ -285,12 +285,10 @@ export interface Hero {
     description: string;
     policyNote: string;
     locationText: string;
-    registerCta: Link;
-    callCta: Link;
+    links?: LinkGroup;
     mapTitle: string;
     mapSubtitle: string;
     mapImage?: (string | null) | Media;
-    mapImageAlt: string;
     mapFooterText: string;
     directionsLabel: string;
     directionsUrl: string;
@@ -2325,12 +2323,10 @@ export interface HeroSelect<T extends boolean = true> {
         description?: T;
         policyNote?: T;
         locationText?: T;
-        registerCta?: T | LinkSelect<T>;
-        callCta?: T | LinkSelect<T>;
+        links?: T | LinkGroupSelect<T>;
         mapTitle?: T;
         mapSubtitle?: T;
         mapImage?: T;
-        mapImageAlt?: T;
         mapFooterText?: T;
         directionsLabel?: T;
         directionsUrl?: T;

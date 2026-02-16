@@ -12,26 +12,33 @@ const fallbackMapImageSrc = '/Chx_Website_Image.png'
 
 const isExternalUrl = (value: string) => /^https?:\/\//i.test(value)
 
-export function HeroLocationSplit({
-  badgeText,
-  headingPrefix,
-  headingHighlight,
-  description,
-  locationText,
-  policyNote,
-  registerCta,
-  callCta,
-  mapTitle,
-  mapSubtitle,
-  mapImage,
-  mapImageAlt,
-  mapFooterText,
-  directionsLabel,
-  directionsUrl,
-}: Props) {
+export function HeroLocationSplit(props: Props) {
+  const {
+    badgeText,
+    headingPrefix,
+    headingHighlight,
+    description,
+    locationText,
+    policyNote,
+    links,
+    mapTitle,
+    mapSubtitle,
+    mapImage,
+    mapFooterText,
+    directionsLabel,
+    directionsUrl,
+  } = props
+
   const uploadedMapImage = typeof mapImage === 'object' ? (mapImage as Media) : null
   const hasUploadedMapImage = Boolean(uploadedMapImage?.url)
-  const resolvedMapAlt = mapImageAlt || uploadedMapImage?.alt || 'Map of MI Drug Test location'
+  const resolvedMapAlt = uploadedMapImage?.alt || 'Map of MI Drug Test location'
+
+  const legacyLocationSplit = props as Props & {
+    registerCta?: NonNullable<NonNullable<HeroType['locationSplit']>['links']>[number]['link']
+    callCta?: NonNullable<NonNullable<HeroType['locationSplit']>['links']>[number]['link']
+  }
+  const primaryCta = links?.[0]?.link || legacyLocationSplit.registerCta
+  const secondaryCta = links?.[1]?.link || legacyLocationSplit.callCta
 
   const directionsTarget = isExternalUrl(directionsUrl) ? '_blank' : undefined
   const directionsRel = isExternalUrl(directionsUrl) ? 'noopener noreferrer' : undefined
@@ -72,18 +79,18 @@ export function HeroLocationSplit({
             </div>
 
             <div className="mt-8 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-              {registerCta && (
+              {primaryCta && (
                 <CMSLink
-                  {...registerCta}
+                  {...primaryCta}
                   size="xl"
                   className="w-full rounded-lg sm:min-w-64 sm:w-auto"
                 >
                   <ArrowRight className="size-4" />
                 </CMSLink>
               )}
-              {callCta && (
+              {secondaryCta && (
                 <CMSLink
-                  {...callCta}
+                  {...secondaryCta}
                   size="xl"
                   className="w-full rounded-lg sm:min-w-64 sm:w-auto"
                 >
