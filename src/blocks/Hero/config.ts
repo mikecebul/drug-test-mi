@@ -1,5 +1,49 @@
 import type { Block } from 'payload'
 import { linkGroup } from '@/fields/link/linkGroup'
+import { link } from '@/fields/link'
+import { createNormalizeEditorUrlHook } from '@/hooks/normalizeEditorUrl'
+
+const normalizeDirectionsUrlHook = createNormalizeEditorUrlHook({
+  allowRelative: true,
+  errorMessage: 'Directions URL must be a relative path or valid URL.',
+})
+
+const createHeroCtaField = ({
+  name,
+  label,
+  defaultUrl,
+  defaultAppearance,
+}: {
+  name: string
+  label: string
+  defaultUrl: string
+  defaultAppearance: 'default' | 'outline'
+}) => {
+  const ctaField = link({
+    appearances: ['default', 'outline'],
+    overrides: {
+      name,
+      label,
+      admin: {
+        width: '50%',
+      },
+    },
+  }) as any
+
+  const typeField = ctaField.fields?.[0]?.fields?.find((field: any) => field?.name === 'type')
+  if (typeField) typeField.defaultValue = 'custom'
+
+  const urlField = ctaField.fields?.[1]?.fields?.find((field: any) => field?.name === 'url')
+  if (urlField) urlField.defaultValue = defaultUrl
+
+  const labelField = ctaField.fields?.[1]?.fields?.find((field: any) => field?.name === 'label')
+  if (labelField) labelField.defaultValue = label
+
+  const appearanceField = ctaField.fields?.find((field: any) => field?.name === 'appearance')
+  if (appearanceField) appearanceField.defaultValue = defaultAppearance
+
+  return ctaField
+}
 
 export const Hero: Block = {
   slug: 'hero',
@@ -18,6 +62,10 @@ export const Hero: Block = {
         {
           label: 'Medium Impact',
           value: 'mediumImpact',
+        },
+        {
+          label: 'Location Split (Map)',
+          value: 'locationSplit',
         },
       ],
       required: true,
@@ -101,6 +149,137 @@ export const Hero: Block = {
           name: 'description',
           label: 'Description',
           type: 'textarea',
+        },
+      ],
+    },
+    {
+      type: 'group',
+      name: 'locationSplit',
+      admin: {
+        hideGutter: true,
+        condition: (_, { type } = {}) => ['locationSplit'].includes(type),
+      },
+      fields: [
+        {
+          name: 'badgeText',
+          type: 'text',
+          defaultValue: 'Accepted by Michigan courts',
+          required: true,
+        },
+        {
+          name: 'headingPrefix',
+          type: 'text',
+          defaultValue: 'Compliant Drug Testing for',
+          required: true,
+        },
+        {
+          name: 'headingHighlight',
+          type: 'text',
+          defaultValue: 'Charlevoix County',
+          required: true,
+        },
+        {
+          name: 'description',
+          type: 'textarea',
+          defaultValue:
+            'Run by recovery coaches who understand the journey. Reliable, affordable drug and alcohol testing.',
+          required: true,
+        },
+        {
+          name: 'policyNote',
+          type: 'text',
+          defaultValue: 'We do not book appointments without registering or calling first.',
+          required: true,
+        },
+        {
+          name: 'locationText',
+          type: 'text',
+          defaultValue: 'Clinton St, Charlevoix, Michigan',
+          required: true,
+        },
+        {
+          type: 'row',
+          fields: [
+            createHeroCtaField({
+              name: 'registerCta',
+              label: 'Register',
+              defaultUrl: '/register',
+              defaultAppearance: 'default',
+            }),
+            createHeroCtaField({
+              name: 'callCta',
+              label: 'Call',
+              defaultUrl: 'tel:2313736341',
+              defaultAppearance: 'outline',
+            }),
+          ],
+        },
+        {
+          type: 'row',
+          fields: [
+            {
+              name: 'mapTitle',
+              type: 'text',
+              defaultValue: 'MI Drug Test',
+              required: true,
+              admin: {
+                width: '50%',
+              },
+            },
+            {
+              name: 'mapSubtitle',
+              type: 'text',
+              defaultValue: 'Charlevoix, MI 49720',
+              required: true,
+              admin: {
+                width: '50%',
+              },
+            },
+          ],
+        },
+        {
+          name: 'mapImage',
+          type: 'upload',
+          relationTo: 'media',
+        },
+        {
+          name: 'mapImageAlt',
+          type: 'text',
+          defaultValue:
+            'Satellite map of MI Drug Test location on Clinton Street in downtown Charlevoix, Michigan',
+          required: true,
+        },
+        {
+          type: 'row',
+          fields: [
+            {
+              name: 'mapFooterText',
+              type: 'text',
+              defaultValue: 'Downtown Charlevoix',
+              required: true,
+              admin: {
+                width: '50%',
+              },
+            },
+            {
+              name: 'directionsLabel',
+              type: 'text',
+              defaultValue: 'Get Directions',
+              required: true,
+              admin: {
+                width: '50%',
+              },
+            },
+          ],
+        },
+        {
+          name: 'directionsUrl',
+          type: 'text',
+          defaultValue: 'https://maps.google.com/?q=MI+Drug+Test+Charlevoix+MI',
+          required: true,
+          hooks: {
+            beforeChange: [normalizeDirectionsUrlHook],
+          },
         },
       ],
     },

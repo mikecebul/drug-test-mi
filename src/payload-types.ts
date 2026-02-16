@@ -266,7 +266,7 @@ export interface CalendarEmbedBlock {
  * via the `definition` "Hero".
  */
 export interface Hero {
-  type: 'highImpact' | 'mediumImpact';
+  type: 'highImpact' | 'mediumImpact' | 'locationSplit';
   highImpact?: {
     title: string;
     description: string;
@@ -277,6 +277,23 @@ export interface Hero {
     title: string;
     heading?: ('h1' | 'h2') | null;
     description?: string | null;
+  };
+  locationSplit?: {
+    badgeText: string;
+    headingPrefix: string;
+    headingHighlight: string;
+    description: string;
+    policyNote: string;
+    locationText: string;
+    registerCta: Link;
+    callCta: Link;
+    mapTitle: string;
+    mapSubtitle: string;
+    mapImage?: (string | null) | Media;
+    mapImageAlt: string;
+    mapFooterText: string;
+    directionsLabel: string;
+    directionsUrl: string;
   };
   id?: string | null;
   blockName?: string | null;
@@ -2299,6 +2316,25 @@ export interface HeroSelect<T extends boolean = true> {
         heading?: T;
         description?: T;
       };
+  locationSplit?:
+    | T
+    | {
+        badgeText?: T;
+        headingPrefix?: T;
+        headingHighlight?: T;
+        description?: T;
+        policyNote?: T;
+        locationText?: T;
+        registerCta?: T | LinkSelect<T>;
+        callCta?: T | LinkSelect<T>;
+        mapTitle?: T;
+        mapSubtitle?: T;
+        mapImage?: T;
+        mapImageAlt?: T;
+        mapFooterText?: T;
+        directionsLabel?: T;
+        directionsUrl?: T;
+      };
   id?: T;
   blockName?: T;
 }
@@ -3403,7 +3439,6 @@ export interface CompanyInfo {
     name?: string | null;
     email?: string | null;
     phone?: string | null;
-    fax?: string | null;
     physicalAddress: {
       street: string;
       cityStateZip: string;
@@ -3418,10 +3453,6 @@ export interface CompanyInfo {
        * Link to the location on Google Maps
        */
       googleMapLink?: string | null;
-    };
-    mailingAddress: {
-      street: string;
-      cityStateZip: string;
     };
   };
   social?:
@@ -3486,7 +3517,6 @@ export interface CompanyInfoSelect<T extends boolean = true> {
         name?: T;
         email?: T;
         phone?: T;
-        fax?: T;
         physicalAddress?:
           | T
           | {
@@ -3494,12 +3524,6 @@ export interface CompanyInfoSelect<T extends boolean = true> {
               cityStateZip?: T;
               coordinates?: T;
               googleMapLink?: T;
-            };
-        mailingAddress?:
-          | T
-          | {
-              street?: T;
-              cityStateZip?: T;
             };
       };
   social?:

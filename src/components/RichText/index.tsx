@@ -13,7 +13,7 @@ import {
 import type { MediaBlock as MediaBlockProps } from '@/payload-types'
 import { cn } from '@/utilities/cn'
 import Link from 'next/link'
-import { addHTTPS } from '@/utilities/addHTTPS'
+import { normalizeEditorUrl } from '@/utilities/normalizeEditorUrl'
 import { randomUUID } from 'crypto'
 
 type NodeTypes = DefaultNodeTypes | SerializedBlockNode<MediaBlockProps>
@@ -94,9 +94,11 @@ const jsxConverters = (paragraphClassName?: string): JSXConvertersFunction<NodeT
           }
         }
         if (node.fields.linkType === 'custom') {
+          const normalizedHref = normalizeEditorUrl(href) ?? '#'
+
           return (
             <a
-              href={addHTTPS(href)}
+              href={normalizedHref}
               className="font-semibold underline decoration-blue-700 decoration-2 underline-offset-1"
               {...{ rel, target }}
             >

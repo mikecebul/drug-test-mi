@@ -51,14 +51,7 @@ export const CompanyInfo: GlobalConfig = {
               label: 'Phone Number',
               type: 'text',
               defaultValue: '(231) 547-1144',
-              admin: { width: '50%' },
-            },
-            {
-              name: 'fax',
-              label: 'Fax',
-              type: 'text',
-              defaultValue: '(231) 547-4970',
-              admin: { width: '50%' },
+              admin: { width: '100%' },
             },
           ],
         },
@@ -102,32 +95,6 @@ export const CompanyInfo: GlobalConfig = {
                 description: 'Link to the location on Google Maps',
               },
               defaultValue: 'https://maps.app.goo.gl/Zvr1sGdDdCMfJdwm6'
-            },
-          ],
-        },
-        {
-          name: 'mailingAddress',
-          type: 'group',
-          label: 'Mailing Address',
-          fields: [
-            {
-              type: 'row',
-              fields: [
-                {
-                  name: 'street',
-                  label: 'Street Address',
-                  type: 'text',
-                  required: true,
-                  admin: { width: '50%' },
-                },
-                {
-                  name: 'cityStateZip',
-                  label: 'City, State, Zip',
-                  type: 'text',
-                  required: true,
-                  admin: { width: '50%' },
-                },
-              ],
             },
           ],
         },

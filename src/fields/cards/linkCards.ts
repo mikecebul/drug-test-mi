@@ -1,5 +1,5 @@
 import type { ArrayField, Field } from 'payload'
-import { addHTTPS } from '@/hooks/addHTTPS'
+import { normalizeEditorUrlHook } from '@/hooks/normalizeEditorUrl'
 import { fetchRandomImage } from './fetchRandomImage'
 
 export const linkCards: ArrayField = {
@@ -86,7 +86,7 @@ export const linkCards: ArrayField = {
       type: 'text',
       required: true,
       hooks: {
-        beforeValidate: [addHTTPS],
+        beforeValidate: [normalizeEditorUrlHook],
       },
     },
   ],

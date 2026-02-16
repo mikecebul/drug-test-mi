@@ -56,6 +56,8 @@ export const RenderBlocks: React.FC<{
                   className={
                     blockType === 'hero' && (block as any).type === 'highImpact'
                       ? 'space-y-16 pt-24 last:pb-36'
+                      : blockType === 'hero' && (block as any).type === 'locationSplit'
+                        ? 'space-y-16 last:pb-36'
                       : blockType === 'about'
                         ? 'space-y-16 pt-8 last:pb-36'
                         : 'space-y-16 py-24 last:pb-36'

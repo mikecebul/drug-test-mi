@@ -1,4 +1,5 @@
 import { cn } from '@/utilities/cn'
+import type { ReactNode } from 'react'
 
 export function HeroMedium({
   title,
@@ -22,9 +23,11 @@ export function HeroMedium({
   )
 }
 
-export const Subtitle = ({ text }: { text: string }) => {
+export const Subtitle = ({ text, className }: { text: string; className?: string }) => {
   return (
-    <h3 className="text-primary max-w-prose text-base leading-7 font-semibold capitalize">
+    <h3
+      className={cn('text-primary max-w-prose text-base leading-7 font-semibold capitalize', className)}
+    >
       {text}
     </h3>
   )
@@ -34,7 +37,7 @@ export const Title = ({
   className,
   heading = 'h2',
 }: {
-  text: string
+  text: ReactNode
   className?: string
   heading?: 'h1' | 'h2'
 }) => {

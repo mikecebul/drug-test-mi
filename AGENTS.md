@@ -62,3 +62,9 @@ This file gives fast, practical context for working in this repo: high-level str
 - Avoid introducing ad-hoc UI patterns; reuse existing component styles.
 - Keep all new colors and spacing derived from existing CSS variables / Tailwind tokens.
 - For new blocks, update both renderer and Pages collection configuration.
+
+## Build & Permissions
+- `pnpm build` runs `payload migrate` and needs localhost access to Docker services (MongoDB + SMTP).
+- In Codex sessions, if `pnpm build` fails with `EPERM`/network sandbox errors, immediately rerun with escalation.
+- Request escalation with `prefix_rule` set to `["pnpm","build"]` so the permission can be persisted and reused.
+- When a build-related task is requested, proactively ask for that scoped permission if not already approved.
