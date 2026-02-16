@@ -8,6 +8,11 @@ import { toast } from 'sonner'
 import { useStore } from '@tanstack/react-form'
 import { formatDateOnlyISO, getCurrentIsoTimestamp, getTodayDateOnlyISO } from '@/lib/date-utils'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
+import {
+  focusElementWithoutScroll,
+  focusFirstInteractiveField,
+  scrollElementIntoViewWithMargin,
+} from '@/lib/form-scroll-focus'
 import { steps } from './validators'
 import { getRegisterClientFormOpts } from './shared-form'
 import { RegisterNavigation } from './components/Navigation'
@@ -19,12 +24,7 @@ import {
   MedicationsStep,
   TermsStep,
 } from './steps'
-import {
-  COURT_CONFIGS,
-  EMPLOYER_CONFIGS,
-  isValidEmployerType,
-  isValidCourtType,
-} from './configs/recipient-configs'
+import { COURT_CONFIGS, EMPLOYER_CONFIGS, isValidEmployerType, isValidCourtType } from './configs/recipient-configs'
 
 interface RegisterClientWorkflowProps {
   onComplete: (email: string) => void
@@ -41,19 +41,27 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
   const isFirstStep = stepIndex === 0
   const isLastStep = stepIndex === steps.length - 1
   const prevStepRef = useRef(currentStep)
+  const hasInitializedStepRef = useRef(false)
 
   const formRef = useRef<HTMLFormElement | null>(null)
 
   useEffect(() => {
-    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const firstField = focusFirstInteractiveField(formRef.current)
+
+    if (!hasInitializedStepRef.current) {
+      hasInitializedStepRef.current = true
+      return
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+
+    focusElementWithoutScroll(firstField)
   }, [currentStep])
 
   const form = useAppForm({
     ...getRegisterClientFormOpts(currentStep),
     onSubmitInvalid: ({ formApi }) => {
-      const errorMaps = Array.isArray(formApi.state.errors)
-        ? formApi.state.errors
-        : [formApi.state.errors]
+      const errorMaps = Array.isArray(formApi.state.errors) ? formApi.state.errors : [formApi.state.errors]
 
       const stepErrorField = errorMaps
         .flatMap((errorMap) => {
@@ -84,10 +92,11 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
         formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')
 
       if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        if (typeof (target as HTMLElement).focus === 'function') {
-          ;(target as HTMLElement).focus()
-        }
+        scrollElementIntoViewWithMargin(target, {
+          behavior: 'smooth',
+          block: 'center',
+        })
+        focusElementWithoutScroll(target)
       }
     },
     onSubmit: async ({ value }) => {
@@ -117,9 +126,7 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
           name: `${formattedFirstName} ${formattedLastName}`,
           firstName: formattedFirstName,
           lastName: formattedLastName,
-          ...(formattedMiddleInitial
-            ? { middleInitial: formattedMiddleInitial }
-            : {}),
+          ...(formattedMiddleInitial ? { middleInitial: formattedMiddleInitial } : {}),
           dob: formatDateOnlyISO(value.personalInfo.dob),
           gender: value.personalInfo.gender,
           email: value.accountInfo.email,
@@ -263,11 +270,13 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
       } catch (error) {
         console.error('Registration error:', error)
 
-        if (error instanceof Error && !error.message.includes('already exists') &&
-            !error.message.includes('Server error') && !error.message.includes('check your information')) {
-          toast.error(
-            error instanceof Error ? error.message : 'Registration failed. Please try again.',
-          )
+        if (
+          error instanceof Error &&
+          !error.message.includes('already exists') &&
+          !error.message.includes('Server error') &&
+          !error.message.includes('check your information')
+        ) {
+          toast.error(error instanceof Error ? error.message : 'Registration failed. Please try again.')
         }
         throw error
       }
@@ -322,8 +331,8 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
   }
 
   const ProgressBar = () => (
-    <div className="w-full mb-8">
-      <div className="flex justify-between mb-2">
+    <div className="mb-8 w-full">
+      <div className="mb-2 flex justify-between">
         {steps.map((step, index) => {
           const stepNumber = index + 1
           const isComplete = index < stepIndex
@@ -331,21 +340,19 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
           return (
             <div
               key={step}
-              className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 ${
-                isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground'
+              className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 ${
+                isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
               }`}
             >
-              {isComplete ? <Check className="w-5 h-5" /> : stepNumber}
+              {isComplete ? <Check className="h-5 w-5" /> : stepNumber}
             </div>
           )
         })}
       </div>
       <div className="relative">
-        <div className="absolute inset-0 h-1 bg-border rounded-full"></div>
+        <div className="bg-border absolute inset-0 h-1 rounded-full"></div>
         <div
-          className="absolute h-1 bg-primary rounded-full transition-all duration-500"
+          className="bg-primary absolute h-1 rounded-full transition-all duration-500"
           style={{ width: `${(stepIndex / (steps.length - 1)) * 100}%` }}
         ></div>
       </div>
