@@ -17,4 +17,4 @@ admin-panel register-client workflow for step handling, validation, and UX.
 
 ## More Detail
 See the admin workflow notes for deeper context:
-- `src/views/PDFUploadWizard/AGENT.md`
+- `src/views/DrugTestWizard/AGENTS.md`

@@ -25,15 +25,15 @@ This file gives fast, practical context for working in this repo: high-level str
   - Only open this doc when a task touches form UX, validation, or field components.
 - **Field UI reference (shadcn + repo conventions)**: `docs/forms/field-ui.md`
   - Use this when creating/updating form fields.
-- **PDF Upload Wizard (Admin workflows)**: `src/views/PDFUploadWizard/`
-  - `PDFUploadWizardClient.tsx` routes between workflows:
+- **Drug Test Wizard (Admin workflows)**: `src/views/DrugTestWizard/`
+  - `DrugTestWizardClient.tsx` routes between workflows:
     - Register clients
     - Create drug test records (15-panel instant)
     - Collect lab samples
     - Enter lab screen results
     - Enter lab confirmation results
   - Workflow steps are defined via per-workflow `validators` and TanStack Form state
-  - Business-critical workflow notes (client registration + drug test creation/updating): `src/views/PDFUploadWizard/AGENT.md`
+  - Business-critical workflow notes (client registration + drug test creation/updating): `src/views/DrugTestWizard/AGENTS.md`
 - **Frontend client registration**: `src/app/(frontend)/register/`
   - Public multi-step registration form for new clients
   - Business-critical UX/validation notes: `src/app/(frontend)/register/AGENT.md`

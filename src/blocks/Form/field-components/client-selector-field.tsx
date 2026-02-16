@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { UserCheck, Mail } from 'lucide-react'
-import type { ClientMatch } from '@/views/PDFUploadWizard/types'
+import type { ClientMatch } from '@/views/DrugTestWizard/types'
 
 interface ClientSelectorFieldProps {
   matches: ClientMatch[]

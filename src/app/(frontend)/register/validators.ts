@@ -12,7 +12,7 @@ import {
   screeningTypeSchema,
   recipientsSchema,
   termsSchema,
-} from '@/views/PDFUploadWizard/workflows/register-client-workflow/validators'
+} from '@/views/DrugTestWizard/workflows/register-client-workflow/validators'
 
 export const steps = [
   adminSteps[0],

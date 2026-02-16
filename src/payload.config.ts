@@ -101,8 +101,8 @@ export default buildConfig({
           Component: '@/views/DrugTestTracker',
           path: '/drug-test-tracker',
         },
-        PDFUploadWizard: {
-          Component: '@/views/PDFUploadWizard',
+        DrugTestWizard: {
+          Component: '@/views/DrugTestWizard',
           path: '/drug-test-upload',
         },
       },
