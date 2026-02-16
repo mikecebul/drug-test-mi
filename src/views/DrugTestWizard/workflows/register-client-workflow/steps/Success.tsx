@@ -41,12 +41,12 @@ export function SuccessStep({
   return (
     <div className="space-y-6">
       <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-5 pt-2 pb-10 text-center">
-        <div className="bg-success/15 rounded-full p-3">
+        <div className="bg-success-muted rounded-full p-3">
           <div className="bg-success flex h-16 w-16 items-center justify-center rounded-full">
-            <Check className="text-success-foreground h-8 w-8" />
+            <Check className="text-success-foreground h-8 w-8" strokeWidth={3} />
           </div>
         </div>
-        <h1 className="text-success text-4xl font-semibold tracking-tight text-balance md:text-5xl">
+        <h1 className="text-primary text-4xl font-semibold tracking-tight text-balance md:text-5xl">
           Registration Complete
         </h1>
       </div>
