@@ -59,8 +59,8 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   --info: oklch(0.488 0.243 264.376);
-  --info-foreground: oklch(56.907% 0.18621 266.727);
-  --info-muted: oklch(64.369% 0.13482 268.534);
+  --info-foreground: oklch(0.26 0.08 265);
+  --info-muted: oklch(0.95 0.03 265);
   --warning: oklch(0.75 0.18 55);
   --warning-foreground: oklch(0.35 0.12 55);
   --warning-muted: oklch(0.96 0.03 85);

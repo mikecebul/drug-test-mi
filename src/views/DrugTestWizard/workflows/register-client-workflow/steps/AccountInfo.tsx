@@ -63,7 +63,7 @@ export const AccountInfoStep = withForm({
         <Alert variant="info">
           <Info />
           <AlertTitle>Password</AlertTitle>
-          <AlertDescription className="text-muted-foreground text-sm">
+          <AlertDescription className="text-sm">
             {noEmail
               ? 'This client will not receive login emails. A placeholder email will be generated automatically.'
               : 'Password is auto-generated but can be changed if the client requests a specific password.'}
