@@ -4,7 +4,6 @@ import { baseUrl } from '@/utilities/baseUrl'
 import { anyone } from '@/access/anyone'
 import { notifyNewRegistration } from './hooks/notifyNewRegistration'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
-import { Sidebar } from 'lucide-react'
 
 export const Clients: CollectionConfig = {
   slug: 'clients',

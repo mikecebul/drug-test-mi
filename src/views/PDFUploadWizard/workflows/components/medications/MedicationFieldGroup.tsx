@@ -26,7 +26,7 @@ export const MedicationFieldGroup = withFieldGroup({
     isLoading: false,
     error: null as Error | null,
     handleRefresh: () => {},
-    onHeadshotLinked: ((url: string, docId: string) => {}) as (url: string, docId: string) => void,
+    onHeadshotLinked: ((_url: string, _docId: string) => {}) as (url: string, docId: string) => void,
   },
   render: function Render({ group, client, isLoading, error, handleRefresh, onHeadshotLinked }) {
     if (!client) {

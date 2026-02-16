@@ -23,7 +23,7 @@ export const useDynamicFormOpts = ({
     fields,
     id: formId,
     redirect,
-    form,
+    form: _form,
   } = typeof payloadForm !== 'string' ? payloadForm : {}
   const router = useRouter()
   const defaultValues = getDefaultValues(fields)

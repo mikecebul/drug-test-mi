@@ -86,7 +86,7 @@ export function RecipientEditor({
   }
 
   const validRecipients = recipients.filter((r) => r.trim() && EMAIL_REGEX.test(r.trim()))
-  const hasErrors = Object.keys(errors).length > 0
+  const _hasErrors = Object.keys(errors).length > 0
   const missingRequired = required && validRecipients.length === 0
 
   return (

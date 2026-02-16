@@ -1,4 +1,4 @@
-import type { ArrayField, Field } from 'payload'
+import type { ArrayField } from 'payload'
 import { normalizeEditorUrlHook } from '@/hooks/normalizeEditorUrl'
 import { fetchRandomImage } from './fetchRandomImage'
 

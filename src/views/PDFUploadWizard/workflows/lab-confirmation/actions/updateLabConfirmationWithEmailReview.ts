@@ -15,7 +15,7 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
  */
 export async function updateLabConfirmationWithEmailReview(
   formValues: FormValues,
-  extractedData: ExtractedPdfData | undefined,
+  _extractedData: ExtractedPdfData | undefined,
 ): Promise<{ success: boolean; testId?: string; error?: string }> {
   const payload = await getPayload({ config })
 

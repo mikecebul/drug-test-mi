@@ -3,7 +3,7 @@ import { cn } from '@/utilities/cn'
 export const CTAWrapper = ({
   children,
   direction,
-  justify = 'center',
+  justify: _justify = 'center',
 }: {
   children: React.ReactNode
   direction?: 'ltr' | 'rtl'

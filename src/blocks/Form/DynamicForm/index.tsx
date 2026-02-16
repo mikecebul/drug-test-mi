@@ -10,7 +10,7 @@ import { PostError } from '../Component'
 import { RenderFields } from '../renders/render-fields-with-validation'
 
 export const DynamicForm = ({ form: payloadForm, enableIntro, introContent }: FormBlockType) => {
-  const { confirmationMessage, confirmationType, fields, formType } =
+  const { confirmationMessage, confirmationType, fields, formType: _formType } =
     typeof payloadForm !== 'string' ? payloadForm : {}
 
   const [postError, setPostError] = useState<PostError | undefined>()

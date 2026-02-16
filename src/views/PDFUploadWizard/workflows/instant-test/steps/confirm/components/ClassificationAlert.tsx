@@ -109,7 +109,7 @@ export function ClassificationAlert({ preview }: { preview: any }) {
  * Helper component for the Badge groups
  */
 function SubstanceList({
-  label,
+  label: _label,
   items,
   variant,
   className,

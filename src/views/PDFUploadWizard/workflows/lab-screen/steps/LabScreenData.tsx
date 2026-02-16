@@ -4,7 +4,7 @@ import { useCallback, useEffect } from 'react'
 import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import InputDateTimePicker from '@/components/input-datetime-picker'
@@ -13,7 +13,7 @@ import { getLabScreenFormOpts } from '../shared-form'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Field, FieldGroup, FieldLabel, FieldError, FieldLegend } from '@/components/ui/field'
+import { Field, FieldGroup, FieldLabel, FieldError } from '@/components/ui/field'
 import {
   invalidateWizardClientDerivedData,
   useComputeTestResultPreviewQuery,

@@ -23,7 +23,7 @@ export function ScreenedEmail(data: ScreenedEmailData) {
     collectionDate,
     testType,
     initialScreenResult,
-    detectedSubstances,
+    detectedSubstances: _detectedSubstances,
     expectedPositives,
     unexpectedPositives,
     unexpectedNegatives,

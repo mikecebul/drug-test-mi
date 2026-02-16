@@ -4,7 +4,7 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import { extract15PanelInstant } from '@/utilities/extractors/extract15PanelInstant'
 import { extractLabTest } from '@/utilities/extractors/extractLabTest'
-import type { ParsedPDFData, ClientMatch, TestType, WizardType, SimpleClient } from './types'
+import type { ParsedPDFData, ClientMatch, WizardType, SimpleClient } from './types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { calculateNameSimilarity, calculateSimilarity } from './utils/calculateSimilarity'
 import { computeTestResults, computeFinalStatus, fetchDocument, sendEmails } from '@/collections/DrugTests/services'
@@ -12,8 +12,8 @@ import { FormMedications } from './workflows/shared-validators'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
 
-const TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
-const TEST_EMAIL = process.env.EMAIL_TEST_ADDRESS || 'mike@midrugtest.com'
+const _TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
+const _TEST_EMAIL = process.env.EMAIL_TEST_ADDRESS || 'mike@midrugtest.com'
 
 /**
  * Extract data from uploaded PDF file

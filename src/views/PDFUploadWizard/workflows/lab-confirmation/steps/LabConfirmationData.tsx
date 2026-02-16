@@ -22,7 +22,6 @@ import {
   useExtractPdfQuery,
 } from '../../../queries'
 import { getSubstanceOptions } from '@/fields/substanceOptions'
-import { cn } from '@/utilities/cn'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 import { format } from 'date-fns'
 

@@ -1,6 +1,4 @@
-import { Media } from '@/payload-types'
 import { cn } from '@/utilities/cn'
-import Image from 'next/image'
 
 interface TwoColumnLayoutProps {
   direction?: 'ltr' | 'rtl'

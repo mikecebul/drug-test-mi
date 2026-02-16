@@ -6,7 +6,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { FileCheck2, Calendar, AlertTriangle, CheckCircle2, XCircle, User } from 'lucide-react'
 import type { ParsedPDFData } from '@/views/PDFUploadWizard/types'
-import { cn } from '@/utilities/cn'
 
 interface ParsedDataDisplayFieldProps {
   data: ParsedPDFData

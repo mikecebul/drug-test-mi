@@ -44,8 +44,6 @@ import {
   Loader2,
 } from 'lucide-react'
 import { ReactNode } from 'react'
-import { cn } from '@/utilities/cn'
-import { ca } from 'date-fns/locale'
 
 export const Icons = {
   logo: ({ className }: { className: string }) => (

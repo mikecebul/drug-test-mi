@@ -25,7 +25,6 @@ export const ConfirmStep = withForm({
       labConfirmationData,
       medications,
       adjustedSubstances,
-      preview,
       finalStatus,
       filenames,
     } = useConfirmLogic(formValues)

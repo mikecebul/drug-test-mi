@@ -66,7 +66,7 @@ export const useContactFormOpts = ({
           }
         }
         form.reset()
-      } catch (err) {
+      } catch (_err) {
         setPostError({ message: 'Something went wrong.' })
       }
     },

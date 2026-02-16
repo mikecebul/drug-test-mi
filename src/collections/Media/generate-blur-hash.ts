@@ -16,7 +16,7 @@ export const generateBlurhash: CollectionBeforeValidateHook = async ({ data, ope
         }
       }
       return data
-    } catch (error) {
+    } catch (_error) {
       throw new APIError('Failed to generate blur data url')
     }
   }

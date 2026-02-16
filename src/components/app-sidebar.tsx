@@ -2,14 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import {
-  Calendar,
-  ClipboardList,
-  FlaskConical,
-  LayoutDashboardIcon,
-  PillBottle,
-  UserPen,
-} from 'lucide-react'
+import { ClipboardList, FlaskConical, LayoutDashboardIcon, PillBottle, UserPen } from 'lucide-react'
 
 import { NavMain } from '@/components/nav-main'
 import { NavSecondary } from '@/components/nav-secondary'

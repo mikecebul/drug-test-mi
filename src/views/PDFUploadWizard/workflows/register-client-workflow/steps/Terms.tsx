@@ -2,7 +2,7 @@
 
 import { withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
-import { AlertCircle, FileCheck, Info, TriangleAlert } from 'lucide-react'
+import { TriangleAlert } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { FieldError } from '@/components/ui/field'

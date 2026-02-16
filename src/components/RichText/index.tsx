@@ -19,7 +19,7 @@ import { randomUUID } from 'crypto'
 type NodeTypes = DefaultNodeTypes | SerializedBlockNode<MediaBlockProps>
 
 const internalDocToHref = ({ linkNode }: { linkNode: SerializedLinkNode }) => {
-  const { value, relationTo } = linkNode.fields.doc!
+  const { value } = linkNode.fields.doc!
   if (typeof value !== 'object') {
     throw new Error('Expected value to be an object')
   }
@@ -151,7 +151,7 @@ const jsxConverters = (paragraphClassName?: string): JSXConvertersFunction<NodeT
             <li
               aria-checked={node.checked ? 'true' : 'false'}
               className={`list-item-checkbox${node.checked ? 'list-item-checkbox-checked' : 'list-item-checkbox-unchecked'}${hasSubLists ? 'nestedListItem' : ''}`}
-              // eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role
+               
               role="checkbox"
               style={{ listStyleType: 'inherit' }}
               tabIndex={-1}

@@ -17,7 +17,6 @@ import { updateLabScreenWithEmailReview } from './actions/updateLabScreenWithEma
 import { TestCompleted } from '../../components/TestCompleted'
 import { steps } from './validators'
 import { extractPdfQueryKey } from '../../queries'
-import { SubstanceValue } from '@/fields/substanceOptions'
 
 interface LabScreenWorkflowProps {
   onBack: () => void

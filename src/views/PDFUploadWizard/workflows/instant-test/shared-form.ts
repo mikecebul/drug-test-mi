@@ -1,16 +1,5 @@
 import { formOptions } from '@tanstack/react-form'
-import {
-  FormValues,
-  steps,
-  formSchema,
-  uploadSchema,
-  extractSchema,
-  clientSchema,
-  medicationsSchema,
-  verifyDataSchema,
-  emailsSchema,
-  type Steps,
-} from './validators'
+import { FormValues, formSchema, uploadSchema, extractSchema, clientSchema, medicationsSchema, verifyDataSchema, emailsSchema, type Steps } from './validators'
 
 const getDefaultValues = (): FormValues => ({
   upload: {

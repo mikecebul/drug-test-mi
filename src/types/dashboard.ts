@@ -1,4 +1,3 @@
-import { Client } from '@/payload-types'
 
 export type ClientDashboardData = {
   user: {

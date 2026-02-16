@@ -146,7 +146,7 @@ export function RegisterClientDialog({
   })
 
   const formValues = useStore(form.store, (state: any) => state.values)
-  const requestedBy = formValues.screeningType?.requestedBy || ''
+  const _requestedBy = formValues.screeningType?.requestedBy || ''
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
@@ -185,7 +185,7 @@ export function RegisterClientDialog({
         return false
       }
       return true
-    } catch (error) {
+    } catch (_error) {
       toast.error('Validation error')
       return false
     }

@@ -21,16 +21,6 @@ export interface DateFieldUIProps {
   maxDate?: Date
 }
 
-function formatDate(date: Date | undefined): string {
-  if (!date) return ''
-
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
-}
-
 function formatDisplayDate(date: Date | undefined): string {
   if (!date) return ''
 

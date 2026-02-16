@@ -46,7 +46,7 @@ export default function SelectField({ label, colSpan, options, required }: Selec
             <SelectValue placeholder={`Select a ${label || 'option'}`} />
           </SelectTrigger>
           <SelectContent>
-            {options?.map((optionOrGroup, idx) =>
+            {options?.map((optionOrGroup, _idx) =>
               isGroup(optionOrGroup) ? (
                 <SelectGroup key={optionOrGroup.groupLabel}>
                   <SelectLabel>{optionOrGroup.groupLabel}</SelectLabel>

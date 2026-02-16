@@ -9,8 +9,6 @@ import React from 'react'
 import './custom.scss'
 import { importMap } from './admin/importMap'
 import { QueryClientProvider } from './QueryClientProvider'
-import { TanStackDevtools } from '@tanstack/react-devtools'
-import { formDevtoolsPlugin } from '@tanstack/react-form-devtools'
 
 type Args = {
   children: React.ReactNode

@@ -1,4 +1,3 @@
-import { allSubstanceOptions } from '@/fields/substanceOptions'
 import z from 'zod'
 import { clientSchema, medicationsSchema, emailsSchema } from '../shared-validators'
 

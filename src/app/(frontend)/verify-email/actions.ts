@@ -32,7 +32,7 @@ export async function getCurrentUserEmail(): Promise<string | null> {
     }
 
     return null
-  } catch (error) {
+  } catch (_error) {
     return null
   }
 }

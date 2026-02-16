@@ -4,7 +4,6 @@ import { formatDateOnly } from '@/lib/date-utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/utilities/cn'
 import { SimpleClient } from './getClients'
-import { FormClient } from '../../shared-validators'
 
 interface ClientInfoCardProps {
   client: SimpleClient

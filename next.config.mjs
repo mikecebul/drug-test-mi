@@ -29,7 +29,7 @@ const nextConfig = {
               hostname: url.hostname,
               protocol: url.protocol.replace(':', ''),
             }
-          } catch (error) {
+          } catch (_error) {
             console.warn(`Invalid URL: ${item}`)
             return null
           }

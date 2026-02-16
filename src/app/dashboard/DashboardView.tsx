@@ -4,18 +4,7 @@ import { formatCollectionDateShort, formatCollectionDate } from '@/lib/date-util
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Calendar,
-  CheckCircle,
-  Clock,
-  CreditCard,
-  FileText,
-  Pill,
-  User,
-  TrendingUp,
-  AlertCircle,
-  Shield,
-} from 'lucide-react'
+import { Calendar, CheckCircle, Clock, FileText, Pill, User, TrendingUp, AlertCircle, Shield } from 'lucide-react'
 import Link from 'next/link'
 import { CalPopupButton } from '@/components/cal-popup-button'
 import { buildCalConfig } from '@/utilities/calcom-config'

@@ -10,7 +10,7 @@ export default async function ProfilePage() {
     const client = await getAuthenticatedClient()
 
     return <ProfileView user={client} />
-  } catch (error) {
+  } catch (_error) {
     redirect('/sign-in?redirect=/dashboard/profile')
   }
 }

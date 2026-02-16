@@ -12,7 +12,6 @@ import { CompanyInfo, Header } from '@/payload-types'
 import { CMSLink } from '@/components/Link'
 import { SheetLogo } from '@/components/Logo'
 import { MobileAuthButton } from '@/components/AuthButton/MobileAuthButton'
-import Link from 'next/link'
 
 export type NavItem = NonNullable<Header['navItems']>[number]
 

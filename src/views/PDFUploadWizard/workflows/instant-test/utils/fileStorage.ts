@@ -83,7 +83,7 @@ export function clearFileStorage(): void {
 export function hasStoredFile(): boolean {
   try {
     return localStorage.getItem(STORAGE_KEY) !== null
-  } catch (error) {
+  } catch (_error) {
     return false
   }
 }

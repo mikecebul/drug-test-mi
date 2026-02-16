@@ -1,6 +1,4 @@
-import { authenticatedOrPublished } from '@/access/authenticatedOrPublished'
 import { admins } from '@/access/admins'
-import { revalidatePath } from 'next/cache'
 import { CollectionConfig } from 'payload'
 import { syncClient } from './hooks/syncClient'
 

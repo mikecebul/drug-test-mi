@@ -13,7 +13,7 @@ export default async function MedicationsPage() {
     const medications = (client.medications || []) as Medication[]
 
     return <MedicationsView medications={medications} />
-  } catch (error) {
+  } catch (_error) {
     redirect('/sign-in?redirect=/dashboard/medications')
   }
 }

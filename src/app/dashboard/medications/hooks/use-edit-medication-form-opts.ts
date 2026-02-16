@@ -6,12 +6,6 @@ import { useRouter } from 'next/navigation'
 import type { Dispatch, SetStateAction } from 'react'
 import type { Medication } from '../types'
 
-interface EditMedicationFormType {
-  medicationName: string
-  detectedAs: string
-  startDate: string
-}
-
 export const useEditMedicationFormOpts = ({
   setShowDialog,
   selectedMedicationIndex,

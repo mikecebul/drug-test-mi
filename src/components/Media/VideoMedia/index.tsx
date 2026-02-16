@@ -23,7 +23,7 @@ export const VideoMedia: React.FC<MediaProps> = (props) => {
   }, [])
 
   if (resource && typeof resource === 'object') {
-    const { url, filename } = resource
+    const { filename } = resource
 
     return (
       <video

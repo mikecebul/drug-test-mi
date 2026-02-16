@@ -1,12 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import {
-  filterByScreeningStatus,
-  filterByTestType,
-  calculateTestMatchScore,
-  getRankedTestMatches,
-  type DrugTest,
-  type TestType,
-} from '../testMatching'
+import { filterByScreeningStatus, filterByTestType, calculateTestMatchScore, getRankedTestMatches, type DrugTest } from '../testMatching'
 
 // Helper function to create mock test data
 function createMockTest(

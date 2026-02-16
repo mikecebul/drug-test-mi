@@ -7,7 +7,7 @@ import {
   buildCompleteEmail,
   buildInconclusiveEmail,
 } from '../email/render'
-import type { ComputeTestResultsResult, ConfirmationResult } from './testResults'
+import type { ConfirmationResult } from './testResults'
 
 export type EmailStage = 'collected' | 'screened' | 'complete' | 'inconclusive'
 

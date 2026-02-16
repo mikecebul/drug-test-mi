@@ -7,7 +7,12 @@ export const checkoutSessionCompleted: StripeWebhookHandler<{
     object: Stripe.Checkout.Session
   }
 }> = async ({ event, payload }) => {
-  const { id: sessionId, metadata, amount_total, payment_status } = event.data.object
+  const {
+    id: sessionId,
+    metadata,
+    amount_total: _amount_total,
+    payment_status: _payment_status,
+  } = event.data.object
   const submissionId = metadata?.submissionId
 
   payload.logger.info(`🪝 Processing checkout session completed for session ID: ${sessionId}`)

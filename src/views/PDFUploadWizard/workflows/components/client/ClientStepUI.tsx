@@ -49,7 +49,7 @@ export const ClientStepUI = ({
     onSelectClient(client)
     try {
       dismiss()
-    } catch (e) {
+    } catch (_e) {
       console.log('No active modal to dismiss')
     }
   }

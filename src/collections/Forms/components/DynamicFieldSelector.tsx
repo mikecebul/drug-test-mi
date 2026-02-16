@@ -15,7 +15,7 @@ const DynamicFieldSelector: React.FC<
 > = (props) => {
   const { fields, getDataByPath } = useForm()
 
-  const [options, setOptions] = useState<SelectFieldOption[]>([])
+  const [_options, setOptions] = useState<SelectFieldOption[]>([])
 
   useEffect(() => {
     const fields: any[] = getDataByPath('fields')

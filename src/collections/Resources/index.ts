@@ -1,4 +1,3 @@
-import { authenticated } from '@/access/authenticated'
 import { authenticatedOrPublished } from '@/access/authenticatedOrPublished'
 import { admins } from '@/access/admins'
 import { linkGroup } from '@/fields/link/linkGroup'

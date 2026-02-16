@@ -2,7 +2,7 @@
 
 import { CompanyInfo } from '@/payload-types'
 import { APIProvider, InfoWindow, Map } from '@vis.gl/react-google-maps'
-import { FlaskConical, LandPlot } from 'lucide-react'
+import { FlaskConical } from 'lucide-react'
 
 export const GoogleMap = ({ contact }: { contact: CompanyInfo['contact'] }) => {
   const {

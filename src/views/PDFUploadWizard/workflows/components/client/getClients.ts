@@ -109,7 +109,7 @@ export async function getClientById(id: string): Promise<SimpleClient | null> {
       headshot,
       headshotId,
     }
-  } catch (err) {
+  } catch (_err) {
     // Payload throws if not found
     return null
   }
