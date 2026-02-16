@@ -1159,6 +1159,10 @@ export interface Client {
    */
   headshot?: (string | null) | PrivateMedia;
   /**
+   * If enabled, client-facing result emails will never be sent for this profile.
+   */
+  disableClientEmails?: boolean | null;
+  /**
    * Type of client - determines required fields
    */
   clientType?: ('probation' | 'employment' | 'self') | null;
@@ -3097,6 +3101,7 @@ export interface TechniciansSelect<T extends boolean = true> {
 export interface ClientsSelect<T extends boolean = true> {
   fullName?: T;
   headshot?: T;
+  disableClientEmails?: T;
   clientType?: T;
   isActive?: T;
   firstName?: T;

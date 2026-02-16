@@ -35,7 +35,6 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
     dob: string
     phone: string
   } | null>(null)
-  const [usedPassword, setUsedPassword] = useState<string>('')
 
   // URL is single source of truth for current step
   const [currentStepRaw, setCurrentStep] = useQueryState(
@@ -58,7 +57,10 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
 
       if (!isLastStep) {
         // Navigate to next step
-        await setCurrentStep(steps[currentStepIndex + 1], { history: 'push' })
+        const nextStep = steps[currentStepIndex + 1]
+        if (nextStep) {
+          await setCurrentStep(nextStep, { history: 'push' })
+        }
         return
       }
 
@@ -71,13 +73,12 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
           firstName: value.personalInfo.firstName,
           lastName: value.personalInfo.lastName,
           middleInitial: value.personalInfo.middleInitial,
-          email: value.accountInfo.email,
+          email: result.clientEmail || value.accountInfo.email,
           dob: typeof value.personalInfo.dob === 'string'
             ? value.personalInfo.dob
             : value.personalInfo.dob.toISOString(),
           phone: value.personalInfo.phone,
         })
-        setUsedPassword(value.accountInfo.password)
         setRegistrationComplete(true)
 
         // Clear the step param so browser back goes to wizard selector
@@ -137,7 +138,6 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
         middleInitial={createdClientData.middleInitial}
         dob={createdClientData.dob}
         phone={createdClientData.phone}
-        password={usedPassword}
         onContinue={handleContinue}
         returnTo={returnTo}
       />

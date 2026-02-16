@@ -63,6 +63,7 @@ export async function createDrugTestWithEmailReview(
         error: 'Client not found. They may have been deleted. Please go back and select a different client.',
       }
     }
+    const disableClientEmails = (existingClient as { disableClientEmails?: boolean }).disableClientEmails === true
 
     // Import email functions
     payload.logger.info('[createDrugTestWithEmailReview] Importing email functions...')
@@ -215,6 +216,10 @@ export async function createDrugTestWithEmailReview(
       clientDob,
     })
 
+    const clientRecipients =
+      !disableClientEmails && emailConfig.clientEmailEnabled ? emailConfig.clientRecipients : []
+    const referralRecipients = emailConfig.referralEmailEnabled ? emailConfig.referralRecipients : []
+
     // 6-8. Fetch document and send emails using service layer
     payload.logger.info('[createDrugTestWithEmailReview] Preparing to send emails...')
     let sentTo: string[] = []
@@ -225,10 +230,6 @@ export async function createDrugTestWithEmailReview(
       payload.logger.info('[createDrugTestWithEmailReview] Fetching document for attachment...')
       const document = await fetchDocument(uploadedFile.id, payload)
       payload.logger.info({ msg: '[createDrugTestWithEmailReview] Document fetched', filename: document.filename })
-
-      // Prepare recipient lists based on emailConfig
-      const clientRecipients = emailConfig.clientEmailEnabled ? emailConfig.clientRecipients : []
-      const referralRecipients = emailConfig.referralEmailEnabled ? emailConfig.referralRecipients : []
 
       // Combine recipients for service call
       // Service will handle client vs referral distinction
@@ -284,8 +285,8 @@ export async function createDrugTestWithEmailReview(
       status: failedTo.length > 0 ? 'failed' : 'sent',
       intendedRecipients:
         [
-          ...emailConfig.clientRecipients.map((e) => `Client: ${e}`),
-          ...emailConfig.referralRecipients.map((e) => `Referral: ${e}`),
+          ...clientRecipients.map((e) => `Client: ${e}`),
+          ...referralRecipients.map((e) => `Referral: ${e}`),
         ].join(', ') || null,
       errorMessage: failedTo.length > 0 ? `Failed to send to: ${failedTo.join(', ')}` : null,
     } as const

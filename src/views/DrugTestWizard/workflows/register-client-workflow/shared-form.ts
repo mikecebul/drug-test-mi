@@ -49,6 +49,7 @@ const defaultValues: FormValues = {
     phone: '',
   },
   accountInfo: {
+    noEmail: false,
     email: '',
     password: generatedPassword,
     confirmPassword: generatedPassword,
@@ -87,6 +88,10 @@ export const getRegisterClientFormOpts = (step: Steps[number]) =>
     validators: {
       onSubmitAsync: async ({ value }) => {
         if (step === 'accountInfo') {
+          if (value.accountInfo.noEmail) {
+            return undefined
+          }
+
           const email = value.accountInfo.email
           if (!email || !z.email().safeParse(email).success) {
             return undefined // Skip validation if email is empty or invalid format
@@ -118,6 +123,10 @@ export const getRegisterClientFormOpts = (step: Steps[number]) =>
           return formApi.parseValuesWithSchema(personalInfoSchema as typeof formSchema)
         }
         if (step === 'accountInfo') {
+          if (formApi.state.values.accountInfo.noEmail) {
+            return undefined
+          }
+
           return formApi.parseValuesWithSchema(accountInfoSchema as typeof formSchema)
         }
         if (step === 'screeningType') {

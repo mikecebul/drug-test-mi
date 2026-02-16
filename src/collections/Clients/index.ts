@@ -211,6 +211,15 @@ export const Clients: CollectionConfig = {
       },
     },
     {
+      name: 'disableClientEmails',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: {
+        description: 'If enabled, client-facing result emails will never be sent for this profile.',
+        position: 'sidebar',
+      },
+    },
+    {
       name: 'clientType',
       type: 'select',
       options: [

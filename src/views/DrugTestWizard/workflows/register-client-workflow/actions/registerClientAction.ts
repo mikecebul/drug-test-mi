@@ -11,11 +11,43 @@ import {
   isValidEmployerType,
 } from '@/app/(frontend)/register/configs/recipient-configs'
 
+const PLACEHOLDER_EMAIL_DOMAIN = 'midrugtest.com'
+const PLACEHOLDER_EMAIL_MAX_ATTEMPTS = 5000
+
+function toEmailSlug(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+async function generatePlaceholderEmail(payload: Awaited<ReturnType<typeof getPayload>>, firstName: string, lastName: string) {
+  const firstSlug = toEmailSlug(firstName) || 'client'
+  const lastSlug = toEmailSlug(lastName) || 'profile'
+  const emailBase = `${firstSlug}.${lastSlug}`
+
+  for (let increment = 1; increment <= PLACEHOLDER_EMAIL_MAX_ATTEMPTS; increment++) {
+    const candidateEmail = `${emailBase}${increment}@${PLACEHOLDER_EMAIL_DOMAIN}`
+    const existingClient = await payload.find({
+      collection: 'clients',
+      where: { email: { equals: candidateEmail } },
+      limit: 1,
+      overrideAccess: true,
+    })
+
+    if (existingClient.docs.length === 0) {
+      return candidateEmail
+    }
+  }
+
+  throw new Error(
+    `Unable to generate a unique placeholder email for ${emailBase}@${PLACEHOLDER_EMAIL_DOMAIN}. Tried ${PLACEHOLDER_EMAIL_MAX_ATTEMPTS} candidates.`,
+  )
+}
+
 export async function registerClientAction(formData: FormValues): Promise<{
   success: boolean
   clientId?: string
   clientFirstName?: string
   clientLastName?: string
+  clientEmail?: string
   error?: string
 }> {
   const payload = await getPayload({ config })
@@ -26,19 +58,27 @@ export async function registerClientAction(formData: FormValues): Promise<{
     const formattedLastName = formatPersonName(personalInfo.lastName)
     const formattedMiddleInitial = formatMiddleInitial(personalInfo.middleInitial)
     const formattedPhone = formatPhoneNumber(personalInfo.phone)
+    const noEmail = accountInfo.noEmail === true
+    const submittedEmail = accountInfo.email.trim().toLowerCase()
 
-    // Check if email already exists
-    const existingClient = await payload.find({
-      collection: 'clients',
-      where: { email: { equals: accountInfo.email } },
-      limit: 1,
-      overrideAccess: true,
-    })
+    const clientEmail = noEmail
+      ? await generatePlaceholderEmail(payload, formattedFirstName, formattedLastName)
+      : submittedEmail
 
-    if (existingClient.docs.length > 0) {
-      return {
-        success: false,
-        error: 'A client with this email already exists.',
+    if (!noEmail) {
+      // Check if email already exists
+      const existingClient = await payload.find({
+        collection: 'clients',
+        where: { email: { equals: clientEmail } },
+        limit: 1,
+        overrideAccess: true,
+      })
+
+      if (existingClient.docs.length > 0) {
+        return {
+          success: false,
+          error: 'A client with this email already exists.',
+        }
       }
     }
 
@@ -47,13 +87,14 @@ export async function registerClientAction(formData: FormValues): Promise<{
       firstName: formattedFirstName,
       lastName: formattedLastName,
       ...(formattedMiddleInitial && { middleInitial: formattedMiddleInitial }),
-      email: accountInfo.email,
+      email: clientEmail,
       password: accountInfo.password, // Use password from form (could be auto-generated or custom)
       gender: personalInfo.gender,
       dob: personalInfo.dob,
       phone: formattedPhone,
       clientType: screeningType.requestedBy,
-      preferredContactMethod: 'email',
+      preferredContactMethod: noEmail ? 'phone' : 'email',
+      disableClientEmails: noEmail,
       _verified: true, // Auto-verify admin-created clients
     }
 
@@ -112,13 +153,14 @@ export async function registerClientAction(formData: FormValues): Promise<{
       overrideAccess: true,
     })
 
-    payload.logger.info(`[registerClientAction] Created client ${newClient.id} for ${accountInfo.email}`)
+    payload.logger.info(`[registerClientAction] Created client ${newClient.id} for ${newClient.email}`)
 
     return {
       success: true,
       clientId: newClient.id,
       clientFirstName: newClient.firstName,
       clientLastName: newClient.lastName,
+      clientEmail: newClient.email,
     }
   } catch (error) {
     payload.logger.error('[registerClientAction] Error:', error)

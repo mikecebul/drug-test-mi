@@ -48,6 +48,7 @@ export async function updateLabScreenWithEmailReview(
         error: 'Client not found. They may have been deleted.',
       }
     }
+    const disableClientEmails = (existingClient as { disableClientEmails?: boolean }).disableClientEmails === true
 
     // Import email functions
     const { buildScreenedEmail } = await import('@/collections/DrugTests/email/render')
@@ -186,6 +187,10 @@ export async function updateLabScreenWithEmailReview(
       clientDob,
     })
 
+    const clientRecipients =
+      !disableClientEmails && formValues.emails.clientEmailEnabled ? formValues.emails.clientRecipients : []
+    const referralRecipients = formValues.emails.referralEmailEnabled ? formValues.emails.referralRecipients : []
+
     // 11. Fetch document and send emails using service layer
     let sentTo: string[] = []
     let failedTo: string[] = []
@@ -193,10 +198,6 @@ export async function updateLabScreenWithEmailReview(
     try {
       // Fetch document using service layer
       const document = await fetchDocument(uploadedFile.id, payload)
-
-      // Prepare recipient lists based on emailConfig
-      const clientRecipients = formValues.emails.clientEmailEnabled ? formValues.emails.clientRecipients : []
-      const referralRecipients = formValues.emails.referralEmailEnabled ? formValues.emails.referralRecipients : []
 
       // Send emails using service layer
       const emailResult = await sendEmails({
@@ -236,8 +237,8 @@ export async function updateLabScreenWithEmailReview(
       status: failedTo.length > 0 ? 'failed' : 'sent',
       intendedRecipients:
         [
-          ...formValues.emails.clientRecipients.map((e) => `Client: ${e}`),
-          ...formValues.emails.referralRecipients.map((e) => `Referral: ${e}`),
+          ...clientRecipients.map((e) => `Client: ${e}`),
+          ...referralRecipients.map((e) => `Referral: ${e}`),
         ].join(', ') || null,
       errorMessage: failedTo.length > 0 ? `Failed to send to: ${failedTo.join(', ')}` : null,
     } as const

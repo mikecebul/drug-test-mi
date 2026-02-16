@@ -36,6 +36,7 @@ export const personalInfoFieldSchema = z.object({
 })
 
 export const accountInfoFieldSchema = z.object({
+  noEmail: z.boolean().optional(),
   email: z
     .string()
     .min(1, { error: 'Email is required' })

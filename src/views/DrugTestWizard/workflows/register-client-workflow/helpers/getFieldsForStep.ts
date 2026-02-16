@@ -12,7 +12,7 @@ export function getFieldsForStep(step: Steps[number]): string[] {
         'personalInfo.phone',
       ]
     case 'accountInfo':
-      return ['accountInfo.email', 'accountInfo.password', 'accountInfo.confirmPassword']
+      return ['accountInfo.noEmail', 'accountInfo.email', 'accountInfo.password', 'accountInfo.confirmPassword']
     case 'screeningType':
       return ['screeningType.requestedBy']
     case 'recipients':

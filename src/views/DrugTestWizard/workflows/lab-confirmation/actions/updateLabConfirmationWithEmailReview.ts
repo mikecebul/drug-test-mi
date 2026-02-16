@@ -56,6 +56,7 @@ export async function updateLabConfirmationWithEmailReview(
         error: 'Client not found. They may have been deleted.',
       }
     }
+    const disableClientEmails = (existingClient as { disableClientEmails?: boolean }).disableClientEmails === true
 
     // Import email functions
     const { buildCompleteEmail } = await import('@/collections/DrugTests/email/render')
@@ -191,15 +192,16 @@ export async function updateLabConfirmationWithEmailReview(
       clientDob,
     })
 
+    const clientRecipients =
+      !disableClientEmails && formValues.emails.clientEmailEnabled ? formValues.emails.clientRecipients : []
+    const referralRecipients = formValues.emails.referralEmailEnabled ? formValues.emails.referralRecipients : []
+
     // 10. Fetch document and send emails
     let sentTo: string[] = []
     let failedTo: string[] = []
 
     try {
       const document = await fetchDocument(uploadedFile.id, payload)
-
-      const clientRecipients = formValues.emails.clientEmailEnabled ? formValues.emails.clientRecipients : []
-      const referralRecipients = formValues.emails.referralEmailEnabled ? formValues.emails.referralRecipients : []
 
       const emailResult = await sendEmails({
         payload,
@@ -236,10 +238,10 @@ export async function updateLabConfirmationWithEmailReview(
       sentAt: new Date().toISOString() || null,
       recipients: sentTo.join(', ') || null,
       status: failedTo.length > 0 ? 'failed' : 'sent',
-      intendedRecipients: [
-        ...formValues.emails.clientRecipients.map((e) => `Client: ${e}`),
-        ...formValues.emails.referralRecipients.map((e) => `Referral: ${e}`),
-      ].join(', ') || null,
+      intendedRecipients:
+        [...clientRecipients.map((e) => `Client: ${e}`), ...referralRecipients.map((e) => `Referral: ${e}`)].join(
+          ', ',
+        ) || null,
       errorMessage: failedTo.length > 0 ? `Failed to send to: ${failedTo.join(', ')}` : null,
     } as const
 

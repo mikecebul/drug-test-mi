@@ -42,7 +42,8 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
       }
     }
 
-    const clientEmail = client.email
+    const disableClientEmails = (client as { disableClientEmails?: boolean }).disableClientEmails === true
+    const clientEmail = disableClientEmails ? '' : client.email
     const recipientMap = new Map<
       string,
       {
@@ -93,7 +94,7 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
 
     // For "self" clients: Always add the client's own email to referralEmails
     // This ensures self clients receive their own test results
-    if (client.clientType === 'self') {
+    if (client.clientType === 'self' && clientEmail) {
       const key = clientEmail.toLowerCase()
       const fallbackName =
         [client.firstName, client.middleInitial, client.lastName].filter(Boolean).join(' ') || 'Self'

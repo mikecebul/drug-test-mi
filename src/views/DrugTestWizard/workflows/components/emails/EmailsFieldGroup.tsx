@@ -96,8 +96,9 @@ export const EmailsFieldGroup = withFieldGroup({
     const clientRecipients = group.getFieldValue('clientRecipients')
     const referralEmailEnabled = group.getFieldValue('referralEmailEnabled')
     const referralRecipients = group.getFieldValue('referralRecipients')
+    const canSendClientEmail = Boolean(previewData?.clientEmail)
 
-    function setEmailFieldValue(
+    const setEmailFieldValue = React.useCallback(function setEmailFieldValue(
       name: 'clientRecipients' | 'referralRecipients' | 'clientEmailEnabled' | 'referralEmailEnabled',
       value: unknown,
     ) {
@@ -115,7 +116,7 @@ export const EmailsFieldGroup = withFieldGroup({
       ) {
         unsafeGroup.form.setFieldValue(`${unsafeGroup.name}.${name}`, value)
       }
-    }
+    }, [group])
 
     function handleReferralProfileSavedFromDialog(data: {
       referralTitle: string
@@ -135,6 +136,27 @@ export const EmailsFieldGroup = withFieldGroup({
         clientType: data.clientType,
       })
     }
+
+    React.useEffect(() => {
+      if (!showClientEmail || !previewData || canSendClientEmail) {
+        return
+      }
+
+      if (clientEmailEnabled) {
+        setEmailFieldValue('clientEmailEnabled', false)
+      }
+
+      if (clientRecipients.length > 0) {
+        setEmailFieldValue('clientRecipients', [])
+      }
+    }, [
+      showClientEmail,
+      previewData,
+      canSendClientEmail,
+      clientEmailEnabled,
+      clientRecipients.length,
+      setEmailFieldValue,
+    ])
 
     if (isLoading) {
       return (
@@ -169,12 +191,16 @@ export const EmailsFieldGroup = withFieldGroup({
         <FieldGroupHeader title={title} description={description} />
         <div className="space-y-6 text-base md:text-lg">
           {/* Client Email Section */}
-          {showClientEmail && previewData.clientEmail && (
+          {showClientEmail && (
             <Card className="p-6">
               <FieldGroup>
                 <FieldSet>
                   <FieldLegend>Client Notification</FieldLegend>
-                  <FieldDescription>Notify client of their test results</FieldDescription>
+                  <FieldDescription>
+                    {canSendClientEmail
+                      ? 'Notify client of their test results'
+                      : 'Client email notifications are disabled for this profile'}
+                  </FieldDescription>
                   <FieldGroup data-slot="checkbox-group">
                     <group.Field name="clientEmailEnabled">
                       {(field) => (
@@ -183,15 +209,20 @@ export const EmailsFieldGroup = withFieldGroup({
                             id="client-enabled"
                             checked={field.state.value}
                             onCheckedChange={(checked) => field.handleChange(checked === true)}
+                            disabled={!canSendClientEmail}
                           />
-                          <FieldLabel htmlFor="client-enabled">Send client notification</FieldLabel>
+                          <FieldLabel htmlFor="client-enabled">
+                            {canSendClientEmail
+                              ? 'Send client notification'
+                              : 'Client notification disabled'}
+                          </FieldLabel>
                         </Field>
                       )}
                     </group.Field>
                   </FieldGroup>
                 </FieldSet>
                 <FieldSeparator />
-                {clientEmailEnabled && (
+                {clientEmailEnabled && canSendClientEmail && (
                   <FieldSet>
                     <group.Field name="clientRecipients">
                       {(field) => (
