@@ -19,6 +19,7 @@ export interface EmailPreviewData {
   clientType?: 'probation' | 'employment' | 'self'
   referralEmails: string[]
   referralTitle: string
+  hasExplicitReferralRecipients?: boolean
   referralRecipientsDetailed?: Array<{
     name: string
     email: string
@@ -87,6 +88,7 @@ export function useLabScreenEmailPreview(params: UseLabScreenEmailPreviewParams)
         clientType: result.data.clientType,
         referralEmails: result.data.referralEmails,
         referralTitle: result.data.referralTitle,
+        hasExplicitReferralRecipients: result.data.hasExplicitReferralRecipients,
         referralRecipientsDetailed: result.data.referralRecipientsDetailed,
         referralHtml: result.data.referralHtml,
         referralSubject: result.data.referralSubject,

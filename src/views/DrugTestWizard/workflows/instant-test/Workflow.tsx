@@ -102,7 +102,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
           value.medications,
           {
             clientEmailEnabled: value.emails.clientEmailEnabled,
-            clientRecipients: value.emails.clientEmailEnabled ? [value.client.email] : [],
+            clientRecipients: value.emails.clientEmailEnabled ? value.emails.clientRecipients : [],
             referralEmailEnabled: value.emails.referralEmailEnabled,
             referralRecipients: value.emails.referralRecipients,
           },

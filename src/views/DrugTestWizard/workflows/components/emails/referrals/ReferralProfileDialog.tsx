@@ -25,6 +25,7 @@ type EmailPreviewData = {
   clientType?: ReferralClientType
   referralTitle: string
   referralEmails: string[]
+  hasExplicitReferralRecipients?: boolean
   referralRecipientsDetailed?: RecipientDetail[]
 }
 
@@ -50,11 +51,14 @@ export function ReferralProfileDialog({
   fallbackReferralEmails,
   onSaved,
 }: ReferralProfileDialogProps) {
+  const shouldSeedRecipients =
+    !(previewData?.clientType === 'self' && previewData?.hasExplicitReferralRecipients === false)
+
   const initialValues = buildInitialReferralProfileValues({
     clientType: previewData?.clientType,
     referralTitle: previewData?.referralTitle,
-    referralRecipientsDetailed: previewData?.referralRecipientsDetailed,
-    fallbackReferralEmails,
+    referralRecipientsDetailed: shouldSeedRecipients ? previewData?.referralRecipientsDetailed : [],
+    fallbackReferralEmails: shouldSeedRecipients ? fallbackReferralEmails : [],
   })
 
   const formOpts = useReferralProfileFormOpts({
@@ -128,8 +132,8 @@ export function ReferralProfileDialog({
   async function applyReferralTypeChange(nextType: ReferralTypeUi) {
     setValueWithFieldApi('referralTypeUi', nextType)
     setValueWithFieldApi('presetKey', 'custom')
-    setValueWithFieldApi('title', '')
-    replaceRecipientsWithFieldApi([createRecipientRow()])
+    setValueWithFieldApi('title', nextType === 'self' ? 'Self' : '')
+    replaceRecipientsWithFieldApi(nextType === 'self' ? [] : [createRecipientRow()])
     await revalidateProgrammaticChanges()
   }
 
@@ -191,7 +195,7 @@ export function ReferralProfileDialog({
                   <SelectContent>
                     <SelectItem value="court">Court</SelectItem>
                     <SelectItem value="employer">Employer</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
+                    <SelectItem value="self">Self</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -260,6 +264,12 @@ export function ReferralProfileDialog({
                   </Button>
                 </div>
 
+                {referralTypeUi === 'self' && field.state.value.length === 0 && (
+                  <p className="text-muted-foreground text-sm">
+                    Recipients are optional for self referral type.
+                  </p>
+                )}
+
                 {field.state.value.map((recipient, index) => (
                   <div key={recipient.rowId} className="grid grid-cols-[1fr_1fr_auto] gap-2">
                     <form.Field name={`recipients[${index}].name` as const}>
@@ -296,7 +306,7 @@ export function ReferralProfileDialog({
                       variant="outline"
                       size="icon"
                       onClick={() => field.removeValue(index)}
-                      disabled={field.state.value.length <= 1}
+                      disabled={referralTypeUi !== 'self' && field.state.value.length <= 1}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

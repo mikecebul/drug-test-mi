@@ -4,6 +4,7 @@ export type RecipientList = {
   clientEmail: string
   referralEmails: string[]
   referralTitle: string // Organization name (employer, court, etc.)
+  hasExplicitReferralRecipients: boolean
   referralRecipientsDetailed: Array<{
     name: string
     email: string
@@ -38,6 +39,7 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
         clientEmail: '',
         referralEmails: [],
         referralTitle: '',
+        hasExplicitReferralRecipients: false,
         referralRecipientsDetailed: [],
       }
     }
@@ -92,6 +94,8 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
       })
     }
 
+    const hasExplicitReferralRecipients = recipientMap.size > 0
+
     // For "self" clients: Always add the client's own email to referralEmails
     // This ensures self clients receive their own test results
     if (client.clientType === 'self' && clientEmail) {
@@ -110,6 +114,7 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
       clientEmail,
       referralEmails,
       referralTitle,
+      hasExplicitReferralRecipients,
       referralRecipientsDetailed,
     }
   } catch (error) {
@@ -118,6 +123,7 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
       clientEmail: '',
       referralEmails: [],
       referralTitle: '',
+      hasExplicitReferralRecipients: false,
       referralRecipientsDetailed: [],
     }
   }

@@ -37,8 +37,13 @@ export const EmailsStep = withForm({
       }
 
       const clientId = formValues?.client?.id || null
-      const nextReferralRecipients = previewData.referralEmails
-      const previewRecipientsHash = nextReferralRecipients.join('|')
+      const shouldDisableSelfReferralByDefault =
+        previewData.clientType === 'self' && previewData.hasExplicitReferralRecipients === false
+      const nextReferralRecipients = shouldDisableSelfReferralByDefault ? [] : previewData.referralEmails
+      const previewRecipientsHash = JSON.stringify({
+        referralEmails: nextReferralRecipients,
+        hasExplicitReferralRecipients: previewData.hasExplicitReferralRecipients,
+      })
       const clientChanged = lastClientIdRef.current !== clientId
       const previewChanged = lastPreviewRecipientsHashRef.current !== previewRecipientsHash
       const recipientsEmpty = formValues.emails.referralRecipients.length === 0
@@ -74,6 +79,7 @@ export const EmailsStep = withForm({
         showClientEmail={false}
         clientId={formValues?.client?.id || null}
         onReferralProfileSaved={handleReferralProfileSaved}
+        onClientEmailSaved={handleReferralProfileSaved}
       />
     )
   },

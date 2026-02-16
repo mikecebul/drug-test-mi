@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { COURT_CONFIGS, EMPLOYER_CONFIGS } from '@/app/(frontend)/register/configs/recipient-configs'
 
 export type ReferralClientType = 'probation' | 'employment' | 'self'
-export type ReferralTypeUi = 'court' | 'employer' | 'other'
+export type ReferralTypeUi = 'court' | 'employer' | 'self'
 
 export type RecipientDetail = {
   name: string
@@ -38,12 +38,20 @@ const recipientRowSchema = z.object({
 
 export const referralProfileSchema = z
   .object({
-    referralTypeUi: z.enum(['court', 'employer', 'other']),
+    referralTypeUi: z.enum(['court', 'employer', 'self']),
     presetKey: z.string(),
     title: z.string().trim().min(1, 'Referral name is required'),
-    recipients: z.array(recipientRowSchema).min(1, 'At least one recipient is required'),
+    recipients: z.array(recipientRowSchema),
   })
   .superRefine((data, ctx) => {
+    if (data.referralTypeUi !== 'self' && data.recipients.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'At least one recipient is required',
+        path: ['recipients'],
+      })
+    }
+
     const seenEmails = new Map<string, number>()
 
     data.recipients.forEach((recipient, index) => {
@@ -72,7 +80,7 @@ export function mapClientTypeToReferralTypeUi(clientType?: ReferralClientType): 
     return 'employer'
   }
 
-  return 'other'
+  return 'self'
 }
 
 export function mapReferralTypeUiToClientType(referralTypeUi: ReferralTypeUi): ReferralClientType {
@@ -128,6 +136,15 @@ export function buildInitialReferralProfileValues(input: {
     detailedRecipients.length > 0
       ? detailedRecipients.map((recipient) => createRecipientRow(recipient))
       : (input.fallbackReferralEmails || []).filter(Boolean).map((email) => createRecipientRow({ email }))
+
+  if (referralTypeUi === 'self' && recipients.length === 0) {
+    return {
+      referralTypeUi,
+      presetKey: 'custom',
+      title: input.referralTitle || '',
+      recipients: [],
+    }
+  }
 
   return {
     referralTypeUi,

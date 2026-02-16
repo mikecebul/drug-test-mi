@@ -16,7 +16,15 @@ const updateReferralSchema = z.object({
   clientId: z.string().trim().min(1, 'Client ID is required'),
   clientType: z.enum(['probation', 'employment', 'self']),
   title: z.string().trim().min(1, 'Referral name is required'),
-  recipients: z.array(recipientSchema).min(1, 'At least one recipient is required'),
+  recipients: z.array(recipientSchema),
+}).superRefine((data, ctx) => {
+  if (data.clientType !== 'self' && data.recipients.length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'At least one recipient is required',
+      path: ['recipients'],
+    })
+  }
 })
 
 type ReferralClientType = z.infer<typeof updateReferralSchema>['clientType']

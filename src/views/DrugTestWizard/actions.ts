@@ -659,6 +659,7 @@ export async function getEmailPreview(data: {
     clientEmail: string
     referralEmails: string[]
     referralTitle: string
+    hasExplicitReferralRecipients: boolean
     referralRecipientsDetailed: Array<{
       name: string
       email: string
@@ -692,7 +693,13 @@ export async function getEmailPreview(data: {
     }
 
     // Get recipients using existing helper
-    const { clientEmail, referralEmails, referralTitle, referralRecipientsDetailed } = await getRecipients(data.clientId, payload)
+    const {
+      clientEmail,
+      referralEmails,
+      referralTitle,
+      hasExplicitReferralRecipients,
+      referralRecipientsDetailed,
+    } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
     const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
@@ -740,6 +747,7 @@ export async function getEmailPreview(data: {
         clientEmail,
         referralEmails,
         referralTitle,
+        hasExplicitReferralRecipients,
         referralRecipientsDetailed,
         clientType,
         clientHtml: emailData.client.html,
@@ -772,6 +780,7 @@ export async function getCollectionEmailPreview(data: {
   data?: {
     referralEmails: string[]
     referralTitle: string
+    hasExplicitReferralRecipients: boolean
     referralRecipientsDetailed: Array<{
       name: string
       email: string
@@ -802,7 +811,8 @@ export async function getCollectionEmailPreview(data: {
     }
 
     // Get recipients using existing helper
-    const { referralEmails, referralTitle, referralRecipientsDetailed } = await getRecipients(data.clientId, payload)
+    const { referralEmails, referralTitle, hasExplicitReferralRecipients, referralRecipientsDetailed } =
+      await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
     const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
@@ -833,6 +843,7 @@ export async function getCollectionEmailPreview(data: {
       data: {
         referralEmails,
         referralTitle,
+        hasExplicitReferralRecipients,
         referralRecipientsDetailed,
         clientType,
         referralHtml: emailData.html,
@@ -866,6 +877,7 @@ export async function getConfirmationEmailPreview(data: {
     clientEmail: string
     referralEmails: string[]
     referralTitle: string
+    hasExplicitReferralRecipients: boolean
     referralRecipientsDetailed: Array<{
       name: string
       email: string
@@ -906,7 +918,13 @@ export async function getConfirmationEmailPreview(data: {
     }
 
     // Get recipients using existing helper
-    const { clientEmail, referralEmails, referralTitle, referralRecipientsDetailed } = await getRecipients(data.clientId, payload)
+    const {
+      clientEmail,
+      referralEmails,
+      referralTitle,
+      hasExplicitReferralRecipients,
+      referralRecipientsDetailed,
+    } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
     const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
@@ -970,6 +988,7 @@ export async function getConfirmationEmailPreview(data: {
         clientEmail,
         referralEmails,
         referralTitle,
+        hasExplicitReferralRecipients,
         referralRecipientsDetailed,
         clientType,
         clientHtml: emailData.client.html,
