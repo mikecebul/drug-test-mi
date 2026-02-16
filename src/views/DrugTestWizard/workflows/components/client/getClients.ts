@@ -16,6 +16,7 @@ export interface SimpleClient {
   matchType?: 'exact' | 'fuzzy'
   score?: number
   phone?: string
+  updatedAt?: string
 }
 
 export async function getClients(): Promise<SimpleClient[]> {
@@ -31,7 +32,9 @@ export async function getClients(): Promise<SimpleClient[]> {
       middleInitial: true,
       email: true,
       dob: true,
+      phone: true,
       headshot: true,
+      updatedAt: true,
     },
   })
   const clients = clientsResult.map((client): SimpleClient => {
@@ -57,8 +60,10 @@ export async function getClients(): Promise<SimpleClient[]> {
       initials: `${client.firstName.charAt(0)}${client.lastName.charAt(0)}`,
       email: client.email,
       dob: client.dob ?? undefined,
+      phone: client.phone ?? undefined,
       headshot,
       headshotId,
+      updatedAt: client.updatedAt ?? undefined,
     }
   })
   return clients
@@ -79,6 +84,7 @@ export async function getClientById(id: string): Promise<SimpleClient | null> {
         dob: true,
         headshot: true,
         phone: true,
+        updatedAt: true,
       },
     })
 
@@ -108,6 +114,7 @@ export async function getClientById(id: string): Promise<SimpleClient | null> {
       phone: client.phone ?? undefined,
       headshot,
       headshotId,
+      updatedAt: client.updatedAt ?? undefined,
     }
   } catch (_err) {
     // Payload throws if not found
@@ -162,6 +169,7 @@ export async function getClientFromTestId(testId: string): Promise<SimpleClient 
       phone: client.phone ?? undefined,
       headshot,
       headshotId,
+      updatedAt: client.updatedAt ?? undefined,
     }
   } catch (err) {
     console.error('Error fetching client from test:', err)
