@@ -3,6 +3,7 @@
 import { formOptions } from '@tanstack/react-form'
 import z from 'zod'
 import { checkEmailExists } from './actions'
+import { safeServerAction } from '@/lib/actions/safeServerAction'
 import {
   personalInfoSchema,
   accountInfoSchema,
@@ -67,7 +68,7 @@ export const getRegisterClientFormOpts = (step: Steps[number]) =>
           return undefined
         }
         try {
-          const emailExists = await checkEmailExists(email)
+          const emailExists = await safeServerAction(() => checkEmailExists(email))
           if (emailExists) {
             return {
               fields: {

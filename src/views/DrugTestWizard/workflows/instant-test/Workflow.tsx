@@ -20,6 +20,7 @@ import { steps } from './validators'
 import { extractPdfQueryKey } from '../../queries'
 import { getClientById } from '../components/client/getClients'
 import { getFileFromStorage, clearFileStorage, hasStoredFile } from './utils/fileStorage'
+import { safeServerAction } from '@/lib/actions/safeServerAction'
 
 interface InstantTestWorkflowProps {
   onBack: () => void
@@ -83,29 +84,31 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
 
         console.log(`[InstantTest] Calling createInstantTest server action...`)
 
-        const result = await createInstantTest(
-          {
-            clientId: value.client.id,
-            testType: value.verifyData.testType,
-            collectionDate: value.verifyData.collectionDate,
-            detectedSubstances: value.verifyData.detectedSubstances as any,
-            isDilute: value.verifyData.isDilute,
-            breathalyzerTaken: value.verifyData.breathalyzerTaken,
-            breathalyzerResult: value.verifyData.breathalyzerResult ?? null,
-            pdfBuffer,
-            pdfFilename: value.upload.file.name,
-            hasConfirmation: extractedData?.hasConfirmation,
-            confirmationResults: extractedData?.confirmationResults,
-            confirmationDecision: value.verifyData.confirmationDecision ?? null,
-            confirmationSubstances: value.verifyData.confirmationSubstances as any,
-          },
-          value.medications,
-          {
-            clientEmailEnabled: value.emails.clientEmailEnabled,
-            clientRecipients: value.emails.clientEmailEnabled ? value.emails.clientRecipients : [],
-            referralEmailEnabled: value.emails.referralEmailEnabled,
-            referralRecipients: value.emails.referralRecipients,
-          },
+        const result = await safeServerAction(() =>
+          createInstantTest(
+            {
+              clientId: value.client.id,
+              testType: value.verifyData.testType,
+              collectionDate: value.verifyData.collectionDate,
+              detectedSubstances: value.verifyData.detectedSubstances as any,
+              isDilute: value.verifyData.isDilute,
+              breathalyzerTaken: value.verifyData.breathalyzerTaken,
+              breathalyzerResult: value.verifyData.breathalyzerResult ?? null,
+              pdfBuffer,
+              pdfFilename: value.upload.file.name,
+              hasConfirmation: extractedData?.hasConfirmation,
+              confirmationResults: extractedData?.confirmationResults,
+              confirmationDecision: value.verifyData.confirmationDecision ?? null,
+              confirmationSubstances: value.verifyData.confirmationSubstances as any,
+            },
+            value.medications,
+            {
+              clientEmailEnabled: value.emails.clientEmailEnabled,
+              clientRecipients: value.emails.clientEmailEnabled ? value.emails.clientRecipients : [],
+              referralEmailEnabled: value.emails.referralEmailEnabled,
+              referralRecipients: value.emails.referralRecipients,
+            },
+          ),
         )
 
         console.log(`[InstantTest] Server action returned:`, result)

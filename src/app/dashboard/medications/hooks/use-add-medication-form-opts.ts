@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import type { AddMedicationFormType } from '../schemas/medicationSchemas'
 import type { Dispatch, SetStateAction } from 'react'
 import { addMedicationAction } from '../actions'
+import { safeServerAction } from '@/lib/actions/safeServerAction'
 
 const defaultValues: AddMedicationFormType = {
   medicationName: '',
@@ -25,12 +26,14 @@ export const useAddMedicationFormOpts = ({
     onSubmit: async ({ value: data, formApi }) => {
       try {
         // Use server action to add medication with proper access controls
-        const result = await addMedicationAction({
+        const result = await safeServerAction(() =>
+          addMedicationAction({
           medicationName: data.medicationName,
           startDate: data.startDate,
           status: 'active',
           ...(data.detectedAs && { detectedAs: data.detectedAs }),
-        })
+          }),
+        )
 
         if (!result.success) {
           throw new Error(result.error || 'Failed to add medication')

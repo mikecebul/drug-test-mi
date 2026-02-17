@@ -54,6 +54,11 @@ A powerful page-building block that enables:
 
 This project is containerized using Docker and deployed on Dokploy. I'm using MongoDB which is also hosted on the same VPS via Dokploy.
 
+Set these deployment env vars at build time:
+
+- `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`: required for stable Next.js Server Action IDs across instances/deployments. Generate once and reuse the same value on all servers:
+  - `openssl rand -base64 32`
+
 ## Support
 
 For questions or issues, please open a GitHub issue or contact me on Discord.

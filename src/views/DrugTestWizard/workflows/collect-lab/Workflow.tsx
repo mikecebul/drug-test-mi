@@ -15,6 +15,7 @@ import { createCollectionWithEmailReview } from './actions/createCollectionWithE
 import { TestCompleted } from '../../components/TestCompleted'
 import { steps } from './validators'
 import { getClientById } from '../components/client/getClients'
+import { safeServerAction } from '@/lib/actions/safeServerAction'
 
 interface CollectLabWorkflowProps {
   onBack: () => void
@@ -50,19 +51,21 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
 
       // Final submit only happens on last step
       try {
-        const result = await createCollectionWithEmailReview(
-          {
-            clientId: value.client.id,
-            testType: value.collection.testType,
-            collectionDate: value.collection.collectionDate,
-            breathalyzerTaken: value.collection.breathalyzerTaken,
-            breathalyzerResult: value.collection.breathalyzerResult ?? null,
-          },
-          value.medications,
-          {
-            referralEmailEnabled: value.emails.referralEmailEnabled,
-            referralRecipients: value.emails.referralRecipients,
-          },
+        const result = await safeServerAction(() =>
+          createCollectionWithEmailReview(
+            {
+              clientId: value.client.id,
+              testType: value.collection.testType,
+              collectionDate: value.collection.collectionDate,
+              breathalyzerTaken: value.collection.breathalyzerTaken,
+              breathalyzerResult: value.collection.breathalyzerResult ?? null,
+            },
+            value.medications,
+            {
+              referralEmailEnabled: value.emails.referralEmailEnabled,
+              referralRecipients: value.emails.referralRecipients,
+            },
+          ),
         )
 
         if (result.success && result.testId) {

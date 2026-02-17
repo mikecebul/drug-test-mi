@@ -36,6 +36,7 @@ RUN --mount=type=secret,id=DATABASE_URI \
   --mount=type=secret,id=NEXT_PUBLIC_SENTRY_DSN \
   --mount=type=secret,id=NEXT_PUBLIC_SERVER_URL \
   --mount=type=secret,id=NEXT_PUBLIC_UPLOAD_PREFIX \
+  --mount=type=secret,id=NEXT_SERVER_ACTIONS_ENCRYPTION_KEY \
   --mount=type=secret,id=PAYLOAD_SECRET \
   --mount=type=secret,id=PREVIEW_SECRET \
   --mount=type=secret,id=RESEND_API_KEY \
@@ -57,6 +58,7 @@ RUN --mount=type=secret,id=DATABASE_URI \
   echo "NEXT_PUBLIC_SENTRY_DSN=$(cat /run/secrets/NEXT_PUBLIC_SENTRY_DSN)" && \
   echo "NEXT_PUBLIC_SERVER_URL=$(cat /run/secrets/NEXT_PUBLIC_SERVER_URL)" && \
   echo "NEXT_PUBLIC_UPLOAD_PREFIX=$(cat /run/secrets/NEXT_PUBLIC_UPLOAD_PREFIX)" && \
+  echo "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=$(cat /run/secrets/NEXT_SERVER_ACTIONS_ENCRYPTION_KEY)" && \
   echo "PAYLOAD_SECRET=$(cat /run/secrets/PAYLOAD_SECRET)" && \
   echo "PREVIEW_SECRET=$(cat /run/secrets/PREVIEW_SECRET)" && \
   echo "RESEND_API_KEY=$(cat /run/secrets/RESEND_API_KEY)" && \

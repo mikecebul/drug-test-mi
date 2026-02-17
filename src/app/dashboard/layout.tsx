@@ -9,6 +9,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { AppSidebar } from '@/components/app-sidebar'
 import { getAuthenticatedClient } from '@/utilities/auth/getAuthenticatedClient'
+import { VersionSkewToastHydrator } from '@/components/VersionSkewToastHydrator'
 
 export const metadata: Metadata = {
   title: 'Client Dashboard - MI Drug Test',
@@ -41,6 +42,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             </div>
           </SidebarInset>
         </SidebarProvider>
+        <VersionSkewToastHydrator />
         <Toaster />
       </body>
     </html>

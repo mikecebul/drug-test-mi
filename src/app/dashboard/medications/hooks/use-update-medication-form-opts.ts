@@ -7,6 +7,7 @@ import type { UpdateMedicationFormType } from '../schemas/medicationSchemas'
 import type { Dispatch, SetStateAction } from 'react'
 import type { Medication } from '../types'
 import { updateMedicationAction } from '../actions'
+import { safeServerAction } from '@/lib/actions/safeServerAction'
 
 const defaultValues: UpdateMedicationFormType = {
   status: 'active',
@@ -34,11 +35,13 @@ export const useUpdateMedicationFormOpts = ({
     onSubmit: async ({ value: data, formApi }) => {
       try {
         // Use server action to update medication
-        const result = await updateMedicationAction({
+        const result = await safeServerAction(() =>
+          updateMedicationAction({
           medicationIndex: selectedMedicationIndex,
           status: data.status,
           endDate: data.status === 'discontinued' && data.endDate && (typeof data.endDate === 'string' ? data.endDate.trim() !== '' : true) ? data.endDate : undefined,
-        })
+          }),
+        )
 
         if (!result.success) {
           throw new Error(result.error || 'Failed to update medication')

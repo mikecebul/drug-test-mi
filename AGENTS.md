@@ -58,6 +58,21 @@ This file gives fast, practical context for working in this repo: high-level str
 - Prefer server components with Payload local API (`getPayload()`), pass computed data to client components.
 - Use server actions for mutations that require elevated access; call `revalidatePath()` after mutations.
 
+## Server Action Skew Handling
+- **Problem**: After a deployment, stale client tabs can hit version-skew errors (for example `Failed to find Server Action`, chunk load errors).
+- **Deep-dive doc**: `docs/skew-protection.md` (architecture, implementation details, and maintenance checklist).
+- **Shared utilities**:
+  - Error classifier + token helper: `src/lib/errors/versionSkew.ts`
+  - Client wrapper for direct Server Action calls: `src/lib/actions/safeServerAction.ts`
+- **Rule**: If a **client component** directly calls a Server Action (click handlers, submit handlers, async validators, etc.), wrap it with `safeServerAction(() => action(...))`.
+- **Rule**: Do **not** duplicate ad-hoc string matching in feature files; always use `isVersionSkewError` from `src/lib/errors/versionSkew.ts`.
+- **React Query**:
+  - Payload/admin QueryClient is configured to bubble only version-skew errors to boundaries.
+  - Keep normal API/business errors handled inline in component/query error states.
+- **Boundaries**:
+  - Global boundaries in `src/app/(frontend)/global-error.tsx` and `src/app/(payload)/global-error.tsx` handle skew reload behavior.
+  - Keep Sentry capture in boundaries and centralized query/mutation error capture for observability.
+
 ## Guardrails
 - Avoid introducing ad-hoc UI patterns; reuse existing component styles.
 - Keep all new colors and spacing derived from existing CSS variables / Tailwind tokens.

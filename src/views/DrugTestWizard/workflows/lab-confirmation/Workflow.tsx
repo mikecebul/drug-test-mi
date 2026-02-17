@@ -17,6 +17,7 @@ import { updateLabConfirmationWithEmailReview } from './actions/updateLabConfirm
 import { TestCompleted } from '../../components/TestCompleted'
 import { steps } from './validators'
 import { extractPdfQueryKey } from '../../queries'
+import { safeServerAction } from '@/lib/actions/safeServerAction'
 
 interface LabConfirmationWorkflowProps {
   onBack: () => void
@@ -54,7 +55,9 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
         const queryKey = extractPdfQueryKey(value.upload.file, 'enter-lab-confirmation')
         const extractedData = queryClient.getQueryData<any>(queryKey)
 
-        const result = await updateLabConfirmationWithEmailReview(value, extractedData)
+        const result = await safeServerAction(() =>
+          updateLabConfirmationWithEmailReview(value, extractedData),
+        )
 
         if (result.success && result.testId) {
           setCompletedTestId(result.testId)

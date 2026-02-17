@@ -17,6 +17,7 @@ import { SuccessStep } from './steps/Success'
 import { RegisterClientNavigation } from './components/Navigation'
 import { registerClientAction } from './actions/registerClientAction'
 import { useRouter } from 'next/navigation'
+import { safeServerAction } from '@/lib/actions/safeServerAction'
 
 interface RegisterClientWorkflowProps {
   onBack: () => void
@@ -65,7 +66,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
       }
 
       // Final submit on last step
-      const result = await registerClientAction(value)
+      const result = await safeServerAction(() => registerClientAction(value))
 
       if (result.success && result.clientId) {
         setCreatedClientId(result.clientId)
