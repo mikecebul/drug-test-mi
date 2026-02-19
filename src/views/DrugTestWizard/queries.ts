@@ -16,7 +16,6 @@ import { fetchPendingTests } from './workflows/lab-screen/components/fetchPendin
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import type { ParsedPDFData, WizardType } from './types'
 import type { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
-import { isVersionSkewError } from '@/lib/errors/versionSkew'
 
 // Minimal medication interface that both FormMedications and MedicationSnapshot satisfy
 type MedicationInput = {
@@ -408,14 +407,7 @@ export function useExtractPdfQuery(file: File | null | undefined, wizardType: Wi
     },
     enabled: Boolean(file), // Only run when file exists
     staleTime: Infinity, // Extracted data never goes stale (file content won't change)
-    retry: (failureCount, error) => {
-      if (isVersionSkewError(error)) {
-        return false
-      }
-      return failureCount < 1
-    },
-    // Escalate stale Server Action mismatches to route-level error boundaries.
-    throwOnError: (error) => isVersionSkewError(error),
+    retry: 1, // Only retry once on failure
   })
 }
 

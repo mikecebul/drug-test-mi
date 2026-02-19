@@ -35,7 +35,6 @@ import { isMedicationEditable, getMedicationAgeDescription, canUpdateMedicationS
 import { toast } from "sonner"
 import { deleteMedicationAction } from "./actions"
 import { useRouter } from "next/navigation"
-import { safeServerAction } from '@/lib/actions/safeServerAction'
 
 const getStatusBadgeVariant = (status: MedicationStatus) => {
   switch (status) {
@@ -76,11 +75,9 @@ export function MedicationsView({ medications }: MedicationsViewProps) {
 
     try {
       // Use server action to delete medication
-      const result = await safeServerAction(() =>
-        deleteMedicationAction({
-          medicationIndex: selectedMedicationIndex,
-        }),
-      )
+      const result = await deleteMedicationAction({
+        medicationIndex: selectedMedicationIndex,
+      })
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to delete medication')

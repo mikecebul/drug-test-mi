@@ -11,7 +11,6 @@ import {
 } from './validators'
 import z from 'zod'
 import { checkEmailExists } from '@/app/(frontend)/register/actions'
-import { safeServerAction } from '@/lib/actions/safeServerAction'
 
 // Generate secure password (duplicated from RegisterClientDialog)
 function generatePassword(): string {
@@ -98,7 +97,7 @@ export const getRegisterClientFormOpts = (step: Steps[number]) =>
             return undefined // Skip validation if email is empty or invalid format
           }
           try {
-            const emailExists = await safeServerAction(() => checkEmailExists(email))
+            const emailExists = await checkEmailExists(email)
             if (emailExists) {
               return {
                 fields: {

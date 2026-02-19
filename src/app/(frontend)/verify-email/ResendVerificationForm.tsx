@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { Mail, Loader2 } from 'lucide-react'
 import { getCurrentUserEmail } from './actions'
-import { safeServerAction } from '@/lib/actions/safeServerAction'
 
 interface ResendVerificationFormProps {
   showLoginMessage?: boolean
@@ -23,7 +22,7 @@ export const ResendVerificationForm = ({ showLoginMessage = false }: ResendVerif
   useEffect(() => {
     const extractEmail = async () => {
       try {
-        const email = await safeServerAction(() => getCurrentUserEmail())
+        const email = await getCurrentUserEmail()
         if (email) {
           setEmail(email)
         }

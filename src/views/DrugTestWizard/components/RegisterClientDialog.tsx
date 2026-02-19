@@ -29,7 +29,6 @@ import { useAppForm } from '@/blocks/Form/hooks/form'
 import type { ClientMatch } from '../types'
 import { registerClientFromWizard } from '../actions'
 import ShadcnWrapper from '@/components/ShadcnWrapper'
-import { safeServerAction } from '@/lib/actions/safeServerAction'
 import {
   PersonalInfoStep,
   AccountInfoStep,
@@ -274,7 +273,7 @@ export function RegisterClientDialog({
         }
       }
 
-      const result = await safeServerAction(() => registerClientFromWizard(data))
+      const result = await registerClientFromWizard(data)
 
       if (result.success && result.client && result.generatedPassword) {
         setCreatedClient(result.client)

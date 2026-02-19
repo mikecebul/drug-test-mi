@@ -3,37 +3,20 @@
 import * as Sentry from '@sentry/nextjs'
 import NextError from 'next/error'
 import { useEffect } from 'react'
-import { isVersionSkewError, queueVersionSkewReload } from '@/lib/errors/versionSkew'
 
-export default function GlobalError({
-  error,
-  reset,
-}: {
-  error: Error & { digest?: string }
-  reset: () => void
-}) {
+export default function GlobalError({ error }: { error: Error & { digest?: string } }) {
   useEffect(() => {
     Sentry.captureException(error)
   }, [error])
 
-  if (isVersionSkewError(error) && queueVersionSkewReload(error)) {
-    window.location.reload()
-    return null
-  }
-
   return (
     <html>
       <body>
-        <div className="space-y-4 p-6">
-          <NextError statusCode={0} />
-          <button
-            className="rounded bg-black px-4 py-2 text-white"
-            onClick={() => reset()}
-            type="button"
-          >
-            Try again
-          </button>
-        </div>
+        {/* `NextError` is the default Next.js error page component. Its type
+        definition requires a `statusCode` prop. However, since the App Router
+        does not expose status codes for errors, we simply pass 0 to render a
+        generic error message. */}
+        <NextError statusCode={0} />
       </body>
     </html>
   )

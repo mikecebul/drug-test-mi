@@ -11,7 +11,6 @@ import { baseUrl } from '@/utilities/baseUrl'
 import Script from 'next/script'
 import { Toaster } from '@/components/ui/sonner'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
-import { VersionSkewToastHydrator } from '@/components/VersionSkewToastHydrator'
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -31,7 +30,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <Header />
             <div className="flex grow flex-col">{children}</div>
             <Footer />
-            <VersionSkewToastHydrator />
             <Toaster />
           </NuqsAdapter>
         </ThemeProvider>

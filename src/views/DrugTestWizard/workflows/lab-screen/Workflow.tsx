@@ -17,7 +17,6 @@ import { updateLabScreenWithEmailReview } from './actions/updateLabScreenWithEma
 import { TestCompleted } from '../../components/TestCompleted'
 import { steps } from './validators'
 import { extractPdfQueryKey } from '../../queries'
-import { safeServerAction } from '@/lib/actions/safeServerAction'
 
 interface LabScreenWorkflowProps {
   onBack: () => void
@@ -55,7 +54,7 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
         const queryKey = extractPdfQueryKey(value.upload.file, 'enter-lab-screen')
         const extractedData = queryClient.getQueryData<any>(queryKey)
 
-        const result = await safeServerAction(() => updateLabScreenWithEmailReview(value, extractedData))
+        const result = await updateLabScreenWithEmailReview(value, extractedData)
 
         if (result.success && result.testId) {
           setCompletedTestId(result.testId)
