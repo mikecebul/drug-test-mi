@@ -6,6 +6,7 @@ import { sentryPlugin } from '@payloadcms/plugin-sentry'
 import * as Sentry from '@sentry/nextjs'
 
 import { importExportPlugin } from '@payloadcms/plugin-import-export'
+import { mcpPlugin } from '@payloadcms/plugin-mcp'
 import { searchPlugin } from '@payloadcms/plugin-search'
 import { stripePlugin } from '@payloadcms/plugin-stripe'
 import { redirectsPlugin } from '@payloadcms/plugin-redirects'
@@ -83,10 +84,7 @@ export default buildConfig({
     components: {
       beforeDashboard: ['@/views/beforeDashboard/DrugTestStats'],
       afterDashboard: ['@/views/afterDashboard/Analytics'],
-      beforeNavLinks: [
-        '@/views/beforeNavLinks/DrugTestCollectorLink',
-        '@/views/beforeNavLinks/DrugTestTrackerLink',
-      ],
+      beforeNavLinks: ['@/views/beforeNavLinks/DrugTestCollectorLink', '@/views/beforeNavLinks/DrugTestTrackerLink'],
       afterNavLinks: ['@/views/afterNavLinks/LinkToAnalyticsDefaultRootView'],
       graphics: {
         Icon: '@/graphics/Icon',
@@ -273,6 +271,36 @@ export default buildConfig({
                   staticDir: path.resolve(dirname, 'uploads'),
                 },
         }
+      },
+    }),
+    mcpPlugin({
+      collections: {
+        clients: {
+          enabled: {
+            find: true,
+            create: true,
+            update: true,
+            delete: false,
+          },
+          description: 'Client registration and profile records used to create and update mock client entries.',
+        },
+        'drug-tests': {
+          enabled: {
+            find: true,
+            create: true,
+            update: true,
+            delete: false,
+          },
+          description: 'Drug test records tied to clients, including mock screening details and workflow updates.',
+        },
+      },
+      mcp: {
+        serverOptions: {
+          serverInfo: {
+            name: 'MI Drug Test MCP Server',
+            version: '1.0.0',
+          },
+        },
       },
     }),
     sentryPlugin({

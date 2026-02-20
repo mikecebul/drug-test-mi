@@ -43,6 +43,7 @@
     "@payloadcms/next": "3.76.1",
     "@payloadcms/plugin-form-builder": "3.76.1",
     "@payloadcms/plugin-import-export": "3.76.1",
+    "@payloadcms/plugin-mcp": "3.76.1",
     "@payloadcms/plugin-redirects": "3.76.1",
     "@payloadcms/plugin-search": "3.76.1",
     "@payloadcms/plugin-sentry": "3.76.1",
