@@ -2051,7 +2051,7 @@ export interface Export {
  */
 export interface Import {
   id: string;
-  collectionSlug: 'form-submissions';
+  collectionSlug: string;
   importMode?: ('create' | 'update' | 'upsert') | null;
   matchField?: string | null;
   status?: ('pending' | 'completed' | 'partial' | 'failed') | null;
@@ -3691,6 +3691,8 @@ export interface TaskCreateCollectionExport {
       | number
       | boolean
       | null;
+    id?: string | null;
+    batchSize?: number | null;
     userID?: string | null;
     userCollection?: string | null;
     exportCollection?: string | null;
