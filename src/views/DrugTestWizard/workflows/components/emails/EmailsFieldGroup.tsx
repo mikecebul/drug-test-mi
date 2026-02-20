@@ -44,6 +44,15 @@ interface EmailPreviewData {
   referralSubject: string
 }
 
+type GroupFormBridge = {
+  setFieldValue?: (name: string, value: unknown) => void
+  form?: {
+    setFieldValue?: (name: string, value: unknown) => void
+    validate?: (cause: 'submit') => unknown
+  }
+  name?: string
+}
+
 const defaultValues: {
   clientEmailEnabled: boolean
   clientRecipients: string[]
@@ -108,19 +117,22 @@ export const EmailsFieldGroup = withFieldGroup({
       name: 'clientRecipients' | 'referralRecipients' | 'clientEmailEnabled' | 'referralEmailEnabled',
       value: unknown,
     ) {
-      const unsafeGroup = group as any
+      const bridge = group as unknown as GroupFormBridge
 
-      if (typeof unsafeGroup.setFieldValue === 'function') {
-        unsafeGroup.setFieldValue(name, value)
+      if (typeof bridge.setFieldValue === 'function') {
+        bridge.setFieldValue(name, value)
         return
       }
 
-      if (
-        unsafeGroup?.form &&
-        typeof unsafeGroup.form.setFieldValue === 'function' &&
-        typeof unsafeGroup.name === 'string'
-      ) {
-        unsafeGroup.form.setFieldValue(`${unsafeGroup.name}.${name}`, value)
+      if (bridge?.form && typeof bridge.form.setFieldValue === 'function' && typeof bridge.name === 'string') {
+        bridge.form.setFieldValue(`${bridge.name}.${name}`, value)
+      }
+    }, [group])
+
+    const validateSubmitState = React.useCallback(function validateSubmitState() {
+      const bridge = group as unknown as GroupFormBridge
+      if (bridge?.form && typeof bridge.form.validate === 'function') {
+        void bridge.form.validate('submit')
       }
     }, [group])
 
@@ -132,6 +144,7 @@ export const EmailsFieldGroup = withFieldGroup({
     }) {
       setEmailFieldValue('referralEmailEnabled', data.referralEmails.length > 0)
       setEmailFieldValue('referralRecipients', data.referralEmails)
+      validateSubmitState()
       setReferralEditorVersion((version) => version + 1)
 
       invalidateWizardClientDerivedData(queryClient, { clientId })
@@ -146,6 +159,7 @@ export const EmailsFieldGroup = withFieldGroup({
     function handleClientEmailSavedFromDialog(data: { email: string }) {
       setEmailFieldValue('clientRecipients', [data.email])
       setEmailFieldValue('clientEmailEnabled', true)
+      validateSubmitState()
 
       invalidateWizardClientDerivedData(queryClient, { clientId })
       void onClientEmailSaved()
@@ -158,10 +172,12 @@ export const EmailsFieldGroup = withFieldGroup({
 
       if (clientEmailEnabled) {
         setEmailFieldValue('clientEmailEnabled', false)
+        validateSubmitState()
       }
 
       if (clientRecipients.length > 0) {
         setEmailFieldValue('clientRecipients', [])
+        validateSubmitState()
       }
     }, [
       showClientEmail,
@@ -170,6 +186,7 @@ export const EmailsFieldGroup = withFieldGroup({
       clientEmailEnabled,
       clientRecipients.length,
       setEmailFieldValue,
+      validateSubmitState,
     ])
 
     if (isLoading) {
@@ -222,7 +239,10 @@ export const EmailsFieldGroup = withFieldGroup({
                           <Checkbox
                             id="client-enabled"
                             checked={field.state.value}
-                            onCheckedChange={(checked) => field.handleChange(checked === true)}
+                            onCheckedChange={(checked) => {
+                              field.handleChange(checked === true)
+                              validateSubmitState()
+                            }}
                             disabled={!canSendClientEmail}
                           />
                           <FieldLabel htmlFor="client-enabled">
@@ -313,7 +333,10 @@ export const EmailsFieldGroup = withFieldGroup({
                         <Checkbox
                           id="referral-enabled"
                           checked={field.state.value}
-                          onCheckedChange={(checked) => field.handleChange(checked === true)}
+                          onCheckedChange={(checked) => {
+                            field.handleChange(checked === true)
+                            validateSubmitState()
+                          }}
                         />
                         <FieldLabel htmlFor="referral-enabled">Send referral notifications</FieldLabel>
                       </Field>
@@ -332,7 +355,10 @@ export const EmailsFieldGroup = withFieldGroup({
                           initialRecipients={
                             referralRecipients?.length ? referralRecipients : previewData.referralEmails
                           }
-                          onChange={(recipients) => field.handleChange(recipients)}
+                          onChange={(recipients) => {
+                            field.handleChange(recipients)
+                            validateSubmitState()
+                          }}
                           label="Recipient Email Addresses"
                           required={true}
                           maxRecipients={10}

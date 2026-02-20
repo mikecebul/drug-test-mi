@@ -23,6 +23,11 @@ This file gives fast, practical context for working in this repo: high-level str
 - **Form system**: TanStack Form with custom field components in `src/blocks/Form/field-components/`
 - **Forms quick-reference contexts (progressive discovery)**: `docs/forms/contexts.md`
   - Only open this doc when a task touches form UX, validation, or field components.
+- **TanStack Form docs (local reference)**:
+  - Basic concepts and terminology: `docs/forms/basic-concepts.md`
+  - Validation patterns: `docs/forms/form-validation.md`
+  - Submission handling: `docs/forms/submission-handling.md`
+  - Form composition (`withForm`, custom hooks, context): `docs/forms/form-composition.md`
 - **Field UI reference (shadcn + repo conventions)**: `docs/forms/field-ui.md`
   - Use this when creating/updating form fields.
 - **Drug Test Wizard (Admin workflows)**: `src/views/DrugTestWizard/`

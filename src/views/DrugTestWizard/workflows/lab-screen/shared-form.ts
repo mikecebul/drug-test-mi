@@ -40,7 +40,7 @@ const getDefaultValues = (): FormValues => ({
   emails: {
     clientEmailEnabled: true,
     clientRecipients: [],
-    referralEmailEnabled: true,
+    referralEmailEnabled: false,
     referralRecipients: [],
   },
 })

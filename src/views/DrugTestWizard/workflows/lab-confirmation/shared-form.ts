@@ -36,7 +36,7 @@ const defaultValues: FormValues = {
   emails: {
     clientEmailEnabled: true, // Default true for complete stage (results are final)
     clientRecipients: [],
-    referralEmailEnabled: true,
+    referralEmailEnabled: false,
     referralRecipients: [],
   },
 }

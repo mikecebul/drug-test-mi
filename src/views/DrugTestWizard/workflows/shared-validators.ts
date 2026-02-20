@@ -74,7 +74,7 @@ export const emailsSchema = z
       ctx.addIssue({
         code: 'custom',
         message: 'Referral emails must have at least one recipient',
-        path: ['reviewEmails', 'referralRecipients'],
+        path: ['emails', 'referralRecipients'],
       })
     }
   })
