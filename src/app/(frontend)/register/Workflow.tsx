@@ -6,8 +6,6 @@ import { useQueryState, parseAsStringLiteral } from 'nuqs'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { toast } from 'sonner'
 import { useStore } from '@tanstack/react-form'
-import { formatDateOnlyISO, getCurrentIsoTimestamp, getTodayDateOnlyISO } from '@/lib/date-utils'
-import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
 import {
   focusElementWithoutScroll,
   focusFirstInteractiveField,
@@ -24,7 +22,7 @@ import {
   MedicationsStep,
   TermsStep,
 } from './steps'
-import { COURT_CONFIGS, EMPLOYER_CONFIGS, isValidEmployerType, isValidCourtType } from './configs/recipient-configs'
+import { registerWebsiteClientAction } from './actions'
 
 interface RegisterClientWorkflowProps {
   onComplete: (email: string) => void
@@ -116,151 +114,15 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
           throw new Error('Passwords do not match')
         }
 
-        const clientType = value.screeningType.requestedBy
-        const formattedFirstName = formatPersonName(value.personalInfo.firstName)
-        const formattedLastName = formatPersonName(value.personalInfo.lastName)
-        const formattedMiddleInitial = formatMiddleInitial(value.personalInfo.middleInitial)
-        const formattedPhone = formatPhoneNumber(value.personalInfo.phone)
-
-        const payload: any = {
-          name: `${formattedFirstName} ${formattedLastName}`,
-          firstName: formattedFirstName,
-          lastName: formattedLastName,
-          ...(formattedMiddleInitial ? { middleInitial: formattedMiddleInitial } : {}),
-          dob: formatDateOnlyISO(value.personalInfo.dob),
-          gender: value.personalInfo.gender,
-          email: value.accountInfo.email,
-          phone: formattedPhone,
-          password: value.accountInfo.password,
-          clientType: clientType,
-          preferredContactMethod: 'email',
-        }
-
-        if (value.medications && value.medications.length > 0) {
-          const today = getTodayDateOnlyISO()
-          const createdAt = getCurrentIsoTimestamp()
-          payload.medications = value.medications.map((medication) => ({
-            medicationName: medication.medicationName,
-            detectedAs: medication.detectedAs,
-            startDate: today,
-            status: 'active',
-            requireConfirmation: false,
-            createdAt,
-          }))
-        }
-
-        if (clientType === 'employment') {
-          const selectedEmployer = value.recipients.selectedEmployer
-          let employerName = ''
-          let recipients: Array<{ name: string; email: string }> = []
-
-          if (isValidEmployerType(selectedEmployer)) {
-            const employerConfig = EMPLOYER_CONFIGS[selectedEmployer]
-            employerName = employerConfig.label
-
-            if ('recipients' in employerConfig && employerConfig.recipients.length > 0) {
-              recipients = [...employerConfig.recipients]
-            } else if (selectedEmployer === 'other') {
-              employerName = value.recipients.employerName || ''
-              recipients = [
-                {
-                  name: value.recipients.contactName || '',
-                  email: value.recipients.contactEmail || '',
-                },
-              ]
-            }
-          } else {
-            throw new Error('Invalid employer selection')
-          }
-
-          if (recipients.length === 0) {
-            console.error('Registration failed: No recipients for employer', {
-              selectedEmployer,
-              employerName,
-            })
-            throw new Error('No recipients configured for employer. Please contact support.')
-          }
-
-          payload.employmentInfo = {
-            employerName,
-            recipients,
-          }
-        } else if (clientType === 'probation') {
-          const selectedCourt = value.recipients.selectedCourt
-          let courtName = ''
-          let recipients: Array<{ name: string; email: string }> = []
-
-          if (isValidCourtType(selectedCourt)) {
-            const courtConfig = COURT_CONFIGS[selectedCourt]
-            courtName = courtConfig.label
-
-            if (courtConfig.recipients.length > 0) {
-              recipients = [...courtConfig.recipients]
-            } else if (selectedCourt === 'other') {
-              courtName = value.recipients.courtName || ''
-              recipients = [
-                {
-                  name: value.recipients.probationOfficerName || '',
-                  email: value.recipients.probationOfficerEmail || '',
-                },
-              ]
-            }
-          } else {
-            throw new Error('Invalid court selection')
-          }
-
-          if (recipients.length === 0) {
-            console.error('Registration failed: No recipients for court', {
-              selectedCourt,
-              courtName,
-            })
-            throw new Error('No recipients configured for court. Please contact support.')
-          }
-
-          payload.courtInfo = {
-            courtName,
-            recipients,
-          }
-        } else if (clientType === 'self' && !value.recipients.useSelfAsRecipient) {
-          payload.selfInfo = {
-            recipients: [
-              {
-                name: value.recipients.alternativeRecipientName,
-                email: value.recipients.alternativeRecipientEmail,
-              },
-            ],
-          }
-        }
-
-        const response = await fetch('/api/clients', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+        const result = await registerWebsiteClientAction({
+          ...value,
+          personalInfo: {
+            ...value.personalInfo,
+            headshot: null,
+          },
         })
-
-        const result = await response.json()
-
-        if (!response.ok) {
-          console.error('Registration failed', {
-            status: response.status,
-            email: payload.email,
-            clientType: payload.clientType,
-            error: result,
-          })
-
-          if (response.status === 409) {
-            toast.error('An account with this email already exists')
-            throw new Error('An account with this email already exists. Please sign in instead.')
-          } else if (response.status === 400) {
-            toast.error('Invalid registration data')
-            throw new Error(result.errors?.[0]?.message || 'Please check your information and try again.')
-          } else if (response.status >= 500) {
-            toast.error('Server error occurred')
-            throw new Error('Server error. Please try again in a few moments.')
-          }
-
-          toast.error('Registration failed')
-          throw new Error(result.errors?.[0]?.message || 'Registration failed')
+        if (!result.success) {
+          throw new Error(result.error || 'Registration failed')
         }
 
         form.reset()

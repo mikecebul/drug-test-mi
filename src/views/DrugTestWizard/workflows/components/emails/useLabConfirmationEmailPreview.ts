@@ -46,7 +46,7 @@ export function useLabConfirmationEmailPreview(params: UseLabConfirmationEmailPr
           clientTitle: 'Final Confirmation Results',
           clientHtml: queryResult.data.data.clientHtml,
           clientSubject: queryResult.data.data.clientSubject,
-          clientType: queryResult.data.data.clientType,
+          referralType: queryResult.data.data.referralType,
           referralEmails: queryResult.data.data.referralEmails,
           referralTitle: queryResult.data.data.referralTitle,
           hasExplicitReferralRecipients: queryResult.data.data.hasExplicitReferralRecipients,

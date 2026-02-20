@@ -1,11 +1,10 @@
 import { z } from 'zod'
-import { COURT_CONFIGS, EMPLOYER_CONFIGS } from '@/app/(frontend)/register/configs/recipient-configs'
 
-export type ReferralClientType = 'probation' | 'employment' | 'self'
+export type ReferralClientType = 'court' | 'employer' | 'self'
 export type ReferralTypeUi = 'court' | 'employer' | 'self'
 
 export type RecipientDetail = {
-  name: string
+  name?: string
   email: string
 }
 
@@ -22,7 +21,7 @@ export type ReferralProfileFormValues = {
   recipients: ReferralRecipientRow[]
 }
 
-type PresetConfigMap = Record<
+export type PresetConfigMap = Record<
   string,
   {
     label: string
@@ -32,7 +31,7 @@ type PresetConfigMap = Record<
 
 const recipientRowSchema = z.object({
   rowId: z.string().min(1),
-  name: z.string().trim().min(1, 'Recipient name is required'),
+  name: z.string().trim(),
   email: z.string().trim().email('Recipient email is invalid'),
 })
 
@@ -72,11 +71,11 @@ export const referralProfileSchema = z
   })
 
 export function mapClientTypeToReferralTypeUi(clientType?: ReferralClientType): ReferralTypeUi {
-  if (clientType === 'probation') {
+  if (clientType === 'court') {
     return 'court'
   }
 
-  if (clientType === 'employment') {
+  if (clientType === 'employer') {
     return 'employer'
   }
 
@@ -85,11 +84,11 @@ export function mapClientTypeToReferralTypeUi(clientType?: ReferralClientType): 
 
 export function mapReferralTypeUiToClientType(referralTypeUi: ReferralTypeUi): ReferralClientType {
   if (referralTypeUi === 'court') {
-    return 'probation'
+    return 'court'
   }
 
   if (referralTypeUi === 'employer') {
-    return 'employment'
+    return 'employer'
   }
 
   return 'self'
@@ -111,18 +110,6 @@ export function createRecipientRow(recipient?: Partial<RecipientDetail>): Referr
   }
 }
 
-export function getPresetConfigsForUiType(referralTypeUi: ReferralTypeUi): PresetConfigMap | null {
-  if (referralTypeUi === 'court') {
-    return COURT_CONFIGS as PresetConfigMap
-  }
-
-  if (referralTypeUi === 'employer') {
-    return EMPLOYER_CONFIGS as PresetConfigMap
-  }
-
-  return null
-}
-
 export function buildInitialReferralProfileValues(input: {
   clientType?: ReferralClientType
   referralTitle?: string
@@ -141,7 +128,7 @@ export function buildInitialReferralProfileValues(input: {
     return {
       referralTypeUi,
       presetKey: 'custom',
-      title: input.referralTitle || '',
+      title: input.referralTitle || 'Self',
       recipients: [],
     }
   }

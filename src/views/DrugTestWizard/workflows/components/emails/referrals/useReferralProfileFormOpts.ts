@@ -32,7 +32,7 @@ type UseReferralProfileFormOptsArgs = {
   initialValues: ReferralProfileFormValues
   onClose: () => void
   onSaved: (data: {
-    clientType: ReferralClientType
+    referralType: ReferralClientType
     referralTitle: string
     referralEmails: string[]
     referralRecipientsDetailed: RecipientDetail[]
@@ -61,7 +61,8 @@ export function useReferralProfileFormOpts({
 
       const result = await updateClientReferralProfile({
         clientId,
-        clientType: mapReferralTypeUiToClientType(value.referralTypeUi),
+        referralType: mapReferralTypeUiToClientType(value.referralTypeUi),
+        referralId: value.presetKey !== 'custom' ? value.presetKey : undefined,
         title: value.title.trim(),
         recipients,
       })
@@ -72,7 +73,7 @@ export function useReferralProfileFormOpts({
       }
 
       onSaved({
-        clientType: result.data.clientType,
+        referralType: result.data.referralType,
         referralTitle: result.data.referralTitle,
         referralEmails: result.data.referralEmails,
         referralRecipientsDetailed: result.data.referralRecipientsDetailed,

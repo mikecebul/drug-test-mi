@@ -4,12 +4,7 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import type { FormValues } from '../validators'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
-import {
-  COURT_CONFIGS,
-  EMPLOYER_CONFIGS,
-  isValidCourtType,
-  isValidEmployerType,
-} from '@/app/(frontend)/register/configs/recipient-configs'
+import { buildContactsFromLegacyInput, createInactiveReferralAndAlert, parseRecipientEmails } from '@/lib/referrals'
 
 const PLACEHOLDER_EMAIL_DOMAIN = 'midrugtest.com'
 const PLACEHOLDER_EMAIL_MAX_ATTEMPTS = 5000
@@ -18,7 +13,11 @@ function toEmailSlug(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
-async function generatePlaceholderEmail(payload: Awaited<ReturnType<typeof getPayload>>, firstName: string, lastName: string) {
+async function generatePlaceholderEmail(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  firstName: string,
+  lastName: string,
+) {
   const firstSlug = toEmailSlug(firstName) || 'client'
   const lastSlug = toEmailSlug(lastName) || 'profile'
   const emailBase = `${firstSlug}.${lastSlug}`
@@ -66,7 +65,6 @@ export async function registerClientAction(formData: FormValues): Promise<{
       : submittedEmail
 
     if (!noEmail) {
-      // Check if email already exists
       const existingClient = await payload.find({
         collection: 'clients',
         where: { email: { equals: clientEmail } },
@@ -82,74 +80,80 @@ export async function registerClientAction(formData: FormValues): Promise<{
       }
     }
 
-    // Build client data
-    const clientData: any = {
+    const clientData: Record<string, unknown> = {
       firstName: formattedFirstName,
       lastName: formattedLastName,
       ...(formattedMiddleInitial && { middleInitial: formattedMiddleInitial }),
       email: clientEmail,
-      password: accountInfo.password, // Use password from form (could be auto-generated or custom)
+      password: accountInfo.password,
       gender: personalInfo.gender,
       dob: personalInfo.dob,
       phone: formattedPhone,
-      clientType: screeningType.requestedBy,
+      referralType: screeningType.requestedBy,
       preferredContactMethod: noEmail ? 'phone' : 'email',
       disableClientEmails: noEmail,
-      _verified: true, // Auto-verify admin-created clients
+      _verified: true,
     }
 
-    // Add type-specific recipient info
-    const requestedBy = screeningType.requestedBy
-    if (requestedBy === 'probation') {
-      const court = isValidCourtType(recipients.selectedCourt) ? recipients.selectedCourt : null
-      if (court && court !== 'other') {
-        const config = COURT_CONFIGS[court]
-        clientData.courtInfo = {
-          courtName: config.label,
-          recipients: [...config.recipients],
-        }
-      } else if (recipients.selectedCourt === 'other') {
-        clientData.courtInfo = {
-          courtName: recipients.courtName,
-          recipients: [
-            {
-              name: recipients.probationOfficerName,
-              email: recipients.probationOfficerEmail,
-            },
-          ],
-        }
-      }
-    } else if (requestedBy === 'employment') {
-      const employer = isValidEmployerType(recipients.selectedEmployer)
-        ? recipients.selectedEmployer
-        : null
-      if (employer && employer !== 'other') {
-        const config = EMPLOYER_CONFIGS[employer]
-        clientData.employmentInfo = {
-          employerName: config.label,
-          recipients: [...config.recipients],
-        }
-      } else if (recipients.selectedEmployer === 'other') {
-        clientData.employmentInfo = {
-          employerName: recipients.employerName,
-          recipients: [{ name: recipients.contactName, email: recipients.contactEmail }],
-        }
-      }
-    } else if (requestedBy === 'self' && !recipients.useSelfAsRecipient) {
-      clientData.selfInfo = {
-        recipients: [
-          {
-            name: recipients.alternativeRecipientName,
-            email: recipients.alternativeRecipientEmail,
-          },
-        ],
+    if (screeningType.requestedBy === 'self') {
+      clientData.selfReferral = {
+        sendToOther: recipients.sendToOther === true,
+        recipients:
+          recipients.sendToOther === true
+            ? (recipients.selfRecipients || []).filter((recipient): recipient is { name: string; email: string } => Boolean(recipient.name?.trim() && recipient.email?.trim())).map((recipient) => ({ name: recipient.name.trim(), email: recipient.email.trim() }))
+            : [],
       }
     }
 
-    // Create the client
+    if (screeningType.requestedBy === 'employer') {
+      if (recipients.selectedEmployer === 'other') {
+        const relationship = await createInactiveReferralAndAlert({
+          payload,
+          type: 'employer',
+          source: 'admin',
+          name: (recipients.otherEmployerName || '').trim(),
+          contacts: buildContactsFromLegacyInput(
+            (recipients.otherEmployerMainContactName || '').trim(),
+            (recipients.otherEmployerMainContactEmail || '').trim(),
+            parseRecipientEmails(recipients.otherEmployerRecipientEmails),
+          ),
+        })
+
+        clientData.referral = relationship
+      } else if (recipients.selectedEmployer) {
+        clientData.referral = {
+          relationTo: 'employers',
+          value: recipients.selectedEmployer,
+        }
+      }
+    }
+
+    if (screeningType.requestedBy === 'court') {
+      if (recipients.selectedCourt === 'other') {
+        const relationship = await createInactiveReferralAndAlert({
+          payload,
+          type: 'court',
+          source: 'admin',
+          name: (recipients.otherCourtName || '').trim(),
+          contacts: buildContactsFromLegacyInput(
+            (recipients.otherCourtMainContactName || '').trim(),
+            (recipients.otherCourtMainContactEmail || '').trim(),
+            parseRecipientEmails(recipients.otherCourtRecipientEmails),
+          ),
+        })
+
+        clientData.referral = relationship
+      } else if (recipients.selectedCourt) {
+        clientData.referral = {
+          relationTo: 'courts',
+          value: recipients.selectedCourt,
+        }
+      }
+    }
+
     const newClient = await payload.create({
       collection: 'clients',
-      data: clientData,
+      data: clientData as any,
       overrideAccess: true,
     })
 

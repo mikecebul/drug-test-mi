@@ -11,6 +11,7 @@ import { computeTestResults, computeFinalStatus, fetchDocument, sendEmails } fro
 import { FormMedications } from './workflows/shared-validators'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
+import { buildContactsFromLegacyInput, createInactiveReferralAndAlert, parseRecipientEmails } from '@/lib/referrals'
 
 const _TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
 const _TEST_EMAIL = process.env.EMAIL_TEST_ADDRESS || 'mike@midrugtest.com'
@@ -664,7 +665,7 @@ export async function getEmailPreview(data: {
       name: string
       email: string
     }>
-    clientType: 'probation' | 'employment' | 'self'
+    referralType: 'court' | 'employer' | 'self'
     clientHtml: string
     referralHtml: string
     smartGrouping: 'separate' | 'combined'
@@ -734,11 +735,11 @@ export async function getEmailPreview(data: {
       clientDob,
     })
 
-    // Determine smart grouping based on client type
-    const smartGrouping = client.clientType === 'self' ? 'combined' : 'separate'
-    const clientType =
-      client.clientType === 'probation' || client.clientType === 'employment' || client.clientType === 'self'
-        ? client.clientType
+    // Determine smart grouping based on referral type
+    const smartGrouping = client.referralType === 'self' ? 'combined' : 'separate'
+    const referralType =
+      client.referralType === 'court' || client.referralType === 'employer' || client.referralType === 'self'
+        ? client.referralType
         : 'self'
 
     return {
@@ -749,7 +750,7 @@ export async function getEmailPreview(data: {
         referralTitle,
         hasExplicitReferralRecipients,
         referralRecipientsDetailed,
-        clientType,
+        referralType,
         clientHtml: emailData.client.html,
         referralHtml: emailData.referrals.html,
         smartGrouping,
@@ -785,7 +786,7 @@ export async function getCollectionEmailPreview(data: {
       name: string
       email: string
     }>
-    clientType: 'probation' | 'employment' | 'self'
+    referralType: 'court' | 'employer' | 'self'
     referralHtml: string
     referralSubject: string
   }
@@ -833,9 +834,9 @@ export async function getCollectionEmailPreview(data: {
       clientDob,
     })
 
-    const clientType =
-      client.clientType === 'probation' || client.clientType === 'employment' || client.clientType === 'self'
-        ? client.clientType
+    const referralType =
+      client.referralType === 'court' || client.referralType === 'employer' || client.referralType === 'self'
+        ? client.referralType
         : 'self'
 
     return {
@@ -845,7 +846,7 @@ export async function getCollectionEmailPreview(data: {
         referralTitle,
         hasExplicitReferralRecipients,
         referralRecipientsDetailed,
-        clientType,
+        referralType,
         referralHtml: emailData.html,
         referralSubject: emailData.subject,
       },
@@ -882,7 +883,7 @@ export async function getConfirmationEmailPreview(data: {
       name: string
       email: string
     }>
-    clientType: 'probation' | 'employment' | 'self'
+    referralType: 'court' | 'employer' | 'self'
     clientHtml: string
     referralHtml: string
     smartGrouping: 'separate' | 'combined'
@@ -975,11 +976,11 @@ export async function getConfirmationEmailPreview(data: {
       clientDob,
     })
 
-    // Determine smart grouping based on client type
-    const smartGrouping = client.clientType === 'self' ? 'combined' : 'separate'
-    const clientType =
-      client.clientType === 'probation' || client.clientType === 'employment' || client.clientType === 'self'
-        ? client.clientType
+    // Determine smart grouping based on referral type
+    const smartGrouping = client.referralType === 'self' ? 'combined' : 'separate'
+    const referralType =
+      client.referralType === 'court' || client.referralType === 'employer' || client.referralType === 'self'
+        ? client.referralType
         : 'self'
 
     return {
@@ -990,7 +991,7 @@ export async function getConfirmationEmailPreview(data: {
         referralTitle,
         hasExplicitReferralRecipients,
         referralRecipientsDetailed,
-        clientType,
+        referralType,
         clientHtml: emailData.client.html,
         referralHtml: emailData.referrals.html,
         smartGrouping,
@@ -1861,19 +1862,20 @@ export async function registerClientFromWizard(data: {
   dob: string
   phone: string
   email: string
-  clientType: 'self' | 'employment' | 'probation'
-  // Court info (for probation)
-  courtInfo?: {
-    courtName: string
-    recipients: Array<{ name: string; email: string }>
+  referralType: 'self' | 'employer' | 'court'
+  referral?: {
+    relationTo: 'courts' | 'employers'
+    value: string
   }
-  // Employment info (for employment)
-  employmentInfo?: {
-    employerName: string
-    recipients: Array<{ name: string; email: string }>
+  otherReferral?: {
+    type: 'court' | 'employer'
+    name: string
+    mainContactName: string
+    mainContactEmail: string
+    recipientEmails?: string
   }
-  // Self info (for self-pay with additional recipients)
-  selfInfo?: {
+  selfReferral?: {
+    sendToOther: boolean
     recipients: Array<{ name: string; email: string }>
   }
 }): Promise<{
@@ -1917,18 +1919,32 @@ export async function registerClientFromWizard(data: {
       gender: data.gender,
       dob: data.dob,
       phone: formattedPhone,
-      clientType: data.clientType,
+      referralType: data.referralType,
       preferredContactMethod: 'email',
       _verified: true, // Skip email verification for admin-created clients
     }
 
-    // Add type-specific info
-    if (data.clientType === 'probation' && data.courtInfo) {
-      clientData.courtInfo = data.courtInfo
-    } else if (data.clientType === 'employment' && data.employmentInfo) {
-      clientData.employmentInfo = data.employmentInfo
-    } else if (data.clientType === 'self' && data.selfInfo) {
-      clientData.selfInfo = data.selfInfo
+    if (data.referralType === 'self') {
+      clientData.selfReferral = {
+        sendToOther: data.selfReferral?.sendToOther === true,
+        recipients: data.selfReferral?.sendToOther ? data.selfReferral.recipients || [] : [],
+      }
+    } else if (data.otherReferral) {
+      const relationship = await createInactiveReferralAndAlert({
+        payload,
+        type: data.otherReferral.type,
+        source: 'admin',
+        name: data.otherReferral.name,
+        contacts: buildContactsFromLegacyInput(
+          data.otherReferral.mainContactName,
+          data.otherReferral.mainContactEmail,
+          parseRecipientEmails(data.otherReferral.recipientEmails),
+        ),
+      })
+
+      clientData.referral = relationship
+    } else if (data.referral) {
+      clientData.referral = data.referral
     }
 
     // Create the client

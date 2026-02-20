@@ -186,7 +186,7 @@ export default async function DashboardPage() {
       id: client.id,
       name: `${client.firstName} ${client.lastName}`,
       email: client.email,
-      clientType: client.clientType || 'self',
+      referralType: client.referralType || 'self',
       isActive: client.isActive || false,
       headshot: client.headshot,
     },

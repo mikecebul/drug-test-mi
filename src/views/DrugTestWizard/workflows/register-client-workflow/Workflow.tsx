@@ -65,7 +65,13 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
       }
 
       // Final submit on last step
-      const result = await registerClientAction(value)
+      const result = await registerClientAction({
+        ...value,
+        personalInfo: {
+          ...value.personalInfo,
+          headshot: null,
+        },
+      })
 
       if (result.success && result.clientId) {
         setCreatedClientId(result.clientId)

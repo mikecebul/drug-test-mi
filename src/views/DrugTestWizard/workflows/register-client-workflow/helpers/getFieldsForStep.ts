@@ -17,17 +17,18 @@ export function getFieldsForStep(step: Steps[number]): string[] {
       return ['screeningType.requestedBy']
     case 'recipients':
       return [
-        'recipients.useSelfAsRecipient',
-        'recipients.alternativeRecipientName',
-        'recipients.alternativeRecipientEmail',
+        'recipients.sendToOther',
+        'recipients.selfRecipients',
         'recipients.selectedEmployer',
-        'recipients.employerName',
-        'recipients.contactName',
-        'recipients.contactEmail',
+        'recipients.otherEmployerName',
+        'recipients.otherEmployerMainContactName',
+        'recipients.otherEmployerMainContactEmail',
+        'recipients.otherEmployerRecipientEmails',
         'recipients.selectedCourt',
-        'recipients.courtName',
-        'recipients.probationOfficerName',
-        'recipients.probationOfficerEmail',
+        'recipients.otherCourtName',
+        'recipients.otherCourtMainContactName',
+        'recipients.otherCourtMainContactEmail',
+        'recipients.otherCourtRecipientEmails',
       ]
     case 'terms':
       return ['terms.agreeToTerms']

@@ -156,7 +156,7 @@ export const Clients: CollectionConfig = {
     afterChange: [notifyNewRegistration],
   },
   admin: {
-    defaultColumns: ['headshot', 'lastName', 'email', 'clientType'],
+    defaultColumns: ['headshot', 'lastName', 'email', 'referralType'],
     useAsTitle: 'fullName',
     listSearchableFields: ['email', 'firstName', 'lastName'],
     components: {
@@ -216,19 +216,6 @@ export const Clients: CollectionConfig = {
       defaultValue: false,
       admin: {
         description: 'If enabled, client-facing result emails will never be sent for this profile.',
-        position: 'sidebar',
-      },
-    },
-    {
-      name: 'clientType',
-      type: 'select',
-      options: [
-        { label: 'Probation/Court', value: 'probation' },
-        { label: 'Employment', value: 'employment' },
-        { label: 'Self-Pay/Individual', value: 'self' },
-      ],
-      admin: {
-        description: 'Type of client - determines required fields',
         position: 'sidebar',
       },
     },
@@ -315,139 +302,71 @@ export const Clients: CollectionConfig = {
           ],
         },
 
-        // Tab 2: Service Details
+        // Tab 2: Referral Details
         {
-          label: 'Service Details',
-          description: 'Information about who is requesting services',
+          label: 'Referral Details',
+          description: 'Referral source and notification recipients',
           fields: [
-            // Probation/Court specific fields
             {
-              name: 'courtInfo',
-              type: 'group',
-              admin: {
-                condition: (_data, siblingData) => siblingData?.clientType === 'probation',
-                description: 'Court and probation officer information',
-              },
-              fields: [
-                {
-                  name: 'courtName',
-                  type: 'text',
-                  required: true,
-                  admin: {
-                    description: 'Name of the court',
-                  },
-                },
-                {
-                  name: 'recipients',
-                  type: 'array',
-                  admin: {
-                    description: 'Recipients who will receive test results (probation officers, court clerks, etc.)',
-                  },
-                  fields: [
-                    {
-                      name: 'name',
-                      type: 'text',
-                      required: true,
-                      admin: {
-                        description: 'Name of recipient (probation officer, court clerk, etc.)',
-                      },
-                    },
-                    {
-                      name: 'email',
-                      type: 'email',
-                      required: true,
-                      admin: {
-                        description: 'Email address of recipient',
-                      },
-                    },
-                  ],
-                },
+              name: 'referralType',
+              type: 'select',
+              options: [
+                { label: 'Court', value: 'court' },
+                { label: 'Employer', value: 'employer' },
+                { label: 'Self', value: 'self' },
               ],
+              admin: {
+                description: 'Referral type for this client',
+              },
             },
-            // Employment specific fields
             {
-              name: 'employmentInfo',
+              name: 'referral',
+              type: 'relationship',
+              relationTo: ['courts', 'employers'],
+              admin: {
+                condition: (_data, siblingData) => siblingData?.referralType === 'court' || siblingData?.referralType === 'employer',
+                description: 'Select the court or employer referral source.',
+              },
+              validate: (value, { siblingData }) => {
+                if (siblingData?.referralType === 'court' || siblingData?.referralType === 'employer') {
+                  if (!value) return 'Referral is required for court and employer clients.'
+                }
+                return true
+              },
+            },
+            {
+              name: 'selfReferral',
               type: 'group',
               admin: {
-                condition: (_data, siblingData) => siblingData?.clientType === 'employment',
-                description: 'Employer and contact information',
+                condition: (_data, siblingData) => siblingData?.referralType === 'self',
+                description: 'Self-referral notification preferences.',
               },
               fields: [
                 {
-                  name: 'employerName',
-                  type: 'text',
-                  required: true,
+                  name: 'sendToOther',
+                  type: 'checkbox',
+                  defaultValue: false,
                   admin: {
-                    description: 'Name of employer/company',
+                    description: 'If enabled, results are also sent to the additional recipients below.',
                   },
                 },
                 {
                   name: 'recipients',
                   type: 'array',
                   admin: {
-                    description: 'Recipients who will receive test results (HR contacts, hiring managers, etc.)',
+                    condition: (_data, siblingData) => siblingData?.sendToOther === true,
+                    description: 'Additional recipients for self referrals.',
                   },
                   fields: [
                     {
                       name: 'name',
                       type: 'text',
                       required: true,
-                      admin: {
-                        description: 'Name of recipient (HR contact, hiring manager, etc.)',
-                      },
                     },
                     {
                       name: 'email',
                       type: 'email',
                       required: true,
-                      admin: {
-                        description: 'Email address of recipient',
-                      },
-                    },
-                  ],
-                },
-              ],
-            },
-            // Self-pay client recipients
-            {
-              name: 'selfInfo',
-              type: 'group',
-              admin: {
-                condition: (_data, siblingData) => siblingData?.clientType === 'self',
-                description: 'Self-pay client information and additional recipients',
-              },
-              fields: [
-                {
-                  name: 'referralName',
-                  type: 'text',
-                  admin: {
-                    description:
-                      'Optional referral name used in notifications when this self-pay profile is acting as an external referral.',
-                  },
-                },
-                {
-                  name: 'recipients',
-                  type: 'array',
-                  admin: {
-                    description:
-                      'Optional additional recipients who will receive test results (family members, personal contacts, etc.). The client will always receive their own results.',
-                  },
-                  fields: [
-                    {
-                      name: 'name',
-                      type: 'text',
-                      required: true,
-                      admin: {
-                        description: 'Name of recipient',
-                      },
-                    },
-                    {
-                      name: 'email',
-                      type: 'email',
-                      required: true,
-                      admin: {
-                        description: 'Email address of recipient',
-                      },
                     },
                   ],
                 },

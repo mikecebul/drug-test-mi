@@ -106,6 +106,9 @@ export interface Config {
     admins: Admin;
     'admin-alerts': AdminAlert;
     technicians: Technician;
+    'test-types': TestType;
+    courts: Court;
+    employers: Employer;
     clients: Client;
     'drug-tests': DrugTest;
     search: Search;
@@ -119,6 +122,16 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    'test-types': {
+      employers: 'employers';
+      courts: 'courts';
+    };
+    courts: {
+      clients: 'clients';
+    };
+    employers: {
+      clients: 'clients';
+    };
     clients: {
       drugTests: 'drug-tests';
       bookings: 'bookings';
@@ -135,6 +148,9 @@ export interface Config {
     admins: AdminsSelect<false> | AdminsSelect<true>;
     'admin-alerts': AdminAlertsSelect<false> | AdminAlertsSelect<true>;
     technicians: TechniciansSelect<false> | TechniciansSelect<true>;
+    'test-types': TestTypesSelect<false> | TestTypesSelect<true>;
+    courts: CourtsSelect<false> | CourtsSelect<true>;
+    employers: EmployersSelect<false> | EmployersSelect<true>;
     clients: ClientsSelect<false> | ClientsSelect<true>;
     'drug-tests': DrugTestsSelect<false> | DrugTestsSelect<true>;
     search: SearchSelect<false> | SearchSelect<true>;
@@ -1163,10 +1179,6 @@ export interface Client {
    */
   disableClientEmails?: boolean | null;
   /**
-   * Type of client - determines required fields
-   */
-  clientType?: ('probation' | 'employment' | 'self') | null;
-  /**
    * Whether this client is active
    */
   isActive?: boolean | null;
@@ -1190,75 +1202,35 @@ export interface Client {
   phone?: string | null;
   preferredContactMethod?: ('email' | 'phone' | 'sms') | null;
   /**
-   * Court and probation officer information
+   * Referral type for this client
    */
-  courtInfo?: {
-    /**
-     * Name of the court
-     */
-    courtName: string;
-    /**
-     * Recipients who will receive test results (probation officers, court clerks, etc.)
-     */
-    recipients?:
-      | {
-          /**
-           * Name of recipient (probation officer, court clerk, etc.)
-           */
-          name: string;
-          /**
-           * Email address of recipient
-           */
-          email: string;
-          id?: string | null;
-        }[]
-      | null;
-  };
+  referralType?: ('court' | 'employer' | 'self') | null;
   /**
-   * Employer and contact information
+   * Select the court or employer referral source.
    */
-  employmentInfo?: {
-    /**
-     * Name of employer/company
-     */
-    employerName: string;
-    /**
-     * Recipients who will receive test results (HR contacts, hiring managers, etc.)
-     */
-    recipients?:
-      | {
-          /**
-           * Name of recipient (HR contact, hiring manager, etc.)
-           */
-          name: string;
-          /**
-           * Email address of recipient
-           */
-          email: string;
-          id?: string | null;
-        }[]
-      | null;
-  };
+  referral?:
+    | ({
+        relationTo: 'courts';
+        value: string | Court;
+      } | null)
+    | ({
+        relationTo: 'employers';
+        value: string | Employer;
+      } | null);
   /**
-   * Self-pay client information and additional recipients
+   * Self-referral notification preferences.
    */
-  selfInfo?: {
+  selfReferral?: {
     /**
-     * Optional referral name used in notifications when this self-pay profile is acting as an external referral.
+     * If enabled, results are also sent to the additional recipients below.
      */
-    referralName?: string | null;
+    sendToOther?: boolean | null;
     /**
-     * Optional additional recipients who will receive test results (family members, personal contacts, etc.). The client will always receive their own results.
+     * Additional recipients for self referrals.
      */
     recipients?:
       | {
-          /**
-           * Name of recipient
-           */
           name: string;
-          /**
-           * Email address of recipient
-           */
           email: string;
           id?: string | null;
         }[]
@@ -1419,6 +1391,111 @@ export interface PrivateMedia {
       filename?: string | null;
     };
   };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "courts".
+ */
+export interface Court {
+  id: string;
+  name: string;
+  /**
+   * Recipient contacts. The first row is treated as the main contact for display purposes.
+   */
+  contacts?:
+    | {
+        name?: string | null;
+        email: string;
+        id?: string | null;
+      }[]
+    | null;
+  preferredTestType?: (string | null) | TestType;
+  /**
+   * Inactive courts are hidden from quick-select dropdowns, but remain usable for linked clients and email delivery.
+   */
+  isActive?: boolean | null;
+  clients?: {
+    docs?: (string | Client)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "test-types".
+ */
+export interface TestType {
+  id: string;
+  /**
+   * Human-readable name (e.g., 15-Panel Instant).
+   */
+  label: string;
+  /**
+   * Canonical key used in code and workflow logic (e.g., 15-panel-instant).
+   */
+  value: string;
+  /**
+   * Optional display text for external scheduling tools like Cal.com.
+   */
+  bookingLabel?: string | null;
+  /**
+   * Helps filter test types in future workflows.
+   */
+  category?: ('instant' | 'lab') | null;
+  /**
+   * Employers currently mapped to this preferred test type.
+   */
+  employers?: {
+    docs?: (string | Employer)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Courts currently mapped to this preferred test type.
+   */
+  courts?: {
+    docs?: (string | Court)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Inactive test types remain in history but are hidden from new selections.
+   */
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "employers".
+ */
+export interface Employer {
+  id: string;
+  name: string;
+  /**
+   * Recipient contacts. The first row is treated as the main contact for display purposes.
+   */
+  contacts?:
+    | {
+        name?: string | null;
+        email: string;
+        id?: string | null;
+      }[]
+    | null;
+  preferredTestType?: (string | null) | TestType;
+  /**
+   * Inactive employers are hidden from quick-select dropdowns, but remain usable for linked clients and email delivery.
+   */
+  isActive?: boolean | null;
+  clients?: {
+    docs?: (string | Client)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * Track drug test results and workflow
@@ -2177,6 +2254,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'technicians';
         value: string | Technician;
+      } | null)
+    | ({
+        relationTo: 'test-types';
+        value: string | TestType;
+      } | null)
+    | ({
+        relationTo: 'courts';
+        value: string | Court;
+      } | null)
+    | ({
+        relationTo: 'employers';
+        value: string | Employer;
       } | null)
     | ({
         relationTo: 'clients';
@@ -3096,13 +3185,65 @@ export interface TechniciansSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "test-types_select".
+ */
+export interface TestTypesSelect<T extends boolean = true> {
+  label?: T;
+  value?: T;
+  bookingLabel?: T;
+  category?: T;
+  employers?: T;
+  courts?: T;
+  isActive?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "courts_select".
+ */
+export interface CourtsSelect<T extends boolean = true> {
+  name?: T;
+  contacts?:
+    | T
+    | {
+        name?: T;
+        email?: T;
+        id?: T;
+      };
+  preferredTestType?: T;
+  isActive?: T;
+  clients?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "employers_select".
+ */
+export interface EmployersSelect<T extends boolean = true> {
+  name?: T;
+  contacts?:
+    | T
+    | {
+        name?: T;
+        email?: T;
+        id?: T;
+      };
+  preferredTestType?: T;
+  isActive?: T;
+  clients?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "clients_select".
  */
 export interface ClientsSelect<T extends boolean = true> {
   fullName?: T;
   headshot?: T;
   disableClientEmails?: T;
-  clientType?: T;
   isActive?: T;
   firstName?: T;
   lastName?: T;
@@ -3111,34 +3252,12 @@ export interface ClientsSelect<T extends boolean = true> {
   gender?: T;
   phone?: T;
   preferredContactMethod?: T;
-  courtInfo?:
+  referralType?: T;
+  referral?: T;
+  selfReferral?:
     | T
     | {
-        courtName?: T;
-        recipients?:
-          | T
-          | {
-              name?: T;
-              email?: T;
-              id?: T;
-            };
-      };
-  employmentInfo?:
-    | T
-    | {
-        employerName?: T;
-        recipients?:
-          | T
-          | {
-              name?: T;
-              email?: T;
-              id?: T;
-            };
-      };
-  selfInfo?:
-    | T
-    | {
-        referralName?: T;
+        sendToOther?: T;
         recipients?:
           | T
           | {

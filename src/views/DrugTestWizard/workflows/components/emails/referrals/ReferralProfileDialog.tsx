@@ -13,16 +13,18 @@ import { Loader2, Plus, Trash2 } from 'lucide-react'
 import {
   buildInitialReferralProfileValues,
   createRecipientRow,
-  getPresetConfigsForUiType,
   type RecipientDetail,
+  type PresetConfigMap,
   type ReferralClientType,
   type ReferralProfileFormValues,
   type ReferralTypeUi,
 } from './referral-profile-schema'
 import { useReferralProfileFormOpts } from './useReferralProfileFormOpts'
+import { useCourtOptions } from '@/app/(frontend)/register/hooks/useCourtOptions'
+import { useEmployerOptions } from '@/app/(frontend)/register/hooks/useEmployerOptions'
 
 type EmailPreviewData = {
-  clientType?: ReferralClientType
+  referralType?: ReferralClientType
   referralTitle: string
   referralEmails: string[]
   hasExplicitReferralRecipients?: boolean
@@ -36,7 +38,7 @@ type ReferralProfileDialogProps = {
   previewData: EmailPreviewData | null
   fallbackReferralEmails: string[]
   onSaved: (data: {
-    clientType: ReferralClientType
+    referralType: ReferralClientType
     referralTitle: string
     referralEmails: string[]
     referralRecipientsDetailed: RecipientDetail[]
@@ -52,10 +54,10 @@ export function ReferralProfileDialog({
   onSaved,
 }: ReferralProfileDialogProps) {
   const shouldSeedRecipients =
-    !(previewData?.clientType === 'self' && previewData?.hasExplicitReferralRecipients === false)
+    !(previewData?.referralType === 'self' && previewData?.hasExplicitReferralRecipients === false)
 
   const initialValues = buildInitialReferralProfileValues({
-    clientType: previewData?.clientType,
+    clientType: previewData?.referralType,
     referralTitle: previewData?.referralTitle,
     referralRecipientsDetailed: shouldSeedRecipients ? previewData?.referralRecipientsDetailed : [],
     fallbackReferralEmails: shouldSeedRecipients ? fallbackReferralEmails : [],
@@ -72,8 +74,42 @@ export function ReferralProfileDialog({
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
   const referralTypeUi = useStore(form.store, (state) => state.values.referralTypeUi as ReferralTypeUi)
   const wasOpenRef = React.useRef(false)
+  const { courts } = useCourtOptions({ includeInactive: true })
+  const { employers } = useEmployerOptions({ includeInactive: true })
 
-  const presetConfigs = getPresetConfigsForUiType(referralTypeUi)
+  const courtPresets = React.useMemo<PresetConfigMap>(() => {
+    return courts.reduce<PresetConfigMap>((acc, court) => {
+      const recipients = court.contacts.map((contact) => ({
+        name: contact.name || '',
+        email: contact.email,
+      }))
+      acc[court.id] = {
+        label: court.name,
+        recipients,
+      }
+      return acc
+    }, {})
+  }, [courts])
+
+  const employerPresets = React.useMemo<PresetConfigMap>(() => {
+    return employers.reduce<PresetConfigMap>((acc, employer) => {
+      const recipients = employer.contacts.map((contact) => ({
+        name: contact.name || '',
+        email: contact.email,
+      }))
+      acc[employer.id] = {
+        label: employer.name,
+        recipients,
+      }
+      return acc
+    }, {})
+  }, [employers])
+
+  const presetConfigs = referralTypeUi === 'court'
+    ? courtPresets
+    : referralTypeUi === 'employer'
+      ? employerPresets
+      : null
 
   React.useEffect(() => {
     if (open && !wasOpenRef.current) {
@@ -146,7 +182,8 @@ export function ReferralProfileDialog({
     }
 
     const activeType = form.getFieldValue('referralTypeUi') as ReferralTypeUi
-    const activeConfigs = getPresetConfigsForUiType(activeType)
+    const activeConfigs =
+      activeType === 'court' ? courtPresets : activeType === 'employer' ? employerPresets : null
     const preset = activeConfigs?.[nextPresetKey]
     if (!preset) {
       return
@@ -263,6 +300,9 @@ export function ReferralProfileDialog({
                     Add Recipient
                   </Button>
                 </div>
+                <p className="text-muted-foreground text-xs">
+                  Name is optional. Email is required. The first recipient is treated as the main contact.
+                </p>
 
                 {referralTypeUi === 'self' && field.state.value.length === 0 && (
                   <p className="text-muted-foreground text-sm">
@@ -279,7 +319,7 @@ export function ReferralProfileDialog({
                             value={nameField.state.value}
                             onChange={(event) => nameField.handleChange(event.target.value)}
                             onBlur={nameField.handleBlur}
-                            placeholder="Recipient name"
+                            placeholder="Recipient name (optional)"
                           />
                           <FieldError errors={nameField.state.meta.errors} className="text-xs" />
                         </div>

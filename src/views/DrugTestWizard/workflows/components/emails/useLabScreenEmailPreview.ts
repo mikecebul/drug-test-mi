@@ -16,7 +16,7 @@ export interface EmailPreviewData {
   clientTitle?: string
   clientHtml?: string
   clientSubject?: string
-  clientType?: 'probation' | 'employment' | 'self'
+  referralType?: 'court' | 'employer' | 'self'
   referralEmails: string[]
   referralTitle: string
   hasExplicitReferralRecipients?: boolean
@@ -50,7 +50,7 @@ export function useLabScreenEmailPreview(params: UseLabScreenEmailPreviewParams)
     queryFn: async () => {
       if (!client?.id || !params.testType || !matchedTest) {
         return {
-          clientType: undefined,
+          referralType: undefined,
           referralEmails: [],
           referralTitle: 'Screening Results',
           referralRecipientsDetailed: [],
@@ -85,7 +85,7 @@ export function useLabScreenEmailPreview(params: UseLabScreenEmailPreviewParams)
         clientEmail: result.data.clientEmail,
         clientHtml: result.data.clientHtml,
         clientSubject: result.data.clientSubject,
-        clientType: result.data.clientType,
+        referralType: result.data.referralType,
         referralEmails: result.data.referralEmails,
         referralTitle: result.data.referralTitle,
         hasExplicitReferralRecipients: result.data.hasExplicitReferralRecipients,

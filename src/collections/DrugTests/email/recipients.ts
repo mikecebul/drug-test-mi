@@ -3,7 +3,7 @@ import type { Payload } from 'payload'
 export type RecipientList = {
   clientEmail: string
   referralEmails: string[]
-  referralTitle: string // Organization name (employer, court, etc.)
+  referralTitle: string
   hasExplicitReferralRecipients: boolean
   referralRecipientsDetailed: Array<{
     name: string
@@ -11,26 +11,68 @@ export type RecipientList = {
   }>
 }
 
-/**
- * Extract email recipients from client record
- *
- * Recipients are stored in type-specific groups:
- * - Probation clients: courtInfo.recipients
- * - Employment clients: employmentInfo.recipients
- * - Self-pay clients: selfInfo.recipients (optional) + client's own email
- *
- * For "self" clients: The client's own email is ALWAYS added to referralEmails
- *
- *@param clientId - ID of the client
- * @param payload - Payload instance for database queries
- * @returns Object with client email, array of referral emails, and referral organization name
- */
+function normalizeReferralContacts(referralDoc: any): Array<{ name: string; email: string }> {
+  const contactMap = new Map<string, { name: string; email: string }>()
+  const add = (contact: { name?: string; email?: string }) => {
+    const email = typeof contact.email === 'string' ? contact.email.trim() : ''
+    if (!email) return
+    const key = email.toLowerCase()
+    const name = typeof contact.name === 'string' ? contact.name.trim() : ''
+    const existing = contactMap.get(key)
+    if (!existing) {
+      contactMap.set(key, { name, email })
+      return
+    }
+    if (!existing.name && name) {
+      contactMap.set(key, { name, email: existing.email })
+    }
+  }
+
+  for (const contact of referralDoc?.contacts || []) {
+    add(contact || {})
+  }
+
+  // Legacy fallback
+  add({
+    name: referralDoc?.mainContactName,
+    email: referralDoc?.mainContactEmail,
+  })
+
+  for (const row of referralDoc?.recipientEmails || []) {
+    add({ email: row?.email })
+  }
+
+  return Array.from(contactMap.values())
+}
+
+function addRecipient(
+  recipientMap: Map<string, { name: string; email: string }>,
+  recipient: { name?: string; email?: string },
+) {
+  const email = typeof recipient.email === 'string' ? recipient.email.trim() : ''
+  if (!email) return
+
+  const key = email.toLowerCase()
+  const name = typeof recipient.name === 'string' ? recipient.name.trim() : ''
+  const existing = recipientMap.get(key)
+
+  if (!existing) {
+    recipientMap.set(key, { name, email })
+    return
+  }
+
+  if (!existing.name && name) {
+    recipientMap.set(key, { name, email: existing.email })
+  }
+}
+
 export async function getRecipients(clientId: string, payload: Payload): Promise<RecipientList> {
   try {
     const client = await payload.findByID({
       collection: 'clients',
       id: clientId,
-      depth: 0,
+      depth: 1,
+      overrideAccess: true,
     })
 
     if (!client) {
@@ -46,65 +88,45 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
 
     const disableClientEmails = (client as { disableClientEmails?: boolean }).disableClientEmails === true
     const clientEmail = disableClientEmails ? '' : client.email
-    const recipientMap = new Map<
-      string,
-      {
-        name: string
-        email: string
-      }
-    >()
+    const recipientMap = new Map<string, { name: string; email: string }>()
 
-    // Get title for referral source (employer name, court name, etc.)
     let referralTitle = ''
-    if (client.clientType === 'probation') {
-      referralTitle = client.courtInfo?.courtName || 'Court'
-    } else if (client.clientType === 'employment') {
-      referralTitle = client.employmentInfo?.employerName || 'Employer'
-    } else if (client.clientType === 'self') {
-      referralTitle = ((client.selfInfo as any)?.referralName as string | undefined)?.trim() || 'Self'
+
+    if (client.referralType === 'court' || client.referralType === 'employer') {
+      const referralDoc =
+        client.referral && typeof client.referral === 'object' && 'value' in client.referral
+          ? (client.referral.value as any)
+          : client.referral
+
+      if (referralDoc && typeof referralDoc === 'object') {
+        referralTitle = referralDoc.name || (client.referralType === 'court' ? 'Court' : 'Employer')
+
+        const contacts = normalizeReferralContacts(referralDoc)
+        for (const contact of contacts) {
+          addRecipient(recipientMap, contact)
+        }
+      }
     }
 
-    // Get recipients based on client type
-    const recipientSources = {
-      probation: client.courtInfo?.recipients,
-      employment: client.employmentInfo?.recipients,
-      self: client.selfInfo?.recipients,
-    }
+    if (client.referralType === 'self') {
+      referralTitle = 'Self'
 
-    const recipientsArray = recipientSources[client.clientType as keyof typeof recipientSources]
-    if (Array.isArray(recipientsArray)) {
-      recipientsArray.forEach((recipient: any) => {
-        const email = typeof recipient.email === 'string' ? recipient.email.trim() : ''
-        if (!email) {
-          return
+      if (client.selfReferral?.sendToOther) {
+        for (const recipient of client.selfReferral.recipients || []) {
+          addRecipient(recipientMap, recipient)
         }
-
-        const key = email.toLowerCase()
-        const name = typeof recipient.name === 'string' ? recipient.name.trim() : ''
-        const existing = recipientMap.get(key)
-
-        if (!existing) {
-          recipientMap.set(key, { name, email })
-          return
-        }
-
-        if (!existing.name && name) {
-          recipientMap.set(key, { name, email: existing.email })
-        }
-      })
+      }
     }
 
     const hasExplicitReferralRecipients = recipientMap.size > 0
 
-    // For "self" clients: Always add the client's own email to referralEmails
-    // This ensures self clients receive their own test results
-    if (client.clientType === 'self' && clientEmail) {
-      const key = clientEmail.toLowerCase()
+    if (client.referralType === 'self' && clientEmail) {
       const fallbackName =
         [client.firstName, client.middleInitial, client.lastName].filter(Boolean).join(' ') || 'Self'
-      if (!recipientMap.has(key)) {
-        recipientMap.set(key, { name: fallbackName, email: clientEmail })
-      }
+      addRecipient(recipientMap, {
+        name: fallbackName,
+        email: clientEmail,
+      })
     }
 
     const referralRecipientsDetailed = Array.from(recipientMap.values())

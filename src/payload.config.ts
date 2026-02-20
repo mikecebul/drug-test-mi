@@ -53,6 +53,9 @@ import { Clients } from './collections/Clients'
 import { DrugTests } from './collections/DrugTests'
 import Admins from './collections/Admins'
 import { AdminAlerts } from './collections/AdminAlerts'
+import { Employers } from './collections/Employers'
+import { Courts } from './collections/Courts'
+import { TestTypes } from './collections/TestTypes'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -198,6 +201,9 @@ export default buildConfig({
     Admins,
     AdminAlerts,
     Technicians,
+    TestTypes,
+    Courts,
+    Employers,
     Clients,
     DrugTests,
   ],

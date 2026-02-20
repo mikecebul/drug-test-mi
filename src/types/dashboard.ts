@@ -4,7 +4,7 @@ export type ClientDashboardData = {
     id: string
     name: string
     email: string
-    clientType: string
+    referralType: string
     isActive: boolean
     headshot?: any
   }

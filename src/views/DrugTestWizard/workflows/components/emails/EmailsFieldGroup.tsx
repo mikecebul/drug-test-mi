@@ -35,7 +35,7 @@ interface EmailPreviewData {
   clientEmail?: string
   clientHtml?: string
   clientSubject?: string
-  clientType?: 'probation' | 'employment' | 'self'
+  referralType?: 'court' | 'employer' | 'self'
   referralEmails: string[]
   hasExplicitReferralRecipients?: boolean
   referralRecipientsDetailed?: RecipientDetail[]
@@ -72,7 +72,7 @@ export const EmailsFieldGroup = withFieldGroup({
     onReferralProfileSaved: (() => {}) as (data: {
       referralTitle: string
       referralEmails: string[]
-      clientType: 'probation' | 'employment' | 'self'
+      referralType: 'court' | 'employer' | 'self'
     }) => void,
     onClientEmailSaved: (() => {}) as () => void | Promise<void>,
   },
@@ -127,7 +127,7 @@ export const EmailsFieldGroup = withFieldGroup({
     function handleReferralProfileSavedFromDialog(data: {
       referralTitle: string
       referralEmails: string[]
-      clientType: 'probation' | 'employment' | 'self'
+      referralType: 'court' | 'employer' | 'self'
       referralRecipientsDetailed: RecipientDetail[]
     }) {
       setEmailFieldValue('referralEmailEnabled', data.referralEmails.length > 0)
@@ -139,7 +139,7 @@ export const EmailsFieldGroup = withFieldGroup({
       onReferralProfileSaved({
         referralTitle: data.referralTitle,
         referralEmails: data.referralEmails,
-        clientType: data.clientType,
+        referralType: data.referralType,
       })
     }
 
@@ -299,7 +299,7 @@ export const EmailsFieldGroup = withFieldGroup({
                     variant="outline"
                     size="sm"
                     onClick={() => setShowReferralEditor(true)}
-                    disabled={!clientId || !previewData.clientType}
+                    disabled={!clientId || !previewData.referralType}
                   >
                     <Pencil className="mr-2 h-4 w-4" />
                     Edit Referral

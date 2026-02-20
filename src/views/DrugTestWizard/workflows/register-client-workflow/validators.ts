@@ -1,5 +1,10 @@
 import { z } from 'zod'
 
+const recipientRowSchema = z.object({
+  name: z.string().optional(),
+  email: z.string().optional(),
+})
+
 export const personalInfoFieldSchema = z.object({
   firstName: z.string().min(1, { error: 'First name is required' }),
   lastName: z.string().min(1, { error: 'Last name is required' }),
@@ -51,7 +56,7 @@ export const accountInfoFieldSchema = z.object({
 })
 
 export const screeningRequestFieldSchema = z.object({
-  requestedBy: z.enum(['probation', 'employment', 'self', ''], {
+  requestedBy: z.enum(['court', 'employer', 'self', ''], {
     error: 'Please select who is requesting this screening',
   }).refine((val) => val !== '', {
     error: 'Please select who is requesting this screening',
@@ -64,7 +69,6 @@ export const termsAndConditionsFieldSchema = z.object({
   }),
 })
 
-// Define step names for the workflow
 export const steps = [
   'personalInfo',
   'accountInfo',
@@ -75,12 +79,10 @@ export const steps = [
 
 export type Steps = typeof steps
 
-// Step 1: Personal Information
 export const personalInfoSchema = z.object({
   personalInfo: personalInfoFieldSchema,
 })
 
-// Step 2: Account Information with password confirmation
 export const accountInfoSchema = z
   .object({
     accountInfo: accountInfoFieldSchema,
@@ -90,59 +92,79 @@ export const accountInfoSchema = z
     path: ['accountInfo', 'confirmPassword'],
   })
 
-// Step 3: Screening Type
 export const screeningTypeSchema = z.object({
   screeningType: screeningRequestFieldSchema,
 })
 
-// Step 4: Recipients (conditional validation based on screening type)
 export const recipientsSchema = z
   .object({
     recipients: z.object({
-      // Self-pay recipient fields
-      useSelfAsRecipient: z.boolean().optional(),
-      alternativeRecipientName: z.string().optional(),
-      alternativeRecipientEmail: z.union([z.string().email(), z.literal('')]).optional(),
+      sendToOther: z.boolean().optional(),
+      selfRecipients: z.array(recipientRowSchema).optional(),
 
-      // Employment recipient fields
       selectedEmployer: z.string().optional(),
-      employerName: z.string().optional(),
-      contactName: z.string().optional(),
-      contactEmail: z.union([z.string().email(), z.literal('')]).optional(),
+      otherEmployerName: z.string().optional(),
+      otherEmployerMainContactName: z.string().optional(),
+      otherEmployerMainContactEmail: z.union([z.string().email(), z.literal('')]).optional(),
+      otherEmployerRecipientEmails: z.string().optional(),
 
-      // Probation/Court recipient fields
       selectedCourt: z.string().optional(),
-      courtName: z.string().optional(),
-      probationOfficerName: z.string().optional(),
-      probationOfficerEmail: z.union([z.string().email(), z.literal('')]).optional(),
+      otherCourtName: z.string().optional(),
+      otherCourtMainContactName: z.string().optional(),
+      otherCourtMainContactEmail: z.union([z.string().email(), z.literal('')]).optional(),
+      otherCourtRecipientEmails: z.string().optional(),
     }),
     screeningType: z.object({
-      requestedBy: z.enum(['self', 'employment', 'probation']),
+      requestedBy: z.enum(['self', 'employer', 'court']),
     }),
   })
   .superRefine((data, ctx) => {
     const { recipients, screeningType } = data
     const { requestedBy } = screeningType
 
-    // Conditional validation based on screening type
     if (requestedBy === 'self') {
-      if (recipients.useSelfAsRecipient === false) {
-        if (!recipients.alternativeRecipientName) {
+      if (recipients.sendToOther === true) {
+        const rows = recipients.selfRecipients || []
+
+        if (rows.length === 0) {
           ctx.addIssue({
             code: 'custom',
-            message: 'Recipient name is required',
-            path: ['recipients', 'alternativeRecipientName'],
+            message: 'Add at least one recipient',
+            path: ['recipients', 'selfRecipients'],
           })
         }
-        if (!recipients.alternativeRecipientEmail) {
-          ctx.addIssue({
-            code: 'custom',
-            message: 'Recipient email is required',
-            path: ['recipients', 'alternativeRecipientEmail'],
-          })
-        }
+
+        rows.forEach((row, index) => {
+          if (!row.name?.trim()) {
+            ctx.addIssue({
+              code: 'custom',
+              message: 'Recipient name is required',
+              path: ['recipients', 'selfRecipients', index, 'name'],
+            })
+          }
+
+          if (!row.email?.trim()) {
+            ctx.addIssue({
+              code: 'custom',
+              message: 'Recipient email is required',
+              path: ['recipients', 'selfRecipients', index, 'email'],
+            })
+            return
+          }
+
+          if (!z.email().safeParse(row.email.trim()).success) {
+            ctx.addIssue({
+              code: 'custom',
+              message: 'Please enter a valid recipient email',
+              path: ['recipients', 'selfRecipients', index, 'email'],
+            })
+          }
+        })
       }
-    } else if (requestedBy === 'employment') {
+      return
+    }
+
+    if (requestedBy === 'employer') {
       if (!recipients.selectedEmployer) {
         ctx.addIssue({
           code: 'custom',
@@ -151,72 +173,56 @@ export const recipientsSchema = z
         })
       }
 
-      // "Other" employer requires manual entry
       if (recipients.selectedEmployer === 'other') {
-        if (!recipients.employerName) {
+        if (!recipients.otherEmployerName?.trim()) {
           ctx.addIssue({
             code: 'custom',
             message: 'Employer name is required',
-            path: ['recipients', 'employerName'],
+            path: ['recipients', 'otherEmployerName'],
           })
         }
-        if (!recipients.contactName) {
+        if (!recipients.otherEmployerMainContactEmail?.trim()) {
           ctx.addIssue({
             code: 'custom',
-            message: 'Contact name is required',
-            path: ['recipients', 'contactName'],
+            message: 'Main contact email is required',
+            path: ['recipients', 'otherEmployerMainContactEmail'],
           })
         }
-        if (!recipients.contactEmail) {
-          ctx.addIssue({
-            code: 'custom',
-            message: 'Contact email is required',
-            path: ['recipients', 'contactEmail'],
-          })
-        }
-      }
-    } else if (requestedBy === 'probation') {
-      if (!recipients.selectedCourt) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Please select a court',
-          path: ['recipients', 'selectedCourt'],
-        })
       }
 
-      // "Other" court requires manual entry
-      if (recipients.selectedCourt === 'other') {
-        if (!recipients.courtName) {
-          ctx.addIssue({
-            code: 'custom',
-            message: 'Court name is required',
-            path: ['recipients', 'courtName'],
-          })
-        }
-        if (!recipients.probationOfficerName) {
-          ctx.addIssue({
-            code: 'custom',
-            message: 'Probation officer name is required',
-            path: ['recipients', 'probationOfficerName'],
-          })
-        }
-        if (!recipients.probationOfficerEmail) {
-          ctx.addIssue({
-            code: 'custom',
-            message: 'Probation officer email is required',
-            path: ['recipients', 'probationOfficerEmail'],
-          })
-        }
+      return
+    }
+
+    if (!recipients.selectedCourt) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Please select a court',
+        path: ['recipients', 'selectedCourt'],
+      })
+    }
+
+    if (recipients.selectedCourt === 'other') {
+      if (!recipients.otherCourtName?.trim()) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Court name is required',
+          path: ['recipients', 'otherCourtName'],
+        })
+      }
+      if (!recipients.otherCourtMainContactEmail?.trim()) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Main contact email is required',
+          path: ['recipients', 'otherCourtMainContactEmail'],
+        })
       }
     }
   })
 
-// Step 5: Terms and Conditions
 export const termsSchema = z.object({
   terms: termsAndConditionsFieldSchema,
 })
 
-// Complete form schema
 export const formSchema = z.object({
   personalInfo: personalInfoSchema.shape.personalInfo,
   accountInfo: accountInfoSchema.shape.accountInfo,
@@ -229,7 +235,6 @@ export const formSchema = z.object({
   path: ['accountInfo', 'confirmPassword'],
 })
 
-// Type inference
 export type FormValues = z.infer<typeof formSchema>
 
 export const stepSchemas = [

@@ -52,22 +52,56 @@ export function ProfileView({ user }: ProfileViewProps) {
   const emailValue = useStore(form.store, (state) => state.values.email)
   const showEmailConfirmation = emailValue && emailValue !== user?.email
 
-  const getClientTypeLabel = (type: string) => {
+  const getReferralTypeLabel = (type: string) => {
     switch (type) {
-      case "probation":
-        return "Probation/Court"
-      case "employment":
-        return "Employment"
+      case "court":
+        return "Court"
+      case "employer":
+        return "Employer"
       case "self":
-        return "Self-Pay/Individual"
+        return "Self"
       default:
         return type
     }
   }
 
-  const requestReferralUpdate = (type: 'court' | 'employment') => {
+  const getReferralContacts = (referralDoc: any): Array<{ name: string; email: string }> => {
+    const map = new Map<string, { name: string; email: string }>()
+    const add = (contact: { name?: string; email?: string }) => {
+      const email = typeof contact.email === 'string' ? contact.email.trim() : ''
+      if (!email) return
+      const key = email.toLowerCase()
+      const name = typeof contact.name === 'string' ? contact.name.trim() : ''
+      const existing = map.get(key)
+      if (!existing) {
+        map.set(key, { name, email })
+        return
+      }
+      if (!existing.name && name) {
+        map.set(key, { name, email: existing.email })
+      }
+    }
+
+    for (const contact of referralDoc?.contacts || []) {
+      add(contact || {})
+    }
+
+    // Legacy fallback
+    add({ name: referralDoc?.mainContactName, email: referralDoc?.mainContactEmail })
+    for (const row of referralDoc?.recipientEmails || []) {
+      add({ email: row?.email })
+    }
+
+    return Array.from(map.values())
+  }
+
+  const requestReferralUpdate = (type: 'court' | 'employer') => {
     const clientName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim()
     const clientEmail = user?.email || ''
+    const referralDoc =
+      user?.referral && typeof user.referral === 'object' && 'value' in user.referral
+        ? user.referral.value
+        : user?.referral
 
     let subject = ''
     let body = ''
@@ -75,13 +109,7 @@ export function ProfileView({ user }: ProfileViewProps) {
     if (type === 'court') {
       subject = encodeURIComponent(`Referral Information Update Request - ${clientName}`)
 
-      // Build recipients list for email
-      let recipientsList = 'Not provided'
-      if (user?.courtInfo?.recipients && user?.courtInfo?.recipients.length > 0) {
-        recipientsList = user.courtInfo.recipients
-          .map((r) => `${r.name} (${r.email})`)
-          .join(', ')
-      }
+      const recipientsList = getReferralContacts(referralDoc).map((row) => row.email).join(', ') || 'Not provided'
 
       body = encodeURIComponent(`Dear MI Drug Test Team,
 
@@ -92,23 +120,17 @@ Client Information:
 - Email: ${clientEmail}
 
 Current Court Information:
-- Court Name: ${user?.courtInfo?.courtName || 'Not provided'}
+- Court Name: ${(referralDoc as any)?.name || 'Not provided'}
 - Recipients: ${recipientsList}
 
 Please contact me to update this information.
 
 Thank you,
 ${clientName}`)
-    } else if (type === 'employment') {
+    } else if (type === 'employer') {
       subject = encodeURIComponent(`Referral Information Update Request - ${clientName}`)
 
-      // Build recipients list for email
-      let recipientsList = 'Not provided'
-      if (user?.employmentInfo?.recipients && user?.employmentInfo?.recipients.length > 0) {
-        recipientsList = user.employmentInfo.recipients
-          .map((r) => `${r.name} (${r.email})`)
-          .join(', ')
-      }
+      const recipientsList = getReferralContacts(referralDoc).map((row) => row.email).join(', ') || 'Not provided'
 
       body = encodeURIComponent(`Dear MI Drug Test Team,
 
@@ -119,7 +141,7 @@ Client Information:
 - Email: ${clientEmail}
 
 Current Employment Information:
-- Employer: ${user?.employmentInfo?.employerName || 'Not provided'}
+- Employer: ${(referralDoc as any)?.name || 'Not provided'}
 - Recipients: ${recipientsList}
 
 Please contact me to update this information.
@@ -152,7 +174,7 @@ ${clientName}`)
             {user?.firstName} {user?.lastName}
           </h3>
           <Badge variant="outline" className="mt-1">
-            {getClientTypeLabel(user?.clientType || '')}
+            {getReferralTypeLabel(user?.referralType || '')}
           </Badge>
         </div>
 
@@ -193,7 +215,7 @@ ${clientName}`)
   // Client Type Specific Info Component
   const ClientTypeInfo = () => (
     <>
-      {user?.clientType === 'probation' && user?.courtInfo && (
+      {user?.referralType === 'court' && user?.referral && (
         <Card className="mt-6">
           <CardHeader>
             <div className="flex justify-between items-start">
@@ -218,16 +240,24 @@ ${clientName}`)
             <div className="space-y-4 text-sm">
               <div>
                 <p className="font-medium">Court Name</p>
-                <p className="text-muted-foreground">{user.courtInfo.courtName}</p>
+                <p className="text-muted-foreground">
+                  {(user.referral && typeof user.referral === 'object' && 'value' in user.referral && typeof user.referral.value === 'object')
+                    ? user.referral.value?.name
+                    : 'Not provided'}
+                </p>
               </div>
 
-              {user.courtInfo.recipients && user.courtInfo.recipients.length > 0 && (
+              {(user.referral &&
+                typeof user.referral === 'object' &&
+                'value' in user.referral &&
+                typeof user.referral.value === 'object' &&
+                getReferralContacts(user.referral.value).length > 0) && (
                 <div>
                   <p className="font-medium mb-2">Results sent to:</p>
                   <ul className="text-muted-foreground space-y-1">
-                    {user.courtInfo.recipients.map((recipient, idx) => (
+                    {getReferralContacts(user.referral.value).map((recipient, idx) => (
                       <li key={idx} className="pl-4">
-                        • {recipient.name} <span className="text-xs">({recipient.email})</span>
+                        • {recipient.name || 'Recipient'} <span className="text-xs">({recipient.email})</span>
                       </li>
                     ))}
                   </ul>
@@ -238,7 +268,7 @@ ${clientName}`)
         </Card>
       )}
 
-      {user?.clientType === 'employment' && user?.employmentInfo && (
+      {user?.referralType === 'employer' && user?.referral && (
         <Card className="mt-6">
           <CardHeader>
             <div className="flex justify-between items-start">
@@ -251,7 +281,7 @@ ${clientName}`)
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => requestReferralUpdate('employment')}
+                onClick={() => requestReferralUpdate('employer')}
                 className="flex items-center gap-2"
               >
                 <MailPlus className="w-4 h-4" />
@@ -263,16 +293,24 @@ ${clientName}`)
             <div className="space-y-4 text-sm">
               <div>
                 <p className="font-medium">Employer</p>
-                <p className="text-muted-foreground">{user.employmentInfo.employerName}</p>
+                <p className="text-muted-foreground">
+                  {(user.referral && typeof user.referral === 'object' && 'value' in user.referral && typeof user.referral.value === 'object')
+                    ? user.referral.value?.name
+                    : 'Not provided'}
+                </p>
               </div>
 
-              {user.employmentInfo.recipients && user.employmentInfo.recipients.length > 0 && (
+              {(user.referral &&
+                typeof user.referral === 'object' &&
+                'value' in user.referral &&
+                typeof user.referral.value === 'object' &&
+                getReferralContacts(user.referral.value).length > 0) && (
                 <div>
                   <p className="font-medium mb-2">Results sent to:</p>
                   <ul className="text-muted-foreground space-y-1">
-                    {user.employmentInfo.recipients.map((recipient, idx) => (
+                    {getReferralContacts(user.referral.value).map((recipient, idx) => (
                       <li key={idx} className="pl-4">
-                        • {recipient.name} <span className="text-xs">({recipient.email})</span>
+                        • {recipient.name || 'Recipient'} <span className="text-xs">({recipient.email})</span>
                       </li>
                     ))}
                   </ul>
@@ -283,7 +321,7 @@ ${clientName}`)
         </Card>
       )}
 
-      {user?.clientType === 'self' && user?.selfInfo?.recipients && user.selfInfo.recipients.length > 0 && (
+      {user?.referralType === 'self' && user?.selfReferral?.recipients && user.selfReferral.recipients.length > 0 && (
         <Card className="mt-6">
           <CardHeader>
             <CardTitle>Additional Recipients</CardTitle>
@@ -296,7 +334,7 @@ ${clientName}`)
               <div>
                 <p className="font-medium mb-2">Results also sent to:</p>
                 <ul className="text-muted-foreground space-y-1">
-                  {user.selfInfo.recipients.map((recipient, idx) => (
+                  {user.selfReferral.recipients.map((recipient, idx) => (
                     <li key={idx} className="pl-4">
                       • {recipient.name} <span className="text-xs">({recipient.email})</span>
                     </li>

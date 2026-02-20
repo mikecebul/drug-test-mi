@@ -15,7 +15,7 @@ export type DashboardData = {
     id: string
     name: string
     email: string
-    clientType: string
+    referralType: string
     isActive: boolean
     headshot?: any
   }
@@ -292,7 +292,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
                   <div>
                     <p className="text-muted-foreground text-sm">Client Type</p>
                     <Badge variant="outline" className="capitalize">
-                      {user.clientType === 'probation' ? 'Probation/Court' : user.clientType}
+                      {user.referralType === 'court' ? 'Court' : user.referralType}
                     </Badge>
                   </div>
                   <div>

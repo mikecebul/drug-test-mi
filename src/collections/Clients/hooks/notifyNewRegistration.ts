@@ -5,13 +5,10 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
   operation,
   req,
 }) => {
-  // Only run on create operations
   if (operation !== 'create') {
     return doc
   }
 
-  // Only send email for website registrations (when req.user is null/undefined)
-  // Admin-created clients will have req.user set
   if (req.user) {
     return doc
   }
@@ -19,16 +16,73 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
   try {
     const { payload } = req
 
-    // Format client type for display
-    const clientTypeMap: Record<string, string> = {
-      probation: 'Probation/Court',
-      employment: 'Employment',
-      self: 'Self-Pay/Individual',
+    const referralTypeMap: Record<string, string> = {
+      court: 'Court',
+      employer: 'Employer',
+      self: 'Self',
     }
 
-    const clientTypeName = clientTypeMap[doc.clientType] || doc.clientType || 'Not specified'
+    const referralTypeName = referralTypeMap[doc.referralType] || doc.referralType || 'Not specified'
 
-    // Build email body with client details
+    let referralName = ''
+    let recipientRows: Array<{ name: string; email: string }> = []
+
+    const normalizeReferralContacts = (referral: any): Array<{ name: string; email: string }> => {
+      const map = new Map<string, { name: string; email: string }>()
+      const add = (contact: { name?: string; email?: string }) => {
+        const email = typeof contact.email === 'string' ? contact.email.trim() : ''
+        if (!email) return
+        const key = email.toLowerCase()
+        const name = typeof contact.name === 'string' ? contact.name.trim() : ''
+        const existing = map.get(key)
+        if (!existing) {
+          map.set(key, { name, email })
+          return
+        }
+        if (!existing.name && name) {
+          map.set(key, { name, email: existing.email })
+        }
+      }
+
+      for (const contact of referral?.contacts || []) {
+        add(contact || {})
+      }
+
+      // Legacy fallback
+      add({ name: referral?.mainContactName, email: referral?.mainContactEmail })
+      for (const row of referral?.recipientEmails || []) {
+        add({ email: row?.email })
+      }
+
+      return Array.from(map.values())
+    }
+
+    if (doc.referralType === 'court' || doc.referralType === 'employer') {
+      const relationTo = doc.referralType === 'court' ? 'courts' : 'employers'
+      const referralValue =
+        typeof doc.referral === 'object'
+          ? (doc.referral?.value as string | undefined)
+          : typeof doc.referral === 'string'
+            ? doc.referral
+            : undefined
+
+      if (referralValue) {
+        const referral = await payload.findByID({
+          collection: relationTo,
+          id: referralValue,
+          depth: 0,
+          overrideAccess: true,
+        })
+
+        referralName = referral?.name || ''
+        recipientRows = normalizeReferralContacts(referral)
+      }
+    }
+
+    if (doc.referralType === 'self') {
+      recipientRows = (doc.selfReferral?.recipients || []) as Array<{ name: string; email: string }>
+    }
+
     let emailBody = `
       <!DOCTYPE html>
       <html>
@@ -69,74 +123,23 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
               ${doc.gender ? `<div class="detail-row"><span class="label">Gender:</span> ${doc.gender}</div>` : ''}
 
               <div class="detail-row">
-                <span class="label">Client Type:</span> ${clientTypeName}
+                <span class="label">Referral Type:</span> ${referralTypeName}
               </div>
+
+              ${referralName ? `<div class="detail-row"><span class="label">Referral:</span> ${referralName}</div>` : ''}
     `
 
-    // Add type-specific information
-    if (doc.clientType === 'employment' && doc.employmentInfo) {
+    if (recipientRows.length > 0) {
       emailBody += `
-              <div class="detail-row">
-                <span class="label">Employer:</span> ${doc.employmentInfo.employerName || 'N/A'}
-              </div>
-      `
-
-      // Display all recipients
-      if (doc.employmentInfo.recipients && doc.employmentInfo.recipients.length > 0) {
-        emailBody += `
               <div class="detail-row">
                 <span class="label">Recipients:</span>
                 <ul style="margin: 5px 0; padding-left: 20px;">
-        `
-        doc.employmentInfo.recipients.forEach((recipient: { name: string; email: string }) => {
-          emailBody += `
-                  <li>${recipient.name} (${recipient.email})</li>
-          `
-        })
-        emailBody += `
-                </ul>
-              </div>
-        `
-      }
-    }
-
-    if (doc.clientType === 'probation' && doc.courtInfo) {
-      emailBody += `
-              <div class="detail-row">
-                <span class="label">Court:</span> ${doc.courtInfo.courtName || 'N/A'}
-              </div>
       `
 
-      // Display all recipients
-      if (doc.courtInfo.recipients && doc.courtInfo.recipients.length > 0) {
-        emailBody += `
-              <div class="detail-row">
-                <span class="label">Recipients:</span>
-                <ul style="margin: 5px 0; padding-left: 20px;">
-        `
-        doc.courtInfo.recipients.forEach((recipient: { name: string; email: string }) => {
-          emailBody += `
-                  <li>${recipient.name} (${recipient.email})</li>
-          `
-        })
-        emailBody += `
-                </ul>
-              </div>
-        `
-      }
-    }
-
-    if (doc.clientType === 'self' && doc.selfInfo?.recipients && doc.selfInfo.recipients.length > 0) {
-      emailBody += `
-              <div class="detail-row">
-                <span class="label">Additional Recipients:</span>
-                <ul style="margin: 5px 0; padding-left: 20px;">
-      `
-      doc.selfInfo.recipients.forEach((recipient: { name: string; email: string }) => {
-        emailBody += `
-                  <li>${recipient.name} (${recipient.email})</li>
-        `
+      recipientRows.forEach((recipient) => {
+        emailBody += `<li>${recipient.name ? `${recipient.name} ` : ''}(${recipient.email})</li>`
       })
+
       emailBody += `
                 </ul>
               </div>
@@ -154,7 +157,6 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
       </html>
     `
 
-    // Send email notification
     await payload.sendEmail({
       to: ['mike@midrugtest.com', 'tom@midrugtest.com'],
       from: payload.email.defaultFromAddress,
@@ -166,7 +168,6 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
       `New registration notification sent to mike@midrugtest.com and tom@midrugtest.com for client ${doc.email}`,
     )
   } catch (error) {
-    // Log error but don't fail the registration
     req.payload.logger.error(`Failed to send registration notification: ${error}`)
   }
 

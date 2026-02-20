@@ -20,7 +20,7 @@ export async function up({ payload }: MigrateUpArgs): Promise<void> {
 
   let updatedCount = 0
 
-  for (const client of clients.docs) {
+  for (const client of clients.docs as any[]) {
     let needsUpdate = false
     const updates: any = {}
 
@@ -93,7 +93,7 @@ export async function down({ payload }: MigrateDownArgs): Promise<void> {
 
   let revertedCount = 0
 
-  for (const client of clients.docs) {
+  for (const client of clients.docs as any[]) {
     let needsUpdate = false
     const updates: any = {}
 

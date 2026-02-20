@@ -21,7 +21,7 @@ export const ScreeningTypeStep = withForm({
           {(field) => (
             <div className="space-y-3">
               {SCREENING_TYPES.map(
-                (option: { value: 'probation' | 'employment' | 'self'; label: string; description: string }) => (
+                (option: { value: 'court' | 'employer' | 'self'; label: string; description: string }) => (
                   <label
                     key={option.value}
                     className={`hover:bg-accent/50 flex cursor-pointer items-center rounded-lg border-2 p-4 transition-all ${
@@ -33,7 +33,7 @@ export const ScreeningTypeStep = withForm({
                       name={field.name}
                       value={option.value}
                       checked={requestedBy === option.value}
-                      onChange={(e) => field.handleChange(e.target.value as 'probation' | 'employment' | 'self')}
+                      onChange={(e) => field.handleChange(e.target.value as 'court' | 'employer' | 'self')}
                       className="text-primary border-border focus:ring-primary h-5 w-5"
                     />
                     <div className="ml-3">

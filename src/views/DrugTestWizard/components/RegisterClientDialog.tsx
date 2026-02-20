@@ -36,12 +36,6 @@ import {
   RecipientsStep,
   TermsStep,
 } from '@/app/(frontend)/register/steps'
-import {
-  COURT_CONFIGS,
-  EMPLOYER_CONFIGS,
-  isValidEmployerType,
-  isValidCourtType,
-} from '@/app/(frontend)/register/configs/recipient-configs'
 import { stepSchemas } from '@/views/DrugTestWizard/workflows/register-client-workflow/validators'
 import { defaultValues, getRegisterClientFormOpts } from '@/app/(frontend)/register/shared-form'
 import type { FormValues } from '@/app/(frontend)/register/validators'
@@ -218,58 +212,50 @@ export function RegisterClientDialog({
         dob: personalInfo.dob,
         phone: personalInfo.phone,
         email: accountInfo.email,
-        clientType: screeningType.requestedBy as 'self' | 'employment' | 'probation',
+        referralType: screeningType.requestedBy as 'self' | 'employer' | 'court',
       }
 
-      // Add type-specific recipient info
-      const clientType = screeningType.requestedBy
-      if (clientType === 'probation') {
-        const court = isValidCourtType(recipients.selectedCourt)
-          ? recipients.selectedCourt
-          : null
-        if (court && court !== 'other') {
-          const config = COURT_CONFIGS[court]
-          data.courtInfo = {
-            courtName: config.label,
-            recipients: [...config.recipients],
+      const referralType = screeningType.requestedBy
+      if (referralType === 'court') {
+        if (!recipients.selectedCourt) {
+          throw new Error('Please select a court before continuing.')
+        }
+        if (recipients.selectedCourt === 'other') {
+          data.otherReferral = {
+            type: 'court',
+            name: recipients.otherCourtName,
+            mainContactName: recipients.otherCourtMainContactName,
+            mainContactEmail: recipients.otherCourtMainContactEmail,
+            recipientEmails: recipients.otherCourtRecipientEmails,
           }
-        } else if (recipients.selectedCourt === 'other') {
-          data.courtInfo = {
-            courtName: recipients.courtName,
-            recipients: [
-              {
-                name: recipients.probationOfficerName,
-                email: recipients.probationOfficerEmail,
-              },
-            ],
+        } else {
+          data.referral = {
+            relationTo: 'courts',
+            value: recipients.selectedCourt,
           }
         }
-      } else if (clientType === 'employment') {
-        const employer = isValidEmployerType(recipients.selectedEmployer)
-          ? recipients.selectedEmployer
-          : null
-        if (employer && employer !== 'other') {
-          const config = EMPLOYER_CONFIGS[employer]
-          data.employmentInfo = {
-            employerName: config.label,
-            recipients: [...config.recipients],
+      } else if (referralType === 'employer') {
+        if (!recipients.selectedEmployer) {
+          throw new Error('Please select an employer before continuing.')
+        }
+        if (recipients.selectedEmployer === 'other') {
+          data.otherReferral = {
+            type: 'employer',
+            name: recipients.otherEmployerName,
+            mainContactName: recipients.otherEmployerMainContactName,
+            mainContactEmail: recipients.otherEmployerMainContactEmail,
+            recipientEmails: recipients.otherEmployerRecipientEmails,
           }
-        } else if (recipients.selectedEmployer === 'other') {
-          data.employmentInfo = {
-            employerName: recipients.employerName,
-            recipients: [
-              { name: recipients.contactName, email: recipients.contactEmail },
-            ],
+        } else {
+          data.referral = {
+            relationTo: 'employers',
+            value: recipients.selectedEmployer,
           }
         }
-      } else if (clientType === 'self' && !recipients.useSelfAsRecipient) {
-        data.selfInfo = {
-          recipients: [
-            {
-              name: recipients.alternativeRecipientName,
-              email: recipients.alternativeRecipientEmail,
-            },
-          ],
+      } else if (referralType === 'self') {
+        data.selfReferral = {
+          sendToOther: recipients.sendToOther === true,
+          recipients: recipients.sendToOther ? recipients.selfRecipients || [] : [],
         }
       }
 

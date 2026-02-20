@@ -45,7 +45,7 @@ export const EmailsStep = withForm({
       const clientId = client?.id || null
       const nextClientRecipients = previewData.clientEmail ? [previewData.clientEmail] : []
       const shouldDisableSelfReferralByDefault =
-        previewData.clientType === 'self' && previewData.hasExplicitReferralRecipients === false
+        previewData.referralType === 'self' && previewData.hasExplicitReferralRecipients === false
       const nextReferralRecipients = shouldDisableSelfReferralByDefault ? [] : previewData.referralEmails
       const previewHash = JSON.stringify({
         clientEmail: previewData.clientEmail || '',

@@ -45,14 +45,14 @@
 
 export const SCREENING_TYPES = [
   {
-    value: 'probation',
-    label: 'Probation',
-    description: 'Required by probation officer',
+    value: 'court',
+    label: 'Court',
+    description: 'Court or probation referral',
   },
   {
-    value: 'employment',
-    label: 'Employment',
-    description: 'Pre-employment or workplace screening',
+    value: 'employer',
+    label: 'Employer',
+    description: 'Pre-employment or workplace referral',
   },
   {
     value: 'self',

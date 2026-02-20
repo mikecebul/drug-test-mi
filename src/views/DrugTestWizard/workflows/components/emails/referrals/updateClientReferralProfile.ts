@@ -6,19 +6,21 @@ import config from '@payload-config'
 import { headers } from 'next/headers'
 import { createAdminAlert } from '@/lib/admin-alerts'
 import { getRecipients } from '@/collections/DrugTests/email/recipients'
+import { createInactiveReferralAndAlert } from '@/lib/referrals'
 
 const recipientSchema = z.object({
-  name: z.string().trim().min(1, 'Recipient name is required'),
+  name: z.string().trim(),
   email: z.string().trim().email('Recipient email is invalid'),
 })
 
 const updateReferralSchema = z.object({
   clientId: z.string().trim().min(1, 'Client ID is required'),
-  clientType: z.enum(['probation', 'employment', 'self']),
+  referralType: z.enum(['court', 'employer', 'self']),
+  referralId: z.string().trim().optional(),
   title: z.string().trim().min(1, 'Referral name is required'),
   recipients: z.array(recipientSchema),
 }).superRefine((data, ctx) => {
-  if (data.clientType !== 'self' && data.recipients.length === 0) {
+  if (data.referralType !== 'self' && data.recipients.length === 0) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: 'At least one recipient is required',
@@ -27,13 +29,13 @@ const updateReferralSchema = z.object({
   }
 })
 
-type ReferralClientType = z.infer<typeof updateReferralSchema>['clientType']
+type ReferralType = z.infer<typeof updateReferralSchema>['referralType']
 type ReferralRecipient = z.infer<typeof recipientSchema>
 
 type UpdateReferralResult = {
   success: boolean
   data?: {
-    clientType: ReferralClientType
+    referralType: ReferralType
     referralTitle: string
     referralEmails: string[]
     referralRecipientsDetailed: ReferralRecipient[]
@@ -46,7 +48,7 @@ function normalizeRecipients(recipients: ReferralRecipient[]): ReferralRecipient
 
   for (const recipient of recipients) {
     const email = recipient.email.trim()
-    const name = recipient.name.trim()
+    const name = (recipient.name || '').trim()
     const key = email.toLowerCase()
 
     const existing = map.get(key)
@@ -75,7 +77,7 @@ export async function updateClientReferralProfile(input: unknown): Promise<Updat
       }
     }
 
-    const { clientId, clientType, title } = parsed.data
+    const { clientId, referralType, referralId, title } = parsed.data
     const recipients = normalizeRecipients(parsed.data.recipients)
 
     const headersList = await headers()
@@ -103,33 +105,33 @@ export async function updateClientReferralProfile(input: unknown): Promise<Updat
     }
 
     const dataToUpdate: Record<string, unknown> = {
-      clientType,
-      // Payload group fields cannot be set to null during beforeValidate traversal.
-      // Use empty objects to clear stale branch values safely when switching type.
-      courtInfo: {},
-      employmentInfo: {},
-      selfInfo: {},
+      referralType,
+      referral: null,
+      selfReferral: {
+        sendToOther: false,
+        recipients: [],
+      },
     }
 
-    if (clientType === 'probation') {
-      dataToUpdate.courtInfo = {
-        courtName: title,
+    if (referralType === 'self') {
+      dataToUpdate.selfReferral = {
+        sendToOther: recipients.length > 0,
         recipients,
       }
-    }
-
-    if (clientType === 'employment') {
-      dataToUpdate.employmentInfo = {
-        employerName: title,
-        recipients,
+    } else if (referralId) {
+      dataToUpdate.referral = {
+        relationTo: referralType === 'court' ? 'courts' : 'employers',
+        value: referralId,
       }
-    }
-
-    if (clientType === 'self') {
-      dataToUpdate.selfInfo = {
-        referralName: title,
-        recipients,
-      }
+    } else {
+      const relationship = await createInactiveReferralAndAlert({
+        payload,
+        type: referralType,
+        source: 'referral-editor',
+        name: title,
+        contacts: recipients,
+      })
+      dataToUpdate.referral = relationship
     }
 
     await payload.update({
@@ -144,7 +146,7 @@ export async function updateClientReferralProfile(input: unknown): Promise<Updat
     return {
       success: true,
       data: {
-        clientType,
+        referralType,
         referralTitle: recipientData.referralTitle,
         referralEmails: recipientData.referralEmails,
         referralRecipientsDetailed: recipientData.referralRecipientsDetailed,
