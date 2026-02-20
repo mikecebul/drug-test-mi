@@ -1,6 +1,8 @@
 import {
   centerCrop,
+  convertToPixelCrop,
   makeAspectCrop,
+  type Crop,
   type PercentCrop,
   type PixelCrop,
 } from 'react-image-crop'
@@ -8,6 +10,57 @@ import {
 interface CropImageOptions {
   maxOutputSize?: number
   quality?: number
+}
+
+interface CropResolutionOptions {
+  image:
+    | {
+        width: number
+        height: number
+        naturalWidth: number
+        naturalHeight: number
+      }
+    | null
+  crop?: Crop | null
+  completedCrop?: PixelCrop | null
+}
+
+function isValidPixelCrop(crop: PixelCrop | null | undefined): crop is PixelCrop {
+  if (!crop) return false
+  return (
+    Number.isFinite(crop.x) &&
+    Number.isFinite(crop.y) &&
+    Number.isFinite(crop.width) &&
+    Number.isFinite(crop.height) &&
+    crop.width > 0 &&
+    crop.height > 0
+  )
+}
+
+/**
+ * Resolve a valid pixel crop for save actions.
+ * Prefers completedCrop but falls back to converting the current crop selection.
+ */
+export function resolvePixelCropForSave(options: CropResolutionOptions): PixelCrop | null {
+  const { image, crop, completedCrop } = options
+
+  if (isValidPixelCrop(completedCrop)) {
+    return completedCrop
+  }
+
+  if (!image || !crop) {
+    return null
+  }
+
+  const renderedWidth = image.width || image.naturalWidth
+  const renderedHeight = image.height || image.naturalHeight
+
+  if (!Number.isFinite(renderedWidth) || !Number.isFinite(renderedHeight) || renderedWidth <= 0 || renderedHeight <= 0) {
+    return null
+  }
+
+  const fallbackCrop = convertToPixelCrop(crop, renderedWidth, renderedHeight)
+  return isValidPixelCrop(fallbackCrop) ? fallbackCrop : null
 }
 
 /**

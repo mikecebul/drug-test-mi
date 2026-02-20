@@ -8,7 +8,12 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
 import { Camera, Check, Crop as CropIcon, Upload, X, XCircle } from 'lucide-react'
-import { createCenteredAspectCrop, cropImageToJpegBlob, toJpegFileName } from '@/lib/image-crop'
+import {
+  createCenteredAspectCrop,
+  cropImageToJpegBlob,
+  resolvePixelCropForSave,
+  toJpegFileName,
+} from '@/lib/image-crop'
 
 interface ImageUploadFieldProps {
   label?: string
@@ -97,9 +102,9 @@ export default function ImageUploadField({
 
   const onImageLoad = useCallback(
     (event: SyntheticEvent<HTMLImageElement>) => {
-      const { width, height } = event.currentTarget
+      const { naturalWidth, naturalHeight } = event.currentTarget
       if (aspectRatio > 0) {
-        setCrop(createCenteredAspectCrop(width, height, aspectRatio))
+        setCrop(createCenteredAspectCrop(naturalWidth, naturalHeight, aspectRatio))
       } else {
         setCrop({ unit: '%', x: 5, y: 5, width: 90, height: 90 })
       }
@@ -108,10 +113,21 @@ export default function ImageUploadField({
   )
 
   const handleCropSave = useCallback(async () => {
-    if (!tempImage || !imageRef.current || !completedCrop) return
+    if (!tempImage || !imageRef.current) return
+
+    const pixelCrop = resolvePixelCropForSave({
+      image: imageRef.current,
+      crop,
+      completedCrop,
+    })
+
+    if (!pixelCrop) {
+      setError('Please choose a crop area before applying.')
+      return
+    }
 
     try {
-      const croppedBlob = await cropImageToJpegBlob(imageRef.current, completedCrop, {
+      const croppedBlob = await cropImageToJpegBlob(imageRef.current, pixelCrop, {
         maxOutputSize: 1600,
         quality: 0.95,
       })
@@ -135,7 +151,15 @@ export default function ImageUploadField({
       console.error('Error cropping image:', cropError)
       setError('Failed to crop image. Please try again.')
     }
-  }, [completedCrop, field, originalFileName, resetCropState, tempImage])
+  }, [completedCrop, crop, field, originalFileName, resetCropState, tempImage])
+
+  const canApplyCrop = Boolean(
+    resolvePixelCropForSave({
+      image: imageRef.current,
+      crop,
+      completedCrop,
+    }),
+  )
 
   const handleRemove = useCallback(() => {
     field.handleChange(null)
@@ -247,7 +271,7 @@ export default function ImageUploadField({
                 <X className="mr-2 h-4 w-4" />
                 Cancel
               </Button>
-              <Button type="button" onClick={handleCropSave} disabled={!completedCrop}>
+              <Button type="button" onClick={handleCropSave} disabled={!canApplyCrop}>
                 <Check className="mr-2 h-4 w-4" />
                 Apply Crop
               </Button>

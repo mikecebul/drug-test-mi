@@ -9,7 +9,12 @@ import { cn } from '@/utilities/cn'
 import { Camera, Check, Crop as CropIcon, Loader2, X } from 'lucide-react'
 import { formatDateOnly } from '@/lib/date-utils'
 import { toast } from 'sonner'
-import { createCenteredAspectCrop, cropImageToJpegBlob, toJpegFileName } from '@/lib/image-crop'
+import {
+  createCenteredAspectCrop,
+  cropImageToJpegBlob,
+  resolvePixelCropForSave,
+  toJpegFileName,
+} from '@/lib/image-crop'
 import { uploadHeadshot } from './uploadHeadshot'
 
 interface HeadshotCaptureCardProps {
@@ -79,12 +84,18 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
   }, [])
 
   const onImageLoad = useCallback((event: SyntheticEvent<HTMLImageElement>) => {
-    const { width, height } = event.currentTarget
-    setCrop(createCenteredAspectCrop(width, height, 1))
+    const { naturalWidth, naturalHeight } = event.currentTarget
+    setCrop(createCenteredAspectCrop(naturalWidth, naturalHeight, 1))
   }, [])
 
   const handleCropSave = useCallback(async () => {
-    if (!imageRef.current || !completedCrop || completedCrop.width <= 0 || completedCrop.height <= 0) {
+    const pixelCrop = resolvePixelCropForSave({
+      image: imageRef.current,
+      crop,
+      completedCrop,
+    })
+
+    if (!imageRef.current || !pixelCrop) {
       setErrorMessage('Please choose a crop area before applying.')
       return
     }
@@ -93,7 +104,7 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
     setErrorMessage(null)
 
     try {
-      const croppedBlob = await cropImageToJpegBlob(imageRef.current, completedCrop, {
+      const croppedBlob = await cropImageToJpegBlob(imageRef.current, pixelCrop, {
         maxOutputSize: 1600,
         quality: 0.92,
       })
@@ -143,6 +154,7 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
     client.firstName,
     client.id,
     client.lastName,
+    crop,
     completedCrop,
     currentHeadshotId,
     onHeadshotLinked,
@@ -151,6 +163,13 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
   ])
 
   const hasImage = Boolean(headshotUrl)
+  const canApplyCrop = Boolean(
+    resolvePixelCropForSave({
+      image: imageRef.current,
+      crop,
+      completedCrop,
+    }),
+  )
 
   const openCapturePicker = useCallback(() => {
     cameraInputRef.current?.click()
@@ -289,7 +308,7 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
                 <X className="mr-2 size-4" />
                 Cancel
               </Button>
-              <Button type="button" onClick={handleCropSave} disabled={isUploading || !completedCrop}>
+              <Button type="button" onClick={handleCropSave} disabled={isUploading || !canApplyCrop}>
                 {isUploading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Check className="mr-2 size-4" />}
                 Apply Crop
               </Button>
