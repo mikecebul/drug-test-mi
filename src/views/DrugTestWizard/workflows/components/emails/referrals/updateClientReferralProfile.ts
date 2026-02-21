@@ -19,6 +19,7 @@ const updateReferralSchema = z.object({
   referralId: z.string().trim().optional(),
   title: z.string().trim().min(1, 'Referral name is required'),
   recipients: z.array(recipientSchema),
+  additionalRecipients: z.array(recipientSchema),
 }).superRefine((data, ctx) => {
   if (data.referralType !== 'self' && data.recipients.length === 0) {
     ctx.addIssue({
@@ -39,6 +40,8 @@ type UpdateReferralResult = {
     referralTitle: string
     referralEmails: string[]
     referralRecipientsDetailed: ReferralRecipient[]
+    clientAdditionalRecipientsDetailed: ReferralRecipient[]
+    referralPresetId?: string
   }
   error?: string
 }
@@ -79,6 +82,7 @@ export async function updateClientReferralProfile(input: unknown): Promise<Updat
 
     const { clientId, referralType, referralId, title } = parsed.data
     const recipients = normalizeRecipients(parsed.data.recipients)
+    const additionalRecipients = normalizeRecipients(parsed.data.additionalRecipients)
 
     const headersList = await headers()
     const { user } = await payload.auth({ headers: headersList })
@@ -107,6 +111,7 @@ export async function updateClientReferralProfile(input: unknown): Promise<Updat
     const dataToUpdate: Record<string, unknown> = {
       referralType,
       referral: null,
+      referralAdditionalRecipients: [],
       selfReferral: {
         sendToOther: false,
         recipients: [],
@@ -114,15 +119,13 @@ export async function updateClientReferralProfile(input: unknown): Promise<Updat
     }
 
     if (referralType === 'self') {
-      dataToUpdate.selfReferral = {
-        sendToOther: recipients.length > 0,
-        recipients,
-      }
+      dataToUpdate.referralAdditionalRecipients = recipients
     } else if (referralId) {
       dataToUpdate.referral = {
         relationTo: referralType === 'court' ? 'courts' : 'employers',
         value: referralId,
       }
+      dataToUpdate.referralAdditionalRecipients = additionalRecipients
     } else {
       const relationship = await createInactiveReferralAndAlert({
         payload,
@@ -132,6 +135,7 @@ export async function updateClientReferralProfile(input: unknown): Promise<Updat
         contacts: recipients,
       })
       dataToUpdate.referral = relationship
+      dataToUpdate.referralAdditionalRecipients = additionalRecipients
     }
 
     await payload.update({
@@ -150,6 +154,8 @@ export async function updateClientReferralProfile(input: unknown): Promise<Updat
         referralTitle: recipientData.referralTitle,
         referralEmails: recipientData.referralEmails,
         referralRecipientsDetailed: recipientData.referralRecipientsDetailed,
+        clientAdditionalRecipientsDetailed: recipientData.clientAdditionalRecipientsDetailed,
+        referralPresetId: recipientData.referralPresetId,
       },
     }
   } catch (error) {

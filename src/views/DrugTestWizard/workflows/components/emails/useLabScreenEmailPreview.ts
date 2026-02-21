@@ -19,8 +19,13 @@ export interface EmailPreviewData {
   referralType?: 'court' | 'employer' | 'self'
   referralEmails: string[]
   referralTitle: string
+  referralPresetId?: string
   hasExplicitReferralRecipients?: boolean
   referralRecipientsDetailed?: Array<{
+    name: string
+    email: string
+  }>
+  clientAdditionalRecipientsDetailed?: Array<{
     name: string
     email: string
   }>
@@ -53,7 +58,9 @@ export function useLabScreenEmailPreview(params: UseLabScreenEmailPreviewParams)
           referralType: undefined,
           referralEmails: [],
           referralTitle: 'Screening Results',
+          referralPresetId: undefined,
           referralRecipientsDetailed: [],
+          clientAdditionalRecipientsDetailed: [],
           referralHtml: '<p>Loading email preview...</p>',
           referralSubject: 'Lab Screening Results',
         }
@@ -88,8 +95,10 @@ export function useLabScreenEmailPreview(params: UseLabScreenEmailPreviewParams)
         referralType: result.data.referralType,
         referralEmails: result.data.referralEmails,
         referralTitle: result.data.referralTitle,
+        referralPresetId: result.data.referralPresetId,
         hasExplicitReferralRecipients: result.data.hasExplicitReferralRecipients,
         referralRecipientsDetailed: result.data.referralRecipientsDetailed,
+        clientAdditionalRecipientsDetailed: result.data.clientAdditionalRecipientsDetailed,
         referralHtml: result.data.referralHtml,
         referralSubject: result.data.referralSubject,
       }

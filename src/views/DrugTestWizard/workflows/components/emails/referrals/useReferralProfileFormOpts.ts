@@ -17,10 +17,11 @@ function normalizeRecipients(recipients: ReferralProfileFormValues['recipients']
   for (const recipient of recipients) {
     const name = recipient.name.trim()
     const email = recipient.email.trim()
+    if (!email) continue
     const key = email.toLowerCase()
 
     if (!deduped.has(key)) {
-      deduped.set(key, { name, email })
+      deduped.set(key, { ...(name ? { name } : {}), email })
     }
   }
 
@@ -36,6 +37,8 @@ type UseReferralProfileFormOptsArgs = {
     referralTitle: string
     referralEmails: string[]
     referralRecipientsDetailed: RecipientDetail[]
+    clientAdditionalRecipientsDetailed: RecipientDetail[]
+    referralPresetId?: string
   }) => void
 }
 
@@ -58,6 +61,7 @@ export function useReferralProfileFormOpts({
       }
 
       const recipients = normalizeRecipients(value.recipients)
+      const additionalRecipients = normalizeRecipients(value.additionalRecipients)
 
       const result = await updateClientReferralProfile({
         clientId,
@@ -65,6 +69,7 @@ export function useReferralProfileFormOpts({
         referralId: value.presetKey !== 'custom' ? value.presetKey : undefined,
         title: value.title.trim(),
         recipients,
+        additionalRecipients,
       })
 
       if (!result.success || !result.data) {
@@ -77,6 +82,8 @@ export function useReferralProfileFormOpts({
         referralTitle: result.data.referralTitle,
         referralEmails: result.data.referralEmails,
         referralRecipientsDetailed: result.data.referralRecipientsDetailed,
+        clientAdditionalRecipientsDetailed: result.data.clientAdditionalRecipientsDetailed,
+        referralPresetId: result.data.referralPresetId,
       })
 
       toast.success('Referral profile updated')

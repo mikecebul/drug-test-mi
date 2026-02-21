@@ -27,8 +27,10 @@ type EmailPreviewData = {
   referralType?: ReferralClientType
   referralTitle: string
   referralEmails: string[]
+  referralPresetId?: string
   hasExplicitReferralRecipients?: boolean
   referralRecipientsDetailed?: RecipientDetail[]
+  clientAdditionalRecipientsDetailed?: RecipientDetail[]
 }
 
 type ReferralProfileDialogProps = {
@@ -42,6 +44,8 @@ type ReferralProfileDialogProps = {
     referralTitle: string
     referralEmails: string[]
     referralRecipientsDetailed: RecipientDetail[]
+    clientAdditionalRecipientsDetailed: RecipientDetail[]
+    referralPresetId?: string
   }) => void
 }
 
@@ -58,8 +62,10 @@ export function ReferralProfileDialog({
 
   const initialValues = buildInitialReferralProfileValues({
     clientType: previewData?.referralType,
+    referralPresetId: previewData?.referralPresetId,
     referralTitle: previewData?.referralTitle,
     referralRecipientsDetailed: shouldSeedRecipients ? previewData?.referralRecipientsDetailed : [],
+    clientAdditionalRecipientsDetailed: shouldSeedRecipients ? previewData?.clientAdditionalRecipientsDetailed : [],
     fallbackReferralEmails: shouldSeedRecipients ? fallbackReferralEmails : [],
   })
 
@@ -73,6 +79,7 @@ export function ReferralProfileDialog({
   const form = useAppForm(formOpts)
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
   const referralTypeUi = useStore(form.store, (state) => state.values.referralTypeUi as ReferralTypeUi)
+  const presetKey = useStore(form.store, (state) => state.values.presetKey)
   const wasOpenRef = React.useRef(false)
   const { courts } = useCourtOptions({ includeInactive: true })
   const { employers } = useEmployerOptions({ includeInactive: true })
@@ -110,6 +117,7 @@ export function ReferralProfileDialog({
     : referralTypeUi === 'employer'
       ? employerPresets
       : null
+  const isPresetLocked = referralTypeUi !== 'self' && presetKey !== 'custom'
 
   React.useEffect(() => {
     if (open && !wasOpenRef.current) {
@@ -156,11 +164,30 @@ export function ReferralProfileDialog({
     form.setFieldValue('recipients', nextRows as any)
   }
 
+  function replaceAdditionalRecipientsWithFieldApi(nextRows: ReferralProfileFormValues['additionalRecipients']) {
+    const recipientsField = form.getFieldInfo('additionalRecipients')?.instance as any
+
+    if (
+      recipientsField &&
+      typeof recipientsField.clearValues === 'function' &&
+      typeof recipientsField.pushValue === 'function'
+    ) {
+      recipientsField.clearValues()
+      nextRows.forEach((row) => {
+        recipientsField.pushValue(row)
+      })
+      return
+    }
+
+    form.setFieldValue('additionalRecipients', nextRows as any)
+  }
+
   async function revalidateProgrammaticChanges() {
     const unsafeForm = form as any
     await form.validateField('title', 'submit')
     if (typeof unsafeForm.validateArrayFieldsStartingFrom === 'function') {
       await unsafeForm.validateArrayFieldsStartingFrom('recipients', 0, 'submit')
+      await unsafeForm.validateArrayFieldsStartingFrom('additionalRecipients', 0, 'submit')
     }
     await form.validate('submit')
   }
@@ -170,6 +197,7 @@ export function ReferralProfileDialog({
     setValueWithFieldApi('presetKey', 'custom')
     setValueWithFieldApi('title', nextType === 'self' ? 'Self' : '')
     replaceRecipientsWithFieldApi(nextType === 'self' ? [] : [createRecipientRow()])
+    replaceAdditionalRecipientsWithFieldApi([])
     await revalidateProgrammaticChanges()
   }
 
@@ -289,17 +317,23 @@ export function ReferralProfileDialog({
             {(field) => (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Recipients</Label>
+                  <Label>{isPresetLocked ? 'Referral Recipients (Preset)' : 'Recipients'}</Label>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => field.pushValue(createRecipientRow())}
+                    disabled={isPresetLocked}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Add Recipient
                   </Button>
                 </div>
+                {isPresetLocked && (
+                  <p className="text-muted-foreground text-xs">
+                    Preset recipients are read-only. Use additional recipients below for client-specific contacts.
+                  </p>
+                )}
                 <p className="text-muted-foreground text-xs">
                   Name is optional. Email is required. The first recipient is treated as the main contact.
                 </p>
@@ -320,6 +354,7 @@ export function ReferralProfileDialog({
                             onChange={(event) => nameField.handleChange(event.target.value)}
                             onBlur={nameField.handleBlur}
                             placeholder="Recipient name (optional)"
+                            readOnly={isPresetLocked}
                           />
                           <FieldError errors={nameField.state.meta.errors} className="text-xs" />
                         </div>
@@ -335,6 +370,7 @@ export function ReferralProfileDialog({
                             onBlur={emailField.handleBlur}
                             placeholder="recipient@example.com"
                             type="email"
+                            readOnly={isPresetLocked}
                           />
                           <FieldError errors={emailField.state.meta.errors} className="text-xs" />
                         </div>
@@ -346,7 +382,7 @@ export function ReferralProfileDialog({
                       variant="outline"
                       size="icon"
                       onClick={() => field.removeValue(index)}
-                      disabled={referralTypeUi !== 'self' && field.state.value.length <= 1}
+                      disabled={isPresetLocked || (referralTypeUi !== 'self' && field.state.value.length <= 1)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -357,6 +393,68 @@ export function ReferralProfileDialog({
               </div>
             )}
           </form.Field>
+
+          {referralTypeUi !== 'self' && (
+            <form.Field name="additionalRecipients" mode="array">
+              {(field) => (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Additional Recipients (Client-Specific)</Label>
+                    <Button type="button" variant="outline" size="sm" onClick={() => field.pushValue(createRecipientRow())}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Recipient
+                    </Button>
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    These recipients are attached only to this client and do not modify the linked court or employer.
+                  </p>
+
+                  {field.state.value.length === 0 && (
+                    <p className="text-muted-foreground text-sm">No client-specific additional recipients.</p>
+                  )}
+
+                  {field.state.value.map((recipient, index) => (
+                    <div key={recipient.rowId} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                      <form.Field name={`additionalRecipients[${index}].name` as const}>
+                        {(nameField) => (
+                          <div className="space-y-1">
+                            <Input
+                              value={nameField.state.value}
+                              onChange={(event) => nameField.handleChange(event.target.value)}
+                              onBlur={nameField.handleBlur}
+                              placeholder="Recipient name (optional)"
+                            />
+                            <FieldError errors={nameField.state.meta.errors} className="text-xs" />
+                          </div>
+                        )}
+                      </form.Field>
+
+                      <form.Field name={`additionalRecipients[${index}].email` as const}>
+                        {(emailField) => (
+                          <div className="space-y-1">
+                            <Input
+                              value={emailField.state.value}
+                              onChange={(event) => emailField.handleChange(event.target.value)}
+                              onBlur={emailField.handleBlur}
+                              placeholder="recipient@example.com"
+                              type="email"
+                            />
+                            <FieldError errors={emailField.state.meta.errors} className="text-xs" />
+                          </div>
+                        )}
+                      </form.Field>
+
+                      <Button type="button" variant="outline" size="icon" onClick={() => field.removeValue(index)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+
+                  <FieldError errors={field.state.meta.errors} />
+                </div>
+              )}
+            </form.Field>
+          )}
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)}>

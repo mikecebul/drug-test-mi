@@ -2,9 +2,12 @@
 
 import { withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
+import { Plus, Trash2 } from 'lucide-react'
 import { useStore } from '@tanstack/react-form'
 import { useEmployerOptions } from '../hooks/useEmployerOptions'
 import { useCourtOptions } from '../hooks/useCourtOptions'
+import { FieldError } from '@/components/ui/field'
+import { Button } from '@/components/ui/button'
 
 export const RecipientsStep = withForm({
   ...getRegisterClientFormOpts('recipients'),
@@ -14,7 +17,6 @@ export const RecipientsStep = withForm({
     const { courts, courtsById, isLoading: isLoadingCourts } = useCourtOptions()
 
     const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
-    const sendToOther = useStore(form.store, (state) => state.values.recipients.sendToOther)
     const selectedEmployerValue = useStore(form.store, (state) => state.values.recipients.selectedEmployer)
     const selectedCourtValue = useStore(form.store, (state) => state.values.recipients.selectedCourt)
 
@@ -23,55 +25,171 @@ export const RecipientsStep = withForm({
 
     const renderSelfFields = () => (
       <>
-        <form.AppField name="recipients.sendToOther">
-          {(field) => (
-            <div className="space-y-3">
-              <label className="text-foreground block text-sm font-medium">Who should receive the test results?</label>
-              <div className="space-y-2">
-                <label
-                  className={`hover:bg-accent/50 flex cursor-pointer items-center rounded-lg border-2 p-3 transition-all ${
-                    sendToOther === false ? 'border-primary bg-primary/10' : 'border-border'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name={field.name}
-                    checked={sendToOther === false}
-                    onChange={() => field.handleChange(false)}
-                    className="text-primary border-border focus:ring-primary h-4 w-4"
-                  />
-                  <span className="text-foreground ml-3 text-sm font-medium">Send results to me only</span>
-                </label>
-                <label
-                  className={`hover:bg-accent/50 flex cursor-pointer items-center rounded-lg border-2 p-3 transition-all ${
-                    sendToOther === true ? 'border-primary bg-primary/10' : 'border-border'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name={field.name}
-                    checked={sendToOther === true}
-                    onChange={() => field.handleChange(true)}
-                    className="text-primary border-border focus:ring-primary h-4 w-4"
-                  />
-                  <span className="text-foreground ml-3 text-sm font-medium">Also send to someone else</span>
-                </label>
-              </div>
-            </div>
-          )}
-        </form.AppField>
-
-        {sendToOther === true && (
-          <>
-            <form.AppField name="recipients.selfRecipients[0].name">
-              {(field) => <field.TextField label="Recipient Name" required />}
-            </form.AppField>
-            <form.AppField name="recipients.selfRecipients[0].email">
-              {(field) => <field.EmailField label="Recipient Email" required />}
-            </form.AppField>
-          </>
-        )}
+        {renderAdditionalReferralRecipientFields()}
       </>
+    )
+
+    const renderAdditionalReferralRecipientFields = () => (
+      <form.Field name="recipients.additionalReferralRecipients" mode="array">
+        {(field) => {
+          const rows = field.state.value || []
+          const referralScopeDescription =
+            requestedBy === 'court'
+              ? 'These recipients are for you and are separate from your selected court referral.'
+              : requestedBy === 'employer'
+                ? 'These recipients are for you and are separate from your selected employer referral.'
+                : 'These recipients are for you and are not linked to a court or employer referral.'
+
+          return (
+            <div className="space-y-4 rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-foreground text-sm font-medium">Additional recipients for you only</p>
+                  <p className="text-muted-foreground text-xs">{referralScopeDescription}</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => field.pushValue({ name: '', email: '' })}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Recipient
+                </Button>
+              </div>
+
+              {rows.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No additional recipients added.</p>
+              ) : (
+                <div className="space-y-3">
+                  {rows.map((_, index) => (
+                    <div key={`additional-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+                      <form.AppField name={`recipients.additionalReferralRecipients[${index}].name` as const}>
+                        {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
+                      </form.AppField>
+                      <form.AppField name={`recipients.additionalReferralRecipients[${index}].email` as const}>
+                        {(emailField) => <emailField.EmailField label="Recipient Email" required />}
+                      </form.AppField>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="mt-8"
+                        onClick={() => field.removeValue(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <FieldError errors={field.state.meta.errors} />
+            </div>
+          )
+        }}
+      </form.Field>
+    )
+
+    const renderOtherEmployerPresetRecipientFields = () => (
+      <div className="mt-2 space-y-4">
+        <form.Field name="recipients.otherEmployerAdditionalRecipients" mode="array">
+          {(field) => {
+            const rows = field.state.value || []
+
+            return (
+              <div className="space-y-4 rounded-lg border border-border p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-foreground text-sm font-medium">Additional recipients for the new employer</p>
+                    <p className="text-muted-foreground text-xs">Saved to the new employer referral profile.</p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={() => field.pushValue({ name: '', email: '' })}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Recipient
+                  </Button>
+                </div>
+
+                {rows.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">No extra recipients added for this new employer referral.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {rows.map((_, index) => (
+                      <div key={`other-employer-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+                        <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].name` as const}>
+                          {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
+                        </form.AppField>
+                        <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].email` as const}>
+                          {(emailField) => <emailField.EmailField label="Recipient Email" required />}
+                        </form.AppField>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="mt-8"
+                          onClick={() => field.removeValue(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <FieldError errors={field.state.meta.errors} />
+              </div>
+            )
+          }}
+        </form.Field>
+      </div>
+    )
+
+    const renderOtherCourtPresetRecipientFields = () => (
+      <div className="mt-2 space-y-4">
+        <form.Field name="recipients.otherCourtAdditionalRecipients" mode="array">
+          {(field) => {
+            const rows = field.state.value || []
+
+            return (
+              <div className="space-y-4 rounded-lg border border-border p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-foreground text-sm font-medium">Additional recipients for the new court</p>
+                    <p className="text-muted-foreground text-xs">Saved to the new court referral profile.</p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={() => field.pushValue({ name: '', email: '' })}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Recipient
+                  </Button>
+                </div>
+
+                {rows.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">No extra recipients added for this new court referral.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {rows.map((_, index) => (
+                      <div key={`other-court-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+                        <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].name` as const}>
+                          {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
+                        </form.AppField>
+                        <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].email` as const}>
+                          {(emailField) => <emailField.EmailField label="Recipient Email" required />}
+                        </form.AppField>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="mt-8"
+                          onClick={() => field.removeValue(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <FieldError errors={field.state.meta.errors} />
+              </div>
+            )
+          }}
+        </form.Field>
+      </div>
     )
 
     const renderEmployerFields = () => {
@@ -103,9 +221,7 @@ export const RecipientsStep = withForm({
                     ))}
                     <option value="other">Other (Add new employer)</option>
                   </select>
-                  {field.state.meta.errors.length > 0 && (
-                    <p className="text-destructive text-sm">{String(field.state.meta.errors[0]?.message)}</p>
-                  )}
+                  <FieldError errors={field.state.meta.errors} />
                 </div>
               )
             }}
@@ -135,29 +251,12 @@ export const RecipientsStep = withForm({
               <form.AppField name="recipients.otherEmployerMainContactEmail">
                 {(field) => <field.EmailField label="Contact Email" required />}
               </form.AppField>
-              <form.AppField name="recipients.otherEmployerRecipientEmails">
-                {(field) => (
-                  <div className="space-y-2">
-                    <label htmlFor={field.name} className="text-foreground block text-sm font-medium">
-                      Additional Recipient Emails
-                    </label>
-                    <textarea
-                      id={field.name}
-                      value={field.state.value || ''}
-                      onChange={(event) => field.handleChange(event.target.value)}
-                      onBlur={field.handleBlur}
-                      rows={3}
-                      className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
-                      placeholder="email1@example.com, email2@example.com"
-                    />
-                    <p className="text-muted-foreground text-xs">
-                      Optional additional emails, comma or newline separated. The contact email above is treated as the main contact.
-                    </p>
-                  </div>
-                )}
-              </form.AppField>
+              {renderOtherEmployerPresetRecipientFields()}
             </>
           )}
+
+          <div className="border-border border-t pt-4" />
+          {renderAdditionalReferralRecipientFields()}
         </>
       )
     }
@@ -191,9 +290,7 @@ export const RecipientsStep = withForm({
                     ))}
                     <option value="other">Other (Add new court)</option>
                   </select>
-                  {field.state.meta.errors.length > 0 && (
-                    <p className="text-destructive text-sm">{String(field.state.meta.errors[0]?.message)}</p>
-                  )}
+                  <FieldError errors={field.state.meta.errors} />
                 </div>
               )
             }}
@@ -228,54 +325,20 @@ export const RecipientsStep = withForm({
               <form.AppField name="recipients.otherCourtMainContactEmail">
                 {(field) => <field.EmailField label="Contact Email" required />}
               </form.AppField>
-              <form.AppField name="recipients.otherCourtRecipientEmails">
-                {(field) => (
-                  <div className="space-y-2">
-                    <label htmlFor={field.name} className="text-foreground block text-sm font-medium">
-                      Additional Recipient Emails
-                    </label>
-                    <textarea
-                      id={field.name}
-                      value={field.state.value || ''}
-                      onChange={(event) => field.handleChange(event.target.value)}
-                      onBlur={field.handleBlur}
-                      rows={3}
-                      className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
-                      placeholder="email1@example.com, email2@example.com"
-                    />
-                    <p className="text-muted-foreground text-xs">
-                      Optional additional emails, comma or newline separated. The contact email above is treated as the main contact.
-                    </p>
-                  </div>
-                )}
-              </form.AppField>
+              {renderOtherCourtPresetRecipientFields()}
             </>
           )}
+
+          <div className="border-border border-t pt-4" />
+          {renderAdditionalReferralRecipientFields()}
         </>
       )
-    }
-
-    const getDescription = () => {
-      switch (requestedBy) {
-        case 'self':
-          return 'The client always receives results. You can optionally add another recipient.'
-        case 'employer':
-          return 'Select an employer referral, or choose Other to submit a new inactive employer for review.'
-        case 'court':
-          return 'Select a court referral, or choose Other to submit a new inactive court for review.'
-        default:
-          return 'Please select who is requesting this screening first to see recipient options.'
-      }
     }
 
     return (
       <div className="space-y-6">
         <div className="mb-6 flex items-center">
-          <h2 className="text-foreground text-xl font-semibold">Results Recipient</h2>
-        </div>
-
-        <div className="bg-chart-1/20 border-chart-1/40 mb-6 rounded-lg border p-4">
-          <p className="text-chart-1 text-sm">{getDescription()}</p>
+          <h2 className="text-foreground text-xl font-semibold">Results Recipients</h2>
         </div>
 
         {requestedBy === 'self' && renderSelfFields()}

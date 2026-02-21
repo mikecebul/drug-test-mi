@@ -5,7 +5,60 @@ import config from '@payload-config'
 import type { FormValues } from './validators'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
 import { formatDateOnlyISO, getCurrentIsoTimestamp, getTodayDateOnlyISO } from '@/lib/date-utils'
-import { buildContactsFromLegacyInput, createInactiveReferralAndAlert, parseRecipientEmails } from '@/lib/referrals'
+import {
+  buildContactsFromLegacyInput,
+  createInactiveReferralAndAlert,
+  normalizeReferralContacts,
+  parseRecipientEmails,
+} from '@/lib/referrals'
+
+function normalizeAdditionalRecipients(
+  rows: Array<{ name?: string; email?: string }> | undefined,
+): Array<{ name?: string; email: string }> {
+  const deduped = new Map<string, { name?: string; email: string }>()
+
+  for (const row of rows || []) {
+    const email = row.email?.trim()
+    if (!email) continue
+
+    const key = email.toLowerCase()
+    const name = row.name?.trim() || undefined
+    const existing = deduped.get(key)
+
+    if (!existing) {
+      deduped.set(key, { ...(name ? { name } : {}), email })
+      continue
+    }
+
+    if (!existing.name && name) {
+      deduped.set(key, { name, email: existing.email })
+    }
+  }
+
+  return Array.from(deduped.values())
+}
+
+function buildReferralContactsFromForm(args: {
+  mainContactName: string
+  mainContactEmail: string
+  namedAdditionalRecipients?: Array<{ name?: string; email?: string }>
+  legacyAdditionalRecipientEmails?: string
+}) {
+  const namedAdditionalRecipients = normalizeAdditionalRecipients(args.namedAdditionalRecipients)
+
+  if (namedAdditionalRecipients.length > 0) {
+    return normalizeReferralContacts([
+      { name: args.mainContactName, email: args.mainContactEmail },
+      ...namedAdditionalRecipients,
+    ])
+  }
+
+  return buildContactsFromLegacyInput(
+    args.mainContactName,
+    args.mainContactEmail,
+    parseRecipientEmails(args.legacyAdditionalRecipientEmails),
+  )
+}
 
 export async function checkEmailExists(email: string): Promise<boolean> {
   try {
@@ -89,27 +142,24 @@ export async function registerWebsiteClientAction(formData: FormValues): Promise
     }
 
     if (screeningType.requestedBy === 'self') {
-      clientData.selfReferral = {
-        sendToOther: recipients.sendToOther === true,
-        recipients:
-          recipients.sendToOther === true
-            ? (recipients.selfRecipients || []).filter((recipient): recipient is { name: string; email: string } => Boolean(recipient.name?.trim() && recipient.email?.trim())).map((recipient) => ({ name: recipient.name.trim(), email: recipient.email.trim() }))
-            : [],
-      }
+      clientData.referralAdditionalRecipients = normalizeAdditionalRecipients(recipients.additionalReferralRecipients)
     }
 
     if (screeningType.requestedBy === 'employer') {
+      clientData.referralAdditionalRecipients = normalizeAdditionalRecipients(recipients.additionalReferralRecipients)
+
       if (recipients.selectedEmployer === 'other') {
         const relationship = await createInactiveReferralAndAlert({
           payload,
           type: 'employer',
           source: 'frontend',
           name: (recipients.otherEmployerName || '').trim(),
-          contacts: buildContactsFromLegacyInput(
-            (recipients.otherEmployerMainContactName || '').trim(),
-            (recipients.otherEmployerMainContactEmail || '').trim(),
-            parseRecipientEmails(recipients.otherEmployerRecipientEmails),
-          ),
+          contacts: buildReferralContactsFromForm({
+            mainContactName: (recipients.otherEmployerMainContactName || '').trim(),
+            mainContactEmail: (recipients.otherEmployerMainContactEmail || '').trim(),
+            namedAdditionalRecipients: recipients.otherEmployerAdditionalRecipients,
+            legacyAdditionalRecipientEmails: recipients.otherEmployerRecipientEmails,
+          }),
         })
 
         clientData.referral = relationship
@@ -122,17 +172,20 @@ export async function registerWebsiteClientAction(formData: FormValues): Promise
     }
 
     if (screeningType.requestedBy === 'court') {
+      clientData.referralAdditionalRecipients = normalizeAdditionalRecipients(recipients.additionalReferralRecipients)
+
       if (recipients.selectedCourt === 'other') {
         const relationship = await createInactiveReferralAndAlert({
           payload,
           type: 'court',
           source: 'frontend',
           name: (recipients.otherCourtName || '').trim(),
-          contacts: buildContactsFromLegacyInput(
-            (recipients.otherCourtMainContactName || '').trim(),
-            (recipients.otherCourtMainContactEmail || '').trim(),
-            parseRecipientEmails(recipients.otherCourtRecipientEmails),
-          ),
+          contacts: buildReferralContactsFromForm({
+            mainContactName: (recipients.otherCourtMainContactName || '').trim(),
+            mainContactEmail: (recipients.otherCourtMainContactEmail || '').trim(),
+            namedAdditionalRecipients: recipients.otherCourtAdditionalRecipients,
+            legacyAdditionalRecipientEmails: recipients.otherCourtRecipientEmails,
+          }),
         })
 
         clientData.referral = relationship

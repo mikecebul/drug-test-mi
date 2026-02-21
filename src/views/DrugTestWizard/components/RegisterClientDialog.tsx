@@ -217,6 +217,8 @@ export function RegisterClientDialog({
 
       const referralType = screeningType.requestedBy
       if (referralType === 'court') {
+        data.additionalReferralRecipients = recipients.additionalReferralRecipients || []
+
         if (!recipients.selectedCourt) {
           throw new Error('Please select a court before continuing.')
         }
@@ -235,6 +237,8 @@ export function RegisterClientDialog({
           }
         }
       } else if (referralType === 'employer') {
+        data.additionalReferralRecipients = recipients.additionalReferralRecipients || []
+
         if (!recipients.selectedEmployer) {
           throw new Error('Please select an employer before continuing.')
         }
@@ -253,10 +257,7 @@ export function RegisterClientDialog({
           }
         }
       } else if (referralType === 'self') {
-        data.selfReferral = {
-          sendToOther: recipients.sendToOther === true,
-          recipients: recipients.sendToOther ? recipients.selfRecipients || [] : [],
-        }
+        data.additionalReferralRecipients = recipients.additionalReferralRecipients || []
       }
 
       const result = await registerClientFromWizard(data)

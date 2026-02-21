@@ -25,6 +25,7 @@ import { ExportListMenuItem as ExportListMenuItem_cdf7e044479f899a31f804427d568b
 import { ImportListMenuItem as ImportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { default as default_bca575eca602f69aa53c5f42e11636da } from '@/collections/Admins/RoleCell'
 import { RoleSelectClient as RoleSelectClient_538158afd69a55f062cbf2533bebd38f } from '@/collections/Admins/RoleSelect.client'
+import { ReferralPresetRecipientsAlert as ReferralPresetRecipientsAlert_d3e4a3a175eb5b39b567b86d7cc0ce9b } from '@/collections/Clients/components/ReferralPresetRecipientsAlert.client'
 import { default as default_10614e5826ed2552da1904fc41085884 } from '@/collections/Clients/RowLabel'
 import { default as default_8ada3e871304a01023e059aa2a63dc18 } from '@/collections/Clients/components/QuickBookButton'
 import { default as default_3096841c11f481e2d8b1d51a89238cfb } from '@/collections/DrugTests/helpers/RowLabel'
@@ -84,6 +85,7 @@ export const importMap = {
   "@payloadcms/plugin-import-export/rsc#ImportListMenuItem": ImportListMenuItem_cdf7e044479f899a31f804427d568b36,
   "@/collections/Admins/RoleCell#default": default_bca575eca602f69aa53c5f42e11636da,
   "@/collections/Admins/RoleSelect.client#RoleSelectClient": RoleSelectClient_538158afd69a55f062cbf2533bebd38f,
+  "@/collections/Clients/components/ReferralPresetRecipientsAlert.client#ReferralPresetRecipientsAlert": ReferralPresetRecipientsAlert_d3e4a3a175eb5b39b567b86d7cc0ce9b,
   "@/collections/Clients/RowLabel#default": default_10614e5826ed2552da1904fc41085884,
   "@/collections/Clients/components/QuickBookButton#default": default_8ada3e871304a01023e059aa2a63dc18,
   "@/collections/DrugTests/helpers/RowLabel#default": default_3096841c11f481e2d8b1d51a89238cfb,

@@ -19,6 +19,7 @@ export type ReferralProfileFormValues = {
   presetKey: string
   title: string
   recipients: ReferralRecipientRow[]
+  additionalRecipients: ReferralRecipientRow[]
 }
 
 export type PresetConfigMap = Record<
@@ -41,6 +42,7 @@ export const referralProfileSchema = z
     presetKey: z.string(),
     title: z.string().trim().min(1, 'Referral name is required'),
     recipients: z.array(recipientRowSchema),
+    additionalRecipients: z.array(recipientRowSchema),
   })
   .superRefine((data, ctx) => {
     if (data.referralTypeUi !== 'self' && data.recipients.length === 0) {
@@ -51,11 +53,11 @@ export const referralProfileSchema = z
       })
     }
 
-    const seenEmails = new Map<string, number>()
+    const recipientEmailMap = new Map<string, number>()
 
     data.recipients.forEach((recipient, index) => {
       const key = recipient.email.trim().toLowerCase()
-      const duplicateIndex = seenEmails.get(key)
+      const duplicateIndex = recipientEmailMap.get(key)
 
       if (duplicateIndex !== undefined) {
         ctx.addIssue({
@@ -66,7 +68,33 @@ export const referralProfileSchema = z
         return
       }
 
-      seenEmails.set(key, index)
+      recipientEmailMap.set(key, index)
+    })
+
+    const additionalEmailMap = new Map<string, number>()
+
+    data.additionalRecipients.forEach((recipient, index) => {
+      const key = recipient.email.trim().toLowerCase()
+      const duplicateIndex = additionalEmailMap.get(key)
+
+      if (duplicateIndex !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Duplicate email address',
+          path: ['additionalRecipients', index, 'email'],
+        })
+        return
+      }
+
+      additionalEmailMap.set(key, index)
+
+      if (data.referralTypeUi !== 'self' && recipientEmailMap.has(key)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Already included in referral recipients',
+          path: ['additionalRecipients', index, 'email'],
+        })
+      }
     })
   })
 
@@ -112,31 +140,48 @@ export function createRecipientRow(recipient?: Partial<RecipientDetail>): Referr
 
 export function buildInitialReferralProfileValues(input: {
   clientType?: ReferralClientType
+  referralPresetId?: string
   referralTitle?: string
   referralRecipientsDetailed?: RecipientDetail[]
+  clientAdditionalRecipientsDetailed?: RecipientDetail[]
   fallbackReferralEmails?: string[]
 }): ReferralProfileFormValues {
   const referralTypeUi = mapClientTypeToReferralTypeUi(input.clientType)
-  const detailedRecipients = input.referralRecipientsDetailed?.filter((recipient) => recipient.email.trim()) || []
+  const allRecipients = input.referralRecipientsDetailed?.filter((recipient) => recipient.email.trim()) || []
+  const additionalRecipientsDetailed =
+    input.clientAdditionalRecipientsDetailed?.filter((recipient) => recipient.email.trim()) || []
+  const additionalEmailSet = new Set(additionalRecipientsDetailed.map((recipient) => recipient.email.trim().toLowerCase()))
+  const baseRecipientsDetailed = allRecipients.filter(
+    (recipient) => !additionalEmailSet.has(recipient.email.trim().toLowerCase()),
+  )
+  const fallbackBaseEmails = (input.fallbackReferralEmails || []).filter(
+    (email) => email.trim() && !additionalEmailSet.has(email.trim().toLowerCase()),
+  )
 
-  const recipients =
-    detailedRecipients.length > 0
-      ? detailedRecipients.map((recipient) => createRecipientRow(recipient))
-      : (input.fallbackReferralEmails || []).filter(Boolean).map((email) => createRecipientRow({ email }))
+  const recipients = (
+    baseRecipientsDetailed.length > 0
+      ? baseRecipientsDetailed.map((recipient) => createRecipientRow(recipient))
+      : fallbackBaseEmails.map((email) => createRecipientRow({ email }))
+  )
+  const additionalRecipients = additionalRecipientsDetailed.map((recipient) => createRecipientRow(recipient))
 
-  if (referralTypeUi === 'self' && recipients.length === 0) {
+  if (referralTypeUi === 'self') {
+    const selfRecipients = additionalRecipientsDetailed.map((recipient) => createRecipientRow(recipient))
+
     return {
       referralTypeUi,
       presetKey: 'custom',
       title: input.referralTitle || 'Self',
-      recipients: [],
+      recipients: selfRecipients,
+      additionalRecipients: [],
     }
   }
 
   return {
     referralTypeUi,
-    presetKey: 'custom',
+    presetKey: input.referralPresetId || 'custom',
     title: input.referralTitle || '',
     recipients: recipients.length > 0 ? recipients : [createRecipientRow()],
+    additionalRecipients,
   }
 }

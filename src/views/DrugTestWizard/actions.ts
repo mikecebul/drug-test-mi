@@ -660,8 +660,13 @@ export async function getEmailPreview(data: {
     clientEmail: string
     referralEmails: string[]
     referralTitle: string
+    referralPresetId?: string
     hasExplicitReferralRecipients: boolean
     referralRecipientsDetailed: Array<{
+      name: string
+      email: string
+    }>
+    clientAdditionalRecipientsDetailed: Array<{
       name: string
       email: string
     }>
@@ -698,8 +703,10 @@ export async function getEmailPreview(data: {
       clientEmail,
       referralEmails,
       referralTitle,
+      referralPresetId,
       hasExplicitReferralRecipients,
       referralRecipientsDetailed,
+      clientAdditionalRecipientsDetailed,
     } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
@@ -748,8 +755,10 @@ export async function getEmailPreview(data: {
         clientEmail,
         referralEmails,
         referralTitle,
+        referralPresetId,
         hasExplicitReferralRecipients,
         referralRecipientsDetailed,
+        clientAdditionalRecipientsDetailed,
         referralType,
         clientHtml: emailData.client.html,
         referralHtml: emailData.referrals.html,
@@ -781,8 +790,13 @@ export async function getCollectionEmailPreview(data: {
   data?: {
     referralEmails: string[]
     referralTitle: string
+    referralPresetId?: string
     hasExplicitReferralRecipients: boolean
     referralRecipientsDetailed: Array<{
+      name: string
+      email: string
+    }>
+    clientAdditionalRecipientsDetailed: Array<{
       name: string
       email: string
     }>
@@ -812,8 +826,14 @@ export async function getCollectionEmailPreview(data: {
     }
 
     // Get recipients using existing helper
-    const { referralEmails, referralTitle, hasExplicitReferralRecipients, referralRecipientsDetailed } =
-      await getRecipients(data.clientId, payload)
+    const {
+      referralEmails,
+      referralTitle,
+      referralPresetId,
+      hasExplicitReferralRecipients,
+      referralRecipientsDetailed,
+      clientAdditionalRecipientsDetailed,
+    } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
     const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
@@ -844,8 +864,10 @@ export async function getCollectionEmailPreview(data: {
       data: {
         referralEmails,
         referralTitle,
+        referralPresetId,
         hasExplicitReferralRecipients,
         referralRecipientsDetailed,
+        clientAdditionalRecipientsDetailed,
         referralType,
         referralHtml: emailData.html,
         referralSubject: emailData.subject,
@@ -878,8 +900,13 @@ export async function getConfirmationEmailPreview(data: {
     clientEmail: string
     referralEmails: string[]
     referralTitle: string
+    referralPresetId?: string
     hasExplicitReferralRecipients: boolean
     referralRecipientsDetailed: Array<{
+      name: string
+      email: string
+    }>
+    clientAdditionalRecipientsDetailed: Array<{
       name: string
       email: string
     }>
@@ -923,8 +950,10 @@ export async function getConfirmationEmailPreview(data: {
       clientEmail,
       referralEmails,
       referralTitle,
+      referralPresetId,
       hasExplicitReferralRecipients,
       referralRecipientsDetailed,
+      clientAdditionalRecipientsDetailed,
     } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
@@ -989,8 +1018,10 @@ export async function getConfirmationEmailPreview(data: {
         clientEmail,
         referralEmails,
         referralTitle,
+        referralPresetId,
         hasExplicitReferralRecipients,
         referralRecipientsDetailed,
+        clientAdditionalRecipientsDetailed,
         referralType,
         clientHtml: emailData.client.html,
         referralHtml: emailData.referrals.html,
@@ -1850,6 +1881,32 @@ function generateSecurePassword(): string {
     .join('')
 }
 
+function normalizeAdditionalRecipients(
+  rows: Array<{ name?: string; email?: string }> | undefined,
+): Array<{ name?: string; email: string }> {
+  const deduped = new Map<string, { name?: string; email: string }>()
+
+  for (const row of rows || []) {
+    const email = row.email?.trim()
+    if (!email) continue
+
+    const key = email.toLowerCase()
+    const name = row.name?.trim() || undefined
+    const existing = deduped.get(key)
+
+    if (!existing) {
+      deduped.set(key, { ...(name ? { name } : {}), email })
+      continue
+    }
+
+    if (!existing.name && name) {
+      deduped.set(key, { name, email: existing.email })
+    }
+  }
+
+  return Array.from(deduped.values())
+}
+
 /**
  * Register a new client from the Drug Test Wizard
  * Creates a client with auto-generated password
@@ -1874,10 +1931,7 @@ export async function registerClientFromWizard(data: {
     mainContactEmail: string
     recipientEmails?: string
   }
-  selfReferral?: {
-    sendToOther: boolean
-    recipients: Array<{ name: string; email: string }>
-  }
+  additionalReferralRecipients?: Array<{ name?: string; email: string }>
 }): Promise<{
   success: boolean
   client?: ClientMatch
@@ -1924,12 +1978,9 @@ export async function registerClientFromWizard(data: {
       _verified: true, // Skip email verification for admin-created clients
     }
 
-    if (data.referralType === 'self') {
-      clientData.selfReferral = {
-        sendToOther: data.selfReferral?.sendToOther === true,
-        recipients: data.selfReferral?.sendToOther ? data.selfReferral.recipients || [] : [],
-      }
-    } else if (data.otherReferral) {
+    clientData.referralAdditionalRecipients = normalizeAdditionalRecipients(data.additionalReferralRecipients)
+
+    if (data.referralType !== 'self' && data.otherReferral) {
       const relationship = await createInactiveReferralAndAlert({
         payload,
         type: data.otherReferral.type,
@@ -1943,7 +1994,7 @@ export async function registerClientFromWizard(data: {
       })
 
       clientData.referral = relationship
-    } else if (data.referral) {
+    } else if (data.referralType !== 'self' && data.referral) {
       clientData.referral = data.referral
     }
 

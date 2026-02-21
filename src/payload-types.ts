@@ -1218,7 +1218,17 @@ export interface Client {
         value: string | Employer;
       } | null);
   /**
-   * Self-referral notification preferences.
+   * Additional recipients for this client only. These do not modify the linked referral profile.
+   */
+  referralAdditionalRecipients?:
+    | {
+        name?: string | null;
+        email: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Legacy self-referral notification preferences.
    */
   selfReferral?: {
     /**
@@ -1230,7 +1240,7 @@ export interface Client {
      */
     recipients?:
       | {
-          name: string;
+          name?: string | null;
           email: string;
           id?: string | null;
         }[]
@@ -3254,6 +3264,13 @@ export interface ClientsSelect<T extends boolean = true> {
   preferredContactMethod?: T;
   referralType?: T;
   referral?: T;
+  referralAdditionalRecipients?:
+    | T
+    | {
+        name?: T;
+        email?: T;
+        id?: T;
+      };
   selfReferral?:
     | T
     | {

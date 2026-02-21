@@ -4,8 +4,13 @@ export type RecipientList = {
   clientEmail: string
   referralEmails: string[]
   referralTitle: string
+  referralPresetId?: string
   hasExplicitReferralRecipients: boolean
   referralRecipientsDetailed: Array<{
+    name: string
+    email: string
+  }>
+  clientAdditionalRecipientsDetailed: Array<{
     name: string
     email: string
   }>
@@ -47,7 +52,7 @@ function normalizeReferralContacts(referralDoc: any): Array<{ name: string; emai
 
 function addRecipient(
   recipientMap: Map<string, { name: string; email: string }>,
-  recipient: { name?: string; email?: string },
+  recipient: { name?: string | null; email?: string },
 ) {
   const email = typeof recipient.email === 'string' ? recipient.email.trim() : ''
   if (!email) return
@@ -81,18 +86,36 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
         clientEmail: '',
         referralEmails: [],
         referralTitle: '',
+        referralPresetId: undefined,
         hasExplicitReferralRecipients: false,
         referralRecipientsDetailed: [],
+        clientAdditionalRecipientsDetailed: [],
       }
     }
 
     const disableClientEmails = (client as { disableClientEmails?: boolean }).disableClientEmails === true
     const clientEmail = disableClientEmails ? '' : client.email
     const recipientMap = new Map<string, { name: string; email: string }>()
+    const additionalRecipientMap = new Map<string, { name: string; email: string }>()
+    const referralContactEmailSet = new Set<string>()
 
     let referralTitle = ''
+    let referralPresetId: string | undefined
 
     if (client.referralType === 'court' || client.referralType === 'employer') {
+      if (client.referral && typeof client.referral === 'object' && 'value' in client.referral) {
+        if (typeof client.referral.value === 'string') {
+          referralPresetId = client.referral.value
+        } else if (
+          client.referral.value &&
+          typeof client.referral.value === 'object' &&
+          'id' in client.referral.value &&
+          typeof client.referral.value.id === 'string'
+        ) {
+          referralPresetId = client.referral.value.id
+        }
+      }
+
       const referralDoc =
         client.referral && typeof client.referral === 'object' && 'value' in client.referral
           ? (client.referral.value as any)
@@ -103,18 +126,32 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
 
         const contacts = normalizeReferralContacts(referralDoc)
         for (const contact of contacts) {
+          referralContactEmailSet.add(contact.email.toLowerCase())
           addRecipient(recipientMap, contact)
         }
       }
+
     }
+
+    const hasUnifiedAdditionalRecipients =
+      (client.referralAdditionalRecipients || []).some((recipient) => typeof recipient?.email === 'string' && recipient.email.trim())
 
     if (client.referralType === 'self') {
       referralTitle = 'Self'
 
-      if (client.selfReferral?.sendToOther) {
+      if (!hasUnifiedAdditionalRecipients && client.selfReferral?.sendToOther) {
         for (const recipient of client.selfReferral.recipients || []) {
           addRecipient(recipientMap, recipient)
+          addRecipient(additionalRecipientMap, recipient)
         }
+      }
+    }
+
+    for (const recipient of client.referralAdditionalRecipients || []) {
+      const email = typeof recipient?.email === 'string' ? recipient.email.trim().toLowerCase() : ''
+      addRecipient(recipientMap, recipient)
+      if (!email || !referralContactEmailSet.has(email)) {
+        addRecipient(additionalRecipientMap, recipient)
       }
     }
 
@@ -129,6 +166,7 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
       })
     }
 
+    const clientAdditionalRecipientsDetailed = Array.from(additionalRecipientMap.values())
     const referralRecipientsDetailed = Array.from(recipientMap.values())
     const referralEmails = referralRecipientsDetailed.map((recipient) => recipient.email)
 
@@ -136,8 +174,10 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
       clientEmail,
       referralEmails,
       referralTitle,
+      referralPresetId,
       hasExplicitReferralRecipients,
       referralRecipientsDetailed,
+      clientAdditionalRecipientsDetailed,
     }
   } catch (error) {
     payload.logger.error(`Failed to fetch recipients for client ${clientId}:`, error)
@@ -145,8 +185,10 @@ export async function getRecipients(clientId: string, payload: Payload): Promise
       clientEmail: '',
       referralEmails: [],
       referralTitle: '',
+      referralPresetId: undefined,
       hasExplicitReferralRecipients: false,
       referralRecipientsDetailed: [],
+      clientAdditionalRecipientsDetailed: [],
     }
   }
 }

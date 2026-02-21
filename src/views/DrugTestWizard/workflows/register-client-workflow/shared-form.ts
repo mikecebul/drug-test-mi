@@ -58,18 +58,19 @@ const defaultValues: FormValues = {
     requestedBy: '',
   },
   recipients: {
-    sendToOther: false,
-    selfRecipients: [],
+    additionalReferralRecipients: [],
     selectedEmployer: '',
     otherEmployerName: '',
     otherEmployerMainContactName: '',
     otherEmployerMainContactEmail: '',
     otherEmployerRecipientEmails: '',
+    otherEmployerAdditionalRecipients: [],
     selectedCourt: '',
     otherCourtName: '',
     otherCourtMainContactName: '',
     otherCourtMainContactEmail: '',
     otherCourtRecipientEmails: '',
+    otherCourtAdditionalRecipients: [],
   },
   terms: {
     agreeToTerms: true, // Auto-agree for admin registration

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-const recipientRowSchema = z.object({
+const additionalRecipientRowSchema = z.object({
   name: z.string().optional(),
   email: z.string().optional(),
 })
@@ -99,20 +99,21 @@ export const screeningTypeSchema = z.object({
 export const recipientsSchema = z
   .object({
     recipients: z.object({
-      sendToOther: z.boolean().optional(),
-      selfRecipients: z.array(recipientRowSchema).optional(),
+      additionalReferralRecipients: z.array(additionalRecipientRowSchema).optional(),
 
       selectedEmployer: z.string().optional(),
       otherEmployerName: z.string().optional(),
       otherEmployerMainContactName: z.string().optional(),
       otherEmployerMainContactEmail: z.union([z.string().email(), z.literal('')]).optional(),
       otherEmployerRecipientEmails: z.string().optional(),
+      otherEmployerAdditionalRecipients: z.array(additionalRecipientRowSchema).optional(),
 
       selectedCourt: z.string().optional(),
       otherCourtName: z.string().optional(),
       otherCourtMainContactName: z.string().optional(),
       otherCourtMainContactEmail: z.union([z.string().email(), z.literal('')]).optional(),
       otherCourtRecipientEmails: z.string().optional(),
+      otherCourtAdditionalRecipients: z.array(additionalRecipientRowSchema).optional(),
     }),
     screeningType: z.object({
       requestedBy: z.enum(['self', 'employer', 'court']),
@@ -122,45 +123,50 @@ export const recipientsSchema = z
     const { recipients, screeningType } = data
     const { requestedBy } = screeningType
 
-    if (requestedBy === 'self') {
-      if (recipients.sendToOther === true) {
-        const rows = recipients.selfRecipients || []
+    const validateAdditionalRows = (
+      rows: Array<{ name?: string; email?: string }>,
+      path: Array<string | number>,
+    ) => {
+      const seenEmails = new Map<string, number>()
 
-        if (rows.length === 0) {
+      rows.forEach((row, index) => {
+        const email = row.email?.trim() || ''
+        if (!email) {
           ctx.addIssue({
             code: 'custom',
-            message: 'Add at least one recipient',
-            path: ['recipients', 'selfRecipients'],
+            message: 'Recipient email is required',
+            path: [...path, index, 'email'],
           })
+          return
         }
 
-        rows.forEach((row, index) => {
-          if (!row.name?.trim()) {
-            ctx.addIssue({
-              code: 'custom',
-              message: 'Recipient name is required',
-              path: ['recipients', 'selfRecipients', index, 'name'],
-            })
-          }
+        if (!z.email().safeParse(email).success) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Please enter a valid recipient email',
+            path: [...path, index, 'email'],
+          })
+          return
+        }
 
-          if (!row.email?.trim()) {
-            ctx.addIssue({
-              code: 'custom',
-              message: 'Recipient email is required',
-              path: ['recipients', 'selfRecipients', index, 'email'],
-            })
-            return
-          }
+        const key = email.toLowerCase()
+        const duplicateIndex = seenEmails.get(key)
+        if (duplicateIndex !== undefined) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Duplicate recipient email',
+            path: [...path, index, 'email'],
+          })
+          return
+        }
 
-          if (!z.email().safeParse(row.email.trim()).success) {
-            ctx.addIssue({
-              code: 'custom',
-              message: 'Please enter a valid recipient email',
-              path: ['recipients', 'selfRecipients', index, 'email'],
-            })
-          }
-        })
-      }
+        seenEmails.set(key, index)
+      })
+    }
+
+    if (requestedBy === 'self') {
+      const rows = recipients.additionalReferralRecipients || []
+      validateAdditionalRows(rows, ['recipients', 'additionalReferralRecipients'])
       return
     }
 
@@ -188,7 +194,13 @@ export const recipientsSchema = z
             path: ['recipients', 'otherEmployerMainContactEmail'],
           })
         }
+
+        const rows = recipients.otherEmployerAdditionalRecipients || []
+        validateAdditionalRows(rows, ['recipients', 'otherEmployerAdditionalRecipients'])
       }
+
+      const rows = recipients.additionalReferralRecipients || []
+      validateAdditionalRows(rows, ['recipients', 'additionalReferralRecipients'])
 
       return
     }
@@ -216,7 +228,13 @@ export const recipientsSchema = z
           path: ['recipients', 'otherCourtMainContactEmail'],
         })
       }
+
+      const rows = recipients.otherCourtAdditionalRecipients || []
+      validateAdditionalRows(rows, ['recipients', 'otherCourtAdditionalRecipients'])
     }
+
+    const rows = recipients.additionalReferralRecipients || []
+    validateAdditionalRows(rows, ['recipients', 'additionalReferralRecipients'])
   })
 
 export const termsSchema = z.object({

@@ -57,6 +57,32 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
       return Array.from(map.values())
     }
 
+    const appendUniqueRecipients = (
+      existing: Array<{ name: string; email: string }>,
+      additional: Array<{ name?: string; email?: string }> | undefined,
+    ) => {
+      const map = new Map<string, { name: string; email: string }>()
+      const add = (recipient: { name?: string; email?: string }) => {
+        const email = typeof recipient.email === 'string' ? recipient.email.trim() : ''
+        if (!email) return
+        const key = email.toLowerCase()
+        const name = typeof recipient.name === 'string' ? recipient.name.trim() : ''
+        const current = map.get(key)
+        if (!current) {
+          map.set(key, { name, email })
+          return
+        }
+        if (!current.name && name) {
+          map.set(key, { name, email: current.email })
+        }
+      }
+
+      existing.forEach(add)
+      ;(additional || []).forEach(add)
+
+      return Array.from(map.values())
+    }
+
     if (doc.referralType === 'court' || doc.referralType === 'employer') {
       const relationTo = doc.referralType === 'court' ? 'courts' : 'employers'
       const referralValue =
@@ -77,10 +103,18 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
         referralName = referral?.name || ''
         recipientRows = normalizeReferralContacts(referral)
       }
+
+      recipientRows = appendUniqueRecipients(
+        recipientRows,
+        (doc.referralAdditionalRecipients || []) as Array<{ name?: string; email?: string }>,
+      )
     }
 
     if (doc.referralType === 'self') {
-      recipientRows = (doc.selfReferral?.recipients || []) as Array<{ name: string; email: string }>
+      recipientRows = appendUniqueRecipients(
+        (doc.selfReferral?.recipients || []) as Array<{ name: string; email: string }>,
+        (doc.referralAdditionalRecipients || []) as Array<{ name?: string; email?: string }>,
+      )
     }
 
     let emailBody = `

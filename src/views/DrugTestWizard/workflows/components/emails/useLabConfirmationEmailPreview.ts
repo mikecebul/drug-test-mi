@@ -49,8 +49,10 @@ export function useLabConfirmationEmailPreview(params: UseLabConfirmationEmailPr
           referralType: queryResult.data.data.referralType,
           referralEmails: queryResult.data.data.referralEmails,
           referralTitle: queryResult.data.data.referralTitle,
+          referralPresetId: queryResult.data.data.referralPresetId,
           hasExplicitReferralRecipients: queryResult.data.data.hasExplicitReferralRecipients,
           referralRecipientsDetailed: queryResult.data.data.referralRecipientsDetailed,
+          clientAdditionalRecipientsDetailed: queryResult.data.data.clientAdditionalRecipientsDetailed,
           referralHtml: queryResult.data.data.referralHtml,
           referralSubject: queryResult.data.data.referralSubject,
         } as EmailPreviewData)

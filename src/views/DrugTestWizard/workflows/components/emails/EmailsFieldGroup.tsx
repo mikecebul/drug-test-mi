@@ -37,8 +37,10 @@ interface EmailPreviewData {
   clientSubject?: string
   referralType?: 'court' | 'employer' | 'self'
   referralEmails: string[]
+  referralPresetId?: string
   hasExplicitReferralRecipients?: boolean
   referralRecipientsDetailed?: RecipientDetail[]
+  clientAdditionalRecipientsDetailed?: RecipientDetail[]
   referralTitle: string // Organization name (employer, court, etc.)
   referralHtml: string
   referralSubject: string
@@ -141,6 +143,8 @@ export const EmailsFieldGroup = withFieldGroup({
       referralEmails: string[]
       referralType: 'court' | 'employer' | 'self'
       referralRecipientsDetailed: RecipientDetail[]
+      clientAdditionalRecipientsDetailed: RecipientDetail[]
+      referralPresetId?: string
     }) {
       setEmailFieldValue('referralEmailEnabled', data.referralEmails.length > 0)
       setEmailFieldValue('referralRecipients', data.referralEmails)

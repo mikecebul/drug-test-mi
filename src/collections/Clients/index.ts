@@ -315,6 +315,31 @@ export const Clients: CollectionConfig = {
                 { label: 'Employer', value: 'employer' },
                 { label: 'Self', value: 'self' },
               ],
+              hooks: {
+                beforeChange: [
+                  ({ value, siblingData }) => {
+                    const nextType = typeof value === 'string' ? value : undefined
+                    const referralValue = siblingData?.referral
+
+                    if (nextType === 'self') {
+                      siblingData.referral = null
+                      return value
+                    }
+
+                    if (
+                      referralValue &&
+                      typeof referralValue === 'object' &&
+                      'relationTo' in referralValue &&
+                      ((nextType === 'court' && referralValue.relationTo !== 'courts')
+                        || (nextType === 'employer' && referralValue.relationTo !== 'employers'))
+                    ) {
+                      siblingData.referral = null
+                    }
+
+                    return value
+                  },
+                ],
+              },
               admin: {
                 description: 'Referral type for this client',
               },
@@ -323,23 +348,137 @@ export const Clients: CollectionConfig = {
               name: 'referral',
               type: 'relationship',
               relationTo: ['courts', 'employers'],
+              filterOptions: ({ relationTo, siblingData, data }) => {
+                const siblingReferralType =
+                  siblingData && typeof siblingData === 'object' && 'referralType' in siblingData
+                    ? (siblingData as { referralType?: string }).referralType
+                    : undefined
+                const dataReferralType =
+                  data && typeof data === 'object' && 'referralType' in data
+                    ? (data as { referralType?: string }).referralType
+                    : undefined
+                const referralType = siblingReferralType || dataReferralType
+
+                if (referralType === 'court') {
+                  return relationTo === 'courts'
+                    ? {
+                        isActive: {
+                          equals: true,
+                        },
+                      }
+                    : false
+                }
+
+                if (referralType === 'employer') {
+                  return relationTo === 'employers'
+                    ? {
+                        isActive: {
+                          equals: true,
+                        },
+                      }
+                    : false
+                }
+
+                return false
+              },
               admin: {
-                condition: (_data, siblingData) => siblingData?.referralType === 'court' || siblingData?.referralType === 'employer',
+                condition: (data, siblingData) => {
+                  const siblingReferralType =
+                    siblingData && typeof siblingData === 'object' && 'referralType' in siblingData
+                      ? (siblingData as { referralType?: string }).referralType
+                      : undefined
+                  const dataReferralType =
+                    data && typeof data === 'object' && 'referralType' in data
+                      ? (data as { referralType?: string }).referralType
+                      : undefined
+                  const referralType = siblingReferralType || dataReferralType
+                  return referralType === 'court' || referralType === 'employer'
+                },
                 description: 'Select the court or employer referral source.',
               },
-              validate: (value, { siblingData }) => {
-                if (siblingData?.referralType === 'court' || siblingData?.referralType === 'employer') {
+              validate: (value, { siblingData, data }) => {
+                const siblingReferralType =
+                  siblingData && typeof siblingData === 'object' && 'referralType' in siblingData
+                    ? (siblingData as { referralType?: string }).referralType
+                    : undefined
+                const dataReferralType =
+                  data && typeof data === 'object' && 'referralType' in data
+                    ? (data as { referralType?: string }).referralType
+                    : undefined
+                const referralType = siblingReferralType || dataReferralType
+
+                if (referralType === 'court' || referralType === 'employer') {
                   if (!value) return 'Referral is required for court and employer clients.'
+                  if (typeof value === 'object' && 'relationTo' in value) {
+                    if (referralType === 'court' && value.relationTo !== 'courts') {
+                      return 'Please select a court referral.'
+                    }
+                    if (referralType === 'employer' && value.relationTo !== 'employers') {
+                      return 'Please select an employer referral.'
+                    }
+                  }
                 }
                 return true
               },
             },
             {
+              name: 'referralPresetRecipientsAlert',
+              type: 'ui',
+              admin: {
+                condition: (data, siblingData) => {
+                  const siblingReferralType =
+                    siblingData && typeof siblingData === 'object' && 'referralType' in siblingData
+                      ? (siblingData as { referralType?: string }).referralType
+                      : undefined
+                  const dataReferralType =
+                    data && typeof data === 'object' && 'referralType' in data
+                      ? (data as { referralType?: string }).referralType
+                      : undefined
+                  const referralType = siblingReferralType || dataReferralType
+
+                  const siblingReferral =
+                    siblingData && typeof siblingData === 'object' && 'referral' in siblingData
+                      ? (siblingData as { referral?: unknown }).referral
+                      : undefined
+                  const dataReferral =
+                    data && typeof data === 'object' && 'referral' in data
+                      ? (data as { referral?: unknown }).referral
+                      : undefined
+                  const referral = siblingReferral ?? dataReferral
+
+                  return (referralType === 'court' || referralType === 'employer') && Boolean(referral)
+                },
+                components: {
+                  Field:
+                    '@/collections/Clients/components/ReferralPresetRecipientsAlert.client#ReferralPresetRecipientsAlert',
+                },
+              },
+            },
+            {
+              name: 'referralAdditionalRecipients',
+              type: 'array',
+              admin: {
+                description:
+                  'Additional recipients for this client only. These do not modify the linked referral profile.',
+              },
+              fields: [
+                {
+                  name: 'name',
+                  type: 'text',
+                },
+                {
+                  name: 'email',
+                  type: 'email',
+                  required: true,
+                },
+              ],
+            },
+            {
               name: 'selfReferral',
               type: 'group',
               admin: {
-                condition: (_data, siblingData) => siblingData?.referralType === 'self',
-                description: 'Self-referral notification preferences.',
+                condition: () => false,
+                description: 'Legacy self-referral notification preferences.',
               },
               fields: [
                 {
@@ -361,7 +500,6 @@ export const Clients: CollectionConfig = {
                     {
                       name: 'name',
                       type: 'text',
-                      required: true,
                     },
                     {
                       name: 'email',
