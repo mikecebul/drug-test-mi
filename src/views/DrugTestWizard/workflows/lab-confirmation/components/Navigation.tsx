@@ -21,9 +21,13 @@ export const LabConfirmationNavigation = withForm({
     const currentStepIndex = steps.indexOf(currentStep as any)
     const isFirstStep = currentStepIndex === 0
     const isLastStep = currentStepIndex === steps.length - 1
+    const isStepField = (fieldName: string, stepName: string) => fieldName === stepName || fieldName.startsWith(`${stepName}.`)
 
-    const fieldNames = Object.keys(errors)
-    const currentStepHasErrors = fieldNames.some((fieldName) => fieldName.startsWith(`${currentStep}.`))
+    const currentStepHasErrors = errors.some((errorObj) => {
+      if (!errorObj) return false
+      const fieldNames = Object.keys(errorObj)
+      return fieldNames.some((fieldName) => isStepField(fieldName, currentStep))
+    })
 
     const handleBack = () => {
       if (isFirstStep) {
@@ -35,10 +39,10 @@ export const LabConfirmationNavigation = withForm({
 
     return (
       <div className="flex justify-between">
-        <Button type="button" variant="outline" onClick={handleBack} disabled={isSubmitting}>
+        <Button type="button" variant="outline" onClick={handleBack} disabled={isSubmitting} data-testid="wizard-back-button">
           {isFirstStep ? 'Cancel' : 'Back'}
         </Button>
-        <Button type="submit" disabled={currentStepHasErrors || isSubmitting}>
+        <Button type="submit" disabled={currentStepHasErrors || isSubmitting} data-testid="wizard-next-button">
           {isLastStep ? 'Update Test Record' : 'Next'}
         </Button>
       </div>

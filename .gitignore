@@ -29,3 +29,8 @@ src/uploads
 
 # TypeScript
 tsconfig.tsbuildinfo
+
+# Playwright
+playwright-report
+test-results
+.playwright

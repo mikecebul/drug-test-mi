@@ -86,6 +86,9 @@ export const VerifyDataStep = withForm({
           form.setFieldValue('verifyData.confirmationSubstances', preview.unexpectedPositives)
         }
       }
+
+      // Ensure submit-mode errors clear immediately after user correction.
+      form.validate('submit')
     }
 
     return (
@@ -327,9 +330,10 @@ export const VerifyDataStep = withForm({
                     <ConfirmationSubstanceSelector
                       unexpectedPositives={preview?.unexpectedPositives ?? []}
                       selectedSubstances={confirmationSubstancesValue ?? []}
-                      onSelectionChange={(substances) =>
+                      onSelectionChange={(substances) => {
                         form.setFieldValue('verifyData.confirmationSubstances', substances)
-                      }
+                        form.validate('submit')
+                      }}
                       error={field.state.meta.errors?.[0]?.message}
                     />
                   </div>

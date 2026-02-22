@@ -59,12 +59,19 @@ export const RegisterClientNavigation = withForm({
 
     return (
       <div className="mt-8 flex items-center justify-between border-t pt-4">
-        <Button type="button" onClick={handleBack} variant="outline" disabled={isSubmitting} size="lg">
+        <Button
+          type="button"
+          onClick={handleBack}
+          variant="outline"
+          disabled={isSubmitting}
+          size="lg"
+          data-testid="wizard-back-button"
+        >
           <ChevronLeft className="mr-2 h-5 w-5" />
           {isFirstStep ? 'Cancel' : 'Back'}
         </Button>
 
-        <Button disabled={isSubmitting || currentStepHasErrors} size="lg">
+        <Button type="submit" disabled={isSubmitting || currentStepHasErrors} size="lg" data-testid="wizard-next-button">
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />

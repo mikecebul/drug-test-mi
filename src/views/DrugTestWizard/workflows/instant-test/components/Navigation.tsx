@@ -26,6 +26,7 @@ export const InstantTestNavigation = withForm({
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
+    const isStepField = (fieldName: string, stepName: string) => fieldName === stepName || fieldName.startsWith(`${stepName}.`)
 
     // Check for current step errors
     const currentStepHasErrors = errors.some((errorObj) => {
@@ -34,19 +35,19 @@ export const InstantTestNavigation = withForm({
       return fieldNames.some((fieldName) => {
         switch (currentStep) {
           case 'upload':
-            return fieldName.startsWith('upload.')
+            return isStepField(fieldName, 'upload')
           case 'extract':
-            return fieldName.startsWith('extract.')
+            return isStepField(fieldName, 'extract')
           case 'client':
-            return fieldName.startsWith('client.')
+            return isStepField(fieldName, 'client')
           case 'medications':
-            return fieldName.startsWith('medications.')
+            return isStepField(fieldName, 'medications')
           case 'verifyData':
-            return fieldName.startsWith('verifyData.')
+            return isStepField(fieldName, 'verifyData')
           case 'confirm':
             return false
           case 'reviewEmails':
-            return fieldName.startsWith('emails.')
+            return isStepField(fieldName, 'emails')
           default:
             return false
         }
@@ -65,12 +66,25 @@ export const InstantTestNavigation = withForm({
 
     return (
       <div className="mt-8 flex items-center justify-between border-t pt-4">
-        <Button type="button" onClick={handleBack} variant="outline" disabled={isSubmitting} size="lg">
+        <Button
+          type="button"
+          onClick={handleBack}
+          variant="outline"
+          disabled={isSubmitting}
+          size="lg"
+          data-testid="wizard-back-button"
+        >
           <ChevronLeft className="mr-2 h-5 w-5" />
           {isFirstStep ? 'Cancel' : 'Back'}
         </Button>
 
-        <Button disabled={isSubmitting || currentStepHasErrors} size="lg">
+        <Button
+          type="button"
+          disabled={isSubmitting || currentStepHasErrors}
+          size="lg"
+          onClick={() => form.handleSubmit()}
+          data-testid="wizard-next-button"
+        >
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />

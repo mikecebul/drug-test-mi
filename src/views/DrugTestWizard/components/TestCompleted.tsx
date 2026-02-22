@@ -23,6 +23,8 @@ export const TestCompleted = ({ testId, onBack }: { testId: string; onBack: () =
           Start New Test
         </Button>
         <Button
+          data-testid="wizard-view-drug-test-button"
+          data-drug-test-id={testId}
           onClick={() => router.push(`/admin/collections/drug-tests/${testId}`)}
           variant="outline"
           size="lg"

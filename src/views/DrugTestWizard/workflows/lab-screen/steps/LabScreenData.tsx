@@ -93,6 +93,9 @@ export const LabScreenDataStep = withForm({
           form.setFieldValue('labScreenData.confirmationSubstances', preview.unexpectedPositives)
         }
       }
+
+      // Ensure submit-mode errors clear immediately after user correction.
+      form.validate('submit')
     }
 
     const handleHeadshotLinked = useCallback(
@@ -333,9 +336,10 @@ export const LabScreenDataStep = withForm({
                     <ConfirmationSubstanceSelector
                       unexpectedPositives={preview?.unexpectedPositives ?? []}
                       selectedSubstances={confirmationSubstancesValue ?? []}
-                      onSelectionChange={(substances) =>
+                      onSelectionChange={(substances) => {
                         form.setFieldValue('labScreenData.confirmationSubstances', substances)
-                      }
+                        form.validate('submit')
+                      }}
                       error={field.state.meta.errors?.[0]?.message}
                     />
                   </div>

@@ -207,7 +207,7 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
               </h3>
 
               <div className="text-foreground/85 space-y-0.5 text-sm leading-snug sm:text-base">
-                <p className="break-words [overflow-wrap:anywhere]">{client.email}</p>
+                <p className="wrap-break-word">{client.email}</p>
                 {client.dob && <p>DOB: {formatDateOnly(client.dob)}</p>}
                 {client.phone && <p>Phone: {client.phone}</p>}
               </div>

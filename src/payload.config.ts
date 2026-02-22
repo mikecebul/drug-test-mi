@@ -78,9 +78,22 @@ const generateImage: GenerateImage<Page> = ({ doc }) => {
   return '/og.png'
 }
 
+const isAdminAutoLoginEnabled = process.env.PAYLOAD_ADMIN_AUTOLOGIN_ENABLED === 'true'
+const adminAutoLoginEmail = process.env.PAYLOAD_ADMIN_AUTOLOGIN_EMAIL?.trim()
+const adminAutoLoginPassword = process.env.PAYLOAD_ADMIN_AUTOLOGIN_PASSWORD?.trim()
+
+const adminAutoLogin =
+  isAdminAutoLoginEnabled && adminAutoLoginEmail
+    ? {
+        email: adminAutoLoginEmail,
+        password: adminAutoLoginPassword,
+      }
+    : false
+
 export default buildConfig({
   // serverURL: baseUrl,
   admin: {
+    autoLogin: adminAutoLogin,
     autoRefresh: true,
     avatar: 'default',
     components: {
