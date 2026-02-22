@@ -229,6 +229,7 @@ export function RegisterClientDialog({
             mainContactName: recipients.otherCourtMainContactName,
             mainContactEmail: recipients.otherCourtMainContactEmail,
             recipientEmails: recipients.otherCourtRecipientEmails,
+            additionalRecipients: recipients.otherCourtAdditionalRecipients || [],
           }
         } else {
           data.referral = {
@@ -249,6 +250,7 @@ export function RegisterClientDialog({
             mainContactName: recipients.otherEmployerMainContactName,
             mainContactEmail: recipients.otherEmployerMainContactEmail,
             recipientEmails: recipients.otherEmployerRecipientEmails,
+            additionalRecipients: recipients.otherEmployerAdditionalRecipients || [],
           }
         } else {
           data.referral = {

@@ -11,7 +11,12 @@ import { computeTestResults, computeFinalStatus, fetchDocument, sendEmails } fro
 import { FormMedications } from './workflows/shared-validators'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
-import { buildContactsFromLegacyInput, createInactiveReferralAndAlert, parseRecipientEmails } from '@/lib/referrals'
+import {
+  buildContactsFromLegacyInput,
+  createInactiveReferralAndAlert,
+  normalizeReferralContacts,
+  parseRecipientEmails,
+} from '@/lib/referrals'
 
 const _TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
 const _TEST_EMAIL = process.env.EMAIL_TEST_ADDRESS || 'mike@midrugtest.com'
@@ -1907,6 +1912,28 @@ function normalizeAdditionalRecipients(
   return Array.from(deduped.values())
 }
 
+function buildReferralContactsFromForm(args: {
+  mainContactName: string
+  mainContactEmail: string
+  namedAdditionalRecipients?: Array<{ name?: string; email?: string }>
+  legacyAdditionalRecipientEmails?: string
+}) {
+  const namedAdditionalRecipients = normalizeAdditionalRecipients(args.namedAdditionalRecipients)
+
+  if (namedAdditionalRecipients.length > 0) {
+    return normalizeReferralContacts([
+      { name: args.mainContactName, email: args.mainContactEmail },
+      ...namedAdditionalRecipients,
+    ])
+  }
+
+  return buildContactsFromLegacyInput(
+    args.mainContactName,
+    args.mainContactEmail,
+    parseRecipientEmails(args.legacyAdditionalRecipientEmails),
+  )
+}
+
 /**
  * Register a new client from the Drug Test Wizard
  * Creates a client with auto-generated password
@@ -1930,6 +1957,7 @@ export async function registerClientFromWizard(data: {
     mainContactName: string
     mainContactEmail: string
     recipientEmails?: string
+    additionalRecipients?: Array<{ name?: string; email?: string }>
   }
   additionalReferralRecipients?: Array<{ name?: string; email: string }>
 }): Promise<{
@@ -1986,11 +2014,12 @@ export async function registerClientFromWizard(data: {
         type: data.otherReferral.type,
         source: 'admin',
         name: data.otherReferral.name,
-        contacts: buildContactsFromLegacyInput(
-          data.otherReferral.mainContactName,
-          data.otherReferral.mainContactEmail,
-          parseRecipientEmails(data.otherReferral.recipientEmails),
-        ),
+        contacts: buildReferralContactsFromForm({
+          mainContactName: data.otherReferral.mainContactName,
+          mainContactEmail: data.otherReferral.mainContactEmail,
+          namedAdditionalRecipients: data.otherReferral.additionalRecipients,
+          legacyAdditionalRecipientEmails: data.otherReferral.recipientEmails,
+        }),
       })
 
       clientData.referral = relationship

@@ -154,6 +154,35 @@ ${clientName}`)
     window.open(mailtoLink, '_blank')
   }
 
+  const getSelfAdditionalRecipients = () => {
+    const recipients = new Map<string, { name?: string; email: string }>()
+
+    const add = (row: { name?: string | null; email?: string | null }) => {
+      const email = typeof row?.email === 'string' ? row.email.trim() : ''
+      if (!email) return
+
+      const key = email.toLowerCase()
+      const name = typeof row?.name === 'string' ? row.name.trim() || undefined : undefined
+      const existing = recipients.get(key)
+
+      if (!existing) {
+        recipients.set(key, { ...(name ? { name } : {}), email })
+        return
+      }
+
+      if (!existing.name && name) {
+        recipients.set(key, { name, email: existing.email })
+      }
+    }
+
+    for (const row of user?.selfReferral?.recipients || []) add(row)
+    for (const row of user?.referralAdditionalRecipients || []) add(row)
+
+    return Array.from(recipients.values())
+  }
+
+  const selfAdditionalRecipients = getSelfAdditionalRecipients()
+
   // Profile Overview Component (shared between view and edit)
   const ProfileOverview = () => (
     <Card className="lg:col-span-1">
@@ -321,7 +350,7 @@ ${clientName}`)
         </Card>
       )}
 
-      {user?.referralType === 'self' && user?.selfReferral?.recipients && user.selfReferral.recipients.length > 0 && (
+      {user?.referralType === 'self' && selfAdditionalRecipients.length > 0 && (
         <Card className="mt-6">
           <CardHeader>
             <CardTitle>Additional Recipients</CardTitle>
@@ -334,9 +363,9 @@ ${clientName}`)
               <div>
                 <p className="font-medium mb-2">Results also sent to:</p>
                 <ul className="text-muted-foreground space-y-1">
-                  {user.selfReferral.recipients.map((recipient, idx) => (
+                  {selfAdditionalRecipients.map((recipient, idx) => (
                     <li key={idx} className="pl-4">
-                      • {recipient.name} <span className="text-xs">({recipient.email})</span>
+                      • {recipient.name || 'Recipient'} <span className="text-xs">({recipient.email})</span>
                     </li>
                   ))}
                 </ul>

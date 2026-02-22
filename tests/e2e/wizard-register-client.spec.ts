@@ -13,8 +13,13 @@ function uniqueEmail(prefix: string) {
 }
 
 async function fillPersonalInfo(page: Page) {
-  const firstNameInput = page.locator('input[name="personalInfo.firstName"]').first()
-  const lastNameInput = page.locator('input[name="personalInfo.lastName"]').first()
+  const firstNameInput = page.getByRole('textbox', { name: /^First Name/i })
+  const lastNameInput = page.getByRole('textbox', { name: /^Last Name/i })
+
+  await expect(firstNameInput).toBeVisible()
+  await expect(firstNameInput).toBeEditable()
+  await expect(lastNameInput).toBeVisible()
+  await expect(lastNameInput).toBeEditable()
 
   await firstNameInput.fill('Admin')
   await expect(firstNameInput).toHaveValue('Admin')
