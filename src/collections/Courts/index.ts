@@ -32,6 +32,26 @@ export const Courts: CollectionConfig = {
       name: 'contacts',
       type: 'array',
       minRows: 1,
+      required: true,
+      validate: (value) => {
+        const rows = Array.isArray(value) ? value : []
+        const seenEmails = new Set<string>()
+
+        for (const row of rows) {
+          const email = typeof row?.email === 'string' ? row.email.trim().toLowerCase() : ''
+          if (!email) continue
+          if (seenEmails.has(email)) {
+            return 'Duplicate contact emails are not allowed.'
+          }
+          seenEmails.add(email)
+        }
+
+        if (seenEmails.size === 0) {
+          return 'At least one recipient contact is required.'
+        }
+
+        return true
+      },
       fields: [
         {
           name: 'name',

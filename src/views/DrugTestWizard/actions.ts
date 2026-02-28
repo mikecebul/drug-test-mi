@@ -12,6 +12,7 @@ import { FormMedications } from './workflows/shared-validators'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
 import {
+  assertReferralHasContacts,
   buildContactsFromLegacyInput,
   createInactiveReferralAndAlert,
   normalizeReferralContacts,
@@ -2024,6 +2025,12 @@ export async function registerClientFromWizard(data: {
 
       clientData.referral = relationship
     } else if (data.referralType !== 'self' && data.referral) {
+      await assertReferralHasContacts({
+        payload,
+        relationTo: data.referral.relationTo,
+        referralId: data.referral.value,
+      })
+
       clientData.referral = data.referral
     }
 

@@ -1412,13 +1412,11 @@ export interface Court {
   /**
    * Recipient contacts. The first row is treated as the main contact for display purposes.
    */
-  contacts?:
-    | {
-        name?: string | null;
-        email: string;
-        id?: string | null;
-      }[]
-    | null;
+  contacts: {
+    name?: string | null;
+    email: string;
+    id?: string | null;
+  }[];
   preferredTestType?: (string | null) | TestType;
   /**
    * Inactive courts are hidden from quick-select dropdowns, but remain usable for linked clients and email delivery.
@@ -1487,13 +1485,11 @@ export interface Employer {
   /**
    * Recipient contacts. The first row is treated as the main contact for display purposes.
    */
-  contacts?:
-    | {
-        name?: string | null;
-        email: string;
-        id?: string | null;
-      }[]
-    | null;
+  contacts: {
+    name?: string | null;
+    email: string;
+    id?: string | null;
+  }[];
   preferredTestType?: (string | null) | TestType;
   /**
    * Inactive employers are hidden from quick-select dropdowns, but remain usable for linked clients and email delivery.

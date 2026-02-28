@@ -6,10 +6,10 @@ import config from '@payload-config'
 import { headers } from 'next/headers'
 import { createAdminAlert } from '@/lib/admin-alerts'
 import { getRecipients } from '@/collections/DrugTests/email/recipients'
-import { createInactiveReferralAndAlert } from '@/lib/referrals'
+import { assertReferralHasContacts, createInactiveReferralAndAlert } from '@/lib/referrals'
 
 const recipientSchema = z.object({
-  name: z.string().trim(),
+  name: z.string().trim().optional(),
   email: z.string().trim().email('Recipient email is invalid'),
 })
 
@@ -56,7 +56,7 @@ function normalizeRecipients(recipients: ReferralRecipient[]): ReferralRecipient
 
     const existing = map.get(key)
     if (!existing) {
-      map.set(key, { name, email })
+      map.set(key, { ...(name ? { name } : {}), email })
       continue
     }
 
@@ -121,6 +121,12 @@ export async function updateClientReferralProfile(input: unknown): Promise<Updat
     if (referralType === 'self') {
       dataToUpdate.referralAdditionalRecipients = recipients
     } else if (referralId) {
+      await assertReferralHasContacts({
+        payload,
+        relationTo: referralType === 'court' ? 'courts' : 'employers',
+        referralId,
+      })
+
       dataToUpdate.referral = {
         relationTo: referralType === 'court' ? 'courts' : 'employers',
         value: referralId,

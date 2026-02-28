@@ -13,6 +13,8 @@ export type ReferralContact = {
   email: string
 }
 
+export type ReferralRelation = 'courts' | 'employers'
+
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
 }
@@ -71,6 +73,51 @@ export function buildContactsFromLegacyInput(
     { name: mainContactName, email: mainContactEmail },
     ...trailingContacts,
   ])
+}
+
+export function normalizeReferralContactsFromDoc(
+  doc: {
+    contacts?: Array<{ name?: string | null; email?: string | null }> | null
+    mainContactName?: string | null
+    mainContactEmail?: string | null
+    contactName?: string | null
+    contactEmail?: string | null
+    recipientEmails?: Array<{ email?: string | null } | string | null> | null
+  } | null | undefined,
+): ReferralContact[] {
+  return normalizeReferralContacts([
+    ...((doc?.contacts || []) as Array<{ name?: string | null; email?: string | null }>),
+    {
+      name: doc?.mainContactName || doc?.contactName,
+      email: doc?.mainContactEmail || doc?.contactEmail,
+    },
+    ...((doc?.recipientEmails || []).map((row) =>
+      typeof row === 'string' ? { email: row } : { email: row?.email },
+    ) as Array<{ email?: string | null }>),
+  ])
+}
+
+export async function assertReferralHasContacts(args: {
+  payload: Payload
+  relationTo: ReferralRelation
+  referralId: string
+}) {
+  const referralDoc = await args.payload.findByID({
+    collection: args.relationTo,
+    id: args.referralId,
+    depth: 0,
+    overrideAccess: true,
+  })
+
+  const contacts = normalizeReferralContactsFromDoc(referralDoc as any)
+  if (contacts.length === 0) {
+    const referralTypeLabel = args.relationTo === 'courts' ? 'court' : 'employer'
+    throw new Error(
+      `Selected ${referralTypeLabel} referral has no recipient contacts. Add at least one contact to continue.`,
+    )
+  }
+
+  return contacts
 }
 
 export async function createInactiveReferralAndAlert(args: {

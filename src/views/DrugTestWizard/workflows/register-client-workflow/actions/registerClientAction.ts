@@ -5,6 +5,7 @@ import config from '@payload-config'
 import type { FormValues } from '../validators'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
 import {
+  assertReferralHasContacts,
   buildContactsFromLegacyInput,
   createInactiveReferralAndAlert,
   normalizeReferralContacts,
@@ -171,6 +172,12 @@ export async function registerClientAction(formData: FormValues): Promise<{
 
         clientData.referral = relationship
       } else if (recipients.selectedEmployer) {
+        await assertReferralHasContacts({
+          payload,
+          relationTo: 'employers',
+          referralId: recipients.selectedEmployer,
+        })
+
         clientData.referral = {
           relationTo: 'employers',
           value: recipients.selectedEmployer,
@@ -197,6 +204,12 @@ export async function registerClientAction(formData: FormValues): Promise<{
 
         clientData.referral = relationship
       } else if (recipients.selectedCourt) {
+        await assertReferralHasContacts({
+          payload,
+          relationTo: 'courts',
+          referralId: recipients.selectedCourt,
+        })
+
         clientData.referral = {
           relationTo: 'courts',
           value: recipients.selectedCourt,
