@@ -20,7 +20,7 @@ export const PersonalInfoStep = withForm({
           </form.AppField>
 
           <form.AppField name="personalInfo.middleInitial">
-            {(field) => <field.TextField label="Middle Initial" description="Optional, single letter" />}
+            {(field) => <field.TextField label="Middle Initial" description="Single letter" required />}
           </form.AppField>
 
           <form.AppField name="personalInfo.lastName">

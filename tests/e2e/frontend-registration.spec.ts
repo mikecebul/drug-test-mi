@@ -68,6 +68,7 @@ async function openRegistration(page: Page) {
 
 async function fillPersonalInfo(page: Page) {
   await page.getByLabel('First Name').fill('Alex')
+  await page.getByLabel('Middle Initial').fill('Q')
   await page.getByLabel('Last Name').fill('Taylor')
   await page.locator('[id="personalInfo.gender"]').click()
   await page.getByRole('option', { name: 'Male', exact: true }).click()
@@ -116,6 +117,7 @@ test('validates steps, supports back-forward navigation, and validates medicatio
 
   await page.getByRole('button', { name: 'Next', exact: true }).click()
   await expect(page.getByText('First name is required')).toBeVisible()
+  await expect(page.getByText('Middle initial is required')).toBeVisible()
   await expect(page.getByText('Last name is required')).toBeVisible()
 
   await fillPersonalInfo(page)

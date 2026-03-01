@@ -23,7 +23,7 @@ export const PersonalInfoStep = withForm({
             </div>
             <div className="w-full @lg:w-24">
               <form.AppField name="personalInfo.middleInitial">
-                {(field) => <field.TextField label="M.I." />}
+                {(field) => <field.TextField label="M.I." required />}
               </form.AppField>
             </div>
             <div className="flex-1">

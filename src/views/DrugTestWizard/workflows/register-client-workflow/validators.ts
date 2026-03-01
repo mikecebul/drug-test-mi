@@ -8,7 +8,11 @@ const additionalRecipientRowSchema = z.object({
 export const personalInfoFieldSchema = z.object({
   firstName: z.string().min(1, { error: 'First name is required' }),
   lastName: z.string().min(1, { error: 'Last name is required' }),
-  middleInitial: z.string().max(1, { error: 'Middle initial must be a single character' }).optional(),
+  middleInitial: z
+    .string()
+    .trim()
+    .min(1, { error: 'Middle initial is required' })
+    .max(1, { error: 'Middle initial must be a single character' }),
   gender: z.string().min(1, { error: 'Please select a gender' }),
   dob: z.union([
     z.string().min(1, { error: 'Date of birth is required' }),

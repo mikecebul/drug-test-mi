@@ -24,6 +24,9 @@ async function fillPersonalInfo(page: Page) {
   await firstNameInput.fill('Admin')
   await expect(firstNameInput).toHaveValue('Admin')
 
+  await page.locator('input[name="personalInfo.middleInitial"]').fill('Q')
+  await expect(page.locator('input[name="personalInfo.middleInitial"]')).toHaveValue('Q')
+
   await lastNameInput.fill('Registrant')
   await expect(lastNameInput).toHaveValue('Registrant')
 
@@ -64,6 +67,7 @@ test.describe('Wizard Register Client', () => {
   test('validates required fields and supports back-forward in recipient setup', async ({ page }) => {
     await page.getByRole('button', { name: /^Next$/i }).click()
     await expect(page.getByText('First name is required')).toBeVisible()
+    await expect(page.getByText('Middle initial is required')).toBeVisible()
     await expect(page.getByText('Last name is required')).toBeVisible()
 
     await fillPersonalInfo(page)

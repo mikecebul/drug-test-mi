@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { recipientsSchema } from '../validators'
+import { personalInfoFieldSchema, recipientsSchema } from '../validators'
 
 function buildBaseRecipientsInput() {
   return {
@@ -79,5 +79,43 @@ describe('recipientsSchema additional referral recipients', () => {
 
     const result = recipientsSchema.safeParse(input)
     expect(result.success).toBe(false)
+  })
+})
+
+describe('personalInfoFieldSchema middle initial', () => {
+  test('requires middle initial', () => {
+    const result = personalInfoFieldSchema.safeParse({
+      firstName: 'Alex',
+      lastName: 'Taylor',
+      middleInitial: '',
+      gender: 'male',
+      dob: '1990-01-15',
+      phone: '2485551212',
+      headshot: null,
+    })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.message === 'Middle initial is required')).toBe(true)
+    }
+  })
+
+  test('rejects middle initial longer than one character', () => {
+    const result = personalInfoFieldSchema.safeParse({
+      firstName: 'Alex',
+      lastName: 'Taylor',
+      middleInitial: 'AB',
+      gender: 'male',
+      dob: '1990-01-15',
+      phone: '2485551212',
+      headshot: null,
+    })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) => issue.message === 'Middle initial must be a single character'),
+      ).toBe(true)
+    }
   })
 })
