@@ -38,7 +38,11 @@ export const Courts: CollectionConfig = {
         const seenEmails = new Set<string>()
 
         for (const row of rows) {
-          const email = typeof row?.email === 'string' ? row.email.trim().toLowerCase() : ''
+          const rowEmail =
+            row && typeof row === 'object' && 'email' in row
+              ? (row as { email?: unknown }).email
+              : undefined
+          const email = typeof rowEmail === 'string' ? rowEmail.trim().toLowerCase() : ''
           if (!email) continue
           if (seenEmails.has(email)) {
             return 'Duplicate contact emails are not allowed.'
