@@ -128,7 +128,9 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
         form.reset()
         onComplete(value.accountInfo.email)
         await setCurrentStep(null)
-        toast.success('Registration submitted successfully! Please check your email to verify your account.')
+        toast.success('Registration submitted successfully!', {
+          description: 'Please check your email to verify your account.',
+        })
       } catch (error) {
         console.error('Registration error:', error)
 

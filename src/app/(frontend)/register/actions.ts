@@ -63,13 +63,16 @@ function buildReferralContactsFromForm(args: {
 
 export async function checkEmailExists(email: string): Promise<boolean> {
   try {
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!normalizedEmail) return false
+
     const payload = await getPayload({ config })
 
     const result = await payload.find({
       collection: 'clients',
       where: {
         email: {
-          equals: email,
+          equals: normalizedEmail,
         },
       },
       limit: 1,

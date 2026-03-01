@@ -15,6 +15,12 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
 
   try {
     const { payload } = req
+    const asError = (error: unknown): Error =>
+      error instanceof Error ? error : new Error(typeof error === 'string' ? error : String(error))
+    const isNotFoundError = (error: unknown): boolean => {
+      const message = asError(error).message.toLowerCase()
+      return message.includes('not found') || message.includes('notfound')
+    }
 
     const referralTypeMap: Record<string, string> = {
       court: 'Court',
@@ -26,10 +32,17 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
 
     let referralName = ''
     let recipientRows: Array<{ name: string; email: string }> = []
+    type ReferralLike = {
+      contacts?: Array<{ name?: string | null; email?: string | null } | null> | null
+      mainContactName?: string | null
+      mainContactEmail?: string | null
+      recipientEmails?: Array<{ email?: string | null } | null> | null
+      name?: string | null
+    }
 
-    const normalizeReferralContacts = (referral: any): Array<{ name: string; email: string }> => {
+    const normalizeReferralContacts = (referral: ReferralLike | null | undefined): Array<{ name: string; email: string }> => {
       const map = new Map<string, { name: string; email: string }>()
-      const add = (contact: { name?: string; email?: string }) => {
+      const add = (contact: { name?: string | null; email?: string | null }) => {
         const email = typeof contact.email === 'string' ? contact.email.trim() : ''
         if (!email) return
         const key = email.toLowerCase()
@@ -93,15 +106,25 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
             : undefined
 
       if (referralValue) {
-        const referral = await payload.findByID({
-          collection: relationTo,
-          id: referralValue,
-          depth: 0,
-          overrideAccess: true,
-        })
+        try {
+          const referral = await payload.findByID({
+            collection: relationTo,
+            id: referralValue,
+            depth: 0,
+            overrideAccess: true,
+          })
 
-        referralName = referral?.name || ''
-        recipientRows = normalizeReferralContacts(referral)
+          referralName = referral?.name || ''
+          recipientRows = normalizeReferralContacts(referral)
+        } catch (error) {
+          if (isNotFoundError(error)) {
+            payload.logger.warn(
+              `Registration referral no longer exists (${relationTo}:${referralValue}) for client ${doc.email}. Continuing notification without preset referral contacts.`,
+            )
+          } else {
+            throw error
+          }
+        }
       }
 
       recipientRows = appendUniqueRecipients(
@@ -191,18 +214,28 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
       </html>
     `
 
-    await payload.sendEmail({
-      to: ['mike@midrugtest.com', 'tom@midrugtest.com'],
-      from: payload.email.defaultFromAddress,
-      subject: `New Client Registration - ${doc.firstName} ${doc.lastName}`,
-      html: emailBody,
-    })
+    try {
+      await payload.sendEmail({
+        to: ['mike@midrugtest.com', 'tom@midrugtest.com'],
+        from: payload.email.defaultFromAddress,
+        subject: `New Client Registration - ${doc.firstName} ${doc.lastName}`,
+        html: emailBody,
+      })
 
-    payload.logger.info(
-      `New registration notification sent to mike@midrugtest.com and tom@midrugtest.com for client ${doc.email}`,
-    )
+      payload.logger.info(
+        `New registration notification sent to mike@midrugtest.com and tom@midrugtest.com for client ${doc.email}`,
+      )
+    } catch (error) {
+      req.payload.logger.warn({
+        msg: 'Failed to send registration notification email (non-blocking)',
+        err: asError(error),
+      })
+    }
   } catch (error) {
-    req.payload.logger.error(`Failed to send registration notification: ${error}`)
+    req.payload.logger.error({
+      msg: 'Unexpected failure while preparing registration notification',
+      err: error instanceof Error ? error : new Error(String(error)),
+    })
   }
 
   return doc

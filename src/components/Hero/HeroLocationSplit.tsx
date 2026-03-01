@@ -119,6 +119,8 @@ export function HeroLocationSplit(props: Props) {
                 alt={resolvedMapAlt}
                 fill
                 unoptimized
+                priority
+                loading="eager"
                 className="h-full w-full object-cover"
                 sizes="(max-width: 1023px) 100vw, (max-width: 1279px) 33vw, 540px"
               />

@@ -64,12 +64,12 @@ export const getRegisterClientFormOpts = (step: Steps[number]) =>
     validators: {
       onSubmitAsync: async ({ value }) => {
         if (step !== 'accountInfo') return undefined
-        const email = value.accountInfo.email
-        if (!email || !z.email().safeParse(email).success) {
+        const normalizedEmail = value.accountInfo.email.trim().toLowerCase()
+        if (!normalizedEmail || !z.email().safeParse(normalizedEmail).success) {
           return undefined
         }
         try {
-          const emailExists = await checkEmailExists(email)
+          const emailExists = await checkEmailExists(normalizedEmail)
           if (emailExists) {
             return {
               fields: {
