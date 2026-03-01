@@ -6,15 +6,27 @@ import { Plus, Trash2 } from 'lucide-react'
 import { useStore } from '@tanstack/react-form'
 import { useEmployerOptions } from '../hooks/useEmployerOptions'
 import { useCourtOptions } from '../hooks/useCourtOptions'
-import { FieldError } from '@/components/ui/field'
+import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { groupCourtSelectOptions } from '../utils/groupCourtSelectOptions'
 
 export const RecipientsStep = withForm({
   ...getRegisterClientFormOpts('recipients'),
 
   render: function Render({ form }) {
+    const CLEAR_SELECTION_VALUE = '__none__'
     const { employers, employersById, isLoading: isLoadingEmployers } = useEmployerOptions()
     const { courts, courtsById, isLoading: isLoadingCourts } = useCourtOptions()
+    const groupedCourtOptions = groupCourtSelectOptions(courts)
 
     const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
     const selectedEmployerValue = useStore(form.store, (state) => state.values.recipients.selectedEmployer)
@@ -268,30 +280,51 @@ export const RecipientsStep = withForm({
         <>
           <form.AppField name="recipients.selectedCourt">
             {(field) => {
-              const hasErrors = field.state.meta.errors.length > 0
+              const errors = field.state.meta.errors
+              const hasErrors = errors.length > 0
               return (
-                <div className="space-y-2">
-                  <label htmlFor="court-select" className="text-foreground block text-sm font-medium">
+                <Field data-invalid={hasErrors}>
+                  <FieldLabel htmlFor="court-select">
                     Select Court <span className="text-destructive">*</span>
-                  </label>
-                  <select
-                    id="court-select"
+                  </FieldLabel>
+                  <Select
                     value={field.state.value || ''}
-                    onChange={(e) => field.handleChange(e.target.value)}
+                    onValueChange={(value) => field.handleChange(value === CLEAR_SELECTION_VALUE ? '' : value)}
                     disabled={isLoadingCourts}
-                    aria-invalid={hasErrors || undefined}
-                    className="border-input bg-background text-foreground focus:ring-ring w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
                   >
-                    <option value="">-- Select a court --</option>
-                    {courts.map((court) => (
-                      <option key={court.id} value={court.id}>
-                        {court.name}
-                      </option>
-                    ))}
-                    <option value="other">Other (Add new court)</option>
-                  </select>
-                  <FieldError errors={field.state.meta.errors} />
-                </div>
+                    <SelectTrigger id="court-select" className="w-full" aria-invalid={hasErrors || undefined}>
+                      <SelectValue placeholder={isLoadingCourts ? 'Loading courts...' : 'Select a court'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {isLoadingCourts ? (
+                        <SelectItem value={CLEAR_SELECTION_VALUE} disabled>
+                          Loading courts...
+                        </SelectItem>
+                      ) : (
+                        <>
+                          <SelectItem value={CLEAR_SELECTION_VALUE}>-- Select a court --</SelectItem>
+                          {groupedCourtOptions.map((optionOrGroup) =>
+                            'groupLabel' in optionOrGroup ? (
+                              <SelectGroup key={optionOrGroup.groupLabel}>
+                                <SelectLabel>{optionOrGroup.groupLabel}</SelectLabel>
+                                {optionOrGroup.options.map((option) => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            ) : (
+                              <SelectItem key={optionOrGroup.value} value={optionOrGroup.value}>
+                                {optionOrGroup.label}
+                              </SelectItem>
+                            ),
+                          )}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FieldError errors={errors} />
+                </Field>
               )
             }}
           </form.AppField>
