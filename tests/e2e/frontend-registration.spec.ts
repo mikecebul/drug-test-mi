@@ -219,7 +219,8 @@ test('supports employer new referral with preset and personal additional recipie
 test('supports court preset referral with additional recipient', async ({ page }) => {
   await goToRecipients(page, 'court', 'court-preset')
 
-  await page.locator('#court-select').selectOption('court-1')
+  await page.getByLabel('Select Court').click()
+  await page.getByRole('option', { name: 'Wayne County Court', exact: true }).click()
   await expect(page.getByText('probation@waynecourt.example')).toBeVisible()
   await expect(page.getByText('Preferred test type:')).toBeVisible()
 
@@ -233,7 +234,8 @@ test('supports court preset referral with additional recipient', async ({ page }
 test('supports court new referral with preset and personal additional recipients', async ({ page }) => {
   await goToRecipients(page, 'court', 'court-new')
 
-  await page.locator('#court-select').selectOption('other')
+  await page.getByLabel('Select Court').click()
+  await page.getByRole('option', { name: 'Other (Add new court)', exact: true }).click()
   await page.getByRole('button', { name: 'Next', exact: true }).click()
   await expect(page.getByText('Court name is required')).toBeVisible()
   await expect(page.getByText('Main contact email is required')).toBeVisible()
