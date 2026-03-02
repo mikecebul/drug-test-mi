@@ -1,6 +1,6 @@
 import { admins } from '@/access/admins'
 import { link } from '@/fields/link'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath } from 'next/cache.js'
 import type { GlobalConfig } from 'payload'
 
 export const CompanyInfo: GlobalConfig = {
