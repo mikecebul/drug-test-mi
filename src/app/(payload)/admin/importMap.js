@@ -45,9 +45,7 @@ import { default as default_9734ea5d74b781c5b6e952c2aa41414f } from '@/globals/C
 import { default as default_3ffd8082d3e9477cf001d7760082c496 } from '@/globals/CompanyInfo/HoursRowLabel'
 import { default as default_a8ed57560afaff4535f43ca83a9fecbd } from '@/graphics/Icon'
 import { default as default_1ceaa075bd8323ee72a35f935e6cfcf1 } from '@/components/Logo/Graphic'
-import { default as default_e17bfc3e8d843320e75a952bc43937bb } from '@/views/afterDashboard/Analytics'
 import { default as default_f23981c7c14f3125f7b78fced0c90565 } from '@/views/afterNavLinks/LinkToAnalyticsDefaultRootView'
-import { default as default_d6e04372a82be90fd2f92f3de67c257d } from '@/views/beforeDashboard/DrugTestStats'
 import { default as default_097833d478bca303d2dce6febf359669 } from '@/views/beforeNavLinks/DrugTestCollectorLink'
 import { default as default_ecb6141ba55c46753b7e0292674e17e1 } from '@/views/beforeNavLinks/DrugTestTrackerLink'
 import { ImportExportProvider as ImportExportProvider_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
@@ -55,6 +53,9 @@ import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc056
 import { default as default_af05419e5157afdd5ccd30100f9c9f64 } from '@/views/Analytics'
 import { default as default_fb357f89b63991d343cdc6c077a34fcf } from '@/views/DrugTestTracker'
 import { default as default_466983afdb665bae58ae3399f538723f } from '@/views/DrugTestWizard'
+import { default as default_9f603328bd606f5c9a764a3d6e1236bd } from '@/views/dashboard/widgets/WizardEntryWidget'
+import { default as default_190b527a5d0dc60bde6858927bce505d } from '@/views/dashboard/widgets/PendingDrugTestsWidget'
+import { default as default_8f03d16ce0580fd0d5a1b1421f3c024c } from '@/views/dashboard/widgets/TotalClientsWidget'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
 export const importMap = {
@@ -105,9 +106,7 @@ export const importMap = {
   "@/globals/CompanyInfo/HoursRowLabel#default": default_3ffd8082d3e9477cf001d7760082c496,
   "@/graphics/Icon#default": default_a8ed57560afaff4535f43ca83a9fecbd,
   "@/components/Logo/Graphic#default": default_1ceaa075bd8323ee72a35f935e6cfcf1,
-  "@/views/afterDashboard/Analytics#default": default_e17bfc3e8d843320e75a952bc43937bb,
   "@/views/afterNavLinks/LinkToAnalyticsDefaultRootView#default": default_f23981c7c14f3125f7b78fced0c90565,
-  "@/views/beforeDashboard/DrugTestStats#default": default_d6e04372a82be90fd2f92f3de67c257d,
   "@/views/beforeNavLinks/DrugTestCollectorLink#default": default_097833d478bca303d2dce6febf359669,
   "@/views/beforeNavLinks/DrugTestTrackerLink#default": default_ecb6141ba55c46753b7e0292674e17e1,
   "@payloadcms/plugin-import-export/rsc#ImportExportProvider": ImportExportProvider_cdf7e044479f899a31f804427d568b36,
@@ -115,5 +114,8 @@ export const importMap = {
   "@/views/Analytics#default": default_af05419e5157afdd5ccd30100f9c9f64,
   "@/views/DrugTestTracker#default": default_fb357f89b63991d343cdc6c077a34fcf,
   "@/views/DrugTestWizard#default": default_466983afdb665bae58ae3399f538723f,
+  "@/views/dashboard/widgets/WizardEntryWidget#default": default_9f603328bd606f5c9a764a3d6e1236bd,
+  "@/views/dashboard/widgets/PendingDrugTestsWidget#default": default_190b527a5d0dc60bde6858927bce505d,
+  "@/views/dashboard/widgets/TotalClientsWidget#default": default_8f03d16ce0580fd0d5a1b1421f3c024c,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }

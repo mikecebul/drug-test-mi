@@ -97,8 +97,6 @@ export default buildConfig({
     autoRefresh: true,
     avatar: 'default',
     components: {
-      beforeDashboard: ['@/views/beforeDashboard/DrugTestStats'],
-      afterDashboard: ['@/views/afterDashboard/Analytics'],
       beforeNavLinks: [
         '@/views/beforeNavLinks/DrugTestCollectorLink',
         '@/views/beforeNavLinks/DrugTestTrackerLink',
@@ -122,6 +120,44 @@ export default buildConfig({
           path: '/drug-test-upload',
         },
       },
+    },
+    dashboard: {
+      widgets: [
+        {
+          slug: 'wizard-entry',
+          label: 'Drug Test Wizard',
+          ComponentPath: '@/views/dashboard/widgets/WizardEntryWidget',
+          minWidth: 'full',
+        },
+        {
+          slug: 'pending-drug-tests',
+          label: 'Pending Drug Tests',
+          ComponentPath: '@/views/dashboard/widgets/PendingDrugTestsWidget',
+          minWidth: 'small',
+          maxWidth: 'full',
+        },
+        {
+          slug: 'total-clients',
+          label: 'Total Clients',
+          ComponentPath: '@/views/dashboard/widgets/TotalClientsWidget',
+          minWidth: 'small',
+          maxWidth: 'full',
+        },
+      ],
+      defaultLayout: [
+        {
+          widgetSlug: 'wizard-entry',
+          width: 'full',
+        },
+        {
+          widgetSlug: 'pending-drug-tests',
+          width: 'medium',
+        },
+        {
+          widgetSlug: 'total-clients',
+          width: 'medium',
+        },
+      ],
     },
     importMap: {
       baseDir: path.resolve(dirname),
