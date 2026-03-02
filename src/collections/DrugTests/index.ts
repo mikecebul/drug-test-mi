@@ -197,16 +197,6 @@ export const DrugTests: CollectionConfig = {
         position: 'sidebar',
       },
     },
-    {
-      name: 'sendNotifications',
-      type: 'checkbox',
-      defaultValue: true,
-      admin: {
-        description:
-          'Uncheck to skip sending email notifications when saving (useful for testing or manual corrections)',
-        position: 'sidebar',
-      },
-    },
     // Main content organized in tabs
     {
       type: 'tabs',

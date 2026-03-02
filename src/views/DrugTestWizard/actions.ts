@@ -1207,7 +1207,6 @@ export async function createDrugTestWithEmailReview(
       processNotes: testData.hasConfirmation
         ? 'Created via Drug Test Wizard with email review and lab confirmation results'
         : 'Created via Drug Test Wizard with email review',
-      sendNotifications: false, // Prevent auto-send
     }
 
     // 3. Add confirmation data if present (lab tests with embedded confirmation)

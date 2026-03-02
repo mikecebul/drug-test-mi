@@ -1557,10 +1557,6 @@ export interface DrugTest {
    */
   confirmationDecision?: ('pending-decision' | 'accept' | 'request-confirmation') | null;
   /**
-   * Uncheck to skip sending email notifications when saving (useful for testing or manual corrections)
-   */
-  sendNotifications?: boolean | null;
-  /**
    * Client this drug test belongs to
    */
   relatedClient: string | Client;
@@ -3327,7 +3323,6 @@ export interface DrugTestsSelect<T extends boolean = true> {
   finalStatus?: T;
   isComplete?: T;
   confirmationDecision?: T;
-  sendNotifications?: T;
   relatedClient?: T;
   collectionDate?: T;
   testType?: T;
