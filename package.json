@@ -32,8 +32,6 @@
     "test:verify": "pnpm test",
     "test:gate": "pnpm test:integration:ci && pnpm test:e2e:smoke",
     "test:ui": "vitest --ui",
-    "changeset": "pnpm dlx @changesets/cli",
-    "version-packages": "pnpm dlx @changesets/cli version",
     "email": "email dev --dir src/emails --port 3001",
     "email:export": "email export --dir src/emails"
   },

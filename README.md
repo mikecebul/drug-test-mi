@@ -342,9 +342,11 @@ E2E helpers also seed/cleanup data using Payload local API utilities under `test
   - `integration` (Vitest run mode)
   - `ui-smoke` (Playwright CI-safe smoke suite)
 - Full local-file-dependent Playwright flows remain non-required/manual.
-- Product-impacting PRs should include a changeset file:
-  - Create one with `pnpm changeset`
-  - The `Version Packages` workflow opens/updates an automated version PR after merges to `main`
+- Every merge/push to `main` runs `Auto Release`:
+  - bumps patch version in `package.json` (`x.y.z` -> `x.y.(z+1)`)
+  - creates commit `chore: bump version`
+  - creates and pushes tag `vX.Y.Z`
+  - creates a GitHub Release for that tag
 
 ## Deployment (Dokploy)
 
