@@ -1,0 +1,148 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: integration
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URI: mongodb://127.0.0.1:27017/drug-test-mi-ci
+      PAYLOAD_SECRET: ci-payload-secret
+      PREVIEW_SECRET: ci-preview-secret
+      NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      NEXT_PUBLIC_SERVER_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_IS_LIVE: 'false'
+      EMAIL_TEST_MODE: 'false'
+      S3_BUCKET: ci-bucket
+      S3_ACCESS_KEY_ID: ci-access-key
+      S3_SECRET_ACCESS_KEY: ci-secret-key
+      S3_REGION: auto
+      S3_ENDPOINT: http://127.0.0.1:9000
+      STRIPE_SECRET_KEY: sk_test_ci
+      STRIPE_WEBHOOKS_ENDPOINT_SECRET: whsec_ci
+      RESEND_API_KEY: re_ci
+      PAYLOAD_ADMIN_AUTOLOGIN_ENABLED: 'true'
+      PAYLOAD_ADMIN_AUTOLOGIN_EMAIL: e2e.admin.autologin@example.com
+      PAYLOAD_ADMIN_AUTOLOGIN_PASSWORD: StrongPass123!
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run integration tests
+        run: pnpm test:integration:ci
+
+  ui-smoke:
+    name: ui-smoke
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+          - 1025:1025
+          - 8025:8025
+    env:
+      DATABASE_URI: mongodb://127.0.0.1:27017/drug-test-mi-ci
+      PAYLOAD_SECRET: ci-payload-secret
+      PREVIEW_SECRET: ci-preview-secret
+      NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      NEXT_PUBLIC_SERVER_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_IS_LIVE: 'false'
+      EMAIL_TEST_MODE: 'false'
+      EMAIL_HOST: 127.0.0.1
+      EMAIL_PORT: '1025'
+      S3_BUCKET: ci-bucket
+      S3_ACCESS_KEY_ID: ci-access-key
+      S3_SECRET_ACCESS_KEY: ci-secret-key
+      S3_REGION: auto
+      S3_ENDPOINT: http://127.0.0.1:9000
+      STRIPE_SECRET_KEY: sk_test_ci
+      STRIPE_WEBHOOKS_ENDPOINT_SECRET: whsec_ci
+      RESEND_API_KEY: re_ci
+      PAYLOAD_ADMIN_AUTOLOGIN_ENABLED: 'true'
+      PAYLOAD_ADMIN_AUTOLOGIN_EMAIL: e2e.admin.autologin@example.com
+      PAYLOAD_ADMIN_AUTOLOGIN_PASSWORD: StrongPass123!
+      PLAYWRIGHT_WORKERS: '1'
+      E2E_ENABLE_MAILPIT_ASSERTIONS: 'false'
+      E2E_REQUIRE_EMAIL_TEST_MODE_FALSE: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+      CI: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run UI smoke tests
+        run: pnpm test:e2e:smoke
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore

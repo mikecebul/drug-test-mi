@@ -286,10 +286,13 @@ pnpm test:ui
 Available scripts (from `package.json`):
 
 ```bash
+pnpm test:integration:ci
 pnpm test:e2e
 pnpm test:e2e:wizard
 pnpm test:e2e:registration
+pnpm test:e2e:smoke
 pnpm test:e2e:all
+pnpm test:gate
 pnpm test:e2e:headed
 pnpm test:e2e:ui
 ```
@@ -321,6 +324,16 @@ Some e2e helpers support additional env vars that may not be listed in `.env.exa
 - Mailpit config/assertions: `E2E_MAILPIT_API_BASE`, `E2E_SMTP_WEB_BASE`, `E2E_ENABLE_MAILPIT_ASSERTIONS`, `E2E_REQUIRE_EMAIL_TEST_MODE_FALSE`
 
 E2E helpers also seed/cleanup data using Payload local API utilities under `tests/e2e/helpers/`.
+
+### PR merge gates + versioning
+
+- `main` is intended to be merged via PR with required CI checks:
+  - `integration` (Vitest run mode)
+  - `ui-smoke` (Playwright CI-safe smoke suite)
+- Full local-file-dependent Playwright flows remain non-required/manual.
+- Product-impacting PRs should include a changeset file:
+  - Create one with `pnpm changeset`
+  - The `Version Packages` workflow opens/updates an automated version PR after merges to `main`
 
 ## Deployment (Dokploy)
 

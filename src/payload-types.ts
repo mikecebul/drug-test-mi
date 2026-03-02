@@ -176,6 +176,12 @@ export interface Config {
     'company-info': CompanyInfoSelect<false> | CompanyInfoSelect<true>;
   };
   locale: null;
+  widgets: {
+    'wizard-entry': WizardEntryWidget;
+    'pending-drug-tests': PendingDrugTestsWidget;
+    'total-clients': TotalClientsWidget;
+    collections: CollectionsWidget;
+  };
   user: Admin | Client;
   jobs: {
     tasks: {
@@ -233,15 +239,159 @@ export interface Page {
   id: string;
   title: string;
   layout: (
-    | CalendarEmbedBlock
-    | Hero
+    | {
+        title?: string | null;
+        description?: string | null;
+        calLink: string;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'calendarEmbed';
+      }
+    | {
+        type: 'highImpact' | 'mediumImpact' | 'locationSplit';
+        highImpact?: {
+          title: string;
+          description: string;
+          links?: LinkGroup;
+        };
+        mediumImpact?: {
+          subtitle?: string | null;
+          title: string;
+          heading?: ('h1' | 'h2') | null;
+          description?: string | null;
+        };
+        locationSplit?: {
+          badgeText: string;
+          headingPrefix: string;
+          headingHighlight: string;
+          description: string;
+          policyNote: string;
+          locationText: string;
+          links?: LinkGroup;
+          mapTitle: string;
+          mapSubtitle: string;
+          mapImage?: (string | null) | Media;
+          mapFooterText: string;
+          directionsLabel: string;
+          directionsUrl: string;
+        };
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'hero';
+      }
     | About
     | TrustBlock
     | TechniciansBlock
     | RichTextBlock
     | LinksBlock
-    | FormBlock
-    | TwoColumnLayoutBlock
+    | {
+        form: string | Form;
+        enableIntro?: boolean | null;
+        introContent?: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
+        } | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'formBlock';
+      }
+    | {
+        /**
+         * The direction of the layout
+         */
+        direction?: ('ltr' | 'rtl') | null;
+        /**
+         * The breakpoint at which the layout switches to a two column layout
+         */
+        breakpoint?: ('sm' | 'md' | 'lg' | 'xl') | null;
+        columnOne?: {
+          contentType?: ('cta' | 'richText') | null;
+          verticalAlignment?: ('top' | 'center' | 'bottom') | null;
+          richText?: {
+            root: {
+              type: string;
+              children: {
+                type: any;
+                version: number;
+                [k: string]: unknown;
+              }[];
+              direction: ('ltr' | 'rtl') | null;
+              format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+              indent: number;
+              version: number;
+            };
+            [k: string]: unknown;
+          } | null;
+          cta?: {
+            hasSubtitle?: boolean | null;
+            subtitle?: {
+              icon?: string | null;
+              text?: string | null;
+            };
+            title: string;
+            heading?: ('h1' | 'h2') | null;
+            description: string;
+            links?: LinkGroup;
+          };
+        };
+        columnTwo?: {
+          contentType?: ('image' | 'form' | 'calendarEmbed') | null;
+          priority?: boolean | null;
+          /**
+           * Images will follow as user scrolls
+           */
+          sticky?: boolean | null;
+          images?: (string | Media)[] | null;
+          form?:
+            | {
+                form: string | Form;
+                enableIntro?: boolean | null;
+                introContent?: {
+                  root: {
+                    type: string;
+                    children: {
+                      type: any;
+                      version: number;
+                      [k: string]: unknown;
+                    }[];
+                    direction: ('ltr' | 'rtl') | null;
+                    format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                    indent: number;
+                    version: number;
+                  };
+                  [k: string]: unknown;
+                } | null;
+                id?: string | null;
+                blockName?: string | null;
+                blockType: 'formBlock';
+              }[]
+            | null;
+          calendarEmbed?:
+            | {
+                title?: string | null;
+                description?: string | null;
+                calLink: string;
+                id?: string | null;
+                blockName?: string | null;
+                blockType: 'calendarEmbed';
+              }[]
+            | null;
+        };
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'TwoColumnLayout';
+      }
     | LayoutBlock
     | SchedulePageBlock
   )[];
@@ -262,54 +412,6 @@ export interface Page {
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "CalendarEmbedBlock".
- */
-export interface CalendarEmbedBlock {
-  title?: string | null;
-  description?: string | null;
-  calLink: string;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'calendarEmbed';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "Hero".
- */
-export interface Hero {
-  type: 'highImpact' | 'mediumImpact' | 'locationSplit';
-  highImpact?: {
-    title: string;
-    description: string;
-    links?: LinkGroup;
-  };
-  mediumImpact?: {
-    subtitle?: string | null;
-    title: string;
-    heading?: ('h1' | 'h2') | null;
-    description?: string | null;
-  };
-  locationSplit?: {
-    badgeText: string;
-    headingPrefix: string;
-    headingHighlight: string;
-    description: string;
-    policyNote: string;
-    locationText: string;
-    links?: LinkGroup;
-    mapTitle: string;
-    mapSubtitle: string;
-    mapImage?: (string | null) | Media;
-    mapFooterText: string;
-    directionsLabel: string;
-    directionsUrl: string;
-  };
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'hero';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -695,32 +797,6 @@ export interface LinksBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "FormBlock".
- */
-export interface FormBlock {
-  form: string | Form;
-  enableIntro?: boolean | null;
-  introContent?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'formBlock';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "forms".
  */
 export interface Form {
@@ -729,9 +805,41 @@ export interface Form {
   formType: 'dynamic' | 'static';
   fields?:
     | (
-        | CheckboxFormField
-        | CountryFormField
-        | EmailFormField
+        | {
+            name: string;
+            label?: string | null;
+            colSpan: '1' | '2';
+            errorMsg?: string | null;
+            defaultValue?: boolean | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'checkbox';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            /**
+             * form defaults to spanning the full two columns
+             */
+            colSpan: '1' | '2';
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'country';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            /**
+             * form defaults to spanning the full two columns
+             */
+            colSpan: '1' | '2';
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'email';
+          }
         | {
             message?: {
               root: {
@@ -752,13 +860,164 @@ export interface Form {
             blockName?: string | null;
             blockType: 'message';
           }
-        | NumberFormField
-        | SelectFormField
-        | StateFormField
-        | TextFormField
-        | TextareaFormField
-        | PhoneFormField
-        | ArrayFormField
+        | {
+            name: string;
+            label?: string | null;
+            colSpan: '1' | '2';
+            defaultValue?: number | null;
+            min?: number | null;
+            minError?: string | null;
+            max?: number | null;
+            maxError?: string | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'number';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            colSpan: '1' | '2';
+            defaultValue?: string | null;
+            options?:
+              | {
+                  label: string;
+                  value: string;
+                  id?: string | null;
+                }[]
+              | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'select';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            /**
+             * form defaults to spanning the full two columns
+             */
+            colSpan: '1' | '2';
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'state';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            colSpan: '1' | '2';
+            defaultValue?: string | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'text';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            colSpan: '1' | '2';
+            defaultValue?: string | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'textarea';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            /**
+             * form defaults to spanning the full two columns
+             */
+            colSpan: '1' | '2';
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'phone';
+          }
+        | {
+            name: string;
+            label: string;
+            title?: string | null;
+            description?: string | null;
+            colSpan: '1' | '2';
+            minRows: number;
+            maxRows: number;
+            fields: (
+              | {
+                  name: string;
+                  label?: string | null;
+                  colSpan: '1' | '2';
+                  defaultValue?: string | null;
+                  required?: boolean | null;
+                  id?: string | null;
+                  blockName?: string | null;
+                  blockType: 'text';
+                }
+              | {
+                  name: string;
+                  label?: string | null;
+                  colSpan: '1' | '2';
+                  defaultValue?: string | null;
+                  required?: boolean | null;
+                  id?: string | null;
+                  blockName?: string | null;
+                  blockType: 'textarea';
+                }
+              | {
+                  name: string;
+                  label?: string | null;
+                  /**
+                   * form defaults to spanning the full two columns
+                   */
+                  colSpan: '1' | '2';
+                  required?: boolean | null;
+                  id?: string | null;
+                  blockName?: string | null;
+                  blockType: 'email';
+                }
+              | {
+                  name: string;
+                  label?: string | null;
+                  colSpan: '1' | '2';
+                  defaultValue?: number | null;
+                  min?: number | null;
+                  minError?: string | null;
+                  max?: number | null;
+                  maxError?: string | null;
+                  required?: boolean | null;
+                  id?: string | null;
+                  blockName?: string | null;
+                  blockType: 'number';
+                }
+              | {
+                  name: string;
+                  label?: string | null;
+                  colSpan: '1' | '2';
+                  errorMsg?: string | null;
+                  defaultValue?: boolean | null;
+                  required?: boolean | null;
+                  id?: string | null;
+                  blockName?: string | null;
+                  blockType: 'checkbox';
+                }
+              | {
+                  name: string;
+                  label?: string | null;
+                  /**
+                   * form defaults to spanning the full two columns
+                   */
+                  colSpan: '1' | '2';
+                  required?: boolean | null;
+                  id?: string | null;
+                  blockName?: string | null;
+                  blockType: 'phone';
+                }
+            )[];
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'array';
+          }
         | GroupFormField
       )[]
     | null;
@@ -828,34 +1087,135 @@ export interface Form {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "CheckboxFormField".
+ * via the `definition` "GroupFormField".
  */
-export interface CheckboxFormField {
+export interface GroupFormField {
   name: string;
-  label?: string | null;
-  colSpan: '1' | '2';
-  errorMsg?: string | null;
-  defaultValue?: boolean | null;
-  required?: boolean | null;
+  title?: string | null;
+  description?: string | null;
+  fields: (
+    | {
+        name: string;
+        label?: string | null;
+        colSpan: '1' | '2';
+        defaultValue?: string | null;
+        required?: boolean | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'text';
+      }
+    | {
+        name: string;
+        label?: string | null;
+        colSpan: '1' | '2';
+        defaultValue?: string | null;
+        required?: boolean | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'textarea';
+      }
+    | {
+        name: string;
+        label?: string | null;
+        /**
+         * form defaults to spanning the full two columns
+         */
+        colSpan: '1' | '2';
+        required?: boolean | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'email';
+      }
+    | {
+        name: string;
+        label?: string | null;
+        colSpan: '1' | '2';
+        defaultValue?: number | null;
+        min?: number | null;
+        minError?: string | null;
+        max?: number | null;
+        maxError?: string | null;
+        required?: boolean | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'number';
+      }
+    | {
+        name: string;
+        label?: string | null;
+        colSpan: '1' | '2';
+        errorMsg?: string | null;
+        defaultValue?: boolean | null;
+        required?: boolean | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'checkbox';
+      }
+    | {
+        name: string;
+        label?: string | null;
+        /**
+         * form defaults to spanning the full two columns
+         */
+        colSpan: '1' | '2';
+        required?: boolean | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'phone';
+      }
+    | ArrayFormField
+    | SelectFormField
+    | StateFormField
+    | CountryFormField
+  )[];
   id?: string | null;
   blockName?: string | null;
-  blockType: 'checkbox';
+  blockType: 'group';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "CountryFormField".
+ * via the `definition` "ArrayFormField".
  */
-export interface CountryFormField {
+export interface ArrayFormField {
+  name: string;
+  label: string;
+  title?: string | null;
+  description?: string | null;
+  colSpan: '1' | '2';
+  minRows: number;
+  maxRows: number;
+  fields: (TextFormField | TextareaFormField | EmailFormField | NumberFormField | CheckboxFormField | PhoneFormField)[];
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'array';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TextFormField".
+ */
+export interface TextFormField {
   name: string;
   label?: string | null;
-  /**
-   * form defaults to spanning the full two columns
-   */
   colSpan: '1' | '2';
+  defaultValue?: string | null;
   required?: boolean | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'country';
+  blockType: 'text';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TextareaFormField".
+ */
+export interface TextareaFormField {
+  name: string;
+  label?: string | null;
+  colSpan: '1' | '2';
+  defaultValue?: string | null;
+  required?: boolean | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'textarea';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -890,6 +1250,37 @@ export interface NumberFormField {
   id?: string | null;
   blockName?: string | null;
   blockType: 'number';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CheckboxFormField".
+ */
+export interface CheckboxFormField {
+  name: string;
+  label?: string | null;
+  colSpan: '1' | '2';
+  errorMsg?: string | null;
+  defaultValue?: boolean | null;
+  required?: boolean | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'checkbox';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "PhoneFormField".
+ */
+export interface PhoneFormField {
+  name: string;
+  label?: string | null;
+  /**
+   * form defaults to spanning the full two columns
+   */
+  colSpan: '1' | '2';
+  required?: boolean | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'phone';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -930,37 +1321,9 @@ export interface StateFormField {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TextFormField".
+ * via the `definition` "CountryFormField".
  */
-export interface TextFormField {
-  name: string;
-  label?: string | null;
-  colSpan: '1' | '2';
-  defaultValue?: string | null;
-  required?: boolean | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'text';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TextareaFormField".
- */
-export interface TextareaFormField {
-  name: string;
-  label?: string | null;
-  colSpan: '1' | '2';
-  defaultValue?: string | null;
-  required?: boolean | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'textarea';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "PhoneFormField".
- */
-export interface PhoneFormField {
+export interface CountryFormField {
   name: string;
   label?: string | null;
   /**
@@ -970,48 +1333,17 @@ export interface PhoneFormField {
   required?: boolean | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'phone';
+  blockType: 'country';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ArrayFormField".
+ * via the `definition` "LayoutBlock".
  */
-export interface ArrayFormField {
-  name: string;
-  label: string;
-  title?: string | null;
-  description?: string | null;
-  colSpan: '1' | '2';
-  minRows: number;
-  maxRows: number;
-  fields: (TextFormField | TextareaFormField | EmailFormField | NumberFormField | CheckboxFormField | PhoneFormField)[];
+export interface LayoutBlock {
+  blocks?: (TwoColumnLayoutBlock | Hero | CalendarEmbedBlock)[] | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'array';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "GroupFormField".
- */
-export interface GroupFormField {
-  name: string;
-  title?: string | null;
-  description?: string | null;
-  fields: (
-    | TextFormField
-    | TextareaFormField
-    | EmailFormField
-    | NumberFormField
-    | CheckboxFormField
-    | PhoneFormField
-    | ArrayFormField
-    | SelectFormField
-    | StateFormField
-    | CountryFormField
-  )[];
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'group';
+  blockType: 'layout';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1065,7 +1397,16 @@ export interface TwoColumnLayoutBlock {
     sticky?: boolean | null;
     images?: (string | Media)[] | null;
     form?: FormBlock[] | null;
-    calendarEmbed?: CalendarEmbedBlock[] | null;
+    calendarEmbed?:
+      | {
+          title?: string | null;
+          description?: string | null;
+          calLink: string;
+          id?: string | null;
+          blockName?: string | null;
+          blockType: 'calendarEmbed';
+        }[]
+      | null;
   };
   id?: string | null;
   blockName?: string | null;
@@ -1073,13 +1414,77 @@ export interface TwoColumnLayoutBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "LayoutBlock".
+ * via the `definition` "FormBlock".
  */
-export interface LayoutBlock {
-  blocks?: (TwoColumnLayoutBlock | Hero | CalendarEmbedBlock)[] | null;
+export interface FormBlock {
+  form: string | Form;
+  enableIntro?: boolean | null;
+  introContent?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'layout';
+  blockType: 'formBlock';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "Hero".
+ */
+export interface Hero {
+  type: 'highImpact' | 'mediumImpact' | 'locationSplit';
+  highImpact?: {
+    title: string;
+    description: string;
+    links?: LinkGroup;
+  };
+  mediumImpact?: {
+    subtitle?: string | null;
+    title: string;
+    heading?: ('h1' | 'h2') | null;
+    description?: string | null;
+  };
+  locationSplit?: {
+    badgeText: string;
+    headingPrefix: string;
+    headingHighlight: string;
+    description: string;
+    policyNote: string;
+    locationText: string;
+    links?: LinkGroup;
+    mapTitle: string;
+    mapSubtitle: string;
+    mapImage?: (string | null) | Media;
+    mapFooterText: string;
+    directionsLabel: string;
+    directionsUrl: string;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'hero';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CalendarEmbedBlock".
+ */
+export interface CalendarEmbedBlock {
+  title?: string | null;
+  description?: string | null;
+  calLink: string;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'calendarEmbed';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3642,20 +4047,81 @@ export interface CompanyInfoSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "wizard-entry_widget".
+ */
+export interface WizardEntryWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pending-drug-tests_widget".
+ */
+export interface PendingDrugTestsWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "total-clients_widget".
+ */
+export interface TotalClientsWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "collections_widget".
+ */
+export interface CollectionsWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TaskCreateCollectionExport".
  */
 export interface TaskCreateCollectionExport {
   input: {
-    name?: string | null;
+    id: string;
+    name: string;
+    batchSize?: number | null;
+    collectionSlug:
+      | 'pages'
+      | 'bookings'
+      | 'forms'
+      | 'form-submissions'
+      | 'media'
+      | 'private-media'
+      | 'admins'
+      | 'admin-alerts'
+      | 'technicians'
+      | 'test-types'
+      | 'courts'
+      | 'employers'
+      | 'clients'
+      | 'drug-tests'
+      | 'exports'
+      | 'imports';
+    drafts?: ('yes' | 'no') | null;
+    exportCollection: string;
+    fields?: string[] | null;
     format: 'csv' | 'json';
     limit?: number | null;
+    locale?: string | null;
+    maxLimit?: number | null;
     page?: number | null;
     sort?: string | null;
-    sortOrder?: ('asc' | 'desc') | null;
-    drafts?: ('yes' | 'no') | null;
-    selectionToUse?: ('currentSelection' | 'currentFilters' | 'all') | null;
-    fields?: string[] | null;
-    collectionSlug: string;
+    userCollection?: string | null;
+    userID?: string | null;
     where?:
       | {
           [k: string]: unknown;
@@ -3665,12 +4131,6 @@ export interface TaskCreateCollectionExport {
       | number
       | boolean
       | null;
-    id?: string | null;
-    batchSize?: number | null;
-    userID?: string | null;
-    userCollection?: string | null;
-    exportCollection?: string | null;
-    maxLimit?: number | null;
   };
   output?: unknown;
 }
