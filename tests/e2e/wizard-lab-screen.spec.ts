@@ -221,7 +221,7 @@ test.describe('Wizard Lab Screen Workflow', () => {
     fixtures.created.drugTestIds.push(testId)
 
     const testRecord = await assertNotificationSent({ testId, stage: 'screened' })
-    expect(['screened', 'confirmation-pending']).toContain(testRecord.screeningStatus)
+    expect(testRecord.screeningStatus).toBe('complete')
 
     const expectedSubject = `Drug Test Results - ${fixtures.clients.labScreen.firstName} ${fixtures.clients.labScreen.lastName}`
 

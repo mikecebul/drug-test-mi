@@ -116,24 +116,21 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
       })
     }
 
-    // Auto-update screeningStatus based on confirmation workflow
-    if (confirmationComplete) {
-      data.screeningStatus = 'complete'
-    } else if (data.confirmationDecision === 'request-confirmation') {
-      data.screeningStatus = 'confirmation-pending'
-    }
-
     // Auto-complete logic
     // Complete if:
     // 1. Auto-accepted (negative or expected-positive)
     // 2. Manually accepted
     // 3. Confirmation requested and ALL results received
-    if (autoAccept || data.confirmationDecision === 'accept') {
-      data.isComplete = true
-    } else if (confirmationComplete) {
-      data.isComplete = true
+    const isComplete = autoAccept || data.confirmationDecision === 'accept' || confirmationComplete
+    data.isComplete = isComplete
+
+    // Keep screeningStatus aligned with completion state so status is the single workflow source.
+    if (isComplete) {
+      data.screeningStatus = 'complete'
+    } else if (data.confirmationDecision === 'request-confirmation') {
+      data.screeningStatus = 'confirmation-pending'
     } else {
-      data.isComplete = false
+      data.screeningStatus = 'screened'
     }
 
     return data

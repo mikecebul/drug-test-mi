@@ -42,6 +42,21 @@ export const DrugTests: CollectionConfig = {
     defaultColumns: ['relatedClient', 'testType', 'screeningStatus', 'collectionDate', 'isComplete'],
     description: 'Track drug test results and workflow',
     useAsTitle: 'clientName',
+    components: {
+      views: {
+        edit: {
+          summary: {
+            Component: '@/collections/DrugTests/views/DrugTestSummaryView',
+            path: '/summary',
+            tab: {
+              label: 'Summary',
+              href: '/summary',
+              order: 50,
+            },
+          },
+        },
+      },
+    },
   },
   fields: [
     // Computed field for display title (stored in DB)
@@ -194,16 +209,6 @@ export const DrugTests: CollectionConfig = {
       admin: {
         description:
           'AUTO-SELECTED as "accept" for negative/expected-positive results. For unexpected results, choose to accept as-is, request $30-45/substance confirmation, or leave pending.',
-        position: 'sidebar',
-      },
-    },
-    {
-      name: 'sendNotifications',
-      type: 'checkbox',
-      defaultValue: true,
-      admin: {
-        description:
-          'Uncheck to skip sending email notifications when saving (useful for testing or manual corrections)',
         position: 'sidebar',
       },
     },
