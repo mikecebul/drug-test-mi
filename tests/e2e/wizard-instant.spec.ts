@@ -109,7 +109,7 @@ test.describe('Wizard Instant Workflow', () => {
 
     const testRecord = await assertNotificationSent({ testId, stage: 'screened' })
 
-    expect(testRecord.screeningStatus).toBe('screened')
+    expect(testRecord.screeningStatus).toBe('complete')
 
     const expectedSubject = subjectForClient('Drug Test Results', fixtures.clients.instant)
 

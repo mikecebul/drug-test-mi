@@ -42,6 +42,21 @@ export const DrugTests: CollectionConfig = {
     defaultColumns: ['relatedClient', 'testType', 'screeningStatus', 'collectionDate', 'isComplete'],
     description: 'Track drug test results and workflow',
     useAsTitle: 'clientName',
+    components: {
+      views: {
+        edit: {
+          summary: {
+            Component: '@/collections/DrugTests/views/DrugTestSummaryView',
+            path: '/summary',
+            tab: {
+              label: 'Summary',
+              href: '/summary',
+              order: 50,
+            },
+          },
+        },
+      },
+    },
   },
   fields: [
     // Computed field for display title (stored in DB)
