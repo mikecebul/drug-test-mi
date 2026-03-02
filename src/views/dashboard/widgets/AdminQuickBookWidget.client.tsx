@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { getCalApi } from '@calcom/embed-react'
-import { Loader2 } from 'lucide-react'
+import { Calendar, Loader2, Search } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   extractPreferredTestType,
@@ -190,6 +191,18 @@ export function AdminQuickBookWidgetClient() {
     return searchClients(clients, searchQuery.trim(), 8)
   }, [clients, searchQuery])
 
+  const openCalBookingModal = async (config: Record<string, unknown>) => {
+    const cal = await getCalApi()
+
+    cal('modal', {
+      calLink: 'midrugtest/drug-test',
+      config: {
+        overlayCalendar: true,
+        ...config,
+      },
+    })
+  }
+
   const handleSelectClient = async (client: SimpleClient) => {
     setBookingError(null)
     setSearchQuery(client.fullName || `${client.firstName} ${client.lastName}`)
@@ -200,13 +213,11 @@ export function AdminQuickBookWidgetClient() {
       const recommendation = await resolveClientRecommendation(client.id)
       const options = testTypes.length > 0 ? testTypes : FALLBACK_TEST_TYPES
       const selectedTestLabel = resolveTestLabel(options, recommendation)
-      const cal = await getCalApi()
 
       const config: Record<string, unknown> = {
         name: client.fullName || `${client.firstName} ${client.lastName}`,
         email: client.email,
         test: selectedTestLabel,
-        overlayCalendar: true,
       }
 
       const formattedPhone = formatPhoneForCal(client.phone)
@@ -215,10 +226,7 @@ export function AdminQuickBookWidgetClient() {
         config.smsReminderNumber = formattedPhone
       }
 
-      cal('modal', {
-        calLink: 'midrugtest/drug-test',
-        config,
-      })
+      await openCalBookingModal(config)
     } catch (error) {
       console.error('[AdminQuickBookWidget] Failed to open booking', error)
       setBookingError('Could not open booking. Please try again.')
@@ -227,44 +235,82 @@ export function AdminQuickBookWidgetClient() {
     }
   }
 
+  const handleBookUnregistered = async () => {
+    setBookingError(null)
+    setIsDropdownOpen(false)
+    setSearchQuery('')
+    setIsOpeningBooking(true)
+
+    try {
+      await openCalBookingModal({})
+    } catch (error) {
+      console.error('[AdminQuickBookWidget] Failed to open unregistered booking', error)
+      setBookingError('Could not open booking. Please try again.')
+    } finally {
+      setIsOpeningBooking(false)
+    }
+  }
+
   return (
     <div className="space-y-2">
-      <div className="relative">
-        <Input
-          value={searchQuery}
-          onChange={(event) => {
-            setSearchQuery(event.target.value)
-            setIsDropdownOpen(true)
-          }}
-          onFocus={() => setIsDropdownOpen(true)}
-          onBlur={() => {
-            setTimeout(() => setIsDropdownOpen(false), 120)
-          }}
-          placeholder="Search client and book..."
-          disabled={isLoadingClients || isOpeningBooking || !!loadError}
-        />
-        {(isLoadingClients || isOpeningBooking) && (
-          <Loader2 className="text-muted-foreground absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin" />
-        )}
-        {isDropdownOpen && !isLoadingClients && results.length > 0 && (
-          <div className="bg-popover border-border absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-md border shadow-md">
-            {results.map((client) => (
-              <button
-                key={client.id}
-                type="button"
-                className="hover:bg-accent hover:text-accent-foreground w-full px-3 py-2 text-left"
-                onMouseDown={(event) => {
-                  event.preventDefault()
-                  void handleSelectClient(client)
-                }}
-              >
-                <p className="text-sm font-medium">{client.fullName || `${client.firstName} ${client.lastName}`}</p>
-                <p className="text-muted-foreground text-xs">{client.email}</p>
-              </button>
-            ))}
-          </div>
-        )}
+      <div className="border-primary/35 bg-primary/5 rounded-md border p-3">
+        <div className="mb-2 flex items-center gap-2">
+          <Search className="text-primary h-4 w-4" />
+          <p className="text-sm font-semibold">Book Existing Client</p>
+        </div>
+        <p className="text-muted-foreground mb-3 text-xs">
+          Search by name, email, phone, or DOB to open a prefilled appointment.
+        </p>
+        <div className="relative">
+          <Input
+            value={searchQuery}
+            onChange={(event) => {
+              setSearchQuery(event.target.value)
+              setIsDropdownOpen(true)
+            }}
+            onFocus={() => setIsDropdownOpen(true)}
+            onBlur={() => {
+              setTimeout(() => setIsDropdownOpen(false), 120)
+            }}
+            placeholder="Start typing client details..."
+            className="border-primary/50 bg-background pr-10"
+            disabled={isLoadingClients || isOpeningBooking || !!loadError}
+          />
+          {(isLoadingClients || isOpeningBooking) && (
+            <Loader2 className="text-muted-foreground absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin" />
+          )}
+          {isDropdownOpen && !isLoadingClients && results.length > 0 && (
+            <div className="bg-popover border-border absolute z-[80] mt-1 max-h-72 w-full overflow-y-auto rounded-md border shadow-md">
+              {results.map((client) => (
+                <button
+                  key={client.id}
+                  type="button"
+                  className="hover:bg-accent hover:text-accent-foreground w-full px-3 py-2 text-left"
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    void handleSelectClient(client)
+                  }}
+                >
+                  <p className="text-sm font-medium">{client.fullName || `${client.firstName} ${client.lastName}`}</p>
+                  <p className="text-muted-foreground text-xs">{client.email}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        className="w-full justify-center"
+        onClick={() => void handleBookUnregistered()}
+        disabled={isOpeningBooking}
+      >
+        <Calendar className="mr-2 h-4 w-4" />
+        Book Unregistered
+      </Button>
 
       {loadError && <p className="text-destructive text-xs">{loadError}</p>}
       {bookingError && <p className="text-destructive text-xs">{bookingError}</p>}

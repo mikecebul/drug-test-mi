@@ -130,6 +130,13 @@ export default buildConfig({
           maxWidth: 'full',
         },
         {
+          slug: 'total-clients',
+          label: 'Total Clients',
+          ComponentPath: '@/views/dashboard/widgets/TotalClientsWidget',
+          minWidth: 'small',
+          maxWidth: 'full',
+        },
+        {
           slug: 'admin-quick-book',
           label: 'Quick Book',
           ComponentPath: '@/views/dashboard/widgets/AdminQuickBookWidget',
@@ -150,17 +157,14 @@ export default buildConfig({
           minWidth: 'small',
           maxWidth: 'full',
         },
-        {
-          slug: 'total-clients',
-          label: 'Total Clients',
-          ComponentPath: '@/views/dashboard/widgets/TotalClientsWidget',
-          minWidth: 'small',
-          maxWidth: 'full',
-        },
       ],
       defaultLayout: [
         {
           widgetSlug: 'wizard-entry',
+          width: 'medium',
+        },
+        {
+          widgetSlug: 'total-clients',
           width: 'medium',
         },
         {
@@ -173,10 +177,6 @@ export default buildConfig({
         },
         {
           widgetSlug: 'pending-drug-tests',
-          width: 'medium',
-        },
-        {
-          widgetSlug: 'total-clients',
           width: 'medium',
         },
       ],

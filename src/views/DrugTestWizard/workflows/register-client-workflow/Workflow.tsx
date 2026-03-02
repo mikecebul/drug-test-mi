@@ -129,6 +129,8 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
       } else if (returnTo === 'collect-lab') {
         // Navigate to collect-lab workflow with new client
         router.push(`/admin/drug-test-upload?workflow=collect-lab&step=client&clientId=${createdClientId}`)
+      } else if (returnTo === 'dashboard') {
+        router.push('/admin')
       } else {
         // No specific workflow, return to wizard selector
         onBack()

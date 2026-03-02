@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { APP_TIMEZONE } from '@/lib/date-utils'
 import type { Booking } from '@/payload-types'
 import { cn } from '@/utilities/cn'
+import { DASHBOARD_WIDGET_CARD_CLASS } from './widget-card-styles'
 
 const ACTIVE_STATUSES = ['confirmed', 'pending', 'rescheduled'] as const
 
@@ -143,7 +144,7 @@ export default async function NextCalcomBookingWidget({ req }: WidgetServerProps
 
   return (
     <ShadcnWrapper className="pb-0">
-      <Card>
+      <Card className={DASHBOARD_WIDGET_CARD_CLASS}>
         <CardHeader className="pb-3">
           <CardTitle>Schedule</CardTitle>
         </CardHeader>
