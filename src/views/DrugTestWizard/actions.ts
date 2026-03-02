@@ -161,42 +161,25 @@ export async function findMatchingClients(
     }
   }
 
-  // 2. No exact match - use PayloadCMS search collection to find client IDs
-  // Query the search collection which has indexed client names
-  const searchResults = await payload.find({
-    collection: 'search',
-    where: {
-      'doc.relationTo': { equals: 'clients' },
-    },
-    depth: 0, // Don't populate - we'll fetch clients manually
-    limit: 100,
+  // 2. No exact match - score all clients directly from the clients collection
+  const clientsResult = await payload.find({
+    collection: 'clients',
+    limit: 1000,
+    depth: 1, // Populate headshot relation
     overrideAccess: true,
+    select: {
+      id: true,
+      firstName: true,
+      middleInitial: true,
+      lastName: true,
+      email: true,
+      dob: true,
+      headshot: true,
+    },
   })
 
   payload.logger.info(`[findMatchingClients] Search term: "${searchTerm}"`)
-  payload.logger.info(`[findMatchingClients] Found ${searchResults.docs.length} search records`)
-
-  // Extract client IDs from search results
-  const clientIds = searchResults.docs
-    .map((searchDoc) => (typeof searchDoc.doc.value === 'string' ? searchDoc.doc.value : null))
-    .filter((id): id is string => id !== null)
-
-  if (clientIds.length === 0) {
-    return { matches: [], searchTerm }
-  }
-
-  // Fetch all clients in one query
-  const clientsResult = await payload.find({
-    collection: 'clients',
-    where: {
-      id: { in: clientIds },
-    },
-    limit: 100,
-    depth: 1, // Populate headshot relation
-    overrideAccess: true,
-  })
-
-  payload.logger.info(`[findMatchingClients] Fetched ${clientsResult.docs.length} clients`)
+  payload.logger.info(`[findMatchingClients] Fetched ${clientsResult.docs.length} candidate clients`)
 
   // Calculate similarity scores for each client using weighted name matching
   const scoredMatches = clientsResult.docs
@@ -247,50 +230,36 @@ export async function searchClients(searchTerm: string): Promise<{
   total: number
 }> {
   const payload = await getPayload({ config })
+  const trimmedSearchTerm = searchTerm.trim()
 
-  payload.logger.info(`[searchClients] Searching for: "${searchTerm}"`)
-
-  // Step 1: Query the search collection to get client IDs
-  const searchResults = await payload.find({
-    collection: 'search',
-    where: {
-      'doc.relationTo': { equals: 'clients' },
-    },
-    depth: 0,
-    limit: 100,
-    overrideAccess: true,
-  })
-
-  payload.logger.info(`[searchClients] Found ${searchResults.docs.length} search docs`)
-
-  // Step 2: Extract client IDs from search results
-  const clientIds = searchResults.docs
-    .map((searchDoc) => (typeof searchDoc.doc.value === 'string' ? searchDoc.doc.value : null))
-    .filter((id): id is string => id !== null)
-
-  payload.logger.info(`[searchClients] Extracted ${clientIds.length} client IDs`)
-
-  if (clientIds.length === 0) {
+  if (!trimmedSearchTerm) {
     return { matches: [], total: 0 }
   }
 
-  // Step 3: Fetch full client documents
+  payload.logger.info(`[searchClients] Searching for: "${trimmedSearchTerm}"`)
+
+  // Fetch client records directly for local scoring
   const clientsResult = await payload.find({
     collection: 'clients',
-    where: {
-      id: { in: clientIds },
-    },
-    limit: 100,
+    limit: 1000,
     overrideAccess: true,
+    select: {
+      id: true,
+      firstName: true,
+      middleInitial: true,
+      lastName: true,
+      email: true,
+      dob: true,
+    },
   })
 
   payload.logger.info(`[searchClients] Fetched ${clientsResult.docs.length} clients`)
 
-  // Step 4: Calculate similarity scores for each client
+  // Calculate similarity scores for each client
   const scoredMatches = clientsResult.docs
     .map((client) => {
       // For manual search, we need to parse the search term to extract name parts
-      const searchParts = searchTerm.trim().split(/\s+/)
+      const searchParts = trimmedSearchTerm.split(/\s+/)
       let nameScore = 0
 
       if (searchParts.length >= 2) {
@@ -316,7 +285,7 @@ export async function searchClients(searchTerm: string): Promise<{
       }
 
       // Also check email similarity
-      const emailScore = calculateSimilarity(searchTerm, client.email)
+      const emailScore = calculateSimilarity(trimmedSearchTerm, client.email)
 
       // Use best match between name and email
       const score = Math.max(emailScore, nameScore)

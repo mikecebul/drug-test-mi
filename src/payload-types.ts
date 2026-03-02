@@ -111,7 +111,6 @@ export interface Config {
     employers: Employer;
     clients: Client;
     'drug-tests': DrugTest;
-    search: Search;
     exports: Export;
     imports: Import;
     redirects: Redirect;
@@ -153,7 +152,6 @@ export interface Config {
     employers: EmployersSelect<false> | EmployersSelect<true>;
     clients: ClientsSelect<false> | ClientsSelect<true>;
     'drug-tests': DrugTestsSelect<false> | DrugTestsSelect<true>;
-    search: SearchSelect<false> | SearchSelect<true>;
     exports: ExportsSelect<false> | ExportsSelect<true>;
     imports: ImportsSelect<false> | ImportsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
@@ -1994,23 +1992,6 @@ export interface Technician {
   createdAt: string;
 }
 /**
- * This is a collection of automatically created search results. These results are used by the global site search and will be updated automatically as documents in the CMS are created or updated.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "search".
- */
-export interface Search {
-  id: string;
-  title?: string | null;
-  priority?: number | null;
-  doc: {
-    relationTo: 'clients';
-    value: string | Client;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "exports".
  */
@@ -2276,10 +2257,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'drug-tests';
         value: string | DrugTest;
-      } | null)
-    | ({
-        relationTo: 'search';
-        value: string | Search;
       } | null)
     | ({
         relationTo: 'redirects';
@@ -3366,17 +3343,6 @@ export interface DrugTestsSelect<T extends boolean = true> {
         errorMessage?: T;
         id?: T;
       };
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "search_select".
- */
-export interface SearchSelect<T extends boolean = true> {
-  title?: T;
-  priority?: T;
-  doc?: T;
   updatedAt?: T;
   createdAt?: T;
 }
