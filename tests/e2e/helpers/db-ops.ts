@@ -609,66 +609,60 @@ async function validateAdminLogin(args: { email: string; password: string }) {
   }
 }
 
-async function main() {
-  const command = process.argv[2]
-  const payloadArg = process.argv[3]
-  const data = payloadArg ? JSON.parse(payloadArg) : undefined
-
+export async function executeDbOp(command: string, data?: unknown) {
   switch (command) {
     case 'seed-fixtures': {
-      const result = await seedFixtures()
-      console.log(`__JSON__${JSON.stringify(result)}`)
-      return
+      return seedFixtures()
     }
     case 'cleanup-fixtures': {
       await cleanupFixtures(data as FixtureContext)
-      console.log(`__JSON__${JSON.stringify({ ok: true })}`)
-      return
+      return { ok: true }
     }
     case 'find-client-by-email': {
-      const result = await findClientByEmail(String(data?.email || ''))
-      console.log(`__JSON__${JSON.stringify(result)}`)
-      return
+      return findClientByEmail(String((data as { email?: string } | undefined)?.email || ''))
     }
     case 'delete-client-by-email': {
-      const result = await deleteClientAndRelatedDataByEmail(String(data?.email || ''))
-      console.log(`__JSON__${JSON.stringify(result)}`)
-      return
+      return deleteClientAndRelatedDataByEmail(String((data as { email?: string } | undefined)?.email || ''))
     }
     case 'find-latest-drug-test-for-client': {
-      const result = await findLatestDrugTestForClient(String(data?.clientId || ''))
-      console.log(`__JSON__${JSON.stringify(result)}`)
-      return
+      return findLatestDrugTestForClient(String((data as { clientId?: string } | undefined)?.clientId || ''))
     }
     case 'get-drug-test-by-id': {
-      const result = await getDrugTestById(String(data?.testId || ''))
-      console.log(`__JSON__${JSON.stringify(result)}`)
-      return
+      return getDrugTestById(String((data as { testId?: string } | undefined)?.testId || ''))
     }
     case 'assert-notification-sent': {
-      const result = await assertNotificationSent(data as {
+      return assertNotificationSent(data as {
         testId: string
         stage: 'collected' | 'screened' | 'complete'
         expectedIntendedEmails?: string[]
       })
-      console.log(`__JSON__${JSON.stringify(result)}`)
-      return
     }
     case 'validate-admin-login': {
-      const result = await validateAdminLogin(data as { email: string; password: string })
-      console.log(`__JSON__${JSON.stringify(result)}`)
-      return
+      return validateAdminLogin(data as { email: string; password: string })
     }
     default:
       throw new Error(`Unknown db op command: ${command}`)
   }
 }
 
-main()
-  .then(() => {
-    process.exit(0)
-  })
-  .catch((error) => {
-    console.error(error)
-    process.exit(1)
-  })
+async function main() {
+  const command = process.argv[2]
+  const payloadArg = process.argv[3]
+  const data = payloadArg ? JSON.parse(payloadArg) : undefined
+
+  const result = await executeDbOp(command, data)
+  console.log(`__JSON__${JSON.stringify(result)}`)
+}
+
+const isCliInvocation = /db-ops\.(cjs|mjs|js|ts)$/.test(process.argv[1] || '')
+
+if (isCliInvocation) {
+  main()
+    .then(() => {
+      process.exit(0)
+    })
+    .catch((error) => {
+      console.error(error)
+      process.exit(1)
+    })
+}

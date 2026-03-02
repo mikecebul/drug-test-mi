@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import path from 'node:path'
 
 function parseResult(output: string) {
   const lines = output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
@@ -10,18 +11,41 @@ function parseResult(output: string) {
   return JSON.parse(markerLine.slice('__JSON__'.length))
 }
 
+function getTsxBin() {
+  const binName = process.platform === 'win32' ? 'tsx.cmd' : 'tsx'
+  return path.resolve(process.cwd(), 'node_modules', '.bin', binName)
+}
+
 export function runDbOp<T>(command: string, payload?: unknown): T {
-  const args = ['tsx', 'tests/e2e/helpers/db-ops.ts', command]
+  const args = ['tests/e2e/helpers/db-ops.ts', command]
   if (payload !== undefined) {
     args.push(JSON.stringify(payload))
   }
 
-  const output = execFileSync('pnpm', args, {
-    cwd: process.cwd(),
-    encoding: 'utf8',
-    env: process.env,
-    maxBuffer: 10 * 1024 * 1024,
-  })
+  const tsxBin = getTsxBin()
 
-  return parseResult(output) as T
+  try {
+    const output = execFileSync(tsxBin, args, {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      env: process.env,
+      maxBuffer: 10 * 1024 * 1024,
+    })
+
+    return parseResult(output) as T
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    const stderr =
+      typeof error === 'object' && error && 'stderr' in error
+        ? String((error as { stderr?: unknown }).stderr || '')
+        : ''
+    const stdout =
+      typeof error === 'object' && error && 'stdout' in error
+        ? String((error as { stdout?: unknown }).stdout || '')
+        : ''
+
+    throw new Error(
+      `DB op "${command}" failed via tsx.\nMessage: ${message}\nStdout:\n${stdout || '(empty)'}\nStderr:\n${stderr || '(empty)'}`,
+    )
+  }
 }
