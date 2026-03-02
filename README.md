@@ -292,6 +292,7 @@ pnpm test:e2e:wizard
 pnpm test:e2e:registration
 pnpm test:e2e:smoke
 pnpm test:e2e:all
+pnpm test:verify
 pnpm test:gate
 pnpm test:e2e:headed
 pnpm test:e2e:ui
