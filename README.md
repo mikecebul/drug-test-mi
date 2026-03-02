@@ -269,10 +269,20 @@ Then open [http://localhost:3000](http://localhost:3000).
 
 ## Testing
 
-### Unit / integration tests (Vitest)
+### Local full verification
 
 ```bash
 pnpm test
+```
+
+This runs:
+- `pnpm test:integration:ci` (Vitest, non-watch)
+- `pnpm test:e2e` (Playwright, non-watch)
+
+### Unit / integration tests (Vitest only)
+
+```bash
+pnpm test:integration:ci
 ```
 
 UI mode:
