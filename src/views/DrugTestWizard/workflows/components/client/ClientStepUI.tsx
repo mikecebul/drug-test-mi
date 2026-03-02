@@ -113,7 +113,7 @@ export const ClientStepUI = ({
         {/* Actions: Always available */}
         <div className="flex flex-col justify-start gap-6 pt-4 sm:flex-row">
           <ClientSearchDialog allClients={clients} selectedClientId={selectedClient.id} onSelect={handleSelectClient}>
-            <Button size="xl" variant="default">
+            <Button type="button" size="xl" variant="default">
               <Check className="size-5" />
               {selectedClient.id ? 'Change Client' : 'Search All Clients'}
             </Button>

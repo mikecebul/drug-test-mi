@@ -33,9 +33,9 @@ export default async function TotalClientsWidget({ req }: WidgetServerProps) {
           <CardTitle className="text-4xl">{totalClients ?? '-'}</CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-between gap-4 pt-0">
-          <p className="text-muted-foreground text-sm">
+          <CardDescription>
             {totalClients === null ? 'Count unavailable' : 'Registered client records'}
-          </p>
+          </CardDescription>
           <Link
             href="/admin/collections/clients"
             className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'shrink-0')}

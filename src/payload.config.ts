@@ -126,7 +126,22 @@ export default buildConfig({
           slug: 'wizard-entry',
           label: 'Drug Test Wizard',
           ComponentPath: '@/views/dashboard/widgets/WizardEntryWidget',
-          minWidth: 'full',
+          minWidth: 'small',
+          maxWidth: 'full',
+        },
+        {
+          slug: 'admin-quick-book',
+          label: 'Quick Book',
+          ComponentPath: '@/views/dashboard/widgets/AdminQuickBookWidget',
+          minWidth: 'small',
+          maxWidth: 'full',
+        },
+        {
+          slug: 'next-calcom-booking',
+          label: 'Next Cal.com Booking',
+          ComponentPath: '@/views/dashboard/widgets/NextCalcomBookingWidget',
+          minWidth: 'small',
+          maxWidth: 'full',
         },
         {
           slug: 'pending-drug-tests',
@@ -146,7 +161,15 @@ export default buildConfig({
       defaultLayout: [
         {
           widgetSlug: 'wizard-entry',
-          width: 'full',
+          width: 'medium',
+        },
+        {
+          widgetSlug: 'admin-quick-book',
+          width: 'medium',
+        },
+        {
+          widgetSlug: 'next-calcom-booking',
+          width: 'medium',
         },
         {
           widgetSlug: 'pending-drug-tests',
