@@ -109,6 +109,7 @@ jobs:
       PAYLOAD_ADMIN_AUTOLOGIN_EMAIL: e2e.admin.autologin@example.com
       PAYLOAD_ADMIN_AUTOLOGIN_PASSWORD: StrongPass123!
       PLAYWRIGHT_WORKERS: '1'
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
       E2E_ENABLE_MAILPIT_ASSERTIONS: 'false'
       E2E_REQUIRE_EMAIL_TEST_MODE_FALSE: 'true'
       NEXT_TELEMETRY_DISABLED: '1'
@@ -134,8 +135,45 @@ jobs:
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Start app server
+        run: |
+          pnpm dev --port 3000 > /tmp/next-dev.log 2>&1 &
+          echo $! > /tmp/next-dev.pid
+
+      - name: Wait for app readiness
+        run: |
+          for _ in $(seq 1 210); do
+            if curl -fsS http://127.0.0.1:3000/register > /dev/null; then
+              echo "App is ready."
+              exit 0
+            fi
+
+            if ! kill -0 "$(cat /tmp/next-dev.pid)" 2>/dev/null; then
+              echo "App server exited before becoming ready."
+              tail -n 200 /tmp/next-dev.log || true
+              exit 1
+            fi
+
+            sleep 2
+          done
+
+          echo "Timed out waiting for app readiness."
+          tail -n 200 /tmp/next-dev.log || true
+          exit 1
+
       - name: Run UI smoke tests
         run: pnpm test:e2e:smoke
+
+      - name: Print app log on failure
+        if: failure()
+        run: tail -n 300 /tmp/next-dev.log || true
+
+      - name: Stop app server
+        if: always()
+        run: |
+          if [ -f /tmp/next-dev.pid ] && kill -0 "$(cat /tmp/next-dev.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/next-dev.pid)" || true
+          fi
 
       - name: Upload Playwright report
         if: always()
