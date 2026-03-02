@@ -54,10 +54,10 @@ import { default as default_af05419e5157afdd5ccd30100f9c9f64 } from '@/views/Ana
 import { default as default_fb357f89b63991d343cdc6c077a34fcf } from '@/views/DrugTestTracker'
 import { default as default_466983afdb665bae58ae3399f538723f } from '@/views/DrugTestWizard'
 import { default as default_9f603328bd606f5c9a764a3d6e1236bd } from '@/views/dashboard/widgets/WizardEntryWidget'
+import { default as default_8f03d16ce0580fd0d5a1b1421f3c024c } from '@/views/dashboard/widgets/TotalClientsWidget'
 import { default as default_b75193020b6c49f2973630173ab80272 } from '@/views/dashboard/widgets/AdminQuickBookWidget'
 import { default as default_0ab2e3caf6e5563593df7626032786d9 } from '@/views/dashboard/widgets/NextCalcomBookingWidget'
 import { default as default_190b527a5d0dc60bde6858927bce505d } from '@/views/dashboard/widgets/PendingDrugTestsWidget'
-import { default as default_8f03d16ce0580fd0d5a1b1421f3c024c } from '@/views/dashboard/widgets/TotalClientsWidget'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
 export const importMap = {
@@ -117,9 +117,9 @@ export const importMap = {
   "@/views/DrugTestTracker#default": default_fb357f89b63991d343cdc6c077a34fcf,
   "@/views/DrugTestWizard#default": default_466983afdb665bae58ae3399f538723f,
   "@/views/dashboard/widgets/WizardEntryWidget#default": default_9f603328bd606f5c9a764a3d6e1236bd,
+  "@/views/dashboard/widgets/TotalClientsWidget#default": default_8f03d16ce0580fd0d5a1b1421f3c024c,
   "@/views/dashboard/widgets/AdminQuickBookWidget#default": default_b75193020b6c49f2973630173ab80272,
   "@/views/dashboard/widgets/NextCalcomBookingWidget#default": default_0ab2e3caf6e5563593df7626032786d9,
   "@/views/dashboard/widgets/PendingDrugTestsWidget#default": default_190b527a5d0dc60bde6858927bce505d,
-  "@/views/dashboard/widgets/TotalClientsWidget#default": default_8f03d16ce0580fd0d5a1b1421f3c024c,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }

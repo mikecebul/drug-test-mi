@@ -1,7 +1,10 @@
 'use client'
 
+import { useMemo } from 'react'
+import { CalPopupButton } from '@/components/cal-popup-button'
 import { Button } from '@/components/ui/button'
-import { Check } from 'lucide-react'
+import { formatPhoneForCal } from '@/lib/quick-book'
+import { Calendar, Check } from 'lucide-react'
 import { HeadshotCaptureCard } from '../../components'
 
 interface SuccessStepProps {
@@ -12,7 +15,7 @@ interface SuccessStepProps {
   middleInitial?: string | null
   dob?: string | null
   phone?: string | null
-  onContinue: () => void
+  onContinue: () => void | Promise<void>
   returnTo?: string | null
 }
 
@@ -27,6 +30,25 @@ export function SuccessStep({
   onContinue,
   returnTo,
 }: SuccessStepProps) {
+  const isDashboardReturn = returnTo === 'dashboard'
+
+  const scheduleConfig = useMemo(() => {
+    const nameParts = [firstName, middleInitial?.trim(), lastName].filter(Boolean)
+    const config: Record<string, unknown> = {
+      name: nameParts.join(' '),
+      email,
+      overlayCalendar: true,
+    }
+
+    const formattedPhone = formatPhoneForCal(phone)
+    if (formattedPhone) {
+      config.attendeePhoneNumber = formattedPhone
+      config.smsReminderNumber = formattedPhone
+    }
+
+    return config
+  }, [email, firstName, lastName, middleInitial, phone])
+
   // Determine button text based on where user came from
   const getButtonText = () => {
     if (returnTo === 'instant-test') {
@@ -34,6 +56,9 @@ export function SuccessStep({
     }
     if (returnTo === 'collect-lab') {
       return 'Continue with Lab Collection'
+    }
+    if (isDashboardReturn) {
+      return 'Back to Dashboard'
     }
     return 'Back to Workflow Selector'
   }
@@ -72,11 +97,23 @@ export function SuccessStep({
         />
       </div>
 
-      {/* Action Button */}
-      <div className="mx-auto w-full max-w-xl">
-        <Button className="w-full cursor-pointer" size="lg" onClick={onContinue}>
-          {getButtonText()}
-        </Button>
+      {/* Action Buttons */}
+      <div className="mx-auto w-full max-w-xl space-y-3">
+        {isDashboardReturn ? (
+          <>
+            <CalPopupButton calUsername="midrugtest/drug-test" config={scheduleConfig} className="w-full" variant="default">
+              <Calendar className="mr-2 h-4 w-4" />
+              Schedule First Appointment
+            </CalPopupButton>
+            <Button className="w-full cursor-pointer" size="lg" variant="outline" onClick={() => void onContinue()}>
+              Back to Dashboard
+            </Button>
+          </>
+        ) : (
+          <Button className="w-full cursor-pointer" size="lg" onClick={() => void onContinue()}>
+            {getButtonText()}
+          </Button>
+        )}
       </div>
     </div>
   )

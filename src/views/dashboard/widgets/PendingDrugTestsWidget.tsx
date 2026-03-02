@@ -5,6 +5,7 @@ import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/utilities/cn'
+import { DASHBOARD_WIDGET_CARD_CLASS } from './widget-card-styles'
 
 export default async function PendingDrugTestsWidget({ req }: WidgetServerProps) {
   if (!req.user || req.user.collection !== 'admins') {
@@ -32,7 +33,7 @@ export default async function PendingDrugTestsWidget({ req }: WidgetServerProps)
 
   return (
     <ShadcnWrapper className="pb-0">
-      <Card>
+      <Card className={DASHBOARD_WIDGET_CARD_CLASS}>
         <CardHeader className="space-y-2 pb-3">
           <CardDescription>Pending Drug Tests</CardDescription>
           <CardTitle className="text-4xl">{pendingCount ?? '-'}</CardTitle>
