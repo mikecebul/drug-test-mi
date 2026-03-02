@@ -38,9 +38,9 @@ export default async function PendingDrugTestsWidget({ req }: WidgetServerProps)
           <CardTitle className="text-4xl">{pendingCount ?? '-'}</CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-between gap-4 pt-0">
-          <p className="text-muted-foreground text-sm">
+          <CardDescription>
             {pendingCount === null ? 'Count unavailable' : 'Incomplete tests requiring follow-up'}
-          </p>
+          </CardDescription>
           <Link
             href="/admin/drug-test-tracker"
             className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'shrink-0')}
