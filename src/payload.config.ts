@@ -163,6 +163,7 @@ export default buildConfig({
     },
     meta: {
       icons: [{ url: '/favicon.ico' }],
+      title: 'Dashboard',
       titleSuffix: ' | MI Drug Test',
     },
     user: Admins.slug,
