@@ -14,6 +14,8 @@ type TestTypeOption = {
   label: string
 }
 
+type CalModalConfig = Record<string, string | string[] | Record<string, string>>
+
 interface QuickBookControlProps {
   clientName: string
   clientEmail: string
@@ -126,11 +128,11 @@ export function QuickBookControl({
     const cal = await getCalApi()
     const formattedPhone = formatPhoneForCal(clientPhone)
 
-    const config: Record<string, unknown> = {
+    const config: CalModalConfig = {
       name: clientName,
       email: clientEmail,
       test: selectedTestType.label,
-      overlayCalendar: true,
+      overlayCalendar: 'true',
     }
 
     if (formattedPhone) {

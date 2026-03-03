@@ -22,6 +22,8 @@ type TestTypeOption = {
   label: string
 }
 
+type CalModalConfig = Record<string, string | string[] | Record<string, string>>
+
 const FALLBACK_TEST_TYPES: TestTypeOption[] = [
   { id: '15-panel-instant', value: '15-panel-instant', label: '15 Panel Instant' },
   { id: '11-panel-lab', value: '11-panel-lab', label: '11 Panel Lab' },
@@ -191,13 +193,13 @@ export function AdminQuickBookWidgetClient() {
     return searchClients(clients, searchQuery.trim(), 8)
   }, [clients, searchQuery])
 
-  const openCalBookingModal = async (config: Record<string, unknown>) => {
+  const openCalBookingModal = async (config: CalModalConfig) => {
     const cal = await getCalApi()
 
     cal('modal', {
       calLink: 'midrugtest/drug-test',
       config: {
-        overlayCalendar: true,
+        overlayCalendar: 'true',
         ...config,
       },
     })
@@ -214,7 +216,7 @@ export function AdminQuickBookWidgetClient() {
       const options = testTypes.length > 0 ? testTypes : FALLBACK_TEST_TYPES
       const selectedTestLabel = resolveTestLabel(options, recommendation)
 
-      const config: Record<string, unknown> = {
+      const config: CalModalConfig = {
         name: client.fullName || `${client.firstName} ${client.lastName}`,
         email: client.email,
         test: selectedTestLabel,
