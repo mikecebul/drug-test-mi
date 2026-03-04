@@ -5,7 +5,6 @@ import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/utilities/cn'
-import { DASHBOARD_WIDGET_CARD_CLASS } from './widget-card-styles'
 
 export default async function TotalClientsWidget({ req }: WidgetServerProps) {
   if (!req.user || req.user.collection !== 'admins') {
@@ -28,12 +27,12 @@ export default async function TotalClientsWidget({ req }: WidgetServerProps) {
 
   return (
     <ShadcnWrapper className="pb-0">
-      <Card className={DASHBOARD_WIDGET_CARD_CLASS}>
-        <CardHeader className="space-y-2 pb-3">
+      <Card variant="admin">
+        <CardHeader className="space-y-2">
           <CardDescription>Total Clients</CardDescription>
           <CardTitle className="text-4xl">{totalClients ?? '-'}</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-0">
+        <CardContent className="flex flex-wrap items-center justify-between gap-3">
           <CardDescription>
             {totalClients === null ? 'Count unavailable' : 'Registered client records'}
           </CardDescription>
