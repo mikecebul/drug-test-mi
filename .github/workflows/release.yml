@@ -35,7 +35,34 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          NEW_TAG="$(npm version patch -m "chore: bump version %s")"
+          CURRENT_VERSION="$(node -p "require('./package.json').version")"
+          LATEST_TAG="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+
+          BASE_VERSION="$CURRENT_VERSION"
+          if [ -n "$LATEST_TAG" ]; then
+            LATEST_VERSION="${LATEST_TAG#v}"
+            BASE_VERSION="$(printf '%s\n%s\n' "$CURRENT_VERSION" "$LATEST_VERSION" | sort -V | tail -n 1)"
+          fi
+
+          IFS='.' read -r major minor patch <<< "$BASE_VERSION"
+          if [ -z "${major:-}" ] || [ -z "${minor:-}" ] || [ -z "${patch:-}" ]; then
+            echo "Invalid semantic version: $BASE_VERSION"
+            exit 1
+          fi
+
+          NEXT_VERSION="${major}.${minor}.$((patch + 1))"
+          NEW_TAG="v${NEXT_VERSION}"
+
+          npm version "$NEXT_VERSION" --no-git-tag-version
+
+          git add package.json
+          if [ -f package-lock.json ]; then
+            git add package-lock.json
+          fi
+
+          git commit -m "chore: bump version ${NEW_TAG}"
+          git tag -a "${NEW_TAG}" -m "chore: bump version ${NEW_TAG}"
+
           echo "tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
 
           if [ -z "$RELEASE_PUSH_TOKEN" ]; then
