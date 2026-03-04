@@ -130,13 +130,6 @@ export default buildConfig({
           maxWidth: 'full',
         },
         {
-          slug: 'total-clients',
-          label: 'Total Clients',
-          ComponentPath: '@/views/dashboard/widgets/TotalClientsWidget',
-          minWidth: 'small',
-          maxWidth: 'full',
-        },
-        {
           slug: 'admin-quick-book',
           label: 'Quick Book',
           ComponentPath: '@/views/dashboard/widgets/AdminQuickBookWidget',
@@ -144,9 +137,9 @@ export default buildConfig({
           maxWidth: 'full',
         },
         {
-          slug: 'next-calcom-booking',
-          label: 'Next Cal.com Booking',
-          ComponentPath: '@/views/dashboard/widgets/NextCalcomBookingWidget',
+          slug: 'total-clients',
+          label: 'Total Clients',
+          ComponentPath: '@/views/dashboard/widgets/TotalClientsWidget',
           minWidth: 'small',
           maxWidth: 'full',
         },
@@ -157,6 +150,13 @@ export default buildConfig({
           minWidth: 'small',
           maxWidth: 'full',
         },
+        {
+          slug: 'next-calcom-booking',
+          label: 'Next Cal.com Booking',
+          ComponentPath: '@/views/dashboard/widgets/NextCalcomBookingWidget',
+          minWidth: 'small',
+          maxWidth: 'full',
+        },
       ],
       defaultLayout: [
         {
@@ -164,19 +164,19 @@ export default buildConfig({
           width: 'medium',
         },
         {
-          widgetSlug: 'total-clients',
-          width: 'medium',
-        },
-        {
           widgetSlug: 'admin-quick-book',
           width: 'medium',
         },
         {
-          widgetSlug: 'next-calcom-booking',
+          widgetSlug: 'total-clients',
           width: 'medium',
         },
         {
           widgetSlug: 'pending-drug-tests',
+          width: 'medium',
+        },
+        {
+          widgetSlug: 'next-calcom-booking',
           width: 'medium',
         },
       ],

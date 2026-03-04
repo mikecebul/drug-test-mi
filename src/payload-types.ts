@@ -178,10 +178,10 @@ export interface Config {
   locale: null;
   widgets: {
     'wizard-entry': WizardEntryWidget;
-    'total-clients': TotalClientsWidget;
     'admin-quick-book': AdminQuickBookWidget;
-    'next-calcom-booking': NextCalcomBookingWidget;
+    'total-clients': TotalClientsWidget;
     'pending-drug-tests': PendingDrugTestsWidget;
+    'next-calcom-booking': NextCalcomBookingWidget;
     collections: CollectionsWidget;
   };
   user: Admin | Client;
@@ -4059,16 +4059,6 @@ export interface WizardEntryWidget {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "total-clients_widget".
- */
-export interface TotalClientsWidget {
-  data?: {
-    [k: string]: unknown;
-  };
-  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "admin-quick-book_widget".
  */
 export interface AdminQuickBookWidget {
@@ -4079,9 +4069,9 @@ export interface AdminQuickBookWidget {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "next-calcom-booking_widget".
+ * via the `definition` "total-clients_widget".
  */
-export interface NextCalcomBookingWidget {
+export interface TotalClientsWidget {
   data?: {
     [k: string]: unknown;
   };
@@ -4092,6 +4082,16 @@ export interface NextCalcomBookingWidget {
  * via the `definition` "pending-drug-tests_widget".
  */
 export interface PendingDrugTestsWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "next-calcom-booking_widget".
+ */
+export interface NextCalcomBookingWidget {
   data?: {
     [k: string]: unknown;
   };

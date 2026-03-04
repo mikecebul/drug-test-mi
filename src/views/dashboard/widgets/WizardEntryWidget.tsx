@@ -5,7 +5,6 @@ import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/utilities/cn'
-import { DASHBOARD_WIDGET_CARD_CLASS } from './widget-card-styles'
 
 export default function WizardEntryWidget({ req }: WidgetServerProps) {
   if (!req.user || req.user.collection !== 'admins') {
@@ -14,8 +13,8 @@ export default function WizardEntryWidget({ req }: WidgetServerProps) {
 
   return (
     <ShadcnWrapper className="pb-0">
-      <Card className={DASHBOARD_WIDGET_CARD_CLASS}>
-        <CardHeader className="space-y-1 pb-3">
+      <Card variant="admin">
+        <CardHeader className="">
           <CardTitle>Drug Test Wizard</CardTitle>
           <CardDescription>
             Start the admin workflow for registration, instant tests, and lab processing.

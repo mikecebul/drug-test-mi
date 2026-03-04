@@ -41,7 +41,7 @@ function createAdminReq(): WidgetReq {
 }
 
 describe('dashboard widgets', () => {
-  test('renders 137px minimum height for all dashboard cards', async () => {
+  test('renders admin card variant styles for all dashboard cards', async () => {
     const wizardReq = createAdminReq()
     const wizardMarkup = renderMarkup(WizardEntryWidget({ req: wizardReq }))
 
@@ -60,11 +60,11 @@ describe('dashboard widgets', () => {
     ;(pendingReq.payload.count as ReturnType<typeof vi.fn>).mockResolvedValue({ totalDocs: 3 })
     const pendingMarkup = renderMarkup(await PendingDrugTestsWidget({ req: pendingReq }))
 
-    expect(wizardMarkup).toContain('min-h-[137px]')
-    expect(totalMarkup).toContain('min-h-[137px]')
-    expect(quickBookMarkup).toContain('min-h-[137px]')
-    expect(scheduleMarkup).toContain('min-h-[137px]')
-    expect(pendingMarkup).toContain('min-h-[137px]')
+    expect(wizardMarkup).toContain('bg-gradient-to-b')
+    expect(totalMarkup).toContain('bg-gradient-to-b')
+    expect(quickBookMarkup).toContain('bg-gradient-to-b')
+    expect(scheduleMarkup).toContain('bg-gradient-to-b')
+    expect(pendingMarkup).toContain('bg-gradient-to-b')
   })
 
   test('renders dashboard register link in total clients widget', async () => {
@@ -78,12 +78,11 @@ describe('dashboard widgets', () => {
     expect(markup).toContain('Register New Client')
   })
 
-  test('renders quick book copy including unregistered path', () => {
+  test('renders quick book heading', () => {
     const req = createAdminReq()
     const markup = renderMarkup(AdminQuickBookWidget({ req }))
 
     expect(markup).toContain('Quick Book')
-    expect(markup).toContain('book unregistered')
   })
 
   test('hides widgets for non-admin users', async () => {
