@@ -29,14 +29,22 @@ jobs:
 
       - name: Bump patch version
         id: bump
+        env:
+          RELEASE_PUSH_TOKEN: ${{ secrets.RELEASE_PUSH_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          NEW_TAG="$(npm version patch -m "chore: bump version")"
+          NEW_TAG="$(npm version patch -m "chore: bump version %s")"
           echo "tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
 
-          git push origin HEAD:main --follow-tags
+          if [ -z "$RELEASE_PUSH_TOKEN" ]; then
+            echo "Missing RELEASE_PUSH_TOKEN secret. Add an admin PAT to allow release pushes to protected main."
+            exit 1
+          fi
+
+          git remote set-url origin "https://x-access-token:${RELEASE_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --atomic origin HEAD:main --follow-tags
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
