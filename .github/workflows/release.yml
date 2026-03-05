@@ -17,19 +17,7 @@ jobs:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Bump patch version
-        id: bump
+      - name: Validate release token
         env:
           RELEASE_PUSH_TOKEN: ${{ secrets.RELEASE_PUSH_TOKEN }}
         run: |
@@ -43,6 +31,20 @@ jobs:
             exit 1
           fi
 
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PUSH_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Bump patch version
+        id: bump
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -76,16 +78,7 @@ jobs:
 
           echo "tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
 
-          RELEASE_PUSH_TOKEN_CLEAN="$(printf '%s' "$RELEASE_PUSH_TOKEN" | tr -d '\r\n')"
-          if [ -z "$RELEASE_PUSH_TOKEN_CLEAN" ]; then
-            echo "RELEASE_PUSH_TOKEN is empty after trimming. Re-save the secret in Actions secrets."
-            exit 1
-          fi
-
-          AUTH_HEADER="$(printf 'x-access-token:%s' "$RELEASE_PUSH_TOKEN_CLEAN" | base64 | tr -d '\n')"
-          git config --local --unset-all http.https://github.com/.extraheader || true
-          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${AUTH_HEADER}" \
-            push --atomic "https://github.com/${GITHUB_REPOSITORY}.git" HEAD:main --follow-tags
+          git push --atomic origin HEAD:main --follow-tags
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
