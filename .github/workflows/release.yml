@@ -82,10 +82,9 @@ jobs:
             exit 1
           fi
 
-          git config --local credential.helper store
-          printf 'https://x-access-token:%s@github.com\n' "$RELEASE_PUSH_TOKEN_CLEAN" > ~/.git-credentials
-          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
-          git push --atomic origin HEAD:main --follow-tags
+          RELEASE_PUSH_TOKEN_ENCODED="$(node -e "process.stdout.write(encodeURIComponent(process.env.RELEASE_PUSH_TOKEN_CLEAN))")"
+          PUSH_URL="https://x-access-token:${RELEASE_PUSH_TOKEN_ENCODED}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --atomic "$PUSH_URL" HEAD:main --follow-tags
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
