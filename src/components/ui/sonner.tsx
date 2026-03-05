@@ -10,12 +10,23 @@ import {
 import { useTheme } from 'next-themes'
 import { Toaster as Sonner, ToasterProps } from 'sonner'
 
-const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = 'system' } = useTheme()
+const Toaster = ({ richColors = true, toastOptions, ...props }: ToasterProps) => {
+  const { forcedTheme, resolvedTheme, theme } = useTheme()
+  const sonnerTheme = (forcedTheme ?? resolvedTheme ?? theme ?? 'light') as ToasterProps['theme']
+  const mergedToastOptions: ToasterProps['toastOptions'] = {
+    ...toastOptions,
+    classNames: {
+      toast: '!items-start',
+      icon: '!self-start !mt-0.5',
+      ...toastOptions?.classNames,
+    },
+  }
 
   return (
     <Sonner
-      theme={theme as ToasterProps['theme']}
+      theme={sonnerTheme}
+      richColors={richColors}
+      toastOptions={mergedToastOptions}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-5" />,

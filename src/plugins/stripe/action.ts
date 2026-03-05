@@ -35,7 +35,7 @@ export const createCheckoutSession = async (submissionId: string, price: number)
     if (session.url) {
       return { url: session.url }
     }
-  } catch (error: unknown) {
+  } catch (_error: unknown) {
     return { error: 'Failed to create checkout session' }
   }
 }

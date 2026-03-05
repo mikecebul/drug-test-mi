@@ -28,7 +28,7 @@ export const ImageMedia: React.FC<MediaProps> = (props) => {
     src: srcFromProps,
   } = props
 
-  const [isLoading, setIsLoading] = React.useState(true)
+  const [_isLoading, setIsLoading] = React.useState(true)
 
   let width: number | undefined = 960
   let height: number | undefined = 640
@@ -40,7 +40,7 @@ export const ImageMedia: React.FC<MediaProps> = (props) => {
     const {
       alt: altFromResource,
       blurhash: blurhasFromResource,
-      filename: fullFilename,
+      filename: _fullFilename,
       height: fullHeight,
       url,
       width: fullWidth,

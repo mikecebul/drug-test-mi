@@ -6,7 +6,6 @@ import { sentryPlugin } from '@payloadcms/plugin-sentry'
 import * as Sentry from '@sentry/nextjs'
 
 import { importExportPlugin } from '@payloadcms/plugin-import-export'
-import { searchPlugin } from '@payloadcms/plugin-search'
 import { stripePlugin } from '@payloadcms/plugin-stripe'
 import { redirectsPlugin } from '@payloadcms/plugin-redirects'
 import { seoPlugin } from '@payloadcms/plugin-seo'
@@ -53,6 +52,9 @@ import { Clients } from './collections/Clients'
 import { DrugTests } from './collections/DrugTests'
 import Admins from './collections/Admins'
 import { AdminAlerts } from './collections/AdminAlerts'
+import { Employers } from './collections/Employers'
+import { Courts } from './collections/Courts'
+import { TestTypes } from './collections/TestTypes'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -75,14 +77,25 @@ const generateImage: GenerateImage<Page> = ({ doc }) => {
   return '/og.png'
 }
 
+const isAdminAutoLoginEnabled = process.env.PAYLOAD_ADMIN_AUTOLOGIN_ENABLED === 'true'
+const adminAutoLoginEmail = process.env.PAYLOAD_ADMIN_AUTOLOGIN_EMAIL?.trim()
+const adminAutoLoginPassword = process.env.PAYLOAD_ADMIN_AUTOLOGIN_PASSWORD?.trim()
+
+const adminAutoLogin =
+  isAdminAutoLoginEnabled && adminAutoLoginEmail
+    ? {
+        email: adminAutoLoginEmail,
+        password: adminAutoLoginPassword,
+      }
+    : false
+
 export default buildConfig({
   // serverURL: baseUrl,
   admin: {
+    autoLogin: adminAutoLogin,
     autoRefresh: true,
     avatar: 'default',
     components: {
-      beforeDashboard: ['@/views/beforeDashboard/DrugTestStats'],
-      afterDashboard: ['@/views/afterDashboard/Analytics'],
       beforeNavLinks: [
         '@/views/beforeNavLinks/DrugTestCollectorLink',
         '@/views/beforeNavLinks/DrugTestTrackerLink',
@@ -101,17 +114,79 @@ export default buildConfig({
           Component: '@/views/DrugTestTracker',
           path: '/drug-test-tracker',
         },
-        PDFUploadWizard: {
-          Component: '@/views/PDFUploadWizard',
+        DrugTestWizard: {
+          Component: '@/views/DrugTestWizard',
           path: '/drug-test-upload',
         },
       },
+    },
+    dashboard: {
+      widgets: [
+        {
+          slug: 'wizard-entry',
+          label: 'Drug Test Wizard',
+          ComponentPath: '@/views/dashboard/widgets/WizardEntryWidget',
+          minWidth: 'small',
+          maxWidth: 'full',
+        },
+        {
+          slug: 'admin-quick-book',
+          label: 'Quick Book',
+          ComponentPath: '@/views/dashboard/widgets/AdminQuickBookWidget',
+          minWidth: 'small',
+          maxWidth: 'full',
+        },
+        {
+          slug: 'total-clients',
+          label: 'Total Clients',
+          ComponentPath: '@/views/dashboard/widgets/TotalClientsWidget',
+          minWidth: 'small',
+          maxWidth: 'full',
+        },
+        {
+          slug: 'pending-drug-tests',
+          label: 'Pending Drug Tests',
+          ComponentPath: '@/views/dashboard/widgets/PendingDrugTestsWidget',
+          minWidth: 'small',
+          maxWidth: 'full',
+        },
+        {
+          slug: 'next-calcom-booking',
+          label: 'Next Cal.com Booking',
+          ComponentPath: '@/views/dashboard/widgets/NextCalcomBookingWidget',
+          minWidth: 'small',
+          maxWidth: 'full',
+        },
+      ],
+      defaultLayout: [
+        {
+          widgetSlug: 'wizard-entry',
+          width: 'medium',
+        },
+        {
+          widgetSlug: 'admin-quick-book',
+          width: 'medium',
+        },
+        {
+          widgetSlug: 'total-clients',
+          width: 'medium',
+        },
+        {
+          widgetSlug: 'pending-drug-tests',
+          width: 'medium',
+        },
+        {
+          widgetSlug: 'next-calcom-booking',
+          width: 'medium',
+        },
+      ],
     },
     importMap: {
       baseDir: path.resolve(dirname),
     },
     meta: {
       icons: [{ url: '/favicon.ico' }],
+      title: 'Dashboard',
       titleSuffix: ' | MI Drug Test',
     },
     user: Admins.slug,
@@ -198,6 +273,9 @@ export default buildConfig({
     Admins,
     AdminAlerts,
     Technicians,
+    TestTypes,
+    Courts,
+    Employers,
     Clients,
     DrugTests,
   ],
@@ -226,24 +304,6 @@ export default buildConfig({
   globals: [Header, Footer, CompanyInfo],
   graphQL: { disable: true },
   plugins: [
-    searchPlugin({
-      collections: ['clients'],
-      defaultPriorities: {
-        clients: 10,
-      },
-      beforeSync: ({ originalDoc, searchDoc }) => {
-        // Sync client name fields to search title for better searching
-        const firstName = originalDoc?.firstName || ''
-        const middleInitial = originalDoc?.middleInitial || ''
-        const lastName = originalDoc?.lastName || ''
-        const fullName = [firstName, middleInitial, lastName].filter(Boolean).join(' ')
-
-        return {
-          ...searchDoc,
-          title: fullName,
-        }
-      },
-    }),
     importExportPlugin({
       collections: [
         {

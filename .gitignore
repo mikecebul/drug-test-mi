@@ -29,3 +29,11 @@ src/uploads
 
 # TypeScript
 tsconfig.tsbuildinfo
+
+# Playwright
+playwright-report
+test-results
+.playwright
+.playwright-cli
+.playright-cli
+output/

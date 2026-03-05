@@ -14,7 +14,7 @@ export const LoginForm = () => {
   })
 
   // Check if the form is successfully submitted
-  const [isSubmitSuccessful] = useStore(form.store, (state) => [state.isSubmitSuccessful])
+  const [_isSubmitSuccessful] = useStore(form.store, (state) => [state.isSubmitSuccessful])
 
   return (
     <div className="w-full">

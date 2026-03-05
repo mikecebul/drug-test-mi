@@ -4,7 +4,7 @@ export function ClientLogoutButton({ children }: { children: React.ReactNode }) 
   const handleLogout = async () => {
     try {
       // Use Payload's built-in logout endpoint
-      const response = await fetch('/api/clients/logout', {
+      const _response = await fetch('/api/clients/logout', {
         method: 'POST',
         credentials: 'include',
       })

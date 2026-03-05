@@ -56,7 +56,7 @@ export async function fetchClientHeadshot(
     // Use the thumbnail version (300x300) instead of full-size for smaller email size
     const thumbnail = headshot.sizes?.thumbnail
     const filenameToFetch = thumbnail?.filename || headshot.filename
-    const mimeType = thumbnail?.mimeType || headshot.mimeType
+    const _mimeType = thumbnail?.mimeType || headshot.mimeType
 
     if (!filenameToFetch) {
       payload.logger.warn(`No filename available for client ${clientId} headshot`)

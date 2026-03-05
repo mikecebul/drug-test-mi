@@ -2,6 +2,9 @@ import { describe, test, expect } from 'vitest'
 import { extractLabTest } from '../extractLabTest'
 import fs from 'fs/promises'
 import path from 'path'
+import { format } from 'date-fns'
+import { TZDate } from '@date-fns/tz'
+import { APP_TIMEZONE } from '@/lib/date-utils'
 
 // Fixture paths - can be overridden via environment variables for local testing
 const FIXTURES_DIR = path.join(__dirname, 'fixtures')
@@ -32,6 +35,13 @@ async function getTestPdf(
   return { buffer: null, skipped: true }
 }
 
+function assertCollectionDateString(dateString: string): Date {
+  expect(dateString).toMatch(/^\d{4}-\d{2}-\d{2}T.+(?:Z|[+-]\d{2}:\d{2})$/)
+  const date = new Date(dateString)
+  expect(Number.isNaN(date.getTime())).toBe(false)
+  return date
+}
+
 describe('extractLabTest', () => {
   describe('11-panel-lab tests', () => {
     test('should extract screening results from 11-panel lab PDF', async () => {
@@ -57,10 +67,8 @@ describe('extractLabTest', () => {
       if (!result.collectionDate) {
         throw new Error('Expected collectionDate to be present')
       }
-      const date = new Date(result.collectionDate)
+      const date = assertCollectionDateString(result.collectionDate)
       expect(date instanceof Date).toBe(true)
-      expect(Number.isNaN(date.getTime())).toBe(false)
-      expect(date.toISOString()).toBe(result.collectionDate)
 
       // This PDF shows "Screened Positive" for Buprenorphine
       expect(result.detectedSubstances).toContain('buprenorphine')
@@ -178,10 +186,8 @@ describe('extractLabTest', () => {
       if (!result.collectionDate) {
         throw new Error('Expected collectionDate to be present')
       }
-      const date = new Date(result.collectionDate)
+      const date = assertCollectionDateString(result.collectionDate)
       expect(date instanceof Date).toBe(true)
-      expect(Number.isNaN(date.getTime())).toBe(false)
-      expect(date.toISOString()).toBe(result.collectionDate)
 
       // Should have confidence score
       expect(['high', 'medium', 'low']).toContain(result.confidence)
@@ -265,10 +271,8 @@ describe('extractLabTest', () => {
       if (!result.collectionDate) {
         throw new Error('Expected collectionDate to be present')
       }
-      const date = new Date(result.collectionDate)
+      const date = assertCollectionDateString(result.collectionDate)
       expect(date instanceof Date).toBe(true)
-      expect(Number.isNaN(date.getTime())).toBe(false)
-      expect(date.toISOString()).toBe(result.collectionDate)
 
       // Should have confidence score
       expect(['high', 'medium', 'low']).toContain(result.confidence)
@@ -357,12 +361,16 @@ describe('extractLabTest', () => {
 
       if (result.collectionDate) {
         // collectionDate is now an ISO string, convert to Date for testing
-        const parsedDate = new Date(result.collectionDate)
+        const parsedDate = assertCollectionDateString(result.collectionDate)
+        const collectionDateInAppTimezone = TZDate.tz(APP_TIMEZONE, parsedDate)
 
         // Verify it's a valid date
         expect(parsedDate.getTime()).toBeGreaterThan(0)
         // Verify it's in the expected range (2024+)
         expect(parsedDate.getFullYear()).toBeGreaterThanOrEqual(2024)
+        // Verify extracted date/time is stable in app timezone
+        expect(format(collectionDateInAppTimezone, 'MM/dd/yyyy')).toBe('11/19/2025')
+        expect(format(collectionDateInAppTimezone, 'h:mm a')).toBe('6:17 PM')
       }
     })
 

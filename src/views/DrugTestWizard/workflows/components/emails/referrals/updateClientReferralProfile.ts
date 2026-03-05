@@ -1,0 +1,192 @@
+'use server'
+
+import { z } from 'zod'
+import { getPayload } from 'payload'
+import config from '@payload-config'
+import { headers } from 'next/headers'
+import { createAdminAlert } from '@/lib/admin-alerts'
+import { getRecipients } from '@/collections/DrugTests/email/recipients'
+import { assertReferralHasContacts, createInactiveReferralAndAlert } from '@/lib/referrals'
+
+const recipientSchema = z.object({
+  name: z.string().trim().optional(),
+  email: z.string().trim().email('Recipient email is invalid'),
+})
+
+const updateReferralSchema = z.object({
+  clientId: z.string().trim().min(1, 'Client ID is required'),
+  referralType: z.enum(['court', 'employer', 'self']),
+  referralId: z.string().trim().optional(),
+  title: z.string().trim().min(1, 'Referral name is required'),
+  recipients: z.array(recipientSchema),
+  additionalRecipients: z.array(recipientSchema),
+}).superRefine((data, ctx) => {
+  if (data.referralType !== 'self' && data.recipients.length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'At least one recipient is required',
+      path: ['recipients'],
+    })
+  }
+})
+
+type ReferralType = z.infer<typeof updateReferralSchema>['referralType']
+type ReferralRecipient = z.infer<typeof recipientSchema>
+
+type UpdateReferralResult = {
+  success: boolean
+  data?: {
+    referralType: ReferralType
+    referralTitle: string
+    referralEmails: string[]
+    referralRecipientsDetailed: ReferralRecipient[]
+    clientAdditionalRecipientsDetailed: ReferralRecipient[]
+    referralPresetId?: string
+  }
+  error?: string
+}
+
+function normalizeRecipients(recipients: ReferralRecipient[]): ReferralRecipient[] {
+  const map = new Map<string, ReferralRecipient>()
+
+  for (const recipient of recipients) {
+    const email = recipient.email.trim()
+    const name = (recipient.name || '').trim()
+    const key = email.toLowerCase()
+
+    const existing = map.get(key)
+    if (!existing) {
+      map.set(key, { ...(name ? { name } : {}), email })
+      continue
+    }
+
+    if (!existing.name && name) {
+      map.set(key, { name, email: existing.email })
+    }
+  }
+
+  return Array.from(map.values())
+}
+
+export async function updateClientReferralProfile(input: unknown): Promise<UpdateReferralResult> {
+  const payload = await getPayload({ config })
+
+  try {
+    const parsed = updateReferralSchema.safeParse(input)
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message || 'Invalid referral update payload',
+      }
+    }
+
+    const { clientId, referralType, referralId, title } = parsed.data
+    const recipients = normalizeRecipients(parsed.data.recipients)
+    const additionalRecipients = normalizeRecipients(parsed.data.additionalRecipients)
+
+    const headersList = await headers()
+    const { user } = await payload.auth({ headers: headersList })
+
+    if (!user || user.collection !== 'admins') {
+      return {
+        success: false,
+        error: 'Unauthorized: Admin access required',
+      }
+    }
+
+    const client = await payload.findByID({
+      collection: 'clients',
+      id: clientId,
+      depth: 0,
+      overrideAccess: true,
+    })
+
+    if (!client) {
+      return {
+        success: false,
+        error: 'Client not found',
+      }
+    }
+
+    const dataToUpdate: Record<string, unknown> = {
+      referralType,
+      referral: null,
+      referralAdditionalRecipients: [],
+      selfReferral: {
+        sendToOther: false,
+        recipients: [],
+      },
+    }
+
+    if (referralType === 'self') {
+      dataToUpdate.referralAdditionalRecipients = recipients
+    } else if (referralId) {
+      await assertReferralHasContacts({
+        payload,
+        relationTo: referralType === 'court' ? 'courts' : 'employers',
+        referralId,
+      })
+
+      dataToUpdate.referral = {
+        relationTo: referralType === 'court' ? 'courts' : 'employers',
+        value: referralId,
+      }
+      dataToUpdate.referralAdditionalRecipients = additionalRecipients
+    } else {
+      const relationship = await createInactiveReferralAndAlert({
+        payload,
+        type: referralType,
+        source: 'referral-editor',
+        name: title,
+        contacts: recipients,
+      })
+      dataToUpdate.referral = relationship
+      dataToUpdate.referralAdditionalRecipients = additionalRecipients
+    }
+
+    await payload.update({
+      collection: 'clients',
+      id: clientId,
+      data: dataToUpdate,
+      overrideAccess: true,
+    })
+
+    const recipientData = await getRecipients(clientId, payload)
+
+    return {
+      success: true,
+      data: {
+        referralType,
+        referralTitle: recipientData.referralTitle,
+        referralEmails: recipientData.referralEmails,
+        referralRecipientsDetailed: recipientData.referralRecipientsDetailed,
+        clientAdditionalRecipientsDetailed: recipientData.clientAdditionalRecipientsDetailed,
+        referralPresetId: recipientData.referralPresetId,
+      },
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    payload.logger.error({
+      msg: '[updateClientReferralProfile] Failed to update referral profile',
+      err: error,
+      input,
+    })
+
+    await createAdminAlert(payload, {
+      severity: 'high',
+      alertType: 'data-integrity',
+      title: 'Failed to update client referral profile',
+      message,
+      context: {
+        input,
+        error: message,
+      },
+    })
+
+    return {
+      success: false,
+      error: `Failed to update referral profile: ${message}`,
+    }
+  }
+}

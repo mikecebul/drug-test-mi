@@ -2,9 +2,8 @@
 
 import { useStore } from '@tanstack/react-form'
 import { useFieldContext } from '../../hooks/form-context'
-import { Label } from '@/components/ui/label'
 import { cn } from '@/utilities/cn'
-import { CountryFormField } from '@/payload-types'
+import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import {
   Select,
   SelectContent,
@@ -23,16 +22,17 @@ export interface CountryFieldUIProps {
 export default function CountryField({ label, colSpan, required }: CountryFieldUIProps) {
   const field = useFieldContext<string>()
   const errors = useStore(field.store, (state) => state.meta.errors)
+  const hasErrors = !!errors && errors.length > 0
 
   return (
     <div className={cn('col-span-2 w-full', { '@lg:col-span-1': colSpan === '1' })}>
-      <div className={cn('grid w-full gap-2')}>
-        <Label htmlFor={field.name}>
+      <Field data-invalid={hasErrors}>
+        <FieldLabel htmlFor={field.name}>
           {label}
           {required && <span className="text-destructive">*</span>}
-        </Label>
-        <Select onValueChange={(e) => field.handleChange(e)} required={!!required}>
-          <SelectTrigger id={field.name}>
+        </FieldLabel>
+        <Select onValueChange={(e) => field.handleChange(e)} value={field.state.value || ''} required={!!required}>
+          <SelectTrigger id={field.name} aria-invalid={hasErrors || undefined}>
             <SelectValue placeholder="Pick a country" />
           </SelectTrigger>
           <SelectContent>
@@ -43,10 +43,8 @@ export default function CountryField({ label, colSpan, required }: CountryFieldU
             ))}
           </SelectContent>
         </Select>
-      </div>
-      <div>
-        {errors && <em className="text-destructive text-sm first:mt-1">{errors[0]?.message}</em>}
-      </div>
+        <FieldError errors={errors} />
+      </Field>
     </div>
   )
 }

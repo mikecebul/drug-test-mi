@@ -11,6 +11,7 @@ import { baseUrl } from '@/utilities/baseUrl'
 import Script from 'next/script'
 import { Toaster } from '@/components/ui/sonner'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
+import { ToastDevTools } from '@/components/dev/ToastDevTools'
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -24,13 +25,14 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           strategy="lazyOnload"
         />
       </head>
-      <body className="bg-background flex min-h-dvh flex-col">
+      <body className="bg-background flex min-h-dvh flex-col" suppressHydrationWarning>
         <ThemeProvider forcedTheme="light">
           <NuqsAdapter>
             <Header />
             <div className="flex grow flex-col">{children}</div>
             <Footer />
             <Toaster />
+            {process.env.NODE_ENV !== 'production' && <ToastDevTools />}
           </NuqsAdapter>
         </ThemeProvider>
       </body>

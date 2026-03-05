@@ -4,18 +4,7 @@ import { formatCollectionDateShort, formatCollectionDate } from '@/lib/date-util
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Calendar,
-  CheckCircle,
-  Clock,
-  CreditCard,
-  FileText,
-  Pill,
-  User,
-  TrendingUp,
-  AlertCircle,
-  Shield,
-} from 'lucide-react'
+import { Calendar, CheckCircle, Clock, FileText, Pill, User, TrendingUp, AlertCircle, Shield } from 'lucide-react'
 import Link from 'next/link'
 import { CalPopupButton } from '@/components/cal-popup-button'
 import { buildCalConfig } from '@/utilities/calcom-config'
@@ -26,7 +15,7 @@ export type DashboardData = {
     id: string
     name: string
     email: string
-    clientType: string
+    referralType: string
     isActive: boolean
     headshot?: any
   }
@@ -303,7 +292,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
                   <div>
                     <p className="text-muted-foreground text-sm">Client Type</p>
                     <Badge variant="outline" className="capitalize">
-                      {user.clientType === 'probation' ? 'Probation/Court' : user.clientType}
+                      {user.referralType === 'court' ? 'Court' : user.referralType}
                     </Badge>
                   </div>
                   <div>

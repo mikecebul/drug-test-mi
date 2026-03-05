@@ -26,7 +26,7 @@ export const ResendVerificationForm = ({ showLoginMessage = false }: ResendVerif
         if (email) {
           setEmail(email)
         }
-      } catch (error) {
+      } catch (_error) {
         // Silently fail - user can manually enter email
       }
     }
@@ -60,7 +60,7 @@ export const ResendVerificationForm = ({ showLoginMessage = false }: ResendVerif
         const result = await response.json()
         toast.error(result.errors?.[0]?.message || result.message || 'Failed to send verification email')
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Network error occurred. Please try again.')
     } finally {
       setIsLoading(false)

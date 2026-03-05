@@ -7,7 +7,7 @@ export const CTA = ({ links }: { links: LinkGroup }) => {
   return (
     <div className="flex gap-4 flex-wrap">
       {links != null &&
-        links.map(({ link, id }, index) => (
+        links.map(({ link, id }, _index) => (
           <CMSLink
             key={id}
             {...link}

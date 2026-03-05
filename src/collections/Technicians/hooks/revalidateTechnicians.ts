@@ -1,5 +1,5 @@
 import type { CollectionAfterChangeHook } from 'payload'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath } from 'next/cache.js'
 import type { Technician } from '@/payload-types'
 
 export const revalidateTechnicians: CollectionAfterChangeHook<Technician> = ({ doc, req }) => {

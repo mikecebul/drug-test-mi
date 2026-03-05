@@ -4,7 +4,6 @@ import { baseUrl } from '@/utilities/baseUrl'
 import { anyone } from '@/access/anyone'
 import { notifyNewRegistration } from './hooks/notifyNewRegistration'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
-import { Sidebar } from 'lucide-react'
 
 export const Clients: CollectionConfig = {
   slug: 'clients',
@@ -157,7 +156,7 @@ export const Clients: CollectionConfig = {
     afterChange: [notifyNewRegistration],
   },
   admin: {
-    defaultColumns: ['headshot', 'lastName', 'email', 'clientType'],
+    defaultColumns: ['headshot', 'lastName', 'email', 'referralType'],
     useAsTitle: 'fullName',
     listSearchableFields: ['email', 'firstName', 'lastName'],
     components: {
@@ -215,15 +214,11 @@ export const Clients: CollectionConfig = {
       },
     },
     {
-      name: 'clientType',
-      type: 'select',
-      options: [
-        { label: 'Probation/Court', value: 'probation' },
-        { label: 'Employment', value: 'employment' },
-        { label: 'Self-Pay/Individual', value: 'self' },
-      ],
+      name: 'disableClientEmails',
+      type: 'checkbox',
+      defaultValue: false,
       admin: {
-        description: 'Type of client - determines required fields',
+        description: 'If enabled, client-facing result emails will never be sent for this profile.',
         position: 'sidebar',
       },
     },
@@ -310,131 +305,209 @@ export const Clients: CollectionConfig = {
           ],
         },
 
-        // Tab 2: Service Details
+        // Tab 2: Referral Details
         {
-          label: 'Service Details',
-          description: 'Information about who is requesting services',
+          label: 'Referral Details',
+          description: 'Referral source and notification recipients',
           fields: [
-            // Probation/Court specific fields
             {
-              name: 'courtInfo',
-              type: 'group',
+              name: 'referralType',
+              type: 'select',
+              options: [
+                { label: 'Court', value: 'court' },
+                { label: 'Employer', value: 'employer' },
+                { label: 'Self', value: 'self' },
+              ],
+              hooks: {
+                beforeChange: [
+                  ({ value, siblingData }) => {
+                    const nextType = typeof value === 'string' ? value : undefined
+                    const referralValue = siblingData?.referral
+
+                    if (nextType === 'self') {
+                      siblingData.referral = null
+                      return value
+                    }
+
+                    if (
+                      referralValue &&
+                      typeof referralValue === 'object' &&
+                      'relationTo' in referralValue &&
+                      ((nextType === 'court' && referralValue.relationTo !== 'courts')
+                        || (nextType === 'employer' && referralValue.relationTo !== 'employers'))
+                    ) {
+                      siblingData.referral = null
+                    }
+
+                    return value
+                  },
+                ],
+              },
               admin: {
-                condition: (_data, siblingData) => siblingData?.clientType === 'probation',
-                description: 'Court and probation officer information',
+                description: 'Referral type for this client',
+              },
+            },
+            {
+              name: 'referral',
+              type: 'relationship',
+              relationTo: ['courts', 'employers'],
+              filterOptions: ({ relationTo, siblingData, data }) => {
+                const siblingReferralType =
+                  siblingData && typeof siblingData === 'object' && 'referralType' in siblingData
+                    ? (siblingData as { referralType?: string }).referralType
+                    : undefined
+                const dataReferralType =
+                  data && typeof data === 'object' && 'referralType' in data
+                    ? (data as { referralType?: string }).referralType
+                    : undefined
+                const referralType = siblingReferralType || dataReferralType
+
+                if (referralType === 'court') {
+                  return relationTo === 'courts'
+                    ? {
+                        isActive: {
+                          equals: true,
+                        },
+                      }
+                    : false
+                }
+
+                if (referralType === 'employer') {
+                  return relationTo === 'employers'
+                    ? {
+                        isActive: {
+                          equals: true,
+                        },
+                      }
+                    : false
+                }
+
+                return false
+              },
+              admin: {
+                condition: (data, siblingData) => {
+                  const siblingReferralType =
+                    siblingData && typeof siblingData === 'object' && 'referralType' in siblingData
+                      ? (siblingData as { referralType?: string }).referralType
+                      : undefined
+                  const dataReferralType =
+                    data && typeof data === 'object' && 'referralType' in data
+                      ? (data as { referralType?: string }).referralType
+                      : undefined
+                  const referralType = siblingReferralType || dataReferralType
+                  return referralType === 'court' || referralType === 'employer'
+                },
+                description: 'Select the court or employer referral source.',
+              },
+              validate: (value, { siblingData, data }) => {
+                const siblingReferralType =
+                  siblingData && typeof siblingData === 'object' && 'referralType' in siblingData
+                    ? (siblingData as { referralType?: string }).referralType
+                    : undefined
+                const dataReferralType =
+                  data && typeof data === 'object' && 'referralType' in data
+                    ? (data as { referralType?: string }).referralType
+                    : undefined
+                const referralType = siblingReferralType || dataReferralType
+
+                if (referralType === 'court' || referralType === 'employer') {
+                  if (!value) return 'Referral is required for court and employer clients.'
+                  if (typeof value === 'object' && 'relationTo' in value) {
+                    if (referralType === 'court' && value.relationTo !== 'courts') {
+                      return 'Please select a court referral.'
+                    }
+                    if (referralType === 'employer' && value.relationTo !== 'employers') {
+                      return 'Please select an employer referral.'
+                    }
+                  }
+                }
+                return true
+              },
+            },
+            {
+              name: 'referralPresetRecipientsAlert',
+              type: 'ui',
+              admin: {
+                condition: (data, siblingData) => {
+                  const siblingReferralType =
+                    siblingData && typeof siblingData === 'object' && 'referralType' in siblingData
+                      ? (siblingData as { referralType?: string }).referralType
+                      : undefined
+                  const dataReferralType =
+                    data && typeof data === 'object' && 'referralType' in data
+                      ? (data as { referralType?: string }).referralType
+                      : undefined
+                  const referralType = siblingReferralType || dataReferralType
+
+                  const siblingReferral =
+                    siblingData && typeof siblingData === 'object' && 'referral' in siblingData
+                      ? (siblingData as { referral?: unknown }).referral
+                      : undefined
+                  const dataReferral =
+                    data && typeof data === 'object' && 'referral' in data
+                      ? (data as { referral?: unknown }).referral
+                      : undefined
+                  const referral = siblingReferral ?? dataReferral
+
+                  return (referralType === 'court' || referralType === 'employer') && Boolean(referral)
+                },
+                components: {
+                  Field:
+                    '@/collections/Clients/components/ReferralPresetRecipientsAlert.client#ReferralPresetRecipientsAlert',
+                },
+              },
+            },
+            {
+              name: 'referralAdditionalRecipients',
+              type: 'array',
+              admin: {
+                description:
+                  'Additional recipients for this client only. These do not modify the linked referral profile.',
               },
               fields: [
                 {
-                  name: 'courtName',
+                  name: 'name',
                   type: 'text',
-                  required: true,
-                  admin: {
-                    description: 'Name of the court',
-                  },
                 },
                 {
-                  name: 'recipients',
-                  type: 'array',
-                  admin: {
-                    description: 'Recipients who will receive test results (probation officers, court clerks, etc.)',
-                  },
-                  fields: [
-                    {
-                      name: 'name',
-                      type: 'text',
-                      required: true,
-                      admin: {
-                        description: 'Name of recipient (probation officer, court clerk, etc.)',
-                      },
-                    },
-                    {
-                      name: 'email',
-                      type: 'email',
-                      required: true,
-                      admin: {
-                        description: 'Email address of recipient',
-                      },
-                    },
-                  ],
+                  name: 'email',
+                  type: 'email',
+                  required: true,
                 },
               ],
             },
-            // Employment specific fields
             {
-              name: 'employmentInfo',
+              name: 'selfReferral',
               type: 'group',
               admin: {
-                condition: (_data, siblingData) => siblingData?.clientType === 'employment',
-                description: 'Employer and contact information',
+                condition: () => false,
+                description: 'Legacy self-referral notification preferences.',
               },
               fields: [
                 {
-                  name: 'employerName',
-                  type: 'text',
-                  required: true,
+                  name: 'sendToOther',
+                  type: 'checkbox',
+                  defaultValue: false,
                   admin: {
-                    description: 'Name of employer/company',
+                    description: 'If enabled, results are also sent to the additional recipients below.',
                   },
                 },
                 {
                   name: 'recipients',
                   type: 'array',
                   admin: {
-                    description: 'Recipients who will receive test results (HR contacts, hiring managers, etc.)',
+                    condition: (_data, siblingData) => siblingData?.sendToOther === true,
+                    description: 'Additional recipients for self referrals.',
                   },
                   fields: [
                     {
                       name: 'name',
                       type: 'text',
-                      required: true,
-                      admin: {
-                        description: 'Name of recipient (HR contact, hiring manager, etc.)',
-                      },
                     },
                     {
                       name: 'email',
                       type: 'email',
                       required: true,
-                      admin: {
-                        description: 'Email address of recipient',
-                      },
-                    },
-                  ],
-                },
-              ],
-            },
-            // Self-pay client recipients
-            {
-              name: 'selfInfo',
-              type: 'group',
-              admin: {
-                condition: (_data, siblingData) => siblingData?.clientType === 'self',
-                description: 'Self-pay client information and additional recipients',
-              },
-              fields: [
-                {
-                  name: 'recipients',
-                  type: 'array',
-                  admin: {
-                    description:
-                      'Optional additional recipients who will receive test results (family members, personal contacts, etc.). The client will always receive their own results.',
-                  },
-                  fields: [
-                    {
-                      name: 'name',
-                      type: 'text',
-                      required: true,
-                      admin: {
-                        description: 'Name of recipient',
-                      },
-                    },
-                    {
-                      name: 'email',
-                      type: 'email',
-                      required: true,
-                      admin: {
-                        description: 'Email address of recipient',
-                      },
                     },
                   ],
                 },

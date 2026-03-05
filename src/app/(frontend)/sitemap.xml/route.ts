@@ -2,7 +2,7 @@ import { getServerSideSitemap } from 'next-sitemap'
 import { getPayload } from 'payload'
 import configPromise from '@payload-config'
 import { baseUrl } from '@/utilities/baseUrl'
-import { unstable_cache } from 'next/cache'
+import { unstable_cache } from 'next/cache.js'
 
 const getSitemap = unstable_cache(
   async () => {

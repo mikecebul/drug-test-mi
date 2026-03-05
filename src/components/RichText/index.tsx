@@ -13,13 +13,13 @@ import {
 import type { MediaBlock as MediaBlockProps } from '@/payload-types'
 import { cn } from '@/utilities/cn'
 import Link from 'next/link'
-import { addHTTPS } from '@/utilities/addHTTPS'
+import { normalizeEditorUrl } from '@/utilities/normalizeEditorUrl'
 import { randomUUID } from 'crypto'
 
 type NodeTypes = DefaultNodeTypes | SerializedBlockNode<MediaBlockProps>
 
 const internalDocToHref = ({ linkNode }: { linkNode: SerializedLinkNode }) => {
-  const { value, relationTo } = linkNode.fields.doc!
+  const { value } = linkNode.fields.doc!
   if (typeof value !== 'object') {
     throw new Error('Expected value to be an object')
   }
@@ -94,9 +94,11 @@ const jsxConverters = (paragraphClassName?: string): JSXConvertersFunction<NodeT
           }
         }
         if (node.fields.linkType === 'custom') {
+          const normalizedHref = normalizeEditorUrl(href) ?? '#'
+
           return (
             <a
-              href={addHTTPS(href)}
+              href={normalizedHref}
               className="font-semibold underline decoration-blue-700 decoration-2 underline-offset-1"
               {...{ rel, target }}
             >
@@ -149,7 +151,7 @@ const jsxConverters = (paragraphClassName?: string): JSXConvertersFunction<NodeT
             <li
               aria-checked={node.checked ? 'true' : 'false'}
               className={`list-item-checkbox${node.checked ? 'list-item-checkbox-checked' : 'list-item-checkbox-unchecked'}${hasSubLists ? 'nestedListItem' : ''}`}
-              // eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role
+               
               role="checkbox"
               style={{ listStyleType: 'inherit' }}
               tabIndex={-1}

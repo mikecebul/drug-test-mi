@@ -1,5 +1,11 @@
 import type { Block } from 'payload'
 import { linkGroup } from '@/fields/link/linkGroup'
+import { createNormalizeEditorUrlHook } from '@/hooks/normalizeEditorUrl'
+
+const normalizeDirectionsUrlHook = createNormalizeEditorUrlHook({
+  allowRelative: true,
+  errorMessage: 'Directions URL must be a relative path or valid URL.',
+})
 
 export const Hero: Block = {
   slug: 'hero',
@@ -18,6 +24,10 @@ export const Hero: Block = {
         {
           label: 'Medium Impact',
           value: 'mediumImpact',
+        },
+        {
+          label: 'Location Split (Map)',
+          value: 'locationSplit',
         },
       ],
       required: true,
@@ -101,6 +111,145 @@ export const Hero: Block = {
           name: 'description',
           label: 'Description',
           type: 'textarea',
+        },
+      ],
+    },
+    {
+      type: 'group',
+      name: 'locationSplit',
+      admin: {
+        hideGutter: true,
+        condition: (_, { type } = {}) => ['locationSplit'].includes(type),
+      },
+      fields: [
+        {
+          name: 'badgeText',
+          type: 'text',
+          defaultValue: 'Accepted by Michigan courts',
+          required: true,
+        },
+        {
+          name: 'headingPrefix',
+          type: 'text',
+          defaultValue: 'Compliant Drug Testing for',
+          required: true,
+        },
+        {
+          name: 'headingHighlight',
+          type: 'text',
+          defaultValue: 'Charlevoix County',
+          required: true,
+        },
+        {
+          name: 'description',
+          type: 'textarea',
+          defaultValue:
+            'Run by recovery coaches who understand the journey. Reliable, affordable drug and alcohol testing.',
+          required: true,
+        },
+        {
+          name: 'policyNote',
+          type: 'text',
+          defaultValue: 'We do not book appointments without registering or calling first.',
+          required: true,
+        },
+        {
+          name: 'locationText',
+          type: 'text',
+          defaultValue: 'Clinton St, Charlevoix, Michigan',
+          required: true,
+        },
+        {
+          ...linkGroup({
+            overrides: {
+              maxRows: 2,
+              defaultValue: [
+                {
+                  link: {
+                    type: 'custom',
+                    url: '/register',
+                    label: 'Register',
+                    appearance: 'default',
+                    newTab: false,
+                  },
+                },
+                {
+                  link: {
+                    type: 'custom',
+                    url: 'tel:2313736341',
+                    label: 'Call',
+                    appearance: 'outline',
+                    newTab: false,
+                  },
+                },
+              ],
+              admin: {
+                components: {
+                  RowLabel: '@/fields/link/LinkRowLabel',
+                },
+              },
+            },
+          }),
+        },
+        {
+          type: 'row',
+          fields: [
+            {
+              name: 'mapTitle',
+              type: 'text',
+              defaultValue: 'MI Drug Test',
+              required: true,
+              admin: {
+                width: '50%',
+              },
+            },
+            {
+              name: 'mapSubtitle',
+              type: 'text',
+              defaultValue: 'Charlevoix, MI 49720',
+              required: true,
+              admin: {
+                width: '50%',
+              },
+            },
+          ],
+        },
+        {
+          name: 'mapImage',
+          type: 'upload',
+          relationTo: 'media',
+        },
+        {
+          type: 'row',
+          fields: [
+            {
+              name: 'mapFooterText',
+              type: 'text',
+              defaultValue: 'Downtown Charlevoix',
+              required: true,
+              admin: {
+                width: '50%',
+              },
+            },
+            {
+              name: 'directionsLabel',
+              type: 'text',
+              defaultValue: 'Get Directions',
+              required: true,
+              admin: {
+                width: '50%',
+              },
+            },
+          ],
+        },
+        {
+          name: 'directionsUrl',
+          type: 'text',
+          defaultValue: 'https://maps.google.com/?q=MI+Drug+Test+Charlevoix+MI',
+          required: true,
+          hooks: {
+            beforeChange: [normalizeDirectionsUrlHook],
+          },
         },
       ],
     },

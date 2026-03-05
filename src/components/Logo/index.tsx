@@ -1,4 +1,4 @@
-import { FlaskConical, LandPlot } from 'lucide-react'
+import { FlaskConical } from 'lucide-react'
 import Link from 'next/link'
 
 export const Logo = ({ name }: { name: string }) => {

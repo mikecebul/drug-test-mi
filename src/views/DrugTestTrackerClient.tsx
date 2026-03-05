@@ -82,6 +82,55 @@ const getTestStage = (test: DrugTest) => {
 export function DrugTestTrackerClient() {
   const [tests, setTests] = useState<DrugTest[]>([])
   const [loading, setLoading] = useState(true)
+  const [updatingTests, setUpdatingTests] = useState<Record<string, boolean>>({})
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  async function markAsAccepted(testId: string) {
+    setActionError(null)
+    setUpdatingTests((prev) => ({ ...prev, [testId]: true }))
+
+    try {
+      const response = await fetch(`/api/drug-tests/${testId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          confirmationDecision: 'accept',
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to update test (${response.status})`)
+      }
+
+      const data = await response.json()
+      const updatedTest = (data?.doc ?? data) as Partial<DrugTest> | undefined
+
+      if (updatedTest?.id) {
+        setTests((prev) => {
+          // Accepted tests should typically become complete and leave this incomplete tracker.
+          if (updatedTest.isComplete) {
+            return prev.filter((test) => test.id !== testId)
+          }
+
+          return prev.map((test) => (test.id === testId ? { ...test, ...updatedTest } : test))
+        })
+      } else {
+        // Safe fallback: remove from list to avoid stale pending-decision state.
+        setTests((prev) => prev.filter((test) => test.id !== testId))
+      }
+    } catch (error) {
+      console.error('Error marking test as accepted:', error)
+      setActionError('Unable to mark test as accepted. Please try again.')
+    } finally {
+      setUpdatingTests((prev) => {
+        const next = { ...prev }
+        delete next[testId]
+        return next
+      })
+    }
+  }
 
   useEffect(() => {
     async function fetchIncompleteTests() {
@@ -124,6 +173,7 @@ export function DrugTestTrackerClient() {
         <p className="text-muted-foreground mt-2 text-lg">
           Track and manage drug tests that require attention
         </p>
+        {actionError && <p className="mt-3 text-sm font-medium text-red-600">{actionError}</p>}
       </div>
 
       {loading ? (
@@ -220,7 +270,16 @@ export function DrugTestTrackerClient() {
                         )}
                       </div>
 
-                      <div className="mt-4 flex gap-2">
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {stage === 'Awaiting Client Decision' && (
+                          <Button
+                            size="sm"
+                            onClick={() => markAsAccepted(test.id)}
+                            disabled={Boolean(updatingTests[test.id])}
+                          >
+                            {updatingTests[test.id] ? 'Accepting...' : 'Mark Accepted'}
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"

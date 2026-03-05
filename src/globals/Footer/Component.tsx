@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 import { cn } from '@/utilities/cn'
 import { buttonVariants } from '@/components/ui/button'
-import { Clock, Facebook, Mail, Navigation, Phone, Printer } from 'lucide-react'
+import { Clock, Facebook, Mail, Navigation, Phone } from 'lucide-react'
 import Container from '@/components/Container'
 import { CMSLink } from '@/components/Link'
 import { getPayload } from 'payload'
@@ -80,21 +80,7 @@ export async function Footer() {
                     </a>
                   </li>
                 )}
-                {typeof contact.fax === 'string' && contact.fax.length > 0 && (
-                  <li key={contact.fax} className="group">
-                    <a
-                      href={`tel:${contact.fax.replace(/\D/g, '')}`}
-                      className={cn(
-                        buttonVariants({ variant: 'text' }),
-                        'text-gray-500 pointer-events-none select-text cursor-text'
-                      )}
-                    >
-                      <Printer className="mr-2" size={20} />
-                      {contact.fax}
-                    </a>
-                  </li>
-                )}
-                {(contact.physicalAddress?.street || contact.mailingAddress?.street) && (
+                {contact.physicalAddress?.street && (
                   <li
                     className={cn(
                       buttonVariants({ variant: 'text' }),
@@ -106,16 +92,7 @@ export async function Footer() {
                       {contact.physicalAddress?.street && (
                         <div>
                           <span>
-                            <strong>Physical: </strong>
                             {`${contact.physicalAddress.street}, ${contact.physicalAddress.cityStateZip}`}
-                          </span>
-                        </div>
-                      )}
-                      {contact.mailingAddress?.street && (
-                        <div>
-                          <span>
-                            <strong>Mailing: </strong>
-                            {`${contact.mailingAddress.street}, ${contact.mailingAddress.cityStateZip}`}
                           </span>
                         </div>
                       )}

@@ -1,10 +1,6 @@
-import { headers as getHeaders } from 'next/headers.js'
-import { redirect } from 'next/navigation'
-import { getPayload } from 'payload'
 import React from 'react'
 import type { Metadata } from 'next'
 
-import config from '@payload-config'
 import { RegistrationForm } from './RegistrationForm'
 
 export const metadata: Metadata = {

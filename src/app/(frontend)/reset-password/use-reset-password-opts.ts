@@ -21,7 +21,7 @@ export const useResetPasswordOpts = ({
       confirmPassword: '',
       token: token || '',
     } as ResetPasswordFormType,
-    onSubmit: async ({ value: data, formApi: form }) => {
+    onSubmit: async ({ value: data, formApi: _form }) => {
       if (!data.token) {
         toast.error('Invalid reset token. Please request a new password reset link.')
         return
@@ -68,7 +68,7 @@ export const useResetPasswordOpts = ({
               window.location.href = '/dashboard'
               return
             }
-          } catch (loginErr) {
+          } catch (_loginErr) {
             // If auto-login fails, still show success but redirect to login
             toast.success('Password reset successfully! Please sign in with your new password.')
             window.location.href = '/sign-in'
@@ -78,7 +78,7 @@ export const useResetPasswordOpts = ({
 
         toast.success('Password reset successfully! Please sign in with your new password.')
         window.location.href = '/sign-in'
-      } catch (err) {
+      } catch (_err) {
         toast.error('Something went wrong. Please try again.')
       }
     },

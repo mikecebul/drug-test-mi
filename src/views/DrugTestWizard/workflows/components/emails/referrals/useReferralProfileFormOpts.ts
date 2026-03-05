@@ -1,0 +1,93 @@
+'use client'
+
+import { formOptions } from '@tanstack/react-form'
+import { toast } from 'sonner'
+import { updateClientReferralProfile } from './updateClientReferralProfile'
+import {
+  mapReferralTypeUiToClientType,
+  referralProfileSchema,
+  type RecipientDetail,
+  type ReferralClientType,
+  type ReferralProfileFormValues,
+} from './referral-profile-schema'
+
+function normalizeRecipients(recipients: ReferralProfileFormValues['recipients']): RecipientDetail[] {
+  const deduped = new Map<string, RecipientDetail>()
+
+  for (const recipient of recipients) {
+    const name = recipient.name.trim()
+    const email = recipient.email.trim()
+    if (!email) continue
+    const key = email.toLowerCase()
+
+    if (!deduped.has(key)) {
+      deduped.set(key, { ...(name ? { name } : {}), email })
+    }
+  }
+
+  return Array.from(deduped.values())
+}
+
+type UseReferralProfileFormOptsArgs = {
+  clientId: string | null
+  initialValues: ReferralProfileFormValues
+  onClose: () => void
+  onSaved: (data: {
+    referralType: ReferralClientType
+    referralTitle: string
+    referralEmails: string[]
+    referralRecipientsDetailed: RecipientDetail[]
+    clientAdditionalRecipientsDetailed: RecipientDetail[]
+    referralPresetId?: string
+  }) => void
+}
+
+export function useReferralProfileFormOpts({
+  clientId,
+  initialValues,
+  onClose,
+  onSaved,
+}: UseReferralProfileFormOptsArgs) {
+  return formOptions({
+    defaultValues: initialValues,
+    canSubmitWhenInvalid: true,
+    validators: {
+      onSubmit: ({ formApi }) => formApi.parseValuesWithSchema(referralProfileSchema),
+    },
+    onSubmit: async ({ value }) => {
+      if (!clientId) {
+        toast.error('Client is missing, cannot update referral profile')
+        return
+      }
+
+      const recipients = normalizeRecipients(value.recipients)
+      const additionalRecipients = normalizeRecipients(value.additionalRecipients)
+
+      const result = await updateClientReferralProfile({
+        clientId,
+        referralType: mapReferralTypeUiToClientType(value.referralTypeUi),
+        referralId: value.presetKey !== 'custom' ? value.presetKey : undefined,
+        title: value.title.trim(),
+        recipients,
+        additionalRecipients,
+      })
+
+      if (!result.success || !result.data) {
+        toast.error(result.error || 'Failed to update referral profile')
+        return
+      }
+
+      onSaved({
+        referralType: result.data.referralType,
+        referralTitle: result.data.referralTitle,
+        referralEmails: result.data.referralEmails,
+        referralRecipientsDetailed: result.data.referralRecipientsDetailed,
+        clientAdditionalRecipientsDetailed: result.data.clientAdditionalRecipientsDetailed,
+        referralPresetId: result.data.referralPresetId,
+      })
+
+      toast.success('Referral profile updated')
+      onClose()
+    },
+  })
+}

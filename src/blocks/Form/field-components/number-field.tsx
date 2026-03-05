@@ -2,10 +2,9 @@
 
 import { useStore } from '@tanstack/react-form'
 import { useFieldContext } from '../hooks/form-context'
-import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { cn } from '@/utilities/cn'
-import { NumberFormField } from '@/payload-types'
 
 export interface NumberFieldUIProps {
   label?: string | null
@@ -16,11 +15,15 @@ export interface NumberFieldUIProps {
 export default function NumberField({ label, colSpan, required }: NumberFieldUIProps) {
   const field = useFieldContext<string>()
   const errors = useStore(field.store, (state) => state.meta.errors)
+  const hasErrors = !!errors && errors.length > 0
 
   return (
     <div className={cn('col-span-2 w-full', { '@lg:col-span-1': colSpan === '1' })}>
-      <div className={cn('grid w-full gap-2')}>
-        <Label htmlFor={field.name}>{label}</Label>
+      <Field data-invalid={hasErrors}>
+        <FieldLabel htmlFor={field.name}>
+          {label}
+          {required ? <span className="text-destructive">*</span> : null}
+        </FieldLabel>
         <Input
           id={field.name}
           type="number"
@@ -28,11 +31,10 @@ export default function NumberField({ label, colSpan, required }: NumberFieldUIP
           onBlur={() => field.handleBlur()}
           onChange={(e) => field.handleChange(e.target.value)}
           required={!!required}
+          aria-invalid={hasErrors || undefined}
         />
-      </div>
-      <div>
-        {errors && <em className="text-destructive text-sm first:mt-1">{errors[0]?.message}</em>}
-      </div>
+        <FieldError errors={errors} />
+      </Field>
     </div>
   )
 }

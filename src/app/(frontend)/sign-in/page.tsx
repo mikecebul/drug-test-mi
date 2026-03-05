@@ -47,7 +47,7 @@ export default async function Login() {
           redirect('/verify-email?resend=true')
         }
       }
-    } catch (error) {
+    } catch (_error) {
       // Continue to login page on error
     }
 

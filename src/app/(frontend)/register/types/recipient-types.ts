@@ -1,27 +1,35 @@
-/**
- * Shared types for registration recipient configurations
- */
+import type { Court, Employer } from '@/payload-types'
 
-/**
- * Recipient information for test results
- */
-export interface RecipientInfo {
-  readonly name: string
-  readonly email: string
+export type RecipientInfo = {
+  name?: string
+  email: string
 }
 
-/**
- * Employer configuration with pre-configured recipients
- */
-export interface EmployerConfig {
-  readonly label: string
-  readonly recipients: readonly RecipientInfo[]
+export type ReferralOption = {
+  id: string
+  name: string
+  contacts: RecipientInfo[]
+  recipientEmails: string[]
+  preferredTestTypeLabel?: string
 }
 
-/**
- * Court configuration with pre-configured recipients
- */
-export interface CourtConfig {
-  readonly label: string
-  readonly recipients: readonly RecipientInfo[]
-}
+export type EmployerOption = ReferralOption
+
+export type CourtOption = ReferralOption
+
+export type EmployerRecord = Pick<Employer, 'id' | 'name' | 'contacts' | 'preferredTestType'>
+  & {
+    contactName?: string | null
+    contactEmail?: string | null
+    contacts?: Array<{ name?: string | null; email?: string | null }> | null
+    mainContactName?: string | null
+    mainContactEmail?: string | null
+    recipientEmails?: Array<{ email?: string | null }> | null
+  }
+
+export type CourtRecord = Pick<Court, 'id' | 'name' | 'contacts' | 'preferredTestType'>
+  & {
+    mainContactName?: string | null
+    mainContactEmail?: string | null
+    recipientEmails?: Array<{ email?: string | null }> | null
+  }

@@ -14,7 +14,6 @@ import {
   PreviewField,
 } from '@payloadcms/plugin-seo/fields'
 import { Links } from '@/blocks/Links/config'
-import { superAdmin } from '@/access/superAdmin'
 import { RichText } from '@/blocks/RichText/config'
 import { Form } from '@/blocks/Form/config'
 import { Layout } from '@/blocks/Layout/config'

@@ -29,7 +29,7 @@ export const useForgotPasswordOpts = () => {
 
         toast.info('Password reset email sent! Check your inbox for instructions.')
         form.reset()
-      } catch (err) {
+      } catch (_err) {
         toast.error('Something went wrong. Please try again.')
       }
     },

@@ -116,7 +116,7 @@ export async function updateMedicationAction(data: {
           // data.endDate is a Date object
           updatedMedication.endDate = data.endDate.toISOString()
         }
-      } catch (dateError) {
+      } catch (_dateError) {
         throw new Error('Invalid end date format')
       }
     } else if (data.status !== 'discontinued') {

@@ -2,6 +2,9 @@ import { describe, test, expect } from 'vitest'
 import { extract15PanelInstant } from '../extract15PanelInstant'
 import fs from 'fs/promises'
 import path from 'path'
+import { format } from 'date-fns'
+import { TZDate } from '@date-fns/tz'
+import { APP_TIMEZONE } from '@/lib/date-utils'
 
 // Fixture paths - can be overridden via environment variables for local testing
 const FIXTURES_DIR = path.join(__dirname, 'fixtures')
@@ -32,6 +35,13 @@ async function getTestPdf(
   return { buffer: null, skipped: true }
 }
 
+function assertCollectionDateString(dateString: string): Date {
+  expect(dateString).toMatch(/^\d{4}-\d{2}-\d{2}T.+(?:Z|[+-]\d{2}:\d{2})$/)
+  const date = new Date(dateString)
+  expect(Number.isNaN(date.getTime())).toBe(false)
+  return date
+}
+
 describe('extract15PanelInstant', () => {
   test('should extract screening results from instant test PDF', async () => {
     const pdf = await getTestPdf(
@@ -54,10 +64,8 @@ describe('extract15PanelInstant', () => {
     if (!result.collectionDate) {
       throw new Error('Expected collectionDate to be present')
     }
-    const date = new Date(result.collectionDate)
+    const date = assertCollectionDateString(result.collectionDate)
     expect(date instanceof Date).toBe(true)
-    expect(Number.isNaN(date.getTime())).toBe(false)
-    expect(date.toISOString()).toBe(result.collectionDate)
 
     // This PDF shows "Presumptive Positive" for Buprenorphine
     expect(result.detectedSubstances).toContain('buprenorphine')
@@ -111,7 +119,8 @@ describe('extract15PanelInstant', () => {
 
     if (result.collectionDate) {
       // collectionDate is now an ISO string, convert to Date for testing
-      const parsedDate = new Date(result.collectionDate)
+      const parsedDate = assertCollectionDateString(result.collectionDate)
+      const collectionDateInAppTimezone = TZDate.tz(APP_TIMEZONE, parsedDate)
 
       // Verify it's a valid date
       expect(parsedDate.getTime()).toBeGreaterThan(0)
@@ -119,11 +128,8 @@ describe('extract15PanelInstant', () => {
       expect(parsedDate.getFullYear()).toBeGreaterThanOrEqual(2024)
 
       // Verify specific date and time
-      const dateStr = parsedDate.toLocaleDateString('en-US')
-      expect(dateStr).toBe('11/20/2025')
-
-      const timeStr = parsedDate.toLocaleTimeString('en-US')
-      expect(timeStr).toContain('6:27')
+      expect(format(collectionDateInAppTimezone, 'MM/dd/yyyy')).toBe('11/20/2025')
+      expect(format(collectionDateInAppTimezone, 'h:mm a')).toBe('6:27 PM')
     }
   })
 

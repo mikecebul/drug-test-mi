@@ -31,7 +31,7 @@ export default async function TestResultsPage() {
     })
 
     return <ResultsView testResults={drugTestsResult.docs} contactPhone={companyInfo.contact?.phone || undefined} />
-  } catch (error) {
+  } catch (_error) {
     redirect('/sign-in?redirect=/dashboard/results')
   }
 }

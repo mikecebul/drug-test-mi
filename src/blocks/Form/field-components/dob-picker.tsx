@@ -2,13 +2,13 @@
 
 import { useFieldContext } from '../hooks/form-context'
 import { useStore } from '@tanstack/react-form'
-import { Label } from '@/components/ui/label'
 import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/utilities/cn'
 import * as React from 'react'
 import { CalendarIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 export interface DobFieldUIProps {
@@ -120,104 +120,106 @@ export default function DobPicker({ label, colSpan, required }: DobFieldUIProps)
 
   return (
     <div className={cn('col-span-2 flex w-full flex-col gap-2', { '@lg:col-span-1': colSpan === '1' })}>
-      <Label htmlFor={field.name} className="px-1">
-        {label}
-        {required ? <span className="text-destructive">*</span> : null}
-      </Label>
-      <div className="relative flex gap-2">
-        <Input
-          id={field.name}
-          name={field.name}
-          value={inputValue}
-          placeholder="01/01/1900"
-          className="pr-10"
-          onChange={(e) => {
-            const value = e.target.value
-            setInputValue(value)
+      <Field data-invalid={hasErrors}>
+        <FieldLabel htmlFor={field.name} className="px-1">
+          {label}
+          {required ? <span className="text-destructive">*</span> : null}
+        </FieldLabel>
+        <div className="relative flex gap-2">
+          <Input
+            id={field.name}
+            name={field.name}
+            value={inputValue}
+            placeholder="01/01/1900"
+            className="pr-10"
+            onChange={(e) => {
+              const value = e.target.value
+              setInputValue(value)
 
-            // Clear previous debounce
-            if (debounceRef.current) {
-              clearTimeout(debounceRef.current)
-            }
+              // Clear previous debounce
+              if (debounceRef.current) {
+                clearTimeout(debounceRef.current)
+              }
 
-            if (value === '') {
-              field.handleChange(undefined)
-              return
-            }
+              if (value === '') {
+                field.handleChange(undefined)
+                return
+              }
 
-            // Debounce the field update for complete date patterns
-            debounceRef.current = setTimeout(() => {
-              if (datePattern.test(value)) {
-                const date = parseDateWithYearExpansion(value)
-                if (isValidDate(date)) {
-                  const formatted = formatDate(date)
-                  field.handleChange(formatted)
-                  setMonth(date)
-                  setInputValue(formatted)
+              // Debounce the field update for complete date patterns
+              debounceRef.current = setTimeout(() => {
+                if (datePattern.test(value)) {
+                  const date = parseDateWithYearExpansion(value)
+                  if (isValidDate(date)) {
+                    const formatted = formatDate(date)
+                    field.handleChange(formatted)
+                    setMonth(date)
+                    setInputValue(formatted)
+                  }
                 }
+              }, 1200)
+            }}
+            onBlur={() => {
+              // Only parse if input matches valid date pattern
+              if (!datePattern.test(inputValue)) {
+                // Invalid format - trigger validation with current input
+                if (inputValue !== '') {
+                  field.handleChange(inputValue)
+                }
+                return
               }
-            }, 1200)
-          }}
-          onBlur={() => {
-            // Only parse if input matches valid date pattern
-            if (!datePattern.test(inputValue)) {
-              // Invalid format - trigger validation with current input
-              if (inputValue !== '') {
-                field.handleChange(inputValue)
-              }
-              return
-            }
 
-            const date = parseDateWithYearExpansion(inputValue)
-            if (isValidDate(date)) {
-              const formatted = formatDate(date)
-              field.handleChange(formatted)
-              setMonth(date)
-              setInputValue(formatted)
-            } else {
-              // Pattern matched but date invalid (e.g., 02/31/2020)
-              field.handleChange(inputValue)
-            }
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'ArrowDown') {
-              e.preventDefault()
-              setOpen(true)
-            }
-          }}
-          aria-invalid={hasErrors || undefined}
-        />
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              id="date-picker"
-              variant="ghost"
-              size="icon"
-              type="button"
-              className="absolute top-1/2 right-2 h-6 w-6 -translate-y-1/2"
-            >
-              <CalendarIcon className="size-3" />
-              <span className="sr-only">Select date</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto overflow-hidden p-0" align="end" alignOffset={-8} sideOffset={10}>
-            <Calendar
-              mode="single"
-              selected={dateValue}
-              captionLayout="dropdown"
-              month={month}
-              onMonthChange={setMonth}
-              onSelect={(date) => {
+              const date = parseDateWithYearExpansion(inputValue)
+              if (isValidDate(date)) {
                 const formatted = formatDate(date)
                 field.handleChange(formatted)
+                setMonth(date)
                 setInputValue(formatted)
-                setOpen(false)
-              }}
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-      {errors && <em className="text-destructive text-sm first:mt-2">{errors[0]?.message}</em>}
+              } else {
+                // Pattern matched but date invalid (e.g., 02/31/2020)
+                field.handleChange(inputValue)
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault()
+                setOpen(true)
+              }
+            }}
+            aria-invalid={hasErrors || undefined}
+          />
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                id="date-picker"
+                variant="ghost"
+                size="icon"
+                type="button"
+                className="absolute top-1/2 right-2 h-6 w-6 -translate-y-1/2"
+              >
+                <CalendarIcon className="size-3" />
+                <span className="sr-only">Select date</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto overflow-hidden p-0" align="end" alignOffset={-8} sideOffset={10}>
+              <Calendar
+                mode="single"
+                selected={dateValue}
+                captionLayout="dropdown"
+                month={month}
+                onMonthChange={setMonth}
+                onSelect={(date) => {
+                  const formatted = formatDate(date)
+                  field.handleChange(formatted)
+                  setInputValue(formatted)
+                  setOpen(false)
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+        <FieldError errors={errors} />
+      </Field>
     </div>
   )
 }

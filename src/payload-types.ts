@@ -106,9 +106,11 @@ export interface Config {
     admins: Admin;
     'admin-alerts': AdminAlert;
     technicians: Technician;
+    'test-types': TestType;
+    courts: Court;
+    employers: Employer;
     clients: Client;
     'drug-tests': DrugTest;
-    search: Search;
     exports: Export;
     imports: Import;
     redirects: Redirect;
@@ -119,6 +121,16 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    'test-types': {
+      employers: 'employers';
+      courts: 'courts';
+    };
+    courts: {
+      clients: 'clients';
+    };
+    employers: {
+      clients: 'clients';
+    };
     clients: {
       drugTests: 'drug-tests';
       bookings: 'bookings';
@@ -135,9 +147,11 @@ export interface Config {
     admins: AdminsSelect<false> | AdminsSelect<true>;
     'admin-alerts': AdminAlertsSelect<false> | AdminAlertsSelect<true>;
     technicians: TechniciansSelect<false> | TechniciansSelect<true>;
+    'test-types': TestTypesSelect<false> | TestTypesSelect<true>;
+    courts: CourtsSelect<false> | CourtsSelect<true>;
+    employers: EmployersSelect<false> | EmployersSelect<true>;
     clients: ClientsSelect<false> | ClientsSelect<true>;
     'drug-tests': DrugTestsSelect<false> | DrugTestsSelect<true>;
-    search: SearchSelect<false> | SearchSelect<true>;
     exports: ExportsSelect<false> | ExportsSelect<true>;
     imports: ImportsSelect<false> | ImportsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
@@ -162,13 +176,15 @@ export interface Config {
     'company-info': CompanyInfoSelect<false> | CompanyInfoSelect<true>;
   };
   locale: null;
-  user:
-    | (Admin & {
-        collection: 'admins';
-      })
-    | (Client & {
-        collection: 'clients';
-      });
+  widgets: {
+    'wizard-entry': WizardEntryWidget;
+    'admin-quick-book': AdminQuickBookWidget;
+    'total-clients': TotalClientsWidget;
+    'pending-drug-tests': PendingDrugTestsWidget;
+    'next-calcom-booking': NextCalcomBookingWidget;
+    collections: CollectionsWidget;
+  };
+  user: Admin | Client;
   jobs: {
     tasks: {
       createCollectionExport: TaskCreateCollectionExport;
@@ -225,15 +241,159 @@ export interface Page {
   id: string;
   title: string;
   layout: (
-    | CalendarEmbedBlock
-    | Hero
+    | {
+        title?: string | null;
+        description?: string | null;
+        calLink: string;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'calendarEmbed';
+      }
+    | {
+        type: 'highImpact' | 'mediumImpact' | 'locationSplit';
+        highImpact?: {
+          title: string;
+          description: string;
+          links?: LinkGroup;
+        };
+        mediumImpact?: {
+          subtitle?: string | null;
+          title: string;
+          heading?: ('h1' | 'h2') | null;
+          description?: string | null;
+        };
+        locationSplit?: {
+          badgeText: string;
+          headingPrefix: string;
+          headingHighlight: string;
+          description: string;
+          policyNote: string;
+          locationText: string;
+          links?: LinkGroup;
+          mapTitle: string;
+          mapSubtitle: string;
+          mapImage?: (string | null) | Media;
+          mapFooterText: string;
+          directionsLabel: string;
+          directionsUrl: string;
+        };
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'hero';
+      }
     | About
     | TrustBlock
     | TechniciansBlock
     | RichTextBlock
     | LinksBlock
-    | FormBlock
-    | TwoColumnLayoutBlock
+    | {
+        form: string | Form;
+        enableIntro?: boolean | null;
+        introContent?: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
+        } | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'formBlock';
+      }
+    | {
+        /**
+         * The direction of the layout
+         */
+        direction?: ('ltr' | 'rtl') | null;
+        /**
+         * The breakpoint at which the layout switches to a two column layout
+         */
+        breakpoint?: ('sm' | 'md' | 'lg' | 'xl') | null;
+        columnOne?: {
+          contentType?: ('cta' | 'richText') | null;
+          verticalAlignment?: ('top' | 'center' | 'bottom') | null;
+          richText?: {
+            root: {
+              type: string;
+              children: {
+                type: any;
+                version: number;
+                [k: string]: unknown;
+              }[];
+              direction: ('ltr' | 'rtl') | null;
+              format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+              indent: number;
+              version: number;
+            };
+            [k: string]: unknown;
+          } | null;
+          cta?: {
+            hasSubtitle?: boolean | null;
+            subtitle?: {
+              icon?: string | null;
+              text?: string | null;
+            };
+            title: string;
+            heading?: ('h1' | 'h2') | null;
+            description: string;
+            links?: LinkGroup;
+          };
+        };
+        columnTwo?: {
+          contentType?: ('image' | 'form' | 'calendarEmbed') | null;
+          priority?: boolean | null;
+          /**
+           * Images will follow as user scrolls
+           */
+          sticky?: boolean | null;
+          images?: (string | Media)[] | null;
+          form?:
+            | {
+                form: string | Form;
+                enableIntro?: boolean | null;
+                introContent?: {
+                  root: {
+                    type: string;
+                    children: {
+                      type: any;
+                      version: number;
+                      [k: string]: unknown;
+                    }[];
+                    direction: ('ltr' | 'rtl') | null;
+                    format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                    indent: number;
+                    version: number;
+                  };
+                  [k: string]: unknown;
+                } | null;
+                id?: string | null;
+                blockName?: string | null;
+                blockType: 'formBlock';
+              }[]
+            | null;
+          calendarEmbed?:
+            | {
+                title?: string | null;
+                description?: string | null;
+                calLink: string;
+                id?: string | null;
+                blockName?: string | null;
+                blockType: 'calendarEmbed';
+              }[]
+            | null;
+        };
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'TwoColumnLayout';
+      }
     | LayoutBlock
     | SchedulePageBlock
   )[];
@@ -254,39 +414,6 @@ export interface Page {
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "CalendarEmbedBlock".
- */
-export interface CalendarEmbedBlock {
-  title?: string | null;
-  description?: string | null;
-  calLink: string;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'calendarEmbed';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "Hero".
- */
-export interface Hero {
-  type: 'highImpact' | 'mediumImpact';
-  highImpact?: {
-    title: string;
-    description: string;
-    links?: LinkGroup;
-  };
-  mediumImpact?: {
-    subtitle?: string | null;
-    title: string;
-    heading?: ('h1' | 'h2') | null;
-    description?: string | null;
-  };
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'hero';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -672,32 +799,6 @@ export interface LinksBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "FormBlock".
- */
-export interface FormBlock {
-  form: string | Form;
-  enableIntro?: boolean | null;
-  introContent?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'formBlock';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "forms".
  */
 export interface Form {
@@ -706,9 +807,41 @@ export interface Form {
   formType: 'dynamic' | 'static';
   fields?:
     | (
-        | CheckboxFormField
-        | CountryFormField
-        | EmailFormField
+        | {
+            name: string;
+            label?: string | null;
+            colSpan: '1' | '2';
+            errorMsg?: string | null;
+            defaultValue?: boolean | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'checkbox';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            /**
+             * form defaults to spanning the full two columns
+             */
+            colSpan: '1' | '2';
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'country';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            /**
+             * form defaults to spanning the full two columns
+             */
+            colSpan: '1' | '2';
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'email';
+          }
         | {
             message?: {
               root: {
@@ -729,13 +862,164 @@ export interface Form {
             blockName?: string | null;
             blockType: 'message';
           }
-        | NumberFormField
-        | SelectFormField
-        | StateFormField
-        | TextFormField
-        | TextareaFormField
-        | PhoneFormField
-        | ArrayFormField
+        | {
+            name: string;
+            label?: string | null;
+            colSpan: '1' | '2';
+            defaultValue?: number | null;
+            min?: number | null;
+            minError?: string | null;
+            max?: number | null;
+            maxError?: string | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'number';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            colSpan: '1' | '2';
+            defaultValue?: string | null;
+            options?:
+              | {
+                  label: string;
+                  value: string;
+                  id?: string | null;
+                }[]
+              | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'select';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            /**
+             * form defaults to spanning the full two columns
+             */
+            colSpan: '1' | '2';
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'state';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            colSpan: '1' | '2';
+            defaultValue?: string | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'text';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            colSpan: '1' | '2';
+            defaultValue?: string | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'textarea';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            /**
+             * form defaults to spanning the full two columns
+             */
+            colSpan: '1' | '2';
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'phone';
+          }
+        | {
+            name: string;
+            label: string;
+            title?: string | null;
+            description?: string | null;
+            colSpan: '1' | '2';
+            minRows: number;
+            maxRows: number;
+            fields: (
+              | {
+                  name: string;
+                  label?: string | null;
+                  colSpan: '1' | '2';
+                  defaultValue?: string | null;
+                  required?: boolean | null;
+                  id?: string | null;
+                  blockName?: string | null;
+                  blockType: 'text';
+                }
+              | {
+                  name: string;
+                  label?: string | null;
+                  colSpan: '1' | '2';
+                  defaultValue?: string | null;
+                  required?: boolean | null;
+                  id?: string | null;
+                  blockName?: string | null;
+                  blockType: 'textarea';
+                }
+              | {
+                  name: string;
+                  label?: string | null;
+                  /**
+                   * form defaults to spanning the full two columns
+                   */
+                  colSpan: '1' | '2';
+                  required?: boolean | null;
+                  id?: string | null;
+                  blockName?: string | null;
+                  blockType: 'email';
+                }
+              | {
+                  name: string;
+                  label?: string | null;
+                  colSpan: '1' | '2';
+                  defaultValue?: number | null;
+                  min?: number | null;
+                  minError?: string | null;
+                  max?: number | null;
+                  maxError?: string | null;
+                  required?: boolean | null;
+                  id?: string | null;
+                  blockName?: string | null;
+                  blockType: 'number';
+                }
+              | {
+                  name: string;
+                  label?: string | null;
+                  colSpan: '1' | '2';
+                  errorMsg?: string | null;
+                  defaultValue?: boolean | null;
+                  required?: boolean | null;
+                  id?: string | null;
+                  blockName?: string | null;
+                  blockType: 'checkbox';
+                }
+              | {
+                  name: string;
+                  label?: string | null;
+                  /**
+                   * form defaults to spanning the full two columns
+                   */
+                  colSpan: '1' | '2';
+                  required?: boolean | null;
+                  id?: string | null;
+                  blockName?: string | null;
+                  blockType: 'phone';
+                }
+            )[];
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'array';
+          }
         | GroupFormField
       )[]
     | null;
@@ -805,34 +1089,135 @@ export interface Form {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "CheckboxFormField".
+ * via the `definition` "GroupFormField".
  */
-export interface CheckboxFormField {
+export interface GroupFormField {
   name: string;
-  label?: string | null;
-  colSpan: '1' | '2';
-  errorMsg?: string | null;
-  defaultValue?: boolean | null;
-  required?: boolean | null;
+  title?: string | null;
+  description?: string | null;
+  fields: (
+    | {
+        name: string;
+        label?: string | null;
+        colSpan: '1' | '2';
+        defaultValue?: string | null;
+        required?: boolean | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'text';
+      }
+    | {
+        name: string;
+        label?: string | null;
+        colSpan: '1' | '2';
+        defaultValue?: string | null;
+        required?: boolean | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'textarea';
+      }
+    | {
+        name: string;
+        label?: string | null;
+        /**
+         * form defaults to spanning the full two columns
+         */
+        colSpan: '1' | '2';
+        required?: boolean | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'email';
+      }
+    | {
+        name: string;
+        label?: string | null;
+        colSpan: '1' | '2';
+        defaultValue?: number | null;
+        min?: number | null;
+        minError?: string | null;
+        max?: number | null;
+        maxError?: string | null;
+        required?: boolean | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'number';
+      }
+    | {
+        name: string;
+        label?: string | null;
+        colSpan: '1' | '2';
+        errorMsg?: string | null;
+        defaultValue?: boolean | null;
+        required?: boolean | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'checkbox';
+      }
+    | {
+        name: string;
+        label?: string | null;
+        /**
+         * form defaults to spanning the full two columns
+         */
+        colSpan: '1' | '2';
+        required?: boolean | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'phone';
+      }
+    | ArrayFormField
+    | SelectFormField
+    | StateFormField
+    | CountryFormField
+  )[];
   id?: string | null;
   blockName?: string | null;
-  blockType: 'checkbox';
+  blockType: 'group';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "CountryFormField".
+ * via the `definition` "ArrayFormField".
  */
-export interface CountryFormField {
+export interface ArrayFormField {
+  name: string;
+  label: string;
+  title?: string | null;
+  description?: string | null;
+  colSpan: '1' | '2';
+  minRows: number;
+  maxRows: number;
+  fields: (TextFormField | TextareaFormField | EmailFormField | NumberFormField | CheckboxFormField | PhoneFormField)[];
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'array';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TextFormField".
+ */
+export interface TextFormField {
   name: string;
   label?: string | null;
-  /**
-   * form defaults to spanning the full two columns
-   */
   colSpan: '1' | '2';
+  defaultValue?: string | null;
   required?: boolean | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'country';
+  blockType: 'text';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TextareaFormField".
+ */
+export interface TextareaFormField {
+  name: string;
+  label?: string | null;
+  colSpan: '1' | '2';
+  defaultValue?: string | null;
+  required?: boolean | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'textarea';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -867,6 +1252,37 @@ export interface NumberFormField {
   id?: string | null;
   blockName?: string | null;
   blockType: 'number';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CheckboxFormField".
+ */
+export interface CheckboxFormField {
+  name: string;
+  label?: string | null;
+  colSpan: '1' | '2';
+  errorMsg?: string | null;
+  defaultValue?: boolean | null;
+  required?: boolean | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'checkbox';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "PhoneFormField".
+ */
+export interface PhoneFormField {
+  name: string;
+  label?: string | null;
+  /**
+   * form defaults to spanning the full two columns
+   */
+  colSpan: '1' | '2';
+  required?: boolean | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'phone';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -907,37 +1323,9 @@ export interface StateFormField {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TextFormField".
+ * via the `definition` "CountryFormField".
  */
-export interface TextFormField {
-  name: string;
-  label?: string | null;
-  colSpan: '1' | '2';
-  defaultValue?: string | null;
-  required?: boolean | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'text';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TextareaFormField".
- */
-export interface TextareaFormField {
-  name: string;
-  label?: string | null;
-  colSpan: '1' | '2';
-  defaultValue?: string | null;
-  required?: boolean | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'textarea';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "PhoneFormField".
- */
-export interface PhoneFormField {
+export interface CountryFormField {
   name: string;
   label?: string | null;
   /**
@@ -947,48 +1335,17 @@ export interface PhoneFormField {
   required?: boolean | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'phone';
+  blockType: 'country';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ArrayFormField".
+ * via the `definition` "LayoutBlock".
  */
-export interface ArrayFormField {
-  name: string;
-  label: string;
-  title?: string | null;
-  description?: string | null;
-  colSpan: '1' | '2';
-  minRows: number;
-  maxRows: number;
-  fields: (TextFormField | TextareaFormField | EmailFormField | NumberFormField | CheckboxFormField | PhoneFormField)[];
+export interface LayoutBlock {
+  blocks?: (TwoColumnLayoutBlock | Hero | CalendarEmbedBlock)[] | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'array';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "GroupFormField".
- */
-export interface GroupFormField {
-  name: string;
-  title?: string | null;
-  description?: string | null;
-  fields: (
-    | TextFormField
-    | TextareaFormField
-    | EmailFormField
-    | NumberFormField
-    | CheckboxFormField
-    | PhoneFormField
-    | ArrayFormField
-    | SelectFormField
-    | StateFormField
-    | CountryFormField
-  )[];
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'group';
+  blockType: 'layout';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1042,7 +1399,16 @@ export interface TwoColumnLayoutBlock {
     sticky?: boolean | null;
     images?: (string | Media)[] | null;
     form?: FormBlock[] | null;
-    calendarEmbed?: CalendarEmbedBlock[] | null;
+    calendarEmbed?:
+      | {
+          title?: string | null;
+          description?: string | null;
+          calLink: string;
+          id?: string | null;
+          blockName?: string | null;
+          blockType: 'calendarEmbed';
+        }[]
+      | null;
   };
   id?: string | null;
   blockName?: string | null;
@@ -1050,13 +1416,77 @@ export interface TwoColumnLayoutBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "LayoutBlock".
+ * via the `definition` "FormBlock".
  */
-export interface LayoutBlock {
-  blocks?: (TwoColumnLayoutBlock | Hero | CalendarEmbedBlock)[] | null;
+export interface FormBlock {
+  form: string | Form;
+  enableIntro?: boolean | null;
+  introContent?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'layout';
+  blockType: 'formBlock';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "Hero".
+ */
+export interface Hero {
+  type: 'highImpact' | 'mediumImpact' | 'locationSplit';
+  highImpact?: {
+    title: string;
+    description: string;
+    links?: LinkGroup;
+  };
+  mediumImpact?: {
+    subtitle?: string | null;
+    title: string;
+    heading?: ('h1' | 'h2') | null;
+    description?: string | null;
+  };
+  locationSplit?: {
+    badgeText: string;
+    headingPrefix: string;
+    headingHighlight: string;
+    description: string;
+    policyNote: string;
+    locationText: string;
+    links?: LinkGroup;
+    mapTitle: string;
+    mapSubtitle: string;
+    mapImage?: (string | null) | Media;
+    mapFooterText: string;
+    directionsLabel: string;
+    directionsUrl: string;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'hero';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CalendarEmbedBlock".
+ */
+export interface CalendarEmbedBlock {
+  title?: string | null;
+  description?: string | null;
+  calLink: string;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'calendarEmbed';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1150,9 +1580,9 @@ export interface Client {
    */
   headshot?: (string | null) | PrivateMedia;
   /**
-   * Type of client - determines required fields
+   * If enabled, client-facing result emails will never be sent for this profile.
    */
-  clientType?: ('probation' | 'employment' | 'self') | null;
+  disableClientEmails?: boolean | null;
   /**
    * Whether this client is active
    */
@@ -1177,71 +1607,45 @@ export interface Client {
   phone?: string | null;
   preferredContactMethod?: ('email' | 'phone' | 'sms') | null;
   /**
-   * Court and probation officer information
+   * Referral type for this client
    */
-  courtInfo?: {
-    /**
-     * Name of the court
-     */
-    courtName: string;
-    /**
-     * Recipients who will receive test results (probation officers, court clerks, etc.)
-     */
-    recipients?:
-      | {
-          /**
-           * Name of recipient (probation officer, court clerk, etc.)
-           */
-          name: string;
-          /**
-           * Email address of recipient
-           */
-          email: string;
-          id?: string | null;
-        }[]
-      | null;
-  };
+  referralType?: ('court' | 'employer' | 'self') | null;
   /**
-   * Employer and contact information
+   * Select the court or employer referral source.
    */
-  employmentInfo?: {
-    /**
-     * Name of employer/company
-     */
-    employerName: string;
-    /**
-     * Recipients who will receive test results (HR contacts, hiring managers, etc.)
-     */
-    recipients?:
-      | {
-          /**
-           * Name of recipient (HR contact, hiring manager, etc.)
-           */
-          name: string;
-          /**
-           * Email address of recipient
-           */
-          email: string;
-          id?: string | null;
-        }[]
-      | null;
-  };
+  referral?:
+    | ({
+        relationTo: 'courts';
+        value: string | Court;
+      } | null)
+    | ({
+        relationTo: 'employers';
+        value: string | Employer;
+      } | null);
   /**
-   * Self-pay client information and additional recipients
+   * Additional recipients for this client only. These do not modify the linked referral profile.
    */
-  selfInfo?: {
+  referralAdditionalRecipients?:
+    | {
+        name?: string | null;
+        email: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Legacy self-referral notification preferences.
+   */
+  selfReferral?: {
     /**
-     * Optional additional recipients who will receive test results (family members, personal contacts, etc.). The client will always receive their own results.
+     * If enabled, results are also sent to the additional recipients below.
+     */
+    sendToOther?: boolean | null;
+    /**
+     * Additional recipients for self referrals.
      */
     recipients?:
       | {
-          /**
-           * Name of recipient
-           */
-          name: string;
-          /**
-           * Email address of recipient
-           */
+          name?: string | null;
           email: string;
           id?: string | null;
         }[]
@@ -1359,6 +1763,7 @@ export interface Client {
       }[]
     | null;
   password?: string | null;
+  collection: 'clients';
 }
 /**
  * Secure file storage for sensitive documents
@@ -1401,6 +1806,107 @@ export interface PrivateMedia {
       filename?: string | null;
     };
   };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "courts".
+ */
+export interface Court {
+  id: string;
+  name: string;
+  /**
+   * Recipient contacts. The first row is treated as the main contact for display purposes.
+   */
+  contacts: {
+    name?: string | null;
+    email: string;
+    id?: string | null;
+  }[];
+  preferredTestType?: (string | null) | TestType;
+  /**
+   * Inactive courts are hidden from quick-select dropdowns, but remain usable for linked clients and email delivery.
+   */
+  isActive?: boolean | null;
+  clients?: {
+    docs?: (string | Client)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "test-types".
+ */
+export interface TestType {
+  id: string;
+  /**
+   * Human-readable name (e.g., 15-Panel Instant).
+   */
+  label: string;
+  /**
+   * Canonical key used in code and workflow logic (e.g., 15-panel-instant).
+   */
+  value: string;
+  /**
+   * Optional display text for external scheduling tools like Cal.com.
+   */
+  bookingLabel?: string | null;
+  /**
+   * Helps filter test types in future workflows.
+   */
+  category?: ('instant' | 'lab') | null;
+  /**
+   * Employers currently mapped to this preferred test type.
+   */
+  employers?: {
+    docs?: (string | Employer)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Courts currently mapped to this preferred test type.
+   */
+  courts?: {
+    docs?: (string | Court)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Inactive test types remain in history but are hidden from new selections.
+   */
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "employers".
+ */
+export interface Employer {
+  id: string;
+  name: string;
+  /**
+   * Recipient contacts. The first row is treated as the main contact for display purposes.
+   */
+  contacts: {
+    name?: string | null;
+    email: string;
+    id?: string | null;
+  }[];
+  preferredTestType?: (string | null) | TestType;
+  /**
+   * Inactive employers are hidden from quick-select dropdowns, but remain usable for linked clients and email delivery.
+   */
+  isActive?: boolean | null;
+  clients?: {
+    docs?: (string | Client)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * Track drug test results and workflow
@@ -1455,10 +1961,6 @@ export interface DrugTest {
    * AUTO-SELECTED as "accept" for negative/expected-positive results. For unexpected results, choose to accept as-is, request $30-45/substance confirmation, or leave pending.
    */
   confirmationDecision?: ('pending-decision' | 'accept' | 'request-confirmation') | null;
-  /**
-   * Uncheck to skip sending email notifications when saving (useful for testing or manual corrections)
-   */
-  sendNotifications?: boolean | null;
   /**
    * Client this drug test belongs to
    */
@@ -1805,6 +2307,7 @@ export interface Admin {
       }[]
     | null;
   password?: string | null;
+  collection: 'admins';
 }
 /**
  * Business-critical alerts requiring admin attention
@@ -1896,30 +2399,13 @@ export interface Technician {
   createdAt: string;
 }
 /**
- * This is a collection of automatically created search results. These results are used by the global site search and will be updated automatically as documents in the CMS are created or updated.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "search".
- */
-export interface Search {
-  id: string;
-  title?: string | null;
-  priority?: number | null;
-  doc: {
-    relationTo: 'clients';
-    value: string | Client;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "exports".
  */
 export interface Export {
   id: string;
   name?: string | null;
-  format?: ('csv' | 'json') | null;
+  format: 'csv' | 'json';
   limit?: number | null;
   page?: number | null;
   sort?: string | null;
@@ -1955,7 +2441,7 @@ export interface Export {
  */
 export interface Import {
   id: string;
-  collectionSlug: 'form-submissions';
+  collectionSlug: string;
   importMode?: ('create' | 'update' | 'upsert') | null;
   matchField?: string | null;
   status?: ('pending' | 'completed' | 'partial' | 'failed') | null;
@@ -2160,16 +2646,24 @@ export interface PayloadLockedDocument {
         value: string | Technician;
       } | null)
     | ({
+        relationTo: 'test-types';
+        value: string | TestType;
+      } | null)
+    | ({
+        relationTo: 'courts';
+        value: string | Court;
+      } | null)
+    | ({
+        relationTo: 'employers';
+        value: string | Employer;
+      } | null)
+    | ({
         relationTo: 'clients';
         value: string | Client;
       } | null)
     | ({
         relationTo: 'drug-tests';
         value: string | DrugTest;
-      } | null)
-    | ({
-        relationTo: 'search';
-        value: string | Search;
       } | null)
     | ({
         relationTo: 'redirects';
@@ -2298,6 +2792,23 @@ export interface HeroSelect<T extends boolean = true> {
         title?: T;
         heading?: T;
         description?: T;
+      };
+  locationSplit?:
+    | T
+    | {
+        badgeText?: T;
+        headingPrefix?: T;
+        headingHighlight?: T;
+        description?: T;
+        policyNote?: T;
+        locationText?: T;
+        links?: T | LinkGroupSelect<T>;
+        mapTitle?: T;
+        mapSubtitle?: T;
+        mapImage?: T;
+        mapFooterText?: T;
+        directionsLabel?: T;
+        directionsUrl?: T;
       };
   id?: T;
   blockName?: T;
@@ -3060,12 +3571,65 @@ export interface TechniciansSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "test-types_select".
+ */
+export interface TestTypesSelect<T extends boolean = true> {
+  label?: T;
+  value?: T;
+  bookingLabel?: T;
+  category?: T;
+  employers?: T;
+  courts?: T;
+  isActive?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "courts_select".
+ */
+export interface CourtsSelect<T extends boolean = true> {
+  name?: T;
+  contacts?:
+    | T
+    | {
+        name?: T;
+        email?: T;
+        id?: T;
+      };
+  preferredTestType?: T;
+  isActive?: T;
+  clients?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "employers_select".
+ */
+export interface EmployersSelect<T extends boolean = true> {
+  name?: T;
+  contacts?:
+    | T
+    | {
+        name?: T;
+        email?: T;
+        id?: T;
+      };
+  preferredTestType?: T;
+  isActive?: T;
+  clients?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "clients_select".
  */
 export interface ClientsSelect<T extends boolean = true> {
   fullName?: T;
   headshot?: T;
-  clientType?: T;
+  disableClientEmails?: T;
   isActive?: T;
   firstName?: T;
   lastName?: T;
@@ -3074,33 +3638,19 @@ export interface ClientsSelect<T extends boolean = true> {
   gender?: T;
   phone?: T;
   preferredContactMethod?: T;
-  courtInfo?:
+  referralType?: T;
+  referral?: T;
+  referralAdditionalRecipients?:
     | T
     | {
-        courtName?: T;
-        recipients?:
-          | T
-          | {
-              name?: T;
-              email?: T;
-              id?: T;
-            };
+        name?: T;
+        email?: T;
+        id?: T;
       };
-  employmentInfo?:
+  selfReferral?:
     | T
     | {
-        employerName?: T;
-        recipients?:
-          | T
-          | {
-              name?: T;
-              email?: T;
-              id?: T;
-            };
-      };
-  selfInfo?:
-    | T
-    | {
+        sendToOther?: T;
         recipients?:
           | T
           | {
@@ -3157,7 +3707,6 @@ export interface DrugTestsSelect<T extends boolean = true> {
   finalStatus?: T;
   isComplete?: T;
   confirmationDecision?: T;
-  sendNotifications?: T;
   relatedClient?: T;
   collectionDate?: T;
   testType?: T;
@@ -3201,17 +3750,6 @@ export interface DrugTestsSelect<T extends boolean = true> {
         errorMessage?: T;
         id?: T;
       };
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "search_select".
- */
-export interface SearchSelect<T extends boolean = true> {
-  title?: T;
-  priority?: T;
-  doc?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3402,7 +3940,6 @@ export interface CompanyInfo {
     name?: string | null;
     email?: string | null;
     phone?: string | null;
-    fax?: string | null;
     physicalAddress: {
       street: string;
       cityStateZip: string;
@@ -3417,10 +3954,6 @@ export interface CompanyInfo {
        * Link to the location on Google Maps
        */
       googleMapLink?: string | null;
-    };
-    mailingAddress: {
-      street: string;
-      cityStateZip: string;
     };
   };
   social?:
@@ -3485,7 +4018,6 @@ export interface CompanyInfoSelect<T extends boolean = true> {
         name?: T;
         email?: T;
         phone?: T;
-        fax?: T;
         physicalAddress?:
           | T
           | {
@@ -3493,12 +4025,6 @@ export interface CompanyInfoSelect<T extends boolean = true> {
               cityStateZip?: T;
               coordinates?: T;
               googleMapLink?: T;
-            };
-        mailingAddress?:
-          | T
-          | {
-              street?: T;
-              cityStateZip?: T;
             };
       };
   social?:
@@ -3523,41 +4049,73 @@ export interface CompanyInfoSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "wizard-entry_widget".
+ */
+export interface WizardEntryWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-quick-book_widget".
+ */
+export interface AdminQuickBookWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "total-clients_widget".
+ */
+export interface TotalClientsWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pending-drug-tests_widget".
+ */
+export interface PendingDrugTestsWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "next-calcom-booking_widget".
+ */
+export interface NextCalcomBookingWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "collections_widget".
+ */
+export interface CollectionsWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TaskCreateCollectionExport".
  */
 export interface TaskCreateCollectionExport {
   input: {
-    name?: string | null;
-    format?: ('csv' | 'json') | null;
-    limit?: number | null;
-    page?: number | null;
-    sort?: string | null;
-    sortOrder?: ('asc' | 'desc') | null;
-    drafts?: ('yes' | 'no') | null;
-    selectionToUse?: ('currentSelection' | 'currentFilters' | 'all') | null;
-    fields?: string[] | null;
-    collectionSlug: string;
-    where?:
-      | {
-          [k: string]: unknown;
-        }
-      | unknown[]
-      | string
-      | number
-      | boolean
-      | null;
-    userID?: string | null;
-    userCollection?: string | null;
-    exportsCollection?: string | null;
-  };
-  output?: unknown;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TaskCreateCollectionImport".
- */
-export interface TaskCreateCollectionImport {
-  input: {
+    id: string;
+    name: string;
+    batchSize?: number | null;
     collectionSlug:
       | 'pages'
       | 'bookings'
@@ -3568,39 +4126,50 @@ export interface TaskCreateCollectionImport {
       | 'admins'
       | 'admin-alerts'
       | 'technicians'
+      | 'test-types'
+      | 'courts'
+      | 'employers'
       | 'clients'
       | 'drug-tests'
-      | 'search'
       | 'exports'
       | 'imports';
-    importMode?: ('create' | 'update' | 'upsert') | null;
-    matchField?: string | null;
-    status?: ('pending' | 'completed' | 'partial' | 'failed') | null;
-    summary?: {
-      imported?: number | null;
-      updated?: number | null;
-      total?: number | null;
-      issues?: number | null;
-      issueDetails?:
-        | {
-            [k: string]: unknown;
-          }
-        | unknown[]
-        | string
-        | number
-        | boolean
-        | null;
-    };
-    user?: string | null;
+    drafts?: ('yes' | 'no') | null;
+    exportCollection: string;
+    fields?: string[] | null;
+    format: 'csv' | 'json';
+    limit?: number | null;
+    locale?: string | null;
+    maxLimit?: number | null;
+    page?: number | null;
+    sort?: string | null;
     userCollection?: string | null;
-    importsCollection?: string | null;
-    file?: {
-      data?: string | null;
-      mimetype?: string | null;
-      name?: string | null;
-    };
-    format?: ('csv' | 'json') | null;
+    userID?: string | null;
+    where?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+  };
+  output?: unknown;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskCreateCollectionImport".
+ */
+export interface TaskCreateCollectionImport {
+  input: {
+    importId: string;
+    importCollection: string;
+    userID?: string | null;
+    userCollection?: string | null;
+    batchSize?: number | null;
     debug?: boolean | null;
+    defaultVersionStatus?: ('draft' | 'published') | null;
+    maxLimit?: number | null;
   };
   output?: unknown;
 }

@@ -4,8 +4,8 @@ import { CalendarEmbedBlock as CalendarEmbedBlockType } from '@/payload-types'
 import Cal from '@calcom/embed-react'
 
 export const CalendarEmbedBlock = ({
-  description,
-  title,
+  description: _description,
+  title: _title,
   calLink = 'mikecebul',
 }: CalendarEmbedBlockType) => {
   return (

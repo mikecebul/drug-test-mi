@@ -1,11 +1,10 @@
-import { Client } from '@/payload-types'
 
 export type ClientDashboardData = {
   user: {
     id: string
     name: string
     email: string
-    clientType: string
+    referralType: string
     isActive: boolean
     headshot?: any
   }

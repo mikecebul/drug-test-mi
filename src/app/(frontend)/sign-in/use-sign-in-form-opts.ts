@@ -51,7 +51,7 @@ export const useSignInFormOpts = () => {
         toast.success('Logged in successfully!')
         router.push(redirectTo)
         form.reset()
-      } catch (err) {
+      } catch (_err) {
         toast.error('Something went wrong. Please try again.')
       }
     },

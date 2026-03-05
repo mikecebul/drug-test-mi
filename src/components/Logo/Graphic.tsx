@@ -1,4 +1,4 @@
-import { FlaskConical, LandPlot } from 'lucide-react'
+import { FlaskConical } from 'lucide-react'
 
 const Graphic = () => {
   return (

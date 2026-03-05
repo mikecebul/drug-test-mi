@@ -2,11 +2,13 @@ import type { Client } from '@/payload-types'
 
 // Helper: Extract referral organization name based on client type
 function getReferralName(client: Client): string | undefined {
-  switch (client.clientType) {
-    case 'probation':
-      return client.courtInfo?.courtName
-    case 'employment':
-      return client.employmentInfo?.employerName
+  switch (client.referralType) {
+    case 'court':
+    case 'employer':
+      if (client.referral && typeof client.referral === 'object' && 'value' in client.referral) {
+        return typeof client.referral.value === 'object' ? client.referral.value?.name || undefined : undefined
+      }
+      return undefined
     case 'self':
     default:
       return undefined

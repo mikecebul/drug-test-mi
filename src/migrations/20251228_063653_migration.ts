@@ -111,7 +111,7 @@ export async function up({ payload }: MigrateUpArgs): Promise<void> {
               detectedAs: [],
             }))
           }
-        } catch (clientError) {
+        } catch (_clientError) {
           payload.logger.warn(`Could not fetch client for test ${test.id}, using medication names only`)
           // Fallback: just use medication names
           medicationsArray = medNames.map((medName) => ({

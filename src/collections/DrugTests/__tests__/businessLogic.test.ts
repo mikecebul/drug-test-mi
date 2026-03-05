@@ -49,6 +49,7 @@ describe('Drug Test Business Logic', () => {
       expect(data.initialScreenResult).toBe('negative')
       expect(data.confirmationDecision).toBe('accept')
       expect(data.isComplete).toBe(true)
+      expect(data.screeningStatus).toBe('complete')
     })
 
     test('Scenario 2: Expected Positive - Client on Oxycodone, test shows Oxycodone', async () => {
@@ -81,6 +82,7 @@ describe('Drug Test Business Logic', () => {
       expect(data.initialScreenResult).toBe('expected-positive')
       expect(data.confirmationDecision).toBe('accept')
       expect(data.isComplete).toBe(true)
+      expect(data.screeningStatus).toBe('complete')
     })
 
     test('Scenario 3: Expected Positive - Multiple medications all showing correctly', async () => {
@@ -118,6 +120,7 @@ describe('Drug Test Business Logic', () => {
       expect(data.initialScreenResult).toBe('expected-positive')
       expect(data.confirmationDecision).toBe('accept')
       expect(data.isComplete).toBe(true)
+      expect(data.screeningStatus).toBe('complete')
     })
   })
 
@@ -207,6 +210,7 @@ describe('Drug Test Business Logic', () => {
       expect(data.initialScreenResult).toBe('unexpected-negative-warning')
       expect(data.confirmationDecision).toBe('accept') // Should auto-accept warnings
       expect(data.isComplete).toBe(true) // Should be complete
+      expect(data.screeningStatus).toBe('complete')
     })
 
     test('Scenario 3: Mixed Unexpected - THC positive (unexpected) + Missing Oxycodone (expected)', async () => {
@@ -485,6 +489,27 @@ describe('Drug Test Business Logic', () => {
       expect(data.initialScreenResult).toBe('unexpected-positive')
       expect(data.unexpectedPositives).toEqual(['thc', 'cocaine', 'opiates'])
     })
+
+    test('Manual accept marks unexpected results complete and sets status to complete', async () => {
+      const data: any = {
+        detectedSubstances: ['thc'],
+        relatedClient: 'client-1',
+        screeningStatus: 'screened',
+        confirmationDecision: 'accept',
+      }
+
+      const req = createMockReq([])
+
+      await computeTestResults({
+        data,
+        req: req as any,
+        operation: 'update',
+      } as any)
+
+      expect(data.initialScreenResult).toBe('unexpected-positive')
+      expect(data.isComplete).toBe(true)
+      expect(data.screeningStatus).toBe('complete')
+    })
   })
 
   describe('requireConfirmation Field Scenarios', () => {
@@ -560,6 +585,7 @@ describe('Drug Test Business Logic', () => {
       expect(data.initialScreenResult).toBe('unexpected-negative-warning')
       expect(data.confirmationDecision).toBe('accept') // Should auto-accept warnings
       expect(data.isComplete).toBe(true)
+      expect(data.screeningStatus).toBe('complete')
     })
 
     test('Default behavior when requireConfirmation not set should be non-critical', async () => {
@@ -589,6 +615,7 @@ describe('Drug Test Business Logic', () => {
       expect(data.initialScreenResult).toBe('unexpected-negative-warning')
       expect(data.confirmationDecision).toBe('accept') // Should auto-accept
       expect(data.isComplete).toBe(true)
+      expect(data.screeningStatus).toBe('complete')
     })
   })
 })

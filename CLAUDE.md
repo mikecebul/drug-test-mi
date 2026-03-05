@@ -82,7 +82,7 @@ Pages are built using a flexible block system (`src/blocks/`):
 - **Collection Hook** (`hooks/sendNotificationEmails.ts`): Automatic emails on workflow transitions
   - Triggers on stage changes: collected → screened → complete
   - Uses service layer for all email operations
-- **PDF Upload Wizard** (`src/components/views/PDFUploadWizard/actions.ts`): Manual email preview/send
+- **Drug Test Wizard** (`src/components/views/DrugTestWizard/actions.ts`): Manual email preview/send
   - Provides email preview before sending
   - Uses same service layer as collection hook (single source of truth)
 - **React Email Templates** (`src/emails/drug-tests/`): Component-based email templates
