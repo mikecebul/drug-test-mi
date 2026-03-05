@@ -76,14 +76,14 @@ jobs:
 
           echo "tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
 
-          RELEASE_PUSH_TOKEN_CLEAN="$(printf '%s' "$RELEASE_PUSH_TOKEN" | tr -d '\r\n')"
+          RELEASE_PUSH_TOKEN_CLEAN="$(printf '%s' "$RELEASE_PUSH_TOKEN" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
           if [ -z "$RELEASE_PUSH_TOKEN_CLEAN" ]; then
             echo "RELEASE_PUSH_TOKEN is empty after trimming. Re-save it in Actions secrets."
             exit 1
           fi
 
           RELEASE_PUSH_TOKEN_ENCODED="$(node -e "process.stdout.write(encodeURIComponent(process.env.RELEASE_PUSH_TOKEN_CLEAN))")"
-          PUSH_URL="https://x-access-token:${RELEASE_PUSH_TOKEN_ENCODED}@github.com/${GITHUB_REPOSITORY}.git"
+          PUSH_URL="https://${GITHUB_REPOSITORY_OWNER}:${RELEASE_PUSH_TOKEN_ENCODED}@github.com/${GITHUB_REPOSITORY}.git"
           git push --atomic "$PUSH_URL" HEAD:main --follow-tags
 
       - name: Create GitHub Release
