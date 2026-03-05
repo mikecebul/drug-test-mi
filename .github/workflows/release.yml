@@ -32,6 +32,16 @@ jobs:
         env:
           RELEASE_PUSH_TOKEN: ${{ secrets.RELEASE_PUSH_TOKEN }}
         run: |
+          if [ -z "$RELEASE_PUSH_TOKEN" ]; then
+            if [ "$GITHUB_ACTOR" = "dependabot[bot]" ]; then
+              echo "Missing RELEASE_PUSH_TOKEN for Dependabot-triggered run."
+              echo "Add RELEASE_PUSH_TOKEN in Settings > Secrets and variables > Dependabot."
+            else
+              echo "Missing RELEASE_PUSH_TOKEN secret. Add an admin PAT in Settings > Secrets and variables > Actions."
+            fi
+            exit 1
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -65,13 +75,15 @@ jobs:
 
           echo "tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
 
-          if [ -z "$RELEASE_PUSH_TOKEN" ]; then
-            echo "Missing RELEASE_PUSH_TOKEN secret. Add an admin PAT to allow release pushes to protected main."
+          RELEASE_PUSH_TOKEN_CLEAN="$(printf '%s' "$RELEASE_PUSH_TOKEN" | tr -d '\r\n')"
+          if [ -z "$RELEASE_PUSH_TOKEN_CLEAN" ]; then
+            echo "RELEASE_PUSH_TOKEN is empty after trimming. Re-save the secret in Actions secrets."
             exit 1
           fi
 
-          git remote set-url origin "https://x-access-token:${RELEASE_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git push --atomic origin HEAD:main --follow-tags
+          AUTH_HEADER="$(printf 'x-access-token:%s' "$RELEASE_PUSH_TOKEN_CLEAN" | base64 | tr -d '\n')"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${AUTH_HEADER}" \
+            push --atomic "https://github.com/${GITHUB_REPOSITORY}.git" HEAD:main --follow-tags
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
