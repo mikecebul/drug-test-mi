@@ -42,7 +42,7 @@ export const RegistrationForm = (props?: Record<string, unknown>) => {
                   <Link href="/sign-in">Sign In</Link>
                 </Button>
                 <Button asChild variant="outline">
-                  <Link href="/schedule">Go to Scheduling</Link>
+                  <Link href="/dashboard/schedule">Go to Scheduling</Link>
                 </Button>
               </div>
             </CardContent>

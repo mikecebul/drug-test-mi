@@ -16,7 +16,10 @@ const DEFAULT_REDWOOD_LOGIN_URL = 'https://toxaccess.redwoodtoxicology.com/Pages
 const DEFAULT_REDWOOD_EXPORT_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/ExportDonors.aspx'
 const DEFAULT_REDWOOD_IMPORT_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/ImportDonors.aspx'
 const DEFAULT_ACCOUNT_NUMBER = '310872'
-const REDWOOD_IMPORT_PREVIEW_ONLY = true
+
+function isRedwoodImportPreviewOnly(): boolean {
+  return process.env.REDWOOD_IMPORT_PREVIEW_ONLY === 'true'
+}
 
 async function loadPlaywrightModule(): Promise<any> {
   const dynamicImport = new Function('modulePath', 'return import(modulePath)') as (
@@ -629,36 +632,6 @@ export async function runRedwoodImportClientJob(args: {
     await page.goto(importUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
     await dismissCookieBanner(page)
 
-    if (REDWOOD_IMPORT_PREVIEW_ONLY) {
-      const screenshotPath = path.join(outputDir, 'screenshots', `redwood-import-staged-${client.id}-${Date.now()}.png`)
-      await fs.mkdir(path.dirname(screenshotPath), { recursive: true })
-      await dismissCookieBanner(page)
-      await page.screenshot({ path: screenshotPath, fullPage: true })
-
-      await updateClientRedwoodState(payload, client.id, {
-        redwoodSyncStatus: 'ready-to-submit',
-        redwoodMatchedBy: null,
-        redwoodMatchedDonorName: null,
-        redwoodImportScreenshotPath: screenshotPath,
-        redwoodLastAttemptAt: new Date().toISOString(),
-        redwoodLastError: null,
-      })
-
-      payload.logger.info({
-        msg: '[redwood-import] Preview-only mode: skipped file selection/upload and captured screenshot',
-        clientId,
-        source,
-        importCsvPath,
-        screenshotPath,
-        queue: 'redwood',
-      })
-
-      return {
-        status: 'ready-to-submit',
-        screenshotPath,
-      }
-    }
-
     const fileInput = page
       .locator('input[type="file"], input[id*="File"], input[name*="File"]')
       .first()
@@ -854,12 +827,127 @@ export async function runRedwoodImportClientJob(args: {
       throw new Error(`Redwood import did not reach submit-ready state. ${details}`)
     }
 
-    const screenshotPath = path.join(outputDir, 'screenshots', `redwood-import-ready-${client.id}-${Date.now()}.png`)
+    const previewOnly = isRedwoodImportPreviewOnly()
+    const screenshotPath = path.join(
+      outputDir,
+      'screenshots',
+      `${previewOnly ? 'redwood-import-ready' : 'redwood-import-submitted'}-${client.id}-${Date.now()}.png`,
+    )
     await fs.mkdir(path.dirname(screenshotPath), { recursive: true })
+    await dismissCookieBanner(page)
+
+    if (!previewOnly) {
+      const submitClicked = await clickFirstVisible(page, submitSelectors)
+      if (!submitClicked) {
+        throw new Error('Unable to click Redwood import submit control')
+      }
+
+      await page.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => undefined)
+      await page.waitForTimeout(1500)
+      await dismissCookieBanner(page)
+
+      const importTextareaText = await page
+        .locator('textarea')
+        .first()
+        .inputValue()
+        .catch(async () => {
+          return (
+            (await page.locator('textarea').first().textContent().catch(() => null)) ||
+            ''
+          ).trim()
+        })
+
+      const pageText = ((await page.textContent('body').catch(() => null)) || '').trim()
+      const postSubmitSummary = `${importTextareaText}\n${pageText}`.toLowerCase()
+      const hasImportRejection =
+        postSubmitSummary.includes('rejected record') ||
+        postSubmitSummary.includes('donor(s) rejected') ||
+        postSubmitSummary.includes('reason 1') ||
+        postSubmitSummary.includes('invalid ')
+
+      if (hasImportRejection) {
+        diagnosticScreenshotPath = path.join(
+          outputDir,
+          'screenshots',
+          `redwood-import-rejected-${client.id}-${Date.now()}.png`,
+        )
+        await fs.mkdir(path.dirname(diagnosticScreenshotPath), { recursive: true })
+        await page.screenshot({ path: diagnosticScreenshotPath, fullPage: true }).catch(() => undefined)
+
+        const rejectionDetails = importTextareaText
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .slice(0, 10)
+          .join(' | ')
+
+        await updateClientRedwoodState(payload, client.id, {
+          redwoodSyncStatus: 'manual-review',
+          redwoodMatchedBy: null,
+          redwoodMatchedDonorName: null,
+          redwoodImportScreenshotPath: diagnosticScreenshotPath,
+          redwoodLastAttemptAt: new Date().toISOString(),
+          redwoodLastError: rejectionDetails || 'Redwood import rejected row(s).',
+        })
+
+        await createAdminAlert(payload, {
+          severity: 'high',
+          alertType: 'data-integrity',
+          title: `Redwood import rejected row(s) for client ${client.id}`,
+          message: rejectionDetails || 'Redwood rejected one or more import rows. Manual review required.',
+          context: {
+            clientId: client.id,
+            source,
+            queue: 'redwood',
+            screenshotPath: diagnosticScreenshotPath,
+          },
+        })
+
+        payload.logger.warn({
+          msg: '[redwood-import] Import rejected rows after final submit; routing to manual review',
+          clientId,
+          source,
+          screenshotPath: diagnosticScreenshotPath,
+          rejectionDetails,
+          queue: 'redwood',
+        })
+
+        return {
+          status: 'manual-review',
+          screenshotPath: diagnosticScreenshotPath,
+        }
+      }
+
+      const submitStillVisible = await waitForAnyVisible(page, submitSelectors, 1500)
+      const successIndicators = [
+        'successfully imported',
+        'import complete',
+        'import completed',
+        'records processed',
+        'processed successfully',
+        'donor imported',
+      ]
+      const hasSuccessIndicator = successIndicators.some((indicator) => postSubmitSummary.includes(indicator))
+
+      if (submitStillVisible && !hasSuccessIndicator) {
+        diagnosticScreenshotPath = path.join(
+          outputDir,
+          'screenshots',
+          `redwood-import-submit-stalled-${client.id}-${Date.now()}.png`,
+        )
+        await fs.mkdir(path.dirname(diagnosticScreenshotPath), { recursive: true })
+        await page.screenshot({ path: diagnosticScreenshotPath, fullPage: true }).catch(() => undefined)
+
+        throw new Error(
+          `Redwood import submit action did not complete. currentUrl=${page.url()} screenshotPath=${diagnosticScreenshotPath}`,
+        )
+      }
+    }
+
     await page.screenshot({ path: screenshotPath, fullPage: true })
 
     await updateClientRedwoodState(payload, client.id, {
-      redwoodSyncStatus: 'ready-to-submit',
+      redwoodSyncStatus: previewOnly ? 'ready-to-submit' : 'synced',
       redwoodMatchedBy: null,
       redwoodMatchedDonorName: null,
       redwoodImportScreenshotPath: screenshotPath,
@@ -868,15 +956,18 @@ export async function runRedwoodImportClientJob(args: {
     })
 
     payload.logger.info({
-      msg: '[redwood-import] Reached submit-ready state without submitting',
+      msg: previewOnly
+        ? '[redwood-import] Preview-only mode: staged import and stopped before final submit'
+        : '[redwood-import] Submitted Redwood import successfully',
       clientId,
       source,
+      importCsvPath,
       screenshotPath,
       queue: 'redwood',
     })
 
     return {
-      status: 'ready-to-submit',
+      status: previewOnly ? 'ready-to-submit' : 'synced',
       screenshotPath,
     }
   } catch (error) {

@@ -29,6 +29,16 @@ export async function queueRedwoodImportForClient(
     const existingUniqueId = typeof client.redwoodUniqueId === 'string' ? client.redwoodUniqueId.trim() : ''
     const uniqueId = existingUniqueId || buildRedwoodUniqueId(client.id)
 
+    const queued = await payload.jobs.queue({
+      task: 'redwood-import-client',
+      queue: 'redwood',
+      input: {
+        clientId,
+        source,
+      },
+      overrideAccess: true,
+    })
+
     await payload.update({
       collection: 'clients',
       id: client.id,
@@ -36,16 +46,6 @@ export async function queueRedwoodImportForClient(
         redwoodUniqueId: uniqueId,
         redwoodSyncStatus: 'queued',
         redwoodLastError: null,
-      },
-      overrideAccess: true,
-    })
-
-    const queued = await payload.jobs.queue({
-      task: 'redwood-import-client',
-      queue: 'redwood',
-      input: {
-        clientId,
-        source,
       },
       overrideAccess: true,
     })
