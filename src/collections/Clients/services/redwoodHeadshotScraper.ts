@@ -1,4 +1,12 @@
 import { calculateNameSimilarity } from '@/views/DrugTestWizard/utils/calculateSimilarity'
+import {
+  clickFirstVisible,
+  fillFirstVisibleInput,
+  loadPlaywrightModule,
+  normalizeRedwoodEnvCredential,
+  REDWOOD_BROWSER_USER_AGENT,
+  resolveRedwoodPlaywrightLaunchOptions,
+} from '@/lib/redwood/playwright'
 
 const DEFAULT_REDWOOD_LOGIN_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/Public/Login.aspx'
 const DEFAULT_REDWOOD_DONOR_SEARCH_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/DonorSearch.aspx'
@@ -48,27 +56,6 @@ function normalizeNameValue(value: string): string {
     .replace(/[^a-zA-Z\s'-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-}
-
-async function loadPlaywrightModule(): Promise<any> {
-  const dynamicImport = new Function('modulePath', 'return import(modulePath)') as (
-    modulePath: string,
-  ) => Promise<any>
-  return dynamicImport('playwright')
-}
-
-function resolvePlaywrightLaunchOptions(): {
-  headless: boolean
-  slowMo?: number
-} {
-  const headless = process.env.REDWOOD_PLAYWRIGHT_HEADLESS !== 'false'
-  const parsedSlowMo = Number.parseInt(process.env.REDWOOD_PLAYWRIGHT_SLOW_MO_MS || '0', 10)
-  const slowMo = Number.isFinite(parsedSlowMo) && parsedSlowMo > 0 ? parsedSlowMo : undefined
-
-  return {
-    headless,
-    slowMo,
-  }
 }
 
 function normalizeToken(value?: string): string {
@@ -181,28 +168,6 @@ function detectImageMimeFromBuffer(buffer: Buffer): string | null {
   return null
 }
 
-function normalizeEnvCredential(rawValue: string | undefined): {
-  value: string
-  hadWrappingQuotes: boolean
-} {
-  if (typeof rawValue !== 'string') {
-    return { value: '', hadWrappingQuotes: false }
-  }
-
-  const trimmed = rawValue.trim()
-  const hasDoubleQuotes = trimmed.startsWith('"') && trimmed.endsWith('"')
-  const hasSingleQuotes = trimmed.startsWith("'") && trimmed.endsWith("'")
-
-  if (hasDoubleQuotes || hasSingleQuotes) {
-    return {
-      value: trimmed.slice(1, -1),
-      hadWrappingQuotes: true,
-    }
-  }
-
-  return { value: trimmed, hadWrappingQuotes: false }
-}
-
 function getDobCellText(cells: string[]): string | undefined {
   return cells.find((cell) => {
     const value = cell.trim()
@@ -212,52 +177,6 @@ function getDobCellText(cells: string[]): string | undefined {
     const hasDatePattern = /\d{1,2}\/\d{1,2}\/\d{2,4}/.test(value) || /[a-zA-Z]{3,}\s+\d{1,2}/.test(value)
     return hasYear && hasDatePattern
   })
-}
-
-async function fillFirstVisibleInput(page: any, selectors: string[], value: string): Promise<boolean> {
-  for (const selector of selectors) {
-    const locator = page.locator(selector)
-    const count = await locator.count()
-    if (count === 0) continue
-
-    for (let i = 0; i < count; i++) {
-      const candidate = locator.nth(i)
-      try {
-        if (!(await candidate.isVisible())) continue
-        await candidate.click({ timeout: 2000 })
-        // Type via keyboard to trigger legacy key handlers on older ASP.NET pages.
-        await candidate.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A').catch(() => {})
-        await candidate.press('Backspace').catch(() => {})
-        await candidate.type(value, { delay: 25 })
-        return true
-      } catch {
-        // Try next candidate
-      }
-    }
-  }
-
-  return false
-}
-
-async function clickFirstVisible(page: any, selectors: string[]): Promise<boolean> {
-  for (const selector of selectors) {
-    const locator = page.locator(selector)
-    const count = await locator.count()
-    if (count === 0) continue
-
-    for (let i = 0; i < count; i++) {
-      const candidate = locator.nth(i)
-      try {
-        if (!(await candidate.isVisible())) continue
-        await candidate.click()
-        return true
-      } catch {
-        // Try next candidate
-      }
-    }
-  }
-
-  return false
 }
 
 async function submitLoginFormFallback(page: any): Promise<boolean> {
@@ -503,8 +422,8 @@ async function extractHeadshotImageUrl(page: any): Promise<string> {
 }
 
 export async function fetchRedwoodHeadshotForClient(client: RedwoodClient): Promise<RedwoodHeadshotScrapeResult> {
-  const normalizedUsername = normalizeEnvCredential(process.env.REDWOOD_USERNAME)
-  const normalizedPassword = normalizeEnvCredential(process.env.REDWOOD_PASSWORD)
+  const normalizedUsername = normalizeRedwoodEnvCredential(process.env.REDWOOD_USERNAME)
+  const normalizedPassword = normalizeRedwoodEnvCredential(process.env.REDWOOD_PASSWORD)
   const username = normalizedUsername.value
   const password = normalizedPassword.value
   const loginUrl = process.env.REDWOOD_LOGIN_URL?.trim() || DEFAULT_REDWOOD_LOGIN_URL
@@ -528,15 +447,14 @@ export async function fetchRedwoodHeadshotForClient(client: RedwoodClient): Prom
   } catch {
     throw new Error('Playwright is not installed. Run `pnpm install` to install project dependencies.')
   }
-  const launchOptions = resolvePlaywrightLaunchOptions()
+  const launchOptions = resolveRedwoodPlaywrightLaunchOptions()
   const browser = await playwright.chromium.launch({
     headless: launchOptions.headless,
     slowMo: launchOptions.slowMo,
     args: ['--disable-blink-features=AutomationControlled'],
   })
   const context = await browser.newContext({
-    userAgent:
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    userAgent: REDWOOD_BROWSER_USER_AGENT,
   })
   const page = await context.newPage()
 

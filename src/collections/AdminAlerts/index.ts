@@ -10,6 +10,10 @@ import type { CollectionConfig } from 'payload'
  */
 export const AdminAlerts: CollectionConfig = {
   slug: 'admin-alerts',
+  labels: {
+    singular: 'Alert',
+    plural: 'Alerts',
+  },
   admin: {
     useAsTitle: 'title',
     defaultColumns: ['title', 'severity', 'alertType', 'resolved', 'createdAt'],

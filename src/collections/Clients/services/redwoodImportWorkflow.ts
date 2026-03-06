@@ -10,6 +10,17 @@ import {
   parseRedwoodExport,
   type RedwoodMatchBy,
 } from '@/lib/redwood/csv'
+import {
+  clickFirstVisible,
+  collectVisibleTexts,
+  dismissCookieBanner,
+  fillFirstVisibleInput,
+  loadPlaywrightModule,
+  normalizeRedwoodEnvCredential,
+  REDWOOD_BROWSER_USER_AGENT,
+  resolveRedwoodPlaywrightLaunchOptions,
+  waitForAnyVisible,
+} from '@/lib/redwood/playwright'
 import { buildRedwoodUniqueId } from '@/lib/redwood/unique-id'
 
 const DEFAULT_REDWOOD_LOGIN_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/Public/Login.aspx'
@@ -19,212 +30,6 @@ const DEFAULT_ACCOUNT_NUMBER = '310872'
 
 function isRedwoodImportPreviewOnly(): boolean {
   return process.env.REDWOOD_IMPORT_PREVIEW_ONLY === 'true'
-}
-
-async function loadPlaywrightModule(): Promise<any> {
-  const dynamicImport = new Function('modulePath', 'return import(modulePath)') as (
-    modulePath: string,
-  ) => Promise<any>
-  return dynamicImport('playwright')
-}
-
-function normalizeEnvCredential(rawValue: string | undefined): string {
-  if (typeof rawValue !== 'string') {
-    return ''
-  }
-
-  const trimmed = rawValue.trim()
-  const hasDoubleQuotes = trimmed.startsWith('"') && trimmed.endsWith('"')
-  const hasSingleQuotes = trimmed.startsWith("'") && trimmed.endsWith("'")
-
-  if (hasDoubleQuotes || hasSingleQuotes) {
-    return trimmed.slice(1, -1)
-  }
-
-  return trimmed
-}
-
-function resolvePlaywrightLaunchOptions(overrides?: {
-  headless?: boolean
-  slowMoMs?: number
-}): {
-  headless: boolean
-  slowMo?: number
-} {
-  const envHeadless = process.env.REDWOOD_PLAYWRIGHT_HEADLESS !== 'false'
-  const headless = overrides?.headless ?? envHeadless
-
-  const parsedSlowMo =
-    typeof overrides?.slowMoMs === 'number'
-      ? overrides.slowMoMs
-      : Number.parseInt(process.env.REDWOOD_PLAYWRIGHT_SLOW_MO_MS || '0', 10)
-  const slowMo = Number.isFinite(parsedSlowMo) && parsedSlowMo > 0 ? parsedSlowMo : undefined
-
-  return {
-    headless,
-    slowMo,
-  }
-}
-
-async function fillFirstVisibleInput(page: any, selectors: string[], value: string): Promise<boolean> {
-  for (const selector of selectors) {
-    const locator = page.locator(selector)
-    const count = await locator.count()
-    if (count === 0) continue
-
-    for (let i = 0; i < count; i++) {
-      const candidate = locator.nth(i)
-      try {
-        if (!(await candidate.isVisible())) continue
-        await candidate.click({ timeout: 2000 })
-        await candidate.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A').catch(() => {})
-        await candidate.press('Backspace').catch(() => {})
-        await candidate.type(value, { delay: 25 })
-        return true
-      } catch {
-        // try next selector
-      }
-    }
-  }
-
-  return false
-}
-
-async function clickFirstVisible(page: any, selectors: string[]): Promise<boolean> {
-  for (const selector of selectors) {
-    const locator = page.locator(selector)
-    const count = await locator.count()
-    if (count === 0) continue
-
-    for (let i = 0; i < count; i++) {
-      const candidate = locator.nth(i)
-      try {
-        if (!(await candidate.isVisible())) continue
-        await candidate.scrollIntoViewIfNeeded().catch(() => undefined)
-        await candidate.click({ timeout: 2000 }).catch(async () => {
-          await candidate.click({ timeout: 2000, force: true })
-        })
-        return true
-      } catch {
-        // try next selector
-      }
-    }
-  }
-
-  return false
-}
-
-async function waitForAnyVisible(page: any, selectors: string[], timeoutMs: number): Promise<boolean> {
-  const startedAt = Date.now()
-
-  while (Date.now() - startedAt < timeoutMs) {
-    for (const selector of selectors) {
-      const locator = page.locator(selector)
-      const count = await locator.count()
-      if (count === 0) continue
-
-      for (let i = 0; i < count; i++) {
-        try {
-          if (await locator.nth(i).isVisible()) {
-            return true
-          }
-        } catch {
-          // continue polling
-        }
-      }
-    }
-
-    await page.waitForTimeout(300)
-  }
-
-  return false
-}
-
-async function collectVisibleTexts(page: any, selectors: string[], limit = 5): Promise<string[]> {
-  const collected: string[] = []
-
-  for (const selector of selectors) {
-    const locator = page.locator(selector)
-    const count = await locator.count()
-    if (count === 0) continue
-
-    for (let i = 0; i < count; i++) {
-      try {
-        const candidate = locator.nth(i)
-        if (!(await candidate.isVisible())) continue
-        const text = (await candidate.textContent())?.trim()
-        if (!text) continue
-        collected.push(text)
-        if (collected.length >= limit) {
-          return collected
-        }
-      } catch {
-        // continue collecting
-      }
-    }
-  }
-
-  return collected
-}
-
-async function dismissCookieBanner(page: any): Promise<void> {
-  const acceptSelectors = [
-    '#truste-consent-button',
-    'button:has-text("Accept")',
-    'button:has-text("I Accept")',
-    'button:has-text("Accept All")',
-    'button:has-text("Allow All")',
-    'button[aria-label*="accept" i]',
-    '#onetrust-accept-btn-handler',
-    '.ot-sdk-container button:has-text("Accept")',
-  ]
-
-  for (let attempt = 0; attempt < 3; attempt++) {
-    for (const selector of acceptSelectors) {
-      const locator = page.locator(selector)
-      const count = await locator.count()
-      if (count === 0) continue
-
-      for (let i = 0; i < count; i++) {
-        const candidate = locator.nth(i)
-        try {
-          if (!(await candidate.isVisible())) continue
-          await candidate.scrollIntoViewIfNeeded().catch(() => undefined)
-          await candidate.click({ timeout: 2000 }).catch(async () => {
-            await candidate.click({ timeout: 2000, force: true })
-          })
-          await page.waitForTimeout(400)
-          const stillVisible = await candidate.isVisible().catch(() => false)
-          if (!stillVisible) return
-        } catch {
-          // try next candidate
-        }
-      }
-    }
-
-    // Last-resort cleanup for sticky consent overlays that intercept clicks.
-    await page
-      .evaluate(() => {
-        const selectors = [
-          '#truste-consent-track',
-          '#truste-consent-overlay',
-          '#truste-consent-content',
-          '#truste-show-consent',
-          '#truste-consent-button',
-          '#truste-consent-required',
-        ]
-
-        for (const selector of selectors) {
-          const el = document.querySelector(selector)
-          if (el?.parentElement) {
-            el.parentElement.removeChild(el)
-          } else if (el) {
-            el.remove()
-          }
-        }
-      })
-      .catch(() => undefined)
-  }
 }
 
 async function collectActionControls(page: any, limit = 12): Promise<string[]> {
@@ -504,8 +309,8 @@ export async function runRedwoodImportClientJob(args: {
   const { payload, clientId, source, playwrightHeadless, playwrightSlowMoMs } = args
   const outputDir = path.resolve(process.cwd(), 'output', 'redwood')
 
-  const username = normalizeEnvCredential(process.env.REDWOOD_USERNAME)
-  const password = normalizeEnvCredential(process.env.REDWOOD_PASSWORD)
+  const username = normalizeRedwoodEnvCredential(process.env.REDWOOD_USERNAME).value
+  const password = normalizeRedwoodEnvCredential(process.env.REDWOOD_PASSWORD).value
   const loginUrl = process.env.REDWOOD_LOGIN_URL?.trim() || DEFAULT_REDWOOD_LOGIN_URL
   const exportUrl = process.env.REDWOOD_EXPORT_URL?.trim() || DEFAULT_REDWOOD_EXPORT_URL
   const importUrl = process.env.REDWOOD_IMPORT_URL?.trim() || DEFAULT_REDWOOD_IMPORT_URL
@@ -545,7 +350,7 @@ export async function runRedwoodImportClientJob(args: {
 
   try {
     const playwright = await loadPlaywrightModule()
-    const launchOptions = resolvePlaywrightLaunchOptions({
+    const launchOptions = resolveRedwoodPlaywrightLaunchOptions({
       headless: playwrightHeadless,
       slowMoMs: playwrightSlowMoMs,
     })
@@ -556,8 +361,7 @@ export async function runRedwoodImportClientJob(args: {
     })
 
     context = await browser.newContext({
-      userAgent:
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      userAgent: REDWOOD_BROWSER_USER_AGENT,
       acceptDownloads: true,
     })
 
