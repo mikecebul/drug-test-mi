@@ -295,6 +295,101 @@ async function updateClientRedwoodState(payload: Payload, clientId: string, data
   })
 }
 
+function isImportRejectionSummary(summary: string): boolean {
+  return (
+    summary.includes('rejected record') ||
+    summary.includes('donor(s) rejected') ||
+    summary.includes('reason 1') ||
+    summary.includes('invalid ')
+  )
+}
+
+function buildImportRejectionDetails(importTextareaText: string): string {
+  return importTextareaText
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 10)
+    .join(' | ')
+}
+
+async function readImportReviewState(page: any): Promise<{
+  importTextareaText: string
+  summary: string
+}> {
+  const importTextareaText = await page
+    .locator('textarea')
+    .first()
+    .inputValue()
+    .catch(async () => {
+      return (
+        (await page.locator('textarea').first().textContent().catch(() => null)) ||
+        ''
+      ).trim()
+    })
+
+  const pageText = ((await page.textContent('body').catch(() => null)) || '').trim()
+
+  return {
+    importTextareaText,
+    summary: `${importTextareaText}\n${pageText}`.toLowerCase(),
+  }
+}
+
+async function routeImportToManualReview(args: {
+  payload: Payload
+  page: any
+  clientId: string
+  source: string
+  outputDir: string
+  importTextareaText: string
+  warningMessage: string
+}): Promise<{ status: 'manual-review'; screenshotPath: string }> {
+  const { payload, page, clientId, source, outputDir, importTextareaText, warningMessage } = args
+  const screenshotPath = path.join(outputDir, 'screenshots', `redwood-import-rejected-${clientId}-${Date.now()}.png`)
+  await fs.mkdir(path.dirname(screenshotPath), { recursive: true })
+  await dismissCookieBanner(page)
+  await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => undefined)
+
+  const rejectionDetails = buildImportRejectionDetails(importTextareaText)
+
+  await updateClientRedwoodState(payload, clientId, {
+    redwoodSyncStatus: 'manual-review',
+    redwoodMatchedBy: null,
+    redwoodMatchedDonorName: null,
+    redwoodImportScreenshotPath: screenshotPath,
+    redwoodLastAttemptAt: new Date().toISOString(),
+    redwoodLastError: rejectionDetails || 'Redwood import rejected row(s).',
+  })
+
+  await createAdminAlert(payload, {
+    severity: 'high',
+    alertType: 'data-integrity',
+    title: `Redwood import rejected row(s) for client ${clientId}`,
+    message: rejectionDetails || 'Redwood rejected one or more import rows. Manual review required.',
+    context: {
+      clientId,
+      source,
+      queue: 'redwood',
+      screenshotPath,
+    },
+  })
+
+  payload.logger.warn({
+    msg: warningMessage,
+    clientId,
+    source,
+    screenshotPath,
+    rejectionDetails,
+    queue: 'redwood',
+  })
+
+  return {
+    status: 'manual-review',
+    screenshotPath,
+  }
+}
+
 export async function runRedwoodImportClientJob(args: {
   payload: Payload
   clientId: string
@@ -528,77 +623,21 @@ export async function runRedwoodImportClientJob(args: {
     }
 
     if (!submitVisible) {
-      const importTextareaText = await page
-        .locator('textarea')
-        .first()
-        .inputValue()
-        .catch(async () => {
-          return (
-            (await page.locator('textarea').first().textContent().catch(() => null)) ||
-            ''
-          ).trim()
-        })
-
-      const pageText = ((await page.textContent('body').catch(() => null)) || '').trim()
-      const rejectionSummary = `${importTextareaText}\n${pageText}`.toLowerCase()
-      const hasImportRejection =
-        rejectionSummary.includes('rejected record') ||
-        rejectionSummary.includes('donor(s) rejected') ||
-        rejectionSummary.includes('reason 1') ||
-        rejectionSummary.includes('invalid ')
+      const reviewState = await readImportReviewState(page)
+      const hasImportRejection = isImportRejectionSummary(reviewState.summary)
 
       if (hasImportRejection) {
-        diagnosticScreenshotPath = path.join(
-          outputDir,
-          'screenshots',
-          `redwood-import-rejected-${client.id}-${Date.now()}.png`,
-        )
-        await fs.mkdir(path.dirname(diagnosticScreenshotPath), { recursive: true })
-        await dismissCookieBanner(page)
-        await page.screenshot({ path: diagnosticScreenshotPath, fullPage: true }).catch(() => undefined)
-
-        const rejectionDetails = importTextareaText
-          .split('\n')
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .slice(0, 10)
-          .join(' | ')
-
-        await updateClientRedwoodState(payload, client.id, {
-          redwoodSyncStatus: 'manual-review',
-          redwoodMatchedBy: null,
-          redwoodMatchedDonorName: null,
-          redwoodImportScreenshotPath: diagnosticScreenshotPath,
-          redwoodLastAttemptAt: new Date().toISOString(),
-          redwoodLastError: rejectionDetails || 'Redwood import rejected row(s).',
-        })
-
-        await createAdminAlert(payload, {
-          severity: 'high',
-          alertType: 'data-integrity',
-          title: `Redwood import rejected row(s) for client ${client.id}`,
-          message: rejectionDetails || 'Redwood rejected one or more import rows. Manual review required.',
-          context: {
-            clientId: client.id,
-            source,
-            queue: 'redwood',
-            screenshotPath: diagnosticScreenshotPath,
-          },
-        })
-
-        payload.logger.warn({
-          msg: '[redwood-import] Import rejected rows; routing to manual review',
-          clientId,
+        const manualReview = await routeImportToManualReview({
+          payload,
+          page,
+          clientId: client.id,
           source,
-          screenshotPath: diagnosticScreenshotPath,
-          rejectionDetails,
-          queue: 'redwood',
+          outputDir,
+          importTextareaText: reviewState.importTextareaText,
+          warningMessage: '[redwood-import] Import rejected rows; routing to manual review',
         })
-
-        return {
-          status: 'manual-review',
-          screenshotPath: diagnosticScreenshotPath,
-        }
+        diagnosticScreenshotPath = manualReview.screenshotPath
+        return manualReview
       }
 
       diagnosticScreenshotPath = path.join(
@@ -650,76 +689,21 @@ export async function runRedwoodImportClientJob(args: {
       await page.waitForTimeout(1500)
       await dismissCookieBanner(page)
 
-      const importTextareaText = await page
-        .locator('textarea')
-        .first()
-        .inputValue()
-        .catch(async () => {
-          return (
-            (await page.locator('textarea').first().textContent().catch(() => null)) ||
-            ''
-          ).trim()
-        })
-
-      const pageText = ((await page.textContent('body').catch(() => null)) || '').trim()
-      const postSubmitSummary = `${importTextareaText}\n${pageText}`.toLowerCase()
-      const hasImportRejection =
-        postSubmitSummary.includes('rejected record') ||
-        postSubmitSummary.includes('donor(s) rejected') ||
-        postSubmitSummary.includes('reason 1') ||
-        postSubmitSummary.includes('invalid ')
+      const reviewState = await readImportReviewState(page)
+      const hasImportRejection = isImportRejectionSummary(reviewState.summary)
 
       if (hasImportRejection) {
-        diagnosticScreenshotPath = path.join(
-          outputDir,
-          'screenshots',
-          `redwood-import-rejected-${client.id}-${Date.now()}.png`,
-        )
-        await fs.mkdir(path.dirname(diagnosticScreenshotPath), { recursive: true })
-        await page.screenshot({ path: diagnosticScreenshotPath, fullPage: true }).catch(() => undefined)
-
-        const rejectionDetails = importTextareaText
-          .split('\n')
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .slice(0, 10)
-          .join(' | ')
-
-        await updateClientRedwoodState(payload, client.id, {
-          redwoodSyncStatus: 'manual-review',
-          redwoodMatchedBy: null,
-          redwoodMatchedDonorName: null,
-          redwoodImportScreenshotPath: diagnosticScreenshotPath,
-          redwoodLastAttemptAt: new Date().toISOString(),
-          redwoodLastError: rejectionDetails || 'Redwood import rejected row(s).',
-        })
-
-        await createAdminAlert(payload, {
-          severity: 'high',
-          alertType: 'data-integrity',
-          title: `Redwood import rejected row(s) for client ${client.id}`,
-          message: rejectionDetails || 'Redwood rejected one or more import rows. Manual review required.',
-          context: {
-            clientId: client.id,
-            source,
-            queue: 'redwood',
-            screenshotPath: diagnosticScreenshotPath,
-          },
-        })
-
-        payload.logger.warn({
-          msg: '[redwood-import] Import rejected rows after final submit; routing to manual review',
-          clientId,
+        const manualReview = await routeImportToManualReview({
+          payload,
+          page,
+          clientId: client.id,
           source,
-          screenshotPath: diagnosticScreenshotPath,
-          rejectionDetails,
-          queue: 'redwood',
+          outputDir,
+          importTextareaText: reviewState.importTextareaText,
+          warningMessage: '[redwood-import] Import rejected rows after final submit; routing to manual review',
         })
-
-        return {
-          status: 'manual-review',
-          screenshotPath: diagnosticScreenshotPath,
-        }
+        diagnosticScreenshotPath = manualReview.screenshotPath
+        return manualReview
       }
 
       const submitStillVisible = await waitForAnyVisible(page, submitSelectors, 1500)
@@ -731,7 +715,7 @@ export async function runRedwoodImportClientJob(args: {
         'processed successfully',
         'donor imported',
       ]
-      const hasSuccessIndicator = successIndicators.some((indicator) => postSubmitSummary.includes(indicator))
+      const hasSuccessIndicator = successIndicators.some((indicator) => reviewState.summary.includes(indicator))
 
       if (submitStillVisible && !hasSuccessIndicator) {
         diagnosticScreenshotPath = path.join(

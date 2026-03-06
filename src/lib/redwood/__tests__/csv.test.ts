@@ -51,9 +51,9 @@ describe('buildRedwoodImportCSV', () => {
   it('builds a CSV row with expected columns and escaped values', () => {
     const csv = buildRedwoodImportCSV({
       accountNumber: '310872',
-      firstName: 'Michael',
+      firstName: 'Avery',
       middleInitial: 'J',
-      lastName: 'Babbitt',
+      lastName: 'Example',
       uniqueId: '68E51E5A5CB1AA425ABC',
       dob: '1975-02-28',
       sex: 'M',

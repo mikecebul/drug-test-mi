@@ -3,18 +3,8 @@ import { getPayload } from 'payload'
 
 import { runRedwoodHeadshotSyncJob } from '@/collections/Clients/services/redwoodHeadshotSync'
 import { runRedwoodImportClientJob } from '@/collections/Clients/services/redwoodImportWorkflow'
+import { isRedwoodDevAction, REDWOOD_DEV_ACTION_CONFIG } from '@/lib/redwood/dev-actions'
 import { queueRedwoodHeadshotSync, queueRedwoodImportForClient } from '@/lib/redwood/queue'
-
-type RedwoodDevAction = 'import-inline' | 'import-queue' | 'headshot-inline' | 'headshot-queue'
-
-function isValidAction(value: string): value is RedwoodDevAction {
-  return (
-    value === 'import-inline' ||
-    value === 'import-queue' ||
-    value === 'headshot-inline' ||
-    value === 'headshot-queue'
-  )
-}
 
 export async function POST(req: Request) {
   if (process.env.NODE_ENV === 'production') {
@@ -29,7 +19,7 @@ export async function POST(req: Request) {
   const action = typeof body.action === 'string' ? body.action : ''
   const clientId = typeof body.clientId === 'string' ? body.clientId.trim() : ''
 
-  if (!isValidAction(action)) {
+  if (!isRedwoodDevAction(action)) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
   }
 
@@ -38,7 +28,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    if (action === 'import-inline') {
+    const actionConfig = REDWOOD_DEV_ACTION_CONFIG[action]
+
+    if (actionConfig.kind === 'import' && actionConfig.mode === 'inline') {
       const canShowHeadedBrowser =
         process.platform !== 'linux' || Boolean(process.env.DISPLAY) || Boolean(process.env.WAYLAND_DISPLAY)
 
@@ -67,8 +59,8 @@ export async function POST(req: Request) {
       })
 
       return NextResponse.json({
-        mode: 'inline',
-        task: 'redwood-import-client',
+        mode: actionConfig.mode,
+        task: actionConfig.task,
         status: result.status,
         matchedBy: result.matchedBy ?? null,
         screenshotPath: result.screenshotPath ?? null,
@@ -80,8 +72,8 @@ export async function POST(req: Request) {
       const queued = await queueRedwoodImportForClient(clientId, 'manual', payload)
 
       return NextResponse.json({
-        mode: 'queue',
-        task: 'redwood-import-client',
+        mode: actionConfig.mode,
+        task: actionConfig.task,
         status: 'queued',
         jobId: queued.jobId,
       })
@@ -94,8 +86,8 @@ export async function POST(req: Request) {
       }
 
       return NextResponse.json({
-        mode: 'inline',
-        task: 'redwood-sync-headshot',
+        mode: actionConfig.mode,
+        task: actionConfig.task,
         status: 'synced',
         headshotId: result.headshotId ?? null,
         matchedDonor: result.matchedDonor ?? null,
@@ -105,8 +97,8 @@ export async function POST(req: Request) {
     const queued = await queueRedwoodHeadshotSync(clientId, undefined, payload)
 
     return NextResponse.json({
-      mode: 'queue',
-      task: 'redwood-sync-headshot',
+      mode: actionConfig.mode,
+      task: actionConfig.task,
       status: 'queued',
       jobId: queued.jobId,
     })

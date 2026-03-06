@@ -6,14 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { X } from 'lucide-react'
 import { toast } from 'sonner'
+import { REDWOOD_DEV_ACTIONS, type RedwoodDevAction } from '@/lib/redwood/dev-actions'
 
 type PlaywrightSuite = 'registration' | 'wizard' | 'smoke'
-type RedwoodAction = 'import-inline' | 'import-queue' | 'headshot-inline' | 'headshot-queue'
 
 export function ToastDevTools() {
   const [isOpen, setIsOpen] = useState(false)
   const [runningSuite, setRunningSuite] = useState<PlaywrightSuite | null>(null)
-  const [runningRedwoodAction, setRunningRedwoodAction] = useState<RedwoodAction | null>(null)
+  const [runningRedwoodAction, setRunningRedwoodAction] = useState<RedwoodDevAction | null>(null)
   const [redwoodClientId, setRedwoodClientId] = useState('')
 
   const runPlaywrightSuite = async (suite: PlaywrightSuite) => {
@@ -50,7 +50,7 @@ export function ToastDevTools() {
     }
   }
 
-  const runRedwoodAction = async (action: RedwoodAction) => {
+  const runRedwoodAction = async (action: RedwoodDevAction) => {
     const trimmedClientID = redwoodClientId.trim()
     if (!trimmedClientID) {
       toast.error('Client ID is required', {
@@ -188,42 +188,18 @@ export function ToastDevTools() {
               aria-label="Client ID for Redwood job"
             />
             <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={runningRedwoodAction !== null}
-                onClick={() => runRedwoodAction('import-inline')}
-              >
-                Import Inline
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={runningRedwoodAction !== null}
-                onClick={() => runRedwoodAction('import-queue')}
-              >
-                Import Queue
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={runningRedwoodAction !== null}
-                onClick={() => runRedwoodAction('headshot-inline')}
-              >
-                Headshot Inline
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={runningRedwoodAction !== null}
-                onClick={() => runRedwoodAction('headshot-queue')}
-              >
-                Headshot Queue
-              </Button>
+              {REDWOOD_DEV_ACTIONS.map(({ action, label }) => (
+                <Button
+                  key={action}
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={runningRedwoodAction !== null}
+                  onClick={() => runRedwoodAction(action)}
+                >
+                  {label}
+                </Button>
+              ))}
             </div>
           </div>
 
