@@ -102,6 +102,15 @@ RUN \
   echo "Lockfile not found." && exit 1; \
   fi
 
+# Worker image for Payload jobs (runs from source with installed deps)
+FROM deps AS worker
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+COPY . .
+CMD ["pnpm", "worker:redwood"]
+
 # Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /app

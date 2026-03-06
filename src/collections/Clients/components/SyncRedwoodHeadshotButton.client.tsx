@@ -25,11 +25,7 @@ export function SyncRedwoodHeadshotButtonClient({ clientId }: SyncRedwoodHeadsho
         return
       }
 
-      toast.success(
-        result.matchedDonor
-          ? `Headshot synced from Redwood (${result.matchedDonor})`
-          : 'Headshot synced from Redwood',
-      )
+      toast.success(result.jobId ? `Headshot sync queued (job ${result.jobId})` : 'Headshot sync queued')
 
       router.refresh()
     })

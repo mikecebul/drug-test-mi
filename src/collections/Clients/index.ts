@@ -12,56 +12,7 @@ export const Clients: CollectionConfig = {
     plural: 'Clients',
   },
   auth: {
-    verify: {
-      generateEmailHTML: ({ token, user }) => {
-        const verifyURL = `${baseUrl}/verify-email?token=${token}`
-
-        return `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1">
-              <title>Verify Your Email Address</title>
-              <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { text-align: center; margin-bottom: 30px; }
-                .button { display: inline-block; padding: 12px 24px; background-color: #007cba; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-                .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666; }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <div class="header">
-                  <h1>Verify Your Email Address</h1>
-                </div>
-
-                <p>Hello ${user.name || user.email},</p>
-
-                <p>Thank you for registering with MI Drug Test! To complete your registration and activate your account, please verify your email address by clicking the button below:</p>
-
-                <div style="text-align: center;">
-                  <a href="${verifyURL}" class="button">Verify My Email</a>
-                </div>
-
-                <p>This verification link will expire in 24 hours for security reasons.</p>
-
-                <p>Once verified, you'll be able to schedule your drug screening appointment and access your account.</p>
-
-                <p>If you didn't create this account, you can safely ignore this email.</p>
-
-                <div class="footer">
-                  <p>Best regards,<br>The MI Drug Test Team</p>
-                  <p><small>This is an automated message, please do not reply to this email.</small></p>
-                </div>
-              </div>
-            </body>
-          </html>
-        `
-      },
-      generateEmailSubject: () => 'Verify Your Email Address - MI Drug Test',
-    },
+    verify: false,
     forgotPassword: {
       generateEmailHTML: (args) => {
         const { token, user } = args || {}
@@ -666,7 +617,91 @@ export const Clients: CollectionConfig = {
           ],
         },
 
-        // Tab 6: Notes
+        // Tab 6: Redwood Sync
+        {
+          label: 'Redwood Sync',
+          description: 'Redwood integration and worker status',
+          fields: [
+            {
+              name: 'redwoodSyncStatus',
+              type: 'select',
+              defaultValue: 'not-queued',
+              options: [
+                { label: 'Not Queued', value: 'not-queued' },
+                { label: 'Queued', value: 'queued' },
+                { label: 'Export Checked', value: 'export-checked' },
+                { label: 'Matched Existing', value: 'matched-existing' },
+                { label: 'Ready To Submit', value: 'ready-to-submit' },
+                { label: 'Synced', value: 'synced' },
+                { label: 'Failed', value: 'failed' },
+                { label: 'Manual Review', value: 'manual-review' },
+              ],
+              admin: {
+                readOnly: true,
+                description: 'Current Redwood sync state managed by the background worker.',
+              },
+            },
+            {
+              name: 'redwoodUniqueId',
+              type: 'text',
+              maxLength: 20,
+              admin: {
+                description: 'Deterministic Redwood Unique ID (20 chars max).',
+              },
+            },
+            {
+              name: 'redwoodMatchedBy',
+              type: 'select',
+              options: [
+                { label: 'Unique ID', value: 'unique-id' },
+                { label: 'Email', value: 'email' },
+                { label: 'Name + DOB', value: 'name-dob' },
+              ],
+              admin: {
+                readOnly: true,
+                description: 'How this client was matched in Redwood export.',
+              },
+            },
+            {
+              name: 'redwoodMatchedDonorName',
+              type: 'text',
+              admin: {
+                readOnly: true,
+                description: 'Matched donor identifier from Redwood export.',
+              },
+            },
+            {
+              name: 'redwoodImportScreenshotPath',
+              type: 'text',
+              admin: {
+                readOnly: true,
+                description: 'Local screenshot path captured at Redwood pre-submit state.',
+              },
+            },
+            {
+              name: 'redwoodLastAttemptAt',
+              type: 'date',
+              admin: {
+                readOnly: true,
+                date: {
+                  pickerAppearance: 'dayAndTime',
+                  displayFormat: 'MM/dd/yyyy HH:mm',
+                },
+                description: 'Timestamp of most recent Redwood worker attempt.',
+              },
+            },
+            {
+              name: 'redwoodLastError',
+              type: 'textarea',
+              admin: {
+                readOnly: true,
+                description: 'Most recent Redwood worker error message, if any.',
+              },
+            },
+          ],
+        },
+
+        // Tab 7: Notes
         {
           label: 'Notes',
           description: 'Internal notes and comments',

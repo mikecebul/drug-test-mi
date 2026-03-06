@@ -20,6 +20,7 @@
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
     "reinstall": "cross-env NODE_OPTIONS=--no-deprecation rm -rf node_modules && rm pnpm-lock.yaml && pnpm install",
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
+    "worker:redwood": "cross-env NODE_OPTIONS=--no-deprecation payload jobs:run --cron \"* * * * *\" --queue redwood --limit 1",
     "test": "pnpm test:integration:ci && pnpm test:e2e",
     "test:integration:ci": "vitest run",
     "test:e2e": "playwright test",

@@ -28,7 +28,7 @@ import {
 import sharp from 'sharp' // editor-import
 import { UnderlineFeature } from '@payloadcms/richtext-lexical'
 import path from 'path'
-import { buildConfig, TextFieldSingleValidation } from 'payload'
+import { buildConfig, type Payload, TextFieldSingleValidation } from 'payload'
 import { fileURLToPath } from 'url'
 
 import { Pages } from './collections/Pages'
@@ -55,6 +55,8 @@ import { AdminAlerts } from './collections/AdminAlerts'
 import { Employers } from './collections/Employers'
 import { Courts } from './collections/Courts'
 import { TestTypes } from './collections/TestTypes'
+import { runRedwoodImportClientJob } from './collections/Clients/services/redwoodImportWorkflow'
+import { runRedwoodHeadshotSyncJob } from './collections/Clients/services/redwoodHeadshotSync'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -89,7 +91,76 @@ const adminAutoLogin =
       }
     : false
 
+async function ensureDevAutoLoginSuperAdmin(payload: Payload): Promise<void> {
+  if (process.env.NODE_ENV === 'production') return
+  if (!isAdminAutoLoginEnabled || !adminAutoLoginEmail || !adminAutoLoginPassword) return
+
+  const bootstrapReq: any = {
+    user: {
+      id: 'dev-autologin-bootstrap',
+      collection: 'admins',
+      role: 'superAdmin' as const,
+    },
+  }
+
+  const existing = await payload.find({
+    collection: 'admins',
+    where: {
+      email: {
+        equals: adminAutoLoginEmail,
+      },
+    },
+    limit: 1,
+    depth: 0,
+    overrideAccess: true,
+  })
+
+  if (!existing.docs[0]) {
+    await payload.create({
+      collection: 'admins',
+      data: {
+        name: 'Dev Super Admin',
+        email: adminAutoLoginEmail,
+        password: adminAutoLoginPassword,
+        role: 'superAdmin',
+      },
+      req: bootstrapReq,
+      overrideAccess: true,
+    })
+
+    payload.logger.info({
+      msg: '[dev-autologin] Created superAdmin account for Payload admin autoLogin',
+      email: adminAutoLoginEmail,
+    })
+    return
+  }
+
+  const existingAdmin = existing.docs[0]
+  const needsPromotion = existingAdmin.role !== 'superAdmin'
+
+  if (!needsPromotion) return
+
+  await payload.update({
+    collection: 'admins',
+    id: existingAdmin.id,
+    data: {
+      role: 'superAdmin',
+      password: adminAutoLoginPassword,
+    },
+    req: bootstrapReq,
+    overrideAccess: true,
+  })
+
+  payload.logger.info({
+    msg: '[dev-autologin] Promoted autoLogin account to superAdmin',
+    email: adminAutoLoginEmail,
+  })
+}
+
 export default buildConfig({
+  onInit: async (payload) => {
+    await ensureDevAutoLoginSuperAdmin(payload)
+  },
   // serverURL: baseUrl,
   admin: {
     autoLogin: adminAutoLogin,
@@ -303,6 +374,64 @@ export default buildConfig({
   endpoints: [],
   globals: [Header, Footer, CompanyInfo],
   graphQL: { disable: true },
+  jobs: {
+    tasks: [
+      {
+        slug: 'redwood-import-client',
+        retries: 3,
+        inputSchema: [
+          { name: 'clientId', type: 'text', required: true },
+          { name: 'source', type: 'text', required: true },
+        ],
+        outputSchema: [
+          { name: 'status', type: 'text', required: true },
+          { name: 'matchedBy', type: 'text', required: false },
+          { name: 'screenshotPath', type: 'text', required: false },
+        ],
+        handler: async ({ input, req }) => {
+          const result = await runRedwoodImportClientJob({
+            payload: req.payload,
+            clientId: input.clientId,
+            source: input.source,
+          })
+
+          return {
+            output: {
+              status: result.status,
+              matchedBy: result.matchedBy,
+              screenshotPath: result.screenshotPath,
+            },
+          }
+        },
+      },
+      {
+        slug: 'redwood-sync-headshot',
+        retries: 3,
+        inputSchema: [
+          { name: 'clientId', type: 'text', required: true },
+          { name: 'requestedByAdminId', type: 'text', required: false },
+        ],
+        outputSchema: [
+          { name: 'status', type: 'text', required: true },
+          { name: 'headshotId', type: 'text', required: false },
+        ],
+        handler: async ({ input, req }) => {
+          const result = await runRedwoodHeadshotSyncJob(req.payload, input.clientId)
+          if (!result.success) {
+            throw new Error(result.error || 'Unknown Redwood headshot sync error')
+          }
+
+          return {
+            output: {
+              status: 'synced',
+              headshotId: result.headshotId,
+            },
+          }
+        },
+      },
+    ],
+    processingOrder: 'createdAt',
+  },
   plugins: [
     importExportPlugin({
       collections: [

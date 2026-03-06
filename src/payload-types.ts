@@ -187,6 +187,8 @@ export interface Config {
   user: Admin | Client;
   jobs: {
     tasks: {
+      'redwood-import-client': TaskRedwoodImportClient;
+      'redwood-sync-headshot': TaskRedwoodSyncHeadshot;
       createCollectionExport: TaskCreateCollectionExport;
       createCollectionImport: TaskCreateCollectionImport;
       inline: {
@@ -1741,6 +1743,45 @@ export interface Client {
     totalDocs?: number;
   };
   /**
+   * Current Redwood sync state managed by the background worker.
+   */
+  redwoodSyncStatus?:
+    | (
+        | 'not-queued'
+        | 'queued'
+        | 'export-checked'
+        | 'matched-existing'
+        | 'ready-to-submit'
+        | 'synced'
+        | 'failed'
+        | 'manual-review'
+      )
+    | null;
+  /**
+   * Deterministic Redwood Unique ID (20 chars max).
+   */
+  redwoodUniqueId?: string | null;
+  /**
+   * How this client was matched in Redwood export.
+   */
+  redwoodMatchedBy?: ('unique-id' | 'email' | 'name-dob') | null;
+  /**
+   * Matched donor identifier from Redwood export.
+   */
+  redwoodMatchedDonorName?: string | null;
+  /**
+   * Local screenshot path captured at Redwood pre-submit state.
+   */
+  redwoodImportScreenshotPath?: string | null;
+  /**
+   * Timestamp of most recent Redwood worker attempt.
+   */
+  redwoodLastAttemptAt?: string | null;
+  /**
+   * Most recent Redwood worker error message, if any.
+   */
+  redwoodLastError?: string | null;
+  /**
    * Internal notes about the client (not visible to client)
    */
   notes?: string | null;
@@ -1751,8 +1792,6 @@ export interface Client {
   resetPasswordExpiration?: string | null;
   salt?: string | null;
   hash?: string | null;
-  _verified?: boolean | null;
-  _verificationToken?: string | null;
   loginAttempts?: number | null;
   lockUntil?: string | null;
   sessions?:
@@ -2562,7 +2601,12 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'createCollectionExport' | 'createCollectionImport';
+        taskSlug:
+          | 'inline'
+          | 'redwood-import-client'
+          | 'redwood-sync-headshot'
+          | 'createCollectionExport'
+          | 'createCollectionImport';
         taskID: string;
         input?:
           | {
@@ -2595,7 +2639,15 @@ export interface PayloadJob {
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'createCollectionExport' | 'createCollectionImport') | null;
+  taskSlug?:
+    | (
+        | 'inline'
+        | 'redwood-import-client'
+        | 'redwood-sync-headshot'
+        | 'createCollectionExport'
+        | 'createCollectionImport'
+      )
+    | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -3675,6 +3727,13 @@ export interface ClientsSelect<T extends boolean = true> {
         id?: T;
       };
   privateDocuments?: T;
+  redwoodSyncStatus?: T;
+  redwoodUniqueId?: T;
+  redwoodMatchedBy?: T;
+  redwoodMatchedDonorName?: T;
+  redwoodImportScreenshotPath?: T;
+  redwoodLastAttemptAt?: T;
+  redwoodLastError?: T;
   notes?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -3683,8 +3742,6 @@ export interface ClientsSelect<T extends boolean = true> {
   resetPasswordExpiration?: T;
   salt?: T;
   hash?: T;
-  _verified?: T;
-  _verificationToken?: T;
   loginAttempts?: T;
   lockUntil?: T;
   sessions?:
@@ -4106,6 +4163,35 @@ export interface CollectionsWidget {
     [k: string]: unknown;
   };
   width: 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-import-client".
+ */
+export interface TaskRedwoodImportClient {
+  input: {
+    clientId: string;
+    source: string;
+  };
+  output: {
+    status: string;
+    matchedBy?: string | null;
+    screenshotPath?: string | null;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-sync-headshot".
+ */
+export interface TaskRedwoodSyncHeadshot {
+  input: {
+    clientId: string;
+    requestedByAdminId?: string | null;
+  };
+  output: {
+    status: string;
+    headshotId?: string | null;
+  };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

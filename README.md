@@ -236,6 +236,12 @@ For normal local development, start only MongoDB and run the app with `pnpm dev`
 docker compose up -d mongo
 ```
 
+If port `27017` is already in use on your machine, override the host port:
+
+```bash
+MONGO_PORT=27018 docker compose up -d mongo
+```
+
 Notes:
 - The compose file also defines a `payload` container intended for containerized/prod-like runs.
 - Most local development is simpler with a local Node process (`pnpm dev`) plus the compose MongoDB container.
@@ -323,6 +329,8 @@ These support stable Payload admin login flows in e2e runs:
 - `PAYLOAD_ADMIN_AUTOLOGIN_EMAIL`
 - `PAYLOAD_ADMIN_AUTOLOGIN_PASSWORD`
 
+In development, this auto-login email is expected to be a `superAdmin` account. The app now auto-creates/promotes it to `superAdmin` on startup when auto-login is enabled.
+
 #### Playwright runner overrides (in `.env.example` / optional)
 
 - `PLAYWRIGHT_BASE_URL`
@@ -356,6 +364,27 @@ Important notes:
 - `pnpm build` runs `payload migrate` before `next build`
 - all required services (especially MongoDB) must be reachable during build/runtime
 - keep production env vars consistent across deploys/instances
+
+### Worker process for Payload Jobs
+
+Run two services from the same image:
+
+- `payload`: web app (`node server.js`)
+- `worker-redwood`: dedicated jobs worker (`jobs:run` on `redwood` queue every minute)
+
+The repo `docker-compose.yml` includes both services. The worker command is:
+
+```bash
+pnpm worker:redwood
+```
+
+If local MongoDB is already using `27017`, run compose with a different Mongo host port:
+
+```bash
+MONGO_PORT=27018 docker compose up -d --build worker-redwood
+```
+
+Use this worker for Redwood automation jobs so Playwright work stays off the main web process.
 
 ### Stable Next.js Server Action IDs
 

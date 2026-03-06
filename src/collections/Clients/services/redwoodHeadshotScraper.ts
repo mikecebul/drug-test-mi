@@ -1,4 +1,4 @@
-import { calculateNameSimilarity } from '@/views/PDFUploadWizard/utils/calculateSimilarity'
+import { calculateNameSimilarity } from '@/views/DrugTestWizard/utils/calculateSimilarity'
 
 const DEFAULT_REDWOOD_LOGIN_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/Public/Login.aspx'
 const DEFAULT_REDWOOD_DONOR_SEARCH_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/DonorSearch.aspx'
@@ -48,6 +48,27 @@ function normalizeNameValue(value: string): string {
     .replace(/[^a-zA-Z\s'-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+async function loadPlaywrightModule(): Promise<any> {
+  const dynamicImport = new Function('modulePath', 'return import(modulePath)') as (
+    modulePath: string,
+  ) => Promise<any>
+  return dynamicImport('playwright')
+}
+
+function resolvePlaywrightLaunchOptions(): {
+  headless: boolean
+  slowMo?: number
+} {
+  const headless = process.env.REDWOOD_PLAYWRIGHT_HEADLESS !== 'false'
+  const parsedSlowMo = Number.parseInt(process.env.REDWOOD_PLAYWRIGHT_SLOW_MO_MS || '0', 10)
+  const slowMo = Number.isFinite(parsedSlowMo) && parsedSlowMo > 0 ? parsedSlowMo : undefined
+
+  return {
+    headless,
+    slowMo,
+  }
 }
 
 function normalizeToken(value?: string): string {
@@ -503,12 +524,14 @@ export async function fetchRedwoodHeadshotForClient(client: RedwoodClient): Prom
 
   let playwright: any
   try {
-    playwright = await import('playwright')
+    playwright = await loadPlaywrightModule()
   } catch {
     throw new Error('Playwright is not installed. Run `pnpm install` to install project dependencies.')
   }
+  const launchOptions = resolvePlaywrightLaunchOptions()
   const browser = await playwright.chromium.launch({
-    headless: true,
+    headless: launchOptions.headless,
+    slowMo: launchOptions.slowMo,
     args: ['--disable-blink-features=AutomationControlled'],
   })
   const context = await browser.newContext({
