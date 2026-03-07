@@ -189,6 +189,8 @@ export interface Config {
     tasks: {
       'redwood-import-client': TaskRedwoodImportClient;
       'redwood-sync-headshot': TaskRedwoodSyncHeadshot;
+      'redwood-backfill-client-unique-id': TaskRedwoodBackfillClientUniqueId;
+      'redwood-upload-headshot': TaskRedwoodUploadHeadshot;
       createCollectionExport: TaskCreateCollectionExport;
       createCollectionImport: TaskCreateCollectionImport;
       inline: {
@@ -1625,6 +1627,10 @@ export interface Client {
         value: string | Employer;
       } | null);
   /**
+   * Preferred test type resolved from the linked referral.
+   */
+  defaultTestType?: (string | null) | TestType;
+  /**
    * Additional recipients for this client only. These do not modify the linked referral profile.
    */
   referralAdditionalRecipients?:
@@ -1762,6 +1768,50 @@ export interface Client {
    */
   redwoodUniqueId?: string | null;
   /**
+   * Redwood call-in / check-in code synced back from the donor record.
+   */
+  redwoodCallInCode?: string | null;
+  /**
+   * Redwood donor ID captured from the donor detail URL for direct follow-up lookups.
+   */
+  redwoodDonorId?: string | null;
+  /**
+   * Tracks Redwood donor unique ID backfill state.
+   */
+  redwoodUniqueIdSyncStatus?: ('not-queued' | 'queued' | 'synced' | 'failed' | 'manual-review') | null;
+  /**
+   * Timestamp of the most recent Redwood unique ID backfill attempt.
+   */
+  redwoodUniqueIdLastAttemptAt?: string | null;
+  /**
+   * Most recent Redwood unique ID backfill error message, if any.
+   */
+  redwoodUniqueIdLastError?: string | null;
+  /**
+   * Tracks website-to-Redwood headshot upload state.
+   */
+  redwoodHeadshotPushStatus?: ('not-queued' | 'queued' | 'synced' | 'failed' | 'manual-review') | null;
+  /**
+   * Timestamp of the most recent Redwood headshot upload attempt.
+   */
+  redwoodHeadshotPushLastAttemptAt?: string | null;
+  /**
+   * Most recent Redwood headshot upload error message, if any.
+   */
+  redwoodHeadshotPushLastError?: string | null;
+  /**
+   * Tracks Redwood donor default-test sync state.
+   */
+  redwoodDefaultTestSyncStatus?: ('not-queued' | 'queued' | 'skipped' | 'synced' | 'failed' | 'manual-review') | null;
+  /**
+   * Timestamp of the most recent Redwood default-test sync attempt.
+   */
+  redwoodDefaultTestLastAttemptAt?: string | null;
+  /**
+   * Most recent Redwood default-test sync error message, if any.
+   */
+  redwoodDefaultTestLastError?: string | null;
+  /**
    * How this client was matched in Redwood export.
    */
   redwoodMatchedBy?: ('unique-id' | 'email' | 'name-dob') | null;
@@ -1895,7 +1945,11 @@ export interface TestType {
   /**
    * Helps filter test types in future workflows.
    */
-  category?: ('instant' | 'lab') | null;
+  category: 'instant' | 'lab';
+  /**
+   * Redwood donor default-test code used on the donor edit screen. Lab test types only.
+   */
+  redwoodLabTestCode?: string | null;
   /**
    * Employers currently mapped to this preferred test type.
    */
@@ -2605,6 +2659,8 @@ export interface PayloadJob {
           | 'inline'
           | 'redwood-import-client'
           | 'redwood-sync-headshot'
+          | 'redwood-backfill-client-unique-id'
+          | 'redwood-upload-headshot'
           | 'createCollectionExport'
           | 'createCollectionImport';
         taskID: string;
@@ -2644,6 +2700,8 @@ export interface PayloadJob {
         | 'inline'
         | 'redwood-import-client'
         | 'redwood-sync-headshot'
+        | 'redwood-backfill-client-unique-id'
+        | 'redwood-upload-headshot'
         | 'createCollectionExport'
         | 'createCollectionImport'
       )
@@ -3630,6 +3688,7 @@ export interface TestTypesSelect<T extends boolean = true> {
   value?: T;
   bookingLabel?: T;
   category?: T;
+  redwoodLabTestCode?: T;
   employers?: T;
   courts?: T;
   isActive?: T;
@@ -3692,6 +3751,7 @@ export interface ClientsSelect<T extends boolean = true> {
   preferredContactMethod?: T;
   referralType?: T;
   referral?: T;
+  defaultTestType?: T;
   referralAdditionalRecipients?:
     | T
     | {
@@ -3729,6 +3789,17 @@ export interface ClientsSelect<T extends boolean = true> {
   privateDocuments?: T;
   redwoodSyncStatus?: T;
   redwoodUniqueId?: T;
+  redwoodCallInCode?: T;
+  redwoodDonorId?: T;
+  redwoodUniqueIdSyncStatus?: T;
+  redwoodUniqueIdLastAttemptAt?: T;
+  redwoodUniqueIdLastError?: T;
+  redwoodHeadshotPushStatus?: T;
+  redwoodHeadshotPushLastAttemptAt?: T;
+  redwoodHeadshotPushLastError?: T;
+  redwoodDefaultTestSyncStatus?: T;
+  redwoodDefaultTestLastAttemptAt?: T;
+  redwoodDefaultTestLastError?: T;
   redwoodMatchedBy?: T;
   redwoodMatchedDonorName?: T;
   redwoodImportScreenshotPath?: T;
@@ -4191,6 +4262,34 @@ export interface TaskRedwoodSyncHeadshot {
   output: {
     status: string;
     headshotId?: string | null;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-backfill-client-unique-id".
+ */
+export interface TaskRedwoodBackfillClientUniqueId {
+  input: {
+    clientId: string;
+    requestedByAdminId?: string | null;
+  };
+  output: {
+    status: string;
+    screenshotPath?: string | null;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-upload-headshot".
+ */
+export interface TaskRedwoodUploadHeadshot {
+  input: {
+    clientId: string;
+    requestedByAdminId?: string | null;
+  };
+  output: {
+    status: string;
+    screenshotPath?: string | null;
   };
 }
 /**

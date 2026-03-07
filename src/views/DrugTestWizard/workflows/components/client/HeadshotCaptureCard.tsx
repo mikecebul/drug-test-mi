@@ -1,12 +1,12 @@
 'use client'
 
-import { useCallback, useRef, useState, type SyntheticEvent } from 'react'
+import { useCallback, useRef, useState, useTransition, type SyntheticEvent } from 'react'
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/utilities/cn'
-import { Camera, Check, Crop as CropIcon, Loader2, X } from 'lucide-react'
+import { Camera, Check, Crop as CropIcon, Download, Loader2, X } from 'lucide-react'
 import { formatDateOnly } from '@/lib/date-utils'
 import { toast } from 'sonner'
 import {
@@ -15,6 +15,7 @@ import {
   resolvePixelCropForSave,
   toJpegFileName,
 } from '@/lib/image-crop'
+import { syncRedwoodHeadshot } from '@/collections/Clients/components/syncRedwoodHeadshot'
 import { uploadHeadshot } from './uploadHeadshot'
 
 interface HeadshotCaptureCardProps {
@@ -49,6 +50,7 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
   const [originalFileName, setOriginalFileName] = useState('headshot.jpg')
   const [isUploading, setIsUploading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isSyncingFromRedwood, startSyncFromRedwood] = useTransition()
 
   const imageRef = useRef<HTMLImageElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -179,6 +181,19 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
     fileInputRef.current?.click()
   }, [])
 
+  const syncFromRedwood = useCallback(() => {
+    startSyncFromRedwood(async () => {
+      const result = await syncRedwoodHeadshot(client.id)
+
+      if (!result.success) {
+        toast.error(result.error || 'Failed to queue Redwood headshot sync')
+        return
+      }
+
+      toast.success(result.jobId ? `Redwood headshot sync queued (job ${result.jobId})` : 'Redwood headshot sync queued')
+    })
+  }, [client.id])
+
   return (
     <>
       <div
@@ -241,6 +256,22 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
               Use File Picker
             </Button>
           </div>
+
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={syncFromRedwood}
+            disabled={isUploading || isSyncingFromRedwood}
+            className="w-full"
+          >
+            {isSyncingFromRedwood ? (
+              <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+            ) : (
+              <Download className="mr-1.5 size-3.5" />
+            )}
+            Sync Headshot From Redwood
+          </Button>
         </div>
 
         {errorMessage && <p className="text-destructive text-sm">{errorMessage}</p>}

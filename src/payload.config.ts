@@ -57,6 +57,8 @@ import { Courts } from './collections/Courts'
 import { TestTypes } from './collections/TestTypes'
 import { runRedwoodImportClientJob } from './collections/Clients/services/redwoodImportWorkflow'
 import { runRedwoodHeadshotSyncJob } from './collections/Clients/services/redwoodHeadshotSync'
+import { runRedwoodHeadshotUploadJob } from './collections/Clients/services/redwoodHeadshotUpload'
+import { runRedwoodUniqueIdSyncJob } from './collections/Clients/services/redwoodUniqueIdSync'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -425,6 +427,56 @@ export default buildConfig({
             output: {
               status: 'synced',
               headshotId: result.headshotId,
+            },
+          }
+        },
+      },
+      {
+        slug: 'redwood-backfill-client-unique-id',
+        retries: 3,
+        inputSchema: [
+          { name: 'clientId', type: 'text', required: true },
+          { name: 'requestedByAdminId', type: 'text', required: false },
+        ],
+        outputSchema: [
+          { name: 'status', type: 'text', required: true },
+          { name: 'screenshotPath', type: 'text', required: false },
+        ],
+        handler: async ({ input, req }) => {
+          const result = await runRedwoodUniqueIdSyncJob(req.payload, input.clientId)
+          if (!result.success) {
+            throw new Error(result.error || 'Unknown Redwood unique ID sync error')
+          }
+
+          return {
+            output: {
+              status: result.status || 'synced',
+              screenshotPath: result.screenshotPath,
+            },
+          }
+        },
+      },
+      {
+        slug: 'redwood-upload-headshot',
+        retries: 3,
+        inputSchema: [
+          { name: 'clientId', type: 'text', required: true },
+          { name: 'requestedByAdminId', type: 'text', required: false },
+        ],
+        outputSchema: [
+          { name: 'status', type: 'text', required: true },
+          { name: 'screenshotPath', type: 'text', required: false },
+        ],
+        handler: async ({ input, req }) => {
+          const result = await runRedwoodHeadshotUploadJob(req.payload, input.clientId)
+          if (!result.success) {
+            throw new Error(result.error || 'Unknown Redwood headshot upload error')
+          }
+
+          return {
+            output: {
+              status: result.status || 'synced',
+              screenshotPath: result.screenshotPath,
             },
           }
         },

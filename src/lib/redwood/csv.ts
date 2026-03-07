@@ -25,6 +25,11 @@ export interface RedwoodDonorMatch {
   donor: RedwoodExportDonor
 }
 
+export function extractRedwoodCallInCode(donor?: RedwoodExportDonor | null): string | null {
+  const value = donor?.raw.checkincode
+  return value ? value.trim() : null
+}
+
 function normalizeHeader(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, '')
 }
@@ -202,9 +207,16 @@ function asCsvCell(value: string): string {
 
 function formatDob(value: string | Date): string {
   if (typeof value === 'string') {
-    const dateOnlyMatch = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    const trimmedValue = value.trim()
+    const dateOnlyMatch = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/)
     if (dateOnlyMatch) {
       const [, year, month, day] = dateOnlyMatch
+      return `${month}/${day}/${year}`
+    }
+
+    const isoDateTimeMatch = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})T/)
+    if (isoDateTimeMatch) {
+      const [, year, month, day] = isoDateTimeMatch
       return `${month}/${day}/${year}`
     }
   }

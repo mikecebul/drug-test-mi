@@ -1,14 +1,19 @@
 import { calculateNameSimilarity } from '@/views/DrugTestWizard/utils/calculateSimilarity'
+import { getRedwoodAccountNumber } from '@/lib/redwood/config'
+import {
+  buildRedwoodDonorEditUrl,
+  buildRedwoodDonorSearchResultsUrl,
+  buildRedwoodDonorViewUrl,
+  extractRedwoodDonorIdFromUrl,
+} from '@/lib/redwood/donor-urls'
 import {
   clickFirstVisible,
   fillFirstVisibleInput,
-  loadPlaywrightModule,
-  normalizeRedwoodEnvCredential,
-  REDWOOD_BROWSER_USER_AGENT,
-  resolveRedwoodPlaywrightLaunchOptions,
+  loginToRedwood,
+  openRedwoodBrowserContext,
+  resolveRedwoodAuthEnv,
 } from '@/lib/redwood/playwright'
 
-const DEFAULT_REDWOOD_LOGIN_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/Public/Login.aspx'
 const DEFAULT_REDWOOD_DONOR_SEARCH_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/DonorSearch.aspx'
 const DONOR_AMBIGUOUS_SCORE_DELTA = 0.02
 const NAME_ONLY_MIN_SCORE = 0.85
@@ -18,6 +23,8 @@ interface RedwoodClient {
   lastName: string
   middleInitial?: string
   dob?: string
+  redwoodUniqueId?: string
+  redwoodDonorId?: string
 }
 
 interface DonorCandidate {
@@ -36,7 +43,12 @@ export interface RedwoodHeadshotScrapeResult {
   mimeType: string
   fileName: string
   matchedDonorName: string
+  donorId?: string
+  callInCode?: string | null
 }
+
+const REDWOOD_HEADSHOT_PULL_RETRY_ATTEMPTS = 4
+const REDWOOD_HEADSHOT_PULL_RETRY_DELAY_MS = 3000
 
 const VIEW_CONTROL_SELECTOR = [
   'button:has-text("VIEW")',
@@ -179,61 +191,36 @@ function getDobCellText(cells: string[]): string | undefined {
   })
 }
 
-async function submitLoginFormFallback(page: any): Promise<boolean> {
-  return await page.evaluate(() => {
-    const passwordField =
-      (document.querySelector('input[type="password"]') as HTMLInputElement | null) ||
-      (document.querySelector('input[name*="Password"]') as HTMLInputElement | null) ||
-      (document.querySelector('input[id*="Password"]') as HTMLInputElement | null)
-
-    if (!passwordField) return false
-
-    const form = passwordField.form || (document.querySelector('form') as HTMLFormElement | null)
-    if (!form) return false
-
-    // Prefer requestSubmit to emulate a user submit event.
-    if (typeof form.requestSubmit === 'function') {
-      form.requestSubmit()
-      return true
-    }
-
-    form.submit()
-    return true
-  })
-}
-
-async function submitWithAspNetPostBack(page: any): Promise<boolean> {
-  return await page.evaluate(() => {
-    const win = window as unknown as { __doPostBack?: (eventTarget: string, eventArgument: string) => void }
-    if (typeof win.__doPostBack !== 'function') return false
-
-    const targets = [
-      'ctl00$PageContent$Login1$LoginButtonMembership',
-      'ctl00$PageContent$Login1$LoginButton',
-      'ctl00$PageContent$Login1$LoginImageButton',
-      'PageContent$Login1$LoginButton',
-    ]
-
-    for (const target of targets) {
-      try {
-        win.__doPostBack(target, '')
-        return true
-      } catch {
-        // Try next target
-      }
-    }
-
-    return false
-  })
-}
-
 async function submitDonorSearch(page: any): Promise<boolean> {
+  const waitForResultsNavigation = async (): Promise<boolean> => {
+    await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {})
+    await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {})
+    await page.waitForTimeout(800)
+    return !/DonorSearch\.aspx/i.test(page.url())
+  }
+
   const exactClicked = await clickFirstVisible(page, [
     '#PageContent_DonorSearchParameterForm1_Search',
     'input[name="ctl00$PageContent$DonorSearchParameterForm1$Search"]',
     'input[id*="DonorSearchParameterForm1_Search"]',
   ])
-  if (exactClicked) return true
+
+  if (exactClicked && (await waitForResultsNavigation())) {
+    return true
+  }
+
+  const nativeClicked = await page
+    .evaluate(() => {
+      const button = document.getElementById('PageContent_DonorSearchParameterForm1_Search') as HTMLInputElement | null
+      if (!button) return false
+      button.click()
+      return true
+    })
+    .catch(() => false)
+
+  if (nativeClicked && (await waitForResultsNavigation())) {
+    return true
+  }
 
   const postbackSubmitted = await page.evaluate(() => {
     const win = window as unknown as { __doPostBack?: (eventTarget: string, eventArgument: string) => void }
@@ -256,9 +243,11 @@ async function submitDonorSearch(page: any): Promise<boolean> {
     return false
   })
 
-  if (postbackSubmitted) return true
+  if (postbackSubmitted && (await waitForResultsNavigation())) {
+    return true
+  }
 
-  return await page.evaluate(() => {
+  const formSubmitted = await page.evaluate(() => {
     const input = document.querySelector('#PageContent_DonorSearchParameterForm1_txtLastName') as HTMLInputElement | null
     const form = input?.form || (document.querySelector('form') as HTMLFormElement | null)
     if (!form) return false
@@ -269,6 +258,8 @@ async function submitDonorSearch(page: any): Promise<boolean> {
     form.submit()
     return true
   })
+
+  return formSubmitted && (await waitForResultsNavigation())
 }
 
 async function getLoginDiagnostics(page: any): Promise<string> {
@@ -421,156 +412,241 @@ async function extractHeadshotImageUrl(page: any): Promise<string> {
   return fallback
 }
 
+async function readRedwoodDonorMetadata(page: any): Promise<{
+  donorId: string | null
+  callInCode: string | null
+}> {
+  return await page.evaluate(() => {
+    const donorId = (() => {
+      try {
+        return new URL(window.location.href).searchParams.get('donorid')?.trim() || null
+      } catch {
+        return null
+      }
+    })()
+
+    const bodyLines = (document.body?.innerText || '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+    let callInCode: string | null = null
+    for (let index = 0; index < bodyLines.length; index++) {
+      const line = bodyLines[index]
+      if (!/check-?in code\/pin:/i.test(line)) continue
+      const inline = line.split(':')[1]?.trim()
+      if (inline) {
+        callInCode = inline
+        break
+      }
+
+      const nextLine = bodyLines[index + 1]?.trim()
+      if (nextLine) {
+        callInCode = nextLine
+        break
+      }
+    }
+
+    return {
+      donorId,
+      callInCode,
+    }
+  })
+}
+
+async function readRedwoodDonorEditPhotoState(page: any): Promise<{
+  canRemovePhoto: boolean
+  photoFlagValue: string | null
+}> {
+  return await page.evaluate(() => {
+    const removeButton = document.getElementById('PageContent_Donor_RemovePhoto') as HTMLInputElement | null
+    const photoFlag = document.getElementById('PageContent_Donor_IsDonorPhotExist') as HTMLInputElement | null
+
+    const canRemovePhoto = Boolean(
+      removeButton &&
+        ((removeButton.offsetWidth || removeButton.offsetHeight || removeButton.getClientRects().length) > 0),
+    )
+
+    return {
+      canRemovePhoto,
+      photoFlagValue: photoFlag?.value?.trim() || null,
+    }
+  })
+}
+
+async function waitForRealDonorPhoto(args: {
+  donorId: string | null
+  donorSearchUrl: string
+  page: any
+}): Promise<{
+  canRemovePhoto: boolean
+  photoFlagValue: string | null
+}> {
+  const { donorId, donorSearchUrl, page } = args
+
+  if (!donorId) {
+    return {
+      canRemovePhoto: false,
+      photoFlagValue: null,
+    }
+  }
+
+  let latestState = {
+    canRemovePhoto: false,
+    photoFlagValue: null as string | null,
+  }
+
+  for (let attempt = 0; attempt <= REDWOOD_HEADSHOT_PULL_RETRY_ATTEMPTS; attempt++) {
+    await page.goto(buildRedwoodDonorEditUrl(donorSearchUrl, donorId), {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    })
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+    await page.waitForTimeout(800)
+
+    latestState = await readRedwoodDonorEditPhotoState(page)
+    if (latestState.canRemovePhoto || latestState.photoFlagValue === 'true') {
+      return latestState
+    }
+
+    if (attempt < REDWOOD_HEADSHOT_PULL_RETRY_ATTEMPTS) {
+      await page.waitForTimeout(REDWOOD_HEADSHOT_PULL_RETRY_DELAY_MS)
+    }
+  }
+
+  return latestState
+}
+
 export async function fetchRedwoodHeadshotForClient(client: RedwoodClient): Promise<RedwoodHeadshotScrapeResult> {
-  const normalizedUsername = normalizeRedwoodEnvCredential(process.env.REDWOOD_USERNAME)
-  const normalizedPassword = normalizeRedwoodEnvCredential(process.env.REDWOOD_PASSWORD)
-  const username = normalizedUsername.value
-  const password = normalizedPassword.value
-  const loginUrl = process.env.REDWOOD_LOGIN_URL?.trim() || DEFAULT_REDWOOD_LOGIN_URL
+  const auth = resolveRedwoodAuthEnv()
   const donorSearchUrl = process.env.REDWOOD_DONOR_SEARCH_URL?.trim() || DEFAULT_REDWOOD_DONOR_SEARCH_URL
-
-  if (!username) {
-    throw new Error('Missing required environment variable: REDWOOD_USERNAME')
-  }
-
-  if (!password.trim()) {
-    throw new Error('Missing required environment variable: REDWOOD_PASSWORD')
-  }
 
   if (!client.lastName?.trim()) {
     throw new Error('Client last name is required for Redwood donor search')
   }
 
-  let playwright: any
-  try {
-    playwright = await loadPlaywrightModule()
-  } catch {
-    throw new Error('Playwright is not installed. Run `pnpm install` to install project dependencies.')
-  }
-  const launchOptions = resolveRedwoodPlaywrightLaunchOptions()
-  const browser = await playwright.chromium.launch({
-    headless: launchOptions.headless,
-    slowMo: launchOptions.slowMo,
-    args: ['--disable-blink-features=AutomationControlled'],
-  })
-  const context = await browser.newContext({
-    userAgent: REDWOOD_BROWSER_USER_AGENT,
-  })
-  const page = await context.newPage()
+  const { browser, context, page } = await openRedwoodBrowserContext()
 
   try {
-    await page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
-
-    const usernameFilled = await fillFirstVisibleInput(
-      page,
-      [
-        '#PageContent_Login1_UserName',
-        'input[name="ctl00$PageContent$Login1$UserName"]',
-        'input[name*="UserName"]',
-        'input[id*="UserName"]',
-        'input[placeholder*="User"]',
-        'input[type="text"]',
-      ],
-      username,
-    )
-
-    if (!usernameFilled) {
-      throw new Error('Unable to find Redwood username field')
-    }
-
-    const passwordFilled = await fillFirstVisibleInput(
-      page,
-      [
-        '#PageContent_Login1_Password',
-        'input[name="ctl00$PageContent$Login1$Password"]',
-        'input[name*="Password"]',
-        'input[id*="Password"]',
-        'input[type="password"]',
-      ],
-      password,
-    )
-
-    if (!passwordFilled) {
-      throw new Error('Unable to find Redwood password field')
-    }
-
-    const clickedLogin = await clickFirstVisible(page, [
-      '#PageContent_Login1_LoginButtonMembership',
-      'input[name="ctl00$PageContent$Login1$LoginButtonMembership"]',
-      '#PageContent_Login1_LoginButton',
-      'input[name="ctl00$PageContent$Login1$LoginButton"]',
-      'button:has-text("LOGIN")',
-      'button:has-text("Login")',
-      'input[id*="Login"]',
-      'input[id*="login"]',
-      'input[name*="Login"]',
-      'input[name*="login"]',
-      'input[type="submit"][value*="LOGIN"]',
-      'input[type="submit"][value*="Login"]',
-      'input[type="button"][value*="LOGIN"]',
-      'input[type="button"][value*="Login"]',
-      'a:has-text("LOGIN")',
-      'a:has-text("Login")',
-      'button[type="submit"]',
-      '[role="button"]:has-text("LOGIN")',
-      '[role="button"]:has-text("Login")',
-    ])
-
-    // Some Abbott login pages have broken JS assets in automation contexts.
-    // Always attempt direct form submit so we don't rely on onclick handlers.
-    const submittedByForm = await submitLoginFormFallback(page)
-    let loginSubmitAttempted = submittedByForm
-
-    if (!loginSubmitAttempted) {
-      const submittedWithPostBack = await submitWithAspNetPostBack(page)
-      loginSubmitAttempted = submittedWithPostBack
-    }
-
-    if (!loginSubmitAttempted && clickedLogin) {
-      loginSubmitAttempted = true
-    }
-
-    if (!loginSubmitAttempted) {
-      // Final fallback for forms that submit on Enter only.
-      const submittedWithEnter = await (async () => {
-        for (const selector of ['input[name*="Password"]', 'input[id*="Password"]', 'input[type="password"]']) {
-          const locator = page.locator(selector)
-          const count = await locator.count()
-          for (let i = 0; i < count; i++) {
-            const field = locator.nth(i)
-            try {
-              if (!(await field.isVisible())) continue
-              await field.press('Enter')
-              return true
-            } catch {
-              // Try next password field
-            }
-          }
-        }
-        return false
-      })()
-
-      if (!submittedWithEnter) {
-        const diagnostic = await page.evaluate(() => {
-          const formCount = document.querySelectorAll('form').length
-          const submitControlCount = document.querySelectorAll(
-            'button, input[type="submit"], input[type="button"], [role="button"], a',
-          ).length
-          return { formCount, submitControlCount, title: document.title, url: window.location.href }
+    await loginToRedwood(page, auth)
+    const openClientDonorPage = async (): Promise<{
+      matchedDonorName: string
+      donorId: string | null
+      callInCode: string | null
+    }> => {
+      if (client.redwoodDonorId?.trim()) {
+        await page.goto(buildRedwoodDonorViewUrl(donorSearchUrl, client.redwoodDonorId.trim()), {
+          waitUntil: 'domcontentloaded',
+          timeout: 30000,
         })
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+        await page.waitForTimeout(800)
 
+        const donorMetadata = await readRedwoodDonorMetadata(page)
+        return {
+          matchedDonorName: `${client.lastName}, ${client.firstName}`,
+          donorId: donorMetadata.donorId || client.redwoodDonorId.trim(),
+          callInCode: donorMetadata.callInCode,
+        }
+      }
+
+      const directResultsUrl = buildRedwoodDonorSearchResultsUrl({
+        donorSearchUrl,
+        uniqueId: client.redwoodUniqueId,
+        accountNumber: getRedwoodAccountNumber(),
+        active: true,
+      })
+
+      await page.goto(directResultsUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+      await page.waitForTimeout(800)
+
+      const onResultsPage = /DonorSearchResults\.aspx/i.test(page.url())
+      if (!onResultsPage) {
+        const attemptedUrl = page.url()
+        const bodySnippet = await page.evaluate(() => (document.body?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 220))
         throw new Error(
-          `Unable to submit Redwood login form (forms=${diagnostic.formCount}, controls=${diagnostic.submitControlCount}, title="${diagnostic.title}", url="${diagnostic.url}")`,
+          `Donor search did not navigate to results page for unique ID "${client.redwoodUniqueId || ''}". Current URL: "${attemptedUrl}". Body: "${bodySnippet}"`,
         )
       }
+
+      const rows = page.locator('tr').filter({
+        has: page.locator(VIEW_CONTROL_SELECTOR),
+      })
+      const rowCount = await rows.count()
+
+      if (rowCount === 0) {
+        throw new Error(`No Redwood donor rows found for unique ID "${client.redwoodUniqueId || ''}"`)
+      }
+
+      const candidates: DonorCandidate[] = []
+      for (let index = 0; index < rowCount; index++) {
+        const row = rows.nth(index)
+        const cells = (await row.locator('td').allTextContents()).map((cell) => cell.trim()).filter(Boolean)
+        if (cells.length === 0) continue
+
+        const nameCell = cells.find((cell) => cell.includes(',')) || cells[1] || cells[0]
+        const parsedName = parseDonorName(nameCell)
+        if (!parsedName) continue
+
+        const dobCell = getDobCellText(cells)
+        const score = calculateNameSimilarity(
+          client.firstName,
+          client.lastName,
+          parsedName.firstName,
+          parsedName.lastName,
+          client.middleInitial,
+          parsedName.middleInitial,
+        )
+
+        candidates.push({
+          rowIndex: index,
+          fullName: `${parsedName.lastName}, ${parsedName.firstName}`,
+          firstName: parsedName.firstName,
+          lastName: parsedName.lastName,
+          middleInitial: parsedName.middleInitial,
+          dobText: dobCell,
+          dobKey: parseDateKey(dobCell) || undefined,
+          score,
+        })
+      }
+
+      const selectedCandidate = selectBestCandidate(candidates, client.dob)
+      const selectedRow = rows.nth(selectedCandidate.rowIndex)
+      const viewButton = selectedRow.locator(VIEW_CONTROL_SELECTOR).first()
+
+      const viewHref = (await viewButton.getAttribute('href')) || ''
+      const postBackMatch = viewHref.match(/__doPostBack\('([^']+)'/)
+      const beforeViewUrl = page.url()
+
+      await viewButton.click()
+
+      await page.waitForLoadState('domcontentloaded', { timeout: 20000 })
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+      await page.waitForTimeout(600)
+
+      const stillOnResultsPage = /DonorSearchResults\.aspx/i.test(page.url()) || page.url() === beforeViewUrl
+      if (stillOnResultsPage && postBackMatch?.[1]) {
+        const eventTarget = postBackMatch[1]
+        await page.evaluate((target) => {
+          const win = window as unknown as { __doPostBack?: (eventTarget: string, eventArgument: string) => void }
+          if (typeof win.__doPostBack === 'function') {
+            win.__doPostBack(target, '')
+          }
+        }, eventTarget)
+
+        await page.waitForLoadState('domcontentloaded', { timeout: 20000 })
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+        await page.waitForTimeout(600)
+      }
+
+      const donorMetadata = await readRedwoodDonorMetadata(page)
+      return {
+        matchedDonorName: selectedCandidate.fullName,
+        donorId: donorMetadata.donorId,
+        callInCode: donorMetadata.callInCode,
+      }
     }
-
-    await page.waitForLoadState('domcontentloaded', { timeout: 20000 })
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
-
-    // Give ASP.NET postback-based auth time to finalize session cookie before direct navigation.
-    await page.waitForTimeout(1200)
-    await page.goto(donorSearchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
 
     // If we were redirected back to login, auth failed.
     if (/login\.aspx/i.test(page.url())) {
@@ -588,123 +664,37 @@ export async function fetchRedwoodHeadshotForClient(client: RedwoodClient): Prom
       const details = loginErrorText ? ` Redwood says: "${loginErrorText}"` : ''
       const diagnosticDetails = await getLoginDiagnostics(page)
       throw new Error(
-        `Redwood login failed. Verify REDWOOD_USERNAME/REDWOOD_PASSWORD and restart dev server after .env changes.${details} Diagnostics: ${diagnosticDetails} usernameLength=${username.length} passwordLength=${password.length} usernameQuoted=${normalizedUsername.hadWrappingQuotes} passwordQuoted=${normalizedPassword.hadWrappingQuotes}`,
+        `Redwood login failed. Verify REDWOOD_USERNAME/REDWOOD_PASSWORD and restart dev server after .env changes.${details} Diagnostics: ${diagnosticDetails}`,
       )
     }
 
-    const searchLastName = normalizeNameValue(client.lastName)
-    const lastNameFilled = await fillFirstVisibleInput(
-      page,
-      [
-        '#PageContent_DonorSearchParameterForm1_txtLastName',
-        'input[name="ctl00$PageContent$DonorSearchParameterForm1$txtLastName"]',
-        'input[name*="LastName"]',
-        'input[id*="LastName"]',
-        'input[aria-label*="Last Name"]',
-      ],
-      searchLastName,
-    )
-
-    if (!lastNameFilled) {
-      throw new Error('Unable to find Redwood donor last-name search field')
-    }
-
-    const searchSubmitted = await submitDonorSearch(page)
-
-    if (!searchSubmitted) {
-      throw new Error('Unable to find Redwood donor search button')
-    }
-
-    await page.waitForLoadState('domcontentloaded', { timeout: 20000 })
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
-    await page.waitForTimeout(800)
-
-    const onResultsPage = /DonorSearchResults\.aspx/i.test(page.url())
-    if (!onResultsPage) {
-      const attemptedUrl = page.url()
-      const bodySnippet = await page.evaluate(() => (document.body?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 220))
-      throw new Error(
-        `Donor search did not navigate to results page for last name "${searchLastName}". Current URL: "${attemptedUrl}". Body: "${bodySnippet}"`,
-      )
-    }
-
-    const rows = page.locator('tr').filter({
-      has: page.locator(VIEW_CONTROL_SELECTOR),
-    })
-    const rowCount = await rows.count()
-
-    if (rowCount === 0) {
-      throw new Error(`No Redwood donor rows found for last name "${searchLastName}"`)
-    }
-
-    const candidates: DonorCandidate[] = []
-    for (let index = 0; index < rowCount; index++) {
-      const row = rows.nth(index)
-      const cells = (await row.locator('td').allTextContents()).map((cell) => cell.trim()).filter(Boolean)
-      if (cells.length === 0) continue
-
-      const nameCell = cells.find((cell) => cell.includes(',')) || cells[1] || cells[0]
-      const parsedName = parseDonorName(nameCell)
-      if (!parsedName) continue
-
-      const dobCell = getDobCellText(cells)
-      const score = calculateNameSimilarity(
-        client.firstName,
-        client.lastName,
-        parsedName.firstName,
-        parsedName.lastName,
-        client.middleInitial,
-        parsedName.middleInitial,
-      )
-
-      candidates.push({
-        rowIndex: index,
-        fullName: `${parsedName.lastName}, ${parsedName.firstName}`,
-        firstName: parsedName.firstName,
-        lastName: parsedName.lastName,
-        middleInitial: parsedName.middleInitial,
-        dobText: dobCell,
-        dobKey: parseDateKey(dobCell) || undefined,
-        score,
-      })
-    }
-
-    const selectedCandidate = selectBestCandidate(candidates, client.dob)
-    const selectedRow = rows.nth(selectedCandidate.rowIndex)
-    const viewButton = selectedRow.locator(VIEW_CONTROL_SELECTOR).first()
-
-    const viewHref = (await viewButton.getAttribute('href')) || ''
-    const postBackMatch = viewHref.match(/__doPostBack\('([^']+)'/)
-    const beforeViewUrl = page.url()
-
-    // Use the real UI action first.
-    await viewButton.click()
-
-    await page.waitForLoadState('domcontentloaded', { timeout: 20000 })
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
-    await page.waitForTimeout(600)
-
-    // If we're still on results, try explicit ASP.NET postback fallback.
-    const stillOnResultsPage = /DonorSearchResults\.aspx/i.test(page.url()) || page.url() === beforeViewUrl
-    if (stillOnResultsPage && postBackMatch?.[1]) {
-      const eventTarget = postBackMatch[1]
-      await page.evaluate((target) => {
-        const win = window as unknown as { __doPostBack?: (eventTarget: string, eventArgument: string) => void }
-        if (typeof win.__doPostBack === 'function') {
-          win.__doPostBack(target, '')
-        }
-      }, eventTarget)
-
-      await page.waitForLoadState('domcontentloaded', { timeout: 20000 })
-      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
-      await page.waitForTimeout(600)
-    }
+    const donorContext = await openClientDonorPage()
 
     await page
       .waitForSelector('#PageContent_DonorPhoto, img.donor-photo, img[src*="DonorPhoto.aspx"]', {
         timeout: 8000,
       })
       .catch(() => {})
+
+    const photoState = await waitForRealDonorPhoto({
+      donorId: donorContext.donorId || extractRedwoodDonorIdFromUrl(page.url()),
+      donorSearchUrl,
+      page,
+    })
+
+    if (!photoState.canRemovePhoto && photoState.photoFlagValue !== 'true') {
+      throw new Error(`Redwood donor ${donorContext.matchedDonorName} does not have a real headshot to sync yet.`)
+    }
+
+    await page.goto(
+      buildRedwoodDonorViewUrl(
+        donorSearchUrl,
+        donorContext.donorId || extractRedwoodDonorIdFromUrl(page.url()) || '',
+      ),
+      { waitUntil: 'domcontentloaded', timeout: 30000 },
+    )
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+    await page.waitForTimeout(800)
 
     const headshotSrc = await extractHeadshotImageUrl(page)
     const headshotUrl = new URL(headshotSrc, page.url()).toString()
@@ -734,7 +724,9 @@ export async function fetchRedwoodHeadshotForClient(client: RedwoodClient): Prom
       imageBuffer,
       mimeType,
       fileName: buildImageFileName(client, mimeType),
-      matchedDonorName: selectedCandidate.fullName,
+      matchedDonorName: donorContext.matchedDonorName,
+      donorId: donorContext.donorId || extractRedwoodDonorIdFromUrl(page.url()) || undefined,
+      callInCode: donorContext.callInCode,
     }
   } finally {
     await browser.close()

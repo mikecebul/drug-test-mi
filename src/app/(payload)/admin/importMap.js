@@ -29,6 +29,7 @@ import { ReferralPresetRecipientsAlert as ReferralPresetRecipientsAlert_d3e4a3a1
 import { default as default_10614e5826ed2552da1904fc41085884 } from '@/collections/Clients/RowLabel'
 import { default as default_8ada3e871304a01023e059aa2a63dc18 } from '@/collections/Clients/components/QuickBookButton'
 import { default as default_23a84364c8f15b8f5bbf7dc963c88534 } from '@/collections/Clients/components/SyncRedwoodHeadshotButton'
+import { default as default_d0b5b0dee0472749708c7664fe7b09ae } from '@/collections/Clients/components/QueueRedwoodUniqueIdBackfillButton'
 import { default as default_3096841c11f481e2d8b1d51a89238cfb } from '@/collections/DrugTests/helpers/RowLabel'
 import { default as default_0274dce0b5ef9f9e3856b550818f8a6a } from '@/collections/DrugTests/views/DrugTestSummaryView'
 import { FormatField as FormatField_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
@@ -93,6 +94,7 @@ export const importMap = {
   "@/collections/Clients/RowLabel#default": default_10614e5826ed2552da1904fc41085884,
   "@/collections/Clients/components/QuickBookButton#default": default_8ada3e871304a01023e059aa2a63dc18,
   "@/collections/Clients/components/SyncRedwoodHeadshotButton#default": default_23a84364c8f15b8f5bbf7dc963c88534,
+  "@/collections/Clients/components/QueueRedwoodUniqueIdBackfillButton#default": default_d0b5b0dee0472749708c7664fe7b09ae,
   "@/collections/DrugTests/helpers/RowLabel#default": default_3096841c11f481e2d8b1d51a89238cfb,
   "@/collections/DrugTests/views/DrugTestSummaryView#default": default_0274dce0b5ef9f9e3856b550818f8a6a,
   "@payloadcms/plugin-import-export/rsc#FormatField": FormatField_cdf7e044479f899a31f804427d568b36,

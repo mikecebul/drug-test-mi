@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildRedwoodImportCSV, findRedwoodDonorMatch, parseRedwoodExport } from '@/lib/redwood/csv'
+import { buildRedwoodImportCSV, extractRedwoodCallInCode, findRedwoodDonorMatch, parseRedwoodExport } from '@/lib/redwood/csv'
 
 describe('parseRedwoodExport + findRedwoodDonorMatch', () => {
   const csv = [
@@ -45,6 +45,17 @@ describe('parseRedwoodExport + findRedwoodDonorMatch', () => {
 
     expect(match).toBeNull()
   })
+
+  it('extracts Redwood call-in code from export rows', () => {
+    const donors = parseRedwoodExport(
+      [
+        '"Unique ID","First Name","Last Name","Check-in Code"',
+        '"ABC123","Bob","Testing","1584011"',
+      ].join('\n'),
+    )
+
+    expect(extractRedwoodCallInCode(donors[0])).toBe('1584011')
+  })
 })
 
 describe('buildRedwoodImportCSV', () => {
@@ -66,5 +77,18 @@ describe('buildRedwoodImportCSV', () => {
     expect(csv).toContain('"Intake Date"')
     expect(csv).toContain('"68E51E5A5CB1AA425ABC"')
     expect(csv).toContain('"02/28/1975"')
+  })
+
+  it('preserves ISO datetime DOB strings without timezone shifting', () => {
+    const csv = buildRedwoodImportCSV({
+      accountNumber: '310974',
+      firstName: 'Bob',
+      middleInitial: 'F',
+      lastName: 'Testing',
+      uniqueId: '188644EA193203374B5B',
+      dob: '1982-03-13T00:00:00.000Z',
+    })
+
+    expect(csv).toContain('"03/13/1982"')
   })
 })

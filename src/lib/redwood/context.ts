@@ -1,0 +1,1 @@
+export const REDWOOD_SKIP_HEADSHOT_PUSH_CONTEXT_KEY = 'skipRedwoodHeadshotPush'

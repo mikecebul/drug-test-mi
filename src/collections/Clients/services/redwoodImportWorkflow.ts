@@ -4,8 +4,10 @@ import path from 'node:path'
 import type { Payload } from 'payload'
 
 import { createAdminAlert } from '@/lib/admin-alerts'
+import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
 import {
   buildRedwoodImportCSV,
+  extractRedwoodCallInCode,
   findRedwoodDonorMatch,
   parseRedwoodExport,
   type RedwoodMatchBy,
@@ -15,18 +17,16 @@ import {
   collectVisibleTexts,
   dismissCookieBanner,
   fillFirstVisibleInput,
-  loadPlaywrightModule,
-  normalizeRedwoodEnvCredential,
-  REDWOOD_BROWSER_USER_AGENT,
-  resolveRedwoodPlaywrightLaunchOptions,
+  loginToRedwood,
+  openRedwoodBrowserContext,
+  resolveRedwoodAuthEnv,
   waitForAnyVisible,
 } from '@/lib/redwood/playwright'
 import { buildRedwoodUniqueId } from '@/lib/redwood/unique-id'
+import { runRedwoodDefaultTestSync } from './redwoodDefaultTestSync'
 
-const DEFAULT_REDWOOD_LOGIN_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/Public/Login.aspx'
 const DEFAULT_REDWOOD_EXPORT_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/ExportDonors.aspx'
 const DEFAULT_REDWOOD_IMPORT_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/ImportDonors.aspx'
-const DEFAULT_ACCOUNT_NUMBER = '310872'
 
 function isRedwoodImportPreviewOnly(): boolean {
   return process.env.REDWOOD_IMPORT_PREVIEW_ONLY === 'true'
@@ -73,98 +73,6 @@ async function submitContainingForm(fileInput: any): Promise<boolean> {
       return true
     })
     .catch(() => false)
-}
-
-async function loginToRedwood(args: {
-  page: any
-  loginUrl: string
-  username: string
-  password: string
-}): Promise<void> {
-  const { page, loginUrl, username, password } = args
-
-  await page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
-  await dismissCookieBanner(page)
-
-  const usernameFilled = await fillFirstVisibleInput(
-    page,
-    [
-      '#PageContent_Login1_UserName',
-      'input[name="ctl00$PageContent$Login1$UserName"]',
-      'input[name*="UserName"]',
-      'input[id*="UserName"]',
-      'input[type="text"]',
-    ],
-    username,
-  )
-
-  if (!usernameFilled) {
-    throw new Error('Unable to find Redwood username field')
-  }
-
-  const passwordFilled = await fillFirstVisibleInput(
-    page,
-    [
-      '#PageContent_Login1_Password',
-      'input[name="ctl00$PageContent$Login1$Password"]',
-      'input[name*="Password"]',
-      'input[id*="Password"]',
-      'input[type="password"]',
-    ],
-    password,
-  )
-
-  if (!passwordFilled) {
-    throw new Error('Unable to find Redwood password field')
-  }
-
-  const clickedLogin = await clickFirstVisible(page, [
-    '#PageContent_Login1_LoginButtonMembership',
-    '#PageContent_Login1_LoginButton',
-    'button[type="submit"]',
-    'input[type="submit"][value*="LOGIN"]',
-    'input[type="submit"][value*="Login"]',
-    'input[type="button"][value*="LOGIN"]',
-    'input[type="button"][value*="Login"]',
-  ])
-
-  if (!clickedLogin) {
-    const submitted = await page.evaluate(() => {
-      const form = (document.querySelector('input[type="password"]') as HTMLInputElement | null)?.form
-      if (!form) return false
-      if (typeof form.requestSubmit === 'function') {
-        form.requestSubmit()
-        return true
-      }
-      form.submit()
-      return true
-    })
-
-    if (!submitted) {
-      throw new Error('Unable to submit Redwood login form')
-    }
-  }
-
-  await page.waitForTimeout(1500)
-
-  const loginFailed = await page
-    .locator(
-      '.validation-summary-errors, .login-error, #PageContent_Login1_FailureText, [id*="FailureText"], [class*="error"]',
-    )
-    .first()
-    .isVisible()
-    .catch(() => false)
-
-  if (loginFailed) {
-    const errorText =
-      (await page
-        .locator('.validation-summary-errors, .login-error, #PageContent_Login1_FailureText, [id*="FailureText"]')
-        .first()
-        .textContent()
-        .catch(() => null)) || 'Unknown Redwood login failure'
-
-    throw new Error(`Redwood login failed: ${errorText}`)
-  }
 }
 
 async function downloadExportCSV(args: {
@@ -286,6 +194,13 @@ function resolveDonorGroup(donors: Array<{ raw: Record<string, string> }>): stri
   return sorted[0][0]
 }
 
+function filterDonorsByAccountNumber<T extends { raw: Record<string, string> }>(donors: T[], accountNumber: string): T[] {
+  return donors.filter((donor) => {
+    const agencyNumber = donor.raw.agencynumber?.trim() || donor.raw.accountnumber?.trim() || ''
+    return agencyNumber === accountNumber
+  })
+}
+
 async function updateClientRedwoodState(payload: Payload, clientId: string, data: Record<string, unknown>) {
   await payload.update({
     collection: 'clients',
@@ -403,20 +318,13 @@ export async function runRedwoodImportClientJob(args: {
 }> {
   const { payload, clientId, source, playwrightHeadless, playwrightSlowMoMs } = args
   const outputDir = path.resolve(process.cwd(), 'output', 'redwood')
+  const accountNumber = getRedwoodAccountNumber()
 
-  const username = normalizeRedwoodEnvCredential(process.env.REDWOOD_USERNAME).value
-  const password = normalizeRedwoodEnvCredential(process.env.REDWOOD_PASSWORD).value
-  const loginUrl = process.env.REDWOOD_LOGIN_URL?.trim() || DEFAULT_REDWOOD_LOGIN_URL
+  const { loginUrl, password, username } = resolveRedwoodAuthEnv()
   const exportUrl = process.env.REDWOOD_EXPORT_URL?.trim() || DEFAULT_REDWOOD_EXPORT_URL
   const importUrl = process.env.REDWOOD_IMPORT_URL?.trim() || DEFAULT_REDWOOD_IMPORT_URL
 
-  if (!username) {
-    throw new Error('Missing required environment variable: REDWOOD_USERNAME')
-  }
-
-  if (!password) {
-    throw new Error('Missing required environment variable: REDWOOD_PASSWORD')
-  }
+  assertRedwoodMutationAllowed(accountNumber, 'import')
 
   const client = await payload.findByID({
     collection: 'clients',
@@ -444,30 +352,13 @@ export async function runRedwoodImportClientJob(args: {
   let diagnosticScreenshotPath: string | null = null
 
   try {
-    const playwright = await loadPlaywrightModule()
-    const launchOptions = resolveRedwoodPlaywrightLaunchOptions({
+    ;({ browser, context, page } = await openRedwoodBrowserContext({
+      acceptDownloads: true,
       headless: playwrightHeadless,
       slowMoMs: playwrightSlowMoMs,
-    })
-    browser = await playwright.chromium.launch({
-      headless: launchOptions.headless,
-      slowMo: launchOptions.slowMo,
-      args: ['--disable-blink-features=AutomationControlled'],
-    })
+    }))
 
-    context = await browser.newContext({
-      userAgent: REDWOOD_BROWSER_USER_AGENT,
-      acceptDownloads: true,
-    })
-
-    page = await context.newPage()
-
-    await loginToRedwood({
-      page,
-      loginUrl,
-      username,
-      password,
-    })
+    await loginToRedwood(page, { loginUrl, username, password })
 
     const { csv, csvPath } = await downloadExportCSV({
       page,
@@ -477,7 +368,8 @@ export async function runRedwoodImportClientJob(args: {
     const redwoodServerDate = await extractRedwoodServerDate(page)
 
     const donors = parseRedwoodExport(csv)
-    const donorMatch = findRedwoodDonorMatch(donors, {
+    const donorsForAccount = filterDonorsByAccountNumber(donors, accountNumber)
+    const donorMatch = findRedwoodDonorMatch(donorsForAccount, {
       uniqueId,
       firstName: client.firstName,
       middleInitial: client.middleInitial || null,
@@ -490,7 +382,7 @@ export async function runRedwoodImportClientJob(args: {
       clientId,
       source,
       csvPath,
-      donorCount: donors.length,
+      donorCount: donorsForAccount.length,
       matchedBy: donorMatch?.matchedBy,
     })
 
@@ -499,9 +391,20 @@ export async function runRedwoodImportClientJob(args: {
         redwoodSyncStatus: 'matched-existing',
         redwoodMatchedBy: donorMatch.matchedBy,
         redwoodMatchedDonorName: buildMatchedDonorName(donorMatch),
+        redwoodCallInCode: extractRedwoodCallInCode(donorMatch.donor),
         redwoodLastAttemptAt: new Date().toISOString(),
         redwoodLastError: null,
       })
+
+      const defaultTestResult = await runRedwoodDefaultTestSync(payload, client.id)
+      if (!defaultTestResult.success) {
+        payload.logger.error({
+          msg: '[redwood-import] Redwood donor matched, but default-test sync failed',
+          clientId,
+          source,
+          error: defaultTestResult.error,
+        })
+      }
 
       return {
         status: 'matched-existing',
@@ -509,10 +412,10 @@ export async function runRedwoodImportClientJob(args: {
       }
     }
 
-    const donorGroup = resolveDonorGroup(donors)
+    const donorGroup = resolveDonorGroup(donorsForAccount)
 
     const importCsvContent = buildRedwoodImportCSV({
-      accountNumber: DEFAULT_ACCOUNT_NUMBER,
+      accountNumber,
       firstName: client.firstName,
       middleInitial: client.middleInitial || '',
       lastName: client.lastName,
@@ -595,7 +498,15 @@ export async function runRedwoodImportClientJob(args: {
     }
 
     if (!submitVisible && uploadClicked) {
-      submitVisible = await waitForAnyVisible(page, submitSelectors, 120000)
+      const uploadStageScreenshotPath = path.join(
+        outputDir,
+        'screenshots',
+        `redwood-import-uploaded-${client.id}-${Date.now()}.png`,
+      )
+      await fs.mkdir(path.dirname(uploadStageScreenshotPath), { recursive: true })
+      await page.screenshot({ path: uploadStageScreenshotPath, fullPage: true }).catch(() => undefined)
+
+      submitVisible = await waitForAnyVisible(page, submitSelectors, 45000)
     }
 
     // If we still haven't reached submit-ready state and could not click a known upload control,
@@ -734,10 +645,29 @@ export async function runRedwoodImportClientJob(args: {
 
     await page.screenshot({ path: screenshotPath, fullPage: true })
 
+    let redwoodCallInCode: string | null = null
+    if (!previewOnly) {
+      const refreshedExport = await downloadExportCSV({
+        page,
+        exportUrl,
+        outputDir,
+      })
+      const refreshedDonors = filterDonorsByAccountNumber(parseRedwoodExport(refreshedExport.csv), accountNumber)
+      const refreshedMatch = findRedwoodDonorMatch(refreshedDonors, {
+        uniqueId,
+        firstName: client.firstName,
+        middleInitial: client.middleInitial || null,
+        lastName: client.lastName,
+        dob: client.dob,
+      })
+      redwoodCallInCode = extractRedwoodCallInCode(refreshedMatch?.donor)
+    }
+
     await updateClientRedwoodState(payload, client.id, {
       redwoodSyncStatus: previewOnly ? 'ready-to-submit' : 'synced',
       redwoodMatchedBy: null,
       redwoodMatchedDonorName: null,
+      redwoodCallInCode,
       redwoodImportScreenshotPath: screenshotPath,
       redwoodLastAttemptAt: new Date().toISOString(),
       redwoodLastError: null,
@@ -753,6 +683,18 @@ export async function runRedwoodImportClientJob(args: {
       screenshotPath,
       queue: 'redwood',
     })
+
+    if (!previewOnly) {
+      const defaultTestResult = await runRedwoodDefaultTestSync(payload, client.id)
+      if (!defaultTestResult.success) {
+        payload.logger.error({
+          msg: '[redwood-import] Redwood donor import succeeded, but default-test sync failed',
+          clientId,
+          source,
+          error: defaultTestResult.error,
+        })
+      }
+    }
 
     return {
       status: previewOnly ? 'ready-to-submit' : 'synced',

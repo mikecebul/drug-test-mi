@@ -3,6 +3,15 @@ export type RecommendedTestType = {
   recommendedTestTypeValue?: string
 }
 
+type FindByIdArgs = {
+  collection: 'courts' | 'employers' | 'test-types'
+  id: string
+  depth?: number
+  select?: Record<string, true>
+}
+
+type FindByIdLike = <T = any>(args: FindByIdArgs) => Promise<T>
+
 type RelationRef = {
   relationTo: 'courts' | 'employers'
   referralId: string
@@ -74,4 +83,78 @@ export function extractReferralRelation(referral: unknown): RelationRef | null {
   }
 
   return null
+}
+
+export async function resolveRecommendedTestType(
+  client: {
+    referralType?: string | null
+    referral?: unknown
+  },
+  findByID: FindByIdLike,
+  logPrefix = 'quick-book',
+): Promise<RecommendedTestType> {
+  const referralType = client?.referralType
+  if (referralType !== 'court' && referralType !== 'employer') {
+    return {}
+  }
+
+  const relationRef = extractReferralRelation(client?.referral)
+  if (!relationRef) {
+    return {}
+  }
+
+  if (client?.referral && typeof client.referral === 'object' && 'value' in client.referral) {
+    const populatedReferralValue = client.referral.value
+    if (typeof populatedReferralValue === 'object' && populatedReferralValue !== null) {
+      const extracted = extractPreferredTestType(
+        'preferredTestType' in populatedReferralValue ? populatedReferralValue.preferredTestType : undefined,
+      )
+      if (extracted.recommendedTestTypeId || extracted.recommendedTestTypeValue) {
+        return extracted
+      }
+    }
+  }
+
+  let referralDoc: { preferredTestType?: unknown } | null = null
+  try {
+    referralDoc = await findByID({
+      collection: relationRef.relationTo,
+      id: relationRef.referralId,
+      depth: 1,
+      select: {
+        preferredTestType: true,
+      },
+    })
+  } catch (error) {
+    console.warn(`[${logPrefix}] Failed to load referral recommendation source`, error)
+    return {}
+  }
+
+  const extractedFromReferral = extractPreferredTestType(referralDoc?.preferredTestType)
+  if (!extractedFromReferral.recommendedTestTypeId && !extractedFromReferral.recommendedTestTypeValue) {
+    return {}
+  }
+
+  if (!extractedFromReferral.recommendedTestTypeValue && extractedFromReferral.recommendedTestTypeId) {
+    try {
+      const testTypeDoc = await findByID<{ value?: string }>({
+        collection: 'test-types',
+        id: extractedFromReferral.recommendedTestTypeId,
+        depth: 0,
+        select: {
+          value: true,
+        },
+      })
+
+      return {
+        ...extractedFromReferral,
+        ...(testTypeDoc?.value ? { recommendedTestTypeValue: testTypeDoc.value } : {}),
+      }
+    } catch (error) {
+      console.warn(`[${logPrefix}] Failed to resolve test type value for recommendation`, error)
+      return extractedFromReferral
+    }
+  }
+
+  return extractedFromReferral
 }

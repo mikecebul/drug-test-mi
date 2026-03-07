@@ -1,6 +1,7 @@
 import type { Payload } from 'payload'
 
 import { createAdminAlert } from '@/lib/admin-alerts'
+import { REDWOOD_SKIP_HEADSHOT_PUSH_CONTEXT_KEY } from '@/lib/redwood/context'
 import { fetchRedwoodHeadshotForClient } from './redwoodHeadshotScraper'
 
 export async function runRedwoodHeadshotSyncJob(
@@ -58,6 +59,8 @@ export async function runRedwoodHeadshotSyncJob(
       lastName: client.lastName,
       middleInitial: client.middleInitial || undefined,
       dob: client.dob || undefined,
+      redwoodUniqueId: typeof client.redwoodUniqueId === 'string' ? client.redwoodUniqueId : undefined,
+      redwoodDonorId: typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId : undefined,
     })
 
     const uploadedHeadshot = await payload.create({
@@ -81,6 +84,11 @@ export async function runRedwoodHeadshotSyncJob(
       id: client.id,
       data: {
         headshot: uploadedHeadshot.id,
+        redwoodDonorId: scraped.donorId || (typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId : null),
+        redwoodCallInCode: scraped.callInCode || (typeof client.redwoodCallInCode === 'string' ? client.redwoodCallInCode : null),
+      },
+      context: {
+        [REDWOOD_SKIP_HEADSHOT_PUSH_CONTEXT_KEY]: true,
       },
       overrideAccess: true,
     })

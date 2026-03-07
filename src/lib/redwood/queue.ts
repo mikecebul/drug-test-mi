@@ -1,6 +1,7 @@
 import { getPayload, type Payload } from 'payload'
 
 import { createAdminAlert } from '@/lib/admin-alerts'
+import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
 import { buildRedwoodUniqueId } from '@/lib/redwood/unique-id'
 
 export type RedwoodQueueSource = 'frontend-registration' | 'admin-registration' | 'wizard-registration' | 'manual'
@@ -28,6 +29,9 @@ export async function queueRedwoodImportForClient(
 
     const existingUniqueId = typeof client.redwoodUniqueId === 'string' ? client.redwoodUniqueId.trim() : ''
     const uniqueId = existingUniqueId || buildRedwoodUniqueId(client.id)
+    const accountNumber = getRedwoodAccountNumber()
+
+    assertRedwoodMutationAllowed(accountNumber, 'import')
 
     const queued = await payload.jobs.queue({
       task: 'redwood-import-client',
@@ -112,6 +116,171 @@ export async function queueRedwoodHeadshotSync(
       severity: 'high',
       alertType: 'data-integrity',
       title: `Failed to queue Redwood headshot sync for client ${clientId}`,
+      message,
+      context: {
+        clientId,
+        requestedByAdminId,
+        error: message,
+      },
+    })
+
+    throw error
+  }
+}
+
+export async function queueRedwoodUniqueIdBackfill(
+  clientId: string,
+  requestedByAdminId?: string,
+  payloadArg?: Payload,
+): Promise<{ jobId: string }> {
+  const payload = await resolvePayload(payloadArg)
+
+  try {
+    const client = await payload.findByID({
+      collection: 'clients',
+      id: clientId,
+      depth: 0,
+      overrideAccess: true,
+    })
+    const accountNumber = getRedwoodAccountNumber()
+    const uniqueId = typeof client.redwoodUniqueId === 'string' && client.redwoodUniqueId.trim()
+      ? client.redwoodUniqueId.trim()
+      : buildRedwoodUniqueId(client.id)
+
+    assertRedwoodMutationAllowed(accountNumber, 'unique ID backfill')
+
+    const queued = await payload.jobs.queue({
+      task: 'redwood-backfill-client-unique-id',
+      queue: 'redwood',
+      input: {
+        clientId,
+        requestedByAdminId: requestedByAdminId || null,
+      },
+      overrideAccess: true,
+    })
+
+    await payload.update({
+      collection: 'clients',
+      id: client.id,
+      data: {
+        redwoodUniqueId: uniqueId,
+        redwoodUniqueIdSyncStatus: 'queued',
+        redwoodUniqueIdLastAttemptAt: new Date().toISOString(),
+        redwoodUniqueIdLastError: null,
+      },
+      overrideAccess: true,
+    })
+
+    payload.logger.info({
+      msg: '[redwood-queue] Queued redwood-backfill-client-unique-id',
+      clientId,
+      requestedByAdminId,
+      queue: 'redwood',
+      jobId: queued.id,
+    })
+
+    return { jobId: queued.id }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    await createAdminAlert(payload, {
+      severity: 'high',
+      alertType: 'data-integrity',
+      title: `Failed to queue Redwood unique ID backfill for client ${clientId}`,
+      message,
+      context: {
+        clientId,
+        requestedByAdminId,
+        error: message,
+      },
+    })
+
+    throw error
+  }
+}
+
+export async function queueRedwoodHeadshotUpload(
+  clientId: string,
+  requestedByAdminId?: string,
+  payloadArg?: Payload,
+): Promise<{ jobId: string }> {
+  const payload = await resolvePayload(payloadArg)
+
+  try {
+    const client = await payload.findByID({
+      collection: 'clients',
+      id: clientId,
+      depth: 0,
+      overrideAccess: true,
+    })
+    const uniqueId = typeof client.redwoodUniqueId === 'string' ? client.redwoodUniqueId.trim() : ''
+    const donorId = typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId.trim() : ''
+    const headshotId =
+      typeof client.headshot === 'string'
+        ? client.headshot
+        : client.headshot && typeof client.headshot === 'object' && 'id' in client.headshot
+          ? String(client.headshot.id)
+          : ''
+    const accountNumber = getRedwoodAccountNumber()
+
+    assertRedwoodMutationAllowed(accountNumber, 'headshot upload')
+
+    if (!uniqueId && !donorId) {
+      await payload.update({
+        collection: 'clients',
+        id: client.id,
+        data: {
+          redwoodHeadshotPushStatus: 'failed',
+          redwoodHeadshotPushLastAttemptAt: new Date().toISOString(),
+          redwoodHeadshotPushLastError: 'Client is missing Redwood identity; headshot upload was not queued.',
+        },
+        overrideAccess: true,
+      })
+
+      throw new Error('Client is missing Redwood identity; headshot upload requires redwoodUniqueId or redwoodDonorId.')
+    }
+
+    if (!headshotId) {
+      throw new Error('Client is missing a website headshot; Redwood headshot upload was not queued.')
+    }
+
+    const queued = await payload.jobs.queue({
+      task: 'redwood-upload-headshot',
+      queue: 'redwood',
+      input: {
+        clientId,
+        requestedByAdminId: requestedByAdminId || null,
+      },
+      overrideAccess: true,
+    })
+
+    await payload.update({
+      collection: 'clients',
+      id: client.id,
+      data: {
+        redwoodHeadshotPushStatus: 'queued',
+        redwoodHeadshotPushLastAttemptAt: new Date().toISOString(),
+        redwoodHeadshotPushLastError: null,
+      },
+      overrideAccess: true,
+    })
+
+    payload.logger.info({
+      msg: '[redwood-queue] Queued redwood-upload-headshot',
+      clientId,
+      requestedByAdminId,
+      queue: 'redwood',
+      jobId: queued.id,
+    })
+
+    return { jobId: queued.id }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    await createAdminAlert(payload, {
+      severity: 'high',
+      alertType: 'data-integrity',
+      title: `Failed to queue Redwood headshot upload for client ${clientId}`,
       message,
       context: {
         clientId,

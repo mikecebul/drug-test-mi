@@ -4,6 +4,9 @@ import { baseUrl } from '@/utilities/baseUrl'
 import { anyone } from '@/access/anyone'
 import { notifyNewRegistration } from './hooks/notifyNewRegistration'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
+import { ensureRedwoodUniqueId } from './hooks/ensureRedwoodUniqueId'
+import { queueRedwoodHeadshotPush } from './hooks/queueRedwoodHeadshotPush'
+import { syncDefaultTestTypeFromReferral } from './hooks/syncDefaultTestTypeFromReferral'
 
 export const Clients: CollectionConfig = {
   slug: 'clients',
@@ -104,7 +107,8 @@ export const Clients: CollectionConfig = {
     },
   },
   hooks: {
-    afterChange: [notifyNewRegistration],
+    beforeChange: [syncDefaultTestTypeFromReferral],
+    afterChange: [notifyNewRegistration, ensureRedwoodUniqueId, queueRedwoodHeadshotPush],
   },
   admin: {
     defaultColumns: ['headshot', 'lastName', 'email', 'referralType'],
@@ -115,6 +119,7 @@ export const Clients: CollectionConfig = {
         beforeDocumentControls: [
           '@/collections/Clients/components/QuickBookButton',
           '@/collections/Clients/components/SyncRedwoodHeadshotButton',
+          '@/collections/Clients/components/QueueRedwoodUniqueIdBackfillButton',
         ],
       },
     },
@@ -373,6 +378,15 @@ export const Clients: CollectionConfig = {
                   }
                 }
                 return true
+              },
+            },
+            {
+              name: 'defaultTestType',
+              type: 'relationship',
+              relationTo: 'test-types',
+              admin: {
+                readOnly: true,
+                description: 'Preferred test type resolved from the linked referral.',
               },
             },
             {
@@ -647,6 +661,131 @@ export const Clients: CollectionConfig = {
               maxLength: 20,
               admin: {
                 description: 'Deterministic Redwood Unique ID (20 chars max).',
+              },
+            },
+            {
+              name: 'redwoodCallInCode',
+              type: 'text',
+              admin: {
+                readOnly: true,
+                description: 'Redwood call-in / check-in code synced back from the donor record.',
+              },
+            },
+            {
+              name: 'redwoodDonorId',
+              type: 'text',
+              admin: {
+                readOnly: true,
+                description: 'Redwood donor ID captured from the donor detail URL for direct follow-up lookups.',
+              },
+            },
+            {
+              name: 'redwoodUniqueIdSyncStatus',
+              type: 'select',
+              defaultValue: 'not-queued',
+              options: [
+                { label: 'Not Queued', value: 'not-queued' },
+                { label: 'Queued', value: 'queued' },
+                { label: 'Synced', value: 'synced' },
+                { label: 'Failed', value: 'failed' },
+                { label: 'Manual Review', value: 'manual-review' },
+              ],
+              admin: {
+                readOnly: true,
+                description: 'Tracks Redwood donor unique ID backfill state.',
+              },
+            },
+            {
+              name: 'redwoodUniqueIdLastAttemptAt',
+              type: 'date',
+              admin: {
+                readOnly: true,
+                date: {
+                  pickerAppearance: 'dayAndTime',
+                  displayFormat: 'MM/dd/yyyy HH:mm',
+                },
+                description: 'Timestamp of the most recent Redwood unique ID backfill attempt.',
+              },
+            },
+            {
+              name: 'redwoodUniqueIdLastError',
+              type: 'textarea',
+              admin: {
+                readOnly: true,
+                description: 'Most recent Redwood unique ID backfill error message, if any.',
+              },
+            },
+            {
+              name: 'redwoodHeadshotPushStatus',
+              type: 'select',
+              defaultValue: 'not-queued',
+              options: [
+                { label: 'Not Queued', value: 'not-queued' },
+                { label: 'Queued', value: 'queued' },
+                { label: 'Synced', value: 'synced' },
+                { label: 'Failed', value: 'failed' },
+                { label: 'Manual Review', value: 'manual-review' },
+              ],
+              admin: {
+                readOnly: true,
+                description: 'Tracks website-to-Redwood headshot upload state.',
+              },
+            },
+            {
+              name: 'redwoodHeadshotPushLastAttemptAt',
+              type: 'date',
+              admin: {
+                readOnly: true,
+                date: {
+                  pickerAppearance: 'dayAndTime',
+                  displayFormat: 'MM/dd/yyyy HH:mm',
+                },
+                description: 'Timestamp of the most recent Redwood headshot upload attempt.',
+              },
+            },
+            {
+              name: 'redwoodHeadshotPushLastError',
+              type: 'textarea',
+              admin: {
+                readOnly: true,
+                description: 'Most recent Redwood headshot upload error message, if any.',
+              },
+            },
+            {
+              name: 'redwoodDefaultTestSyncStatus',
+              type: 'select',
+              defaultValue: 'not-queued',
+              options: [
+                { label: 'Not Queued', value: 'not-queued' },
+                { label: 'Queued', value: 'queued' },
+                { label: 'Skipped', value: 'skipped' },
+                { label: 'Synced', value: 'synced' },
+                { label: 'Failed', value: 'failed' },
+                { label: 'Manual Review', value: 'manual-review' },
+              ],
+              admin: {
+                readOnly: true,
+                description: 'Tracks Redwood donor default-test sync state.',
+              },
+            },
+            {
+              name: 'redwoodDefaultTestLastAttemptAt',
+              type: 'date',
+              admin: {
+                readOnly: true,
+                date: {
+                  pickerAppearance: 'dayAndTime',
+                  displayFormat: 'MM/dd/yyyy HH:mm',
+                },
+                description: 'Timestamp of the most recent Redwood default-test sync attempt.',
+              },
+            },
+            {
+              name: 'redwoodDefaultTestLastError',
+              type: 'textarea',
+              admin: {
+                readOnly: true,
+                description: 'Most recent Redwood default-test sync error message, if any.',
               },
             },
             {
