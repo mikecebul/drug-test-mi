@@ -312,6 +312,7 @@ pnpm test:verify
 pnpm test:gate
 pnpm test:e2e:headed
 pnpm test:e2e:ui
+pnpm dev:redwood:headed
 ```
 
 Playwright setup notes:
@@ -385,6 +386,19 @@ MONGO_PORT=27018 docker compose up -d --build worker-redwood
 ```
 
 Use this worker for Redwood automation jobs so Playwright work stays off the main web process.
+
+### Redwood automation runtime policy
+
+- Production Redwood automation is headless-only and is intended to run in `worker-redwood`.
+- The Linux worker/container does not require a desktop session for Redwood jobs.
+- Headed Redwood browser runs are development-only and are available through the dev Redwood tools when running locally with a display server.
+- For local Redwood debugging, start the app with:
+
+```bash
+pnpm dev:redwood:headed
+```
+
+- If you run the dev app in Docker or another headless Linux environment, inline headed Redwood debugging is blocked on purpose. Use the queued worker flow instead.
 
 ### Stable Next.js Server Action IDs
 

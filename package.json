@@ -9,6 +9,7 @@
     "postbuild": "next-sitemap --config next-sitemap.config.cjs",
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev --turbo",
     "build:dev": "cross-env NODE_OPTIONS=--no-deprecation rm -rf .next && pnpm build && pnpm start",
+    "dev:redwood:headed": "cross-env NODE_OPTIONS=--no-deprecation REDWOOD_DEV_INLINE_SLOW_MO_MS=200 next dev --turbo",
     "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
     "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
     "ii": "cross-env NODE_OPTIONS=--no-deprecation pnpm install",

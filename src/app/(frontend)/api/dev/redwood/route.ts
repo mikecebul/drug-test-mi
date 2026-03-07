@@ -4,6 +4,7 @@ import { getPayload } from 'payload'
 import { runRedwoodHeadshotSyncJob } from '@/collections/Clients/services/redwoodHeadshotSync'
 import { runRedwoodImportClientJob } from '@/collections/Clients/services/redwoodImportWorkflow'
 import { isRedwoodDevAction, REDWOOD_DEV_ACTION_CONFIG } from '@/lib/redwood/dev-actions'
+import { canUseHeadedRedwoodBrowser } from '@/lib/redwood/playwright'
 import { queueRedwoodHeadshotSync, queueRedwoodImportForClient } from '@/lib/redwood/queue'
 
 export async function POST(req: Request) {
@@ -31,10 +32,7 @@ export async function POST(req: Request) {
     const actionConfig = REDWOOD_DEV_ACTION_CONFIG[action]
 
     if (actionConfig.kind === 'import' && actionConfig.mode === 'inline') {
-      const canShowHeadedBrowser =
-        process.platform !== 'linux' || Boolean(process.env.DISPLAY) || Boolean(process.env.WAYLAND_DISPLAY)
-
-      if (!canShowHeadedBrowser) {
+      if (!canUseHeadedRedwoodBrowser()) {
         return NextResponse.json(
           {
             error:
@@ -54,7 +52,7 @@ export async function POST(req: Request) {
         payload,
         clientId,
         source: 'manual',
-        playwrightHeadless: false,
+        playwrightRuntimeProfile: 'dev-debug',
         playwrightSlowMoMs: Number.isFinite(inlineSlowMoMs) && inlineSlowMoMs > 0 ? inlineSlowMoMs : 200,
       })
 

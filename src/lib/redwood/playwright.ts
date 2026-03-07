@@ -15,6 +15,19 @@ export type RedwoodBrowserSession = {
   page: any
 }
 
+export type RedwoodBrowserRuntimeProfile = 'job' | 'dev-debug'
+
+export type RedwoodBrowserLaunchOptions = {
+  runtimeProfile?: RedwoodBrowserRuntimeProfile
+  slowMoMs?: number
+}
+
+export type RedwoodResolvedBrowserLaunchOptions = {
+  headless: boolean
+  runtimeProfile: RedwoodBrowserRuntimeProfile
+  slowMo?: number
+}
+
 export async function loadPlaywrightModule(): Promise<any> {
   const dynamicImport = new Function('modulePath', 'return import(modulePath)') as (
     modulePath: string,
@@ -45,30 +58,40 @@ export function normalizeRedwoodEnvCredential(rawValue: string | undefined): {
   return { value: trimmed, hadWrappingQuotes: false }
 }
 
-export function resolveRedwoodPlaywrightLaunchOptions(overrides?: {
-  headless?: boolean
-  slowMoMs?: number
-}): {
-  headless: boolean
-  slowMo?: number
-} {
-  const envHeadless = process.env.REDWOOD_PLAYWRIGHT_HEADLESS !== 'false'
-  const headless = overrides?.headless ?? envHeadless
-  const parsedSlowMo =
-    typeof overrides?.slowMoMs === 'number'
-      ? overrides.slowMoMs
-      : Number.parseInt(process.env.REDWOOD_PLAYWRIGHT_SLOW_MO_MS || '0', 10)
+export function canUseHeadedRedwoodBrowser(): boolean {
+  return process.platform !== 'linux' || Boolean(process.env.DISPLAY) || Boolean(process.env.WAYLAND_DISPLAY)
+}
+
+export function resolveRedwoodPlaywrightLaunchOptions(
+  options?: RedwoodBrowserLaunchOptions,
+): RedwoodResolvedBrowserLaunchOptions {
+  const runtimeProfile = options?.runtimeProfile ?? 'job'
+  const parsedSlowMo = typeof options?.slowMoMs === 'number' ? options.slowMoMs : 0
   const slowMo = Number.isFinite(parsedSlowMo) && parsedSlowMo > 0 ? parsedSlowMo : undefined
 
+  if (runtimeProfile === 'job') {
+    return {
+      headless: true,
+      runtimeProfile,
+    }
+  }
+
+  if (!canUseHeadedRedwoodBrowser()) {
+    throw new Error(
+      'Redwood dev-debug browser requires a display server. Run local `pnpm dev:redwood:headed` outside Docker or use the queued headless worker flow.',
+    )
+  }
+
   return {
-    headless,
+    headless: false,
+    runtimeProfile,
     slowMo,
   }
 }
 
 export async function openRedwoodBrowserContext(options?: {
   acceptDownloads?: boolean
-  headless?: boolean
+  runtimeProfile?: RedwoodBrowserRuntimeProfile
   slowMoMs?: number
 }): Promise<RedwoodBrowserSession> {
   let playwright: any
@@ -80,7 +103,7 @@ export async function openRedwoodBrowserContext(options?: {
   }
 
   const launchOptions = resolveRedwoodPlaywrightLaunchOptions({
-    headless: options?.headless,
+    runtimeProfile: options?.runtimeProfile,
     slowMoMs: options?.slowMoMs,
   })
 
@@ -98,6 +121,25 @@ export async function openRedwoodBrowserContext(options?: {
   const page = await context.newPage()
 
   return { browser, context, page }
+}
+
+export async function withRedwoodBrowserSession<T>(
+  options: {
+    acceptDownloads?: boolean
+    runtimeProfile?: RedwoodBrowserRuntimeProfile
+    slowMoMs?: number
+  },
+  run: (session: RedwoodBrowserSession) => Promise<T>,
+): Promise<T> {
+  const session = await openRedwoodBrowserContext(options)
+
+  try {
+    return await run(session)
+  } finally {
+    await session.page?.close().catch(() => undefined)
+    await session.context?.close().catch(() => undefined)
+    await session.browser?.close().catch(() => undefined)
+  }
 }
 
 export async function fillFirstVisibleInput(page: any, selectors: string[], value: string): Promise<boolean> {
