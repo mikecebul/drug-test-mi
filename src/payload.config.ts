@@ -439,7 +439,7 @@ export default buildConfig({
             .filter(Boolean) as RedwoodClientUpdateField[]
 
           const result = await runRedwoodClientUpdateJob(req.payload, input.clientId, changedFields)
-          if (result.status === 'failed') {
+          if (result.status === 'failed' && result.retryable !== false) {
             throw new Error(result.error || 'Unknown Redwood client update error')
           }
 
@@ -469,13 +469,13 @@ export default buildConfig({
         ],
         handler: async ({ input, req }) => {
           const result = await runRedwoodHeadshotSyncJob(req.payload, input.clientId)
-          if (!result.success) {
+          if (!result.success && result.retryable !== false) {
             throw new Error(result.error || 'Unknown Redwood headshot sync error')
           }
 
           return {
             output: {
-              status: 'synced',
+              status: result.status || 'failed',
               headshotId: result.headshotId,
             },
           }
@@ -486,6 +486,7 @@ export default buildConfig({
         schedule: [
           {
             cron: '0 0 4 * * *',
+            queue: 'redwood',
           },
         ],
         concurrency: {
@@ -526,7 +527,7 @@ export default buildConfig({
         ],
         handler: async ({ input, req }) => {
           const result = await runRedwoodUniqueIdSyncJob(req.payload, input.clientId)
-          if (!result.success) {
+          if (!result.success && result.retryable !== false) {
             throw new Error(result.error || 'Unknown Redwood unique ID sync error')
           }
 
@@ -555,7 +556,7 @@ export default buildConfig({
         ],
         handler: async ({ input, req }) => {
           const result = await runRedwoodHeadshotUploadJob(req.payload, input.clientId)
-          if (!result.success) {
+          if (!result.success && result.retryable !== false) {
             throw new Error(result.error || 'Unknown Redwood headshot upload error')
           }
 
@@ -581,7 +582,7 @@ export default buildConfig({
         ],
         handler: async ({ input, req }) => {
           const result = await runRedwoodDefaultTestSync(req.payload, input.clientId)
-          if (!result.success) {
+          if (!result.success && result.retryable !== false) {
             throw new Error(result.error || 'Unknown Redwood default-test sync error')
           }
 

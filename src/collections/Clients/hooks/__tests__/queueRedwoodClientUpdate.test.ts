@@ -57,7 +57,7 @@ describe('queueRedwoodClientUpdateAfterChange', () => {
           id: 'admin-1',
         },
       },
-    } as QueueHookArgs)
+    } as unknown as QueueHookArgs)
 
     expect(queueRedwoodClientUpdate).toHaveBeenCalledWith(
       'client-1',
@@ -87,7 +87,7 @@ describe('queueRedwoodClientUpdateAfterChange', () => {
           },
         },
       },
-    } as QueueHookArgs)
+    } as unknown as QueueHookArgs)
 
     expect(queueRedwoodClientUpdate).toHaveBeenCalledTimes(1)
   })
@@ -114,7 +114,7 @@ describe('queueRedwoodClientUpdateAfterChange', () => {
           },
         },
       },
-    } as QueueHookArgs)
+    } as unknown as QueueHookArgs)
 
     expect(queueRedwoodClientUpdate).toHaveBeenCalledTimes(1)
   })

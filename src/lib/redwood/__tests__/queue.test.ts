@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('@/lib/admin-alerts', () => ({
-  createAdminAlert: vi.fn().mockResolvedValue(undefined),
+vi.mock('@/lib/redwood/incidents', () => ({
+  upsertRedwoodIncidentAlert: vi.fn().mockResolvedValue(undefined),
 }))
 
 import {
@@ -131,7 +131,7 @@ describe('redwood queue helpers', () => {
         queue: 'redwood',
         input: {
           clientId: 'client-2',
-          changedFieldsCsv: 'dob,firstName,gender,lastName,middleInitial,phone',
+          changedFieldsCsv: 'lastName,phone',
           requestedByAdminId: 'admin-1',
         },
       }),

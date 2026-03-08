@@ -1,7 +1,7 @@
 import type { Payload } from 'payload'
 
-import { createAdminAlert } from '@/lib/admin-alerts'
 import { REDWOOD_SKIP_HEADSHOT_PUSH_CONTEXT_KEY } from '@/lib/redwood/context'
+import { classifyRedwoodIncident, upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
 import { fetchRedwoodHeadshotForClient } from './redwoodHeadshotScraper'
 
 async function updateRedwoodHeadshotSyncState(
@@ -37,6 +37,8 @@ export async function runRedwoodHeadshotSyncJob(
   matchedDonor?: string
   error?: string
   errorCode?: string
+  retryable?: boolean
+  status?: 'synced' | 'manual-review' | 'failed'
 }> {
   let resolvedClientId: string | null = null
 
@@ -46,6 +48,8 @@ export async function runRedwoodHeadshotSyncJob(
         success: false,
         error: 'Client ID is required',
         errorCode: 'INVALID_INPUT',
+        retryable: false,
+        status: 'failed',
       }
     }
 
@@ -61,6 +65,8 @@ export async function runRedwoodHeadshotSyncJob(
         success: false,
         error: 'Client not found',
         errorCode: 'CLIENT_NOT_FOUND',
+        retryable: false,
+        status: 'failed',
       }
     }
 
@@ -77,6 +83,8 @@ export async function runRedwoodHeadshotSyncJob(
         success: false,
         error,
         errorCode: 'MISSING_NAME',
+        retryable: false,
+        status: 'failed',
       }
     }
 
@@ -156,15 +164,22 @@ export async function runRedwoodHeadshotSyncJob(
       headshotId: uploadedHeadshot.id,
       headshotUrl: headshot.thumbnailURL || headshot.url || undefined,
       matchedDonor: scraped.matchedDonorName,
+      status: 'synced',
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     const stack = error instanceof Error ? error.stack : undefined
+    const classification = classifyRedwoodIncident({
+      message,
+      jobType: 'headshot-sync',
+      phase: 'runtime',
+    })
+    const status = classification.kind === 'manual-review-required' ? 'manual-review' : 'failed'
 
     if (resolvedClientId) {
       try {
         await updateRedwoodHeadshotSyncState(payload, resolvedClientId, {
-          status: 'failed',
+          status,
           error: message,
         })
       } catch (stateError) {
@@ -183,21 +198,33 @@ export async function runRedwoodHeadshotSyncJob(
       stack,
     })
 
-    await createAdminAlert(payload, {
-      severity: 'high',
-      alertType: 'data-integrity',
-      title: `Redwood headshot sync failed for client ${clientId}`,
-      message,
-      context: {
+    if (classification.kind !== 'monitor-only') {
+      await upsertRedwoodIncidentAlert({
+        payload,
         clientId,
-        error: message,
-      },
-    })
+        jobType: 'headshot-sync',
+        kind: classification.kind,
+        title:
+          status === 'manual-review'
+            ? `Redwood headshot sync needs manual review for client ${clientId}`
+            : `Redwood headshot sync failed for client ${clientId}`,
+        message,
+        context: {
+          clientId,
+          error: message,
+        },
+        statusSnapshot: {
+          redwoodHeadshotSyncStatus: status,
+        },
+      })
+    }
 
     return {
       success: false,
       error: message,
       errorCode: 'SYNC_FAILED',
+      retryable: classification.retryable,
+      status,
     }
   }
 }

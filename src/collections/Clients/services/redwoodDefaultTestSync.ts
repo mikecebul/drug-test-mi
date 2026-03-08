@@ -1,8 +1,8 @@
 import type { Payload } from 'payload'
 
-import { createAdminAlert } from '@/lib/admin-alerts'
 import { resolveClientRedwoodEligibleDefaultTest } from '@/lib/redwood/default-test'
 import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
+import { classifyRedwoodIncident, upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
 import { syncClientDefaultLabTestInRedwood } from './redwoodMutationAutomation'
 
 export async function runRedwoodDefaultTestSync(
@@ -10,9 +10,10 @@ export async function runRedwoodDefaultTestSync(
   clientId: string,
 ): Promise<{
   success: boolean
-  status: 'synced' | 'skipped' | 'failed'
+  status: 'synced' | 'skipped' | 'failed' | 'manual-review'
   screenshotPath?: string
   error?: string
+  retryable?: boolean
 }> {
   try {
     const client = await payload.findByID({
@@ -104,6 +105,12 @@ export async function runRedwoodDefaultTestSync(
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
+    const classification = classifyRedwoodIncident({
+      message,
+      jobType: 'default-test-sync',
+      phase: 'runtime',
+    })
+    const status = classification.kind === 'manual-review-required' ? 'manual-review' : 'failed'
 
     payload.logger.error({
       msg: '[redwood-default-test] Failed to sync Redwood donor default test',
@@ -115,28 +122,39 @@ export async function runRedwoodDefaultTestSync(
       collection: 'clients',
       id: clientId,
       data: {
-        redwoodDefaultTestSyncStatus: 'failed',
+        redwoodDefaultTestSyncStatus: status,
         redwoodDefaultTestLastAttemptAt: new Date().toISOString(),
         redwoodDefaultTestLastError: message,
       },
       overrideAccess: true,
     }).catch(() => undefined)
 
-    await createAdminAlert(payload, {
-      severity: 'high',
-      alertType: 'data-integrity',
-      title: `Redwood default-test sync failed for client ${clientId}`,
-      message,
-      context: {
+    if (classification.kind !== 'monitor-only') {
+      await upsertRedwoodIncidentAlert({
+        payload,
         clientId,
-        error: message,
-      },
-    })
+        jobType: 'default-test-sync',
+        kind: classification.kind,
+        title:
+          status === 'manual-review'
+            ? `Redwood default-test sync needs manual review for client ${clientId}`
+            : `Redwood default-test sync failed for client ${clientId}`,
+        message,
+        context: {
+          clientId,
+          error: message,
+        },
+        statusSnapshot: {
+          redwoodDefaultTestSyncStatus: status,
+        },
+      })
+    }
 
     return {
       success: false,
-      status: 'failed',
+      status,
       error: message,
+      retryable: classification.retryable,
     }
   }
 }

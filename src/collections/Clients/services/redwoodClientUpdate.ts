@@ -1,8 +1,8 @@
 import type { Payload } from 'payload'
 
-import { createAdminAlert } from '@/lib/admin-alerts'
 import { REDWOOD_SKIP_CLIENT_UPDATE_QUEUE_CONTEXT_KEY } from '@/lib/redwood/context'
 import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
+import { classifyRedwoodIncident, upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
 import type { RedwoodClientUpdateField } from '@/lib/redwood/queue'
 import { updateRedwoodClientDetails } from './redwoodMutationAutomation'
 
@@ -21,6 +21,7 @@ export async function runRedwoodClientUpdateJob(
   changedFields: RedwoodClientUpdateField[],
 ): Promise<{
   error?: string
+  retryable?: boolean
   screenshotPath?: string
   status: 'failed' | 'manual-review' | 'synced'
   updatedFields?: RedwoodClientUpdateField[]
@@ -100,6 +101,11 @@ export async function runRedwoodClientUpdateJob(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     const status = shouldRouteClientUpdateToManualReview(message) ? 'manual-review' : 'failed'
+    const classification = classifyRedwoodIncident({
+      message,
+      jobType: 'client-update',
+      phase: status === 'manual-review' ? 'manual-review' : 'runtime',
+    })
 
     payload.logger.error({
       msg: '[redwood-client-update] Failed to update Redwood donor',
@@ -123,24 +129,32 @@ export async function runRedwoodClientUpdateJob(
       overrideAccess: true,
     }).catch(() => undefined)
 
-    await createAdminAlert(payload, {
-      severity: 'high',
-      alertType: 'data-integrity',
-      title:
-        status === 'manual-review'
-          ? `Redwood client update needs manual review for client ${clientId}`
-          : `Redwood client update failed for client ${clientId}`,
-      message,
-      context: {
-        changedFields: normalizedFields,
+    if (classification.kind !== 'monitor-only') {
+      await upsertRedwoodIncidentAlert({
+        payload,
         clientId,
-        error: message,
-        status,
-      },
-    })
+        jobType: 'client-update',
+        kind: classification.kind,
+        title:
+          status === 'manual-review'
+            ? `Redwood client update needs manual review for client ${clientId}`
+            : `Redwood client update failed for client ${clientId}`,
+        message,
+        context: {
+          changedFields: normalizedFields,
+          clientId,
+          error: message,
+          status,
+        },
+        statusSnapshot: {
+          redwoodClientUpdateStatus: status,
+        },
+      })
+    }
 
     return {
       error: message,
+      retryable: classification.retryable,
       status,
     }
   }

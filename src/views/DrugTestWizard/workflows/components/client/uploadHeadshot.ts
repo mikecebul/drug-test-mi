@@ -16,6 +16,7 @@ interface UploadHeadshotResult {
 }
 
 const MAX_HEADSHOT_UPLOAD_BYTES = 10 * 1024 * 1024
+const REDWOOD_READY_SYNC_STATUSES = new Set(['matched-existing', 'synced'])
 
 function buildClientHeadshotAlt(client: {
   firstName?: string | null
@@ -178,7 +179,26 @@ export async function uploadHeadshot(
       overrideAccess: true,
     })
 
-    await queueRedwoodHeadshotUpload(clientId, String(user.id), payload)
+    const hasRedwoodIdentity =
+      (typeof client?.redwoodUniqueId === 'string' && client.redwoodUniqueId.trim()) ||
+      (typeof client?.redwoodDonorId === 'string' && client.redwoodDonorId.trim())
+    const redwoodSyncStatus = typeof client?.redwoodSyncStatus === 'string' ? client.redwoodSyncStatus : ''
+
+    if (hasRedwoodIdentity || REDWOOD_READY_SYNC_STATUSES.has(redwoodSyncStatus)) {
+      await queueRedwoodHeadshotUpload(clientId, String(user.id), payload).catch((queueError) => {
+        payload.logger.error({
+          msg: '[uploadHeadshot] Failed to queue Redwood headshot upload after local headshot save',
+          clientId,
+          error: queueError instanceof Error ? queueError.message : String(queueError),
+        })
+      })
+    } else {
+      payload.logger.info({
+        msg: '[uploadHeadshot] Skipped Redwood headshot upload queue because client is not Redwood-ready yet',
+        clientId,
+        redwoodSyncStatus: redwoodSyncStatus || null,
+      })
+    }
 
     const headshotId = String(mediaDoc.id)
     let url = mediaDoc.thumbnailURL || mediaDoc.url || undefined

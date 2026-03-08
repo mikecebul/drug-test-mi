@@ -79,14 +79,14 @@ export async function POST(req: Request) {
 
     if (action === 'headshot-inline') {
       const result = await runRedwoodHeadshotSyncJob(payload, clientId)
-      if (!result.success) {
+      if (!result.success && result.retryable !== false) {
         throw new Error(result.error || 'Failed to run Redwood headshot sync')
       }
 
       return NextResponse.json({
         mode: actionConfig.mode,
         task: actionConfig.task,
-        status: 'synced',
+        status: result.status || 'failed',
         headshotId: result.headshotId ?? null,
         matchedDonor: result.matchedDonor ?? null,
       })

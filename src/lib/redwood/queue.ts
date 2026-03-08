@@ -1,19 +1,11 @@
 import { getPayload, type Payload } from 'payload'
 
-import { createAdminAlert } from '@/lib/admin-alerts'
 import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
+import { upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
 import { buildRedwoodUniqueId } from '@/lib/redwood/unique-id'
 
 export type RedwoodQueueSource = 'frontend-registration' | 'admin-registration' | 'wizard-registration' | 'manual'
 export type RedwoodClientUpdateField = 'firstName' | 'middleInitial' | 'lastName' | 'dob' | 'gender' | 'phone'
-const REDWOOD_CLIENT_UPDATE_ALL_FIELDS: RedwoodClientUpdateField[] = [
-  'dob',
-  'firstName',
-  'gender',
-  'lastName',
-  'middleInitial',
-  'phone',
-]
 
 async function resolvePayload(payload?: Payload): Promise<Payload> {
   if (payload) return payload
@@ -79,9 +71,11 @@ export async function queueRedwoodImportForClient(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
 
-    await createAdminAlert(payload, {
-      severity: 'high',
-      alertType: 'data-integrity',
+    await upsertRedwoodIncidentAlert({
+      payload,
+      clientId,
+      jobType: 'import',
+      kind: 'business-critical-failure',
       title: `Failed to queue Redwood import for client ${clientId}`,
       message,
       context: {
@@ -143,9 +137,11 @@ export async function queueRedwoodHeadshotSync(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
 
-    await createAdminAlert(payload, {
-      severity: 'high',
-      alertType: 'data-integrity',
+    await upsertRedwoodIncidentAlert({
+      payload,
+      clientId,
+      jobType: 'headshot-sync',
+      kind: 'business-critical-failure',
       title: `Failed to queue Redwood headshot sync for client ${clientId}`,
       message,
       context: {
@@ -214,9 +210,11 @@ export async function queueRedwoodUniqueIdBackfill(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
 
-    await createAdminAlert(payload, {
-      severity: 'high',
-      alertType: 'data-integrity',
+    await upsertRedwoodIncidentAlert({
+      payload,
+      clientId,
+      jobType: 'unique-id-sync',
+      kind: 'business-critical-failure',
       title: `Failed to queue Redwood unique ID backfill for client ${clientId}`,
       message,
       context: {
@@ -308,9 +306,11 @@ export async function queueRedwoodHeadshotUpload(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
 
-    await createAdminAlert(payload, {
-      severity: 'high',
-      alertType: 'data-integrity',
+    await upsertRedwoodIncidentAlert({
+      payload,
+      clientId,
+      jobType: 'headshot-upload',
+      kind: 'business-critical-failure',
       title: `Failed to queue Redwood headshot upload for client ${clientId}`,
       message,
       context: {
@@ -340,7 +340,7 @@ export async function queueRedwoodClientUpdate(
 
     const accountNumber = getRedwoodAccountNumber()
     assertRedwoodMutationAllowed(accountNumber, 'client update')
-    const syncFields = REDWOOD_CLIENT_UPDATE_ALL_FIELDS
+    const syncFields = triggeredFields
 
     const queued = await payload.jobs.queue({
       task: 'redwood-update-client',
@@ -378,9 +378,11 @@ export async function queueRedwoodClientUpdate(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
 
-    await createAdminAlert(payload, {
-      severity: 'high',
-      alertType: 'data-integrity',
+    await upsertRedwoodIncidentAlert({
+      payload,
+      clientId,
+      jobType: 'client-update',
+      kind: 'business-critical-failure',
       title: `Failed to queue Redwood client update for client ${clientId}`,
       message,
       context: {
@@ -425,9 +427,11 @@ export async function queueRedwoodDefaultTestSync(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
 
-    await createAdminAlert(payload, {
-      severity: 'high',
-      alertType: 'data-integrity',
+    await upsertRedwoodIncidentAlert({
+      payload,
+      clientId,
+      jobType: 'default-test-sync',
+      kind: 'business-critical-failure',
       title: `Failed to queue Redwood default-test sync for client ${clientId}`,
       message,
       context: {

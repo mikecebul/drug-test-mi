@@ -2474,6 +2474,48 @@ export interface AdminAlert {
     | boolean
     | null;
   /**
+   * Client impacted by the alert, when applicable.
+   */
+  client?: (string | null) | Client;
+  /**
+   * Workflow or Redwood job type associated with this alert.
+   */
+  jobType?:
+    | ('import' | 'client-update' | 'headshot-sync' | 'headshot-upload' | 'unique-id-sync' | 'default-test-sync')
+    | null;
+  /**
+   * Stable incident key used to dedupe repeated Redwood failures.
+   */
+  dedupeKey?: string | null;
+  /**
+   * Latest Redwood status snapshot captured when the alert was last seen.
+   */
+  statusSnapshot?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Latest local screenshot path captured for this alert, if any.
+   */
+  screenshotPath?: string | null;
+  /**
+   * How many times this same incident has been observed.
+   */
+  attemptCount?: number | null;
+  /**
+   * When this incident was most recently observed.
+   */
+  lastSeenAt?: string | null;
+  /**
+   * Short operator guidance for triage and recovery.
+   */
+  recommendedAction?: string | null;
+  /**
    * Mark as resolved once the issue has been addressed
    */
   resolved?: boolean | null;
@@ -3697,6 +3739,14 @@ export interface AdminAlertsSelect<T extends boolean = true> {
   alertType?: T;
   message?: T;
   context?: T;
+  client?: T;
+  jobType?: T;
+  dedupeKey?: T;
+  statusSnapshot?: T;
+  screenshotPath?: T;
+  attemptCount?: T;
+  lastSeenAt?: T;
+  recommendedAction?: T;
   resolved?: T;
   resolvedAt?: T;
   resolvedBy?: T;

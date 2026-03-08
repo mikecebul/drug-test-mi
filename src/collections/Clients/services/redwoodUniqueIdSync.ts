@@ -1,7 +1,7 @@
 import type { Payload } from 'payload'
 
-import { createAdminAlert } from '@/lib/admin-alerts'
 import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
+import { classifyRedwoodIncident, upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
 import { buildRedwoodUniqueId } from '@/lib/redwood/unique-id'
 import { backfillRedwoodClientUniqueId } from './redwoodMutationAutomation'
 
@@ -13,6 +13,7 @@ export async function runRedwoodUniqueIdSyncJob(
   status?: 'synced' | 'manual-review' | 'failed'
   screenshotPath?: string
   error?: string
+  retryable?: boolean
 }> {
   try {
     const client = await payload.findByID({
@@ -77,6 +78,12 @@ export async function runRedwoodUniqueIdSyncJob(
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
+    const classification = classifyRedwoodIncident({
+      message,
+      jobType: 'unique-id-sync',
+      phase: 'runtime',
+    })
+    const status = classification.kind === 'manual-review-required' ? 'manual-review' : 'failed'
 
     payload.logger.error({
       msg: '[redwood-unique-id] Failed to sync Redwood unique ID',
@@ -88,28 +95,39 @@ export async function runRedwoodUniqueIdSyncJob(
       collection: 'clients',
       id: clientId,
       data: {
-        redwoodUniqueIdSyncStatus: 'failed',
+        redwoodUniqueIdSyncStatus: status,
         redwoodUniqueIdLastAttemptAt: new Date().toISOString(),
         redwoodUniqueIdLastError: message,
       },
       overrideAccess: true,
     }).catch(() => undefined)
 
-    await createAdminAlert(payload, {
-      severity: 'high',
-      alertType: 'data-integrity',
-      title: `Redwood unique ID sync failed for client ${clientId}`,
-      message,
-      context: {
+    if (classification.kind !== 'monitor-only') {
+      await upsertRedwoodIncidentAlert({
+        payload,
         clientId,
-        error: message,
-      },
-    })
+        jobType: 'unique-id-sync',
+        kind: classification.kind,
+        title:
+          status === 'manual-review'
+            ? `Redwood unique ID sync needs manual review for client ${clientId}`
+            : `Redwood unique ID sync failed for client ${clientId}`,
+        message,
+        context: {
+          clientId,
+          error: message,
+        },
+        statusSnapshot: {
+          redwoodUniqueIdSyncStatus: status,
+        },
+      })
+    }
 
     return {
       success: false,
-      status: 'failed',
+      status,
       error: message,
+      retryable: classification.retryable,
     }
   }
 }

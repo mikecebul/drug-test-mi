@@ -150,6 +150,10 @@ export const Clients: CollectionConfig = {
       name: 'headshot',
       type: 'upload',
       relationTo: 'private-media',
+      access: {
+        create: ({ req }) => req.user?.collection === 'admins',
+        update: ({ req }) => req.user?.collection === 'admins',
+      },
       admin: {
         description: 'Client headshot photo for identification during testing',
         position: 'sidebar',

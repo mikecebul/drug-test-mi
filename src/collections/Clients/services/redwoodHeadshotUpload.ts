@@ -1,7 +1,7 @@
 import type { Payload } from 'payload'
 
-import { createAdminAlert } from '@/lib/admin-alerts'
 import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
+import { classifyRedwoodIncident, upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
 import { uploadClientHeadshotToRedwood } from './redwoodMutationAutomation'
 
 export async function runRedwoodHeadshotUploadJob(
@@ -12,6 +12,7 @@ export async function runRedwoodHeadshotUploadJob(
   status?: 'synced' | 'manual-review' | 'failed'
   screenshotPath?: string
   error?: string
+  retryable?: boolean
 }> {
   try {
     const client = await payload.findByID({
@@ -98,6 +99,12 @@ export async function runRedwoodHeadshotUploadJob(
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
+    const classification = classifyRedwoodIncident({
+      message,
+      jobType: 'headshot-upload',
+      phase: 'runtime',
+    })
+    const status = classification.kind === 'manual-review-required' ? 'manual-review' : 'failed'
 
     payload.logger.error({
       msg: '[redwood-headshot-upload] Failed to upload Redwood headshot',
@@ -109,28 +116,39 @@ export async function runRedwoodHeadshotUploadJob(
       collection: 'clients',
       id: clientId,
       data: {
-        redwoodHeadshotPushStatus: 'failed',
+        redwoodHeadshotPushStatus: status,
         redwoodHeadshotPushLastAttemptAt: new Date().toISOString(),
         redwoodHeadshotPushLastError: message,
       },
       overrideAccess: true,
     }).catch(() => undefined)
 
-    await createAdminAlert(payload, {
-      severity: 'high',
-      alertType: 'data-integrity',
-      title: `Redwood headshot upload failed for client ${clientId}`,
-      message,
-      context: {
+    if (classification.kind !== 'monitor-only') {
+      await upsertRedwoodIncidentAlert({
+        payload,
         clientId,
-        error: message,
-      },
-    })
+        jobType: 'headshot-upload',
+        kind: classification.kind,
+        title:
+          status === 'manual-review'
+            ? `Redwood headshot upload needs manual review for client ${clientId}`
+            : `Redwood headshot upload failed for client ${clientId}`,
+        message,
+        context: {
+          clientId,
+          error: message,
+        },
+        statusSnapshot: {
+          redwoodHeadshotPushStatus: status,
+        },
+      })
+    }
 
     return {
       success: false,
-      status: 'failed',
+      status,
       error: message,
+      retryable: classification.retryable,
     }
   }
 }

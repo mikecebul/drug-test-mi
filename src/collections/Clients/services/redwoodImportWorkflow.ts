@@ -3,7 +3,6 @@ import path from 'node:path'
 
 import type { Payload } from 'payload'
 
-import { createAdminAlert } from '@/lib/admin-alerts'
 import { formatDateForRedwood, mapGenderToRedwoodSex, normalizePhoneForRedwood } from '@/lib/redwood/client-fields'
 import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
 import {
@@ -23,6 +22,11 @@ import {
   resolveRedwoodDonorMatch,
   selectBestRedwoodDonorCandidate,
 } from '@/lib/redwood/donor-search'
+import { resolveClientRedwoodEligibleDefaultTest } from '@/lib/redwood/default-test'
+import {
+  classifyRedwoodIncident,
+  upsertRedwoodIncidentAlert,
+} from '@/lib/redwood/incidents'
 import {
   type RedwoodBrowserRuntimeProfile,
   clickFirstVisible,
@@ -345,6 +349,18 @@ async function updateClientRedwoodState(payload: Payload, clientId: string, data
     data,
     overrideAccess: true,
   })
+}
+
+async function isDefaultTestSyncRequired(args: {
+  client: any
+  payload: Payload
+}): Promise<boolean> {
+  const resolution = await resolveClientRedwoodEligibleDefaultTest({
+    client: args.client,
+    payload: args.payload,
+  })
+
+  return resolution.kind === 'eligible'
 }
 
 function isImportRejectionSummary(summary: string): boolean {
@@ -683,9 +699,11 @@ async function routeImportToManualReview(args: {
     redwoodLastError: rejectionDetails || 'Redwood import rejected row(s).',
   })
 
-  await createAdminAlert(payload, {
-    severity: 'high',
-    alertType: 'data-integrity',
+  await upsertRedwoodIncidentAlert({
+    payload,
+    clientId,
+    jobType: 'import',
+    kind: 'business-critical-failure',
     title: `Redwood import rejected row(s) for client ${clientId}`,
     message: rejectionDetails || 'Redwood rejected one or more import rows. Manual review required.',
     context: {
@@ -693,6 +711,10 @@ async function routeImportToManualReview(args: {
       source,
       queue: 'redwood',
       screenshotPath,
+    },
+    screenshotPath,
+    statusSnapshot: {
+      redwoodSyncStatus: 'manual-review',
     },
   })
 
@@ -735,9 +757,11 @@ async function routeDirectSearchMatchToManualReview(args: {
     redwoodLastError: message,
   })
 
-  await createAdminAlert(payload, {
-    severity: 'high',
-    alertType: 'data-integrity',
+  await upsertRedwoodIncidentAlert({
+    payload,
+    clientId,
+    jobType: 'import',
+    kind: 'manual-review-required',
     title: `Potential existing Redwood donor matched for client ${clientId}`,
     message,
     context: {
@@ -748,6 +772,11 @@ async function routeDirectSearchMatchToManualReview(args: {
       matchedDonorName,
       matchedDonorId: donorId,
       screenshotPath: screenshotPath || null,
+    },
+    screenshotPath: screenshotPath || null,
+    statusSnapshot: {
+      redwoodSyncStatus: 'manual-review',
+      redwoodMatchedBy: matchedBy,
     },
   })
 
@@ -787,9 +816,11 @@ async function routeDirectSearchIssueToManualReview(args: {
     redwoodLastError: message,
   })
 
-  await createAdminAlert(payload, {
-    severity: 'high',
-    alertType: 'data-integrity',
+  await upsertRedwoodIncidentAlert({
+    payload,
+    clientId,
+    jobType: 'import',
+    kind: 'manual-review-required',
     title: `Redwood donor search needs manual review for client ${clientId}`,
     message,
     context: {
@@ -797,6 +828,10 @@ async function routeDirectSearchIssueToManualReview(args: {
       source,
       queue: 'redwood',
       screenshotPath: screenshotPath || null,
+    },
+    screenshotPath: screenshotPath || null,
+    statusSnapshot: {
+      redwoodSyncStatus: 'manual-review',
     },
   })
 
@@ -811,6 +846,63 @@ async function routeDirectSearchIssueToManualReview(args: {
 
   return {
     status: 'manual-review',
+    screenshotPath,
+  }
+}
+
+async function routeImportedClientToPartialSuccess(args: {
+  clientId: string
+  payload: Payload
+  screenshotPath: string
+  source: string
+  message: string
+  redwoodCallInCode?: string | null
+  redwoodDonorId?: string | null
+}): Promise<{ status: 'partial-success'; screenshotPath: string }> {
+  const { clientId, message, payload, redwoodCallInCode, redwoodDonorId, screenshotPath, source } = args
+
+  await updateClientRedwoodState(payload, clientId, {
+    redwoodSyncStatus: 'manual-review',
+    redwoodMatchedBy: null,
+    redwoodMatchedDonorName: null,
+    redwoodCallInCode: redwoodCallInCode || null,
+    redwoodDonorId: redwoodDonorId || null,
+    redwoodImportScreenshotPath: screenshotPath,
+    redwoodLastAttemptAt: new Date().toISOString(),
+    redwoodLastError: message,
+  })
+
+  await upsertRedwoodIncidentAlert({
+    payload,
+    clientId,
+    jobType: 'import',
+    kind: 'partial-success',
+    title: `Redwood import completed with follow-up gap for client ${clientId}`,
+    message,
+    context: {
+      clientId,
+      source,
+      queue: 'redwood',
+    },
+    screenshotPath,
+    statusSnapshot: {
+      redwoodSyncStatus: 'manual-review',
+      redwoodCallInCode: redwoodCallInCode || null,
+      redwoodDonorId: redwoodDonorId || null,
+    },
+  })
+
+  payload.logger.warn({
+    msg: '[redwood-import] Redwood import completed with a blocking follow-up gap',
+    clientId,
+    source,
+    queue: 'redwood',
+    screenshotPath,
+    error: message,
+  })
+
+  return {
+    status: 'partial-success',
     screenshotPath,
   }
 }
@@ -1157,6 +1249,18 @@ export async function runRedwoodImportClientJob(args: {
             })
           }
 
+          if (!redwoodDonorId) {
+            return routeImportedClientToPartialSuccess({
+              clientId: client.id,
+              payload,
+              screenshotPath,
+              source,
+              message: 'Redwood import completed, but donor identity metadata could not be resolved. Manual follow-up is required before downstream Redwood syncs can run.',
+              redwoodCallInCode,
+              redwoodDonorId,
+            })
+          }
+
           await updateClientRedwoodState(payload, client.id, {
             redwoodSyncStatus: 'synced',
             redwoodMatchedBy: null,
@@ -1177,14 +1281,35 @@ export async function runRedwoodImportClientJob(args: {
             queue: 'redwood',
           })
 
-          await queueRedwoodDefaultTestSync(String(client.id), payload).catch((error) => {
+          const defaultTestRequired = await isDefaultTestSyncRequired({
+            client,
+            payload,
+          })
+
+          try {
+            await queueRedwoodDefaultTestSync(String(client.id), payload)
+          } catch (error) {
+            const queueMessage = error instanceof Error ? error.message : String(error)
+
             payload.logger.error({
               msg: '[redwood-import] Redwood donor import succeeded, but default-test sync could not be queued',
               clientId,
               source,
-              error: error instanceof Error ? error.message : String(error),
+              error: queueMessage,
             })
-          })
+
+            if (defaultTestRequired) {
+              return routeImportedClientToPartialSuccess({
+                clientId: client.id,
+                payload,
+                screenshotPath,
+                source,
+                message: `Redwood import completed, but required default-test sync could not be queued: ${queueMessage}`,
+                redwoodCallInCode,
+                redwoodDonorId,
+              })
+            }
+          }
 
           return {
             status: 'synced',
@@ -1309,6 +1434,18 @@ export async function runRedwoodImportClientJob(args: {
         })
       }
 
+      if (!redwoodDonorId) {
+        return routeImportedClientToPartialSuccess({
+          clientId: client.id,
+          payload,
+          screenshotPath,
+          source,
+          message: 'Redwood import completed, but donor identity metadata could not be resolved. Manual follow-up is required before downstream Redwood syncs can run.',
+          redwoodCallInCode,
+          redwoodDonorId,
+        })
+      }
+
       await updateClientRedwoodState(payload, client.id, {
         redwoodSyncStatus: 'synced',
         redwoodMatchedBy: null,
@@ -1329,14 +1466,35 @@ export async function runRedwoodImportClientJob(args: {
         queue: 'redwood',
       })
 
-      await queueRedwoodDefaultTestSync(String(client.id), payload).catch((error) => {
+      const defaultTestRequired = await isDefaultTestSyncRequired({
+        client,
+        payload,
+      })
+
+      try {
+        await queueRedwoodDefaultTestSync(String(client.id), payload)
+      } catch (error) {
+        const queueMessage = error instanceof Error ? error.message : String(error)
+
         payload.logger.error({
           msg: '[redwood-import] Redwood donor import succeeded, but default-test sync could not be queued',
           clientId,
           source,
-          error: error instanceof Error ? error.message : String(error),
+          error: queueMessage,
         })
-      })
+
+        if (defaultTestRequired) {
+          return routeImportedClientToPartialSuccess({
+            clientId: client.id,
+            payload,
+            screenshotPath,
+            source,
+            message: `Redwood import completed, but required default-test sync could not be queued: ${queueMessage}`,
+            redwoodCallInCode,
+            redwoodDonorId,
+          })
+        }
+      }
 
       return {
         status: 'synced',
@@ -1345,9 +1503,18 @@ export async function runRedwoodImportClientJob(args: {
     })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
+    const classification = classifyRedwoodIncident({
+      message: errorMessage,
+      jobType: 'import',
+      phase: 'runtime',
+    })
+    const terminalClientStatus =
+      classification.kind === 'manual-review-required' || classification.kind === 'partial-success'
+        ? 'manual-review'
+        : 'failed'
 
     const failedState: Record<string, unknown> = {
-      redwoodSyncStatus: 'failed',
+      redwoodSyncStatus: terminalClientStatus,
       redwoodLastAttemptAt: new Date().toISOString(),
       redwoodLastError: errorMessage,
     }
@@ -1358,18 +1525,34 @@ export async function runRedwoodImportClientJob(args: {
 
     await updateClientRedwoodState(payload, client.id, failedState)
 
-    await createAdminAlert(payload, {
-      severity: 'high',
-      alertType: 'data-integrity',
-      title: `Redwood import job failed for client ${client.id}`,
-      message: errorMessage,
-      context: {
+    if (classification.kind !== 'monitor-only') {
+      await upsertRedwoodIncidentAlert({
+        payload,
         clientId: client.id,
-        source,
-        queue: 'redwood',
+        jobType: 'import',
+        kind: classification.kind,
+        title:
+          terminalClientStatus === 'manual-review'
+            ? `Redwood import needs manual review for client ${client.id}`
+            : `Redwood import job failed for client ${client.id}`,
+        message: errorMessage,
+        context: {
+          clientId: client.id,
+          source,
+          queue: 'redwood',
+          screenshotPath: diagnosticScreenshotPath,
+        },
         screenshotPath: diagnosticScreenshotPath,
-      },
-    })
+        statusSnapshot: {
+          redwoodSyncStatus: terminalClientStatus,
+        },
+      })
+
+      return {
+        status: classification.kind === 'partial-success' ? 'partial-success' : 'failed',
+        screenshotPath: diagnosticScreenshotPath || undefined,
+      }
+    }
 
     throw error
   }
