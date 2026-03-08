@@ -41,6 +41,27 @@ services:
       - DATABASE_URI=${DOCKER_DATABASE_URI:-mongodb://mongo:27017/cvx-junior-golf}
     env_file: .env
 
+  worker-redwood-schedules:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+      args:
+        - ENV_FILE=.env
+    command: ['pnpm', 'worker:redwood:schedules']
+    restart: always
+    volumes:
+      - payload-public:/app/public
+    networks:
+      - app-network
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URI=${DOCKER_DATABASE_URI:-mongodb://mongo:27017/cvx-junior-golf}
+    env_file: .env
+
   # Ensure your DATABASE_URI uses 'mongo' as the hostname ie. mongodb://mongo/my-db-name
   mongo:
     image: mongo:latest

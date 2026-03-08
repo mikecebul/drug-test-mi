@@ -4,6 +4,29 @@ import { createAdminAlert } from '@/lib/admin-alerts'
 import { REDWOOD_SKIP_HEADSHOT_PUSH_CONTEXT_KEY } from '@/lib/redwood/context'
 import { fetchRedwoodHeadshotForClient } from './redwoodHeadshotScraper'
 
+async function updateRedwoodHeadshotSyncState(
+  payload: Payload,
+  clientId: string,
+  {
+    status,
+    error,
+  }: {
+    status: 'queued' | 'synced' | 'failed' | 'manual-review'
+    error?: string | null
+  },
+) {
+  await payload.update({
+    collection: 'clients',
+    id: clientId,
+    data: {
+      redwoodHeadshotSyncStatus: status,
+      redwoodHeadshotSyncLastAttemptAt: new Date().toISOString(),
+      redwoodHeadshotSyncLastError: error ?? null,
+    },
+    overrideAccess: true,
+  })
+}
+
 export async function runRedwoodHeadshotSyncJob(
   payload: Payload,
   clientId: string,
@@ -15,6 +38,8 @@ export async function runRedwoodHeadshotSyncJob(
   error?: string
   errorCode?: string
 }> {
+  let resolvedClientId: string | null = null
+
   try {
     if (!clientId) {
       return {
@@ -39,10 +64,18 @@ export async function runRedwoodHeadshotSyncJob(
       }
     }
 
+    resolvedClientId = client.id
+
     if (!client.firstName?.trim() || !client.lastName?.trim()) {
+      const error = 'Client must have first and last name before syncing headshot'
+      await updateRedwoodHeadshotSyncState(payload, client.id, {
+        status: 'failed',
+        error,
+      })
+
       return {
         success: false,
-        error: 'Client must have first and last name before syncing headshot',
+        error,
         errorCode: 'MISSING_NAME',
       }
     }
@@ -86,6 +119,9 @@ export async function runRedwoodHeadshotSyncJob(
         headshot: uploadedHeadshot.id,
         redwoodDonorId: scraped.donorId || (typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId : null),
         redwoodCallInCode: scraped.callInCode || (typeof client.redwoodCallInCode === 'string' ? client.redwoodCallInCode : null),
+        redwoodHeadshotSyncStatus: 'synced',
+        redwoodHeadshotSyncLastAttemptAt: new Date().toISOString(),
+        redwoodHeadshotSyncLastError: null,
       },
       context: {
         [REDWOOD_SKIP_HEADSHOT_PUSH_CONTEXT_KEY]: true,
@@ -124,6 +160,21 @@ export async function runRedwoodHeadshotSyncJob(
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     const stack = error instanceof Error ? error.stack : undefined
+
+    if (resolvedClientId) {
+      try {
+        await updateRedwoodHeadshotSyncState(payload, resolvedClientId, {
+          status: 'failed',
+          error: message,
+        })
+      } catch (stateError) {
+        payload.logger.error({
+          msg: '[redwood-headshot] Failed to persist headshot sync failure state',
+          clientId: resolvedClientId,
+          error: stateError instanceof Error ? stateError.message : String(stateError),
+        })
+      }
+    }
 
     payload.logger.error({
       msg: '[redwood-headshot] Failed to sync Redwood headshot',

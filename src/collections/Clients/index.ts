@@ -753,6 +753,42 @@ export const Clients: CollectionConfig = {
               },
             },
             {
+              name: 'redwoodHeadshotSyncStatus',
+              type: 'select',
+              defaultValue: 'not-queued',
+              options: [
+                { label: 'Not Queued', value: 'not-queued' },
+                { label: 'Queued', value: 'queued' },
+                { label: 'Synced', value: 'synced' },
+                { label: 'Failed', value: 'failed' },
+                { label: 'Manual Review', value: 'manual-review' },
+              ],
+              admin: {
+                readOnly: true,
+                description: 'Tracks Redwood-to-website headshot sync state.',
+              },
+            },
+            {
+              name: 'redwoodHeadshotSyncLastAttemptAt',
+              type: 'date',
+              admin: {
+                readOnly: true,
+                date: {
+                  pickerAppearance: 'dayAndTime',
+                  displayFormat: 'MM/dd/yyyy HH:mm',
+                },
+                description: 'Timestamp of the most recent Redwood headshot sync attempt.',
+              },
+            },
+            {
+              name: 'redwoodHeadshotSyncLastError',
+              type: 'textarea',
+              admin: {
+                readOnly: true,
+                description: 'Most recent Redwood headshot sync error message, if any.',
+              },
+            },
+            {
               name: 'redwoodHeadshotPushStatus',
               type: 'select',
               defaultValue: 'not-queued',

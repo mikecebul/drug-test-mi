@@ -75,6 +75,10 @@ describe('redwood queue helpers', () => {
 
   it('queues headshot jobs in the redwood queue', async () => {
     const payloadMock: any = {
+      findByID: vi.fn().mockResolvedValue({
+        id: 'client-2',
+      }),
+      update: vi.fn().mockResolvedValue({ id: 'client-2' }),
       jobs: {
         queue: vi.fn().mockResolvedValue({ id: 'job-2' }),
       },
@@ -94,6 +98,15 @@ describe('redwood queue helpers', () => {
           clientId: 'client-2',
           requestedByAdminId: 'admin-1',
         },
+      }),
+    )
+    expect(payloadMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'clients',
+        id: 'client-2',
+        data: expect.objectContaining({
+          redwoodHeadshotSyncStatus: 'queued',
+        }),
       }),
     )
   })

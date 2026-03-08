@@ -368,15 +368,17 @@ Important notes:
 
 ### Worker process for Payload Jobs
 
-Run two services from the same image:
+Run three services from the same image:
 
 - `payload`: web app (`node server.js`)
 - `worker-redwood`: dedicated jobs worker (continuous loop that drains the `redwood` queue)
+- `worker-redwood-schedules`: dedicated schedule handler that enqueues nightly Redwood maintenance jobs
 
-The repo `docker-compose.yml` includes both services. The worker command is:
+The repo `docker-compose.yml` includes all three services. The worker commands are:
 
 ```bash
 pnpm worker:redwood
+pnpm worker:redwood:schedules
 ```
 
 If local MongoDB is already using `27017`, run compose with a different Mongo host port:
@@ -385,9 +387,12 @@ If local MongoDB is already using `27017`, run compose with a different Mongo ho
 MONGO_PORT=27018 docker compose up -d --build worker-redwood
 ```
 
-Use this worker for Redwood automation jobs so Playwright work stays off the main web process.
+Use `worker-redwood` for Redwood automation jobs so Playwright work stays off the main web process.
 It polls continuously with a short idle sleep instead of waiting for the next minute tick.
 Tune throughput with `REDWOOD_WORKER_BATCH_LIMIT` and idle latency with `REDWOOD_WORKER_IDLE_SECONDS`.
+
+Use `worker-redwood-schedules` to process scheduled Payload jobs.
+It checks for due schedules every minute and is required for nightly tasks like the missing-headshot Redwood sync sweep.
 
 ### Redwood automation runtime policy
 

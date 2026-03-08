@@ -169,11 +169,13 @@ export interface Config {
     header: Header;
     footer: Footer;
     'company-info': CompanyInfo;
+    'payload-jobs-stats': PayloadJobsStat;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
     'company-info': CompanyInfoSelect<false> | CompanyInfoSelect<true>;
+    'payload-jobs-stats': PayloadJobsStatsSelect<false> | PayloadJobsStatsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -190,6 +192,7 @@ export interface Config {
       'redwood-import-client': TaskRedwoodImportClient;
       'redwood-update-client': TaskRedwoodUpdateClient;
       'redwood-sync-headshot': TaskRedwoodSyncHeadshot;
+      'redwood-sync-missing-headshots-nightly': TaskRedwoodSyncMissingHeadshotsNightly;
       'redwood-backfill-client-unique-id': TaskRedwoodBackfillClientUniqueId;
       'redwood-upload-headshot': TaskRedwoodUploadHeadshot;
       'redwood-sync-default-test': TaskRedwoodSyncDefaultTest;
@@ -1802,6 +1805,18 @@ export interface Client {
    */
   redwoodUniqueIdLastError?: string | null;
   /**
+   * Tracks Redwood-to-website headshot sync state.
+   */
+  redwoodHeadshotSyncStatus?: ('not-queued' | 'queued' | 'synced' | 'failed' | 'manual-review') | null;
+  /**
+   * Timestamp of the most recent Redwood headshot sync attempt.
+   */
+  redwoodHeadshotSyncLastAttemptAt?: string | null;
+  /**
+   * Most recent Redwood headshot sync error message, if any.
+   */
+  redwoodHeadshotSyncLastError?: string | null;
+  /**
    * Tracks website-to-Redwood headshot upload state.
    */
   redwoodHeadshotPushStatus?: ('not-queued' | 'queued' | 'synced' | 'failed' | 'manual-review') | null;
@@ -2674,6 +2689,7 @@ export interface PayloadJob {
           | 'redwood-import-client'
           | 'redwood-update-client'
           | 'redwood-sync-headshot'
+          | 'redwood-sync-missing-headshots-nightly'
           | 'redwood-backfill-client-unique-id'
           | 'redwood-upload-headshot'
           | 'redwood-sync-default-test'
@@ -2717,6 +2733,7 @@ export interface PayloadJob {
         | 'redwood-import-client'
         | 'redwood-update-client'
         | 'redwood-sync-headshot'
+        | 'redwood-sync-missing-headshots-nightly'
         | 'redwood-backfill-client-unique-id'
         | 'redwood-upload-headshot'
         | 'redwood-sync-default-test'
@@ -2731,6 +2748,15 @@ export interface PayloadJob {
    * Used for concurrency control. Jobs with the same key are subject to exclusive/supersedes rules.
    */
   concurrencyKey?: string | null;
+  meta?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3819,6 +3845,9 @@ export interface ClientsSelect<T extends boolean = true> {
   redwoodUniqueIdSyncStatus?: T;
   redwoodUniqueIdLastAttemptAt?: T;
   redwoodUniqueIdLastError?: T;
+  redwoodHeadshotSyncStatus?: T;
+  redwoodHeadshotSyncLastAttemptAt?: T;
+  redwoodHeadshotSyncLastError?: T;
   redwoodHeadshotPushStatus?: T;
   redwoodHeadshotPushLastAttemptAt?: T;
   redwoodHeadshotPushLastError?: T;
@@ -4017,6 +4046,7 @@ export interface PayloadJobsSelect<T extends boolean = true> {
   waitUntil?: T;
   processing?: T;
   concurrencyKey?: T;
+  meta?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4131,6 +4161,24 @@ export interface CompanyInfo {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-jobs-stats".
+ */
+export interface PayloadJobsStat {
+  id: string;
+  stats?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
 export interface HeaderSelect<T extends boolean = true> {
@@ -4197,6 +4245,16 @@ export interface CompanyInfoSelect<T extends boolean = true> {
         note?: T;
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-jobs-stats_select".
+ */
+export interface PayloadJobsStatsSelect<T extends boolean = true> {
+  stats?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
@@ -4304,6 +4362,18 @@ export interface TaskRedwoodSyncHeadshot {
   output: {
     status: string;
     headshotId?: string | null;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-sync-missing-headshots-nightly".
+ */
+export interface TaskRedwoodSyncMissingHeadshotsNightly {
+  input?: unknown;
+  output: {
+    status: string;
+    queuedCount: string;
+    failedCount: string;
   };
 }
 /**

@@ -103,12 +103,30 @@ export async function queueRedwoodHeadshotSync(
   const payload = await resolvePayload(payloadArg)
 
   try {
+    const client = await payload.findByID({
+      collection: 'clients',
+      id: clientId,
+      depth: 0,
+      overrideAccess: true,
+    })
+
     const queued = await payload.jobs.queue({
       task: 'redwood-sync-headshot',
       queue: 'redwood',
       input: {
         clientId,
         requestedByAdminId: requestedByAdminId || null,
+      },
+      overrideAccess: true,
+    })
+
+    await payload.update({
+      collection: 'clients',
+      id: client.id,
+      data: {
+        redwoodHeadshotSyncStatus: 'queued',
+        redwoodHeadshotSyncLastAttemptAt: new Date().toISOString(),
+        redwoodHeadshotSyncLastError: null,
       },
       overrideAccess: true,
     })

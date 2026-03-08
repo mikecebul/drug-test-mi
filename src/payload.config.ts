@@ -59,6 +59,7 @@ import { runRedwoodImportClientJob } from './collections/Clients/services/redwoo
 import { runRedwoodClientUpdateJob } from './collections/Clients/services/redwoodClientUpdate'
 import { runRedwoodHeadshotSyncJob } from './collections/Clients/services/redwoodHeadshotSync'
 import { runRedwoodHeadshotUploadJob } from './collections/Clients/services/redwoodHeadshotUpload'
+import { queueNightlyMissingHeadshotSyncs } from './collections/Clients/services/queueNightlyMissingHeadshotSyncs'
 import { runRedwoodUniqueIdSyncJob } from './collections/Clients/services/redwoodUniqueIdSync'
 import { runRedwoodDefaultTestSync } from './collections/Clients/services/redwoodDefaultTestSync'
 import type { RedwoodClientUpdateField } from './lib/redwood/queue'
@@ -476,6 +477,34 @@ export default buildConfig({
             output: {
               status: 'synced',
               headshotId: result.headshotId,
+            },
+          }
+        },
+      },
+      {
+        slug: 'redwood-sync-missing-headshots-nightly',
+        schedule: [
+          {
+            cron: '0 0 4 * * *',
+          },
+        ],
+        concurrency: {
+          key: ({ queue }) => `${queue}:redwood-sync-missing-headshots-nightly`,
+        },
+        retries: 1,
+        outputSchema: [
+          { name: 'status', type: 'text', required: true },
+          { name: 'queuedCount', type: 'text', required: true },
+          { name: 'failedCount', type: 'text', required: true },
+        ],
+        handler: async ({ req }) => {
+          const result = await queueNightlyMissingHeadshotSyncs(req.payload)
+
+          return {
+            output: {
+              status: 'completed',
+              queuedCount: String(result.queuedClientIds.length),
+              failedCount: String(result.failedClientIds.length),
             },
           }
         },

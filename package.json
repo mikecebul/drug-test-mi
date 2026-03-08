@@ -22,6 +22,7 @@
     "reinstall": "cross-env NODE_OPTIONS=--no-deprecation rm -rf node_modules && rm pnpm-lock.yaml && pnpm install",
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
     "worker:redwood": "cross-env NODE_OPTIONS=--no-deprecation sh -c 'while true; do pnpm payload jobs:run --queue redwood --limit \"${REDWOOD_WORKER_BATCH_LIMIT:-3}\"; sleep \"${REDWOOD_WORKER_IDLE_SECONDS:-2}\"; done'",
+    "worker:redwood:schedules": "cross-env NODE_OPTIONS=--no-deprecation sh -c 'pnpm payload jobs:handle-schedules --queue redwood --cron \"${REDWOOD_SCHEDULE_HANDLER_CRON:-0 * * * * *}\"'",
     "test": "pnpm test:integration:ci && pnpm test:e2e",
     "test:integration:ci": "vitest run",
     "test:e2e": "playwright test",

@@ -1,12 +1,12 @@
 'use client'
 
-import { useCallback, useRef, useState, useTransition, type SyntheticEvent } from 'react'
+import { useCallback, useRef, useState, type SyntheticEvent } from 'react'
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/utilities/cn'
-import { Camera, Check, Crop as CropIcon, Download, Loader2, X } from 'lucide-react'
+import { Camera, Check, Crop as CropIcon, Loader2, Upload, X } from 'lucide-react'
 import { formatDateOnly } from '@/lib/date-utils'
 import { toast } from 'sonner'
 import {
@@ -15,7 +15,6 @@ import {
   resolvePixelCropForSave,
   toJpegFileName,
 } from '@/lib/image-crop'
-import { syncRedwoodHeadshot } from '@/collections/Clients/components/syncRedwoodHeadshot'
 import { uploadHeadshot } from './uploadHeadshot'
 
 interface HeadshotCaptureCardProps {
@@ -41,8 +40,6 @@ const PAYLOAD_TOO_LARGE_MESSAGE = 'Image too large after processing; retry with 
  * The cropped image is uploaded immediately and linked to the client record.
  */
 export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptureCardProps) {
-  const [headshotUrl, setHeadshotUrl] = useState<string | undefined>(client.headshot ?? undefined)
-  const [currentHeadshotId, setCurrentHeadshotId] = useState<string | undefined>(client.headshotId ?? undefined)
   const [showCropper, setShowCropper] = useState(false)
   const [tempImage, setTempImage] = useState<string | null>(null)
   const [crop, setCrop] = useState<Crop>()
@@ -50,11 +47,12 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
   const [originalFileName, setOriginalFileName] = useState('headshot.jpg')
   const [isUploading, setIsUploading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [isSyncingFromRedwood, startSyncFromRedwood] = useTransition()
 
   const imageRef = useRef<HTMLImageElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
+
+  const applyHeadshotUpdate = useCallback((url: string, docId: string) => onHeadshotLinked?.(url, docId), [onHeadshotLinked])
 
   const resetCropState = useCallback(() => {
     setShowCropper(false)
@@ -123,7 +121,7 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
         Array.from(new Uint8Array(arrayBuffer)),
         croppedFile.type,
         croppedFile.name,
-        currentHeadshotId,
+        client.headshotId ?? undefined,
       )
 
       if (!result.success || !result.id) {
@@ -136,11 +134,9 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
         return
       }
 
-      setCurrentHeadshotId(result.id)
       if (result.url) {
-        setHeadshotUrl(result.url)
-        onHeadshotLinked?.(result.url, result.id)
-        toast.success(currentHeadshotId ? 'Headshot updated successfully' : 'Headshot uploaded successfully')
+        applyHeadshotUpdate(result.url, result.id)
+        toast.success(client.headshotId ? 'Headshot updated successfully' : 'Headshot uploaded successfully')
       } else {
         toast.info('Headshot saved successfully. Preview may take a moment to appear.')
       }
@@ -153,18 +149,18 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
       setIsUploading(false)
     }
   }, [
+    applyHeadshotUpdate,
     client.firstName,
+    client.headshotId,
     client.id,
     client.lastName,
     crop,
     completedCrop,
-    currentHeadshotId,
-    onHeadshotLinked,
     originalFileName,
     resetCropState,
   ])
 
-  const hasImage = Boolean(headshotUrl)
+  const hasImage = Boolean(client.headshot)
   const canApplyCrop = Boolean(
     resolvePixelCropForSave({
       image: imageRef.current,
@@ -181,18 +177,7 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
     fileInputRef.current?.click()
   }, [])
 
-  const syncFromRedwood = useCallback(() => {
-    startSyncFromRedwood(async () => {
-      const result = await syncRedwoodHeadshot(client.id)
-
-      if (!result.success) {
-        toast.error(result.error || 'Failed to queue Redwood headshot sync')
-        return
-      }
-
-      toast.success(result.jobId ? `Redwood headshot sync queued (job ${result.jobId})` : 'Redwood headshot sync queued')
-    })
-  }, [client.id])
+  const isHeadshotActionDisabled = isUploading
 
   return (
     <>
@@ -207,7 +192,7 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
           <div className="flex min-w-0 items-start gap-3 sm:gap-4">
             <div className="relative shrink-0">
               <Avatar className="size-20 sm:size-24">
-                <AvatarImage src={headshotUrl} alt={`${client.firstName} ${client.lastName}`} />
+                <AvatarImage src={client.headshot ?? undefined} alt={`${client.firstName} ${client.lastName}`} />
                 <AvatarFallback className="text-xl">
                   {client.firstName?.charAt(0)}
                   {client.lastName?.charAt(0)}
@@ -229,14 +214,14 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2">
             <Button
               type="button"
               variant="default"
               size="sm"
               onClick={openCapturePicker}
-              disabled={isUploading}
-              className="w-full"
+              disabled={isHeadshotActionDisabled}
+              className="h-10 w-full"
             >
               {isUploading ? (
                 <Loader2 className="mr-1.5 size-3.5 animate-spin" />
@@ -250,28 +235,13 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
               variant="outline"
               size="sm"
               onClick={openFilePicker}
-              disabled={isUploading}
-              className="w-full"
+              disabled={isHeadshotActionDisabled}
+              className="h-10 w-full"
             >
+              <Upload className="mr-1.5 size-3.5" />
               Use File Picker
             </Button>
           </div>
-
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={syncFromRedwood}
-            disabled={isUploading || isSyncingFromRedwood}
-            className="w-full"
-          >
-            {isSyncingFromRedwood ? (
-              <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-            ) : (
-              <Download className="mr-1.5 size-3.5" />
-            )}
-            Sync Headshot From Redwood
-          </Button>
         </div>
 
         {errorMessage && <p className="text-destructive text-sm">{errorMessage}</p>}
