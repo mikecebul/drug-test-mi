@@ -82,6 +82,15 @@ export async function runRedwoodHeadshotUploadJob(
       overrideAccess: true,
     })
 
+    payload.logger.info({
+      msg: '[redwood-headshot-upload] Redwood headshot upload completed',
+      clientId: client.id,
+      donorId: result.donorId || (typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId : null),
+      callInCode: result.callInCode || (typeof client.redwoodCallInCode === 'string' ? client.redwoodCallInCode : null),
+      screenshotPath: result.screenshotPath,
+      status: result.status,
+    })
+
     return {
       success: true,
       status: result.status,

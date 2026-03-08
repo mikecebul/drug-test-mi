@@ -6,11 +6,14 @@ import sharp from 'sharp'
 import { fetchDocument, type FetchDocumentResult } from '@/collections/DrugTests/services/documentFetch'
 import { buildRedwoodDonorEditUrl, buildRedwoodDonorViewUrl } from '@/lib/redwood/donor-urls'
 import {
+  captureRedwoodDiagnostic,
   readRedwoodDonorEditPhotoState,
   readRedwoodDonorMetadata,
   resolveRedwoodDonorMatch,
   type RedwoodDonorLookupClient,
 } from '@/lib/redwood/donor-search'
+import { formatDateForRedwood, mapGenderToRedwoodSex, normalizePhoneForRedwood } from '@/lib/redwood/client-fields'
+import type { RedwoodClientUpdateField } from '@/lib/redwood/queue'
 import {
   dismissCookieBanner,
   fillFirstVisibleInput,
@@ -74,6 +77,292 @@ async function readDonorSaveResult(page: any): Promise<{
       onDonorViewPage: /\/pages\/user\/donor\.aspx/i.test(window.location.pathname),
     }
   })
+}
+
+type RedwoodUpdateControlKind = 'select' | 'text'
+
+type RedwoodUpdatePlanEntry = {
+  expectedValue: string
+  field: RedwoodClientUpdateField
+  fragments: string[]
+  kind: RedwoodUpdateControlKind
+  acceptedSelectValues?: string[]
+}
+
+function buildFieldLookupSelectors(fragments: string[], tagNames: string[]): string[] {
+  return fragments.flatMap((fragment) =>
+    tagNames.flatMap((tagName) => [
+      `${tagName}[id*="${fragment}"]`,
+      `${tagName}[name*="${fragment}"]`,
+      `${tagName}[aria-label*="${fragment}"]`,
+      `${tagName}[placeholder*="${fragment}"]`,
+    ]),
+  )
+}
+
+async function setVisibleInputValueByFragments(page: any, fragments: string[], value: string): Promise<boolean> {
+  const selectorMatch = await fillFirstVisibleInput(page, buildFieldLookupSelectors(fragments, ['input', 'textarea']), value)
+  if (selectorMatch) {
+    return true
+  }
+
+  return await page.evaluate(
+    ({ rawFragments, rawValue }) => {
+      const fragments = rawFragments.map((fragment) => fragment.toLowerCase())
+      const matches = (element: Element): boolean => {
+        const htmlElement = element as HTMLElement
+        if (!(htmlElement.offsetWidth || htmlElement.offsetHeight || htmlElement.getClientRects().length)) {
+          return false
+        }
+
+        if (element instanceof HTMLInputElement && element.type === 'hidden') {
+          return false
+        }
+
+        const labelText =
+          element.closest('label')?.textContent ||
+          (element.id ? document.querySelector(`label[for="${element.id}"]`)?.textContent : '') ||
+          ''
+        const haystack = [
+          element.getAttribute('id') || '',
+          element.getAttribute('name') || '',
+          element.getAttribute('aria-label') || '',
+          element.getAttribute('placeholder') || '',
+          labelText,
+        ]
+          .join(' ')
+          .toLowerCase()
+
+        return fragments.some((fragment) => haystack.includes(fragment))
+      }
+
+      const controls = Array.from(document.querySelectorAll('input, textarea')).filter(
+        (element): element is HTMLInputElement | HTMLTextAreaElement => matches(element),
+      )
+
+      const control = controls[0]
+      if (!control) return false
+
+      const prototype =
+        control instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+      const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value')
+      descriptor?.set?.call(control, rawValue)
+      if (!descriptor?.set) {
+        control.value = rawValue
+      }
+      control.dispatchEvent(new Event('input', { bubbles: true }))
+      control.dispatchEvent(new Event('change', { bubbles: true }))
+      return true
+    },
+    { rawFragments: fragments, rawValue: value },
+  )
+}
+
+async function setVisibleSelectValueByFragments(
+  page: any,
+  fragments: string[],
+  acceptedValues: string[],
+): Promise<boolean> {
+  return await page.evaluate(
+    ({ rawAcceptedValues, rawFragments }) => {
+      const fragments = rawFragments.map((fragment) => fragment.toLowerCase())
+      const acceptedValues = rawAcceptedValues.map((value) => value.trim().toLowerCase())
+      const matches = (element: HTMLSelectElement): boolean => {
+        const htmlElement = element as HTMLElement
+        if (!(htmlElement.offsetWidth || htmlElement.offsetHeight || htmlElement.getClientRects().length)) {
+          return false
+        }
+
+        const labelText =
+          element.closest('label')?.textContent ||
+          (element.id ? document.querySelector(`label[for="${element.id}"]`)?.textContent : '') ||
+          ''
+        const haystack = [
+          element.getAttribute('id') || '',
+          element.getAttribute('name') || '',
+          element.getAttribute('aria-label') || '',
+          labelText,
+        ]
+          .join(' ')
+          .toLowerCase()
+
+        return fragments.some((fragment) => haystack.includes(fragment))
+      }
+
+      const controls = Array.from(document.querySelectorAll('select')).filter(
+        (element): element is HTMLSelectElement => matches(element),
+      )
+
+      const control = controls[0]
+      if (!control) return false
+
+      const options = Array.from(control.options)
+      const option = options.find((candidate) => {
+        const optionValue = candidate.value.trim().toLowerCase()
+        const optionLabel = candidate.text.trim().toLowerCase()
+        return acceptedValues.includes(optionValue) || acceptedValues.includes(optionLabel)
+      })
+
+      if (!option) return false
+
+      control.value = option.value
+      control.dispatchEvent(new Event('input', { bubbles: true }))
+      control.dispatchEvent(new Event('change', { bubbles: true }))
+      return true
+    },
+    { rawAcceptedValues: acceptedValues, rawFragments: fragments },
+  )
+}
+
+async function readVisibleControlValueByFragments(
+  page: any,
+  fragments: string[],
+  kind: RedwoodUpdateControlKind,
+): Promise<string | null> {
+  return await page.evaluate(
+    ({ rawFragments, rawKind }) => {
+      const fragments = rawFragments.map((fragment) => fragment.toLowerCase())
+      const controls = Array.from(document.querySelectorAll(rawKind === 'select' ? 'select' : 'input, textarea'))
+
+      for (const element of controls) {
+        const htmlElement = element as HTMLElement
+        if (!(htmlElement.offsetWidth || htmlElement.offsetHeight || htmlElement.getClientRects().length)) {
+          continue
+        }
+
+        if (element instanceof HTMLInputElement && element.type === 'hidden') {
+          continue
+        }
+
+        const labelText =
+          element.closest('label')?.textContent ||
+          (element.id ? document.querySelector(`label[for="${element.id}"]`)?.textContent : '') ||
+          ''
+        const haystack = [
+          element.getAttribute('id') || '',
+          element.getAttribute('name') || '',
+          element.getAttribute('aria-label') || '',
+          element.getAttribute('placeholder') || '',
+          labelText,
+        ]
+          .join(' ')
+          .toLowerCase()
+
+        if (!fragments.some((fragment) => haystack.includes(fragment))) {
+          continue
+        }
+
+        if (element instanceof HTMLSelectElement) {
+          return element.selectedOptions[0]?.value?.trim() || element.value.trim() || null
+        }
+
+        if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+          return element.value.trim() || null
+        }
+      }
+
+      return null
+    },
+    { rawFragments: fragments, rawKind: kind },
+  )
+}
+
+function normalizeComparableRedwoodValue(field: RedwoodClientUpdateField, value: string | null | undefined): string {
+  const normalized = (value || '').trim()
+
+  if (field === 'dob') {
+    if (!normalized) return ''
+    try {
+      return formatDateForRedwood(normalized)
+    } catch {
+      return normalized
+    }
+  }
+
+  if (field === 'phone') {
+    return normalizePhoneForRedwood(normalized)
+  }
+
+  if (field === 'gender') {
+    const lowered = normalized.toLowerCase()
+    if (['m', 'male'].includes(lowered)) return 'm'
+    if (['f', 'female'].includes(lowered)) return 'f'
+    return lowered
+  }
+
+  return normalized
+}
+
+function buildRedwoodClientUpdatePlan(args: {
+  client: RedwoodDonorLookupClient & {
+    gender?: string | null
+    phone?: string | null
+  }
+  changedFields: RedwoodClientUpdateField[]
+}): RedwoodUpdatePlanEntry[] {
+  const { changedFields, client } = args
+
+  const plan: RedwoodUpdatePlanEntry[] = []
+
+  for (const field of changedFields) {
+    switch (field) {
+      case 'firstName':
+        plan.push({
+          field,
+          kind: 'text',
+          fragments: ['FirstName', 'First Name', 'First'],
+          expectedValue: client.firstName.trim(),
+        })
+        break
+      case 'middleInitial':
+        plan.push({
+          field,
+          kind: 'text',
+          fragments: ['MiddleInitial', 'Middle Initial', 'Middle', 'MI'],
+          expectedValue: client.middleInitial?.trim() || '',
+        })
+        break
+      case 'lastName':
+        plan.push({
+          field,
+          kind: 'text',
+          fragments: ['LastName', 'Last Name', 'Last'],
+          expectedValue: client.lastName.trim(),
+        })
+        break
+      case 'dob':
+        plan.push({
+          field,
+          kind: 'text',
+          fragments: ['DateOfBirth', 'Date of Birth', 'Birth', 'DOB'],
+          expectedValue: client.dob ? formatDateForRedwood(client.dob) : '',
+        })
+        break
+      case 'gender': {
+        const sexValue = mapGenderToRedwoodSex(client.gender)
+        plan.push({
+          field,
+          kind: 'select',
+          fragments: ['Sex', 'Gender'],
+          expectedValue: sexValue,
+          acceptedSelectValues: sexValue ? [sexValue, sexValue === 'M' ? 'Male' : 'Female'] : ['', 'Select', '-- Select --'],
+        })
+        break
+      }
+      case 'phone':
+        plan.push({
+          field,
+          kind: 'text',
+          fragments: ['PhoneNumber', 'Phone Number', 'Phone', 'HomePhone'],
+          expectedValue: normalizePhoneForRedwood(client.phone),
+        })
+        break
+      default:
+        break
+    }
+  }
+
+  return plan
 }
 
 
@@ -344,6 +633,134 @@ async function resolveRedwoodEnv() {
   return { ...auth, donorSearchUrl }
 }
 
+export async function updateRedwoodClientDetails(args: {
+  client: RedwoodDonorLookupClient & {
+    gender?: string | null
+    id: string
+    phone?: string | null
+  }
+  accountNumber: string
+  changedFields: RedwoodClientUpdateField[]
+}): Promise<{
+  callInCode: string | null
+  donorId: string | null
+  screenshotPath: string
+  updatedFields: RedwoodClientUpdateField[]
+}> {
+  const { accountNumber, changedFields, client } = args
+  const plan = buildRedwoodClientUpdatePlan({ client, changedFields })
+  const { username, password, loginUrl, donorSearchUrl } = await resolveRedwoodEnv()
+
+  if (plan.length === 0) {
+    throw new Error('No Redwood donor fields were eligible for update.')
+  }
+
+  return withRedwoodBrowserSession(
+    {
+      acceptDownloads: true,
+      runtimeProfile: 'job',
+    },
+    async ({ page }) => {
+      try {
+        await loginToRedwood(page, { loginUrl, username, password })
+
+        const donorMatch = await resolveRedwoodDonorMatch({
+          accountNumber,
+          client,
+          donorSearchUrl,
+          page,
+        })
+
+        if (!donorMatch.donorId) {
+          throw new Error('Unable to resolve Redwood donor ID for client update.')
+        }
+
+        await page.goto(buildRedwoodDonorEditUrl(donorSearchUrl, donorMatch.donorId), {
+          waitUntil: 'domcontentloaded',
+          timeout: 30000,
+        })
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+        await page.waitForTimeout(800)
+        await dismissCookieBanner(page)
+        await enterEditMode(page)
+
+        const missingFields: RedwoodClientUpdateField[] = []
+
+        for (const entry of plan) {
+          const applied =
+            entry.kind === 'select'
+              ? await setVisibleSelectValueByFragments(page, entry.fragments, entry.acceptedSelectValues || [])
+              : await setVisibleInputValueByFragments(page, entry.fragments, entry.expectedValue)
+
+          if (!applied) {
+            missingFields.push(entry.field)
+          }
+        }
+
+        if (missingFields.length > 0) {
+          const screenshotPath = await captureRedwoodDiagnostic(page, `redwood-client-update-missing-fields-${client.id}`)
+          throw new Error(
+            `Unable to locate Redwood donor fields for update: ${Array.from(new Set(missingFields)).join(', ')}. Screenshot: ${screenshotPath}`,
+          )
+        }
+
+        await saveDonorRecord(page)
+
+        const saveResult = await readDonorSaveResult(page)
+        if (!saveResult.onDonorViewPage || (!saveResult.hasSavedElement && !saveResult.hasSavedMessage)) {
+          const screenshotPath = await captureRedwoodDiagnostic(page, `redwood-client-update-save-failed-${client.id}`)
+          throw new Error(`Redwood donor update did not complete successfully. Screenshot: ${screenshotPath}`)
+        }
+
+        await page.goto(buildRedwoodDonorEditUrl(donorSearchUrl, donorMatch.donorId), {
+          waitUntil: 'domcontentloaded',
+          timeout: 30000,
+        })
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+        await page.waitForTimeout(800)
+
+        const verificationFailures: RedwoodClientUpdateField[] = []
+        for (const entry of plan) {
+          const persistedValue = await readVisibleControlValueByFragments(page, entry.fragments, entry.kind)
+          if (
+            normalizeComparableRedwoodValue(entry.field, persistedValue) !==
+            normalizeComparableRedwoodValue(entry.field, entry.expectedValue)
+          ) {
+            verificationFailures.push(entry.field)
+          }
+        }
+
+        const screenshotPath = await captureRedwoodDiagnostic(page, `redwood-client-update-saved-${client.id}`)
+        if (verificationFailures.length > 0) {
+          throw new Error(
+            `Redwood donor update could not be verified for: ${Array.from(new Set(verificationFailures)).join(', ')}. Screenshot: ${screenshotPath}`,
+          )
+        }
+
+        await page.goto(buildRedwoodDonorViewUrl(donorSearchUrl, donorMatch.donorId), {
+          waitUntil: 'domcontentloaded',
+          timeout: 30000,
+        })
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+        await page.waitForTimeout(800)
+
+        const donorMetadata = await readRedwoodDonorMetadata(page)
+
+        return {
+          callInCode: donorMetadata.callInCode,
+          donorId: donorMetadata.donorId || donorMatch.donorId,
+          screenshotPath,
+          updatedFields: changedFields,
+        }
+      } catch (error) {
+        const screenshotPath = await captureRedwoodDiagnostic(page, `redwood-client-update-error-${client.id}`).catch(() => null)
+        const message = error instanceof Error ? error.message : String(error)
+        throw new Error(screenshotPath ? `${message} Screenshot: ${screenshotPath}` : message)
+      }
+    },
+  )
+}
+
 export async function backfillRedwoodClientUniqueId(args: {
   payload: Payload
   client: {
@@ -358,6 +775,14 @@ export async function backfillRedwoodClientUniqueId(args: {
 }) {
   const { client, accountNumber } = args
   const { username, password, loginUrl, donorSearchUrl } = await resolveRedwoodEnv()
+  const donorLookupClient: RedwoodDonorLookupClient = {
+    firstName: client.firstName,
+    lastName: client.lastName,
+    ...(client.middleInitial ? { middleInitial: client.middleInitial } : {}),
+    ...(client.dob ? { dob: client.dob } : {}),
+    ...(client.redwoodUniqueId ? { redwoodUniqueId: client.redwoodUniqueId } : {}),
+  }
+
   return withRedwoodBrowserSession(
     {
       acceptDownloads: true,
@@ -368,7 +793,7 @@ export async function backfillRedwoodClientUniqueId(args: {
         await loginToRedwood(page, { loginUrl, username, password })
         const donorMatch = await resolveRedwoodDonorMatch({
           accountNumber,
-          client,
+          client: donorLookupClient,
           donorSearchUrl,
           page,
         })

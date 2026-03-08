@@ -56,9 +56,11 @@ import { Employers } from './collections/Employers'
 import { Courts } from './collections/Courts'
 import { TestTypes } from './collections/TestTypes'
 import { runRedwoodImportClientJob } from './collections/Clients/services/redwoodImportWorkflow'
+import { runRedwoodClientUpdateJob } from './collections/Clients/services/redwoodClientUpdate'
 import { runRedwoodHeadshotSyncJob } from './collections/Clients/services/redwoodHeadshotSync'
 import { runRedwoodHeadshotUploadJob } from './collections/Clients/services/redwoodHeadshotUpload'
 import { runRedwoodUniqueIdSyncJob } from './collections/Clients/services/redwoodUniqueIdSync'
+import type { RedwoodClientUpdateField } from './lib/redwood/queue'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -402,6 +404,39 @@ export default buildConfig({
               status: result.status,
               matchedBy: result.matchedBy,
               screenshotPath: result.screenshotPath,
+            },
+          }
+        },
+      },
+      {
+        slug: 'redwood-update-client',
+        retries: 3,
+        inputSchema: [
+          { name: 'clientId', type: 'text', required: true },
+          { name: 'changedFieldsCsv', type: 'text', required: true },
+          { name: 'requestedByAdminId', type: 'text', required: false },
+        ],
+        outputSchema: [
+          { name: 'status', type: 'text', required: true },
+          { name: 'screenshotPath', type: 'text', required: false },
+          { name: 'updatedFieldsCsv', type: 'text', required: false },
+        ],
+        handler: async ({ input, req }) => {
+          const changedFields = input.changedFieldsCsv
+            .split(',')
+            .map((field) => field.trim())
+            .filter(Boolean) as RedwoodClientUpdateField[]
+
+          const result = await runRedwoodClientUpdateJob(req.payload, input.clientId, changedFields)
+          if (result.status === 'failed') {
+            throw new Error(result.error || 'Unknown Redwood client update error')
+          }
+
+          return {
+            output: {
+              status: result.status,
+              screenshotPath: result.screenshotPath,
+              updatedFieldsCsv: result.updatedFields?.join(','),
             },
           }
         },

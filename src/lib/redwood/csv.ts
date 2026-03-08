@@ -1,6 +1,11 @@
 import { format } from 'date-fns'
+import { calculateNameSimilarity } from '@/views/DrugTestWizard/utils/calculateSimilarity'
+import { formatDateForRedwood } from '@/lib/redwood/client-fields'
 
-export type RedwoodMatchBy = 'unique-id' | 'name-dob'
+const FUZZY_NAME_DOB_MIN_SCORE = 0.94
+const FUZZY_NAME_DOB_MIN_DELTA = 0.03
+
+export type RedwoodMatchBy = 'unique-id' | 'name-dob' | 'name-dob-fuzzy'
 
 export interface RedwoodExportDonor {
   uniqueId: string | null
@@ -23,6 +28,7 @@ export interface RedwoodClientMatchInput {
 export interface RedwoodDonorMatch {
   matchedBy: RedwoodMatchBy
   donor: RedwoodExportDonor
+  score?: number
 }
 
 export function extractRedwoodCallInCode(donor?: RedwoodExportDonor | null): string | null {
@@ -182,6 +188,36 @@ export function findRedwoodDonorMatch(
     if (byNameDob) {
       return { matchedBy: 'name-dob', donor: byNameDob }
     }
+
+    const fuzzyCandidates = donors
+      .filter((donor) => donor.dobKey === clientDob)
+      .map((donor) => ({
+        donor,
+        score: calculateNameSimilarity(
+          client.firstName,
+          client.lastName,
+          donor.firstName || '',
+          donor.lastName || '',
+          client.middleInitial || undefined,
+          donor.middleInitial || undefined,
+        ),
+      }))
+      .filter((candidate) => candidate.score >= FUZZY_NAME_DOB_MIN_SCORE)
+      .sort((a, b) => b.score - a.score)
+
+    const bestCandidate = fuzzyCandidates[0]
+    const runnerUp = fuzzyCandidates[1]
+
+    if (
+      bestCandidate &&
+      (!runnerUp || bestCandidate.score - runnerUp.score >= FUZZY_NAME_DOB_MIN_DELTA)
+    ) {
+      return {
+        matchedBy: 'name-dob-fuzzy',
+        donor: bestCandidate.donor,
+        score: bestCandidate.score,
+      }
+    }
   }
 
   return null
@@ -205,29 +241,6 @@ function asCsvCell(value: string): string {
   return `"${escaped}"`
 }
 
-function formatDob(value: string | Date): string {
-  if (typeof value === 'string') {
-    const trimmedValue = value.trim()
-    const dateOnlyMatch = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-    if (dateOnlyMatch) {
-      const [, year, month, day] = dateOnlyMatch
-      return `${month}/${day}/${year}`
-    }
-
-    const isoDateTimeMatch = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})T/)
-    if (isoDateTimeMatch) {
-      const [, year, month, day] = isoDateTimeMatch
-      return `${month}/${day}/${year}`
-    }
-  }
-
-  const parsed = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    throw new Error(`Invalid DOB value for Redwood import CSV: "${String(value)}"`)
-  }
-  return format(parsed, 'MM/dd/yyyy')
-}
-
 export function buildRedwoodImportCSV(input: RedwoodImportCSVInput): string {
   const headers = [
     'Account Number',
@@ -248,8 +261,8 @@ export function buildRedwoodImportCSV(input: RedwoodImportCSVInput): string {
     normalizeValue(input.middleInitial || ''),
     normalizeValue(input.lastName),
     normalizeValue(input.uniqueId),
-    formatDob(input.dob),
-    input.intakeDate ? formatDob(input.intakeDate) : '',
+    formatDateForRedwood(input.dob),
+    input.intakeDate ? formatDateForRedwood(input.intakeDate) : '',
     normalizeValue(input.sex || ''),
     normalizeValue(input.group || ''),
     normalizeValue(input.phoneNumber || ''),

@@ -5,6 +5,7 @@ import { anyone } from '@/access/anyone'
 import { notifyNewRegistration } from './hooks/notifyNewRegistration'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
 import { ensureRedwoodUniqueId } from './hooks/ensureRedwoodUniqueId'
+import { queueRedwoodClientUpdateAfterChange } from './hooks/queueRedwoodClientUpdate'
 import { queueRedwoodHeadshotPush } from './hooks/queueRedwoodHeadshotPush'
 import { syncDefaultTestTypeFromReferral } from './hooks/syncDefaultTestTypeFromReferral'
 
@@ -108,7 +109,7 @@ export const Clients: CollectionConfig = {
   },
   hooks: {
     beforeChange: [syncDefaultTestTypeFromReferral],
-    afterChange: [notifyNewRegistration, ensureRedwoodUniqueId, queueRedwoodHeadshotPush],
+    afterChange: [notifyNewRegistration, ensureRedwoodUniqueId, queueRedwoodClientUpdateAfterChange, queueRedwoodHeadshotPush],
   },
   admin: {
     defaultColumns: ['headshot', 'lastName', 'email', 'referralType'],
@@ -680,6 +681,42 @@ export const Clients: CollectionConfig = {
               },
             },
             {
+              name: 'redwoodClientUpdateStatus',
+              type: 'select',
+              defaultValue: 'not-queued',
+              options: [
+                { label: 'Not Queued', value: 'not-queued' },
+                { label: 'Queued', value: 'queued' },
+                { label: 'Synced', value: 'synced' },
+                { label: 'Failed', value: 'failed' },
+                { label: 'Manual Review', value: 'manual-review' },
+              ],
+              admin: {
+                readOnly: true,
+                description: 'Tracks batched Payload-to-Redwood client field updates.',
+              },
+            },
+            {
+              name: 'redwoodClientUpdateLastAttemptAt',
+              type: 'date',
+              admin: {
+                readOnly: true,
+                date: {
+                  pickerAppearance: 'dayAndTime',
+                  displayFormat: 'MM/dd/yyyy HH:mm',
+                },
+                description: 'Timestamp of the most recent Redwood client update attempt.',
+              },
+            },
+            {
+              name: 'redwoodClientUpdateLastError',
+              type: 'textarea',
+              admin: {
+                readOnly: true,
+                description: 'Most recent Redwood client update error message, if any.',
+              },
+            },
+            {
               name: 'redwoodUniqueIdSyncStatus',
               type: 'select',
               defaultValue: 'not-queued',
@@ -795,6 +832,7 @@ export const Clients: CollectionConfig = {
                 { label: 'Unique ID', value: 'unique-id' },
                 { label: 'Email', value: 'email' },
                 { label: 'Name + DOB', value: 'name-dob' },
+                { label: 'Name + DOB (Fuzzy)', value: 'name-dob-fuzzy' },
               ],
               admin: {
                 readOnly: true,

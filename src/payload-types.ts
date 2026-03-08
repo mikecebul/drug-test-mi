@@ -188,6 +188,7 @@ export interface Config {
   jobs: {
     tasks: {
       'redwood-import-client': TaskRedwoodImportClient;
+      'redwood-update-client': TaskRedwoodUpdateClient;
       'redwood-sync-headshot': TaskRedwoodSyncHeadshot;
       'redwood-backfill-client-unique-id': TaskRedwoodBackfillClientUniqueId;
       'redwood-upload-headshot': TaskRedwoodUploadHeadshot;
@@ -1776,6 +1777,18 @@ export interface Client {
    */
   redwoodDonorId?: string | null;
   /**
+   * Tracks batched Payload-to-Redwood client field updates.
+   */
+  redwoodClientUpdateStatus?: ('not-queued' | 'queued' | 'synced' | 'failed' | 'manual-review') | null;
+  /**
+   * Timestamp of the most recent Redwood client update attempt.
+   */
+  redwoodClientUpdateLastAttemptAt?: string | null;
+  /**
+   * Most recent Redwood client update error message, if any.
+   */
+  redwoodClientUpdateLastError?: string | null;
+  /**
    * Tracks Redwood donor unique ID backfill state.
    */
   redwoodUniqueIdSyncStatus?: ('not-queued' | 'queued' | 'synced' | 'failed' | 'manual-review') | null;
@@ -1814,7 +1827,7 @@ export interface Client {
   /**
    * How this client was matched in Redwood export.
    */
-  redwoodMatchedBy?: ('unique-id' | 'email' | 'name-dob') | null;
+  redwoodMatchedBy?: ('unique-id' | 'email' | 'name-dob' | 'name-dob-fuzzy') | null;
   /**
    * Matched donor identifier from Redwood export.
    */
@@ -2658,6 +2671,7 @@ export interface PayloadJob {
         taskSlug:
           | 'inline'
           | 'redwood-import-client'
+          | 'redwood-update-client'
           | 'redwood-sync-headshot'
           | 'redwood-backfill-client-unique-id'
           | 'redwood-upload-headshot'
@@ -2699,6 +2713,7 @@ export interface PayloadJob {
     | (
         | 'inline'
         | 'redwood-import-client'
+        | 'redwood-update-client'
         | 'redwood-sync-headshot'
         | 'redwood-backfill-client-unique-id'
         | 'redwood-upload-headshot'
@@ -3791,6 +3806,9 @@ export interface ClientsSelect<T extends boolean = true> {
   redwoodUniqueId?: T;
   redwoodCallInCode?: T;
   redwoodDonorId?: T;
+  redwoodClientUpdateStatus?: T;
+  redwoodClientUpdateLastAttemptAt?: T;
+  redwoodClientUpdateLastError?: T;
   redwoodUniqueIdSyncStatus?: T;
   redwoodUniqueIdLastAttemptAt?: T;
   redwoodUniqueIdLastError?: T;
@@ -4248,6 +4266,22 @@ export interface TaskRedwoodImportClient {
     status: string;
     matchedBy?: string | null;
     screenshotPath?: string | null;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-update-client".
+ */
+export interface TaskRedwoodUpdateClient {
+  input: {
+    clientId: string;
+    changedFieldsCsv: string;
+    requestedByAdminId?: string | null;
+  };
+  output: {
+    status: string;
+    screenshotPath?: string | null;
+    updatedFieldsCsv?: string | null;
   };
 }
 /**

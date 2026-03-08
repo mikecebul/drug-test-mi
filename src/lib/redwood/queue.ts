@@ -5,6 +5,7 @@ import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/red
 import { buildRedwoodUniqueId } from '@/lib/redwood/unique-id'
 
 export type RedwoodQueueSource = 'frontend-registration' | 'admin-registration' | 'wizard-registration' | 'manual'
+export type RedwoodClientUpdateField = 'firstName' | 'middleInitial' | 'lastName' | 'dob' | 'gender' | 'phone'
 
 async function resolvePayload(payload?: Payload): Promise<Payload> {
   if (payload) return payload
@@ -284,6 +285,75 @@ export async function queueRedwoodHeadshotUpload(
       message,
       context: {
         clientId,
+        requestedByAdminId,
+        error: message,
+      },
+    })
+
+    throw error
+  }
+}
+
+export async function queueRedwoodClientUpdate(
+  clientId: string,
+  changedFields: RedwoodClientUpdateField[],
+  requestedByAdminId?: string,
+  payloadArg?: Payload,
+): Promise<{ jobId: string }> {
+  const payload = await resolvePayload(payloadArg)
+
+  try {
+    const uniqueFields = Array.from(new Set(changedFields.map((field) => field.trim()).filter(Boolean))).sort() as RedwoodClientUpdateField[]
+    if (uniqueFields.length === 0) {
+      throw new Error('Redwood client update was not queued because no syncable fields changed.')
+    }
+
+    const accountNumber = getRedwoodAccountNumber()
+    assertRedwoodMutationAllowed(accountNumber, 'client update')
+
+    const queued = await payload.jobs.queue({
+      task: 'redwood-update-client',
+      queue: 'redwood',
+      input: {
+        clientId,
+        changedFieldsCsv: uniqueFields.join(','),
+        requestedByAdminId: requestedByAdminId || null,
+      },
+      overrideAccess: true,
+    })
+
+    await payload.update({
+      collection: 'clients',
+      id: clientId,
+      data: {
+        redwoodClientUpdateStatus: 'queued',
+        redwoodClientUpdateLastAttemptAt: new Date().toISOString(),
+        redwoodClientUpdateLastError: null,
+      },
+      overrideAccess: true,
+    })
+
+    payload.logger.info({
+      msg: '[redwood-queue] Queued redwood-update-client',
+      clientId,
+      changedFields: uniqueFields,
+      requestedByAdminId,
+      queue: 'redwood',
+      jobId: queued.id,
+    })
+
+    return { jobId: queued.id }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    await createAdminAlert(payload, {
+      severity: 'high',
+      alertType: 'data-integrity',
+      title: `Failed to queue Redwood client update for client ${clientId}`,
+      message,
+      context: {
+        clientId,
+        changedFields,
         requestedByAdminId,
         error: message,
       },

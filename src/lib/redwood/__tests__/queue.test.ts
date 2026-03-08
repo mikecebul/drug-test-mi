@@ -5,6 +5,7 @@ vi.mock('@/lib/admin-alerts', () => ({
 }))
 
 import {
+  queueRedwoodClientUpdate,
   queueRedwoodHeadshotSync,
   queueRedwoodHeadshotUpload,
   queueRedwoodImportForClient,
@@ -92,6 +93,42 @@ describe('redwood queue helpers', () => {
           clientId: 'client-2',
           requestedByAdminId: 'admin-1',
         },
+      }),
+    )
+  })
+
+  it('queues batched client update jobs in the redwood queue', async () => {
+    const payloadMock: any = {
+      update: vi.fn().mockResolvedValue({ id: 'client-2' }),
+      jobs: {
+        queue: vi.fn().mockResolvedValue({ id: 'job-update-1' }),
+      },
+      logger: {
+        info: vi.fn(),
+      },
+    }
+
+    const result = await queueRedwoodClientUpdate('client-2', ['phone', 'lastName', 'phone'], 'admin-1', payloadMock)
+
+    expect(result.jobId).toBe('job-update-1')
+    expect(payloadMock.jobs.queue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        task: 'redwood-update-client',
+        queue: 'redwood',
+        input: {
+          clientId: 'client-2',
+          changedFieldsCsv: 'lastName,phone',
+          requestedByAdminId: 'admin-1',
+        },
+      }),
+    )
+    expect(payloadMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'clients',
+        id: 'client-2',
+        data: expect.objectContaining({
+          redwoodClientUpdateStatus: 'queued',
+        }),
       }),
     )
   })

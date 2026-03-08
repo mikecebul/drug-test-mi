@@ -46,6 +46,26 @@ describe('parseRedwoodExport + findRedwoodDonorMatch', () => {
     expect(match).toBeNull()
   })
 
+  it('matches by fuzzy name + DOB when no exact name match exists', () => {
+    const donors = parseRedwoodExport(
+      [
+        '"Unique ID","Email Address","First Name","Middle Initial","Last Name","Date of Birth"',
+        '"FZY123","michael@example.com","Micheal","A","Cebulski","1990-01-01"',
+      ].join('\n'),
+    )
+
+    const match = findRedwoodDonorMatch(donors, {
+      uniqueId: 'MISSING',
+      firstName: 'Michael',
+      middleInitial: 'A',
+      lastName: 'Cebulski',
+      dob: '1990-01-01',
+    })
+
+    expect(match?.matchedBy).toBe('name-dob-fuzzy')
+    expect(match?.donor.email).toBe('michael@example.com')
+  })
+
   it('extracts Redwood call-in code from export rows', () => {
     const donors = parseRedwoodExport(
       [
