@@ -6,6 +6,7 @@ vi.mock('@/lib/admin-alerts', () => ({
 
 import {
   queueRedwoodClientUpdate,
+  queueRedwoodDefaultTestSync,
   queueRedwoodHeadshotSync,
   queueRedwoodHeadshotUpload,
   queueRedwoodImportForClient,
@@ -117,7 +118,7 @@ describe('redwood queue helpers', () => {
         queue: 'redwood',
         input: {
           clientId: 'client-2',
-          changedFieldsCsv: 'lastName,phone',
+          changedFieldsCsv: 'dob,firstName,gender,lastName,middleInitial,phone',
           requestedByAdminId: 'admin-1',
         },
       }),
@@ -223,6 +224,30 @@ describe('redwood queue helpers', () => {
         input: {
           clientId: 'client-5',
           requestedByAdminId: 'admin-4',
+        },
+      }),
+    )
+  })
+
+  it('queues Redwood default-test sync jobs in the redwood queue', async () => {
+    const payloadMock: any = {
+      jobs: {
+        queue: vi.fn().mockResolvedValue({ id: 'job-default-test-1' }),
+      },
+      logger: {
+        info: vi.fn(),
+      },
+    }
+
+    const result = await queueRedwoodDefaultTestSync('client-7', payloadMock)
+
+    expect(result.jobId).toBe('job-default-test-1')
+    expect(payloadMock.jobs.queue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        task: 'redwood-sync-default-test',
+        queue: 'redwood',
+        input: {
+          clientId: 'client-7',
         },
       }),
     )

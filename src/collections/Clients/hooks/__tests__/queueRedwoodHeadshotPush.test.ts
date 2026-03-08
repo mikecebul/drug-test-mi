@@ -14,6 +14,7 @@ describe('queueRedwoodHeadshotPush', () => {
       doc: {
         id: 'client-1',
         headshot: 'media-new',
+        redwoodSyncStatus: 'synced',
       },
       previousDoc: {
         headshot: 'media-old',
@@ -33,6 +34,34 @@ describe('queueRedwoodHeadshotPush', () => {
     } as any)
 
     expect(queueRedwoodHeadshotUpload).toHaveBeenCalledWith('client-1', 'admin-1', expect.anything())
+  })
+
+  it('skips auto-queueing when the client is not Redwood-ready yet', async () => {
+    await queueRedwoodHeadshotPush({
+      doc: {
+        id: 'client-2',
+        headshot: 'media-new',
+        redwoodSyncStatus: 'queued',
+      },
+      previousDoc: {
+        headshot: 'media-old',
+      },
+      req: {
+        context: {},
+        payload: {
+          logger: {
+            error: vi.fn(),
+            info: vi.fn(),
+          },
+        },
+        user: {
+          id: 'admin-1',
+          collection: 'admins',
+        },
+      },
+    } as any)
+
+    expect(queueRedwoodHeadshotUpload).toHaveBeenCalledTimes(1)
   })
 
   it('skips queueing when the update originated from Redwood pull sync', async () => {

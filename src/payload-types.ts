@@ -192,6 +192,7 @@ export interface Config {
       'redwood-sync-headshot': TaskRedwoodSyncHeadshot;
       'redwood-backfill-client-unique-id': TaskRedwoodBackfillClientUniqueId;
       'redwood-upload-headshot': TaskRedwoodUploadHeadshot;
+      'redwood-sync-default-test': TaskRedwoodSyncDefaultTest;
       createCollectionExport: TaskCreateCollectionExport;
       createCollectionImport: TaskCreateCollectionImport;
       inline: {
@@ -2675,6 +2676,7 @@ export interface PayloadJob {
           | 'redwood-sync-headshot'
           | 'redwood-backfill-client-unique-id'
           | 'redwood-upload-headshot'
+          | 'redwood-sync-default-test'
           | 'createCollectionExport'
           | 'createCollectionImport';
         taskID: string;
@@ -2717,6 +2719,7 @@ export interface PayloadJob {
         | 'redwood-sync-headshot'
         | 'redwood-backfill-client-unique-id'
         | 'redwood-upload-headshot'
+        | 'redwood-sync-default-test'
         | 'createCollectionExport'
         | 'createCollectionImport'
       )
@@ -2724,6 +2727,10 @@ export interface PayloadJob {
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
+  /**
+   * Used for concurrency control. Jobs with the same key are subject to exclusive/supersedes rules.
+   */
+  concurrencyKey?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -4009,6 +4016,7 @@ export interface PayloadJobsSelect<T extends boolean = true> {
   queue?: T;
   waitUntil?: T;
   processing?: T;
+  concurrencyKey?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4320,6 +4328,19 @@ export interface TaskRedwoodUploadHeadshot {
   input: {
     clientId: string;
     requestedByAdminId?: string | null;
+  };
+  output: {
+    status: string;
+    screenshotPath?: string | null;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-sync-default-test".
+ */
+export interface TaskRedwoodSyncDefaultTest {
+  input: {
+    clientId: string;
   };
   output: {
     status: string;

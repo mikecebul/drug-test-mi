@@ -371,7 +371,7 @@ Important notes:
 Run two services from the same image:
 
 - `payload`: web app (`node server.js`)
-- `worker-redwood`: dedicated jobs worker (`jobs:run` on `redwood` queue every minute)
+- `worker-redwood`: dedicated jobs worker (continuous loop that drains the `redwood` queue)
 
 The repo `docker-compose.yml` includes both services. The worker command is:
 
@@ -386,6 +386,8 @@ MONGO_PORT=27018 docker compose up -d --build worker-redwood
 ```
 
 Use this worker for Redwood automation jobs so Playwright work stays off the main web process.
+It polls continuously with a short idle sleep instead of waiting for the next minute tick.
+Tune throughput with `REDWOOD_WORKER_BATCH_LIMIT` and idle latency with `REDWOOD_WORKER_IDLE_SECONDS`.
 
 ### Redwood automation runtime policy
 

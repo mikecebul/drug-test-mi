@@ -8,13 +8,21 @@ import { formatDateForRedwood, mapGenderToRedwoodSex, normalizePhoneForRedwood }
 import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
 import {
   buildRedwoodImportCSV,
-  extractRedwoodCallInCode,
-  findRedwoodDonorMatch,
   parseRedwoodExport,
-  type RedwoodExportDonor,
   type RedwoodMatchBy,
 } from '@/lib/redwood/csv'
-import { resolveRedwoodDonorMatch } from '@/lib/redwood/donor-search'
+import {
+  buildRedwoodDonorCandidates,
+  captureRedwoodDiagnostic,
+  findExactRedwoodUniqueIdCandidate,
+  openRedwoodCandidateDetail,
+  openRedwoodSearchResultsForLastName,
+  openRedwoodSearchResultsForUniqueId,
+  readRedwoodDonorMetadata,
+  readRedwoodDonorResultRows,
+  resolveRedwoodDonorMatch,
+  selectBestRedwoodDonorCandidate,
+} from '@/lib/redwood/donor-search'
 import {
   type RedwoodBrowserRuntimeProfile,
   clickFirstVisible,
@@ -26,8 +34,8 @@ import {
   withRedwoodBrowserSession,
 } from '@/lib/redwood/playwright'
 import { mapReferralTypeToRedwoodGroup } from '@/lib/redwood/groups'
+import { queueRedwoodDefaultTestSync } from '@/lib/redwood/queue'
 import { buildRedwoodUniqueId } from '@/lib/redwood/unique-id'
-import { runRedwoodDefaultTestSync } from './redwoodDefaultTestSync'
 
 const DEFAULT_REDWOOD_EXPORT_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/ExportDonors.aspx'
 const DEFAULT_REDWOOD_IMPORT_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/ImportDonors.aspx'
@@ -142,18 +150,6 @@ async function downloadExportCSV(args: {
   return { csv, csvPath: exportPath }
 }
 
-function buildMatchedDonorName(match: {
-  donor: {
-    firstName: string | null
-    lastName: string | null
-    email: string | null
-    uniqueId: string | null
-  }
-}): string {
-  const fullName = [match.donor.firstName, match.donor.lastName].filter(Boolean).join(' ').trim()
-  return fullName || match.donor.email || match.donor.uniqueId || 'Existing Redwood donor'
-}
-
 async function extractRedwoodServerDate(page: any): Promise<string | null> {
   const bodyText = (await page.textContent('body').catch(() => null)) || ''
   const dayNameMatch = bodyText.match(
@@ -194,6 +190,135 @@ function resolveDonorGroup(args: {
 
   const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1])
   return sorted[0][0]
+}
+
+function isRedwoodSearchNoMatchError(message: string): boolean {
+  return (
+    /no redwood donor rows found/i.test(message) ||
+    /no dob-verified redwood donor match found/i.test(message) ||
+    /no confident name-only redwood donor match found/i.test(message)
+  )
+}
+
+async function detectDirectRedwoodDonorMatch(args: {
+  accountNumber: string
+  client: {
+    dob: string
+    firstName: string
+    id: string
+    lastName: string
+    middleInitial?: string | null
+  }
+  donorSearchUrl: string
+  page: any
+  uniqueId: string
+}): Promise<
+  | {
+      kind: 'matched'
+      callInCode: string | null
+      donorId: string | null
+      matchedBy: RedwoodMatchBy
+      matchedDonorName: string
+      screenshotPath: string
+    }
+  | {
+      kind: 'none'
+    }
+  | {
+      kind: 'manual-review'
+      message: string
+      screenshotPath: string
+    }
+> {
+  const { accountNumber, client, donorSearchUrl, page, uniqueId } = args
+
+  try {
+    await openRedwoodSearchResultsForUniqueId({
+      accountNumber,
+      donorSearchUrl,
+      page,
+      uniqueId,
+    })
+
+    const { rows, tableRows } = await readRedwoodDonorResultRows(
+      page,
+      `No Redwood donor rows found for unique ID "${uniqueId}"`,
+    )
+    const candidates = buildRedwoodDonorCandidates(tableRows, accountNumber, client)
+    const exactCandidate = findExactRedwoodUniqueIdCandidate(candidates, uniqueId)
+
+    if (exactCandidate) {
+      await openRedwoodCandidateDetail(page, rows, exactCandidate.rowIndex)
+      const donorMetadata = await readRedwoodDonorMetadata(page)
+      const screenshotPath = await captureRedwoodDiagnostic(page, `redwood-import-direct-unique-id-match-${client.id}`)
+
+      return {
+        kind: 'matched',
+        callInCode: donorMetadata.callInCode,
+        donorId: donorMetadata.donorId,
+        matchedBy: 'unique-id',
+        matchedDonorName: exactCandidate.displayName,
+        screenshotPath,
+      }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (!isRedwoodSearchNoMatchError(message)) {
+      const screenshotPath = await captureRedwoodDiagnostic(page, `redwood-import-direct-unique-id-review-${client.id}`).catch(
+        () => '',
+      )
+      return {
+        kind: 'manual-review',
+        message,
+        screenshotPath,
+      }
+    }
+  }
+
+  try {
+    await openRedwoodSearchResultsForLastName({
+      accountNumber,
+      donorSearchUrl,
+      lastName: client.lastName,
+      page,
+    })
+
+    const { rows, tableRows } = await readRedwoodDonorResultRows(
+      page,
+      `No Redwood donor rows found for last name "${client.lastName}"`,
+    )
+    const candidates = buildRedwoodDonorCandidates(tableRows, accountNumber, client)
+    const selectedCandidate = selectBestRedwoodDonorCandidate(candidates, client.dob)
+
+    await openRedwoodCandidateDetail(page, rows, selectedCandidate.rowIndex)
+    const donorMetadata = await readRedwoodDonorMetadata(page)
+    const screenshotPath = await captureRedwoodDiagnostic(page, `redwood-import-direct-name-match-${client.id}`)
+
+    return {
+      kind: 'matched',
+      callInCode: donorMetadata.callInCode,
+      donorId: donorMetadata.donorId,
+      matchedBy: 'name-dob',
+      matchedDonorName: selectedCandidate.displayName,
+      screenshotPath,
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (isRedwoodSearchNoMatchError(message)) {
+      return {
+        kind: 'none',
+      }
+    }
+
+    const screenshotPath = await captureRedwoodDiagnostic(page, `redwood-import-direct-search-review-${client.id}`).catch(
+      () => '',
+    )
+    return {
+      kind: 'manual-review',
+      message,
+      screenshotPath,
+    }
+  }
 }
 
 function isImportProcessedSummary(summary: string): boolean {
@@ -586,30 +711,26 @@ async function routeImportToManualReview(args: {
   }
 }
 
-async function routeMatchedDonorToManualReview(args: {
-  payload: Payload
+async function routeDirectSearchMatchToManualReview(args: {
+  callInCode: string | null
   clientId: string
+  donorId: string | null
+  matchedBy: RedwoodMatchBy
+  matchedDonorName: string
+  payload: Payload
+  screenshotPath: string
   source: string
-  donorMatch: {
-    matchedBy: RedwoodMatchBy
-    donor: RedwoodExportDonor
-    score?: number
-  }
-}): Promise<{ status: 'manual-review'; matchedBy: RedwoodMatchBy }> {
-  const { payload, clientId, donorMatch, source } = args
-
-  const matchedDonorName = buildMatchedDonorName(donorMatch)
-  const scoreMessage =
-    typeof donorMatch.score === 'number' ? ` Similarity score: ${donorMatch.score.toFixed(3)}.` : ''
-  const uniqueId = donorMatch.donor.uniqueId?.trim() || null
-  const email = donorMatch.donor.email?.trim() || null
-  const message = `Potential existing Redwood donor "${matchedDonorName}" matched by ${donorMatch.matchedBy}.${scoreMessage} Manual review required before import.`
+}): Promise<{ status: 'manual-review'; matchedBy: RedwoodMatchBy; screenshotPath: string }> {
+  const { callInCode, clientId, donorId, matchedBy, matchedDonorName, payload, screenshotPath, source } = args
+  const message = `Potential existing Redwood donor "${matchedDonorName}" matched by ${matchedBy}. Manual review required before import.`
 
   await updateClientRedwoodState(payload, clientId, {
     redwoodSyncStatus: 'manual-review',
-    redwoodMatchedBy: donorMatch.matchedBy,
+    redwoodMatchedBy: matchedBy,
     redwoodMatchedDonorName: matchedDonorName,
-    redwoodCallInCode: extractRedwoodCallInCode(donorMatch.donor),
+    redwoodCallInCode: callInCode,
+    redwoodDonorId: donorId,
+    redwoodImportScreenshotPath: screenshotPath || null,
     redwoodLastAttemptAt: new Date().toISOString(),
     redwoodLastError: message,
   })
@@ -623,29 +744,74 @@ async function routeMatchedDonorToManualReview(args: {
       clientId,
       source,
       queue: 'redwood',
-      matchedBy: donorMatch.matchedBy,
+      matchedBy,
       matchedDonorName,
-      matchedDonorUniqueId: uniqueId,
-      matchedDonorEmail: email,
-      similarityScore: donorMatch.score ?? null,
+      matchedDonorId: donorId,
+      screenshotPath: screenshotPath || null,
     },
   })
 
   payload.logger.warn({
-    msg: '[redwood-import] Existing Redwood donor matched before import; routing to manual review',
+    msg: '[redwood-import] Direct Redwood search matched an existing donor; routing to manual review',
     clientId,
     source,
-    matchedBy: donorMatch.matchedBy,
+    matchedBy,
+    matchedDonorId: donorId,
     matchedDonorName,
-    matchedDonorUniqueId: uniqueId,
-    matchedDonorEmail: email,
-    similarityScore: donorMatch.score ?? null,
     queue: 'redwood',
+    screenshotPath: screenshotPath || null,
   })
 
   return {
     status: 'manual-review',
-    matchedBy: donorMatch.matchedBy,
+    matchedBy,
+    screenshotPath,
+  }
+}
+
+async function routeDirectSearchIssueToManualReview(args: {
+  clientId: string
+  message: string
+  payload: Payload
+  screenshotPath: string
+  source: string
+}): Promise<{ status: 'manual-review'; screenshotPath: string }> {
+  const { clientId, message, payload, screenshotPath, source } = args
+
+  await updateClientRedwoodState(payload, clientId, {
+    redwoodSyncStatus: 'manual-review',
+    redwoodMatchedBy: null,
+    redwoodMatchedDonorName: null,
+    redwoodImportScreenshotPath: screenshotPath || null,
+    redwoodLastAttemptAt: new Date().toISOString(),
+    redwoodLastError: message,
+  })
+
+  await createAdminAlert(payload, {
+    severity: 'high',
+    alertType: 'data-integrity',
+    title: `Redwood donor search needs manual review for client ${clientId}`,
+    message,
+    context: {
+      clientId,
+      source,
+      queue: 'redwood',
+      screenshotPath: screenshotPath || null,
+    },
+  })
+
+  payload.logger.warn({
+    msg: '[redwood-import] Direct Redwood donor search requires manual review',
+    clientId,
+    source,
+    queue: 'redwood',
+    screenshotPath: screenshotPath || null,
+    error: message,
+  })
+
+  return {
+    status: 'manual-review',
+    screenshotPath,
   }
 }
 
@@ -720,13 +886,6 @@ export async function runRedwoodImportClientJob(args: {
   const clientDob = client.dob
   const uniqueId = (typeof client.redwoodUniqueId === 'string' && client.redwoodUniqueId.trim()) || buildRedwoodUniqueId(client.id)
 
-  await updateClientRedwoodState(payload, client.id, {
-    redwoodUniqueId: uniqueId,
-    redwoodSyncStatus: 'export-checked',
-    redwoodLastAttemptAt: new Date().toISOString(),
-    redwoodLastError: null,
-  })
-
   let diagnosticScreenshotPath: string | null = null
 
   try {
@@ -737,45 +896,81 @@ export async function runRedwoodImportClientJob(args: {
     }, async ({ page }) => {
       await loginToRedwood(page, { loginUrl, username, password })
 
-      const { csv, csvPath } = await downloadExportCSV({
+      const directMatch = await detectDirectRedwoodDonorMatch({
+        accountNumber,
+        client: {
+          dob: clientDob,
+          firstName: client.firstName,
+          id: String(client.id),
+          lastName: client.lastName,
+          middleInitial: client.middleInitial || null,
+        },
+        donorSearchUrl,
         page,
-        exportUrl,
-        outputDir,
-      })
-      const redwoodServerDate = await extractRedwoodServerDate(page)
-
-      const donors = parseRedwoodExport(csv)
-      const donorsForAccount = filterDonorsByAccountNumber(donors, accountNumber)
-      const donorMatch = findRedwoodDonorMatch(donorsForAccount, {
         uniqueId,
-        firstName: client.firstName,
-        middleInitial: client.middleInitial || null,
-        lastName: client.lastName,
-        dob: client.dob,
       })
 
-      payload.logger.info({
-        msg: '[redwood-import] Export parsed',
-        clientId,
-        source,
-        csvPath,
-        donorCount: donorsForAccount.length,
-        matchedBy: donorMatch?.matchedBy,
-      })
-
-      if (donorMatch) {
-        return routeMatchedDonorToManualReview({
-          payload,
+      if (directMatch.kind === 'matched') {
+        diagnosticScreenshotPath = directMatch.screenshotPath
+        return routeDirectSearchMatchToManualReview({
+          callInCode: directMatch.callInCode,
           clientId: client.id,
-          donorMatch,
+          donorId: directMatch.donorId,
+          matchedBy: directMatch.matchedBy,
+          matchedDonorName: directMatch.matchedDonorName,
+          payload,
+          screenshotPath: directMatch.screenshotPath,
           source,
         })
       }
 
-      const donorGroup = resolveDonorGroup({
+      if (directMatch.kind === 'manual-review') {
+        diagnosticScreenshotPath = directMatch.screenshotPath || null
+        return routeDirectSearchIssueToManualReview({
+          clientId: client.id,
+          message: directMatch.message,
+          payload,
+          screenshotPath: directMatch.screenshotPath,
+          source,
+        })
+      }
+
+      let donorGroup = resolveDonorGroup({
         clientReferralType: client.referralType,
-        donors: donorsForAccount,
+        donors: [],
       })
+      let redwoodServerDate: string | null = null
+
+      if (!donorGroup) {
+        const { csv, csvPath } = await downloadExportCSV({
+          page,
+          exportUrl,
+          outputDir,
+        })
+        redwoodServerDate = await extractRedwoodServerDate(page)
+
+        const donors = parseRedwoodExport(csv)
+        const donorsForAccount = filterDonorsByAccountNumber(donors, accountNumber)
+
+        payload.logger.info({
+          msg: '[redwood-import] Export parsed for donor group fallback',
+          clientId,
+          source,
+          csvPath,
+          donorCount: donorsForAccount.length,
+        })
+
+        await updateClientRedwoodState(payload, client.id, {
+          redwoodSyncStatus: 'export-checked',
+          redwoodLastAttemptAt: new Date().toISOString(),
+          redwoodLastError: null,
+        })
+
+        donorGroup = resolveDonorGroup({
+          clientReferralType: client.referralType,
+          donors: donorsForAccount,
+        })
+      }
 
       const importCsvContent = buildRedwoodImportCSV({
         accountNumber,
@@ -982,15 +1177,14 @@ export async function runRedwoodImportClientJob(args: {
             queue: 'redwood',
           })
 
-          const defaultTestResult = await runRedwoodDefaultTestSync(payload, client.id)
-          if (!defaultTestResult.success) {
+          await queueRedwoodDefaultTestSync(String(client.id), payload).catch((error) => {
             payload.logger.error({
-              msg: '[redwood-import] Redwood donor import succeeded, but default-test sync failed',
+              msg: '[redwood-import] Redwood donor import succeeded, but default-test sync could not be queued',
               clientId,
               source,
-              error: defaultTestResult.error,
+              error: error instanceof Error ? error.message : String(error),
             })
-          }
+          })
 
           return {
             status: 'synced',
@@ -1135,15 +1329,14 @@ export async function runRedwoodImportClientJob(args: {
         queue: 'redwood',
       })
 
-      const defaultTestResult = await runRedwoodDefaultTestSync(payload, client.id)
-      if (!defaultTestResult.success) {
+      await queueRedwoodDefaultTestSync(String(client.id), payload).catch((error) => {
         payload.logger.error({
-          msg: '[redwood-import] Redwood donor import succeeded, but default-test sync failed',
+          msg: '[redwood-import] Redwood donor import succeeded, but default-test sync could not be queued',
           clientId,
           source,
-          error: defaultTestResult.error,
+          error: error instanceof Error ? error.message : String(error),
         })
-      }
+      })
 
       return {
         status: 'synced',

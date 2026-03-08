@@ -6,11 +6,23 @@ import { buildRedwoodUniqueId } from '@/lib/redwood/unique-id'
 
 export type RedwoodQueueSource = 'frontend-registration' | 'admin-registration' | 'wizard-registration' | 'manual'
 export type RedwoodClientUpdateField = 'firstName' | 'middleInitial' | 'lastName' | 'dob' | 'gender' | 'phone'
+const REDWOOD_CLIENT_UPDATE_ALL_FIELDS: RedwoodClientUpdateField[] = [
+  'dob',
+  'firstName',
+  'gender',
+  'lastName',
+  'middleInitial',
+  'phone',
+]
 
 async function resolvePayload(payload?: Payload): Promise<Payload> {
   if (payload) return payload
   const { default: configPromise } = await import('@payload-config')
   return getPayload({ config: configPromise })
+}
+
+function normalizeChangedFields(changedFields: RedwoodClientUpdateField[]): RedwoodClientUpdateField[] {
+  return Array.from(new Set(changedFields.map((field) => field.trim()).filter(Boolean))).sort() as RedwoodClientUpdateField[]
 }
 
 export async function queueRedwoodImportForClient(
@@ -303,20 +315,21 @@ export async function queueRedwoodClientUpdate(
   const payload = await resolvePayload(payloadArg)
 
   try {
-    const uniqueFields = Array.from(new Set(changedFields.map((field) => field.trim()).filter(Boolean))).sort() as RedwoodClientUpdateField[]
-    if (uniqueFields.length === 0) {
+    const triggeredFields = normalizeChangedFields(changedFields)
+    if (triggeredFields.length === 0) {
       throw new Error('Redwood client update was not queued because no syncable fields changed.')
     }
 
     const accountNumber = getRedwoodAccountNumber()
     assertRedwoodMutationAllowed(accountNumber, 'client update')
+    const syncFields = REDWOOD_CLIENT_UPDATE_ALL_FIELDS
 
     const queued = await payload.jobs.queue({
       task: 'redwood-update-client',
       queue: 'redwood',
       input: {
         clientId,
-        changedFieldsCsv: uniqueFields.join(','),
+        changedFieldsCsv: syncFields.join(','),
         requestedByAdminId: requestedByAdminId || null,
       },
       overrideAccess: true,
@@ -336,7 +349,8 @@ export async function queueRedwoodClientUpdate(
     payload.logger.info({
       msg: '[redwood-queue] Queued redwood-update-client',
       clientId,
-      changedFields: uniqueFields,
+      changedFields: syncFields,
+      triggeredFields,
       requestedByAdminId,
       queue: 'redwood',
       jobId: queued.id,
@@ -355,6 +369,51 @@ export async function queueRedwoodClientUpdate(
         clientId,
         changedFields,
         requestedByAdminId,
+        error: message,
+      },
+    })
+
+    throw error
+  }
+}
+
+export async function queueRedwoodDefaultTestSync(
+  clientId: string,
+  payloadArg?: Payload,
+): Promise<{ jobId: string }> {
+  const payload = await resolvePayload(payloadArg)
+
+  try {
+    const accountNumber = getRedwoodAccountNumber()
+    assertRedwoodMutationAllowed(accountNumber, 'default test sync')
+
+    const queued = await payload.jobs.queue({
+      task: 'redwood-sync-default-test',
+      queue: 'redwood',
+      input: {
+        clientId,
+      },
+      overrideAccess: true,
+    })
+
+    payload.logger.info({
+      msg: '[redwood-queue] Queued redwood-sync-default-test',
+      clientId,
+      queue: 'redwood',
+      jobId: queued.id,
+    })
+
+    return { jobId: queued.id }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    await createAdminAlert(payload, {
+      severity: 'high',
+      alertType: 'data-integrity',
+      title: `Failed to queue Redwood default-test sync for client ${clientId}`,
+      message,
+      context: {
+        clientId,
         error: message,
       },
     })

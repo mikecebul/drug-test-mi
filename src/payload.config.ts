@@ -60,6 +60,7 @@ import { runRedwoodClientUpdateJob } from './collections/Clients/services/redwoo
 import { runRedwoodHeadshotSyncJob } from './collections/Clients/services/redwoodHeadshotSync'
 import { runRedwoodHeadshotUploadJob } from './collections/Clients/services/redwoodHeadshotUpload'
 import { runRedwoodUniqueIdSyncJob } from './collections/Clients/services/redwoodUniqueIdSync'
+import { runRedwoodDefaultTestSync } from './collections/Clients/services/redwoodDefaultTestSync'
 import type { RedwoodClientUpdateField } from './lib/redwood/queue'
 
 const filename = fileURLToPath(import.meta.url)
@@ -379,9 +380,14 @@ export default buildConfig({
   globals: [Header, Footer, CompanyInfo],
   graphQL: { disable: true },
   jobs: {
+    enableConcurrencyControl: true,
     tasks: [
       {
         slug: 'redwood-import-client',
+        concurrency: {
+          key: ({ input, queue }) => `${queue}:redwood-import-client:${input.clientId}`,
+          supersedes: true,
+        },
         retries: 3,
         inputSchema: [
           { name: 'clientId', type: 'text', required: true },
@@ -410,6 +416,10 @@ export default buildConfig({
       },
       {
         slug: 'redwood-update-client',
+        concurrency: {
+          key: ({ input, queue }) => `${queue}:redwood-update-client:${input.clientId}`,
+          supersedes: true,
+        },
         retries: 3,
         inputSchema: [
           { name: 'clientId', type: 'text', required: true },
@@ -443,6 +453,10 @@ export default buildConfig({
       },
       {
         slug: 'redwood-sync-headshot',
+        concurrency: {
+          key: ({ input, queue }) => `${queue}:redwood-sync-headshot:${input.clientId}`,
+          supersedes: true,
+        },
         retries: 3,
         inputSchema: [
           { name: 'clientId', type: 'text', required: true },
@@ -468,6 +482,10 @@ export default buildConfig({
       },
       {
         slug: 'redwood-backfill-client-unique-id',
+        concurrency: {
+          key: ({ input, queue }) => `${queue}:redwood-backfill-client-unique-id:${input.clientId}`,
+          supersedes: true,
+        },
         retries: 3,
         inputSchema: [
           { name: 'clientId', type: 'text', required: true },
@@ -493,6 +511,10 @@ export default buildConfig({
       },
       {
         slug: 'redwood-upload-headshot',
+        concurrency: {
+          key: ({ input, queue }) => `${queue}:redwood-upload-headshot:${input.clientId}`,
+          supersedes: true,
+        },
         retries: 3,
         inputSchema: [
           { name: 'clientId', type: 'text', required: true },
@@ -511,6 +533,32 @@ export default buildConfig({
           return {
             output: {
               status: result.status || 'synced',
+              screenshotPath: result.screenshotPath,
+            },
+          }
+        },
+      },
+      {
+        slug: 'redwood-sync-default-test',
+        concurrency: {
+          key: ({ input, queue }) => `${queue}:redwood-sync-default-test:${input.clientId}`,
+          supersedes: true,
+        },
+        retries: 3,
+        inputSchema: [{ name: 'clientId', type: 'text', required: true }],
+        outputSchema: [
+          { name: 'status', type: 'text', required: true },
+          { name: 'screenshotPath', type: 'text', required: false },
+        ],
+        handler: async ({ input, req }) => {
+          const result = await runRedwoodDefaultTestSync(req.payload, input.clientId)
+          if (!result.success) {
+            throw new Error(result.error || 'Unknown Redwood default-test sync error')
+          }
+
+          return {
+            output: {
+              status: result.status,
               screenshotPath: result.screenshotPath,
             },
           }
