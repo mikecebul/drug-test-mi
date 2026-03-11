@@ -4,6 +4,7 @@ import { getPayload } from 'payload'
 import configPromise from '@payload-config'
 import { headers } from 'next/headers'
 import type { SubstanceValue } from '@/fields/substanceOptions'
+import { isMedicationEditable } from './utils/medicationUtils'
 
 export async function addMedicationAction(data: {
   medicationName: string
@@ -53,7 +54,6 @@ export async function addMedicationAction(data: {
       medication: newMedication,
       message: 'Medication added successfully',
     }
-
   } catch (error) {
     console.error('Error adding medication:', error)
     return {
@@ -141,7 +141,6 @@ export async function updateMedicationAction(data: {
       medication: updatedMedications[data.medicationIndex],
       message: 'Medication updated successfully',
     }
-
   } catch (error) {
     console.error('Error updating medication:', error)
     return {
@@ -151,9 +150,75 @@ export async function updateMedicationAction(data: {
   }
 }
 
-export async function deleteMedicationAction(data: {
+export async function editMedicationDetailsAction(data: {
   medicationIndex: number
+  medicationName: string
+  detectedAs?: string
+  startDate: string | Date
 }) {
+  const payload = await getPayload({ config: configPromise })
+
+  try {
+    const { user } = await payload.auth({ headers: await headers() })
+
+    if (!user || user.collection !== 'clients') {
+      throw new Error('Unauthorized - must be logged in as a client')
+    }
+
+    const clientRecord = await payload.findByID({
+      collection: 'clients',
+      id: user.id,
+    })
+
+    const currentMedications = clientRecord.medications || []
+
+    if (data.medicationIndex < 0 || data.medicationIndex >= currentMedications.length) {
+      throw new Error('Invalid medication index')
+    }
+
+    const medicationToEdit = currentMedications[data.medicationIndex]
+
+    if (!isMedicationEditable(medicationToEdit)) {
+      throw new Error('Medication details can only be edited within 7 days while the medication is still active')
+    }
+
+    const parsedStartDate = data.startDate instanceof Date ? data.startDate : new Date(data.startDate)
+    if (Number.isNaN(parsedStartDate.getTime())) {
+      throw new Error('Invalid start date format')
+    }
+
+    const updatedMedications = [...currentMedications]
+    updatedMedications[data.medicationIndex] = {
+      ...medicationToEdit,
+      medicationName: data.medicationName.trim(),
+      startDate: parsedStartDate.toISOString(),
+      detectedAs: data.detectedAs ? [data.detectedAs as SubstanceValue] : [],
+    }
+
+    await payload.update({
+      collection: 'clients',
+      id: user.id,
+      data: {
+        medications: updatedMedications,
+      },
+      overrideAccess: true,
+    })
+
+    return {
+      success: true,
+      medication: updatedMedications[data.medicationIndex],
+      message: 'Medication details updated successfully',
+    }
+  } catch (error) {
+    console.error('Error editing medication details:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update medication details',
+    }
+  }
+}
+
+export async function deleteMedicationAction(data: { medicationIndex: number }) {
   const payload = await getPayload({ config: configPromise })
 
   try {
@@ -200,7 +265,6 @@ export async function deleteMedicationAction(data: {
       success: true,
       message: 'Medication deleted successfully',
     }
-
   } catch (error) {
     console.error('Error deleting medication:', error)
     return {

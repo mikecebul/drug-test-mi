@@ -236,6 +236,12 @@ For normal local development, start only MongoDB and run the app with `pnpm dev`
 docker compose up -d mongo
 ```
 
+If port `27017` is already in use on your machine, override the host port:
+
+```bash
+MONGO_PORT=27018 docker compose up -d mongo
+```
+
 Notes:
 - The compose file also defines a `payload` container intended for containerized/prod-like runs.
 - Most local development is simpler with a local Node process (`pnpm dev`) plus the compose MongoDB container.
@@ -306,6 +312,7 @@ pnpm test:verify
 pnpm test:gate
 pnpm test:e2e:headed
 pnpm test:e2e:ui
+pnpm dev:redwood:headed
 ```
 
 Playwright setup notes:
@@ -322,6 +329,8 @@ These support stable Payload admin login flows in e2e runs:
 - `PAYLOAD_ADMIN_AUTOLOGIN_ENABLED`
 - `PAYLOAD_ADMIN_AUTOLOGIN_EMAIL`
 - `PAYLOAD_ADMIN_AUTOLOGIN_PASSWORD`
+
+In development, this auto-login email is expected to be a `superAdmin` account. The app now auto-creates/promotes it to `superAdmin` on startup when auto-login is enabled.
 
 #### Playwright runner overrides (in `.env.example` / optional)
 
@@ -356,6 +365,47 @@ Important notes:
 - `pnpm build` runs `payload migrate` before `next build`
 - all required services (especially MongoDB) must be reachable during build/runtime
 - keep production env vars consistent across deploys/instances
+
+### Worker process for Payload Jobs
+
+Run three services from the same image:
+
+- `payload`: web app (`node server.js`)
+- `worker-redwood`: dedicated jobs worker (continuous loop that drains the `redwood` queue)
+- `worker-redwood-schedules`: dedicated schedule handler that enqueues nightly Redwood maintenance jobs
+
+The repo `docker-compose.yml` includes all three services. The worker commands are:
+
+```bash
+pnpm worker:redwood
+pnpm worker:redwood:schedules
+```
+
+If local MongoDB is already using `27017`, run compose with a different Mongo host port:
+
+```bash
+MONGO_PORT=27018 docker compose up -d --build worker-redwood
+```
+
+Use `worker-redwood` for Redwood automation jobs so Playwright work stays off the main web process.
+It polls continuously with a short idle sleep instead of waiting for the next minute tick.
+Tune throughput with `REDWOOD_WORKER_BATCH_LIMIT` and idle latency with `REDWOOD_WORKER_IDLE_SECONDS`.
+
+Use `worker-redwood-schedules` to process scheduled Payload jobs.
+It checks for due schedules every minute and is required for nightly tasks like the missing-headshot Redwood sync sweep.
+
+### Redwood automation runtime policy
+
+- Production Redwood automation is headless-only and is intended to run in `worker-redwood`.
+- The Linux worker/container does not require a desktop session for Redwood jobs.
+- Headed Redwood browser runs are development-only and are available through the dev Redwood tools when running locally with a display server.
+- For local Redwood debugging, start the app with:
+
+```bash
+pnpm dev:redwood:headed
+```
+
+- If you run the dev app in Docker or another headless Linux environment, inline headed Redwood debugging is blocked on purpose. Use the queued worker flow instead.
 
 ### Stable Next.js Server Action IDs
 

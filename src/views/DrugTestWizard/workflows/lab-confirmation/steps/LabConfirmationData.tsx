@@ -124,7 +124,7 @@ export const LabConfirmationDataStep = withForm({
 
         {/* Client Info & Medications */}
         {client && (
-          <HeadshotCaptureCard client={client} onHeadshotLinked={handleHeadshotLinked} />
+          <HeadshotCaptureCard key={client.id} client={client} onHeadshotLinked={handleHeadshotLinked} />
         )}
 
         {clientMedications.length > 0 && (

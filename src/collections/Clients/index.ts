@@ -2,8 +2,21 @@ import type { CollectionConfig } from 'payload'
 import { superAdmin } from '@/access/superAdmin'
 import { baseUrl } from '@/utilities/baseUrl'
 import { anyone } from '@/access/anyone'
+import { admins } from '@/access/admins'
 import { notifyNewRegistration } from './hooks/notifyNewRegistration'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
+import { ensureRedwoodUniqueId } from './hooks/ensureRedwoodUniqueId'
+import { requireRedwoodClientUpdateApproval } from './hooks/requireRedwoodClientUpdateApproval'
+import { queueRedwoodClientUpdateAfterChange } from './hooks/queueRedwoodClientUpdate'
+import { queueRedwoodHeadshotPush } from './hooks/queueRedwoodHeadshotPush'
+import { syncDefaultTestTypeFromReferral } from './hooks/syncDefaultTestTypeFromReferral'
+import {
+  getRedwoodClientUpdateFieldLabel,
+  REDWOOD_CLIENT_UPDATE_APPROVAL_FIELD,
+  REDWOOD_CLIENT_UPDATE_FIELDS,
+  REDWOOD_CLIENT_UPDATE_SKIP_SYNC_FIELD,
+  REDWOOD_PENDING_CLIENT_UPDATE_FIELDS,
+} from './redwoodSyncFields'
 
 export const Clients: CollectionConfig = {
   slug: 'clients',
@@ -12,56 +25,7 @@ export const Clients: CollectionConfig = {
     plural: 'Clients',
   },
   auth: {
-    verify: {
-      generateEmailHTML: ({ token, user }) => {
-        const verifyURL = `${baseUrl}/verify-email?token=${token}`
-
-        return `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1">
-              <title>Verify Your Email Address</title>
-              <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { text-align: center; margin-bottom: 30px; }
-                .button { display: inline-block; padding: 12px 24px; background-color: #007cba; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-                .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666; }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <div class="header">
-                  <h1>Verify Your Email Address</h1>
-                </div>
-
-                <p>Hello ${user.name || user.email},</p>
-
-                <p>Thank you for registering with MI Drug Test! To complete your registration and activate your account, please verify your email address by clicking the button below:</p>
-
-                <div style="text-align: center;">
-                  <a href="${verifyURL}" class="button">Verify My Email</a>
-                </div>
-
-                <p>This verification link will expire in 24 hours for security reasons.</p>
-
-                <p>Once verified, you'll be able to schedule your drug screening appointment and access your account.</p>
-
-                <p>If you didn't create this account, you can safely ignore this email.</p>
-
-                <div class="footer">
-                  <p>Best regards,<br>The MI Drug Test Team</p>
-                  <p><small>This is an automated message, please do not reply to this email.</small></p>
-                </div>
-              </div>
-            </body>
-          </html>
-        `
-      },
-      generateEmailSubject: () => 'Verify Your Email Address - MI Drug Test',
-    },
+    verify: false,
     forgotPassword: {
       generateEmailHTML: (args) => {
         const { token, user } = args || {}
@@ -134,26 +98,16 @@ export const Clients: CollectionConfig = {
 
       return false
     },
-    update: ({ req: { user } }) => {
-      // Admins can update any client records
-      if (user?.collection === 'admins') {
-        return true
-      }
-
-      // Clients can only update their own records
-      if (user?.collection === 'clients') {
-        return {
-          id: {
-            equals: user.id,
-          },
-        }
-      }
-
-      return false
-    },
+    update: admins,
   },
   hooks: {
-    afterChange: [notifyNewRegistration],
+    beforeChange: [syncDefaultTestTypeFromReferral, requireRedwoodClientUpdateApproval],
+    afterChange: [
+      notifyNewRegistration,
+      ensureRedwoodUniqueId,
+      queueRedwoodClientUpdateAfterChange,
+      queueRedwoodHeadshotPush,
+    ],
   },
   admin: {
     defaultColumns: ['headshot', 'lastName', 'email', 'referralType'],
@@ -161,7 +115,13 @@ export const Clients: CollectionConfig = {
     listSearchableFields: ['email', 'firstName', 'lastName'],
     components: {
       edit: {
-        beforeDocumentControls: ['@/collections/Clients/components/QuickBookButton'],
+        SaveButton: '@/collections/Clients/components/RedwoodClientSaveButton.client',
+        beforeDocumentControls: [
+          '@/collections/Clients/components/QuickBookButton',
+          '@/collections/Clients/components/SyncPendingRedwoodClientChangesButton',
+          '@/collections/Clients/components/SyncRedwoodHeadshotButton',
+          '@/collections/Clients/components/QueueRedwoodUniqueIdBackfillButton',
+        ],
       },
     },
   },
@@ -190,6 +150,10 @@ export const Clients: CollectionConfig = {
       name: 'headshot',
       type: 'upload',
       relationTo: 'private-media',
+      access: {
+        create: ({ req }) => req.user?.collection === 'admins',
+        update: ({ req }) => req.user?.collection === 'admins',
+      },
       admin: {
         description: 'Client headshot photo for identification during testing',
         position: 'sidebar',
@@ -299,6 +263,39 @@ export const Clients: CollectionConfig = {
               ],
               defaultValue: 'email',
             },
+            {
+              name: 'redwoodClientSyncAlert',
+              type: 'ui',
+              admin: {
+                components: {
+                  Field: '@/collections/Clients/components/RedwoodClientSyncAlert.client#RedwoodClientSyncAlert',
+                },
+              },
+            },
+            {
+              name: REDWOOD_CLIENT_UPDATE_APPROVAL_FIELD,
+              type: 'checkbox',
+              defaultValue: false,
+              access: {
+                read: ({ req }) => req.user?.collection === 'admins',
+                update: ({ req }) => req.user?.collection === 'admins',
+              },
+              admin: {
+                condition: () => false,
+              },
+            },
+            {
+              name: REDWOOD_CLIENT_UPDATE_SKIP_SYNC_FIELD,
+              type: 'checkbox',
+              defaultValue: false,
+              access: {
+                read: ({ req }) => req.user?.collection === 'admins',
+                update: ({ req }) => req.user?.collection === 'admins',
+              },
+              admin: {
+                condition: () => false,
+              },
+            },
           ],
         },
 
@@ -330,8 +327,8 @@ export const Clients: CollectionConfig = {
                       referralValue &&
                       typeof referralValue === 'object' &&
                       'relationTo' in referralValue &&
-                      ((nextType === 'court' && referralValue.relationTo !== 'courts')
-                        || (nextType === 'employer' && referralValue.relationTo !== 'employers'))
+                      ((nextType === 'court' && referralValue.relationTo !== 'courts') ||
+                        (nextType === 'employer' && referralValue.relationTo !== 'employers'))
                     ) {
                       siblingData.referral = null
                     }
@@ -419,6 +416,15 @@ export const Clients: CollectionConfig = {
                   }
                 }
                 return true
+              },
+            },
+            {
+              name: 'defaultTestType',
+              type: 'relationship',
+              relationTo: 'test-types',
+              admin: {
+                readOnly: true,
+                description: 'Preferred test type resolved from the linked referral.',
               },
             },
             {
@@ -663,7 +669,303 @@ export const Clients: CollectionConfig = {
           ],
         },
 
-        // Tab 6: Notes
+        // Tab 6: Redwood Sync
+        {
+          label: 'Redwood Sync',
+          description: 'Redwood integration and worker status',
+          fields: [
+            {
+              name: 'redwoodSyncStatus',
+              type: 'select',
+              defaultValue: 'not-queued',
+              options: [
+                { label: 'Not Queued', value: 'not-queued' },
+                { label: 'Queued', value: 'queued' },
+                { label: 'Export Checked', value: 'export-checked' },
+                { label: 'Matched Existing', value: 'matched-existing' },
+                { label: 'Ready To Submit', value: 'ready-to-submit' },
+                { label: 'Synced', value: 'synced' },
+                { label: 'Failed', value: 'failed' },
+                { label: 'Manual Review', value: 'manual-review' },
+              ],
+              admin: {
+                readOnly: true,
+                description: 'Current Redwood sync state managed by the background worker.',
+              },
+            },
+            {
+              name: 'redwoodUniqueId',
+              type: 'text',
+              maxLength: 20,
+              admin: {
+                description: 'Deterministic Redwood Unique ID (20 chars max).',
+              },
+            },
+            {
+              name: 'redwoodCallInCode',
+              type: 'text',
+              admin: {
+                readOnly: true,
+                description: 'Redwood call-in / check-in code synced back from the donor record.',
+              },
+            },
+            {
+              name: 'redwoodDonorId',
+              type: 'text',
+              admin: {
+                readOnly: true,
+                description: 'Redwood donor ID captured from the donor detail URL for direct follow-up lookups.',
+              },
+            },
+            {
+              name: 'redwoodClientUpdateStatus',
+              type: 'select',
+              defaultValue: 'not-queued',
+              options: [
+                { label: 'Not Queued', value: 'not-queued' },
+                { label: 'Queued', value: 'queued' },
+                { label: 'Synced', value: 'synced' },
+                { label: 'Failed', value: 'failed' },
+                { label: 'Manual Review', value: 'manual-review' },
+              ],
+              admin: {
+                readOnly: true,
+                description: 'Tracks batched Payload-to-Redwood client field updates.',
+              },
+            },
+            {
+              name: REDWOOD_PENDING_CLIENT_UPDATE_FIELDS,
+              type: 'select',
+              hasMany: true,
+              options: REDWOOD_CLIENT_UPDATE_FIELDS.map((field) => ({
+                label: getRedwoodClientUpdateFieldLabel(field),
+                value: field,
+              })),
+              admin: {
+                readOnly: true,
+                description:
+                  'Redwood-backed fields whose latest saved values have not been confirmed back into Redwood yet.',
+              },
+            },
+            {
+              name: 'redwoodClientUpdateLastAttemptAt',
+              type: 'date',
+              admin: {
+                readOnly: true,
+                date: {
+                  pickerAppearance: 'dayAndTime',
+                  displayFormat: 'MM/dd/yyyy HH:mm',
+                },
+                description: 'Timestamp of the most recent Redwood client update attempt.',
+              },
+            },
+            {
+              name: 'redwoodClientUpdateLastError',
+              type: 'textarea',
+              admin: {
+                readOnly: true,
+                description: 'Most recent Redwood client update error message, if any.',
+              },
+            },
+            {
+              name: 'redwoodUniqueIdSyncStatus',
+              type: 'select',
+              defaultValue: 'not-queued',
+              options: [
+                { label: 'Not Queued', value: 'not-queued' },
+                { label: 'Queued', value: 'queued' },
+                { label: 'Synced', value: 'synced' },
+                { label: 'Failed', value: 'failed' },
+                { label: 'Manual Review', value: 'manual-review' },
+              ],
+              admin: {
+                readOnly: true,
+                description: 'Tracks Redwood donor unique ID backfill state.',
+              },
+            },
+            {
+              name: 'redwoodUniqueIdLastAttemptAt',
+              type: 'date',
+              admin: {
+                readOnly: true,
+                date: {
+                  pickerAppearance: 'dayAndTime',
+                  displayFormat: 'MM/dd/yyyy HH:mm',
+                },
+                description: 'Timestamp of the most recent Redwood unique ID backfill attempt.',
+              },
+            },
+            {
+              name: 'redwoodUniqueIdLastError',
+              type: 'textarea',
+              admin: {
+                readOnly: true,
+                description: 'Most recent Redwood unique ID backfill error message, if any.',
+              },
+            },
+            {
+              name: 'redwoodHeadshotSyncStatus',
+              type: 'select',
+              defaultValue: 'not-queued',
+              options: [
+                { label: 'Not Queued', value: 'not-queued' },
+                { label: 'Queued', value: 'queued' },
+                { label: 'Synced', value: 'synced' },
+                { label: 'Failed', value: 'failed' },
+                { label: 'Manual Review', value: 'manual-review' },
+              ],
+              admin: {
+                readOnly: true,
+                description: 'Tracks Redwood-to-website headshot sync state.',
+              },
+            },
+            {
+              name: 'redwoodHeadshotSyncLastAttemptAt',
+              type: 'date',
+              admin: {
+                readOnly: true,
+                date: {
+                  pickerAppearance: 'dayAndTime',
+                  displayFormat: 'MM/dd/yyyy HH:mm',
+                },
+                description: 'Timestamp of the most recent Redwood headshot sync attempt.',
+              },
+            },
+            {
+              name: 'redwoodHeadshotSyncLastError',
+              type: 'textarea',
+              admin: {
+                readOnly: true,
+                description: 'Most recent Redwood headshot sync error message, if any.',
+              },
+            },
+            {
+              name: 'redwoodHeadshotPushStatus',
+              type: 'select',
+              defaultValue: 'not-queued',
+              options: [
+                { label: 'Not Queued', value: 'not-queued' },
+                { label: 'Queued', value: 'queued' },
+                { label: 'Synced', value: 'synced' },
+                { label: 'Failed', value: 'failed' },
+                { label: 'Manual Review', value: 'manual-review' },
+              ],
+              admin: {
+                readOnly: true,
+                description: 'Tracks website-to-Redwood headshot upload state.',
+              },
+            },
+            {
+              name: 'redwoodHeadshotPushLastAttemptAt',
+              type: 'date',
+              admin: {
+                readOnly: true,
+                date: {
+                  pickerAppearance: 'dayAndTime',
+                  displayFormat: 'MM/dd/yyyy HH:mm',
+                },
+                description: 'Timestamp of the most recent Redwood headshot upload attempt.',
+              },
+            },
+            {
+              name: 'redwoodHeadshotPushLastError',
+              type: 'textarea',
+              admin: {
+                readOnly: true,
+                description: 'Most recent Redwood headshot upload error message, if any.',
+              },
+            },
+            {
+              name: 'redwoodDefaultTestSyncStatus',
+              type: 'select',
+              defaultValue: 'not-queued',
+              options: [
+                { label: 'Not Queued', value: 'not-queued' },
+                { label: 'Queued', value: 'queued' },
+                { label: 'Skipped', value: 'skipped' },
+                { label: 'Synced', value: 'synced' },
+                { label: 'Failed', value: 'failed' },
+                { label: 'Manual Review', value: 'manual-review' },
+              ],
+              admin: {
+                readOnly: true,
+                description: 'Tracks Redwood donor default-test sync state.',
+              },
+            },
+            {
+              name: 'redwoodDefaultTestLastAttemptAt',
+              type: 'date',
+              admin: {
+                readOnly: true,
+                date: {
+                  pickerAppearance: 'dayAndTime',
+                  displayFormat: 'MM/dd/yyyy HH:mm',
+                },
+                description: 'Timestamp of the most recent Redwood default-test sync attempt.',
+              },
+            },
+            {
+              name: 'redwoodDefaultTestLastError',
+              type: 'textarea',
+              admin: {
+                readOnly: true,
+                description: 'Most recent Redwood default-test sync error message, if any.',
+              },
+            },
+            {
+              name: 'redwoodMatchedBy',
+              type: 'select',
+              options: [
+                { label: 'Unique ID', value: 'unique-id' },
+                { label: 'Email', value: 'email' },
+                { label: 'Name + DOB', value: 'name-dob' },
+                { label: 'Name + DOB (Fuzzy)', value: 'name-dob-fuzzy' },
+              ],
+              admin: {
+                readOnly: true,
+                description: 'How this client was matched in Redwood export.',
+              },
+            },
+            {
+              name: 'redwoodMatchedDonorName',
+              type: 'text',
+              admin: {
+                readOnly: true,
+                description: 'Matched donor identifier from Redwood export.',
+              },
+            },
+            {
+              name: 'redwoodImportScreenshotPath',
+              type: 'text',
+              admin: {
+                readOnly: true,
+                description: 'Local screenshot path captured at Redwood pre-submit state.',
+              },
+            },
+            {
+              name: 'redwoodLastAttemptAt',
+              type: 'date',
+              admin: {
+                readOnly: true,
+                date: {
+                  pickerAppearance: 'dayAndTime',
+                  displayFormat: 'MM/dd/yyyy HH:mm',
+                },
+                description: 'Timestamp of most recent Redwood worker attempt.',
+              },
+            },
+            {
+              name: 'redwoodLastError',
+              type: 'textarea',
+              admin: {
+                readOnly: true,
+                description: 'Most recent Redwood worker error message, if any.',
+              },
+            },
+          ],
+        },
+
+        // Tab 7: Notes
         {
           label: 'Notes',
           description: 'Internal notes and comments',

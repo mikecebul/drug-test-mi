@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { expect, type Page } from '@playwright/test'
 
 function escapeRegex(value: string) {
@@ -185,6 +186,7 @@ export async function clickBack(page: Page) {
 }
 
 export async function uploadSinglePdf(page: Page, filePath: string) {
+  const fileName = path.basename(filePath)
   const uploadRoots = page.locator('[data-slot="file-upload"]')
   const rootCount = await uploadRoots.count()
 
@@ -197,12 +199,37 @@ export async function uploadSinglePdf(page: Page, filePath: string) {
 
     const input = root.locator('input[type="file"]').first()
     await input.setInputFiles(filePath)
+    await expect
+      .poll(
+        async () => {
+          const hasVisibleItem = await root.locator('[data-slot="file-upload-item"]').first().isVisible().catch(() => false)
+          if (hasVisibleItem) {
+            return true
+          }
+
+          return root.getByText(fileName, { exact: false }).first().isVisible().catch(() => false)
+        },
+        {
+          timeout: 10_000,
+          message: `Uploaded PDF "${fileName}" did not appear in the file upload list.`,
+        },
+      )
+      .toBe(true)
     return
   }
 
   const fallbackInput = page.locator('input[type="file"]').first()
   await expect(fallbackInput).toBeAttached({ timeout: 10_000 })
   await fallbackInput.setInputFiles(filePath)
+  await expect
+    .poll(
+      () => page.locator('[data-slot="file-upload-item"]').first().isVisible().catch(() => false),
+      {
+        timeout: 10_000,
+        message: `Uploaded PDF "${fileName}" did not appear in the file upload list.`,
+      },
+    )
+    .toBe(true)
 }
 
 export async function selectClientFromSearchDialog(page: Page, fullName: string) {

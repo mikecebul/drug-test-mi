@@ -25,9 +25,14 @@ import { ExportListMenuItem as ExportListMenuItem_cdf7e044479f899a31f804427d568b
 import { ImportListMenuItem as ImportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { default as default_bca575eca602f69aa53c5f42e11636da } from '@/collections/Admins/RoleCell'
 import { RoleSelectClient as RoleSelectClient_538158afd69a55f062cbf2533bebd38f } from '@/collections/Admins/RoleSelect.client'
+import { RedwoodClientSyncAlert as RedwoodClientSyncAlert_83419e9fe5f3471c352d10e0df9bc4cf } from '@/collections/Clients/components/RedwoodClientSyncAlert.client'
 import { ReferralPresetRecipientsAlert as ReferralPresetRecipientsAlert_d3e4a3a175eb5b39b567b86d7cc0ce9b } from '@/collections/Clients/components/ReferralPresetRecipientsAlert.client'
 import { default as default_10614e5826ed2552da1904fc41085884 } from '@/collections/Clients/RowLabel'
 import { default as default_8ada3e871304a01023e059aa2a63dc18 } from '@/collections/Clients/components/QuickBookButton'
+import { default as default_deee3ff226806d6c2e401710d2776525 } from '@/collections/Clients/components/SyncPendingRedwoodClientChangesButton'
+import { default as default_23a84364c8f15b8f5bbf7dc963c88534 } from '@/collections/Clients/components/SyncRedwoodHeadshotButton'
+import { default as default_d0b5b0dee0472749708c7664fe7b09ae } from '@/collections/Clients/components/QueueRedwoodUniqueIdBackfillButton'
+import { default as default_98c6839ea5ab8a8b6fd846179f5fc1cf } from '@/collections/Clients/components/RedwoodClientSaveButton.client'
 import { default as default_3096841c11f481e2d8b1d51a89238cfb } from '@/collections/DrugTests/helpers/RowLabel'
 import { default as default_0274dce0b5ef9f9e3856b550818f8a6a } from '@/collections/DrugTests/views/DrugTestSummaryView'
 import { FormatField as FormatField_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
@@ -55,6 +60,7 @@ import { default as default_fb357f89b63991d343cdc6c077a34fcf } from '@/views/Dru
 import { default as default_466983afdb665bae58ae3399f538723f } from '@/views/DrugTestWizard'
 import { default as default_9f603328bd606f5c9a764a3d6e1236bd } from '@/views/dashboard/widgets/WizardEntryWidget'
 import { default as default_b75193020b6c49f2973630173ab80272 } from '@/views/dashboard/widgets/AdminQuickBookWidget'
+import { default as default_e1352a6ffd779399f924b2f75c0cd14b } from '@/views/dashboard/widgets/ActiveJobsWidget'
 import { default as default_8f03d16ce0580fd0d5a1b1421f3c024c } from '@/views/dashboard/widgets/TotalClientsWidget'
 import { default as default_190b527a5d0dc60bde6858927bce505d } from '@/views/dashboard/widgets/PendingDrugTestsWidget'
 import { default as default_0ab2e3caf6e5563593df7626032786d9 } from '@/views/dashboard/widgets/NextCalcomBookingWidget'
@@ -88,9 +94,14 @@ export const importMap = {
   "@payloadcms/plugin-import-export/rsc#ImportListMenuItem": ImportListMenuItem_cdf7e044479f899a31f804427d568b36,
   "@/collections/Admins/RoleCell#default": default_bca575eca602f69aa53c5f42e11636da,
   "@/collections/Admins/RoleSelect.client#RoleSelectClient": RoleSelectClient_538158afd69a55f062cbf2533bebd38f,
+  "@/collections/Clients/components/RedwoodClientSyncAlert.client#RedwoodClientSyncAlert": RedwoodClientSyncAlert_83419e9fe5f3471c352d10e0df9bc4cf,
   "@/collections/Clients/components/ReferralPresetRecipientsAlert.client#ReferralPresetRecipientsAlert": ReferralPresetRecipientsAlert_d3e4a3a175eb5b39b567b86d7cc0ce9b,
   "@/collections/Clients/RowLabel#default": default_10614e5826ed2552da1904fc41085884,
   "@/collections/Clients/components/QuickBookButton#default": default_8ada3e871304a01023e059aa2a63dc18,
+  "@/collections/Clients/components/SyncPendingRedwoodClientChangesButton#default": default_deee3ff226806d6c2e401710d2776525,
+  "@/collections/Clients/components/SyncRedwoodHeadshotButton#default": default_23a84364c8f15b8f5bbf7dc963c88534,
+  "@/collections/Clients/components/QueueRedwoodUniqueIdBackfillButton#default": default_d0b5b0dee0472749708c7664fe7b09ae,
+  "@/collections/Clients/components/RedwoodClientSaveButton.client#default": default_98c6839ea5ab8a8b6fd846179f5fc1cf,
   "@/collections/DrugTests/helpers/RowLabel#default": default_3096841c11f481e2d8b1d51a89238cfb,
   "@/collections/DrugTests/views/DrugTestSummaryView#default": default_0274dce0b5ef9f9e3856b550818f8a6a,
   "@payloadcms/plugin-import-export/rsc#FormatField": FormatField_cdf7e044479f899a31f804427d568b36,
@@ -118,6 +129,7 @@ export const importMap = {
   "@/views/DrugTestWizard#default": default_466983afdb665bae58ae3399f538723f,
   "@/views/dashboard/widgets/WizardEntryWidget#default": default_9f603328bd606f5c9a764a3d6e1236bd,
   "@/views/dashboard/widgets/AdminQuickBookWidget#default": default_b75193020b6c49f2973630173ab80272,
+  "@/views/dashboard/widgets/ActiveJobsWidget#default": default_e1352a6ffd779399f924b2f75c0cd14b,
   "@/views/dashboard/widgets/TotalClientsWidget#default": default_8f03d16ce0580fd0d5a1b1421f3c024c,
   "@/views/dashboard/widgets/PendingDrugTestsWidget#default": default_190b527a5d0dc60bde6858927bce505d,
   "@/views/dashboard/widgets/NextCalcomBookingWidget#default": default_0ab2e3caf6e5563593df7626032786d9,

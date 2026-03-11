@@ -53,7 +53,7 @@ export const MedicationFieldGroup = withFieldGroup({
           title="Verify Medications"
           description="Review and update the client's medications for accurate drug test interpretation"
         />
-        <HeadshotCaptureCard client={client} onHeadshotLinked={onHeadshotLinked} />
+        <HeadshotCaptureCard key={client.id} client={client} onHeadshotLinked={onHeadshotLinked} />
 
         {/* Medications Section */}
         <Card className="shadow-md">
