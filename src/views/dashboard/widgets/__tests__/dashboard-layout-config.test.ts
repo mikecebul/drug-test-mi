@@ -20,6 +20,7 @@ describe('dashboard widget layout config', () => {
     assertTokenOrder(source, [
       "slug: 'wizard-entry'",
       "slug: 'admin-quick-book'",
+      "slug: 'active-jobs'",
       "slug: 'total-clients'",
       "slug: 'pending-drug-tests'",
       "slug: 'next-calcom-booking'",
@@ -30,6 +31,7 @@ describe('dashboard widget layout config', () => {
     assertTokenOrder(source, [
       "widgetSlug: 'wizard-entry'",
       "widgetSlug: 'admin-quick-book'",
+      "widgetSlug: 'active-jobs'",
       "widgetSlug: 'total-clients'",
       "widgetSlug: 'pending-drug-tests'",
       "widgetSlug: 'next-calcom-booking'",

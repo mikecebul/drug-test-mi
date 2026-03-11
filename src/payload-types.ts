@@ -105,6 +105,7 @@ export interface Config {
     'private-media': PrivateMedia;
     admins: Admin;
     'admin-alerts': AdminAlert;
+    'job-runs': JobRun;
     technicians: Technician;
     'test-types': TestType;
     courts: Court;
@@ -146,6 +147,7 @@ export interface Config {
     'private-media': PrivateMediaSelect<false> | PrivateMediaSelect<true>;
     admins: AdminsSelect<false> | AdminsSelect<true>;
     'admin-alerts': AdminAlertsSelect<false> | AdminAlertsSelect<true>;
+    'job-runs': JobRunsSelect<false> | JobRunsSelect<true>;
     technicians: TechniciansSelect<false> | TechniciansSelect<true>;
     'test-types': TestTypesSelect<false> | TestTypesSelect<true>;
     courts: CourtsSelect<false> | CourtsSelect<true>;
@@ -181,6 +183,7 @@ export interface Config {
   widgets: {
     'wizard-entry': WizardEntryWidget;
     'admin-quick-book': AdminQuickBookWidget;
+    'active-jobs': ActiveJobsWidget;
     'total-clients': TotalClientsWidget;
     'pending-drug-tests': PendingDrugTestsWidget;
     'next-calcom-booking': NextCalcomBookingWidget;
@@ -192,6 +195,7 @@ export interface Config {
       'redwood-import-client': TaskRedwoodImportClient;
       'redwood-update-client': TaskRedwoodUpdateClient;
       'redwood-sync-headshot': TaskRedwoodSyncHeadshot;
+      'redwood-queue-pending-client-updates-nightly': TaskRedwoodQueuePendingClientUpdatesNightly;
       'redwood-sync-missing-headshots-nightly': TaskRedwoodSyncMissingHeadshotsNightly;
       'redwood-backfill-client-unique-id': TaskRedwoodBackfillClientUniqueId;
       'redwood-upload-headshot': TaskRedwoodUploadHeadshot;
@@ -1615,6 +1619,8 @@ export interface Client {
    */
   phone?: string | null;
   preferredContactMethod?: ('email' | 'phone' | 'sms') | null;
+  approveRedwoodSync?: boolean | null;
+  skipRedwoodSync?: boolean | null;
   /**
    * Referral type for this client
    */
@@ -1784,6 +1790,10 @@ export interface Client {
    * Tracks batched Payload-to-Redwood client field updates.
    */
   redwoodClientUpdateStatus?: ('not-queued' | 'queued' | 'synced' | 'failed' | 'manual-review') | null;
+  /**
+   * Redwood-backed fields whose latest saved values have not been confirmed back into Redwood yet.
+   */
+  redwoodPendingSyncFields?: ('firstName' | 'middleInitial' | 'lastName' | 'dob' | 'gender' | 'phone')[] | null;
   /**
    * Timestamp of the most recent Redwood client update attempt.
    */
@@ -2535,6 +2545,58 @@ export interface AdminAlert {
   createdAt: string;
 }
 /**
+ * Durable history for tracked background jobs and Redwood sync work.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "job-runs".
+ */
+export interface JobRun {
+  id: string;
+  taskLabel: string;
+  /**
+   * Payload job id used to correlate queue state with this history row.
+   */
+  jobId: string;
+  taskSlug: string;
+  queue: string;
+  status: 'queued' | 'running' | 'succeeded' | 'manual-review' | 'failed' | 'cancelled';
+  /**
+   * Underlying task result such as synced, skipped, or partial-success.
+   */
+  resultStatus?: string | null;
+  client?: (string | null) | Client;
+  requestedByAdmin?: (string | null) | Admin;
+  cancelledByAdmin?: (string | null) | Admin;
+  source?: string | null;
+  changedFieldsCsv?: string | null;
+  attemptCount?: number | null;
+  summary?: string | null;
+  errorMessage?: string | null;
+  screenshotPath?: string | null;
+  inputSnapshot?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  outputSnapshot?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "technicians".
  */
@@ -2731,6 +2793,7 @@ export interface PayloadJob {
           | 'redwood-import-client'
           | 'redwood-update-client'
           | 'redwood-sync-headshot'
+          | 'redwood-queue-pending-client-updates-nightly'
           | 'redwood-sync-missing-headshots-nightly'
           | 'redwood-backfill-client-unique-id'
           | 'redwood-upload-headshot'
@@ -2775,6 +2838,7 @@ export interface PayloadJob {
         | 'redwood-import-client'
         | 'redwood-update-client'
         | 'redwood-sync-headshot'
+        | 'redwood-queue-pending-client-updates-nightly'
         | 'redwood-sync-missing-headshots-nightly'
         | 'redwood-backfill-client-unique-id'
         | 'redwood-upload-headshot'
@@ -2840,6 +2904,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'admin-alerts';
         value: string | AdminAlert;
+      } | null)
+    | ({
+        relationTo: 'job-runs';
+        value: string | JobRun;
       } | null)
     | ({
         relationTo: 'technicians';
@@ -3756,6 +3824,33 @@ export interface AdminAlertsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "job-runs_select".
+ */
+export interface JobRunsSelect<T extends boolean = true> {
+  taskLabel?: T;
+  jobId?: T;
+  taskSlug?: T;
+  queue?: T;
+  status?: T;
+  resultStatus?: T;
+  client?: T;
+  requestedByAdmin?: T;
+  cancelledByAdmin?: T;
+  source?: T;
+  changedFieldsCsv?: T;
+  attemptCount?: T;
+  summary?: T;
+  errorMessage?: T;
+  screenshotPath?: T;
+  inputSnapshot?: T;
+  outputSnapshot?: T;
+  startedAt?: T;
+  completedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "technicians_select".
  */
 export interface TechniciansSelect<T extends boolean = true> {
@@ -3847,6 +3942,8 @@ export interface ClientsSelect<T extends boolean = true> {
   gender?: T;
   phone?: T;
   preferredContactMethod?: T;
+  approveRedwoodSync?: T;
+  skipRedwoodSync?: T;
   referralType?: T;
   referral?: T;
   defaultTestType?: T;
@@ -3890,6 +3987,7 @@ export interface ClientsSelect<T extends boolean = true> {
   redwoodCallInCode?: T;
   redwoodDonorId?: T;
   redwoodClientUpdateStatus?: T;
+  redwoodPendingSyncFields?: T;
   redwoodClientUpdateLastAttemptAt?: T;
   redwoodClientUpdateLastError?: T;
   redwoodUniqueIdSyncStatus?: T;
@@ -4331,6 +4429,16 @@ export interface AdminQuickBookWidget {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "active-jobs_widget".
+ */
+export interface ActiveJobsWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "total-clients_widget".
  */
 export interface TotalClientsWidget {
@@ -4416,6 +4524,18 @@ export interface TaskRedwoodSyncHeadshot {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-queue-pending-client-updates-nightly".
+ */
+export interface TaskRedwoodQueuePendingClientUpdatesNightly {
+  input?: unknown;
+  output: {
+    status: string;
+    queuedCount: string;
+    failedCount: string;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TaskRedwood-sync-missing-headshots-nightly".
  */
 export interface TaskRedwoodSyncMissingHeadshotsNightly {
@@ -4485,6 +4605,7 @@ export interface TaskCreateCollectionExport {
       | 'private-media'
       | 'admins'
       | 'admin-alerts'
+      | 'job-runs'
       | 'technicians'
       | 'test-types'
       | 'courts'

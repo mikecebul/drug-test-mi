@@ -2,12 +2,21 @@ import type { CollectionConfig } from 'payload'
 import { superAdmin } from '@/access/superAdmin'
 import { baseUrl } from '@/utilities/baseUrl'
 import { anyone } from '@/access/anyone'
+import { admins } from '@/access/admins'
 import { notifyNewRegistration } from './hooks/notifyNewRegistration'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
 import { ensureRedwoodUniqueId } from './hooks/ensureRedwoodUniqueId'
+import { requireRedwoodClientUpdateApproval } from './hooks/requireRedwoodClientUpdateApproval'
 import { queueRedwoodClientUpdateAfterChange } from './hooks/queueRedwoodClientUpdate'
 import { queueRedwoodHeadshotPush } from './hooks/queueRedwoodHeadshotPush'
 import { syncDefaultTestTypeFromReferral } from './hooks/syncDefaultTestTypeFromReferral'
+import {
+  getRedwoodClientUpdateFieldLabel,
+  REDWOOD_CLIENT_UPDATE_APPROVAL_FIELD,
+  REDWOOD_CLIENT_UPDATE_FIELDS,
+  REDWOOD_CLIENT_UPDATE_SKIP_SYNC_FIELD,
+  REDWOOD_PENDING_CLIENT_UPDATE_FIELDS,
+} from './redwoodSyncFields'
 
 export const Clients: CollectionConfig = {
   slug: 'clients',
@@ -89,27 +98,16 @@ export const Clients: CollectionConfig = {
 
       return false
     },
-    update: ({ req: { user } }) => {
-      // Admins can update any client records
-      if (user?.collection === 'admins') {
-        return true
-      }
-
-      // Clients can only update their own records
-      if (user?.collection === 'clients') {
-        return {
-          id: {
-            equals: user.id,
-          },
-        }
-      }
-
-      return false
-    },
+    update: admins,
   },
   hooks: {
-    beforeChange: [syncDefaultTestTypeFromReferral],
-    afterChange: [notifyNewRegistration, ensureRedwoodUniqueId, queueRedwoodClientUpdateAfterChange, queueRedwoodHeadshotPush],
+    beforeChange: [syncDefaultTestTypeFromReferral, requireRedwoodClientUpdateApproval],
+    afterChange: [
+      notifyNewRegistration,
+      ensureRedwoodUniqueId,
+      queueRedwoodClientUpdateAfterChange,
+      queueRedwoodHeadshotPush,
+    ],
   },
   admin: {
     defaultColumns: ['headshot', 'lastName', 'email', 'referralType'],
@@ -117,8 +115,10 @@ export const Clients: CollectionConfig = {
     listSearchableFields: ['email', 'firstName', 'lastName'],
     components: {
       edit: {
+        SaveButton: '@/collections/Clients/components/RedwoodClientSaveButton.client',
         beforeDocumentControls: [
           '@/collections/Clients/components/QuickBookButton',
+          '@/collections/Clients/components/SyncPendingRedwoodClientChangesButton',
           '@/collections/Clients/components/SyncRedwoodHeadshotButton',
           '@/collections/Clients/components/QueueRedwoodUniqueIdBackfillButton',
         ],
@@ -263,6 +263,39 @@ export const Clients: CollectionConfig = {
               ],
               defaultValue: 'email',
             },
+            {
+              name: 'redwoodClientSyncAlert',
+              type: 'ui',
+              admin: {
+                components: {
+                  Field: '@/collections/Clients/components/RedwoodClientSyncAlert.client#RedwoodClientSyncAlert',
+                },
+              },
+            },
+            {
+              name: REDWOOD_CLIENT_UPDATE_APPROVAL_FIELD,
+              type: 'checkbox',
+              defaultValue: false,
+              access: {
+                read: ({ req }) => req.user?.collection === 'admins',
+                update: ({ req }) => req.user?.collection === 'admins',
+              },
+              admin: {
+                condition: () => false,
+              },
+            },
+            {
+              name: REDWOOD_CLIENT_UPDATE_SKIP_SYNC_FIELD,
+              type: 'checkbox',
+              defaultValue: false,
+              access: {
+                read: ({ req }) => req.user?.collection === 'admins',
+                update: ({ req }) => req.user?.collection === 'admins',
+              },
+              admin: {
+                condition: () => false,
+              },
+            },
           ],
         },
 
@@ -294,8 +327,8 @@ export const Clients: CollectionConfig = {
                       referralValue &&
                       typeof referralValue === 'object' &&
                       'relationTo' in referralValue &&
-                      ((nextType === 'court' && referralValue.relationTo !== 'courts')
-                        || (nextType === 'employer' && referralValue.relationTo !== 'employers'))
+                      ((nextType === 'court' && referralValue.relationTo !== 'courts') ||
+                        (nextType === 'employer' && referralValue.relationTo !== 'employers'))
                     ) {
                       siblingData.referral = null
                     }
@@ -698,6 +731,20 @@ export const Clients: CollectionConfig = {
               admin: {
                 readOnly: true,
                 description: 'Tracks batched Payload-to-Redwood client field updates.',
+              },
+            },
+            {
+              name: REDWOOD_PENDING_CLIENT_UPDATE_FIELDS,
+              type: 'select',
+              hasMany: true,
+              options: REDWOOD_CLIENT_UPDATE_FIELDS.map((field) => ({
+                label: getRedwoodClientUpdateFieldLabel(field),
+                value: field,
+              })),
+              admin: {
+                readOnly: true,
+                description:
+                  'Redwood-backed fields whose latest saved values have not been confirmed back into Redwood yet.',
               },
             },
             {

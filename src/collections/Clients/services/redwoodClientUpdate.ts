@@ -4,6 +4,10 @@ import { REDWOOD_SKIP_CLIENT_UPDATE_QUEUE_CONTEXT_KEY } from '@/lib/redwood/cont
 import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
 import { classifyRedwoodIncident, upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
 import type { RedwoodClientUpdateField } from '@/lib/redwood/queue'
+import {
+  REDWOOD_PENDING_CLIENT_UPDATE_FIELDS,
+  removePendingRedwoodClientUpdateFields,
+} from '../redwoodSyncFields'
 import { updateRedwoodClientDetails } from './redwoodMutationAutomation'
 
 function shouldRouteClientUpdateToManualReview(message: string): boolean {
@@ -86,6 +90,10 @@ export async function runRedwoodClientUpdateJob(
         redwoodClientUpdateLastAttemptAt: new Date().toISOString(),
         redwoodClientUpdateLastError: null,
         redwoodDonorId: result.donorId || (typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId : null),
+        [REDWOOD_PENDING_CLIENT_UPDATE_FIELDS]: removePendingRedwoodClientUpdateFields(
+          client[REDWOOD_PENDING_CLIENT_UPDATE_FIELDS],
+          result.updatedFields && result.updatedFields.length > 0 ? result.updatedFields : normalizedFields,
+        ),
       },
       context: {
         [REDWOOD_SKIP_CLIENT_UPDATE_QUEUE_CONTEXT_KEY]: true,

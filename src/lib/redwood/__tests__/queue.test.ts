@@ -4,6 +4,11 @@ vi.mock('@/lib/redwood/incidents', () => ({
   upsertRedwoodIncidentAlert: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('@/lib/jobs/jobRuns', () => ({
+  recordQueuedJobRun: vi.fn().mockResolvedValue(undefined),
+}))
+
+import { recordQueuedJobRun } from '@/lib/jobs/jobRuns'
 import {
   queueRedwoodClientUpdate,
   queueRedwoodDefaultTestSync,
@@ -47,6 +52,14 @@ describe('redwood queue helpers', () => {
           clientId: 'client-1',
           source: 'frontend-registration',
         },
+      }),
+    )
+    expect(recordQueuedJobRun).toHaveBeenCalledWith(
+      payloadMock,
+      expect.objectContaining({
+        jobId: 'job-1',
+        queue: 'redwood',
+        taskSlug: 'redwood-import-client',
       }),
     )
     expect(payloadMock.jobs.queue.mock.invocationCallOrder[0]).toBeLessThan(payloadMock.update.mock.invocationCallOrder[0])

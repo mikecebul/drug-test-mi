@@ -79,14 +79,14 @@ async function readDonorSaveResult(page: any): Promise<{
   })
 }
 
-type RedwoodUpdateControlKind = 'select' | 'text'
+type RedwoodUpdateControlKind = 'radio' | 'select' | 'text'
 
 type RedwoodUpdatePlanEntry = {
+  acceptedValues?: string[]
   expectedValue: string
   field: RedwoodClientUpdateField
   fragments: string[]
   kind: RedwoodUpdateControlKind
-  acceptedSelectValues?: string[]
 }
 
 function buildFieldLookupSelectors(fragments: string[], tagNames: string[]): string[] {
@@ -106,22 +106,32 @@ async function setVisibleInputValueByFragments(page: any, fragments: string[], v
     return true
   }
 
+  // Keep page.evaluate callbacks free of named inner helpers. The serialized browser-side
+  // function can otherwise pick up transpiler helpers like __name, which do not exist in Redwood's page context.
   return await page.evaluate(
     ({ rawFragments, rawValue }) => {
       const fragments = rawFragments.map((fragment) => fragment.toLowerCase())
-      const matches = (element: Element): boolean => {
+      const controls: Array<HTMLInputElement | HTMLTextAreaElement> = []
+
+      for (const element of Array.from(document.querySelectorAll('input, textarea'))) {
         const htmlElement = element as HTMLElement
         if (!(htmlElement.offsetWidth || htmlElement.offsetHeight || htmlElement.getClientRects().length)) {
-          return false
+          continue
         }
 
         if (element instanceof HTMLInputElement && element.type === 'hidden') {
-          return false
+          continue
         }
 
         const labelText =
           element.closest('label')?.textContent ||
           (element.id ? document.querySelector(`label[for="${element.id}"]`)?.textContent : '') ||
+          ''
+        const containerText =
+          element.closest('tr')?.textContent ||
+          element.closest('fieldset')?.textContent ||
+          element.closest('td')?.parentElement?.textContent ||
+          element.parentElement?.textContent ||
           ''
         const haystack = [
           element.getAttribute('id') || '',
@@ -129,16 +139,23 @@ async function setVisibleInputValueByFragments(page: any, fragments: string[], v
           element.getAttribute('aria-label') || '',
           element.getAttribute('placeholder') || '',
           labelText,
+          containerText,
         ]
           .join(' ')
           .toLowerCase()
 
-        return fragments.some((fragment) => haystack.includes(fragment))
-      }
+        let hasFragmentMatch = false
+        for (const fragment of fragments) {
+          if (haystack.includes(fragment)) {
+            hasFragmentMatch = true
+            break
+          }
+        }
 
-      const controls = Array.from(document.querySelectorAll('input, textarea')).filter(
-        (element): element is HTMLInputElement | HTMLTextAreaElement => matches(element),
-      )
+        if (hasFragmentMatch && (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) {
+          controls.push(element)
+        }
+      }
 
       const control = controls[0]
       if (!control) return false
@@ -167,10 +184,12 @@ async function setVisibleSelectValueByFragments(
     ({ rawAcceptedValues, rawFragments }) => {
       const fragments = rawFragments.map((fragment) => fragment.toLowerCase())
       const acceptedValues = rawAcceptedValues.map((value) => value.trim().toLowerCase())
-      const matches = (element: HTMLSelectElement): boolean => {
+      const controls: HTMLSelectElement[] = []
+
+      for (const element of Array.from(document.querySelectorAll('select'))) {
         const htmlElement = element as HTMLElement
         if (!(htmlElement.offsetWidth || htmlElement.offsetHeight || htmlElement.getClientRects().length)) {
-          return false
+          continue
         }
 
         const labelText =
@@ -186,12 +205,18 @@ async function setVisibleSelectValueByFragments(
           .join(' ')
           .toLowerCase()
 
-        return fragments.some((fragment) => haystack.includes(fragment))
-      }
+        let hasFragmentMatch = false
+        for (const fragment of fragments) {
+          if (haystack.includes(fragment)) {
+            hasFragmentMatch = true
+            break
+          }
+        }
 
-      const controls = Array.from(document.querySelectorAll('select')).filter(
-        (element): element is HTMLSelectElement => matches(element),
-      )
+        if (hasFragmentMatch && element instanceof HTMLSelectElement) {
+          controls.push(element)
+        }
+      }
 
       const control = controls[0]
       if (!control) return false
@@ -214,15 +239,156 @@ async function setVisibleSelectValueByFragments(
   )
 }
 
-async function readVisibleControlValueByFragments(
+async function setVisibleRadioValueByFragments(
   page: any,
   fragments: string[],
-  kind: RedwoodUpdateControlKind,
-): Promise<string | null> {
+  acceptedValues: string[],
+): Promise<boolean> {
   return await page.evaluate(
-    ({ rawFragments, rawKind }) => {
+    ({ rawAcceptedValues, rawFragments }) => {
       const fragments = rawFragments.map((fragment) => fragment.toLowerCase())
-      const controls = Array.from(document.querySelectorAll(rawKind === 'select' ? 'select' : 'input, textarea'))
+      const acceptedValues = rawAcceptedValues.map((value) => value.trim().toLowerCase()).filter(Boolean)
+
+      for (const element of Array.from(document.querySelectorAll('input[type="radio"]'))) {
+        if (!(element instanceof HTMLInputElement)) {
+          continue
+        }
+
+        const htmlElement = element as HTMLElement
+        const labelForElement = element.id ? document.querySelector(`label[for="${element.id}"]`) : null
+        const closestLabelElement = element.closest('label')
+        const closestTableCell = element.closest('td')
+        const parentElement = element.parentElement
+        const nextSiblingText =
+          element.nextElementSibling instanceof HTMLElement ? element.nextElementSibling.textContent || '' : ''
+        const previousSiblingText =
+          element.previousElementSibling instanceof HTMLElement ? element.previousElementSibling.textContent || '' : ''
+        const labelListText =
+          'labels' in element && element.labels
+            ? Array.from(element.labels)
+                .map((label) => label.textContent || '')
+                .join(' ')
+            : ''
+        const isVisible =
+          !!(htmlElement.offsetWidth || htmlElement.offsetHeight || htmlElement.getClientRects().length) ||
+          !!(
+            labelForElement instanceof HTMLElement &&
+            (labelForElement.offsetWidth || labelForElement.offsetHeight || labelForElement.getClientRects().length)
+          ) ||
+          !!(
+            closestLabelElement instanceof HTMLElement &&
+            (closestLabelElement.offsetWidth || closestLabelElement.offsetHeight || closestLabelElement.getClientRects().length)
+          ) ||
+          !!(
+            closestTableCell instanceof HTMLElement &&
+            (closestTableCell.offsetWidth || closestTableCell.offsetHeight || closestTableCell.getClientRects().length)
+          ) ||
+          !!(
+            parentElement instanceof HTMLElement &&
+            (parentElement.offsetWidth || parentElement.offsetHeight || parentElement.getClientRects().length)
+          )
+
+        if (!isVisible) {
+          continue
+        }
+
+        const labelForInput = labelForElement?.textContent || ''
+        const closestLabelText = closestLabelElement?.textContent || ''
+        const containerText =
+          element.closest('tr')?.textContent ||
+          element.closest('fieldset')?.textContent ||
+          element.closest('td')?.parentElement?.textContent ||
+          element.parentElement?.textContent ||
+          ''
+        const optionTextCandidates = [
+          element.value || '',
+          labelForInput,
+          closestLabelText,
+          labelListText,
+          closestTableCell?.textContent || '',
+          parentElement?.textContent || '',
+          nextSiblingText,
+          previousSiblingText,
+        ]
+
+        const groupHaystack = [
+          element.getAttribute('id') || '',
+          element.getAttribute('name') || '',
+          element.getAttribute('aria-label') || '',
+          containerText,
+          ...optionTextCandidates,
+        ]
+          .join(' ')
+          .toLowerCase()
+
+        let hasFragmentMatch = false
+        for (const fragment of fragments) {
+          if (groupHaystack.includes(fragment)) {
+            hasFragmentMatch = true
+            break
+          }
+        }
+
+        if (!hasFragmentMatch) {
+          continue
+        }
+
+        const candidateHaystack = optionTextCandidates.join(' ').toLowerCase()
+
+        let hasAcceptedValueMatch = acceptedValues.length === 0
+        for (const acceptedValue of acceptedValues) {
+          if (candidateHaystack.includes(acceptedValue)) {
+            hasAcceptedValueMatch = true
+            break
+          }
+        }
+
+        if (!hasAcceptedValueMatch) {
+          continue
+        }
+
+        if (!element.checked) {
+          element.click()
+        }
+
+        if (!element.checked) {
+          const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')
+          descriptor?.set?.call(element, true)
+          if (!descriptor?.set) {
+            element.checked = true
+          }
+        }
+
+        element.dispatchEvent(new Event('input', { bubbles: true }))
+        element.dispatchEvent(new Event('change', { bubbles: true }))
+        return true
+      }
+
+      return false
+    },
+    { rawAcceptedValues: acceptedValues, rawFragments: fragments },
+  )
+}
+
+type RedwoodVisibleControlSnapshot = {
+  candidateValues: string[]
+  found: boolean
+}
+
+type RedwoodPlanEvaluationResult = {
+  matchedFields: RedwoodClientUpdateField[]
+  mismatchedFields: RedwoodClientUpdateField[]
+  missingFields: RedwoodClientUpdateField[]
+}
+
+async function inspectVisibleInputValueByFragments(
+  page: any,
+  fragments: string[],
+): Promise<RedwoodVisibleControlSnapshot> {
+  return await page.evaluate(
+    ({ rawFragments }) => {
+      const fragments = rawFragments.map((fragment) => fragment.toLowerCase())
+      const controls = Array.from(document.querySelectorAll('input, textarea'))
 
       for (const element of controls) {
         const htmlElement = element as HTMLElement
@@ -238,12 +404,75 @@ async function readVisibleControlValueByFragments(
           element.closest('label')?.textContent ||
           (element.id ? document.querySelector(`label[for="${element.id}"]`)?.textContent : '') ||
           ''
+        const containerText =
+          element.closest('tr')?.textContent ||
+          element.closest('fieldset')?.textContent ||
+          element.closest('td')?.parentElement?.textContent ||
+          element.parentElement?.textContent ||
+          ''
         const haystack = [
           element.getAttribute('id') || '',
           element.getAttribute('name') || '',
           element.getAttribute('aria-label') || '',
           element.getAttribute('placeholder') || '',
           labelText,
+          containerText,
+        ]
+          .join(' ')
+          .toLowerCase()
+
+        if (!fragments.some((fragment) => haystack.includes(fragment))) {
+          continue
+        }
+
+        if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+          return {
+            candidateValues: [element.value.trim()],
+            found: true,
+          }
+        }
+      }
+
+      return {
+        candidateValues: [],
+        found: false,
+      }
+    },
+    { rawFragments: fragments },
+  )
+}
+
+async function inspectVisibleSelectValueByFragments(
+  page: any,
+  fragments: string[],
+): Promise<RedwoodVisibleControlSnapshot> {
+  return await page.evaluate(
+    ({ rawFragments }) => {
+      const fragments = rawFragments.map((fragment) => fragment.toLowerCase())
+      const controls = Array.from(document.querySelectorAll('select'))
+
+      for (const element of controls) {
+        const htmlElement = element as HTMLElement
+        if (!(htmlElement.offsetWidth || htmlElement.offsetHeight || htmlElement.getClientRects().length)) {
+          continue
+        }
+
+        const labelText =
+          element.closest('label')?.textContent ||
+          (element.id ? document.querySelector(`label[for="${element.id}"]`)?.textContent : '') ||
+          ''
+        const containerText =
+          element.closest('tr')?.textContent ||
+          element.closest('fieldset')?.textContent ||
+          element.closest('td')?.parentElement?.textContent ||
+          element.parentElement?.textContent ||
+          ''
+        const haystack = [
+          element.getAttribute('id') || '',
+          element.getAttribute('name') || '',
+          element.getAttribute('aria-label') || '',
+          labelText,
+          containerText,
         ]
           .join(' ')
           .toLowerCase()
@@ -253,18 +482,214 @@ async function readVisibleControlValueByFragments(
         }
 
         if (element instanceof HTMLSelectElement) {
-          return element.selectedOptions[0]?.value?.trim() || element.value.trim() || null
-        }
+          const candidateValues: string[] = []
+          const selectedOption = element.selectedOptions[0]
 
-        if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
-          return element.value.trim() || null
+          for (const rawValue of [selectedOption?.value || '', selectedOption?.text || '', element.value || '']) {
+            const normalizedValue = rawValue.trim()
+            if (!candidateValues.includes(normalizedValue)) {
+              candidateValues.push(normalizedValue)
+            }
+          }
+
+          if (candidateValues.length === 0) {
+            candidateValues.push('')
+          }
+
+          return {
+            candidateValues,
+            found: true,
+          }
         }
       }
 
-      return null
+      return {
+        candidateValues: [],
+        found: false,
+      }
     },
-    { rawFragments: fragments, rawKind: kind },
+    { rawFragments: fragments },
   )
+}
+
+async function inspectVisibleRadioValueByFragments(
+  page: any,
+  fragments: string[],
+): Promise<RedwoodVisibleControlSnapshot> {
+  return await page.evaluate(
+    ({ rawFragments }) => {
+      const fragments = rawFragments.map((fragment) => fragment.toLowerCase())
+      let foundGroup = false
+
+      for (const element of Array.from(document.querySelectorAll('input[type="radio"]'))) {
+        if (!(element instanceof HTMLInputElement)) {
+          continue
+        }
+
+        const htmlElement = element as HTMLElement
+        const labelForElement = element.id ? document.querySelector(`label[for="${element.id}"]`) : null
+        const closestLabelElement = element.closest('label')
+        const closestTableCell = element.closest('td')
+        const parentElement = element.parentElement
+        const nextSiblingText =
+          element.nextElementSibling instanceof HTMLElement ? element.nextElementSibling.textContent || '' : ''
+        const previousSiblingText =
+          element.previousElementSibling instanceof HTMLElement ? element.previousElementSibling.textContent || '' : ''
+        const labelListText =
+          'labels' in element && element.labels
+            ? Array.from(element.labels)
+                .map((label) => label.textContent || '')
+                .join(' ')
+            : ''
+        const isVisible =
+          !!(htmlElement.offsetWidth || htmlElement.offsetHeight || htmlElement.getClientRects().length) ||
+          !!(
+            labelForElement instanceof HTMLElement &&
+            (labelForElement.offsetWidth || labelForElement.offsetHeight || labelForElement.getClientRects().length)
+          ) ||
+          !!(
+            closestLabelElement instanceof HTMLElement &&
+            (closestLabelElement.offsetWidth || closestLabelElement.offsetHeight || closestLabelElement.getClientRects().length)
+          ) ||
+          !!(
+            closestTableCell instanceof HTMLElement &&
+            (closestTableCell.offsetWidth || closestTableCell.offsetHeight || closestTableCell.getClientRects().length)
+          ) ||
+          !!(
+            parentElement instanceof HTMLElement &&
+            (parentElement.offsetWidth || parentElement.offsetHeight || parentElement.getClientRects().length)
+          )
+
+        if (!isVisible) {
+          continue
+        }
+
+        const labelForInput = labelForElement?.textContent || ''
+        const closestLabelText = closestLabelElement?.textContent || ''
+        const containerText =
+          element.closest('tr')?.textContent ||
+          element.closest('fieldset')?.textContent ||
+          element.closest('td')?.parentElement?.textContent ||
+          element.parentElement?.textContent ||
+          ''
+        const haystack = [
+          element.getAttribute('id') || '',
+          element.getAttribute('name') || '',
+          element.getAttribute('aria-label') || '',
+          labelForInput,
+          closestLabelText,
+          labelListText,
+          closestTableCell?.textContent || '',
+          parentElement?.textContent || '',
+          nextSiblingText,
+          previousSiblingText,
+          containerText,
+        ]
+          .join(' ')
+          .toLowerCase()
+
+        if (!fragments.some((fragment) => haystack.includes(fragment))) {
+          continue
+        }
+
+        foundGroup = true
+
+        if (!element.checked) {
+          continue
+        }
+
+        const candidateValues: string[] = []
+        for (const rawValue of [
+          element.value || '',
+          labelForInput,
+          closestLabelText,
+          labelListText,
+          closestTableCell?.textContent || '',
+          parentElement?.textContent || '',
+          nextSiblingText,
+          previousSiblingText,
+        ]) {
+          const normalizedValue = rawValue.trim()
+          if (!candidateValues.includes(normalizedValue)) {
+            candidateValues.push(normalizedValue)
+          }
+        }
+
+        if (candidateValues.length === 0) {
+          candidateValues.push('')
+        }
+
+        return {
+          candidateValues,
+          found: true,
+        }
+      }
+
+      return {
+        candidateValues: foundGroup ? [''] : [],
+        found: foundGroup,
+      }
+    },
+    { rawFragments: fragments },
+  )
+}
+
+function doesRedwoodControlSnapshotMatchPlanEntry(
+  entry: RedwoodUpdatePlanEntry,
+  snapshot: RedwoodVisibleControlSnapshot,
+): boolean {
+  if (!snapshot.found) {
+    return false
+  }
+
+  const comparableExpectedValues = (entry.acceptedValues?.length ? entry.acceptedValues : [entry.expectedValue]).map(
+    (value) => normalizeComparableRedwoodValue(entry.field, value),
+  )
+
+  for (const candidateValue of snapshot.candidateValues) {
+    const comparableCandidateValue = normalizeComparableRedwoodValue(entry.field, candidateValue)
+    if (comparableExpectedValues.includes(comparableCandidateValue)) {
+      return true
+    }
+  }
+
+  return false
+}
+
+async function evaluateRedwoodClientUpdatePlan(
+  page: any,
+  plan: RedwoodUpdatePlanEntry[],
+): Promise<RedwoodPlanEvaluationResult> {
+  const matchedFields: RedwoodClientUpdateField[] = []
+  const mismatchedFields: RedwoodClientUpdateField[] = []
+  const missingFields: RedwoodClientUpdateField[] = []
+
+  for (const entry of plan) {
+    const snapshot =
+      entry.kind === 'radio'
+        ? await inspectVisibleRadioValueByFragments(page, entry.fragments)
+        : entry.kind === 'select'
+          ? await inspectVisibleSelectValueByFragments(page, entry.fragments)
+          : await inspectVisibleInputValueByFragments(page, entry.fragments)
+
+    if (!snapshot.found) {
+      missingFields.push(entry.field)
+      continue
+    }
+
+    if (doesRedwoodControlSnapshotMatchPlanEntry(entry, snapshot)) {
+      matchedFields.push(entry.field)
+      continue
+    }
+
+    mismatchedFields.push(entry.field)
+  }
+
+  return {
+    matchedFields,
+    mismatchedFields,
+    missingFields,
+  }
 }
 
 function normalizeComparableRedwoodValue(field: RedwoodClientUpdateField, value: string | null | undefined): string {
@@ -342,10 +767,10 @@ function buildRedwoodClientUpdatePlan(args: {
         const sexValue = mapGenderToRedwoodSex(client.gender)
         plan.push({
           field,
-          kind: 'select',
+          kind: 'radio',
           fragments: ['Sex', 'Gender'],
           expectedValue: sexValue,
-          acceptedSelectValues: sexValue ? [sexValue, sexValue === 'M' ? 'Male' : 'Female'] : ['', 'Select', '-- Select --'],
+          acceptedValues: sexValue ? [sexValue, sexValue === 'M' ? 'Male' : 'Female'] : [],
         })
         break
       }
@@ -649,6 +1074,7 @@ export async function updateRedwoodClientDetails(args: {
 }> {
   const { accountNumber, changedFields, client } = args
   const plan = buildRedwoodClientUpdatePlan({ client, changedFields })
+  const plannedFields = Array.from(new Set(plan.map((entry) => entry.field))) as RedwoodClientUpdateField[]
   const { username, password, loginUrl, donorSearchUrl } = await resolveRedwoodEnv()
 
   if (plan.length === 0) {
@@ -684,12 +1110,36 @@ export async function updateRedwoodClientDetails(args: {
         await dismissCookieBanner(page)
         await enterEditMode(page)
 
+        const initialEvaluation = await evaluateRedwoodClientUpdatePlan(page, plan)
+        if (initialEvaluation.matchedFields.length === plan.length) {
+          const screenshotPath = await captureRedwoodDiagnostic(page, `redwood-client-update-already-synced-${client.id}`)
+
+          await page.goto(buildRedwoodDonorViewUrl(donorSearchUrl, donorMatch.donorId), {
+            waitUntil: 'domcontentloaded',
+            timeout: 30000,
+          })
+          await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+          await page.waitForTimeout(800)
+
+          const donorMetadata = await readRedwoodDonorMetadata(page)
+
+          return {
+            callInCode: donorMetadata.callInCode,
+            donorId: donorMetadata.donorId || donorMatch.donorId,
+            screenshotPath,
+            updatedFields: plannedFields,
+          }
+        }
+
+        const entriesToApply = plan.filter((entry) => !initialEvaluation.matchedFields.includes(entry.field))
         const missingFields: RedwoodClientUpdateField[] = []
 
-        for (const entry of plan) {
+        for (const entry of entriesToApply) {
           const applied =
-            entry.kind === 'select'
-              ? await setVisibleSelectValueByFragments(page, entry.fragments, entry.acceptedSelectValues || [])
+            entry.kind === 'radio'
+              ? await setVisibleRadioValueByFragments(page, entry.fragments, entry.acceptedValues || [])
+              : entry.kind === 'select'
+                ? await setVisibleSelectValueByFragments(page, entry.fragments, entry.acceptedValues || [])
               : await setVisibleInputValueByFragments(page, entry.fragments, entry.expectedValue)
 
           if (!applied) {
@@ -718,17 +1168,11 @@ export async function updateRedwoodClientDetails(args: {
         })
         await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
         await page.waitForTimeout(800)
+        await dismissCookieBanner(page)
+        await enterEditMode(page)
 
-        const verificationFailures: RedwoodClientUpdateField[] = []
-        for (const entry of plan) {
-          const persistedValue = await readVisibleControlValueByFragments(page, entry.fragments, entry.kind)
-          if (
-            normalizeComparableRedwoodValue(entry.field, persistedValue) !==
-            normalizeComparableRedwoodValue(entry.field, entry.expectedValue)
-          ) {
-            verificationFailures.push(entry.field)
-          }
-        }
+        const finalEvaluation = await evaluateRedwoodClientUpdatePlan(page, plan)
+        const verificationFailures = [...finalEvaluation.missingFields, ...finalEvaluation.mismatchedFields]
 
         const screenshotPath = await captureRedwoodDiagnostic(page, `redwood-client-update-saved-${client.id}`)
         if (verificationFailures.length > 0) {
@@ -750,7 +1194,7 @@ export async function updateRedwoodClientDetails(args: {
           callInCode: donorMetadata.callInCode,
           donorId: donorMetadata.donorId || donorMatch.donorId,
           screenshotPath,
-          updatedFields: changedFields,
+          updatedFields: plannedFields,
         }
       } catch (error) {
         const screenshotPath = await captureRedwoodDiagnostic(page, `redwood-client-update-error-${client.id}`).catch(() => null)

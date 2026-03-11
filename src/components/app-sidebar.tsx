@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ClipboardList, FlaskConical, LayoutDashboardIcon, PillBottle, UserPen } from 'lucide-react'
+import { Building2, ClipboardList, FlaskConical, LayoutDashboardIcon, PillBottle, UserPen } from 'lucide-react'
 
 import { NavMain } from '@/components/nav-main'
 import { NavSecondary } from '@/components/nav-secondary'
@@ -45,6 +45,11 @@ const data = {
       title: 'Profile',
       url: '/dashboard/profile',
       icon: UserPen,
+    },
+    {
+      title: 'Referral',
+      url: '/dashboard/referral',
+      icon: Building2,
     },
   ],
   navSecondary: [

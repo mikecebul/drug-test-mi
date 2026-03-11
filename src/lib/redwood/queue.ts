@@ -1,5 +1,6 @@
 import { getPayload, type Payload } from 'payload'
 
+import { recordQueuedJobRun } from '@/lib/jobs/jobRuns'
 import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
 import { upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
 import { buildRedwoodUniqueId } from '@/lib/redwood/unique-id'
@@ -35,17 +36,24 @@ export async function queueRedwoodImportForClient(
     const existingUniqueId = typeof client.redwoodUniqueId === 'string' ? client.redwoodUniqueId.trim() : ''
     const uniqueId = existingUniqueId || buildRedwoodUniqueId(client.id)
     const accountNumber = getRedwoodAccountNumber()
+    const input = {
+      clientId,
+      source,
+    }
 
     assertRedwoodMutationAllowed(accountNumber, 'import')
 
     const queued = await payload.jobs.queue({
       task: 'redwood-import-client',
       queue: 'redwood',
-      input: {
-        clientId,
-        source,
-      },
+      input,
       overrideAccess: true,
+    })
+    await recordQueuedJobRun(payload, {
+      jobId: queued.id,
+      queue: 'redwood',
+      taskSlug: 'redwood-import-client',
+      input,
     })
 
     await payload.update({
@@ -103,15 +111,22 @@ export async function queueRedwoodHeadshotSync(
       depth: 0,
       overrideAccess: true,
     })
+    const input = {
+      clientId,
+      requestedByAdminId: requestedByAdminId || null,
+    }
 
     const queued = await payload.jobs.queue({
       task: 'redwood-sync-headshot',
       queue: 'redwood',
-      input: {
-        clientId,
-        requestedByAdminId: requestedByAdminId || null,
-      },
+      input,
       overrideAccess: true,
+    })
+    await recordQueuedJobRun(payload, {
+      jobId: queued.id,
+      queue: 'redwood',
+      taskSlug: 'redwood-sync-headshot',
+      input,
     })
 
     await payload.update({
@@ -173,17 +188,24 @@ export async function queueRedwoodUniqueIdBackfill(
     const uniqueId = typeof client.redwoodUniqueId === 'string' && client.redwoodUniqueId.trim()
       ? client.redwoodUniqueId.trim()
       : buildRedwoodUniqueId(client.id)
+    const input = {
+      clientId,
+      requestedByAdminId: requestedByAdminId || null,
+    }
 
     assertRedwoodMutationAllowed(accountNumber, 'unique ID backfill')
 
     const queued = await payload.jobs.queue({
       task: 'redwood-backfill-client-unique-id',
       queue: 'redwood',
-      input: {
-        clientId,
-        requestedByAdminId: requestedByAdminId || null,
-      },
+      input,
       overrideAccess: true,
+    })
+    await recordQueuedJobRun(payload, {
+      jobId: queued.id,
+      queue: 'redwood',
+      taskSlug: 'redwood-backfill-client-unique-id',
+      input,
     })
 
     await payload.update({
@@ -273,14 +295,22 @@ export async function queueRedwoodHeadshotUpload(
       throw new Error('Client is missing a website headshot; Redwood headshot upload was not queued.')
     }
 
+    const input = {
+      clientId,
+      requestedByAdminId: requestedByAdminId || null,
+    }
+
     const queued = await payload.jobs.queue({
       task: 'redwood-upload-headshot',
       queue: 'redwood',
-      input: {
-        clientId,
-        requestedByAdminId: requestedByAdminId || null,
-      },
+      input,
       overrideAccess: true,
+    })
+    await recordQueuedJobRun(payload, {
+      jobId: queued.id,
+      queue: 'redwood',
+      taskSlug: 'redwood-upload-headshot',
+      input,
     })
 
     await payload.update({
@@ -341,16 +371,23 @@ export async function queueRedwoodClientUpdate(
     const accountNumber = getRedwoodAccountNumber()
     assertRedwoodMutationAllowed(accountNumber, 'client update')
     const syncFields = triggeredFields
+    const input = {
+      clientId,
+      changedFieldsCsv: syncFields.join(','),
+      requestedByAdminId: requestedByAdminId || null,
+    }
 
     const queued = await payload.jobs.queue({
       task: 'redwood-update-client',
       queue: 'redwood',
-      input: {
-        clientId,
-        changedFieldsCsv: syncFields.join(','),
-        requestedByAdminId: requestedByAdminId || null,
-      },
+      input,
       overrideAccess: true,
+    })
+    await recordQueuedJobRun(payload, {
+      jobId: queued.id,
+      queue: 'redwood',
+      taskSlug: 'redwood-update-client',
+      input,
     })
 
     await payload.update({
@@ -406,14 +443,21 @@ export async function queueRedwoodDefaultTestSync(
   try {
     const accountNumber = getRedwoodAccountNumber()
     assertRedwoodMutationAllowed(accountNumber, 'default test sync')
+    const input = {
+      clientId,
+    }
 
     const queued = await payload.jobs.queue({
       task: 'redwood-sync-default-test',
       queue: 'redwood',
-      input: {
-        clientId,
-      },
+      input,
       overrideAccess: true,
+    })
+    await recordQueuedJobRun(payload, {
+      jobId: queued.id,
+      queue: 'redwood',
+      taskSlug: 'redwood-sync-default-test',
+      input,
     })
 
     payload.logger.info({
