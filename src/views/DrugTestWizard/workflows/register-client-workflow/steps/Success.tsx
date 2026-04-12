@@ -83,7 +83,6 @@ export function SuccessStep({
           <p className="text-muted-foreground text-sm">Add a headshot to ensure ID in referall emails.</p>
         </div>
         <HeadshotCaptureCard
-          key={clientId}
           client={{
             id: clientId,
             firstName,

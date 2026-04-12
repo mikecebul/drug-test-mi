@@ -8,9 +8,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
+  extractPreferredTestType,
+  extractReferralRelation,
   formatPhoneForCal,
-  type RecommendedTestType,
-  resolveRecommendedTestType,
+  RecommendedTestType,
 } from '@/lib/quick-book'
 import { sdk } from '@/lib/payload-sdk'
 import { searchClients } from '@/views/DrugTestWizard/workflows/components/client/clientSearch'
@@ -31,7 +32,7 @@ const FALLBACK_TEST_TYPES: TestTypeOption[] = [
   { id: 'etg-lab', value: 'etg-lab', label: 'EtG Lab' },
 ]
 
-async function resolveClientRecommendation(clientId: string) {
+async function resolveClientRecommendation(clientId: string): Promise<RecommendedTestType> {
   const client = await sdk.findByID({
     collection: 'clients',
     id: clientId,
@@ -42,7 +43,62 @@ async function resolveClientRecommendation(clientId: string) {
     },
   })
 
-  return resolveRecommendedTestType(client, sdk.findByID.bind(sdk), 'AdminQuickBookWidget')
+  if (client.referralType !== 'court' && client.referralType !== 'employer') {
+    return {}
+  }
+
+  const relationRef = extractReferralRelation(client.referral)
+  if (!relationRef) {
+    return {}
+  }
+
+  if (client.referral && typeof client.referral === 'object' && 'value' in client.referral) {
+    const referralValue = client.referral.value
+    if (typeof referralValue === 'object' && referralValue !== null) {
+      const extracted = extractPreferredTestType(
+        'preferredTestType' in referralValue ? referralValue.preferredTestType : undefined,
+      )
+      if (extracted.recommendedTestTypeId || extracted.recommendedTestTypeValue) {
+        return extracted
+      }
+    }
+  }
+
+  const referralDoc = await sdk.findByID({
+    collection: relationRef.relationTo,
+    id: relationRef.referralId,
+    depth: 1,
+    select: {
+      preferredTestType: true,
+    },
+  })
+
+  const extractedFromReferral = extractPreferredTestType(referralDoc.preferredTestType)
+  if (!extractedFromReferral.recommendedTestTypeId && !extractedFromReferral.recommendedTestTypeValue) {
+    return {}
+  }
+
+  if (!extractedFromReferral.recommendedTestTypeValue && extractedFromReferral.recommendedTestTypeId) {
+    try {
+      const testTypeDoc = await sdk.findByID({
+        collection: 'test-types',
+        id: extractedFromReferral.recommendedTestTypeId,
+        depth: 0,
+        select: {
+          value: true,
+        },
+      })
+
+      return {
+        ...extractedFromReferral,
+        ...(testTypeDoc.value ? { recommendedTestTypeValue: testTypeDoc.value } : {}),
+      }
+    } catch (error) {
+      console.warn('[AdminQuickBookWidget] Failed to fetch recommended test type value', error)
+    }
+  }
+
+  return extractedFromReferral
 }
 
 async function fetchTestTypes(): Promise<TestTypeOption[]> {

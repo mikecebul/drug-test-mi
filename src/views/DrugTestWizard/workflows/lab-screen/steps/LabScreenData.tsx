@@ -132,7 +132,7 @@ export const LabScreenDataStep = withForm({
         />
 
         {/* Client Info & Medications */}
-        {client && <HeadshotCaptureCard key={client.id} client={client} onHeadshotLinked={handleHeadshotLinked} />}
+        {client && <HeadshotCaptureCard client={client} onHeadshotLinked={handleHeadshotLinked} />}
 
         {clientMedications.length > 0 && (
           <MedicationDisplayField medicationSnapshot={clientMedications} title="Medications at Collection Time" />

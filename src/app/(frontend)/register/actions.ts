@@ -12,7 +12,6 @@ import {
   normalizeReferralContacts,
   parseRecipientEmails,
 } from '@/lib/referrals'
-import { queueRedwoodImportForClient } from '@/lib/redwood/queue'
 
 function normalizeAdditionalRecipients(
   rows: Array<{ name?: string; email?: string }> | undefined,
@@ -214,20 +213,10 @@ export async function registerWebsiteClientAction(formData: FormValues): Promise
       }
     }
 
-    const newClient = await payload.create({
+    await payload.create({
       collection: 'clients',
       data: clientData as any,
     })
-
-    try {
-      await queueRedwoodImportForClient(newClient.id, 'frontend-registration', payload)
-    } catch (queueError) {
-      payload.logger.error({
-        msg: '[registerWebsiteClientAction] Failed to queue Redwood import job (non-blocking)',
-        clientId: newClient.id,
-        err: queueError,
-      })
-    }
 
     return { success: true }
   } catch (error) {
