@@ -37,66 +37,35 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Create .env.production from Docker secrets
-RUN --mount=type=secret,id=DATABASE_URI \
-  --mount=type=secret,id=DOCKERHUB_TOKEN \
-  --mount=type=secret,id=DOCKERHUB_USERNAME \
-  --mount=type=secret,id=NEXT_PUBLIC_GOOGLE_MAPS_API_KEY \
-  --mount=type=secret,id=NEXT_PUBLIC_IS_LIVE \
-  --mount=type=secret,id=NEXT_PUBLIC_S3_HOSTNAME \
-  --mount=type=secret,id=NEXT_PUBLIC_SENTRY_DSN \
-  --mount=type=secret,id=NEXT_PUBLIC_SERVER_URL \
-  --mount=type=secret,id=NEXT_PUBLIC_UPLOAD_PREFIX \
-  --mount=type=secret,id=NEXT_SERVER_ACTIONS_ENCRYPTION_KEY \
-  --mount=type=secret,id=PAYLOAD_SECRET \
-  --mount=type=secret,id=PREVIEW_SECRET \
-  --mount=type=secret,id=REDWOOD_PASSWORD \
-  --mount=type=secret,id=REDWOOD_USERNAME \
-  --mount=type=secret,id=RESEND_API_KEY \
-  --mount=type=secret,id=S3_ACCESS_KEY_ID \
-  --mount=type=secret,id=S3_BUCKET \
-  --mount=type=secret,id=S3_ENDPOINT \
-  --mount=type=secret,id=S3_REGION \
-  --mount=type=secret,id=S3_SECRET_ACCESS_KEY \
-  --mount=type=secret,id=SENTRY_AUTH_TOKEN \
-  --mount=type=secret,id=UNSPLASH_ACCESS_KEY \
-  --mount=type=secret,id=UNSPLASH_URL \
-  sh -c '( \
-  echo "DATABASE_URI=$(cat /run/secrets/DATABASE_URI)" && \
-  echo "DOCKERHUB_TOKEN=$(cat /run/secrets/DOCKERHUB_TOKEN)" && \
-  echo "DOCKERHUB_USERNAME=$(cat /run/secrets/DOCKERHUB_USERNAME)" && \
-  echo "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=$(cat /run/secrets/NEXT_PUBLIC_GOOGLE_MAPS_API_KEY)" && \
-  echo "NEXT_PUBLIC_IS_LIVE=$(cat /run/secrets/NEXT_PUBLIC_IS_LIVE)" && \
-  echo "NEXT_PUBLIC_S3_HOSTNAME=$(cat /run/secrets/NEXT_PUBLIC_S3_HOSTNAME)" && \
-  echo "NEXT_PUBLIC_SENTRY_DSN=$(cat /run/secrets/NEXT_PUBLIC_SENTRY_DSN)" && \
-  echo "NEXT_PUBLIC_SERVER_URL=$(cat /run/secrets/NEXT_PUBLIC_SERVER_URL)" && \
-  echo "NEXT_PUBLIC_UPLOAD_PREFIX=$(cat /run/secrets/NEXT_PUBLIC_UPLOAD_PREFIX)" && \
-  echo "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=$(cat /run/secrets/NEXT_SERVER_ACTIONS_ENCRYPTION_KEY)" && \
-  echo "PAYLOAD_SECRET=$(cat /run/secrets/PAYLOAD_SECRET)" && \
-  echo "PREVIEW_SECRET=$(cat /run/secrets/PREVIEW_SECRET)" && \
-  echo "REDWOOD_PASSWORD=$(cat /run/secrets/REDWOOD_PASSWORD)" && \
-  echo "REDWOOD_USERNAME=$(cat /run/secrets/REDWOOD_USERNAME)" && \
-  echo "RESEND_API_KEY=$(cat /run/secrets/RESEND_API_KEY)" && \
-  echo "S3_ACCESS_KEY_ID=$(cat /run/secrets/S3_ACCESS_KEY_ID)" && \
-  echo "S3_BUCKET=$(cat /run/secrets/S3_BUCKET)" && \
-  echo "S3_ENDPOINT=$(cat /run/secrets/S3_ENDPOINT)" && \
-  echo "S3_REGION=$(cat /run/secrets/S3_REGION)" && \
-  echo "S3_SECRET_ACCESS_KEY=$(cat /run/secrets/S3_SECRET_ACCESS_KEY)" && \
-  echo "SENTRY_AUTH_TOKEN=$(cat /run/secrets/SENTRY_AUTH_TOKEN)" && \
-  echo "UNSPLASH_ACCESS_KEY=$(cat /run/secrets/UNSPLASH_ACCESS_KEY)" && \
-  echo "UNSPLASH_URL=$(cat /run/secrets/UNSPLASH_URL)" \
-  ) > .env.production'
-
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_OUTPUT=standalone
 
 # Update and enable Corepack
 RUN npm install -g corepack@latest
 
-RUN \
+RUN --mount=type=secret,id=DATABASE_URI,env=DATABASE_URI \
+  --mount=type=secret,id=NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,env=NEXT_PUBLIC_GOOGLE_MAPS_API_KEY \
+  --mount=type=secret,id=NEXT_PUBLIC_IS_LIVE,env=NEXT_PUBLIC_IS_LIVE \
+  --mount=type=secret,id=NEXT_PUBLIC_S3_HOSTNAME,env=NEXT_PUBLIC_S3_HOSTNAME \
+  --mount=type=secret,id=NEXT_PUBLIC_SENTRY_DSN,env=NEXT_PUBLIC_SENTRY_DSN \
+  --mount=type=secret,id=NEXT_PUBLIC_SERVER_URL,env=NEXT_PUBLIC_SERVER_URL \
+  --mount=type=secret,id=NEXT_PUBLIC_UPLOAD_PREFIX,env=NEXT_PUBLIC_UPLOAD_PREFIX \
+  --mount=type=secret,id=NEXT_SERVER_ACTIONS_ENCRYPTION_KEY,env=NEXT_SERVER_ACTIONS_ENCRYPTION_KEY \
+  --mount=type=secret,id=PAYLOAD_SECRET,env=PAYLOAD_SECRET \
+  --mount=type=secret,id=PREVIEW_SECRET,env=PREVIEW_SECRET \
+  --mount=type=secret,id=REDWOOD_PASSWORD,env=REDWOOD_PASSWORD \
+  --mount=type=secret,id=REDWOOD_USERNAME,env=REDWOOD_USERNAME \
+  --mount=type=secret,id=RESEND_API_KEY,env=RESEND_API_KEY \
+  --mount=type=secret,id=S3_ACCESS_KEY_ID,env=S3_ACCESS_KEY_ID \
+  --mount=type=secret,id=S3_BUCKET,env=S3_BUCKET \
+  --mount=type=secret,id=S3_ENDPOINT,env=S3_ENDPOINT \
+  --mount=type=secret,id=S3_REGION,env=S3_REGION \
+  --mount=type=secret,id=S3_SECRET_ACCESS_KEY,env=S3_SECRET_ACCESS_KEY \
+  --mount=type=secret,id=SENTRY_AUTH_TOKEN,env=SENTRY_AUTH_TOKEN \
+  --mount=type=secret,id=UNSPLASH_ACCESS_KEY,env=UNSPLASH_ACCESS_KEY \
+  --mount=type=secret,id=UNSPLASH_URL,env=UNSPLASH_URL \
   if [ -f pnpm-lock.yaml ]; then \
   corepack enable pnpm && \
-  set -a && . ./.env.production && set +a && \
   pnpm run build; \
   else \
   echo "Lockfile not found." && exit 1; \

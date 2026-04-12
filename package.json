@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "cross-env NODE_OPTIONS=--no-deprecation payload migrate && next build",
+    "build": "cross-env NODE_OPTIONS=--no-deprecation next build",
     "postbuild": "next-sitemap --config next-sitemap.config.cjs",
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev --turbo",
     "build:dev": "cross-env NODE_OPTIONS=--no-deprecation rm -rf .next && pnpm build && pnpm start",
@@ -35,6 +35,7 @@
     "test:verify": "pnpm test",
     "test:gate": "pnpm test:integration:ci && pnpm test:e2e:smoke",
     "test:ui": "vitest --ui",
+    "validate:production-env": "node scripts/validate-production-env.mjs",
     "email": "email dev --dir src/emails --port 3001",
     "email:export": "email export --dir src/emails"
   },
