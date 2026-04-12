@@ -56,7 +56,6 @@ export const CollectionStep = withForm({
 
         {client && (
           <HeadshotCaptureCard
-            key={client.id}
             client={client}
             onHeadshotLinked={(url: string, docId: string) => {
               form.setFieldValue('client.headshot', url)

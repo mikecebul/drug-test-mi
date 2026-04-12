@@ -48,30 +48,12 @@ export const TestTypes: CollectionConfig = {
     {
       name: 'category',
       type: 'select',
-      required: true,
       options: [
         { label: 'Instant', value: 'instant' },
         { label: 'Lab', value: 'lab' },
       ],
       admin: {
         description: 'Helps filter test types in future workflows.',
-      },
-    },
-    {
-      name: 'redwoodLabTestCode',
-      type: 'text',
-      admin: {
-        condition: (_, siblingData) => siblingData?.category === 'lab',
-        description: 'Redwood donor default-test code used on the donor edit screen. Lab test types only.',
-      },
-      validate: (value, { siblingData }) => {
-        if (siblingData?.category !== 'lab') {
-          return true
-        }
-
-        return typeof value === 'string' && value.trim().length > 0
-          ? true
-          : 'Redwood lab test code is required when category is Lab.'
       },
     },
     {

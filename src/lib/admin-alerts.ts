@@ -1,5 +1,4 @@
 import type { Payload } from 'payload'
-import type { RedwoodJobType } from '@/lib/redwood/incidents'
 
 export type AlertSeverity = 'critical' | 'high' | 'medium'
 export type AlertType =
@@ -16,14 +15,6 @@ export interface CreateAdminAlertParams {
   title: string
   message: string
   context?: Record<string, any>
-  client?: string
-  dedupeKey?: string
-  jobType?: RedwoodJobType
-  statusSnapshot?: Record<string, unknown> | null
-  screenshotPath?: string | null
-  attemptCount?: number
-  lastSeenAt?: string
-  recommendedAction?: string
 }
 
 /**
@@ -65,30 +56,15 @@ export async function createAdminAlert(
         alertType: params.alertType,
         message: params.message,
         context: params.context,
-        client: params.client,
-        dedupeKey: params.dedupeKey,
-        jobType: params.jobType,
-        statusSnapshot: params.statusSnapshot,
-        screenshotPath: params.screenshotPath,
-        attemptCount: params.attemptCount,
-        lastSeenAt: params.lastSeenAt,
-        recommendedAction: params.recommendedAction,
         resolved: false,
       },
-      overrideAccess: true,
     })
 
-    payload.logger.info({
-      msg: '[admin-alerts] Admin alert created',
-      title: params.title,
-      alertType: params.alertType,
-      dedupeKey: params.dedupeKey || null,
-    })
+    payload.logger.info(`Admin alert created: ${params.title}`)
   } catch (error) {
-    payload.logger.error({
-      msg: '[admin-alerts] Failed to create admin alert',
-      error: error instanceof Error ? error.message : String(error),
-      params,
-    })
+    // If alert creation fails, at least log it
+    // Don't throw - we don't want alert failures to crash the main operation
+    payload.logger.error(`Failed to create admin alert: ${error}`)
+    payload.logger.error(`Original alert details: ${JSON.stringify(params, null, 2)}`)
   }
 }

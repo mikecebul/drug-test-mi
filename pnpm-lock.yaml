@@ -230,9 +230,6 @@ importers:
       plaiceholder:
         specifier: ^3.0.0
         version: 3.0.0(sharp@0.34.2)
-      playwright:
-        specifier: ^1.51.1
-        version: 1.58.2
       react:
         specifier: 19.2.4
         version: 19.2.4

@@ -34,7 +34,16 @@ export const useSignInFormOpts = () => {
 
         if (req.status >= 400) {
           const errorMessage = res.errors?.[0]?.message || res.message || 'Invalid credentials'
-          toast.error(errorMessage)
+          // Check if the error is related to unverified email
+          if (
+            errorMessage.toLowerCase().includes('verify') ||
+            errorMessage.toLowerCase().includes('unverified')
+          ) {
+            router.push('/verify-email?resend=true')
+            return
+          } else {
+            toast.error(errorMessage)
+          }
           return
         }
 
