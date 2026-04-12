@@ -269,6 +269,8 @@ Then open [http://localhost:3000](http://localhost:3000).
 
 ## Testing
 
+Documentation-only README updates are a safe way to validate branch protections and CI wiring without changing application behavior.
+
 ### Local full verification
 
 ```bash
