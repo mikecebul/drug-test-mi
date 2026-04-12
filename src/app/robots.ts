@@ -38,7 +38,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
         '/dashboard/*',
         '/api/*',
         '/sentry-example-page',
-        '/verify-email',
         '/forgot-password',
         '/reset-password',
         ...disallowedPages,

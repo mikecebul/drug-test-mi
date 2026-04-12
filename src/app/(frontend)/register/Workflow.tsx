@@ -25,7 +25,7 @@ import {
 import { registerWebsiteClientAction } from './actions'
 
 interface RegisterClientWorkflowProps {
-  onComplete: (email: string) => void
+  onComplete: () => void
 }
 
 export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowProps) {
@@ -126,10 +126,10 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
         }
 
         form.reset()
-        onComplete(value.accountInfo.email)
+        onComplete()
         await setCurrentStep(null)
         toast.success('Registration submitted successfully!', {
-          description: 'Please check your email to verify your account.',
+          description: 'Your account is ready. You can sign in and schedule your screening.',
         })
       } catch (error) {
         console.error('Registration error:', error)

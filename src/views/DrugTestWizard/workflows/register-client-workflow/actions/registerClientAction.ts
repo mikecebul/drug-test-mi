@@ -11,6 +11,7 @@ import {
   normalizeReferralContacts,
   parseRecipientEmails,
 } from '@/lib/referrals'
+import { queueRedwoodImportForClient } from '@/lib/redwood/queue'
 
 function normalizeAdditionalRecipients(
   rows: Array<{ name?: string; email?: string }> | undefined,
@@ -222,6 +223,16 @@ export async function registerClientAction(formData: FormValues): Promise<{
       data: clientData as any,
       overrideAccess: true,
     })
+
+    try {
+      await queueRedwoodImportForClient(newClient.id, 'admin-registration', payload)
+    } catch (queueError) {
+      payload.logger.error({
+        msg: '[registerClientAction] Failed to queue Redwood import job (non-blocking)',
+        clientId: newClient.id,
+        err: queueError,
+      })
+    }
 
     payload.logger.info(`[registerClientAction] Created client ${newClient.id} for ${newClient.email}`)
 

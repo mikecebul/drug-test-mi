@@ -18,6 +18,7 @@ import {
   normalizeReferralContacts,
   parseRecipientEmails,
 } from '@/lib/referrals'
+import { queueRedwoodImportForClient } from '@/lib/redwood/queue'
 
 const _TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
 const _TEST_EMAIL = process.env.EMAIL_TEST_ADDRESS || 'mike@midrugtest.com'
@@ -2008,6 +2009,16 @@ export async function registerClientFromWizard(data: {
       data: clientData,
       overrideAccess: true,
     })
+
+    try {
+      await queueRedwoodImportForClient(newClient.id, 'wizard-registration', payload)
+    } catch (queueError) {
+      payload.logger.error({
+        msg: '[registerClientFromWizard] Failed to queue Redwood import job (non-blocking)',
+        clientId: newClient.id,
+        err: queueError,
+      })
+    }
 
     payload.logger.info(`[registerClientFromWizard] Created client ${newClient.id} for ${data.email}`)
 
