@@ -8,6 +8,7 @@ import TotalClientsWidget from '@/views/dashboard/widgets/TotalClientsWidget'
 import WizardEntryWidget from '@/views/dashboard/widgets/WizardEntryWidget'
 
 type WidgetReq = Parameters<typeof WizardEntryWidget>[0]['req']
+type WidgetProps = Parameters<typeof WizardEntryWidget>[0]
 
 vi.mock('next/link', () => ({
   default: ({ href, children, ...props }: { href: string; children: React.ReactNode }) => (
@@ -40,25 +41,38 @@ function createAdminReq(): WidgetReq {
   } as unknown as WidgetReq
 }
 
+function createWidgetProps(req: WidgetReq, widgetSlug: string): WidgetProps {
+  return {
+    req,
+    widgetSlug,
+  } as WidgetProps
+}
+
 describe('dashboard widgets', () => {
   test('renders admin card variant styles for all dashboard cards', async () => {
     const wizardReq = createAdminReq()
-    const wizardMarkup = renderMarkup(WizardEntryWidget({ req: wizardReq }))
+    const wizardMarkup = renderMarkup(WizardEntryWidget(createWidgetProps(wizardReq, 'wizard-entry')))
 
     const totalReq = createAdminReq()
     ;(totalReq.payload.count as ReturnType<typeof vi.fn>).mockResolvedValue({ totalDocs: 12 })
-    const totalMarkup = renderMarkup(await TotalClientsWidget({ req: totalReq }))
+    const totalMarkup = renderMarkup(await TotalClientsWidget(createWidgetProps(totalReq, 'total-clients')))
 
     const quickBookReq = createAdminReq()
-    const quickBookMarkup = renderMarkup(AdminQuickBookWidget({ req: quickBookReq }))
+    const quickBookMarkup = renderMarkup(
+      AdminQuickBookWidget(createWidgetProps(quickBookReq, 'admin-quick-book')),
+    )
 
     const scheduleReq = createAdminReq()
     ;(scheduleReq.payload.find as ReturnType<typeof vi.fn>).mockResolvedValue({ docs: [] })
-    const scheduleMarkup = renderMarkup(await NextCalcomBookingWidget({ req: scheduleReq }))
+    const scheduleMarkup = renderMarkup(
+      await NextCalcomBookingWidget(createWidgetProps(scheduleReq, 'next-calcom-booking')),
+    )
 
     const pendingReq = createAdminReq()
     ;(pendingReq.payload.count as ReturnType<typeof vi.fn>).mockResolvedValue({ totalDocs: 3 })
-    const pendingMarkup = renderMarkup(await PendingDrugTestsWidget({ req: pendingReq }))
+    const pendingMarkup = renderMarkup(
+      await PendingDrugTestsWidget(createWidgetProps(pendingReq, 'pending-drug-tests')),
+    )
 
     expect(wizardMarkup).toContain('bg-gradient-to-b')
     expect(totalMarkup).toContain('bg-gradient-to-b')
@@ -71,7 +85,7 @@ describe('dashboard widgets', () => {
     const req = createAdminReq()
     ;(req.payload.count as ReturnType<typeof vi.fn>).mockResolvedValue({ totalDocs: 5 })
 
-    const markup = renderMarkup(await TotalClientsWidget({ req }))
+    const markup = renderMarkup(await TotalClientsWidget(createWidgetProps(req, 'total-clients')))
 
     expect(markup).toContain('/admin/drug-test-upload?workflow=register-client')
     expect(markup).toContain('returnTo=dashboard')
@@ -80,7 +94,7 @@ describe('dashboard widgets', () => {
 
   test('renders quick book heading', () => {
     const req = createAdminReq()
-    const markup = renderMarkup(AdminQuickBookWidget({ req }))
+    const markup = renderMarkup(AdminQuickBookWidget(createWidgetProps(req, 'admin-quick-book')))
 
     expect(markup).toContain('Quick Book')
   })
@@ -89,8 +103,10 @@ describe('dashboard widgets', () => {
     const req = createAdminReq()
     ;(req.user as { collection: string }).collection = 'clients'
 
-    const totalMarkup = renderMarkup(await TotalClientsWidget({ req }))
-    const quickBookMarkup = renderMarkup(AdminQuickBookWidget({ req }))
+    const totalMarkup = renderMarkup(await TotalClientsWidget(createWidgetProps(req, 'total-clients')))
+    const quickBookMarkup = renderMarkup(
+      AdminQuickBookWidget(createWidgetProps(req, 'admin-quick-book')),
+    )
 
     expect(totalMarkup).toBe('')
     expect(quickBookMarkup).toBe('')
