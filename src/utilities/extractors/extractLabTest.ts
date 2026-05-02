@@ -220,7 +220,7 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
       // Pattern: Substance name followed by an optional lab footnote marker,
       // then "Screened Positive" or "Negative" and the cutoff.
       const pattern = new RegExp(
-        `${escapeRegex(pdfName)}\\*?\\s+(Negative|Screened Positive)\\s+\\d+\\s*ng/mL`,
+        `${escapeRegex(pdfName)}\\*?\\s+(Negative|Screened Positive)\\s+\\d+(?:\\.\\d+)?\\s*(?:ng/mL|g/dL)`,
         'i'
       )
       const match = text.match(pattern)

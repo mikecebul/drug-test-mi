@@ -182,7 +182,10 @@ describe('extractLabTest', () => {
 
   describe('11-panel-lab-no-etg tests', () => {
     test('should detect B829 11-panel lab no EtG PDF and map ethanol separately from EtG', async () => {
-      const pdf = await getTestPdf('11-panel-lab-no-etg/screening.pdf')
+      const pdf = await getTestPdf(
+        '11-panel-lab-no-etg/screening.pdf',
+        process.env.NO_ETG_LAB_PDF,
+      )
 
       if (pdf.skipped) {
         console.log('Skipping: 11-panel-lab-no-etg screening fixture not found')
@@ -194,8 +197,10 @@ describe('extractLabTest', () => {
       expect(result.testType).toBe('11-panel-lab-no-etg')
       expect(result.detectedSubstances).not.toContain('etg')
 
-      if (result.rawText.includes('Screened Positive') && /Alcohol \(Ethanol\)/i.test(result.rawText)) {
+      if (/Alcohol \(Ethanol\)\*?\s+Screened Positive/i.test(result.rawText)) {
         expect(result.detectedSubstances).toContain('alcohol')
+      } else {
+        expect(result.detectedSubstances).not.toContain('alcohol')
       }
     })
   })
