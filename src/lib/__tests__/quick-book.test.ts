@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vitest'
 
-import { extractPreferredTestType, extractReferralRelation, formatPhoneForCal } from '@/lib/quick-book'
+import {
+  FALLBACK_BOOKING_TEST_TYPES,
+  extractPreferredTestType,
+  extractReferralRelation,
+  formatPhoneForCal,
+  resolveRecommendedTestLabel,
+} from '@/lib/quick-book'
 
 describe('quick-book helpers', () => {
   test('formats US phone numbers for Cal.com', () => {
@@ -36,5 +42,13 @@ describe('quick-book helpers', () => {
         value: { id: 'employer-id', name: 'Acme' },
       }),
     ).toEqual({ relationTo: 'employers', referralId: 'employer-id' })
+  })
+
+  test('resolves no-EtG preferred test type to Cal.com booking label', () => {
+    expect(
+      resolveRecommendedTestLabel(FALLBACK_BOOKING_TEST_TYPES, {
+        recommendedTestTypeValue: '11-panel-lab-no-etg',
+      }),
+    ).toBe('11 Panel Lab (no EtG)')
   })
 })

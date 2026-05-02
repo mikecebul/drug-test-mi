@@ -15,6 +15,8 @@ fixtures/
 ├── 11-panel-lab/
 │   ├── screening.pdf       # 11-panel lab screening result
 │   └── confirmation.pdf    # 11-panel lab with confirmation results
+├── 11-panel-lab-no-etg/
+│   └── screening.pdf       # B829 11-panel lab screening result with Alcohol (Ethanol), no EtG
 ├── 17-panel-sos-lab/
 │   └── screening.pdf       # 17-panel SOS lab screening result
 ├── etg-lab/

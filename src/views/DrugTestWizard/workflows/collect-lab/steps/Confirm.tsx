@@ -49,6 +49,8 @@ export const ConfirmStep = withForm({
                 <p className="mt-1 pl-6 text-lg">
                   {formValues.collection.testType === '11-panel-lab'
                     ? '11-Panel Lab Test'
+                    : formValues.collection.testType === '11-panel-lab-no-etg'
+                      ? '11-Panel Lab Test (no EtG)'
                     : formValues.collection.testType === '17-panel-sos-lab'
                       ? '17-Panel SOS Lab Test'
                       : 'EtG Lab Test'}

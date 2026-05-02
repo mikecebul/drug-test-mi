@@ -1185,6 +1185,10 @@ export interface Client {
    */
   disableClientEmails?: boolean | null;
   /**
+   * Allow this client to book through the hidden unpaid Cal.com drug test event.
+   */
+  allowUnpaidBookings?: boolean | null;
+  /**
    * Whether this client is active
    */
   isActive?: boolean | null;
@@ -1573,7 +1577,7 @@ export interface DrugTest {
   /**
    * Type of drug test panel used
    */
-  testType: '11-panel-lab' | '15-panel-instant' | '17-panel-sos-lab' | 'etg-lab';
+  testType: '11-panel-lab' | '11-panel-lab-no-etg' | '15-panel-instant' | '17-panel-sos-lab' | 'etg-lab';
   /**
    * Snapshot of active medications at time of test (auto-populated from client, editable by superAdmin only)
    */
@@ -3231,6 +3235,7 @@ export interface ClientsSelect<T extends boolean = true> {
   fullName?: T;
   headshot?: T;
   disableClientEmails?: T;
+  allowUnpaidBookings?: T;
   isActive?: T;
   firstName?: T;
   lastName?: T;

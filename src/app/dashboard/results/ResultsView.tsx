@@ -76,9 +76,10 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
   const testType = result.testType
   const is15Panel = testType === '15-panel-instant'
   const is11PanelLab = testType === '11-panel-lab'
+  const is11PanelLabNoEtg = testType === '11-panel-lab-no-etg'
   const is17PanelLab = testType === '17-panel-sos-lab'
   const isEtgLab = testType === 'etg-lab'
-  const isLabTest = is11PanelLab || is17PanelLab || isEtgLab
+  const isLabTest = is11PanelLab || is11PanelLabNoEtg || is17PanelLab || isEtgLab
 
   // Determine if screening is complete
   const isScreened =
@@ -563,6 +564,9 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
             case '11-panel-lab':
               label = '11-Panel Lab'
               break
+            case '11-panel-lab-no-etg':
+              label = '11-Panel Lab (no EtG)'
+              break
             case '15-panel-instant':
               label = '15-Panel Instant'
               break
@@ -827,6 +831,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                       <SelectContent>
                         <SelectItem value="all">All Types</SelectItem>
                         <SelectItem value="11-panel-lab">11-Panel Lab</SelectItem>
+                        <SelectItem value="11-panel-lab-no-etg">11-Panel Lab (no EtG)</SelectItem>
                         <SelectItem value="15-panel-instant">15-Panel Instant</SelectItem>
                         <SelectItem value="17-panel-sos-lab">17-Panel SOS Lab</SelectItem>
                         <SelectItem value="etg-lab">EtG Lab</SelectItem>
@@ -961,6 +966,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                           <SelectContent>
                             <SelectItem value="all">All Types</SelectItem>
                             <SelectItem value="11-panel-lab">11-Panel Lab</SelectItem>
+                            <SelectItem value="11-panel-lab-no-etg">11-Panel Lab (no EtG)</SelectItem>
                             <SelectItem value="15-panel-instant">15-Panel Instant</SelectItem>
                             <SelectItem value="17-panel-sos-lab">17-Panel SOS Lab</SelectItem>
                             <SelectItem value="etg-lab">EtG Lab</SelectItem>

@@ -92,6 +92,18 @@ describe('filterByTestType', () => {
     expect(result.every(t => t.testType === '11-panel-lab')).toBe(true)
   })
 
+  test('filters to only 11-panel lab no EtG tests', () => {
+    const tests = [
+      createMockTest({ id: '1', testType: '11-panel-lab' }),
+      createMockTest({ id: '2', testType: '11-panel-lab-no-etg' }),
+      createMockTest({ id: '3', testType: '17-panel-sos-lab' }),
+    ]
+
+    const result = filterByTestType(tests, '11-panel-lab-no-etg')
+    expect(result).toHaveLength(1)
+    expect(result[0].testType).toBe('11-panel-lab-no-etg')
+  })
+
   test('filters to only 15-panel instant tests', () => {
     const tests = [
       createMockTest({ id: '1', testType: '15-panel-instant' }),

@@ -258,7 +258,7 @@ test('supports court new referral with preset and personal additional recipients
   await expect(page.getByRole('heading', { name: 'Medications (Optional)' })).toBeVisible()
 })
 
-test('submits frontend registration and verifies verification/admin emails in Mailpit', async ({ page }) => {
+test('submits frontend registration, signs in, and verifies admin emails in Mailpit', async ({ page }) => {
   const env = getE2EEnv({ requirePdfs: false })
   await ensureMailpitReachable(env.mailpitApiBase)
 
@@ -291,23 +291,15 @@ test('submits frontend registration and verifies verification/admin emails in Ma
   await page.getByLabel(/I have read and agree to the terms and conditions of service/i).check()
   await page.getByRole('button', { name: 'Complete Registration' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Registration Complete' })).toBeVisible()
-  await expect(page.getByText('Verification Email Sent')).toBeVisible()
-  await expect(page.getByText(registrationEmail)).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Submission Successful' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Go to dashboard' })).toBeVisible()
+  await expect(page).toHaveURL(/\/dashboard/)
 
   createdClientEmails.push(registrationEmail)
 
   const createdClient = await findClientByEmail(registrationEmail)
   expect(createdClient).not.toBeNull()
-
-  await findMailpitMessages({
-    apiBase: env.mailpitApiBase,
-    createdAfter: testStart,
-    to: registrationEmail,
-    subject: 'Verify Your Email Address - MI Drug Test',
-    requireAttachment: 'none',
-    timeoutMs: 30_000,
-  })
+  expect(createdClient?._verified).toBe(true)
 
   await findMailpitMessages({
     apiBase: env.mailpitApiBase,

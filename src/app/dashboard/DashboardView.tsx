@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Calendar, CheckCircle, Clock, FileText, Pill, User, TrendingUp, AlertCircle, Shield } from 'lucide-react'
 import Link from 'next/link'
 import { CalPopupButton } from '@/components/cal-popup-button'
-import { buildCalConfig } from '@/utilities/calcom-config'
+import { buildCalConfig, getClientBookingCalLink } from '@/utilities/calcom-config'
 import type { Client } from '@/payload-types'
 
 export type DashboardData = {
@@ -182,6 +182,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
             </CardHeader>
             <CardContent className="space-y-3">
               <CalPopupButton
+                calUsername={getClientBookingCalLink(data.client)}
                 config={buildCalConfig(data.client)}
                 className="w-full justify-start"
                 variant="outline"

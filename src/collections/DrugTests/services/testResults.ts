@@ -44,7 +44,7 @@ function applyBreathalyzerOverride<T extends InitialScreenResult | FinalStatus>(
   return result
 }
 
-export type TestType = '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
+export type TestType = '15-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
 
 export type InitialScreenResult =
   | 'negative'

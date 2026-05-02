@@ -1,4 +1,12 @@
 import type { Client } from '@/payload-types'
+import { FALLBACK_BOOKING_TEST_TYPES, resolveRecommendedTestLabel } from '@/lib/quick-book'
+
+export const DEFAULT_BOOKING_CAL_LINK = 'midrugtest'
+export const UNPAID_BOOKING_CAL_LINK = 'midrugtest/drug-test'
+
+export function getClientBookingCalLink(client: Pick<Client, 'allowUnpaidBookings'>): string {
+  return client.allowUnpaidBookings ? UNPAID_BOOKING_CAL_LINK : DEFAULT_BOOKING_CAL_LINK
+}
 
 // Helper: Extract referral organization name based on client type
 function getReferralName(client: Client): string | undefined {
@@ -13,6 +21,43 @@ function getReferralName(client: Client): string | undefined {
     default:
       return undefined
   }
+}
+
+function getPreferredTestLabel(client: Client): string | undefined {
+  if (client.referralType !== 'court' && client.referralType !== 'employer') {
+    return undefined
+  }
+
+  if (!client.referral || typeof client.referral !== 'object' || !('value' in client.referral)) {
+    return undefined
+  }
+
+  const referralValue = client.referral.value
+  if (!referralValue || typeof referralValue !== 'object' || !('preferredTestType' in referralValue)) {
+    return undefined
+  }
+
+  const preferredTestType = referralValue.preferredTestType
+  if (!preferredTestType || typeof preferredTestType !== 'object') {
+    return undefined
+  }
+
+  const value =
+    'value' in preferredTestType && typeof preferredTestType.value === 'string'
+      ? preferredTestType.value
+      : undefined
+  const bookingLabel =
+    'bookingLabel' in preferredTestType && typeof preferredTestType.bookingLabel === 'string'
+      ? preferredTestType.bookingLabel
+      : undefined
+  const label =
+    'label' in preferredTestType && typeof preferredTestType.label === 'string'
+      ? preferredTestType.label
+      : undefined
+
+  return resolveRecommendedTestLabel(FALLBACK_BOOKING_TEST_TYPES, {
+    recommendedTestTypeValue: value,
+  }) || bookingLabel || label || value
 }
 
 // Helper: Format phone for Cal.com (E.164 format)
@@ -68,6 +113,11 @@ export function buildCalConfig(client: Client): Record<string, any> {
   const referralName = getReferralName(client)
   if (referralName) {
     calConfig.title = referralName.trim()
+  }
+
+  const preferredTestLabel = getPreferredTestLabel(client)
+  if (preferredTestLabel) {
+    calConfig.test = preferredTestLabel
   }
 
   return calConfig

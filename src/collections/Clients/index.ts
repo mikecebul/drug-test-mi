@@ -220,6 +220,15 @@ export const Clients: CollectionConfig = {
       },
     },
     {
+      name: 'allowUnpaidBookings',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: {
+        description: 'Allow this client to book through the hidden unpaid Cal.com drug test event.',
+        position: 'sidebar',
+      },
+    },
+    {
       name: 'isActive',
       type: 'checkbox',
       defaultValue: true,

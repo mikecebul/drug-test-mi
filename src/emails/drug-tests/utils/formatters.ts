@@ -31,6 +31,7 @@ export function formatDob(dobString: string): string {
 export function formatTestType(testType: string): string {
   const typeMap: Record<string, string> = {
     '11-panel-lab': '11-Panel Lab Test',
+    '11-panel-lab-no-etg': '11-Panel Lab Test (no EtG)',
     '15-panel-instant': '15-Panel Instant Test',
     '17-panel-sos-lab': '17-Panel SOS Lab Test',
     'etg-lab': 'EtG Lab Test',
