@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
-import { Check } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowRight, Check, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useQueryState, parseAsStringLiteral } from 'nuqs'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { toast } from 'sonner'
@@ -11,6 +12,8 @@ import {
   focusFirstInteractiveField,
   scrollElementIntoViewWithMargin,
 } from '@/lib/form-scroll-focus'
+import { getClientSideURL } from '@/utilities/getURL'
+import { Button } from '@/components/ui/button'
 import { steps } from './validators'
 import { getRegisterClientFormOpts } from './shared-form'
 import { RegisterNavigation } from './components/Navigation'
@@ -25,10 +28,13 @@ import {
 import { registerWebsiteClientAction } from './actions'
 
 interface RegisterClientWorkflowProps {
-  onComplete: (email: string) => void
+  onComplete?: () => void
 }
 
 export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowProps) {
+  const router = useRouter()
+  const [isRedirecting, setIsRedirecting] = useState(false)
+  const redirectTimeoutRef = useRef<number | null>(null)
   const [currentStepRaw, setCurrentStep] = useQueryState(
     'step',
     parseAsStringLiteral(steps as readonly string[]).withDefault('personalInfo'),
@@ -43,7 +49,27 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
 
   const formRef = useRef<HTMLFormElement | null>(null)
 
+  const goToDashboard = useCallback(() => {
+    if (redirectTimeoutRef.current) {
+      window.clearTimeout(redirectTimeoutRef.current)
+      redirectTimeoutRef.current = null
+    }
+
+    router.push('/dashboard')
+    router.refresh()
+  }, [router])
+
   useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current) {
+        window.clearTimeout(redirectTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isRedirecting) return
+
     const firstField = focusFirstInteractiveField(formRef.current)
 
     if (!hasInitializedStepRef.current) {
@@ -54,7 +80,7 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
     window.scrollTo({ top: 0, behavior: 'smooth' })
 
     focusElementWithoutScroll(firstField)
-  }, [currentStep])
+  }, [currentStep, isRedirecting])
 
   const form = useAppForm({
     ...getRegisterClientFormOpts(currentStep),
@@ -125,12 +151,32 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
           throw new Error(result.error || 'Registration failed')
         }
 
-        form.reset()
-        onComplete(value.accountInfo.email)
-        await setCurrentStep(null)
-        toast.success('Registration submitted successfully!', {
-          description: 'Please check your email to verify your account.',
+        const loginRequest = await fetch(`${getClientSideURL()}/api/clients/login`, {
+          body: JSON.stringify({
+            email: value.accountInfo.email.trim().toLowerCase(),
+            password: value.accountInfo.password,
+          }),
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
         })
+
+        if (!loginRequest.ok) {
+          const loginResponse = await loginRequest.json().catch(() => null)
+          const errorMessage =
+            loginResponse?.errors?.[0]?.message ||
+            loginResponse?.message ||
+            'Registration succeeded, but automatic sign-in failed. Please sign in.'
+
+          throw new Error(errorMessage)
+        }
+
+        setIsRedirecting(true)
+        onComplete?.()
+        toast.success('Registration complete!', {
+          description: 'Taking you to your dashboard.',
+        })
+        redirectTimeoutRef.current = window.setTimeout(goToDashboard, 1000)
       } catch (error) {
         console.error('Registration error:', error)
 
@@ -240,6 +286,30 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
       default:
         return <PersonalInfoStep form={form} />
     }
+  }
+
+  if (isRedirecting) {
+    return (
+      <div className="flex min-h-[360px] flex-col items-center justify-center text-center" role="status">
+        <div className="bg-primary/10 mb-6 flex h-20 w-20 items-center justify-center rounded-full">
+          <div className="bg-primary flex h-14 w-14 items-center justify-center rounded-full">
+            <Check className="text-primary-foreground h-7 w-7" strokeWidth={3} />
+          </div>
+        </div>
+        <h2 className="text-foreground text-2xl font-semibold tracking-tight">Submission Successful</h2>
+        <p className="text-muted-foreground mt-3 max-w-sm text-base">
+          Your registration is complete. We&apos;re signing you in and forwarding you to your dashboard.
+        </p>
+        <div className="text-muted-foreground mt-6 flex items-center gap-2 text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Redirecting to dashboard
+        </div>
+        <Button type="button" className="mt-8" onClick={goToDashboard}>
+          Go to dashboard
+          <ArrowRight className="h-4 w-4" />
+        </Button>
+      </div>
+    )
   }
 
   return (

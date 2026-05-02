@@ -3,6 +3,20 @@ export type RecommendedTestType = {
   recommendedTestTypeValue?: string
 }
 
+export type TestTypeBookingOption = {
+  id: string
+  value: string
+  label: string
+}
+
+export const FALLBACK_BOOKING_TEST_TYPES: TestTypeBookingOption[] = [
+  { id: '15-panel-instant', value: '15-panel-instant', label: '15 Panel Instant' },
+  { id: '11-panel-lab', value: '11-panel-lab', label: '11 Panel Lab' },
+  { id: '11-panel-lab-no-etg', value: '11-panel-lab-no-etg', label: '11 Panel Lab (no EtG)' },
+  { id: '17-panel-sos-lab', value: '17-panel-sos-lab', label: '17 SOS Lab' },
+  { id: 'etg-lab', value: 'etg-lab', label: 'EtG Lab' },
+]
+
 type RelationRef = {
   relationTo: 'courts' | 'employers'
   referralId: string
@@ -52,6 +66,23 @@ export function extractPreferredTestType(preferredTestType: unknown): Recommende
   }
 
   return {}
+}
+
+export function resolveRecommendedTestLabel(
+  options: TestTypeBookingOption[],
+  recommendation: RecommendedTestType,
+): string | undefined {
+  const byId = recommendation.recommendedTestTypeId
+    ? options.find((option) => option.id === recommendation.recommendedTestTypeId)
+    : undefined
+  if (byId) return byId.label
+
+  const byValue = recommendation.recommendedTestTypeValue
+    ? options.find((option) => option.value === recommendation.recommendedTestTypeValue)
+    : undefined
+  if (byValue) return byValue.label
+
+  return undefined
 }
 
 export function extractReferralRelation(referral: unknown): RelationRef | null {

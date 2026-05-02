@@ -6,13 +6,13 @@ import { Calendar } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/utilities/cn'
-import { formatPhoneForCal } from '@/lib/quick-book'
+import {
+  FALLBACK_BOOKING_TEST_TYPES,
+  formatPhoneForCal,
+  type TestTypeBookingOption,
+} from '@/lib/quick-book'
 
-type TestTypeOption = {
-  id: string
-  value: string
-  label: string
-}
+type TestTypeOption = TestTypeBookingOption
 
 type CalModalConfig = Record<string, string | string[] | Record<string, string>>
 
@@ -24,13 +24,6 @@ interface QuickBookControlProps {
   recommendedTestTypeValue?: string
   className?: string
 }
-
-const FALLBACK_TEST_TYPES: TestTypeOption[] = [
-  { id: '15-panel-instant', value: '15-panel-instant', label: '15 Panel Instant' },
-  { id: '11-panel-lab', value: '11-panel-lab', label: '11 Panel Lab' },
-  { id: '17-panel-sos-lab', value: '17-panel-sos-lab', label: '17 SOS Lab' },
-  { id: 'etg-lab', value: 'etg-lab', label: 'EtG Lab' },
-]
 
 function findRecommendedType(options: TestTypeOption[], id?: string, value?: string): TestTypeOption | undefined {
   if (id) {
@@ -110,7 +103,7 @@ export function QuickBookControl({
   }, [])
 
   const availableTestTypes = useMemo(() => {
-    return testTypes.length > 0 ? testTypes : FALLBACK_TEST_TYPES
+    return testTypes.length > 0 ? testTypes : FALLBACK_BOOKING_TEST_TYPES
   }, [testTypes])
 
   const recommendedType = useMemo(() => {

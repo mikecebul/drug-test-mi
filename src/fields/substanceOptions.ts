@@ -70,6 +70,24 @@ export const panel11LabSubstances = [
 ] as const
 
 /**
+ * 11-Panel Lab Test Substances (No EtG)
+ * Same drug panel as the standard 11-panel lab, but uses Alcohol (Ethanol)
+ * instead of EtG for the alcohol component.
+ */
+export const panel11LabNoEtgSubstances = [
+  { label: 'Alcohol (Ethanol)', value: 'alcohol' },
+  { label: 'Amphetamines (AMP)', value: 'amphetamines' },
+  { label: 'Benzodiazepines (BZO)', value: 'benzodiazepines' },
+  { label: 'Buprenorphine (BUP)', value: 'buprenorphine' },
+  { label: 'Cocaine (COC)', value: 'cocaine' },
+  { label: 'Fentanyl (FEN)', value: 'fentanyl' },
+  { label: 'Kratom (MIT)', value: 'kratom' },
+  { label: 'Methadone (MTD)', value: 'methadone' },
+  { label: 'Opiates (OPI)', value: 'opiates' },
+  { label: 'THC (THC)', value: 'thc' },
+] as const
+
+/**
  * 17-Panel SOS Lab Test Substances
  * Comprehensive lab test including alcohol, common drugs, and prescription medications
  * B306 - Urine 17 Panel (tests 14 drug substances; panel count includes metabolites/confirmations)
@@ -142,6 +160,8 @@ export function getSubstanceOptions(testType?: string) {
       return panel15InstantSubstances
     case '11-panel-lab':
       return panel11LabSubstances
+    case '11-panel-lab-no-etg':
+      return panel11LabNoEtgSubstances
     case '17-panel-sos-lab':
       return panel17SosLabSubstances
     case 'etg-lab':

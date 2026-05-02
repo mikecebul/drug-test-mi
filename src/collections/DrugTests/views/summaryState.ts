@@ -67,7 +67,12 @@ export type DrugTestSummaryState = {
   clientDisplayName: string
 }
 
-const LAB_TEST_TYPES = new Set<DrugTest['testType']>(['11-panel-lab', '17-panel-sos-lab', 'etg-lab'])
+const LAB_TEST_TYPES = new Set<DrugTest['testType']>([
+  '11-panel-lab',
+  '11-panel-lab-no-etg',
+  '17-panel-sos-lab',
+  'etg-lab',
+])
 const UNEXPECTED_REQUIRES_DECISION = new Set<NonNullable<DrugTest['initialScreenResult']>>([
   'unexpected-positive',
   'unexpected-negative-critical',
@@ -88,6 +93,7 @@ const RESULT_META: Record<SummaryResultKey, { label: string; variant: BadgeVaria
 
 const TEST_TYPE_LABELS: Record<DrugTest['testType'], string> = {
   '11-panel-lab': '11-Panel Lab',
+  '11-panel-lab-no-etg': '11-Panel Lab (no EtG)',
   '15-panel-instant': '15-Panel Instant',
   '17-panel-sos-lab': '17-Panel SOS Lab',
   'etg-lab': 'EtG Lab',

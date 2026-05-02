@@ -129,6 +129,7 @@ export async function registerWebsiteClientAction(formData: FormValues): Promise
       referralType: screeningType.requestedBy,
       preferredContactMethod: 'email',
       disableClientEmails: false,
+      _verified: true,
     }
 
     if (Array.isArray(medications) && medications.length > 0) {

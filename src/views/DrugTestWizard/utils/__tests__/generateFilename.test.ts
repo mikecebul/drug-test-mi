@@ -59,6 +59,16 @@ describe('generateTestFilename', () => {
       expect(result).toBe('JD_Lab_01-15-25.pdf')
     })
 
+    test('should use "Lab" prefix for 11-panel-lab-no-etg test type', () => {
+      const result = generateTestFilename({
+        client: { firstName: 'John', lastName: 'Doe' },
+        collectionDate: createLocalDate(2025, 1, 15),
+        testType: '11-panel-lab-no-etg',
+      })
+
+      expect(result).toBe('JD_Lab_01-15-25.pdf')
+    })
+
     test('should use "Lab" prefix for etg-lab test type', () => {
       const result = generateTestFilename({
         client: { firstName: 'John', lastName: 'Doe' },

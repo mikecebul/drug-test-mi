@@ -14,7 +14,7 @@ import {
 import { isActiveRoute } from '@/utilities/isActiveRoute'
 import type { Client } from '@/payload-types'
 import { CalPopupButton } from '@/components/cal-popup-button'
-import { buildCalConfig } from '@/utilities/calcom-config'
+import { buildCalConfig, getClientBookingCalLink } from '@/utilities/calcom-config'
 
 export function NavMain({
   items,
@@ -42,6 +42,7 @@ export function NavMain({
         <SidebarMenu>
           <SidebarMenuItem className="flex items-center gap-2">
             <CalPopupButton
+              calUsername={getClientBookingCalLink(client)}
               config={buildCalConfig(client)}
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
               onModalOpen={() => {

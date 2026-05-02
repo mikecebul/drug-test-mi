@@ -2,7 +2,7 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
 import { TZDate } from '@date-fns/tz'
 
 /**
- * Extracted data from lab test PDF (11-panel, 17-panel SOS, or EtG)
+ * Extracted data from lab test PDF (11-panel, 11-panel no EtG, 17-panel SOS, or EtG)
  */
 export interface ExtractedLabData {
   donorName: string | null
@@ -12,7 +12,7 @@ export interface ExtractedLabData {
   rawText: string
   confidence: 'high' | 'medium' | 'low'
   extractedFields: string[]
-  testType: '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
+  testType: '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
   hasConfirmation: boolean
   confirmationResults?: Array<{
     substance: SubstanceValue
@@ -29,6 +29,7 @@ export interface ExtractedLabData {
  * - Collected: [MM/DD/YYYY HH:MM AM/PM]
  * - Tests Ordered: Determines test type
  *   - "049 - Ethyl Glucuronide (EtG)" = EtG Lab
+ *   - "B829" = 11-Panel Lab (no EtG)
  *   - "B306 - Urine 17 Panel" = 17-Panel SOS Lab
  *   - Default = 11-Panel Lab
  * - Substance results table with "Screen" and "Confirmation" columns
@@ -52,10 +53,12 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
     const text = data.text
 
     // Detect test type from "Tests Ordered" section
-    let testType: '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' = '11-panel-lab'
+    let testType: '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab' = '11-panel-lab'
     if (/(049|050)\s*-?\s*Ethyl Glucuronide/i.test(text) || /(049|050)\s*-?\s*EtG/i.test(text)) {
       // EtG test ordered (codes 049 or 050 with flexible formatting)
       testType = 'etg-lab'
+    } else if (/B829\s*-?/i.test(text)) {
+      testType = '11-panel-lab-no-etg'
     } else if (/B306\s*-?\s*Urine 17 Panel/i.test(text)) {
       testType = '17-panel-sos-lab'
     }
@@ -214,9 +217,10 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
 
     // Extract substances from screening
     for (const [pdfName, systemValue] of Object.entries(substanceMapping)) {
-      // Pattern: Substance name followed by "Screened Positive" or "Negative" then cutoff
+      // Pattern: Substance name followed by an optional lab footnote marker,
+      // then "Screened Positive" or "Negative" and the cutoff.
       const pattern = new RegExp(
-        `${escapeRegex(pdfName)}\\s+(Negative|Screened Positive)\\s+\\d+\\s*ng/mL`,
+        `${escapeRegex(pdfName)}\\*?\\s+(Negative|Screened Positive)\\s+\\d+(?:\\.\\d+)?\\s*(?:ng/mL|g/dL)`,
         'i'
       )
       const match = text.match(pattern)

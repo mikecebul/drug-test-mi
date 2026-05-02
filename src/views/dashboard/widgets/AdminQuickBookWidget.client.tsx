@@ -10,27 +10,19 @@ import { Input } from '@/components/ui/input'
 import {
   extractPreferredTestType,
   extractReferralRelation,
+  FALLBACK_BOOKING_TEST_TYPES,
   formatPhoneForCal,
-  RecommendedTestType,
+  resolveRecommendedTestLabel,
+  type RecommendedTestType,
+  type TestTypeBookingOption,
 } from '@/lib/quick-book'
 import { sdk } from '@/lib/payload-sdk'
 import { searchClients } from '@/views/DrugTestWizard/workflows/components/client/clientSearch'
 import { getClients, SimpleClient } from '@/views/DrugTestWizard/workflows/components/client/getClients'
 
-type TestTypeOption = {
-  id: string
-  value: string
-  label: string
-}
+type TestTypeOption = TestTypeBookingOption
 
 type CalModalConfig = Record<string, string | string[] | Record<string, string>>
-
-const FALLBACK_TEST_TYPES: TestTypeOption[] = [
-  { id: '15-panel-instant', value: '15-panel-instant', label: '15 Panel Instant' },
-  { id: '11-panel-lab', value: '11-panel-lab', label: '11 Panel Lab' },
-  { id: '17-panel-sos-lab', value: '17-panel-sos-lab', label: '17 SOS Lab' },
-  { id: 'etg-lab', value: 'etg-lab', label: 'EtG Lab' },
-]
 
 async function resolveClientRecommendation(clientId: string): Promise<RecommendedTestType> {
   const client = await sdk.findByID({
@@ -134,17 +126,11 @@ async function fetchTestTypes(): Promise<TestTypeOption[]> {
 }
 
 function resolveTestLabel(options: TestTypeOption[], recommendation: RecommendedTestType): string {
-  const byId = recommendation.recommendedTestTypeId
-    ? options.find((option) => option.id === recommendation.recommendedTestTypeId)
-    : undefined
-  if (byId) return byId.label
-
-  const byValue = recommendation.recommendedTestTypeValue
-    ? options.find((option) => option.value === recommendation.recommendedTestTypeValue)
-    : undefined
-  if (byValue) return byValue.label
-
-  return options[0]?.label ?? FALLBACK_TEST_TYPES[0].label
+  return (
+    resolveRecommendedTestLabel(options, recommendation) ??
+    options[0]?.label ??
+    FALLBACK_BOOKING_TEST_TYPES[0].label
+  )
 }
 
 export function AdminQuickBookWidgetClient() {
@@ -214,7 +200,7 @@ export function AdminQuickBookWidgetClient() {
 
     try {
       const recommendation = await resolveClientRecommendation(client.id)
-      const options = testTypes.length > 0 ? testTypes : FALLBACK_TEST_TYPES
+      const options = testTypes.length > 0 ? testTypes : FALLBACK_BOOKING_TEST_TYPES
       const selectedTestLabel = resolveTestLabel(options, recommendation)
 
       const config: CalModalConfig = {

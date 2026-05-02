@@ -17,6 +17,7 @@ public/cards
 public/portraits
 public/avatars
 public/meta
+public/sitemap.xml
 
 # sqlite db
 payload.db

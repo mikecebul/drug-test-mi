@@ -127,7 +127,7 @@ export function useGetClientsQuery() {
 export function useComputeTestResultPreviewQuery(
   clientId: string | null | undefined,
   detectedSubstances: SubstanceValue[],
-  testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | null | undefined,
+  testType: '15-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab' | null | undefined,
   breathalyzerTaken?: boolean,
   breathalyzerResult?: number | null,
   medications?: MedicationInput[],
@@ -188,7 +188,7 @@ export function useFetchPendingTestsQuery(filterStatus?: string[]) {
  */
 export function useGetCollectionEmailPreviewQuery(data: {
   clientId: string | null | undefined
-  testType: '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | null | undefined
+  testType: '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab' | null | undefined
   collectionDate: string | null | undefined
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
@@ -284,7 +284,7 @@ export function useGetDrugTestQuery(testId: string | null | undefined) {
 export function useGetEmailPreviewQuery(data: {
   clientId: string | null | undefined
   detectedSubstances: SubstanceValue[]
-  testType: '15-panel-instant' | '11-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | null | undefined
+  testType: '15-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab' | null | undefined
   collectionDate: string | null | undefined
   isDilute: boolean
   breathalyzerTaken?: boolean

@@ -160,6 +160,49 @@ describe('extractLabTest', () => {
       // The substance mapping should handle Mitragynine -> kratom
       // This is tested implicitly in the extractor code
     })
+
+    test('should extract positive EtG when Redwood marks the row with a footnote asterisk', async () => {
+      const pdf = await getTestPdf(
+        '11-panel-lab/positive-etg-buprenorphine.pdf',
+        '/Users/mikecebul/Documents/MI Drug Test/tests/11-panel-pos-etg-bup.pdf',
+      )
+
+      if (pdf.skipped) {
+        console.log('Skipping: 11-panel positive EtG/Buprenorphine fixture not found')
+        return
+      }
+
+      const result = await extractLabTest(pdf.buffer)
+
+      expect(result.testType).toBe('11-panel-lab')
+      expect(result.detectedSubstances).toContain('buprenorphine')
+      expect(result.detectedSubstances).toContain('etg')
+    })
+  })
+
+  describe('11-panel-lab-no-etg tests', () => {
+    test('should detect B829 11-panel lab no EtG PDF and map ethanol separately from EtG', async () => {
+      const pdf = await getTestPdf(
+        '11-panel-lab-no-etg/screening.pdf',
+        process.env.NO_ETG_LAB_PDF,
+      )
+
+      if (pdf.skipped) {
+        console.log('Skipping: 11-panel-lab-no-etg screening fixture not found')
+        return
+      }
+
+      const result = await extractLabTest(pdf.buffer)
+
+      expect(result.testType).toBe('11-panel-lab-no-etg')
+      expect(result.detectedSubstances).not.toContain('etg')
+
+      if (/Alcohol \(Ethanol\)\*?\s+Screened Positive/i.test(result.rawText)) {
+        expect(result.detectedSubstances).toContain('alcohol')
+      } else {
+        expect(result.detectedSubstances).not.toContain('alcohol')
+      }
+    })
   })
 
   describe('17-panel-sos-lab tests', () => {

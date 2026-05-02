@@ -1,6 +1,16 @@
 import { getAuthenticatedClient } from '@/utilities/auth/getAuthenticatedClient'
 import { CalInline } from '@/components/cal-inline'
 import type { Client } from '@/payload-types'
+import { getPayload } from 'payload'
+import config from '@payload-config'
+import {
+  extractPreferredTestType,
+  FALLBACK_BOOKING_TEST_TYPES,
+  formatPhoneForCal,
+  resolveRecommendedTestLabel,
+  type RecommendedTestType,
+} from '@/lib/quick-book'
+import { getClientBookingCalLink } from '@/utilities/calcom-config'
 
 // Force dynamic rendering for fresh data on every request
 export const dynamic = 'force-dynamic'
@@ -20,25 +30,74 @@ function getReferralName(client: Client): string | undefined {
   }
 }
 
-// Helper: Format phone for Cal.com (E.164 format)
-function formatPhone(phone?: string | null): string | undefined {
-  if (!phone) return undefined
-
-  // Strip all non-digit characters
-  const digits = phone.replace(/\D/g, '')
-
-  // Handle US phone numbers (10 digits)
-  if (digits.length === 10) {
-    return `+1${digits}`
+function getReferralPreferredTestType(client: Client): RecommendedTestType {
+  if (client.referralType !== 'court' && client.referralType !== 'employer') {
+    return {}
   }
 
-  // Handle numbers that already have country code
-  if (digits.length === 11 && digits.startsWith('1')) {
-    return `+${digits}`
+  if (!client.referral || typeof client.referral !== 'object' || !('value' in client.referral)) {
+    return {}
   }
 
-  // Invalid format - don't prefill
-  return undefined
+  const referralValue = client.referral.value
+  if (!referralValue || typeof referralValue !== 'object' || !('preferredTestType' in referralValue)) {
+    return {}
+  }
+
+  return extractPreferredTestType(referralValue.preferredTestType)
+}
+
+async function getPreferredTestLabel(client: Client): Promise<string | undefined> {
+  if (client.referralType === 'court' || client.referralType === 'employer') {
+    const referralValue =
+      client.referral && typeof client.referral === 'object' && 'value' in client.referral
+        ? client.referral.value
+        : null
+    const preferredTestType =
+      referralValue && typeof referralValue === 'object' && 'preferredTestType' in referralValue
+        ? referralValue.preferredTestType
+        : null
+
+    if (preferredTestType && typeof preferredTestType === 'object') {
+      const bookingLabel =
+        'bookingLabel' in preferredTestType && typeof preferredTestType.bookingLabel === 'string'
+          ? preferredTestType.bookingLabel
+          : undefined
+      const label =
+        'label' in preferredTestType && typeof preferredTestType.label === 'string'
+          ? preferredTestType.label
+          : undefined
+      const value =
+        'value' in preferredTestType && typeof preferredTestType.value === 'string'
+          ? preferredTestType.value
+          : undefined
+
+      return bookingLabel || label || value
+    }
+  }
+
+  const recommendation = getReferralPreferredTestType(client)
+  if (!recommendation.recommendedTestTypeValue && recommendation.recommendedTestTypeId) {
+    try {
+      const payload = await getPayload({ config })
+      const testType = await payload.findByID({
+        collection: 'test-types',
+        id: recommendation.recommendedTestTypeId,
+        depth: 0,
+        select: {
+          bookingLabel: true,
+          label: true,
+          value: true,
+        },
+      })
+
+      return testType.bookingLabel || testType.label || testType.value || undefined
+    } catch (error) {
+      console.warn('[SchedulePage] Failed to resolve preferred test type', error)
+    }
+  }
+
+  return resolveRecommendedTestLabel(FALLBACK_BOOKING_TEST_TYPES, recommendation)
 }
 
 export default async function SchedulePage() {
@@ -51,7 +110,7 @@ export default async function SchedulePage() {
   }
 
   // Add phone if available
-  const formattedPhone = formatPhone(client.phone)
+  const formattedPhone = formatPhoneForCal(client.phone)
   if (formattedPhone) {
     calConfig.attendeePhoneNumber = formattedPhone
   }
@@ -60,6 +119,11 @@ export default async function SchedulePage() {
   const referralName = getReferralName(client)
   if (referralName) {
     calConfig.title = referralName
+  }
+
+  const preferredTestLabel = await getPreferredTestLabel(client)
+  if (preferredTestLabel) {
+    calConfig.test = preferredTestLabel
   }
 
   return (
@@ -76,7 +140,7 @@ export default async function SchedulePage() {
       </div>
 
       <div className="px-4 lg:px-6">
-        <CalInline calUsername="midrugtest" config={calConfig} />
+        <CalInline calUsername={getClientBookingCalLink(client)} config={calConfig} />
       </div>
     </div>
   )

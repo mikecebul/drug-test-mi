@@ -1,23 +1,23 @@
 services:
-  payload:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        - ENV_FILE=.env.docker
-    restart: always
-    ports:
-      - '3000:3000'
-    volumes:
-      - payload-public:/app/public
-    networks:
-      - app-network
-    depends_on:
-      mongo:
-        condition: service_healthy
-    environment:
-      - NODE_ENV=production
-    env_file: .env.docker
+  # payload:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #     args:
+  #       - ENV_FILE=.env.docker
+  #   restart: always
+  #   ports:
+  #     - '3000:3000'
+  #   volumes:
+  #     - payload-public:/app/public
+  #   networks:
+  #     - app-network
+  #   depends_on:
+  #     mongo:
+  #       condition: service_healthy
+  #   environment:
+  #     - NODE_ENV=production
+  #   env_file: .env.docker
 
   # Ensure your DATABASE_URI uses 'mongo' as the hostname ie. mongodb://mongo/my-db-name
   mongo:
@@ -35,6 +35,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+    networks:
+      - app-network
 
 volumes:
   mongo-data:

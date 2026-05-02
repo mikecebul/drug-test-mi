@@ -25,6 +25,21 @@ describe('buildDrugTestSummaryState', () => {
     )
   })
 
+  test('collected 11-panel lab no EtG test is treated as a lab test', () => {
+    const summary = buildDrugTestSummaryState(
+      makeTest({
+        screeningStatus: 'collected',
+        testType: '11-panel-lab-no-etg',
+      }),
+    )
+
+    expect(summary.isLabTest).toBe(true)
+    expect(summary.testTypeLabel).toBe('11-Panel Lab (no EtG)')
+    expect(summary.nextStep).toBe(
+      'Await lab report, then upload the screening document to move this test to screened.',
+    )
+  })
+
   test('collected instant test returns enter-screening next step', () => {
     const summary = buildDrugTestSummaryState(
       makeTest({
