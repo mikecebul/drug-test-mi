@@ -317,10 +317,13 @@ export const VerifyDataStep = withForm({
                         </p>
                       </div>
                     </Label>
-                  </RadioGroup>
-                  <FieldError errors={field.state.meta.errors} />
-                </Field>
-              )}
+	                  </RadioGroup>
+	                  {requiresDecision && !confirmationDecisionValue && (
+	                    <p className="text-destructive text-sm">Must select an option</p>
+	                  )}
+	                  <FieldError errors={field.state.meta.errors} />
+	                </Field>
+	              )}
             </form.Field>
 
             {/* Substance selection when request-confirmation is chosen */}

@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test'
 const port = Number(process.env.PORT || 3000)
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${port}`
 const workers = Number(process.env.PLAYWRIGHT_WORKERS || 1)
+const slowMo = process.env.PLAYWRIGHT_SLOW_MO ? Number(process.env.PLAYWRIGHT_SLOW_MO) : undefined
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -15,6 +16,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL,
+    launchOptions: slowMo ? { slowMo } : undefined,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
