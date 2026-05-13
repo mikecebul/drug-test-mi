@@ -51,4 +51,12 @@ describe('quick-book helpers', () => {
       }),
     ).toBe('11 Panel Lab (no EtG)')
   })
+
+  test('resolves 17-panel instant preferred test type to Cal.com booking label', () => {
+    expect(
+      resolveRecommendedTestLabel(FALLBACK_BOOKING_TEST_TYPES, {
+        recommendedTestTypeValue: '17-panel-instant',
+      }),
+    ).toBe('17 Panel Instant')
+  })
 })

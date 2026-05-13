@@ -1,13 +1,14 @@
 {
   "name": "drug-test-mi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Website for MI Drug Test",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "build": "cross-env NODE_OPTIONS=--no-deprecation payload migrate && next build",
     "postbuild": "next-sitemap --config next-sitemap.config.cjs",
-    "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev --turbo",
+    "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev --webpack",
+    "dev:turbo": "cross-env NODE_OPTIONS=--no-deprecation next dev --turbo",
     "build:dev": "cross-env NODE_OPTIONS=--no-deprecation rm -rf .next && pnpm build && pnpm start",
     "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
     "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",

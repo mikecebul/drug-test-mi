@@ -11,7 +11,7 @@ import { createAdminAlert } from '@/lib/admin-alerts'
 export async function createInstantTest(
   testData: {
     clientId: string
-    testType: '15-panel-instant'
+    testType: '15-panel-instant' | '17-panel-instant'
     collectionDate: string
     detectedSubstances: SubstanceValue[]
     isDilute: boolean

@@ -23,6 +23,9 @@ fixtures/
 │   └── screening.pdf       # EtG lab screening result
 └── 15-panel-instant/
     └── screening.pdf       # 15-panel instant test result
+└── 17-panel-instant/
+    ├── all-neg.pdf         # 17-panel instant all-negative result
+    └── pos-kratom-morphine.pdf # 17-panel instant positive result
 ```
 
 ### File Naming Convention

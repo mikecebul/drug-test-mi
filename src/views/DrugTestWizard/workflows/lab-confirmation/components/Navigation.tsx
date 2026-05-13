@@ -42,7 +42,12 @@ export const LabConfirmationNavigation = withForm({
         <Button type="button" variant="outline" onClick={handleBack} disabled={isSubmitting} data-testid="wizard-back-button">
           {isFirstStep ? 'Cancel' : 'Back'}
         </Button>
-        <Button type="submit" disabled={currentStepHasErrors || isSubmitting} data-testid="wizard-next-button">
+        <Button
+          type="button"
+          onClick={() => form.handleSubmit()}
+          disabled={currentStepHasErrors || isSubmitting}
+          data-testid="wizard-next-button"
+        >
           {isLastStep ? 'Update Test Record' : 'Next'}
         </Button>
       </div>

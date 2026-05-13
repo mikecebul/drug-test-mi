@@ -69,7 +69,7 @@ export const MatchCollectionStep = withForm({
           form.setFieldValue('matchCollection.score', bestMatch.score)
           // Auto-sync extracted data to form when available
           form.setFieldValue('labScreenData.collectionDate', bestMatch.test.collectionDate)
-          if (bestMatch.test.testType !== '15-panel-instant')
+          if (bestMatch.test.testType !== '15-panel-instant' && bestMatch.test.testType !== '17-panel-instant')
             form.setFieldValue(
               'labScreenData.testType',
               bestMatch.test.testType as '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab',
@@ -92,7 +92,7 @@ export const MatchCollectionStep = withForm({
 
       // Auto-sync extracted data to form when available
       form.setFieldValue('labScreenData.collectionDate', test.collectionDate)
-      if (test.testType !== '15-panel-instant')
+      if (test.testType !== '15-panel-instant' && test.testType !== '17-panel-instant')
         form.setFieldValue('labScreenData.testType', test.testType as '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab')
     }
 

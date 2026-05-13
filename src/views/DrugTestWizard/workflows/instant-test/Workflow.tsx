@@ -5,7 +5,7 @@ import { useAppForm } from '@/blocks/Form/hooks/form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
-import { getInstantTestFormOpts } from './shared-form'
+import { getInstantTestFormOpts, type InstantTestType } from './shared-form'
 import { InstantTestNavigation } from './components/Navigation'
 import { UploadStep } from './steps/Upload'
 import { ExtractStep } from './steps/Extract'
@@ -23,9 +23,10 @@ import { getFileFromStorage, clearFileStorage, hasStoredFile } from './utils/fil
 
 interface InstantTestWorkflowProps {
   onBack: () => void
+  testType: InstantTestType
 }
 
-export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
+export function InstantTestWorkflow({ onBack, testType }: InstantTestWorkflowProps) {
   const queryClient = useQueryClient()
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
 
@@ -49,7 +50,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   const prevStepRef = useRef(currentStep)
 
   const form = useAppForm({
-    ...getInstantTestFormOpts(currentStep),
+    ...getInstantTestFormOpts(currentStep, testType),
     onSubmit: async ({ value }) => {
       const currentStepIndex = steps.indexOf(currentStep)
       const isLastStep = currentStepIndex === steps.length - 1
@@ -65,7 +66,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       // Final submit: Create drug test
       console.log(`[InstantTest] Starting final submission...`)
       try {
-        const queryKey = extractPdfQueryKey(value.upload.file, '15-panel-instant')
+        const queryKey = extractPdfQueryKey(value.upload.file, value.verifyData.testType)
         const extractedData = queryClient.getQueryData<any>(queryKey)
         console.log(`[InstantTest] Extracted data from query cache:`, extractedData ? 'found' : 'not found')
 
@@ -125,6 +126,10 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       }
     },
   })
+
+  useEffect(() => {
+    form.setFieldValue('verifyData.testType', testType)
+  }, [form, testType])
 
   // Restore file from localStorage on mount (e.g., after returning from registration)
   useEffect(() => {

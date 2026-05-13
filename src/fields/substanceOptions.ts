@@ -19,6 +19,7 @@ export type SubstanceValue =
   | 'propoxyphene'
   | 'tricyclic_antidepressants'
   | 'mdma'
+  | 'morphine'
   | 'buprenorphine'
   | 'tramadol'
   | 'fentanyl'
@@ -45,6 +46,30 @@ export const panel15InstantSubstances = [
   { label: 'Methamphetamine', value: 'methamphetamines' },
   { label: 'Opiates', value: 'opiates' },
   { label: 'Oxycodone', value: 'oxycodone' },
+  { label: 'Synthetic Cannabinoids', value: 'synthetic_cannabinoids' },
+  { label: 'THC (Marijuana)', value: 'thc' },
+  { label: 'Tramadol', value: 'tramadol' },
+] as const
+
+/**
+ * 17-Panel Instant Test Substances
+ * Tests performed on-site with instant results
+ */
+export const panel17InstantSubstances = [
+  { label: 'Amphetamines', value: 'amphetamines' },
+  { label: 'Barbiturates', value: 'barbiturates' },
+  { label: 'Benzodiazepines', value: 'benzodiazepines' },
+  { label: 'Buprenorphine', value: 'buprenorphine' },
+  { label: 'Cocaine', value: 'cocaine' },
+  { label: 'EtG (Alcohol)', value: 'etg' },
+  { label: 'Fentanyl', value: 'fentanyl' },
+  { label: 'Kratom (Mitragynine)', value: 'kratom' },
+  { label: 'MDMA (Ecstasy)', value: 'mdma' },
+  { label: 'Methadone', value: 'methadone' },
+  { label: 'Methamphetamine', value: 'methamphetamines' },
+  { label: 'Morphine', value: 'morphine' },
+  { label: 'Oxycodone', value: 'oxycodone' },
+  { label: 'PCP', value: 'pcp' },
   { label: 'Synthetic Cannabinoids', value: 'synthetic_cannabinoids' },
   { label: 'THC (Marijuana)', value: 'thc' },
   { label: 'Tramadol', value: 'tramadol' },
@@ -138,6 +163,7 @@ export const allSubstanceOptions = [
   { label: 'MDMA (Ecstasy)', value: 'mdma' },
   { label: 'Methadone', value: 'methadone' },
   { label: 'Methamphetamine', value: 'methamphetamines' },
+  { label: 'Morphine', value: 'morphine' },
   { label: 'Opiates', value: 'opiates' },
   { label: 'Oxycodone', value: 'oxycodone' },
   { label: 'PCP', value: 'pcp' },
@@ -158,6 +184,8 @@ export function getSubstanceOptions(testType?: string) {
   switch (testType) {
     case '15-panel-instant':
       return panel15InstantSubstances
+    case '17-panel-instant':
+      return panel17InstantSubstances
     case '11-panel-lab':
       return panel11LabSubstances
     case '11-panel-lab-no-etg':

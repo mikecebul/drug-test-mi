@@ -179,7 +179,7 @@ export async function getClientFromTestId(testId: string): Promise<SimpleClient 
 
 export interface DrugTestWithMedications {
   id: string
-  testType: '15-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
+  testType: '15-panel-instant' | '17-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
   collectionDate: string | null | undefined
   screeningStatus: 'collected' | 'screened' | 'confirmation-pending' | 'complete'
   medicationsArrayAtTestTime: any[]

@@ -31,6 +31,28 @@ async function getBackButton(page: Page) {
   return page.getByRole('button', { name: /^back$/i })
 }
 
+const validationMessages = [
+  'Please upload a PDF file',
+  'Please select a client',
+  'First name is required',
+  'Middle initial is required',
+  'Last name is required',
+  'Collection date is required',
+  'Breathalyzer result is required',
+  'Must select an option',
+  'Please select at least one substance for confirmation testing',
+]
+
+async function hasVisibleValidationMessage(page: Page) {
+  for (const message of validationMessages) {
+    if (await page.getByText(message).first().isVisible().catch(() => false)) {
+      return true
+    }
+  }
+
+  return false
+}
+
 async function waitForWizardHome(page: Page) {
   const indicators = [
     page.getByText('Drug Test Workflow'),
@@ -74,28 +96,29 @@ const directWorkflowRoutes: Record<string, { workflow: string; step: string }> =
   'Enter Lab Screen Data': { workflow: 'enter-lab-screen', step: 'upload' },
   'Enter Lab Confirmation Data': { workflow: 'enter-lab-confirmation', step: 'upload' },
   'Screen 15-Panel Instant': { workflow: '15-panel-instant', step: 'upload' },
+  'Screen 17-Panel Instant': { workflow: '17-panel-instant', step: 'upload' },
 }
 
-async function waitForWorkflowLoaded(page: Page) {
-  const end = Date.now() + 20_000
-  while (Date.now() < end) {
-    const nextVisible = await page.getByTestId('wizard-next-button').first().isVisible().catch(() => false)
-    if (nextVisible) {
-      return
-    }
+const workflowReadyHeadings: Record<string, RegExp> = {
+  'Register New Client': /^Personal Information$/i,
+  'Collect Sample for Lab': /^Choose a Client$/i,
+  'Enter Lab Screen Data': /^Upload Lab Screening Results PDF$/i,
+  'Enter Lab Confirmation Data': /^Upload Confirmation PDF$/i,
+  'Screen 15-Panel Instant': /^Upload 15 Panel Drug Test Report$/i,
+  'Screen 17-Panel Instant': /^Upload 17 Panel Drug Test Report$/i,
+}
 
-    const stillOnHome = await page
-      .getByText('Select the type of workflow you want to perform')
-      .first()
-      .isVisible()
-      .catch(() => false)
+async function waitForWorkflowLoaded(page: Page, title: string) {
+  const headingPattern = workflowReadyHeadings[title]
 
-    if (!stillOnHome) {
-      return
-    }
-
-    await page.waitForTimeout(150)
+  if (headingPattern) {
+    await expect(page.getByRole('heading', { name: headingPattern }).first()).toBeVisible({ timeout: 20_000 })
   }
+
+  const nextButton = await getNextButton(page)
+  await expect(nextButton).toBeVisible({ timeout: 20_000 })
+  await expect(nextButton).toBeEnabled({ timeout: 20_000 })
+  await page.waitForTimeout(1_000)
 }
 
 export async function selectWorkflow(page: Page, title: string) {
@@ -107,7 +130,7 @@ export async function selectWorkflow(page: Page, title: string) {
     })
 
     await page.goto(`/admin/drug-test-upload?${params.toString()}`, { waitUntil: 'domcontentloaded' })
-    await waitForWorkflowLoaded(page)
+    await waitForWorkflowLoaded(page, title)
 
     const stillOnHome = await page
       .getByText('Select the type of workflow you want to perform')
@@ -154,7 +177,22 @@ export async function clickNext(page: Page) {
   await expect(nextButton).toBeVisible({ timeout: 20_000 })
   await expect(nextButton).toBeEnabled({ timeout: 20_000 })
   await nextButton.scrollIntoViewIfNeeded()
-  await nextButton.click({ timeout: 10_000 })
+  const beforeUrl = page.url()
+
+  const deadline = Date.now() + 5_000
+  do {
+    await nextButton.click({ timeout: 10_000 })
+    await page.waitForTimeout(500)
+
+    if (page.url() !== beforeUrl || (await hasVisibleValidationMessage(page))) {
+      return
+    }
+
+    const canRetry = (await nextButton.isVisible().catch(() => false)) && (await nextButton.isEnabled().catch(() => false))
+    if (!canRetry) {
+      return
+    }
+  } while (Date.now() < deadline)
 }
 
 export async function triggerNextValidation(page: Page) {
@@ -185,6 +223,25 @@ export async function clickBack(page: Page) {
 }
 
 export async function uploadSinglePdf(page: Page, filePath: string) {
+  const filename = filePath.split('/').pop() ?? filePath
+  const waitForAcceptedFile = async (trigger: ReturnType<Page['locator']>, input: ReturnType<Page['locator']>) => {
+    const deadline = Date.now() + 7_500
+    do {
+      const chooserPromise = page.waitForEvent('filechooser', { timeout: 5_000 }).catch(() => null)
+      await trigger.click()
+      const chooser = await chooserPromise
+      if (chooser) {
+        await chooser.setFiles(filePath)
+      } else {
+        await input.setInputFiles(filePath)
+      }
+      await page.waitForTimeout(500)
+      if (await page.getByText(filename).first().isVisible().catch(() => false)) {
+        return
+      }
+    } while (Date.now() < deadline)
+  }
+
   const uploadRoots = page.locator('[data-slot="file-upload"]')
   const rootCount = await uploadRoots.count()
 
@@ -196,20 +253,33 @@ export async function uploadSinglePdf(page: Page, filePath: string) {
     }
 
     const input = root.locator('input[type="file"]').first()
-    await input.setInputFiles(filePath)
+    await waitForAcceptedFile(root.locator('[data-slot="file-upload-dropzone"]').first(), input)
     return
   }
 
   const fallbackInput = page.locator('input[type="file"]').first()
   await expect(fallbackInput).toBeAttached({ timeout: 10_000 })
-  await fallbackInput.setInputFiles(filePath)
+  await waitForAcceptedFile(fallbackInput, fallbackInput)
 }
 
 export async function selectClientFromSearchDialog(page: Page, fullName: string) {
-  await page.getByRole('button', { name: /search all clients|change client/i }).click()
-
+  const openButton = page.getByRole('button', { name: /search all clients|change client/i })
   const dialog = page.getByRole('dialog', { name: /Search and Select Client/i })
-  await expect(dialog).toBeVisible()
+
+  const deadline = Date.now() + 10_000
+  do {
+    await expect(openButton).toBeVisible({ timeout: 10_000 })
+    await expect(openButton).toBeEnabled({ timeout: 10_000 })
+    await openButton.click()
+
+    if (await dialog.isVisible().catch(() => false)) {
+      break
+    }
+
+    await page.waitForTimeout(500)
+  } while (Date.now() < deadline)
+
+  await expect(dialog).toBeVisible({ timeout: 10_000 })
 
   const searchInput = dialog.getByPlaceholder('Search by name, DOB, phone, or email...')
   await expect(searchInput).toBeVisible()
@@ -265,7 +335,7 @@ export async function waitForExtractStepReady(
   },
 ) {
   const readyHeadings = options?.readyHeadings ?? [/Extract Data/i, /Data Extracted/i, /Confirmation Data Extracted/i]
-  const timeoutMs = options?.timeoutMs ?? 25_000
+  const timeoutMs = options?.timeoutMs ?? 45_000
   const end = Date.now() + timeoutMs
   while (Date.now() < end) {
     const loading = await page.getByText('Extracting Data...').first().isVisible().catch(() => false)

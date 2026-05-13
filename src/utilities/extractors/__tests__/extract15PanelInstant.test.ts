@@ -43,6 +43,39 @@ function assertCollectionDateString(dateString: string): Date {
 }
 
 describe('extract15PanelInstant', () => {
+  test('extracts all-negative 17-panel instant results', async () => {
+    const pdf = await getTestPdf('17-panel-instant/all-neg.pdf')
+
+    if (pdf.skipped) {
+      console.log('Skipping: 17-panel-instant all-negative fixture not found')
+      return
+    }
+
+    const result = await extract15PanelInstant(pdf.buffer)
+
+    expect(result.testType).toBe('17-panel-instant')
+    expect(result.donorName).toBe('Michael J Cebulski')
+    expect(result.detectedSubstances).toEqual([])
+    expect(result.extractedFields).toContain('testType')
+  })
+
+  test('extracts kratom and morphine positives from 17-panel instant results', async () => {
+    const pdf = await getTestPdf('17-panel-instant/pos-kratom-morphine.pdf')
+
+    if (pdf.skipped) {
+      console.log('Skipping: 17-panel-instant positive fixture not found')
+      return
+    }
+
+    const result = await extract15PanelInstant(pdf.buffer)
+
+    expect(result.testType).toBe('17-panel-instant')
+    expect(result.donorName).toBe('Bob F Testing')
+    expect(result.detectedSubstances).toEqual(expect.arrayContaining(['kratom', 'morphine']))
+    expect(result.detectedSubstances).not.toContain('opiates')
+    expect(result.detectedSubstances).not.toContain('6-mam')
+  })
+
   test('should extract screening results from instant test PDF', async () => {
     const pdf = await getTestPdf(
       '15-panel-instant/screening.pdf',
@@ -321,6 +354,7 @@ describe('extract15PanelInstant', () => {
       'isDilute',
       'dob',
       'gender',
+      'testType',
     ]
     for (const field of result.extractedFields) {
       expect(validFields).toContain(field)

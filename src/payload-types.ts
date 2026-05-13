@@ -1311,6 +1311,7 @@ export interface Client {
               | 'mdma'
               | 'methadone'
               | 'methamphetamines'
+              | 'morphine'
               | 'opiates'
               | 'oxycodone'
               | 'pcp'
@@ -1577,7 +1578,13 @@ export interface DrugTest {
   /**
    * Type of drug test panel used
    */
-  testType: '11-panel-lab' | '11-panel-lab-no-etg' | '15-panel-instant' | '17-panel-sos-lab' | 'etg-lab';
+  testType:
+    | '11-panel-lab'
+    | '11-panel-lab-no-etg'
+    | '15-panel-instant'
+    | '17-panel-instant'
+    | '17-panel-sos-lab'
+    | 'etg-lab';
   /**
    * Snapshot of active medications at time of test (auto-populated from client, editable by superAdmin only)
    */
@@ -1609,6 +1616,7 @@ export interface DrugTest {
               | 'mdma'
               | 'methadone'
               | 'methamphetamines'
+              | 'morphine'
               | 'opiates'
               | 'oxycodone'
               | 'pcp'
@@ -1662,6 +1670,7 @@ export interface DrugTest {
         | 'mdma'
         | 'methadone'
         | 'methamphetamines'
+        | 'morphine'
         | 'opiates'
         | 'oxycodone'
         | 'pcp'
@@ -1690,6 +1699,7 @@ export interface DrugTest {
         | 'mdma'
         | 'methadone'
         | 'methamphetamines'
+        | 'morphine'
         | 'opiates'
         | 'oxycodone'
         | 'pcp'
@@ -1718,6 +1728,7 @@ export interface DrugTest {
         | 'mdma'
         | 'methadone'
         | 'methamphetamines'
+        | 'morphine'
         | 'opiates'
         | 'oxycodone'
         | 'pcp'
@@ -1746,6 +1757,7 @@ export interface DrugTest {
         | 'mdma'
         | 'methadone'
         | 'methamphetamines'
+        | 'morphine'
         | 'opiates'
         | 'oxycodone'
         | 'pcp'
@@ -1782,6 +1794,7 @@ export interface DrugTest {
         | 'mdma'
         | 'methadone'
         | 'methamphetamines'
+        | 'morphine'
         | 'opiates'
         | 'oxycodone'
         | 'pcp'
@@ -1814,6 +1827,7 @@ export interface DrugTest {
           | 'mdma'
           | 'methadone'
           | 'methamphetamines'
+          | 'morphine'
           | 'opiates'
           | 'oxycodone'
           | 'pcp'

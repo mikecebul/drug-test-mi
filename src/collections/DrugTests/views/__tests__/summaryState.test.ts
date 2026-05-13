@@ -53,6 +53,20 @@ describe('buildDrugTestSummaryState', () => {
     )
   })
 
+  test('collected 17-panel instant test returns enter-screening next step', () => {
+    const summary = buildDrugTestSummaryState(
+      makeTest({
+        screeningStatus: 'collected',
+        testType: '17-panel-instant',
+      }),
+    )
+
+    expect(summary.testTypeLabel).toBe('17-Panel Instant')
+    expect(summary.nextStep).toBe(
+      'Enter initial screening findings and save to compute result classification.',
+    )
+  })
+
   test('screened unexpected-positive without decision returns decision next step', () => {
     const summary = buildDrugTestSummaryState(
       makeTest({

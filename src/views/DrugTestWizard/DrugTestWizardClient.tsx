@@ -25,6 +25,7 @@ const workflowTypes = [
   'enter-lab-screen',
   'enter-lab-confirmation',
   '15-panel-instant',
+  '17-panel-instant',
 ] as const
 
 type Workflows = typeof workflowTypes
@@ -48,6 +49,7 @@ export function DrugTestWizardClient() {
     'register-client': registerClientSteps[0],
     'collect-lab': collectLabSteps[0],
     '15-panel-instant': instantTestSteps[0],
+    '17-panel-instant': instantTestSteps[0],
     'enter-lab-screen': labScreenSteps[0],
     'enter-lab-confirmation': labConfirmationSteps[0],
   }
@@ -101,8 +103,8 @@ export function DrugTestWizardClient() {
     return <LabConfirmationWorkflow onBack={handleBack} />
   }
 
-  if (workflow === '15-panel-instant') {
-    return <InstantTestWorkflow onBack={handleBack} />
+  if (workflow === '15-panel-instant' || workflow === '17-panel-instant') {
+    return <InstantTestWorkflow onBack={handleBack} testType={workflow} />
   }
 
   return null

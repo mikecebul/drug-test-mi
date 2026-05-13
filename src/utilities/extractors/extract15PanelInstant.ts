@@ -5,6 +5,7 @@ import { TZDate } from '@date-fns/tz'
  * Extracted data from 15-panel instant test PDF
  */
 export interface Extracted15PanelData {
+  testType: '15-panel-instant' | '17-panel-instant'
   donorName: string | null
   collectionDate: string | null // ISO string with timezone offset (or UTC Z)
   dob: string | null // Date of birth in MM/DD/YYYY format
@@ -42,6 +43,7 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
 
     // Initialize result object
     const result: Extracted15PanelData = {
+      testType: /17\s+Panel\s+Slim\s+Cup/i.test(text) ? '17-panel-instant' : '15-panel-instant',
       donorName: null,
       collectionDate: null,
       dob: null,
@@ -52,6 +54,8 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
       confidence: 'low',
       extractedFields: [],
     }
+
+    result.extractedFields.push('testType')
 
     // Extract donor name
     // pdf-parse preserves layout: donor name appears after phone number or before "iCup" test description
@@ -69,7 +73,14 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
       )
     }
 
-    // Strategy 3: Look for donor signature at bottom (before "Page X of Y")
+    // Strategy 3: Look for name before the 17-panel Slim Cup description
+    if (!donorNameMatch) {
+      donorNameMatch = text.match(
+        /([A-Z][a-zA-Z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-zA-Z]+)\s*\n\s*FFUO\s+-\s+17\s+Panel\s+Slim\s+Cup/i,
+      )
+    }
+
+    // Strategy 4: Look for donor signature at bottom (before "Page X of Y")
     if (!donorNameMatch) {
       donorNameMatch = text.match(
         /Donor Signature\s*\n\s*([A-Z][a-zA-Z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-zA-Z]+)/i,
@@ -167,15 +178,21 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
       Amphetamines: 'amphetamines',
       Benzodiazepines: 'benzodiazepines',
       Buprenorphine: 'buprenorphine',
+      Barbiturates: 'barbiturates',
       Cocaine: 'cocaine',
       EtG: 'etg',
       Fentanyl: 'fentanyl',
+      'Kratom (Mitragynine)': 'kratom',
+      Kratom: 'kratom',
       Methylenedioxymethamphetamine: 'mdma',
       MDMA: 'mdma',
       Methadone: 'methadone',
       Methamphetamine: 'methamphetamines',
+      Morphine: 'morphine',
       Opiates: 'opiates',
       Oxycodone: 'oxycodone',
+      'Phencyclidine (PCP)': 'pcp',
+      PCP: 'pcp',
       'Synthetic Cannabinoids': 'synthetic_cannabinoids',
       THC: 'thc',
       Tramadol: 'tramadol',

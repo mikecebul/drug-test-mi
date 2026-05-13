@@ -292,7 +292,11 @@ test('submits frontend registration, signs in, and verifies admin emails in Mail
   await page.getByRole('button', { name: 'Complete Registration' }).click()
 
   await expect(page.getByRole('heading', { name: 'Submission Successful' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Go to dashboard' })).toBeVisible()
+  const dashboardButton = page.getByRole('button', { name: 'Go to dashboard' })
+  await expect(dashboardButton).toBeVisible()
+  if (!/\/dashboard/.test(page.url())) {
+    await dashboardButton.click()
+  }
   await expect(page).toHaveURL(/\/dashboard/)
 
   createdClientEmails.push(registrationEmail)

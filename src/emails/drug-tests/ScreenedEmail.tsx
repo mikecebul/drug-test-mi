@@ -41,8 +41,8 @@ export function ScreenedEmail(data: ScreenedEmailData) {
     initialScreenResult === 'unexpected-negative-warning' ||
     initialScreenResult === 'mixed-unexpected'
 
-  const isInstantTest = testType === '15-panel-instant'
-  const isLabScreen = testType !== '15-panel-instant'
+  const isInstantTest = testType === '15-panel-instant' || testType === '17-panel-instant'
+  const isLabScreen = !isInstantTest
   const hasConfirmationDecision = confirmationDecision !== null && confirmationDecision !== undefined
   const isAccepted = confirmationDecision === 'accept'
   const isPending = confirmationDecision === 'pending-decision'

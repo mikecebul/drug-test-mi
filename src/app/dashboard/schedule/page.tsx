@@ -137,6 +137,10 @@ export default async function SchedulePage() {
             </p>
           </div>
         </div>
+        <p className="text-muted-foreground mt-3 max-w-3xl text-sm">
+          MI Drug Test is introducing a 17-panel instant screen soon. Your referral’s selected test type will still
+          determine what is prefilled when you book.
+        </p>
       </div>
 
       <div className="px-4 lg:px-6">
