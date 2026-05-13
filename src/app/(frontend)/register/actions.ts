@@ -2,7 +2,7 @@
 
 import { getPayload } from 'payload'
 import config from '@payload-config'
-import type { FormValues } from './validators'
+import type { CompleteRegistrationValues } from './validators'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
 import { formatDateOnlyISO, getCurrentIsoTimestamp, getTodayDateOnlyISO } from '@/lib/date-utils'
 import {
@@ -85,7 +85,7 @@ export async function checkEmailExists(email: string): Promise<boolean> {
   }
 }
 
-export async function registerWebsiteClientAction(formData: FormValues): Promise<{
+export async function registerWebsiteClientAction(formData: CompleteRegistrationValues): Promise<{
   success: boolean
   error?: string
 }> {

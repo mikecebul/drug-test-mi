@@ -14,7 +14,7 @@ import {
 } from '@/lib/form-scroll-focus'
 import { getClientSideURL } from '@/utilities/getURL'
 import { Button } from '@/components/ui/button'
-import { steps } from './validators'
+import { completeRegistrationSchema, steps } from './validators'
 import { getRegisterClientFormOpts } from './shared-form'
 import { RegisterNavigation } from './components/Navigation'
 import {
@@ -140,13 +140,15 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
           throw new Error('Passwords do not match')
         }
 
-        const result = await registerWebsiteClientAction({
+        const registrationValues = completeRegistrationSchema.parse({
           ...value,
           personalInfo: {
             ...value.personalInfo,
             headshot: null,
           },
         })
+
+        const result = await registerWebsiteClientAction(registrationValues)
         if (!result.success) {
           throw new Error(result.error || 'Registration failed')
         }

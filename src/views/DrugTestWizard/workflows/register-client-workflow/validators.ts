@@ -257,7 +257,8 @@ export const formSchema = z.object({
   path: ['accountInfo', 'confirmPassword'],
 })
 
-export type FormValues = z.infer<typeof formSchema>
+export type FormValues = z.input<typeof formSchema>
+export type CompleteRegistrationValues = z.output<typeof formSchema>
 
 export const stepSchemas = [
   personalInfoSchema,

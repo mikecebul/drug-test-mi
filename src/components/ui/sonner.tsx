@@ -7,12 +7,12 @@ import {
   OctagonXIcon,
   TriangleAlertIcon,
 } from 'lucide-react'
-import { useTheme } from 'next-themes'
+import { useTheme } from '@payloadcms/ui'
 import { Toaster as Sonner, ToasterProps } from 'sonner'
 
 const Toaster = ({ richColors = true, toastOptions, ...props }: ToasterProps) => {
-  const { forcedTheme, resolvedTheme, theme } = useTheme()
-  const sonnerTheme = (forcedTheme ?? resolvedTheme ?? theme ?? 'light') as ToasterProps['theme']
+  const { theme } = useTheme()
+  const sonnerTheme: ToasterProps['theme'] = theme === 'dark' ? 'dark' : 'light'
   const mergedToastOptions: ToasterProps['toastOptions'] = {
     ...toastOptions,
     classNames: {

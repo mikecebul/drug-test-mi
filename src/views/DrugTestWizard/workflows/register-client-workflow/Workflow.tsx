@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
 import { getRegisterClientFormOpts } from './shared-form'
-import { steps } from './validators'
+import { formSchema, steps } from './validators'
 
 import { PersonalInfoStep } from './steps/PersonalInfo'
 import { AccountInfoStep } from './steps/AccountInfo'
@@ -65,13 +65,15 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
       }
 
       // Final submit on last step
-      const result = await registerClientAction({
+      const registrationValues = formSchema.parse({
         ...value,
         personalInfo: {
           ...value.personalInfo,
           headshot: null,
         },
       })
+
+      const result = await registerClientAction(registrationValues)
 
       if (result.success && result.clientId) {
         setCreatedClientId(result.clientId)

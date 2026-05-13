@@ -2,7 +2,7 @@
 
 import { getPayload } from 'payload'
 import config from '@payload-config'
-import type { FormValues } from '../validators'
+import type { CompleteRegistrationValues } from '../validators'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
 import {
   assertReferralHasContacts,
@@ -95,7 +95,7 @@ async function generatePlaceholderEmail(
   )
 }
 
-export async function registerClientAction(formData: FormValues): Promise<{
+export async function registerClientAction(formData: CompleteRegistrationValues): Promise<{
   success: boolean
   clientId?: string
   clientFirstName?: string
