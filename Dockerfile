@@ -1,4 +1,6 @@
-FROM node:20-alpine AS base
+FROM node:24.15.0-alpine AS base
+
+ENV PNPM_VERSION=11.1.1
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -6,18 +8,18 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Update and enable Corepack
-RUN npm install -g corepack@latest
+# Enable the pinned package manager used by this image.
+RUN corepack enable pnpm && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 # Install dependencies based on the preferred package manager
-COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* pnpm-workspace.yaml* ./
 RUN \
-  if [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
+  if [ -f pnpm-lock.yaml ]; then pnpm i --frozen-lockfile; \
   else echo "Lockfile not found." && exit 1; \
   fi
 
 # install require in the middle package
-RUN pnpm add require-in-the-middle@"$(jq -r '.dependencies["require-in-the-middle"]' < package.json)"
+RUN pnpm add require-in-the-middle@"$(node -p 'require("./package.json").dependencies["require-in-the-middle"]')"
 
 
 # Rebuild the source code only when needed
@@ -75,12 +77,11 @@ RUN --mount=type=secret,id=DATABASE_URI \
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_OUTPUT=standalone
 
-# Update and enable Corepack
-RUN npm install -g corepack@latest
+# Enable the pinned package manager used by this image.
+RUN corepack enable pnpm && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 RUN \
   if [ -f pnpm-lock.yaml ]; then \
-  corepack enable pnpm && \
   set -a && . ./.env.production && set +a && \
   pnpm run build; \
   else \
