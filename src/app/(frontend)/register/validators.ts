@@ -71,5 +71,6 @@ export const stepSchemas = [
   termsSchema,
 ]
 
-export type FormValues = z.infer<typeof formSchema>
+export type FormValues = z.input<typeof formSchema>
+export type CompleteRegistrationValues = z.output<typeof completeRegistrationSchema>
 export type RegistrationFormType = FormValues

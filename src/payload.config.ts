@@ -90,7 +90,7 @@ const adminAutoLogin =
     : false
 
 export default buildConfig({
-  // serverURL: baseUrl,
+  serverURL: baseUrl,
   admin: {
     autoLogin: adminAutoLogin,
     autoRefresh: true,

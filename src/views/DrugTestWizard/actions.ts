@@ -67,6 +67,7 @@ export async function extractPdfData(
         extracted = await extractLabTest(buffer)
         break
       case '15-panel-instant':
+      case '17-panel-instant':
       default:
         extracted = await extract15PanelInstant(buffer)
         break
@@ -457,7 +458,7 @@ export async function getClients(): Promise<SimpleClient[]> {
 export async function computeTestResultPreview(
   clientId: string,
   detectedSubstances: SubstanceValue[],
-  testType: '15-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab',
+  testType: '15-panel-instant' | '17-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab',
   breathalyzerTaken?: boolean,
   breathalyzerResult?: number | null,
   medications?: MedicationSnapshot[],
@@ -517,7 +518,7 @@ export async function computeTestResultPreview(
  */
 export async function createDrugTest(data: {
   clientId: string
-  testType: '15-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
+  testType: '15-panel-instant' | '17-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
   collectionDate: string
   detectedSubstances: SubstanceValue[]
   isDilute: boolean
@@ -622,7 +623,7 @@ export async function createDrugTest(data: {
 export async function getEmailPreview(data: {
   clientId: string
   detectedSubstances: SubstanceValue[]
-  testType: '15-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
+  testType: '15-panel-instant' | '17-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
   collectionDate: string
   isDilute: boolean
   breathalyzerTaken?: boolean
@@ -1020,7 +1021,7 @@ export async function getConfirmationEmailPreview(data: {
 export async function createDrugTestWithEmailReview(
   testData: {
     clientId: string
-    testType: '15-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
+    testType: '15-panel-instant' | '17-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
     collectionDate: string
     detectedSubstances: SubstanceValue[]
     isDilute: boolean

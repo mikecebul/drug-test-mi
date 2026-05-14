@@ -58,6 +58,7 @@ export const VerifyDataStep = withForm({
 
     const hasUnexpectedPositives = (preview?.unexpectedPositives?.length ?? 0) > 0
     const requiresDecision = hasUnexpectedPositives && !preview?.autoAccept
+    const testTypeLabel = verifyData?.testType === '17-panel-instant' ? '17-Panel Instant' : '15-Panel Instant'
 
     // Clear error if no decision required
     useEffect(() => {
@@ -119,7 +120,7 @@ export const VerifyDataStep = withForm({
             <FieldGroup className="grid @lg:grid-cols-2">
               <Field className="@lg:col-span-1">
                 <FieldLabel>Test Type</FieldLabel>
-                <Input value="15-Panel Instant" disabled readOnly />
+                <Input value={testTypeLabel} disabled readOnly />
               </Field>
             </FieldGroup>
 
@@ -154,7 +155,7 @@ export const VerifyDataStep = withForm({
                 },
               }}
             >
-              {(field) => <field.SubstanceChecklistField />}
+              {(field) => <field.SubstanceChecklistField testType={verifyData?.testType ?? '15-panel-instant'} />}
             </form.AppField>
 
             {/* Dilute Sample */}
@@ -316,10 +317,13 @@ export const VerifyDataStep = withForm({
                         </p>
                       </div>
                     </Label>
-                  </RadioGroup>
-                  <FieldError errors={field.state.meta.errors} />
-                </Field>
-              )}
+	                  </RadioGroup>
+	                  {requiresDecision && !confirmationDecisionValue && (
+	                    <p className="text-destructive text-sm">Must select an option</p>
+	                  )}
+	                  <FieldError errors={field.state.meta.errors} />
+	                </Field>
+	              )}
             </form.Field>
 
             {/* Substance selection when request-confirmation is chosen */}

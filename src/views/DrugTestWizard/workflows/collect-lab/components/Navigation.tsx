@@ -74,7 +74,13 @@ export const CollectLabNavigation = withForm({
           {isFirstStep ? 'Cancel' : 'Back'}
         </Button>
 
-        <Button type="submit" disabled={isSubmitting || currentStepHasErrors} size="lg" data-testid="wizard-next-button">
+        <Button
+          type="button"
+          onClick={() => form.handleSubmit()}
+          disabled={isSubmitting || currentStepHasErrors}
+          size="lg"
+          data-testid="wizard-next-button"
+        >
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />

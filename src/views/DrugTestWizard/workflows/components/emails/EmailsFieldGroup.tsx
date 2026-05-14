@@ -356,9 +356,7 @@ export const EmailsFieldGroup = withFieldGroup({
                       <>
                         <RecipientEditor
                           key={`referral-editor-${referralEditorVersion}`}
-                          initialRecipients={
-                            referralRecipients?.length ? referralRecipients : previewData.referralEmails
-                          }
+                          initialRecipients={referralRecipients || []}
                           onChange={(recipients) => {
                             field.handleChange(recipients)
                             validateSubmitState()

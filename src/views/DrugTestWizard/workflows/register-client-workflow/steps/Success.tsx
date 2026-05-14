@@ -51,8 +51,11 @@ export function SuccessStep({
 
   // Determine button text based on where user came from
   const getButtonText = () => {
-    if (returnTo === 'instant-test') {
+    if (returnTo === 'instant-test' || returnTo === '15-panel-instant') {
       return 'Continue with 15 Panel Test'
+    }
+    if (returnTo === '17-panel-instant') {
+      return 'Continue with 17 Panel Test'
     }
     if (returnTo === 'collect-lab') {
       return 'Continue with Lab Collection'

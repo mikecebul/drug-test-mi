@@ -11,6 +11,7 @@ export type TestTypeBookingOption = {
 
 export const FALLBACK_BOOKING_TEST_TYPES: TestTypeBookingOption[] = [
   { id: '15-panel-instant', value: '15-panel-instant', label: '15 Panel Instant' },
+  { id: '17-panel-instant', value: '17-panel-instant', label: '17 Panel Instant' },
   { id: '11-panel-lab', value: '11-panel-lab', label: '11 Panel Lab' },
   { id: '11-panel-lab-no-etg', value: '11-panel-lab-no-etg', label: '11 Panel Lab (no EtG)' },
   { id: '17-panel-sos-lab', value: '17-panel-sos-lab', label: '17 SOS Lab' },

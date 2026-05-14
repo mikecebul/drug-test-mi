@@ -74,7 +74,7 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
   const isComplete = result.isComplete
   const isInconclusive = result.isInconclusive
   const testType = result.testType
-  const is15Panel = testType === '15-panel-instant'
+  const isInstantTest = testType === '15-panel-instant' || testType === '17-panel-instant'
   const is11PanelLab = testType === '11-panel-lab'
   const is11PanelLabNoEtg = testType === '11-panel-lab-no-etg'
   const is17PanelLab = testType === '17-panel-sos-lab'
@@ -141,8 +141,8 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
       completed: true,
     })
 
-    // Add shipping for 15-panel instant before complete (if confirmation exists)
-    if (is15Panel && confirmationResults && confirmationResults.length > 0) {
+    // Add shipping for instant tests before complete (if confirmation exists)
+    if (isInstantTest && confirmationResults && confirmationResults.length > 0) {
       completeSteps.push({
         label: 'Shipped',
         icon: Truck,
@@ -194,8 +194,8 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
 
   if (hasUnexpectedResults) {
     if (isConfirmationRequested) {
-      // For 15-panel instant with confirmation, add shipping before confirmation
-      if (is15Panel) {
+      // For instant tests with confirmation, add shipping before confirmation
+      if (isInstantTest) {
         steps.push({
           label: 'Shipped',
           icon: Truck,
@@ -570,6 +570,9 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
             case '15-panel-instant':
               label = '15-Panel Instant'
               break
+            case '17-panel-instant':
+              label = '17-Panel Instant'
+              break
             case '17-panel-sos-lab':
               label = '17-Panel SOS Lab'
               break
@@ -833,6 +836,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                         <SelectItem value="11-panel-lab">11-Panel Lab</SelectItem>
                         <SelectItem value="11-panel-lab-no-etg">11-Panel Lab (no EtG)</SelectItem>
                         <SelectItem value="15-panel-instant">15-Panel Instant</SelectItem>
+                        <SelectItem value="17-panel-instant">17-Panel Instant</SelectItem>
                         <SelectItem value="17-panel-sos-lab">17-Panel SOS Lab</SelectItem>
                         <SelectItem value="etg-lab">EtG Lab</SelectItem>
                       </SelectContent>
@@ -968,6 +972,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                             <SelectItem value="11-panel-lab">11-Panel Lab</SelectItem>
                             <SelectItem value="11-panel-lab-no-etg">11-Panel Lab (no EtG)</SelectItem>
                             <SelectItem value="15-panel-instant">15-Panel Instant</SelectItem>
+                            <SelectItem value="17-panel-instant">17-Panel Instant</SelectItem>
                             <SelectItem value="17-panel-sos-lab">17-Panel SOS Lab</SelectItem>
                             <SelectItem value="etg-lab">EtG Lab</SelectItem>
                           </SelectContent>

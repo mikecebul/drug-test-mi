@@ -17,6 +17,11 @@ export const ScreeningTypeStep = withForm({
           <h2 className="text-foreground text-xl font-semibold">Screening Request</h2>
         </div>
 
+        <p className="text-muted-foreground rounded-lg border border-border bg-muted/50 p-4 text-sm">
+          MI Drug Test is introducing a 17-panel instant screen soon. Your referral will determine which test type is
+          selected for your appointments.
+        </p>
+
         <form.AppField name="screeningType.requestedBy">
           {(field) => {
             const hasErrors = field.state.meta.errors.length > 0

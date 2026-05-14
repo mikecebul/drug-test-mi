@@ -146,7 +146,6 @@ test.describe('Wizard Lab Screen Workflow', () => {
 
     if (await decisionSection.isVisible().catch(() => false)) {
       await page.getByLabel(/Fentanyl/i).check()
-      await triggerNextValidation(page)
       await expect(page.getByText('Must select an option')).toBeVisible()
       await expectNextDisabled(page)
 

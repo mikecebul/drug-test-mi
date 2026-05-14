@@ -247,6 +247,7 @@ export const DrugTests: CollectionConfig = {
                 { label: '11-Panel Lab', value: '11-panel-lab' },
                 { label: '11-Panel Lab (no EtG)', value: '11-panel-lab-no-etg' },
                 { label: '15-Panel Instant', value: '15-panel-instant' },
+                { label: '17-Panel Instant', value: '17-panel-instant' },
                 { label: '17-Panel SOS Lab', value: '17-panel-sos-lab' },
                 { label: 'EtG Lab', value: 'etg-lab' },
               ],

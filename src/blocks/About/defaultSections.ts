@@ -149,9 +149,9 @@ export const DEFAULT_ABOUT_SECTIONS = [
     heading: 'Pricing',
     pricingCards: [
       {
-        title: 'Standard 15-Panel Instant Test',
+        title: 'Standard Instant Test',
         price: '$35',
-        description: 'For all Charlevoix court clients',
+        description: '15-panel test today, with 17-panel instant screening being introduced soon',
         featured: true,
       },
       {

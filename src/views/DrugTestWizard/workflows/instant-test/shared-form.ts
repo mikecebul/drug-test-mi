@@ -1,7 +1,9 @@
 import { formOptions } from '@tanstack/react-form'
 import { FormValues, formSchema, uploadSchema, extractSchema, clientSchema, medicationsSchema, verifyDataSchema, emailsSchema, type Steps } from './validators'
 
-const getDefaultValues = (): FormValues => ({
+export type InstantTestType = '15-panel-instant' | '17-panel-instant'
+
+const getDefaultValues = (testType: InstantTestType = '15-panel-instant'): FormValues => ({
   upload: {
     file: null as any, // Will be set by user
   },
@@ -20,7 +22,7 @@ const getDefaultValues = (): FormValues => ({
   },
   medications: [],
   verifyData: {
-    testType: '15-panel-instant',
+    testType,
     collectionDate: new Date().toISOString(),
     detectedSubstances: [],
     isDilute: false,
@@ -44,9 +46,9 @@ export const instantTestFormOpts = formOptions({
 })
 
 // Step-aware form options (for Workflow and step components)
-export const getInstantTestFormOpts = (step: Steps[number]) =>
+export const getInstantTestFormOpts = (step: Steps[number], testType: InstantTestType = '15-panel-instant') =>
   formOptions({
-    defaultValues: getDefaultValues(),
+    defaultValues: getDefaultValues(testType),
     validators: {
       onSubmit: ({ formApi }) => {
         if (step === 'upload') {

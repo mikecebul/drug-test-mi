@@ -57,6 +57,7 @@ export const TEST_TYPE_MAP: Record<string, string> = {
   '11-panel-lab': '11-Panel Lab Test',
   '11-panel-lab-no-etg': '11-Panel Lab Test (no EtG)',
   '15-panel-instant': '15-Panel Instant Test',
+  '17-panel-instant': '17-Panel Instant Test',
   '17-panel-sos-lab': '17-Panel SOS Lab Test',
   'etg-lab': 'EtG Lab Test',
 }
@@ -77,6 +78,7 @@ export const SUBSTANCE_MAP: Record<string, string> = {
   pcp: 'PCP',
   barbiturates: 'Barbiturates',
   methadone: 'Methadone',
+  morphine: 'Morphine',
   propoxyphene: 'Propoxyphene',
   tricyclic_antidepressants: 'Tricyclic Antidepressants',
   mdma: 'MDMA (Ecstasy)',

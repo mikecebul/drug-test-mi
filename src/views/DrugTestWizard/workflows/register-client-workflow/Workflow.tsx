@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
 import { getRegisterClientFormOpts } from './shared-form'
-import { steps } from './validators'
+import { formSchema, steps } from './validators'
 
 import { PersonalInfoStep } from './steps/PersonalInfo'
 import { AccountInfoStep } from './steps/AccountInfo'
@@ -65,13 +65,15 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
       }
 
       // Final submit on last step
-      const result = await registerClientAction({
+      const registrationValues = formSchema.parse({
         ...value,
         personalInfo: {
           ...value.personalInfo,
           headshot: null,
         },
       })
+
+      const result = await registerClientAction(registrationValues)
 
       if (result.success && result.clientId) {
         setCreatedClientId(result.clientId)
@@ -121,10 +123,11 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
   if (registrationComplete && createdClientId && createdClientData) {
     const handleContinue = async () => {
       // Determine where to navigate based on returnTo param
-      if (returnTo === 'instant-test') {
+      if (returnTo === 'instant-test' || returnTo === '15-panel-instant' || returnTo === '17-panel-instant') {
+        const workflow = returnTo === '17-panel-instant' ? '17-panel-instant' : '15-panel-instant'
         // Navigate to instant-test workflow with new client
         router.push(
-          `/admin/drug-test-upload?workflow=15-panel-instant&step=client&clientId=${createdClientId}`,
+          `/admin/drug-test-upload?workflow=${workflow}&step=client&clientId=${createdClientId}`,
         )
       } else if (returnTo === 'collect-lab') {
         // Navigate to collect-lab workflow with new client

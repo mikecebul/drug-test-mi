@@ -18,6 +18,7 @@ public/portraits
 public/avatars
 public/meta
 public/sitemap.xml
+public/sitemap-*.xml
 
 # sqlite db
 payload.db

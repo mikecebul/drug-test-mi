@@ -18,12 +18,16 @@ export const ExtractStep = withForm({
 
   render: function Render({ form }) {
     const uploadedFile = useStore(form.store, (state) => state.values.upload.file)
-    const { data: extractedData, isLoading, error } = useExtractPdfQuery(uploadedFile, '15-panel-instant')
+    const testType = useStore(form.store, (state) => state.values.verifyData.testType)
+    const { data: extractedData, isLoading, error } = useExtractPdfQuery(uploadedFile, testType)
 
     // Auto-sync extracted data to form when available
     useEffect(() => {
       if (extractedData) {
         form.setFieldValue('extract.extracted', true)
+        if (extractedData.testType === '15-panel-instant' || extractedData.testType === '17-panel-instant') {
+          form.setFieldValue('verifyData.testType', extractedData.testType)
+        }
         // Pre-populate verifyData with extracted values
         if (extractedData.collectionDate) {
           form.setFieldValue('verifyData.collectionDate', extractedData.collectionDate)

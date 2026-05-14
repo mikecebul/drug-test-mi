@@ -4,6 +4,7 @@ export const WIZARD_OPTIONS = [
   'register-client',
   'collect-lab',
   '15-panel-instant',
+  '17-panel-instant',
   'enter-lab-screen',
   'enter-lab-confirmation',
 ] as const
@@ -66,7 +67,13 @@ export interface ParsedPDFData {
   }>
 }
 
-export type TestType = '15-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
+export type TestType =
+  | '15-panel-instant'
+  | '17-panel-instant'
+  | '11-panel-lab'
+  | '11-panel-lab-no-etg'
+  | '17-panel-sos-lab'
+  | 'etg-lab'
 
 export interface VerifiedTestData {
   testType: TestType

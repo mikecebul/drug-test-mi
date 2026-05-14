@@ -197,6 +197,7 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
       'Fentanyls': 'fentanyl',
       'Methadone': 'methadone',
       'Mitragynine': 'kratom',
+      'Morphine': 'morphine',
       'Opiates': 'opiates',
       'THC (Marijuana)': 'thc',
 

@@ -74,8 +74,12 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Review Collection Notification' })).toBeVisible()
 
+    await page.getByLabel(/Send referral notifications/i).uncheck()
+    await expect(page.getByText('No notifications will be sent')).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Submit$/i })).toBeEnabled()
+
     await page.getByLabel(/Send referral notifications/i).check()
-    await expect(page.getByText('Referral emails must have at least one recipient')).toBeVisible()
+    await expect(page.getByText('At least one recipient is required')).toBeVisible()
     await expect(page.getByRole('button', { name: /^Submit$/i })).toBeDisabled()
   })
 
