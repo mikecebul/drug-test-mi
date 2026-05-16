@@ -66,6 +66,7 @@ export async function extractPdfData(
       case 'enter-lab-screen':
         extracted = await extractLabTest(buffer)
         break
+      case 'instant-test':
       case '15-panel-instant':
       case '17-panel-instant':
       default:

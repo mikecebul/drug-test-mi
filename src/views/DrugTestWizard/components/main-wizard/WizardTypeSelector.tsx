@@ -37,22 +37,13 @@ const wizardOptions: WizardOption[] = [
     bgColor: 'bg-blue-50 dark:bg-blue-950/30',
   },
   {
-    id: '15-panel-instant',
+    id: 'instant-test',
     icon: Zap,
-    title: 'Screen 15-Panel Instant',
-    description: 'Perform an on-site 15-panel instant drug screen',
+    title: 'Screen Instant Test',
+    description: 'Upload an instant report and verify the detected panel type',
     color: 'text-green-600',
     borderColor: 'border-green-300 dark:border-green-700',
     bgColor: 'bg-green-50 dark:bg-green-950/30',
-  },
-  {
-    id: '17-panel-instant',
-    icon: Zap,
-    title: 'Screen 17-Panel Instant',
-    description: 'Perform an on-site 17-panel instant drug screen',
-    color: 'text-emerald-600',
-    borderColor: 'border-emerald-300 dark:border-emerald-700',
-    bgColor: 'bg-emerald-50 dark:bg-emerald-950/30',
   },
   {
     id: 'enter-lab-screen',
@@ -116,8 +107,7 @@ export function WizardTypeSelector({ onSelect }: WizardTypeSelectorProps) {
       <div className="space-y-3">
         <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Specimen Collection</h3>
         <div className="grid gap-4">
-          {renderOption('15-panel-instant')}
-          {renderOption('17-panel-instant')}
+          {renderOption('instant-test')}
           {renderOption('collect-lab')}
         </div>
       </div>

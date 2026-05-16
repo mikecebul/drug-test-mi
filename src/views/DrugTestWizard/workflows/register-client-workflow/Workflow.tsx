@@ -124,10 +124,9 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
     const handleContinue = async () => {
       // Determine where to navigate based on returnTo param
       if (returnTo === 'instant-test' || returnTo === '15-panel-instant' || returnTo === '17-panel-instant') {
-        const workflow = returnTo === '17-panel-instant' ? '17-panel-instant' : '15-panel-instant'
         // Navigate to instant-test workflow with new client
         router.push(
-          `/admin/drug-test-upload?workflow=${workflow}&step=client&clientId=${createdClientId}`,
+          `/admin/drug-test-upload?workflow=instant-test&step=client&clientId=${createdClientId}`,
         )
       } else if (returnTo === 'collect-lab') {
         // Navigate to collect-lab workflow with new client

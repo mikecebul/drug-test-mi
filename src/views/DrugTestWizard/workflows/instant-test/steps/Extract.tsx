@@ -18,8 +18,7 @@ export const ExtractStep = withForm({
 
   render: function Render({ form }) {
     const uploadedFile = useStore(form.store, (state) => state.values.upload.file)
-    const testType = useStore(form.store, (state) => state.values.verifyData.testType)
-    const { data: extractedData, isLoading, error } = useExtractPdfQuery(uploadedFile, testType)
+    const { data: extractedData, isLoading, error } = useExtractPdfQuery(uploadedFile, 'instant-test')
 
     // Auto-sync extracted data to form when available
     useEffect(() => {

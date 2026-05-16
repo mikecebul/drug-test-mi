@@ -18,7 +18,7 @@ interface ClientStepUIProps {
   selectedClient: FormClient
   onSelectClient: (client: SimpleClient) => void
   errors: string[]
-  returnToWorkflow: 'collect-lab' | '15-panel-instant' | '17-panel-instant'
+  returnToWorkflow: 'collect-lab' | 'instant-test' | '15-panel-instant' | '17-panel-instant'
   onRegisterNewClient?: () => void
   suggestedMatches?: SimpleClient[]
   donorName?: string | null

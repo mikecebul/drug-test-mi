@@ -95,8 +95,7 @@ const directWorkflowRoutes: Record<string, { workflow: string; step: string }> =
   'Collect Sample for Lab': { workflow: 'collect-lab', step: 'client' },
   'Enter Lab Screen Data': { workflow: 'enter-lab-screen', step: 'upload' },
   'Enter Lab Confirmation Data': { workflow: 'enter-lab-confirmation', step: 'upload' },
-  'Screen 15-Panel Instant': { workflow: '15-panel-instant', step: 'upload' },
-  'Screen 17-Panel Instant': { workflow: '17-panel-instant', step: 'upload' },
+  'Screen Instant Test': { workflow: 'instant-test', step: 'upload' },
 }
 
 const workflowReadyHeadings: Record<string, RegExp> = {
@@ -104,8 +103,7 @@ const workflowReadyHeadings: Record<string, RegExp> = {
   'Collect Sample for Lab': /^Choose a Client$/i,
   'Enter Lab Screen Data': /^Upload Lab Screening Results PDF$/i,
   'Enter Lab Confirmation Data': /^Upload Confirmation PDF$/i,
-  'Screen 15-Panel Instant': /^Upload 15 Panel Drug Test Report$/i,
-  'Screen 17-Panel Instant': /^Upload 17 Panel Drug Test Report$/i,
+  'Screen Instant Test': /^Upload Instant Drug Test Report$/i,
 }
 
 async function waitForWorkflowLoaded(page: Page, title: string) {

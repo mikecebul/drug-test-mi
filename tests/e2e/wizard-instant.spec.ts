@@ -43,7 +43,7 @@ test.describe('Wizard Instant Workflow', () => {
   test.beforeEach(async ({ page }) => {
     await loginAdmin(page, fixtures.admin)
     await openWizard(page)
-    await selectWorkflow(page, 'Screen 15-Panel Instant')
+    await selectWorkflow(page, 'Screen Instant Test')
   })
 
   test('validates upload and confirmation-decision branches, with back-forward navigation', async ({ page }) => {
@@ -68,6 +68,27 @@ test.describe('Wizard Instant Workflow', () => {
     await clickNext(page)
 
     await expect(page.getByText('Verify Test Data')).toBeVisible()
+
+    const testTypeSelect = page.getByRole('combobox', { name: /Test Type/i })
+    await expect(testTypeSelect).toBeVisible()
+
+    await testTypeSelect.click()
+    await page.getByRole('option', { name: /17-Panel Instant/i }).click()
+    await expect(page.getByLabel(/^PCP$/i)).toBeVisible()
+    await expect(page.getByLabel(/6-MAM/i)).toHaveCount(0)
+
+    await page.getByLabel(/^PCP$/i).check()
+    await expect(page.getByLabel(/^PCP$/i)).toBeChecked()
+
+    await testTypeSelect.click()
+    await page.getByRole('option', { name: /15-Panel Instant/i }).click()
+    await expect(page.getByLabel(/6-MAM/i)).toBeVisible()
+    await expect(page.getByLabel(/^PCP$/i)).toHaveCount(0)
+
+    await testTypeSelect.click()
+    await page.getByRole('option', { name: /17-Panel Instant/i }).click()
+    await expect(page.getByLabel(/^PCP$/i)).toBeVisible()
+    await expect(page.getByLabel(/^PCP$/i)).not.toBeChecked()
 
     await page.getByLabel(/Fentanyl/i).check()
     await triggerNextValidation(page)

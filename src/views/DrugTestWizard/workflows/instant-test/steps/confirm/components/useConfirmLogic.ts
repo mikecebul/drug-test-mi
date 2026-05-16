@@ -14,7 +14,7 @@ export function useConfirmLogic(formValues: FormValues) {
   const medications = formValues.medications ?? []
 
   // Get extracted data from query cache (cached from Extract step)
-  const { data: extractData } = useExtractPdfQuery(uploadedFile, verifyData?.testType ?? '15-panel-instant')
+  const { data: extractData } = useExtractPdfQuery(uploadedFile, 'instant-test')
 
   // Map medications to the format expected by the query
   const medicationsForQuery = medications.map((med) => ({

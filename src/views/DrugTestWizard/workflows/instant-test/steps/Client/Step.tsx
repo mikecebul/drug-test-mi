@@ -16,11 +16,10 @@ export const ClientStep = withForm({
     // Get selected client ID and data from form state
     const selectedClient = useStore(form.store, (state) => state.values.client)
     const uploadedFile = useStore(form.store, (state) => state.values.upload.file)
-    const testType = useStore(form.store, (state) => state.values.verifyData.testType)
     const hasAutoSelected = useRef(false)
 
     // Get extracted data from PDF
-    const { data: extractedData } = useExtractPdfQuery(uploadedFile, testType)
+    const { data: extractedData } = useExtractPdfQuery(uploadedFile, 'instant-test')
     const donorName = extractedData?.donorName ?? null
 
     // Parse donor name into parts
@@ -112,7 +111,7 @@ export const ClientStep = withForm({
             selectedClient={selectedClient}
             onSelectClient={handleSelectClient}
             errors={idField.state.meta.errors.map((e) => e?.message || 'Validation error')}
-            returnToWorkflow={testType}
+            returnToWorkflow="instant-test"
             onRegisterNewClient={handleRegisterNewClient}
             suggestedMatches={suggestedMatches}
             donorName={donorName}
