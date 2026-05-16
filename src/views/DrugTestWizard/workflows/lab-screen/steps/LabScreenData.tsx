@@ -349,7 +349,7 @@ export const LabScreenDataStep = withForm({
                           : (field.state.meta.errors?.[0] as { message?: string } | undefined)?.message
 	                      }
 	                    />
-	                    {!confirmationSubstancesValue?.length ? (
+	                    {!confirmationSubstancesValue?.length && field.state.meta.errors.length === 0 ? (
 	                      <p className="text-destructive mt-2 text-sm">
 	                        Please select at least one substance for confirmation testing
 	                      </p>

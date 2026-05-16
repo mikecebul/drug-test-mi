@@ -35,17 +35,11 @@ export const RegisterClientNavigation = withForm({
     const currentStep = currentStepRaw as (typeof steps)[number]
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
-    const noEmail = useStore(form.store, (state) => state.values.accountInfo.noEmail === true)
 
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
-
-    // Check field-level errors for the current step only
-    const currentStepHasErrors =
-      noEmail && currentStep === 'accountInfo'
-        ? false
-        : group.state.meta.submissionAttempts > 0 && !group.state.meta.isValid
+    const currentStepHasErrors = group.state.meta.submissionAttempts > 0 && !group.state.meta.isValid
 
     const handleBack = () => {
       if (isFirstStep) {
@@ -55,11 +49,6 @@ export const RegisterClientNavigation = withForm({
         if (prevStep) {
           setCurrentStep(prevStep, { history: 'push' })
         }
-        form.setFieldMeta('accountInfo.email', (prev) => ({
-          ...prev,
-          errors: [],
-          errorMap: {},
-        }))
       }
     }
 

@@ -59,25 +59,27 @@ export const medicationsSchema = z.object({
   ),
 })
 
-export const emailsSchema = z
+export const emailsGroupSchema = z
   .object({
-    emails: z.object({
-      clientEmailEnabled: z.boolean(),
-      clientRecipients: z.array(z.string()),
-      referralEmailEnabled: z.boolean(),
-      referralRecipients: z.array(z.string()),
-    }),
+    clientEmailEnabled: z.boolean(),
+    clientRecipients: z.array(z.string()),
+    referralEmailEnabled: z.boolean(),
+    referralRecipients: z.array(z.string()),
   })
   .superRefine((data, ctx) => {
     // If referral email enabled, must have at least one recipient
-    if (data.emails.referralEmailEnabled && data.emails.referralRecipients.length === 0) {
+    if (data.referralEmailEnabled && data.referralRecipients.length === 0) {
       ctx.addIssue({
         code: 'custom',
         message: 'Referral emails must have at least one recipient',
-        path: ['emails', 'referralRecipients'],
+        path: ['referralRecipients'],
       })
     }
   })
+
+export const emailsSchema = z.object({
+  emails: emailsGroupSchema,
+})
 
 // Type for the client object in form values
 export type FormUpload = z.infer<typeof uploadSchema>['upload']

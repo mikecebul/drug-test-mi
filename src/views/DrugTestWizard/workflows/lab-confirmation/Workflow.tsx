@@ -16,7 +16,7 @@ import { EmailsStep } from './steps/Emails'
 import { updateLabConfirmationWithEmailReview } from './actions/updateLabConfirmationWithEmailReview'
 import { TestCompleted } from '../../components/TestCompleted'
 import {
-  emailsSchema,
+  emailsGroupSchema,
   extractSchema,
   labConfirmationDataSchema,
   matchCollectionSchema,
@@ -153,7 +153,7 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
       case 'emails':
         return {
           name: 'emails' as const,
-          validators: { onSubmit: createZodGroupValidator(emailsSchema.shape.emails) },
+          validators: { onSubmit: createZodGroupValidator(emailsGroupSchema) },
         }
     }
   })()

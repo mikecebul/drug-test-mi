@@ -35,6 +35,7 @@ export const CollectLabNavigation = withForm({
     const currentStep = currentStepRaw as (typeof steps)[number]
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
+    const emails = useStore(form.store, (state) => state.values.emails)
 
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
@@ -42,8 +43,8 @@ export const CollectLabNavigation = withForm({
     const currentStepHasErrors =
       (group.state.meta.submissionAttempts > 0 && !group.state.meta.isValid) ||
       (currentStep === 'reviewEmails' &&
-        form.state.values.emails.referralEmailEnabled &&
-        form.state.values.emails.referralRecipients.length === 0)
+        emails.referralEmailEnabled &&
+        emails.referralRecipients.length === 0)
 
     const handleBack = () => {
       if (isFirstStep) {

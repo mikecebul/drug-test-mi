@@ -29,11 +29,11 @@ export const LabScreenNavigation = withForm({
     const currentStep = currentStepRaw as (typeof steps)[number]
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
+    const labScreenData = useStore(form.store, (state) => state.values.labScreenData)
 
     const currentStepIndex = steps.indexOf(currentStep)
     const isFirstStep = currentStepIndex === 0
     const isLastStep = currentStepIndex === steps.length - 1
-    const labScreenData = form.state.values.labScreenData
     const currentStepHasErrors =
       (group.state.meta.submissionAttempts > 0 && !group.state.meta.isValid) ||
       (currentStep === 'labScreenData' &&

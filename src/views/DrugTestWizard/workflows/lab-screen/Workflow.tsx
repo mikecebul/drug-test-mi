@@ -16,7 +16,7 @@ import { EmailsStep } from './steps/Emails'
 import { updateLabScreenWithEmailReview } from './actions/updateLabScreenWithEmailReview'
 import { TestCompleted } from '../../components/TestCompleted'
 import {
-  emailsSchema,
+  emailsGroupSchema,
   extractSchema,
   labScreenDataSchema,
   matchCollectionSchema,
@@ -151,7 +151,7 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
       case 'emails':
         return {
           name: 'emails' as const,
-          validators: { onSubmit: createZodGroupValidator(emailsSchema.shape.emails) },
+          validators: { onSubmit: createZodGroupValidator(emailsGroupSchema) },
         }
     }
   })()

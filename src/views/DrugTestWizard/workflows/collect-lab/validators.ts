@@ -1,5 +1,5 @@
 import z from 'zod'
-import { clientSchema, medicationsSchema, emailsSchema } from '../shared-validators'
+import { clientSchema, medicationsSchema, emailsGroupSchema, emailsSchema } from '../shared-validators'
 
 export const steps = ['client', 'medications', 'collection', 'confirm', 'reviewEmails'] as const
 export type Steps = typeof steps
@@ -7,7 +7,7 @@ export type Steps = typeof steps
 export const labTests = ['11-panel-lab', '11-panel-lab-no-etg', '17-panel-sos-lab', 'etg-lab'] as const
 export type LabTests = typeof labTests
 
-export { clientSchema, medicationsSchema, emailsSchema }
+export { clientSchema, medicationsSchema, emailsGroupSchema, emailsSchema }
 
 export const collectionSchema = z.object({
   collection: z

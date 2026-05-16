@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { clientSchema, medicationsSchema, emailsSchema } from '../shared-validators'
+import { clientSchema, medicationsSchema, emailsGroupSchema, emailsSchema } from '../shared-validators'
 
 // Step names as readonly tuple
 export const steps = ['upload', 'extract', 'client', 'medications', 'verifyData', 'confirm', 'reviewEmails'] as const
@@ -18,7 +18,7 @@ export const extractSchema = z.object({
   }),
 })
 
-export { clientSchema, medicationsSchema, emailsSchema }
+export { clientSchema, medicationsSchema, emailsGroupSchema, emailsSchema }
 
 export const verifyDataSchema = z.object({
   verifyData: z

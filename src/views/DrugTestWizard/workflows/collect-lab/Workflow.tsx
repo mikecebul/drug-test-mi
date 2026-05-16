@@ -13,7 +13,7 @@ import { ConfirmStep } from './steps/Confirm'
 import { EmailsStep } from './steps/Emails'
 import { createCollectionWithEmailReview } from './actions/createCollectionWithEmailReview'
 import { TestCompleted } from '../../components/TestCompleted'
-import { clientSchema, collectionSchema, emailsSchema, medicationsSchema, steps } from './validators'
+import { clientSchema, collectionSchema, emailsGroupSchema, medicationsSchema, steps } from './validators'
 import { getClientById } from '../components/client/getClients'
 import { createZodGroupValidator, getFirstGroupError } from '../form-group-validation'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
@@ -180,7 +180,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
       case 'reviewEmails':
         return {
           name: 'emails' as const,
-          validators: { onSubmit: createZodGroupValidator(emailsSchema.shape.emails) },
+          validators: { onSubmit: createZodGroupValidator(emailsGroupSchema) },
         }
     }
   })()

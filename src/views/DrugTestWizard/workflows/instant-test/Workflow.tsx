@@ -18,7 +18,7 @@ import { createInstantTest } from './actions/createInstantTest'
 import { TestCompleted } from '../../components/TestCompleted'
 import {
   clientSchema,
-  emailsSchema,
+  emailsGroupSchema,
   extractSchema,
   medicationsSchema,
   steps,
@@ -269,7 +269,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       case 'reviewEmails':
         return {
           name: 'emails' as const,
-          validators: { onSubmit: createZodGroupValidator(emailsSchema.shape.emails) },
+          validators: { onSubmit: createZodGroupValidator(emailsGroupSchema) },
         }
     }
   })()

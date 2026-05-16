@@ -34,11 +34,11 @@ export const InstantTestNavigation = withForm({
     const currentStep = currentStepRaw as (typeof steps)[number]
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
+    const verifyData = useStore(form.store, (state) => state.values.verifyData)
 
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
-    const verifyData = form.state.values.verifyData
     const verifyDataMissingDecision =
       currentStep === 'verifyData' &&
       group.state.meta.submissionAttempts > 0 &&
