@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
@@ -28,6 +28,7 @@ import { useRouter } from 'next/navigation'
 import { checkEmailExists } from '@/app/(frontend)/register/actions'
 import { createZodGroupValidator, getFirstGroupError, zodErrorToGroupError } from '../form-group-validation'
 import z from 'zod'
+import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface RegisterClientWorkflowProps {
   onBack: () => void
@@ -56,6 +57,12 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
 
   // Get returnTo param to know where user came from
   const [returnTo] = useQueryState('returnTo', parseAsString)
+  const formRef = useRef<HTMLFormElement | null>(null)
+
+  useStepFocus({
+    containerRef: formRef,
+    stepKey: currentStep,
+  })
 
   const form = useAppForm({
     ...getRegisterClientFormOpts(currentStep),
@@ -179,6 +186,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
     if (message) {
       toast.error(message)
     }
+    focusFirstInvalidField(formRef.current)
   }
 
   const groupConfig = (() => {
@@ -255,6 +263,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
 
   return (
     <form
+      ref={formRef}
       onSubmit={(e) => {
         e.preventDefault()
         e.stopPropagation()

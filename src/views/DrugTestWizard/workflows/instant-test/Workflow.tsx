@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
@@ -29,6 +29,7 @@ import { extractPdfQueryKey } from '../../queries'
 import { getClientById } from '../components/client/getClients'
 import { getFileFromStorage, clearFileStorage, hasStoredFile } from './utils/fileStorage'
 import { createZodGroupValidator, getFirstGroupError } from '../form-group-validation'
+import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface InstantTestWorkflowProps {
   onBack: () => void
@@ -53,6 +54,12 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
 
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)
+  const formRef = useRef<HTMLFormElement | null>(null)
+
+  useStepFocus({
+    containerRef: formRef,
+    stepKey: currentStep,
+  })
 
   const form = useAppForm({
     ...getInstantTestFormOpts(currentStep),
@@ -213,7 +220,6 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   const handleGroupSubmit = async () => {
     if (!isLastStep) {
       await setCurrentStep(steps[currentStepIndex + 1], { history: 'push' })
-      window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
 
@@ -225,6 +231,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     if (message) {
       toast.error(message)
     }
+    focusFirstInvalidField(formRef.current)
   }
 
   const groupConfig = (() => {
@@ -269,6 +276,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
 
   return (
     <form
+      ref={formRef}
       onSubmit={(e) => {
         e.preventDefault()
       }}

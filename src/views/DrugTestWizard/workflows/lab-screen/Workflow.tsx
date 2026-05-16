@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral } from 'nuqs'
@@ -25,6 +25,7 @@ import {
 } from './validators'
 import { extractPdfQueryKey } from '../../queries'
 import { createZodGroupValidator, getFirstGroupError } from '../form-group-validation'
+import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface LabScreenWorkflowProps {
   onBack: () => void
@@ -40,6 +41,12 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
     parseAsStringLiteral(steps as readonly string[]).withDefault('upload'),
   )
   const currentStep = currentStepRaw as (typeof steps)[number]
+  const formRef = useRef<HTMLFormElement | null>(null)
+
+  useStepFocus({
+    containerRef: formRef,
+    stepKey: currentStep,
+  })
 
   const form = useAppForm({
     ...getLabScreenFormOpts(currentStep),
@@ -100,7 +107,6 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
   const handleGroupSubmit = async () => {
     if (!isLastStep) {
       await setCurrentStep(steps[currentStepIndex + 1], { history: 'push' })
-      window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
 
@@ -112,6 +118,7 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
     if (message) {
       toast.error(message)
     }
+    focusFirstInvalidField(formRef.current)
   }
 
   const groupConfig = (() => {
@@ -151,6 +158,7 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
 
   return (
     <form
+      ref={formRef}
       onSubmit={(e) => {
         e.preventDefault()
       }}

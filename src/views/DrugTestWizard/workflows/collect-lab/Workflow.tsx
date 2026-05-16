@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
@@ -16,6 +16,7 @@ import { TestCompleted } from '../../components/TestCompleted'
 import { clientSchema, collectionSchema, emailsSchema, medicationsSchema, steps } from './validators'
 import { getClientById } from '../components/client/getClients'
 import { createZodGroupValidator, getFirstGroupError } from '../form-group-validation'
+import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface CollectLabWorkflowProps {
   onBack: () => void
@@ -33,6 +34,12 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
 
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)
+  const formRef = useRef<HTMLFormElement | null>(null)
+
+  useStepFocus({
+    containerRef: formRef,
+    stepKey: currentStep,
+  })
 
   const form = useAppForm({
     ...getCollectLabFormOpts(currentStep),
@@ -145,6 +152,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
     if (message) {
       toast.error(message)
     }
+    focusFirstInvalidField(formRef.current)
   }
 
   const groupConfig = (() => {
@@ -179,6 +187,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
 
   return (
     <form
+      ref={formRef}
       onSubmit={(e) => {
         e.preventDefault()
       }}

@@ -8,10 +8,9 @@ import { useAppForm } from '@/blocks/Form/hooks/form'
 import { toast } from 'sonner'
 import { useStore } from '@tanstack/react-form'
 import {
-  focusElementWithoutScroll,
-  scrollElementIntoViewWithMargin,
+  focusFirstInvalidField,
+  useStepFocus,
 } from '@/lib/form-scroll-focus'
-import { useStepFocus } from '@/lib/use-step-focus'
 import { getClientSideURL } from '@/utilities/getURL'
 import { Button } from '@/components/ui/button'
 import {
@@ -217,14 +216,7 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
       setGroupError(fallbackMessage?.toLowerCase().includes('recipient') ? fallbackMessage : null)
     }
 
-    const target = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')
-    if (target) {
-      scrollElementIntoViewWithMargin(target, {
-        behavior: 'smooth',
-        block: 'center',
-      })
-      focusElementWithoutScroll(target)
-    }
+    focusFirstInvalidField(formRef.current)
   }
 
   const getCurrentStepErrorMessage = () => {

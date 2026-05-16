@@ -60,7 +60,6 @@ export const InstantTestNavigation = withForm({
       } else {
         const prevStep = steps[currentIndex - 1]
         setCurrentStep(prevStep, { history: 'push' })
-        window.scrollTo({ top: 0, behavior: 'smooth' })
       }
     }
 
