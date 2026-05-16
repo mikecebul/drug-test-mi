@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
@@ -57,9 +57,6 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
   // Get returnTo param to know where user came from
   const [returnTo] = useQueryState('returnTo', parseAsString)
 
-  // Track previous step for navigation direction
-  const prevStepRef = useRef(currentStep)
-
   const form = useAppForm({
     ...getRegisterClientFormOpts(currentStep),
     onSubmit: async ({ value }) => {
@@ -103,19 +100,11 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
     },
   })
 
-  // Handle validation reset on backward navigation
+  // Guard against skipping into a later step without required base data
   useEffect(() => {
-    const currentIndex = steps.indexOf(currentStep)
-    const prevIndex = steps.indexOf(prevStepRef.current)
-
-    // Only reset validation when going BACKWARD (not forward)
-    if (currentIndex < prevIndex) {
-      form.validate('submit')
-    }
     if (currentStep !== 'personalInfo' && !form.state.values.personalInfo.firstName) {
       router.push('/admin/drug-test-upload')
     }
-    prevStepRef.current = currentStep
   }, [currentStep, form, router])
 
   // If registration complete, show success screen

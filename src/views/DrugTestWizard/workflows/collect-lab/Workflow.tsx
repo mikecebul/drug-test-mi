@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
@@ -34,9 +34,6 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)
 
-  // Track previous step to detect navigation direction
-  const prevStepRef = useRef(currentStep)
-
   const form = useAppForm({
     ...getCollectLabFormOpts(currentStep),
     onSubmit: async ({ value }) => {
@@ -69,25 +66,12 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
     },
   })
 
-  // Handle validation reset on backward navigation
+  // Guard against skipping into a later step without required base data
   useEffect(() => {
-    const currentIndex = steps.indexOf(currentStep)
-    const prevIndex = steps.indexOf(prevStepRef.current)
-
-    // Only validate when going BACKWARD (not forward)
-    // This prevents showing validation errors when entering a new step
-    if (currentIndex < prevIndex) {
-      form.validate('submit')
-    }
-
-    // Optional guard: If URL suggests advanced step but form has no client data, restart
     if (currentStep !== 'client' && !form.state.values.client.id) {
       setCurrentStep('client', { history: 'replace' })
       toast.info('Please start from the beginning')
     }
-
-    // Update ref for next comparison
-    prevStepRef.current = currentStep
   }, [currentStep, form, setCurrentStep])
 
   // Handle client pre-population from registration workflow

@@ -50,7 +50,7 @@ export const CollectLabNavigation = withForm({
         onBack()
       } else {
         const prevStep = steps[currentIndex - 1]
-        setCurrentStep(prevStep, { history: 'push' }) // Update URL, triggers validation reset in Workflow.tsx
+        setCurrentStep(prevStep, { history: 'push' })
       }
     }
 

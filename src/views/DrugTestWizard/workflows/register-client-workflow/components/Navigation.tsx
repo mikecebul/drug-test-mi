@@ -55,7 +55,6 @@ export const RegisterClientNavigation = withForm({
         if (prevStep) {
           setCurrentStep(prevStep, { history: 'push' })
         }
-        form.validate('submit')
         form.setFieldMeta('accountInfo.email', (prev) => ({
           ...prev,
           errors: [],

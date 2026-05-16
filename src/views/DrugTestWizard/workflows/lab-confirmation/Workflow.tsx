@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral } from 'nuqs'
@@ -41,9 +41,6 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
   )
   const currentStep = currentStepRaw as (typeof steps)[number]
 
-  // Track previous step for navigation direction
-  const prevStepRef = useRef(currentStep)
-
   const form = useAppForm({
     ...getLabConfirmationFormOpts(currentStep),
     onSubmit: async ({ value }) => {
@@ -66,23 +63,12 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
     },
   })
 
-  // Handle validation on backward navigation
+  // Guard against skipping into a later step without required base data
   useEffect(() => {
-    const currentIndex = steps.indexOf(currentStep)
-    const prevIndex = steps.indexOf(prevStepRef.current)
-
-    // Validate when going backward
-    if (currentIndex < prevIndex) {
-      form.validate('submit')
-    }
-
-    // Guard: prevent skipping to advanced steps
     if (currentStep !== 'upload' && !form.state.values.upload.file) {
       setCurrentStep('upload', { history: 'replace' })
       toast.info('Please start from the beginning')
     }
-
-    prevStepRef.current = currentStep
   }, [currentStep, form, setCurrentStep])
 
   if (completedTestId) {
