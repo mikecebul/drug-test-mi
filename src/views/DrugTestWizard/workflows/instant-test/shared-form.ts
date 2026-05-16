@@ -1,5 +1,5 @@
 import { formOptions } from '@tanstack/react-form'
-import { FormValues, formSchema, uploadSchema, extractSchema, clientSchema, medicationsSchema, verifyDataSchema, emailsSchema, type Steps } from './validators'
+import { FormValues, type Steps } from './validators'
 
 export type InstantTestType = '15-panel-instant' | '17-panel-instant'
 
@@ -46,32 +46,7 @@ export const instantTestFormOpts = formOptions({
 })
 
 // Step-aware form options (for Workflow and step components)
-export const getInstantTestFormOpts = (step: Steps[number], testType: InstantTestType = '15-panel-instant') =>
+export const getInstantTestFormOpts = (_step: Steps[number], testType: InstantTestType = '15-panel-instant') =>
   formOptions({
     defaultValues: getDefaultValues(testType),
-    validators: {
-      onSubmit: ({ formApi }) => {
-        if (step === 'upload') {
-          return formApi.parseValuesWithSchema(uploadSchema as typeof formSchema)
-        }
-        if (step === 'extract') {
-          return formApi.parseValuesWithSchema(extractSchema as typeof formSchema)
-        }
-        if (step === 'client') {
-          return formApi.parseValuesWithSchema(clientSchema as typeof formSchema)
-        }
-        if (step === 'medications') {
-          return formApi.parseValuesWithSchema(medicationsSchema as typeof formSchema)
-        }
-        if (step === 'verifyData') {
-          return formApi.parseValuesWithSchema(verifyDataSchema as typeof formSchema)
-        }
-        if (step === 'confirm') {
-          return undefined // No validation on confirm step
-        }
-        if (step === 'reviewEmails') {
-          return formApi.parseValuesWithSchema(emailsSchema as typeof formSchema)
-        }
-      },
-    },
   })

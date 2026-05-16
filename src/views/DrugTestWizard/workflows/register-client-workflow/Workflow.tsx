@@ -6,7 +6,15 @@ import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
 import { getRegisterClientFormOpts } from './shared-form'
-import { formSchema, steps } from './validators'
+import {
+  accountInfoSchema,
+  formSchema,
+  personalInfoSchema,
+  recipientsSchema,
+  screeningTypeSchema,
+  steps,
+  termsSchema,
+} from './validators'
 
 import { PersonalInfoStep } from './steps/PersonalInfo'
 import { AccountInfoStep } from './steps/AccountInfo'
@@ -17,6 +25,9 @@ import { SuccessStep } from './steps/Success'
 import { RegisterClientNavigation } from './components/Navigation'
 import { registerClientAction } from './actions/registerClientAction'
 import { useRouter } from 'next/navigation'
+import { checkEmailExists } from '@/app/(frontend)/register/actions'
+import { createZodGroupValidator, getFirstGroupError, zodErrorToGroupError } from '../form-group-validation'
+import z from 'zod'
 
 interface RegisterClientWorkflowProps {
   onBack: () => void
@@ -52,18 +63,6 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
   const form = useAppForm({
     ...getRegisterClientFormOpts(currentStep),
     onSubmit: async ({ value }) => {
-      const currentStepIndex = steps.indexOf(currentStep)
-      const isLastStep = currentStepIndex === steps.length - 1
-
-      if (!isLastStep) {
-        // Navigate to next step
-        const nextStep = steps[currentStepIndex + 1]
-        if (nextStep) {
-          await setCurrentStep(nextStep, { history: 'push' })
-        }
-        return
-      }
-
       // Final submit on last step
       const registrationValues = formSchema.parse({
         ...value,
@@ -171,17 +170,133 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
     }
   }
 
+  const currentStepIndex = steps.indexOf(currentStep)
+  const isLastStep = currentStepIndex === steps.length - 1
+
+  const handleGroupSubmit = async () => {
+    if (!isLastStep) {
+      const nextStep = steps[currentStepIndex + 1]
+      if (nextStep) {
+        await setCurrentStep(nextStep, { history: 'push' })
+      }
+      return
+    }
+
+    await form.handleSubmit()
+  }
+
+  const handleGroupSubmitInvalid = (error: unknown) => {
+    const message = getFirstGroupError(error)
+    if (message) {
+      toast.error(message)
+    }
+  }
+
+  const groupConfig = (() => {
+    switch (currentStep) {
+      case 'personalInfo':
+        return {
+          name: 'personalInfo' as const,
+          validators: { onSubmit: createZodGroupValidator(personalInfoSchema.shape.personalInfo) },
+        }
+      case 'accountInfo':
+        return {
+          name: 'accountInfo' as const,
+          validators: {
+            onSubmit: ({ value }: { value: typeof form.state.values.accountInfo }) => {
+              if (value.noEmail) {
+                return undefined
+              }
+
+              const result = accountInfoSchema.safeParse({ accountInfo: value })
+              return result.success ? undefined : zodErrorToGroupError(result.error, 'accountInfo')
+            },
+            onSubmitAsync: async ({ value }: { value: typeof form.state.values.accountInfo }) => {
+              if (value.noEmail) {
+                return undefined
+              }
+
+              const email = value.email
+              if (!email || !z.email().safeParse(email).success) {
+                return undefined
+              }
+
+              try {
+                const emailExists = await checkEmailExists(email)
+                if (emailExists) {
+                  return {
+                    fields: {
+                      email: 'An account with this email already exists',
+                    },
+                  }
+                }
+              } catch (error) {
+                console.warn('Failed to check email existence:', error)
+              }
+
+              return undefined
+            },
+          },
+        }
+      case 'screeningType':
+        return {
+          name: 'screeningType' as const,
+          validators: { onSubmit: createZodGroupValidator(screeningTypeSchema.shape.screeningType) },
+        }
+      case 'recipients':
+        return {
+          name: 'recipients' as const,
+          validators: {
+            onSubmit: ({ value }: { value: typeof form.state.values.recipients }) => {
+              const result = recipientsSchema.safeParse({
+                recipients: value,
+                screeningType: form.state.values.screeningType,
+              })
+              return result.success ? undefined : zodErrorToGroupError(result.error, 'recipients')
+            },
+          },
+        }
+      case 'terms':
+        return {
+          name: 'terms' as const,
+          validators: { onSubmit: createZodGroupValidator(termsSchema.shape.terms) },
+        }
+    }
+  })()
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault()
         e.stopPropagation()
-        form.handleSubmit()
       }}
       className="flex flex-1 flex-col"
     >
-      <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
-      <RegisterClientNavigation form={form} onBack={onBack} />
+      <form.FormGroup
+        key={currentStep}
+        name={groupConfig.name}
+        validators={groupConfig.validators as never}
+        onGroupSubmit={handleGroupSubmit}
+        onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}
+      >
+        {(group) => (
+          <>
+            <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
+            {currentStep === 'recipients' &&
+            group.state.meta.submissionAttempts > 0 &&
+            form.state.values.recipients.additionalReferralRecipients?.some(
+              (recipient) => !recipient.email?.trim(),
+            ) ? (
+              <p className="text-destructive mb-4 text-sm">Recipient email is required</p>
+            ) : null}
+            <RegisterClientNavigation
+              form={form}
+              group={group as never}
+              onBack={onBack}
+            />
+          </>
+        )}
+      </form.FormGroup>
     </form>
   )
 }

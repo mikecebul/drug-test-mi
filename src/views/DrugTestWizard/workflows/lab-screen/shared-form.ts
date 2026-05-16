@@ -1,15 +1,5 @@
 import { formOptions } from '@tanstack/react-form'
-import {
-  FormValues,
-  steps,
-  formSchema,
-  uploadSchema,
-  extractSchema,
-  matchCollectionSchema,
-  labScreenDataSchema,
-  emailsSchema,
-  type Steps,
-} from './validators'
+import { FormValues, steps, type Steps } from './validators'
 
 const getDefaultValues = (): FormValues => ({
   upload: {
@@ -54,29 +44,7 @@ export const labScreenFormOpts = formOptions({
 })
 
 // Step-aware form options (for Workflow and step components)
-export const getLabScreenFormOpts = (step: Steps[number]) =>
+export const getLabScreenFormOpts = (_step: Steps[number]) =>
   formOptions({
     defaultValues: getDefaultValues(),
-    validators: {
-      onSubmit: ({ formApi }) => {
-        if (step === 'upload') {
-          return formApi.parseValuesWithSchema(uploadSchema as typeof formSchema)
-        }
-        if (step === 'extract') {
-          return formApi.parseValuesWithSchema(extractSchema as typeof formSchema)
-        }
-        if (step === 'matchCollection') {
-          return formApi.parseValuesWithSchema(matchCollectionSchema as typeof formSchema)
-        }
-        if (step === 'labScreenData') {
-          return formApi.parseValuesWithSchema(labScreenDataSchema as typeof formSchema)
-        }
-        if (step === 'confirm') {
-          return undefined // No validation on confirm step
-        }
-        if (step === 'emails') {
-          return formApi.parseValuesWithSchema(emailsSchema as typeof formSchema)
-        }
-      },
-    },
   })

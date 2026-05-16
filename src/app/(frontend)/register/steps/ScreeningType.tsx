@@ -58,7 +58,9 @@ export const ScreeningTypeStep = withForm({
               </div>
               {field.state.meta.errors && (
                 <em className="text-destructive text-sm first:mt-2">
-                  {field.state.meta.errors[0]?.message}
+                  {typeof field.state.meta.errors[0] === 'string'
+                    ? field.state.meta.errors[0]
+                    : (field.state.meta.errors[0] as { message?: string } | undefined)?.message}
                 </em>
               )}
             </div>

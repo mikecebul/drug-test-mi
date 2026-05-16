@@ -6,29 +6,42 @@ import { parseAsStringLiteral, useQueryState } from 'nuqs'
 import { Button } from '@/components/ui/button'
 import { labScreenFormOpts, steps } from '../shared-form'
 
+type WorkflowGroup = {
+  state: {
+    meta: {
+      isSubmitting: boolean
+      isValid: boolean
+      submissionAttempts: number
+    }
+  }
+  handleSubmit: () => void | Promise<void>
+}
+
 export const LabScreenNavigation = withForm({
   ...labScreenFormOpts,
-  props: { onBack: (): void => {} },
+  props: { onBack: (): void => {}, group: undefined as unknown as WorkflowGroup },
 
-  render: function Render({ form, onBack }) {
-    const [currentStep, setCurrentStep] = useQueryState(
+  render: function Render({ form, onBack, group }) {
+    const [currentStepRaw, setCurrentStep] = useQueryState(
       'step',
       parseAsStringLiteral(steps as readonly string[]).withDefault('upload'),
     )
+    const currentStep = currentStepRaw as (typeof steps)[number]
 
-    const [isSubmitting, errors] = useStore(form.store, (state) => [state.isSubmitting, state.errors])
+    const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
 
-    const currentStepIndex = steps.indexOf(currentStep as any)
+    const currentStepIndex = steps.indexOf(currentStep)
     const isFirstStep = currentStepIndex === 0
     const isLastStep = currentStepIndex === steps.length - 1
-    const isStepField = (fieldName: string, stepName: string) => fieldName === stepName || fieldName.startsWith(`${stepName}.`)
-
-    // Determine if current step has errors
-    const currentStepHasErrors = errors.some((errorObj) => {
-      if (!errorObj) return false
-      const fieldNames = Object.keys(errorObj)
-      return fieldNames.some((fieldName) => isStepField(fieldName, currentStep))
-    })
+    const labScreenData = form.state.values.labScreenData
+    const currentStepHasErrors =
+      (group.state.meta.submissionAttempts > 0 && !group.state.meta.isValid) ||
+      (currentStep === 'labScreenData' &&
+        labScreenData.confirmationDecisionRequired &&
+        !labScreenData.confirmationDecision) ||
+      (currentStep === 'labScreenData' &&
+        labScreenData.confirmationDecision === 'request-confirmation' &&
+        !labScreenData.confirmationSubstances?.length)
 
     const handleBack = () => {
       if (isFirstStep) {
@@ -45,8 +58,8 @@ export const LabScreenNavigation = withForm({
         </Button>
         <Button
           type="button"
-          onClick={() => form.handleSubmit()}
-          disabled={currentStepHasErrors || isSubmitting}
+          onClick={() => group.handleSubmit()}
+          disabled={currentStepHasErrors || isSubmitting || group.state.meta.isSubmitting}
           data-testid="wizard-next-button"
         >
           {isLastStep ? 'Update Test Record' : 'Next'}

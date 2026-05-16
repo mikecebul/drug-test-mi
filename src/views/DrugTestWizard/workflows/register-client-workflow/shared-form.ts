@@ -1,16 +1,5 @@
 import { formOptions } from '@tanstack/react-form'
-import {
-  personalInfoSchema,
-  accountInfoSchema,
-  screeningTypeSchema,
-  recipientsSchema,
-  termsSchema,
-  formSchema,
-  type FormValues,
-  type Steps,
-} from './validators'
-import z from 'zod'
-import { checkEmailExists } from '@/app/(frontend)/register/actions'
+import { type FormValues, type Steps } from './validators'
 
 // Generate secure password (duplicated from RegisterClientDialog)
 function generatePassword(): string {
@@ -83,66 +72,9 @@ export const registerClientFormOpts = formOptions({
 })
 
 // Step-aware form options for Workflow
-export const getRegisterClientFormOpts = (step: Steps[number]) =>
+export const getRegisterClientFormOpts = (_step: Steps[number]) =>
   formOptions({
     defaultValues,
-    // validationLogic: revalidateLogic(),
-    validators: {
-      onSubmitAsync: async ({ value }) => {
-        if (step === 'accountInfo') {
-          if (value.accountInfo.noEmail) {
-            return undefined
-          }
-
-          const email = value.accountInfo.email
-          if (!email || !z.email().safeParse(email).success) {
-            return undefined // Skip validation if email is empty or invalid format
-          }
-          try {
-            const emailExists = await checkEmailExists(email)
-            if (emailExists) {
-              return {
-                fields: {
-                  'accountInfo.email': 'An account with this email already exists',
-                },
-                // 'accountInfo.email': 'An account with this email already exists',
-              }
-              // return 'An account with this email already exists'
-              // return {
-              //   message: 'An account with this email already exists',
-              //   path: 'accountInfo.email',
-              // }
-            }
-          } catch (error) {
-            console.warn('Failed to check email existence:', error)
-            // Don't block registration if the check fails
-          }
-          return undefined
-        }
-      },
-      onSubmit: ({ formApi }) => {
-        if (step === 'personalInfo') {
-          return formApi.parseValuesWithSchema(personalInfoSchema as typeof formSchema)
-        }
-        if (step === 'accountInfo') {
-          if (formApi.state.values.accountInfo.noEmail) {
-            return undefined
-          }
-
-          return formApi.parseValuesWithSchema(accountInfoSchema as typeof formSchema)
-        }
-        if (step === 'screeningType') {
-          return formApi.parseValuesWithSchema(screeningTypeSchema as typeof formSchema)
-        }
-        if (step === 'recipients') {
-          return formApi.parseValuesWithSchema(recipientsSchema as typeof formSchema)
-        }
-        if (step === 'terms') {
-          return formApi.parseValuesWithSchema(termsSchema as typeof formSchema)
-        }
-        return undefined
-      },
-    },
   })
 
 // Export generated password for use in Success screen

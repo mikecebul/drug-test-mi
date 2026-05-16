@@ -110,7 +110,9 @@ export const ClientStep = withForm({
           <ClientStepUI
             selectedClient={selectedClient}
             onSelectClient={handleSelectClient}
-            errors={idField.state.meta.errors.map((e) => e?.message || 'Validation error')}
+            errors={idField.state.meta.errors.map((e) =>
+              typeof e === 'string' ? e : (e as { message?: string } | undefined)?.message || 'Validation error',
+            )}
             returnToWorkflow="instant-test"
             onRegisterNewClient={handleRegisterNewClient}
             suggestedMatches={suggestedMatches}

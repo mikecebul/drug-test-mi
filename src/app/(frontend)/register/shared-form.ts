@@ -1,16 +1,7 @@
 'use client'
 
 import { formOptions } from '@tanstack/react-form'
-import z from 'zod'
-import { checkEmailExists } from './actions'
 import {
-  personalInfoSchema,
-  accountInfoSchema,
-  screeningTypeSchema,
-  recipientsSchema,
-  medicationsSchema,
-  termsSchema,
-  formSchema,
   type FormValues,
   type Steps,
 } from './validators'
@@ -58,52 +49,9 @@ export const registerClientFormOpts = formOptions({
   defaultValues,
 })
 
-export const getRegisterClientFormOpts = (step: Steps[number]) =>
+export const getRegisterClientFormOpts = (_step: Steps[number]) =>
   formOptions({
     defaultValues,
-    validators: {
-      onSubmitAsync: async ({ value }) => {
-        if (step !== 'accountInfo') return undefined
-        const normalizedEmail = value.accountInfo.email.trim().toLowerCase()
-        if (!normalizedEmail || !z.email().safeParse(normalizedEmail).success) {
-          return undefined
-        }
-        try {
-          const emailExists = await checkEmailExists(normalizedEmail)
-          if (emailExists) {
-            return {
-              fields: {
-                'accountInfo.email': 'An account with this email already exists',
-              },
-            }
-          }
-        } catch (error) {
-          console.warn('Failed to check email existence:', error)
-        }
-        return undefined
-      },
-      onSubmit: ({ formApi }) => {
-        if (step === 'personalInfo') {
-          return formApi.parseValuesWithSchema(personalInfoSchema as typeof formSchema)
-        }
-        if (step === 'accountInfo') {
-          return formApi.parseValuesWithSchema(accountInfoSchema as typeof formSchema)
-        }
-        if (step === 'screeningType') {
-          return formApi.parseValuesWithSchema(screeningTypeSchema as typeof formSchema)
-        }
-        if (step === 'recipients') {
-          return formApi.parseValuesWithSchema(recipientsSchema as typeof formSchema)
-        }
-        if (step === 'medications') {
-          return formApi.parseValuesWithSchema(medicationsSchema as typeof formSchema)
-        }
-        if (step === 'terms') {
-          return formApi.parseValuesWithSchema(termsSchema as typeof formSchema)
-        }
-        return undefined
-      },
-    },
   })
 
 export { defaultValues }

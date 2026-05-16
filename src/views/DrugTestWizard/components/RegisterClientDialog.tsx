@@ -36,9 +36,22 @@ import {
   RecipientsStep,
   TermsStep,
 } from '@/app/(frontend)/register/steps'
-import { stepSchemas } from '@/views/DrugTestWizard/workflows/register-client-workflow/validators'
 import { defaultValues, getRegisterClientFormOpts } from '@/app/(frontend)/register/shared-form'
-import type { FormValues } from '@/app/(frontend)/register/validators'
+import {
+  accountInfoSchema,
+  personalInfoSchema,
+  recipientsSchema,
+  screeningTypeSchema,
+  termsSchema,
+  type FormValues,
+} from '@/app/(frontend)/register/validators'
+import {
+  createZodGroupValidator,
+  getFirstGroupError,
+  zodErrorToGroupError,
+} from '@/views/DrugTestWizard/workflows/form-group-validation'
+import { checkEmailExists } from '@/app/(frontend)/register/actions'
+import z from 'zod'
 
 interface RegisterClientDialogProps {
   open: boolean
@@ -139,7 +152,7 @@ export function RegisterClientDialog({
     defaultValues: dialogDefaultValues,
   })
 
-  const formValues = useStore(form.store, (state: any) => state.values)
+  const formValues = useStore(form.store, (state) => state.values)
   const _requestedBy = formValues.screeningType?.requestedBy || ''
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -155,39 +168,8 @@ export function RegisterClientDialog({
     onOpenChange(newOpen)
   }
 
-  const validateStep = async (step: number): Promise<boolean> => {
-    const schema = stepSchemas[step]
-    if (!schema) return true
-
-    try {
-      // Get only the fields relevant to this step
-      const stepData: any = {}
-      if (step === 0) stepData.personalInfo = formValues.personalInfo
-      if (step === 1) stepData.accountInfo = formValues.accountInfo
-      if (step === 2) stepData.screeningType = formValues.screeningType
-      if (step === 3) {
-        // Results recipient validation needs screeningType.requestedBy to determine which rules to apply
-        stepData.recipients = formValues.recipients
-        stepData.screeningType = formValues.screeningType
-      }
-      if (step === 4) stepData.terms = formValues.terms
-
-      const result = schema.safeParse(stepData)
-      if (!result.success) {
-        const firstError = result.error.issues[0]
-        toast.error(firstError.message)
-        return false
-      }
-      return true
-    } catch (_error) {
-      toast.error('Validation error')
-      return false
-    }
-  }
-
   const handleNext = async () => {
-    const isValid = await validateStep(currentStep)
-    if (isValid && currentStep < STEPS.length - 1) {
+    if (currentStep < STEPS.length - 1) {
       setCurrentStep(currentStep + 1)
     }
   }
@@ -203,13 +185,20 @@ export function RegisterClientDialog({
 
     try {
       const { personalInfo, accountInfo, screeningType, recipients } = formValues
+      const toAdditionalRecipients = (
+        rows: Array<{ name?: string; email?: string }> | undefined,
+      ) =>
+        (rows || []).flatMap((row) => {
+          const email = row.email?.trim()
+          return email ? [{ name: row.name, email }] : []
+        })
 
       const data: Parameters<typeof registerClientFromWizard>[0] = {
         firstName: personalInfo.firstName,
         lastName: personalInfo.lastName,
         middleInitial: personalInfo.middleInitial || undefined,
         gender: personalInfo.gender,
-        dob: personalInfo.dob,
+        dob: typeof personalInfo.dob === 'string' ? personalInfo.dob : personalInfo.dob.toISOString(),
         phone: personalInfo.phone,
         email: accountInfo.email,
         referralType: screeningType.requestedBy as 'self' | 'employer' | 'court',
@@ -217,7 +206,7 @@ export function RegisterClientDialog({
 
       const referralType = screeningType.requestedBy
       if (referralType === 'court') {
-        data.additionalReferralRecipients = recipients.additionalReferralRecipients || []
+        data.additionalReferralRecipients = toAdditionalRecipients(recipients.additionalReferralRecipients)
 
         if (!recipients.selectedCourt) {
           throw new Error('Please select a court before continuing.')
@@ -225,11 +214,11 @@ export function RegisterClientDialog({
         if (recipients.selectedCourt === 'other') {
           data.otherReferral = {
             type: 'court',
-            name: recipients.otherCourtName,
-            mainContactName: recipients.otherCourtMainContactName,
-            mainContactEmail: recipients.otherCourtMainContactEmail,
+            name: recipients.otherCourtName || '',
+            mainContactName: recipients.otherCourtMainContactName || '',
+            mainContactEmail: recipients.otherCourtMainContactEmail || '',
             recipientEmails: recipients.otherCourtRecipientEmails,
-            additionalRecipients: recipients.otherCourtAdditionalRecipients || [],
+            additionalRecipients: toAdditionalRecipients(recipients.otherCourtAdditionalRecipients),
           }
         } else {
           data.referral = {
@@ -238,7 +227,7 @@ export function RegisterClientDialog({
           }
         }
       } else if (referralType === 'employer') {
-        data.additionalReferralRecipients = recipients.additionalReferralRecipients || []
+        data.additionalReferralRecipients = toAdditionalRecipients(recipients.additionalReferralRecipients)
 
         if (!recipients.selectedEmployer) {
           throw new Error('Please select an employer before continuing.')
@@ -246,11 +235,11 @@ export function RegisterClientDialog({
         if (recipients.selectedEmployer === 'other') {
           data.otherReferral = {
             type: 'employer',
-            name: recipients.otherEmployerName,
-            mainContactName: recipients.otherEmployerMainContactName,
-            mainContactEmail: recipients.otherEmployerMainContactEmail,
+            name: recipients.otherEmployerName || '',
+            mainContactName: recipients.otherEmployerMainContactName || '',
+            mainContactEmail: recipients.otherEmployerMainContactEmail || '',
             recipientEmails: recipients.otherEmployerRecipientEmails,
-            additionalRecipients: recipients.otherEmployerAdditionalRecipients || [],
+            additionalRecipients: toAdditionalRecipients(recipients.otherEmployerAdditionalRecipients),
           }
         } else {
           data.referral = {
@@ -259,7 +248,7 @@ export function RegisterClientDialog({
           }
         }
       } else if (referralType === 'self') {
-        data.additionalReferralRecipients = recipients.additionalReferralRecipients || []
+        data.additionalReferralRecipients = toAdditionalRecipients(recipients.additionalReferralRecipients)
       }
 
       const result = await registerClientFromWizard(data)
@@ -390,6 +379,70 @@ export function RegisterClientDialog({
   }
 
   const progress = ((currentStep + 1) / STEPS.length) * 100
+  const groupConfig = (() => {
+    switch (currentStep) {
+      case 0:
+        return {
+          name: 'personalInfo' as const,
+          validators: { onSubmit: createZodGroupValidator(personalInfoSchema.shape.personalInfo) },
+        }
+      case 1:
+        return {
+          name: 'accountInfo' as const,
+          validators: {
+            onSubmit: ({ value }: { value: typeof form.state.values.accountInfo }) => {
+              const result = accountInfoSchema.safeParse({ accountInfo: value })
+              return result.success ? undefined : zodErrorToGroupError(result.error, 'accountInfo')
+            },
+            onSubmitAsync: async ({ value }: { value: typeof form.state.values.accountInfo }) => {
+              const email = value.email.trim().toLowerCase()
+              if (!email || !z.email().safeParse(email).success) {
+                return undefined
+              }
+
+              try {
+                const emailExists = await checkEmailExists(email)
+                if (emailExists) {
+                  return {
+                    fields: {
+                      email: 'An account with this email already exists',
+                    },
+                  }
+                }
+              } catch (error) {
+                console.warn('Failed to check email existence:', error)
+              }
+
+              return undefined
+            },
+          },
+        }
+      case 2:
+        return {
+          name: 'screeningType' as const,
+          validators: { onSubmit: createZodGroupValidator(screeningTypeSchema.shape.screeningType) },
+        }
+      case 3:
+        return {
+          name: 'recipients' as const,
+          validators: {
+            onSubmit: ({ value }: { value: typeof form.state.values.recipients }) => {
+              const result = recipientsSchema.safeParse({
+                recipients: value,
+                screeningType: form.state.values.screeningType,
+              })
+              return result.success ? undefined : zodErrorToGroupError(result.error, 'recipients')
+            },
+          },
+        }
+      case 4:
+      default:
+        return {
+          name: 'terms' as const,
+          validators: { onSubmit: createZodGroupValidator(termsSchema.shape.terms) },
+        }
+    }
+  })()
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -428,46 +481,70 @@ export function RegisterClientDialog({
               e.stopPropagation()
             }}
           >
-            {renderStepContent()}
+            {registrationComplete ? (
+              renderStepContent()
+            ) : (
+              <form.FormGroup
+                key={currentStep}
+                name={groupConfig.name}
+                validators={groupConfig.validators as never}
+                onGroupSubmit={currentStep < STEPS.length - 1 ? handleNext : handleSubmit}
+                onGroupSubmitInvalid={({ groupApi }) => {
+                  const message = getFirstGroupError(groupApi.state.meta.errors)
+                  if (message) {
+                    toast.error(message)
+                  }
+                }}
+              >
+                {(group) => (
+                  <>
+                    {renderStepContent()}
+                    {group.state.meta.submissionAttempts > 0 && !group.state.meta.isValid ? (
+                      <p className="text-destructive mt-4 text-sm">
+                        {getFirstGroupError(group.state.meta.errors)}
+                      </p>
+                    ) : null}
 
-            {!registrationComplete && (
-              <div className="mt-6 flex justify-between">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handlePrevious}
-                  disabled={currentStep === 0}
-                >
-                  <ChevronLeft className="mr-1 h-4 w-4" />
-                  Back
-                </Button>
+                    <div className="mt-6 flex justify-between">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handlePrevious}
+                        disabled={currentStep === 0}
+                      >
+                        <ChevronLeft className="mr-1 h-4 w-4" />
+                        Back
+                      </Button>
 
-                {currentStep < STEPS.length - 1 ? (
-                  <Button type="button" onClick={handleNext}>
-                    Next
-                    <ChevronRight className="ml-1 h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    className="min-w-35"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Registering...
-                      </>
-                    ) : (
-                      <>
-                        <Check className="mr-2 h-4 w-4" />
-                        Register Client
-                      </>
-                    )}
-                  </Button>
+                      {currentStep < STEPS.length - 1 ? (
+                        <Button type="button" onClick={() => group.handleSubmit()}>
+                          Next
+                          <ChevronRight className="ml-1 h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          onClick={() => group.handleSubmit()}
+                          disabled={isSubmitting || group.state.meta.isSubmitting}
+                          className="min-w-35"
+                        >
+                          {isSubmitting || group.state.meta.isSubmitting ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Registering...
+                            </>
+                          ) : (
+                            <>
+                              <Check className="mr-2 h-4 w-4" />
+                              Register Client
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </>
                 )}
-              </div>
+              </form.FormGroup>
             )}
           </form>
         </ShadcnWrapper>

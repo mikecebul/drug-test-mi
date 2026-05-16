@@ -13,8 +13,9 @@ import { ConfirmStep } from './steps/Confirm'
 import { EmailsStep } from './steps/Emails'
 import { createCollectionWithEmailReview } from './actions/createCollectionWithEmailReview'
 import { TestCompleted } from '../../components/TestCompleted'
-import { steps } from './validators'
+import { clientSchema, collectionSchema, emailsSchema, medicationsSchema, steps } from './validators'
 import { getClientById } from '../components/client/getClients'
+import { createZodGroupValidator, getFirstGroupError } from '../form-group-validation'
 
 interface CollectLabWorkflowProps {
   onBack: () => void
@@ -39,15 +40,6 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   const form = useAppForm({
     ...getCollectLabFormOpts(currentStep),
     onSubmit: async ({ value }) => {
-      const currentStepIndex = steps.indexOf(currentStep)
-      const isLastStep = currentStepIndex === steps.length - 1
-
-      if (!isLastStep) {
-        // Navigate to next step
-        await setCurrentStep(steps[currentStepIndex + 1], { history: 'push' })
-        return
-      }
-
       // Final submit only happens on last step
       try {
         const result = await createCollectionWithEmailReview(
@@ -152,16 +144,76 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
     }
   }
 
+  const currentStepIndex = steps.indexOf(currentStep)
+  const isLastStep = currentStepIndex === steps.length - 1
+
+  const handleGroupSubmit = async () => {
+    if (!isLastStep) {
+      await setCurrentStep(steps[currentStepIndex + 1], { history: 'push' })
+      return
+    }
+
+    await form.handleSubmit()
+  }
+
+  const handleGroupSubmitInvalid = (error: unknown) => {
+    const message = getFirstGroupError(error)
+    if (message) {
+      toast.error(message)
+    }
+  }
+
+  const groupConfig = (() => {
+    switch (currentStep) {
+      case 'client':
+        return {
+          name: 'client' as const,
+          validators: { onSubmit: createZodGroupValidator(clientSchema.shape.client) },
+        }
+      case 'medications':
+        return {
+          name: 'medications' as const,
+          validators: { onSubmit: createZodGroupValidator(medicationsSchema.shape.medications) },
+        }
+      case 'collection':
+        return {
+          name: 'collection' as const,
+          validators: { onSubmit: createZodGroupValidator(collectionSchema.shape.collection) },
+        }
+      case 'confirm':
+        return {
+          name: 'collection' as const,
+          validators: undefined,
+        }
+      case 'reviewEmails':
+        return {
+          name: 'emails' as const,
+          validators: { onSubmit: createZodGroupValidator(emailsSchema.shape.emails) },
+        }
+    }
+  })()
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        form.handleSubmit()
       }}
       className="flex flex-1 flex-col"
     >
-      <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
-      <CollectLabNavigation form={form} onBack={onBack} />
+      <form.FormGroup
+        key={currentStep}
+        name={groupConfig.name}
+        validators={groupConfig.validators as never}
+        onGroupSubmit={handleGroupSubmit}
+        onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}
+      >
+        {(group) => (
+          <>
+            <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
+            <CollectLabNavigation form={form} group={group as never} onBack={onBack} />
+          </>
+        )}
+      </form.FormGroup>
     </form>
   )
 }

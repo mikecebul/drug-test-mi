@@ -357,7 +357,7 @@ export const VerifyDataStep = withForm({
                       </div>
                     </Label>
 	                  </RadioGroup>
-	                  {requiresDecision && !confirmationDecisionValue && (
+	                  {requiresDecision && !confirmationDecisionValue && field.state.meta.errors.length === 0 && (
 	                    <p className="text-destructive text-sm">Must select an option</p>
 	                  )}
 	                  <FieldError errors={field.state.meta.errors} />
@@ -370,16 +370,25 @@ export const VerifyDataStep = withForm({
               <form.Field name="verifyData.confirmationSubstances">
                 {(field) => (
                   <div className="mt-5">
-                    <ConfirmationSubstanceSelector
+	                    <ConfirmationSubstanceSelector
                       unexpectedPositives={preview?.unexpectedPositives ?? []}
                       selectedSubstances={confirmationSubstancesValue ?? []}
                       onSelectionChange={(substances) => {
                         form.setFieldValue('verifyData.confirmationSubstances', substances)
                         form.validate('submit')
                       }}
-                      error={field.state.meta.errors?.[0]?.message}
-                    />
-                  </div>
+                      error={
+                        typeof field.state.meta.errors?.[0] === 'string'
+                          ? field.state.meta.errors[0]
+                          : (field.state.meta.errors?.[0] as { message?: string } | undefined)?.message
+	                      }
+	                    />
+	                    {!confirmationSubstancesValue?.length ? (
+	                      <p className="text-destructive mt-2 text-sm">
+	                        Please select at least one substance for confirmation testing
+	                      </p>
+	                    ) : null}
+	                  </div>
                 )}
               </form.Field>
             )}

@@ -4,7 +4,7 @@ This folder contains the client-facing registration flow. It mirrors the admin r
 
 ## Summary
 - **Step routing**: `step` query param is the single source of truth
-- **Validation**: form-level only; avoid field-level validators in step components
+- **Validation**: FormGroup-level for multi-step flow; avoid field-level validators in step components
 - **Step schemas/form shape**: keep aligned with admin register-client workflow
 - **Medications step**: optional; no dedicated skip button (use Next)
 - **Recipient flows**: support self/employer/court referrals, preset referral recipients, and additional client recipients

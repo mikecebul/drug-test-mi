@@ -259,11 +259,3 @@ export const formSchema = z.object({
 
 export type FormValues = z.input<typeof formSchema>
 export type CompleteRegistrationValues = z.output<typeof formSchema>
-
-export const stepSchemas = [
-  personalInfoSchema,
-  accountInfoSchema,
-  screeningTypeSchema,
-  recipientsSchema,
-  termsSchema,
-]

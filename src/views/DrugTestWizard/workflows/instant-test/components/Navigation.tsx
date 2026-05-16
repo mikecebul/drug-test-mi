@@ -8,51 +8,51 @@ import { ChevronLeft, ChevronRight, Check, Loader2 } from 'lucide-react'
 import { instantTestFormOpts } from '../shared-form'
 import { steps } from '../validators'
 
+type WorkflowGroup = {
+  state: {
+    meta: {
+      isSubmitting: boolean
+      isValid: boolean
+      submissionAttempts: number
+    }
+  }
+  handleSubmit: () => void | Promise<void>
+}
+
 export const InstantTestNavigation = withForm({
   ...instantTestFormOpts,
   props: {
     onBack: (): void => {},
+    group: undefined as unknown as WorkflowGroup,
   },
 
-  render: function Render({ form, onBack }) {
+  render: function Render({ form, onBack, group }) {
     const [currentStepRaw, setCurrentStep] = useQueryState(
       'step',
       parseAsStringLiteral(steps as readonly string[]).withDefault('upload'),
     )
     const currentStep = currentStepRaw as (typeof steps)[number]
 
-    const [isSubmitting, errors] = useStore(form.store, (state) => [state.isSubmitting, state.errors])
+    const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
 
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
-    const isStepField = (fieldName: string, stepName: string) => fieldName === stepName || fieldName.startsWith(`${stepName}.`)
-
-    // Check for current step errors
-    const currentStepHasErrors = errors.some((errorObj) => {
-      if (!errorObj) return false
-      const fieldNames = Object.keys(errorObj)
-      return fieldNames.some((fieldName) => {
-        switch (currentStep) {
-          case 'upload':
-            return isStepField(fieldName, 'upload')
-          case 'extract':
-            return isStepField(fieldName, 'extract')
-          case 'client':
-            return isStepField(fieldName, 'client')
-          case 'medications':
-            return isStepField(fieldName, 'medications')
-          case 'verifyData':
-            return isStepField(fieldName, 'verifyData')
-          case 'confirm':
-            return false
-          case 'reviewEmails':
-            return isStepField(fieldName, 'emails')
-          default:
-            return false
-        }
-      })
-    })
+    const verifyData = form.state.values.verifyData
+    const verifyDataMissingDecision =
+      currentStep === 'verifyData' &&
+      group.state.meta.submissionAttempts > 0 &&
+      verifyData.confirmationDecisionRequired &&
+      !verifyData.confirmationDecision
+    const verifyDataMissingSubstances =
+      currentStep === 'verifyData' &&
+      group.state.meta.submissionAttempts > 0 &&
+      verifyData.confirmationDecision === 'request-confirmation' &&
+      !verifyData.confirmationSubstances?.length
+    const currentStepHasErrors =
+      (group.state.meta.submissionAttempts > 0 && !group.state.meta.isValid) ||
+      verifyDataMissingDecision ||
+      verifyDataMissingSubstances
 
     const handleBack = () => {
       if (isFirstStep) {
@@ -80,9 +80,9 @@ export const InstantTestNavigation = withForm({
 
         <Button
           type="button"
-          disabled={isSubmitting || currentStepHasErrors}
+          disabled={isSubmitting || group.state.meta.isSubmitting || currentStepHasErrors}
           size="lg"
-          onClick={() => form.handleSubmit()}
+          onClick={() => group.handleSubmit()}
           data-testid="wizard-next-button"
         >
           {isSubmitting ? (

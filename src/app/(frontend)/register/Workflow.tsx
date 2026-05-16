@@ -14,7 +14,16 @@ import {
 } from '@/lib/form-scroll-focus'
 import { getClientSideURL } from '@/utilities/getURL'
 import { Button } from '@/components/ui/button'
-import { completeRegistrationSchema, steps } from './validators'
+import {
+  accountInfoSchema,
+  completeRegistrationSchema,
+  medicationsSchema,
+  personalInfoSchema,
+  recipientsSchema,
+  screeningTypeSchema,
+  steps,
+  termsSchema,
+} from './validators'
 import { getRegisterClientFormOpts } from './shared-form'
 import { RegisterNavigation } from './components/Navigation'
 import {
@@ -26,14 +35,57 @@ import {
   TermsStep,
 } from './steps'
 import { registerWebsiteClientAction } from './actions'
+import { checkEmailExists } from './actions'
+import {
+  createZodGroupValidator,
+  getFirstGroupError,
+  zodErrorToGroupError,
+} from '@/views/DrugTestWizard/workflows/form-group-validation'
+import z from 'zod'
 
 interface RegisterClientWorkflowProps {
   onComplete?: () => void
 }
 
+function ProgressBar({
+  stepIndex,
+}: {
+  stepIndex: number
+}) {
+  return (
+    <div className="mb-8 w-full">
+      <div className="mb-2 flex justify-between">
+        {steps.map((step, index) => {
+          const stepNumber = index + 1
+          const isComplete = index < stepIndex
+          const isActive = index <= stepIndex
+          return (
+            <div
+              key={step}
+              className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 ${
+                isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {isComplete ? <Check className="h-5 w-5" /> : stepNumber}
+            </div>
+          )
+        })}
+      </div>
+      <div className="relative">
+        <div className="bg-border absolute inset-0 h-1 rounded-full"></div>
+        <div
+          className="bg-primary absolute h-1 rounded-full transition-all duration-500"
+          style={{ width: `${(stepIndex / (steps.length - 1)) * 100}%` }}
+        ></div>
+      </div>
+    </div>
+  )
+}
+
 export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowProps) {
   const router = useRouter()
   const [isRedirecting, setIsRedirecting] = useState(false)
+  const [groupError, setGroupError] = useState<string | null>(null)
   const redirectTimeoutRef = useRef<number | null>(null)
   const [currentStepRaw, setCurrentStep] = useQueryState(
     'step',
@@ -69,6 +121,7 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
 
   useEffect(() => {
     if (isRedirecting) return
+    setGroupError(null)
 
     const firstField = focusFirstInteractiveField(formRef.current)
 
@@ -84,57 +137,7 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
 
   const form = useAppForm({
     ...getRegisterClientFormOpts(currentStep),
-    onSubmitInvalid: ({ formApi }) => {
-      const errorMaps = Array.isArray(formApi.state.errors) ? formApi.state.errors : [formApi.state.errors]
-
-      const stepErrorField = errorMaps
-        .flatMap((errorMap) => {
-          if (!errorMap) return []
-          return Object.keys(errorMap)
-        })
-        .find((fieldName) => {
-          switch (currentStep) {
-            case 'personalInfo':
-              return fieldName.startsWith('personalInfo.')
-            case 'accountInfo':
-              return fieldName.startsWith('accountInfo.')
-            case 'screeningType':
-              return fieldName.startsWith('screeningType.')
-            case 'recipients':
-              return fieldName.startsWith('recipients.')
-            case 'medications':
-              return fieldName.startsWith('medications.')
-            case 'terms':
-              return fieldName.startsWith('terms.')
-            default:
-              return false
-          }
-        })
-
-      const target =
-        (stepErrorField && document.getElementById(stepErrorField)) ||
-        formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')
-
-      if (target) {
-        scrollElementIntoViewWithMargin(target, {
-          behavior: 'smooth',
-          block: 'center',
-        })
-        focusElementWithoutScroll(target)
-      }
-    },
     onSubmit: async ({ value }) => {
-      const currentStepIndex = steps.indexOf(currentStep)
-      const isLast = currentStepIndex === steps.length - 1
-
-      if (!isLast) {
-        const nextStep = steps[currentStepIndex + 1]
-        if (nextStep) {
-          await setCurrentStep(nextStep, { history: 'push' })
-          return
-        }
-      }
-
       try {
         if (value.accountInfo.password !== value.accountInfo.confirmPassword) {
           throw new Error('Passwords do not match')
@@ -206,33 +209,7 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
     prevStepRef.current = currentStep
   }, [currentStep, form])
 
-  const [isSubmitting, errors] = useStore(form.store, (state) => [state.isSubmitting, state.errors])
-
-  const currentStepHasErrors = useMemo(() => {
-    const errorMaps = Array.isArray(errors) ? errors : [errors]
-    return errorMaps.some((errorMap) => {
-      if (!errorMap) return false
-      const fieldNames = Object.keys(errorMap)
-      return fieldNames.some((fieldName) => {
-        switch (currentStep) {
-          case 'personalInfo':
-            return fieldName.startsWith('personalInfo.')
-          case 'accountInfo':
-            return fieldName.startsWith('accountInfo.')
-          case 'screeningType':
-            return fieldName.startsWith('screeningType.')
-          case 'recipients':
-            return fieldName.startsWith('recipients.')
-          case 'medications':
-            return fieldName.startsWith('medications.')
-          case 'terms':
-            return fieldName.startsWith('terms.')
-          default:
-            return false
-        }
-      })
-    })
-  }, [currentStep, errors])
+  const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
 
   const handlePrevious = () => {
     if (isFirstStep) return
@@ -242,34 +219,134 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
     }
   }
 
-  const ProgressBar = () => (
-    <div className="mb-8 w-full">
-      <div className="mb-2 flex justify-between">
-        {steps.map((step, index) => {
-          const stepNumber = index + 1
-          const isComplete = index < stepIndex
-          const isActive = index <= stepIndex
-          return (
-            <div
-              key={step}
-              className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 ${
-                isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              {isComplete ? <Check className="h-5 w-5" /> : stepNumber}
-            </div>
-          )
-        })}
-      </div>
-      <div className="relative">
-        <div className="bg-border absolute inset-0 h-1 rounded-full"></div>
-        <div
-          className="bg-primary absolute h-1 rounded-full transition-all duration-500"
-          style={{ width: `${(stepIndex / (steps.length - 1)) * 100}%` }}
-        ></div>
-      </div>
-    </div>
-  )
+  const handleGroupSubmit = async () => {
+    setGroupError(null)
+    if (!isLastStep) {
+      const nextStep = steps[stepIndex + 1]
+      if (nextStep) {
+        await setCurrentStep(nextStep, { history: 'push' })
+      }
+      return
+    }
+
+    await form.handleSubmit()
+  }
+
+  const handleGroupSubmitInvalid = (error: unknown) => {
+    const metaMessage = getFirstGroupError(error)
+    if (!metaMessage) {
+      const fallbackMessage = getCurrentStepErrorMessage()
+      setGroupError(fallbackMessage?.toLowerCase().includes('recipient') ? fallbackMessage : null)
+    }
+
+    const target = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')
+    if (target) {
+      scrollElementIntoViewWithMargin(target, {
+        behavior: 'smooth',
+        block: 'center',
+      })
+      focusElementWithoutScroll(target)
+    }
+  }
+
+  const getCurrentStepErrorMessage = () => {
+    const value = form.state.values
+    if (
+      currentStep === 'recipients' &&
+      value.recipients.additionalReferralRecipients?.some((recipient) => !recipient.email?.trim())
+    ) {
+      return 'Recipient email is required'
+    }
+
+    const result = (() => {
+      switch (currentStep) {
+        case 'personalInfo':
+          return personalInfoSchema.safeParse({ personalInfo: value.personalInfo })
+        case 'accountInfo':
+          return accountInfoSchema.safeParse({ accountInfo: value.accountInfo })
+        case 'screeningType':
+          return screeningTypeSchema.safeParse({ screeningType: value.screeningType })
+        case 'recipients':
+          return recipientsSchema.safeParse({
+            recipients: value.recipients,
+            screeningType: value.screeningType,
+          })
+        case 'medications':
+          return medicationsSchema.safeParse({ medications: value.medications })
+        case 'terms':
+          return termsSchema.safeParse({ terms: value.terms })
+      }
+    })()
+
+    return result.success ? undefined : result.error.issues[0]?.message
+  }
+
+  const groupConfig = useMemo(() => {
+    switch (currentStep) {
+      case 'personalInfo':
+        return {
+          name: 'personalInfo' as const,
+          validators: { onSubmit: createZodGroupValidator(personalInfoSchema.shape.personalInfo) },
+        }
+      case 'accountInfo':
+        return {
+          name: 'accountInfo' as const,
+          validators: {
+            onSubmit: ({ value }: { value: typeof form.state.values.accountInfo }) => {
+              const result = accountInfoSchema.safeParse({ accountInfo: value })
+              return result.success ? undefined : zodErrorToGroupError(result.error, 'accountInfo')
+            },
+            onSubmitAsync: async ({ value }: { value: typeof form.state.values.accountInfo }) => {
+              const normalizedEmail = value.email.trim().toLowerCase()
+              if (!normalizedEmail || !z.email().safeParse(normalizedEmail).success) {
+                return undefined
+              }
+              try {
+                const emailExists = await checkEmailExists(normalizedEmail)
+                if (emailExists) {
+                  return {
+                    fields: {
+                      email: 'An account with this email already exists',
+                    },
+                  }
+                }
+              } catch (error) {
+                console.warn('Failed to check email existence:', error)
+              }
+              return undefined
+            },
+          },
+        }
+      case 'screeningType':
+        return {
+          name: 'screeningType' as const,
+          validators: { onSubmit: createZodGroupValidator(screeningTypeSchema.shape.screeningType) },
+        }
+      case 'recipients':
+        return {
+          name: 'recipients' as const,
+          validators: {
+            onSubmit: ({ value }: { value: typeof form.state.values.recipients }) => {
+              const result = recipientsSchema.safeParse({
+                recipients: value,
+                screeningType: form.state.values.screeningType,
+              })
+              return result.success ? undefined : zodErrorToGroupError(result.error, 'recipients')
+            },
+          },
+        }
+      case 'medications':
+        return {
+          name: 'medications' as const,
+          validators: { onSubmit: createZodGroupValidator(medicationsSchema.shape.medications) },
+        }
+      case 'terms':
+        return {
+          name: 'terms' as const,
+          validators: { onSubmit: createZodGroupValidator(termsSchema.shape.terms) },
+        }
+    }
+  }, [currentStep, form])
 
   const renderStep = () => {
     switch (currentStep) {
@@ -320,20 +397,60 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
       onSubmit={(e) => {
         e.preventDefault()
         e.stopPropagation()
-        form.handleSubmit()
       }}
       className="flex flex-1 flex-col"
     >
-      <ProgressBar />
-      <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
-      <RegisterNavigation
-        isFirstStep={isFirstStep}
-        isLastStep={isLastStep}
-        isSubmitting={isSubmitting}
-        isNextDisabled={currentStepHasErrors}
-        onBack={handlePrevious}
-        onNext={() => form.handleSubmit()}
-      />
+      <ProgressBar stepIndex={stepIndex} />
+      <form.FormGroup
+        key={currentStep}
+        name={groupConfig.name}
+        validators={groupConfig.validators as never}
+        onGroupSubmit={handleGroupSubmit}
+        onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}
+      >
+        {(group) => (
+          <>
+            <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
+            {(() => {
+              const hasEmptyRecipient =
+                currentStep === 'recipients' &&
+                form.state.values.recipients.additionalReferralRecipients?.some(
+                  (recipient) => !recipient.email?.trim(),
+                )
+              const medicationErrors =
+                currentStep === 'medications' && group.state.meta.submissionAttempts > 0
+                  ? form.state.values.medications.flatMap((medication) => [
+                      ...(medication.medicationName?.trim() ? [] : ['Medication name is required']),
+                      ...(medication.detectedAs?.length ? [] : ['Select at least one detected substance']),
+                    ])
+                  : []
+              const errorMessage =
+                groupError ||
+                getFirstGroupError(group.state.meta.errors) ||
+                getFirstGroupError(group.state.meta.errorMap) ||
+                (group.state.meta.submissionAttempts > 0 && hasEmptyRecipient
+                  ? 'Recipient email is required'
+                  : undefined)
+              return errorMessage || medicationErrors.length ? (
+                <div className="text-destructive mb-4 space-y-1 text-sm">
+                  {errorMessage ? <p>{errorMessage}</p> : null}
+                  {medicationErrors.map((message) => (
+                    <p key={message}>{message}</p>
+                  ))}
+                </div>
+              ) : null
+            })()}
+            <RegisterNavigation
+              isFirstStep={isFirstStep}
+              isLastStep={isLastStep}
+              isSubmitting={isSubmitting}
+              isNextDisabled={false}
+              onBack={handlePrevious}
+              onNext={() => group.handleSubmit()}
+            />
+          </>
+        )}
+      </form.FormGroup>
     </form>
   )
 }

@@ -16,10 +16,19 @@ import { ConfirmStep } from './steps/confirm/Step'
 import { EmailsStep } from './steps/Emails'
 import { createInstantTest } from './actions/createInstantTest'
 import { TestCompleted } from '../../components/TestCompleted'
-import { steps } from './validators'
+import {
+  clientSchema,
+  emailsSchema,
+  extractSchema,
+  medicationsSchema,
+  steps,
+  uploadSchema,
+  verifyDataSchema,
+} from './validators'
 import { extractPdfQueryKey } from '../../queries'
 import { getClientById } from '../components/client/getClients'
 import { getFileFromStorage, clearFileStorage, hasStoredFile } from './utils/fileStorage'
+import { createZodGroupValidator, getFirstGroupError } from '../form-group-validation'
 
 interface InstantTestWorkflowProps {
   onBack: () => void
@@ -51,17 +60,6 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   const form = useAppForm({
     ...getInstantTestFormOpts(currentStep),
     onSubmit: async ({ value }) => {
-      const currentStepIndex = steps.indexOf(currentStep)
-      const isLastStep = currentStepIndex === steps.length - 1
-      console.log(`[InstantTest] onSubmit called - step: ${currentStep}, isLastStep: ${isLastStep}`)
-
-      if (!isLastStep) {
-        // Navigate to next step
-        await setCurrentStep(steps[currentStepIndex + 1], { history: 'push' })
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-        return
-      }
-
       // Final submit: Create drug test
       console.log(`[InstantTest] Starting final submission...`)
       try {
@@ -223,16 +221,87 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     }
   }
 
+  const currentStepIndex = steps.indexOf(currentStep)
+  const isLastStep = currentStepIndex === steps.length - 1
+
+  const handleGroupSubmit = async () => {
+    if (!isLastStep) {
+      await setCurrentStep(steps[currentStepIndex + 1], { history: 'push' })
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
+    await form.handleSubmit()
+  }
+
+  const handleGroupSubmitInvalid = (error: unknown) => {
+    const message = getFirstGroupError(error)
+    if (message) {
+      toast.error(message)
+    }
+  }
+
+  const groupConfig = (() => {
+    switch (currentStep) {
+      case 'upload':
+        return {
+          name: 'upload' as const,
+          validators: { onSubmit: createZodGroupValidator(uploadSchema.shape.upload) },
+        }
+      case 'extract':
+        return {
+          name: 'extract' as const,
+          validators: { onSubmit: createZodGroupValidator(extractSchema.shape.extract) },
+        }
+      case 'client':
+        return {
+          name: 'client' as const,
+          validators: { onSubmit: createZodGroupValidator(clientSchema.shape.client) },
+        }
+      case 'medications':
+        return {
+          name: 'medications' as const,
+          validators: { onSubmit: createZodGroupValidator(medicationsSchema.shape.medications) },
+        }
+      case 'verifyData':
+        return {
+          name: 'verifyData' as const,
+          validators: { onSubmit: createZodGroupValidator(verifyDataSchema.shape.verifyData) },
+        }
+      case 'confirm':
+        return {
+          name: 'verifyData' as const,
+          validators: undefined,
+        }
+      case 'reviewEmails':
+        return {
+          name: 'emails' as const,
+          validators: { onSubmit: createZodGroupValidator(emailsSchema.shape.emails) },
+        }
+    }
+  })()
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        form.handleSubmit()
       }}
       className="flex flex-1 flex-col"
     >
-      <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
-      <InstantTestNavigation form={form} onBack={handleBack} />
+      <form.FormGroup
+        key={currentStep}
+        name={groupConfig.name}
+        validators={groupConfig.validators as never}
+        onGroupSubmit={handleGroupSubmit}
+        onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}
+      >
+        {(group) => (
+          <>
+            <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
+            <InstantTestNavigation form={form} group={group as never} onBack={handleBack} />
+          </>
+        )}
+      </form.FormGroup>
     </form>
   )
 }
