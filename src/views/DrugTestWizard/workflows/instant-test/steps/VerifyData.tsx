@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import InputDateTimePicker from '@/components/input-datetime-picker'
 import { MedicationDisplayField, FieldGroupHeader, HeadshotCaptureCard } from '../../components'
 import { getInstantTestFormOpts } from '../shared-form'
@@ -15,11 +16,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldGroup, FieldLabel, FieldError, FieldLegend } from '@/components/ui/field'
 import { useComputeTestResultPreviewQuery, invalidateWizardClientDerivedData } from '../../../queries'
 import { formatSubstance } from '@/lib/substances'
-import type { SubstanceValue } from '@/fields/substanceOptions'
+import { getSubstanceOptions, type SubstanceValue } from '@/fields/substanceOptions'
 import { ConfirmationSubstanceSelector } from '@/blocks/Form/field-components/confirmation-substance-selector'
 import { cn } from '@/utilities/cn'
 import { AlertTriangle } from 'lucide-react'
 import { useEffect } from 'react'
+
+type InstantTestType = '15-panel-instant' | '17-panel-instant'
 
 export const VerifyDataStep = withForm({
   ...getInstantTestFormOpts('verifyData'),
@@ -58,8 +61,6 @@ export const VerifyDataStep = withForm({
 
     const hasUnexpectedPositives = (preview?.unexpectedPositives?.length ?? 0) > 0
     const requiresDecision = hasUnexpectedPositives && !preview?.autoAccept
-    const testTypeLabel = verifyData?.testType === '17-panel-instant' ? '17-Panel Instant' : '15-Panel Instant'
-
     // Clear error if no decision required
     useEffect(() => {
       if (requiresDecision === true) {
@@ -75,6 +76,29 @@ export const VerifyDataStep = withForm({
     // Get confirmation decision from form state
     const confirmationDecisionValue = verifyData?.confirmationDecision
     const confirmationSubstancesValue = verifyData?.confirmationSubstances ?? []
+
+    const handleTestTypeChange = (testType: InstantTestType) => {
+      const validSubstanceValues = new Set<string>(
+        getSubstanceOptions(testType).map((option) => option.value),
+      )
+      const detectedSubstances = (verifyData?.detectedSubstances ?? []) as SubstanceValue[]
+      const nextDetectedSubstances = detectedSubstances.filter((substance) =>
+        validSubstanceValues.has(substance),
+      )
+
+      form.setFieldValue('verifyData.testType', testType)
+      if (nextDetectedSubstances.length !== detectedSubstances.length) {
+        form.setFieldValue('verifyData.detectedSubstances', nextDetectedSubstances)
+      }
+      if (confirmationDecisionValue) {
+        form.setFieldValue('verifyData.confirmationDecision', undefined)
+      }
+      if (confirmationSubstancesValue.length > 0) {
+        form.setFieldValue('verifyData.confirmationSubstances', [])
+      }
+
+      form.validate('submit')
+    }
 
     // Handler for confirmation decision changes
     const handleConfirmationDecisionChange = (value: 'accept' | 'request-confirmation' | 'pending-decision') => {
@@ -116,12 +140,27 @@ export const VerifyDataStep = withForm({
         {/* Test Data Form */}
         <Card className="@container shadow-md">
           <CardContent className="grid gap-6 pt-6">
-            {/* Test Type (read-only for instant tests) */}
             <FieldGroup className="grid @lg:grid-cols-2">
-              <Field className="@lg:col-span-1">
-                <FieldLabel>Test Type</FieldLabel>
-                <Input value={testTypeLabel} disabled readOnly />
-              </Field>
+              <form.Field name="verifyData.testType">
+                {(field) => (
+                  <Field className="@lg:col-span-1">
+                    <FieldLabel htmlFor="instant-test-type">Test Type</FieldLabel>
+                    <Select
+                      value={field.state.value}
+                      onValueChange={(value) => handleTestTypeChange(value as InstantTestType)}
+                    >
+                      <SelectTrigger id="instant-test-type" aria-invalid={field.state.meta.errors.length > 0 || undefined}>
+                        <SelectValue placeholder="Select instant test type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="15-panel-instant">15-Panel Instant</SelectItem>
+                        <SelectItem value="17-panel-instant">17-Panel Instant</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FieldError errors={field.state.meta.errors} />
+                  </Field>
+                )}
+              </form.Field>
             </FieldGroup>
 
             {/* Collection Date/Time */}

@@ -7,8 +7,9 @@
   "scripts": {
     "build": "cross-env NODE_OPTIONS=--no-deprecation payload migrate && next build",
     "postbuild": "next-sitemap --config next-sitemap.config.cjs",
-    "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev --webpack",
-    "dev:turbo": "cross-env NODE_OPTIONS=--no-deprecation next dev --turbo",
+    "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
+    "dev:network": "cross-env NODE_OPTIONS=--no-deprecation next dev --experimental-https --hostname 0.0.0.0",
+    "dev:turbo": "pnpm dev",
     "build:dev": "cross-env NODE_OPTIONS=--no-deprecation rm -rf .next && pnpm build && pnpm start",
     "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
     "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
@@ -145,7 +146,7 @@
     "prettier-plugin-tailwindcss": "^0.7.2",
     "react-email": "5.2.8",
     "tailwindcss": "^4.1.13",
-    "typescript": "5.9.3",
+    "typescript": "6.0.3",
     "vitest": "^4.0.18"
   },
   "engines": {

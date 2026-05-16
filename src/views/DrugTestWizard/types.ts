@@ -3,6 +3,7 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
 export const WIZARD_OPTIONS = [
   'register-client',
   'collect-lab',
+  'instant-test',
   '15-panel-instant',
   '17-panel-instant',
   'enter-lab-screen',

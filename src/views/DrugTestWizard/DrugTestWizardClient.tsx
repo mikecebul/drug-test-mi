@@ -24,6 +24,7 @@ const workflowTypes = [
   'collect-lab',
   'enter-lab-screen',
   'enter-lab-confirmation',
+  'instant-test',
   '15-panel-instant',
   '17-panel-instant',
 ] as const
@@ -48,6 +49,7 @@ export function DrugTestWizardClient() {
   const firstStepMap: Record<Workflows[number], string> = {
     'register-client': registerClientSteps[0],
     'collect-lab': collectLabSteps[0],
+    'instant-test': instantTestSteps[0],
     '15-panel-instant': instantTestSteps[0],
     '17-panel-instant': instantTestSteps[0],
     'enter-lab-screen': labScreenSteps[0],
@@ -103,8 +105,8 @@ export function DrugTestWizardClient() {
     return <LabConfirmationWorkflow onBack={handleBack} />
   }
 
-  if (workflow === '15-panel-instant' || workflow === '17-panel-instant') {
-    return <InstantTestWorkflow onBack={handleBack} testType={workflow} />
+  if (workflow === 'instant-test' || workflow === '15-panel-instant' || workflow === '17-panel-instant') {
+    return <InstantTestWorkflow onBack={handleBack} />
   }
 
   return null
