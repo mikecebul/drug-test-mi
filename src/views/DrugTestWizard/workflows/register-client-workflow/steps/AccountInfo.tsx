@@ -1,23 +1,22 @@
 'use client'
 
-import { withFieldGroup, withForm } from '@/blocks/Form/hooks/form'
+import { withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Info } from 'lucide-react'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { useStore } from '@tanstack/react-form'
 
-const AccountInfoFields = withFieldGroup({
-  defaultValues: getRegisterClientFormOpts().defaultValues.accountInfo,
-
-  render: function Render({ group }) {
-    const noEmail = useStore(group.store, (state) => state.values.noEmail === true)
+export const AccountInfoStep = withForm({
+  ...getRegisterClientFormOpts(),
+  render: function Render({ form }) {
+    const noEmail = useStore(form.store, (state) => state.values.accountInfo.noEmail === true)
 
     return (
       <div className="space-y-6">
         <FieldGroupHeader title="Account Information" description="Email and login credentials" />
 
-        <group.AppField name="noEmail">
+        <form.AppField name="accountInfo.noEmail">
           {(field) => (
             <div className="space-y-3">
               <label
@@ -41,21 +40,21 @@ const AccountInfoFields = withFieldGroup({
               </label>
             </div>
           )}
-        </group.AppField>
+        </form.AppField>
 
         {!noEmail && (
           <>
-            <group.AppField name="email">
+            <form.AppField name="accountInfo.email">
               {(field) => <field.EmailField label="Email Address" required />}
-            </group.AppField>
+            </form.AppField>
 
-            <group.AppField name="password">
+            <form.AppField name="accountInfo.password">
               {(field) => <field.PasswordField label="Password" required autoComplete="new-password" />}
-            </group.AppField>
+            </form.AppField>
 
-            <group.AppField name="confirmPassword">
+            <form.AppField name="accountInfo.confirmPassword">
               {(field) => <field.PasswordField label="Confirm Password" required autoComplete="new-password" />}
-            </group.AppField>
+            </form.AppField>
           </>
         )}
 
@@ -70,12 +69,5 @@ const AccountInfoFields = withFieldGroup({
         </Alert>
       </div>
     )
-  },
-})
-
-export const AccountInfoStep = withForm({
-  ...getRegisterClientFormOpts(),
-  render: function Render({ form }) {
-    return <AccountInfoFields form={form} fields="accountInfo" />
   },
 })

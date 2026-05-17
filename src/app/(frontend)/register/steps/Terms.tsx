@@ -1,12 +1,11 @@
 'use client'
 
-import { withFieldGroup, withForm } from '@/blocks/Form/hooks/form'
+import { withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 
-const TermsFields = withFieldGroup({
-  defaultValues: getRegisterClientFormOpts().defaultValues.terms,
-
-  render: function Render({ group }) {
+export const TermsStep = withForm({
+  ...getRegisterClientFormOpts(),
+  render: function Render({ form }) {
     return (
       <div className="space-y-6">
         <div className="flex items-center mb-6">
@@ -31,7 +30,7 @@ const TermsFields = withFieldGroup({
           </div>
         </div>
 
-        <group.AppField name="agreeToTerms">
+        <form.AppField name="terms.agreeToTerms">
           {(field) => (
             <div>
               <label className="flex items-start">
@@ -55,15 +54,8 @@ const TermsFields = withFieldGroup({
               )}
             </div>
           )}
-        </group.AppField>
+        </form.AppField>
       </div>
     )
-  },
-})
-
-export const TermsStep = withForm({
-  ...getRegisterClientFormOpts(),
-  render: function Render({ form }) {
-    return <TermsFields form={form} fields="terms" />
   },
 })

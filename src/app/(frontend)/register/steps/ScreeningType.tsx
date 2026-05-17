@@ -1,15 +1,14 @@
 'use client'
 
-import { withFieldGroup, withForm } from '@/blocks/Form/hooks/form'
+import { withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { SCREENING_TYPES } from '../types'
 import { useStore } from '@tanstack/react-form'
 
-const ScreeningTypeFields = withFieldGroup({
-  defaultValues: getRegisterClientFormOpts().defaultValues.screeningType,
-
-  render: function Render({ group }) {
-    const requestedBy = useStore(group.store, (state) => state.values.requestedBy)
+export const ScreeningTypeStep = withForm({
+  ...getRegisterClientFormOpts(),
+  render: function Render({ form }) {
+    const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
 
     return (
       <div className="space-y-6">
@@ -22,7 +21,7 @@ const ScreeningTypeFields = withFieldGroup({
           selected for your appointments.
         </p>
 
-        <group.AppField name="requestedBy">
+        <form.AppField name="screeningType.requestedBy">
           {(field) => {
             return (
             <div>
@@ -63,15 +62,8 @@ const ScreeningTypeFields = withFieldGroup({
               )}
             </div>
           )}}
-        </group.AppField>
+        </form.AppField>
       </div>
     )
-  },
-})
-
-export const ScreeningTypeStep = withForm({
-  ...getRegisterClientFormOpts(),
-  render: function Render({ form }) {
-    return <ScreeningTypeFields form={form} fields="screeningType" />
   },
 })

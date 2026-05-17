@@ -1,23 +1,22 @@
 'use client'
 
-import { withFieldGroup, withForm } from '@/blocks/Form/hooks/form'
+import { withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { useStore } from '@tanstack/react-form'
 import { SCREENING_TYPES } from '@/app/(frontend)/register/types'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { FieldError } from '@/components/ui/field'
 
-const ScreeningTypeFields = withFieldGroup({
-  defaultValues: getRegisterClientFormOpts().defaultValues.screeningType,
-
-  render: function Render({ group }) {
-    const requestedBy = useStore(group.store, (state) => state.values.requestedBy)
+export const ScreeningTypeStep = withForm({
+  ...getRegisterClientFormOpts(),
+  render: function Render({ form }) {
+    const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
 
     return (
       <div className="space-y-6">
         <FieldGroupHeader title="Screening Type" description="Who is requesting this drug screening?" />
 
-        <group.AppField name="requestedBy">
+        <form.AppField name="screeningType.requestedBy">
           {(field) => (
             <div className="space-y-3">
               {SCREENING_TYPES.map(
@@ -46,15 +45,8 @@ const ScreeningTypeFields = withFieldGroup({
               <FieldError errors={field.state.meta.errors} />
             </div>
           )}
-        </group.AppField>
+        </form.AppField>
       </div>
     )
-  },
-})
-
-export const ScreeningTypeStep = withForm({
-  ...getRegisterClientFormOpts(),
-  render: function Render({ form }) {
-    return <ScreeningTypeFields form={form} fields="screeningType" />
   },
 })

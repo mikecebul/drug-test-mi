@@ -1,16 +1,15 @@
 'use client'
 
-import { withFieldGroup, withForm } from '@/blocks/Form/hooks/form'
+import { withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { TriangleAlert } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { FieldError } from '@/components/ui/field'
 
-const TermsFields = withFieldGroup({
-  defaultValues: getRegisterClientFormOpts().defaultValues.terms,
-
-  render: function Render({ group }) {
+export const TermsStep = withForm({
+  ...getRegisterClientFormOpts(),
+  render: function Render({ form }) {
     return (
       <div className="space-y-6">
         <FieldGroupHeader title="Terms & Conditions" description="Review and confirm" />
@@ -45,7 +44,7 @@ const TermsFields = withFieldGroup({
           </AlertDescription>
         </Alert>
 
-        <group.AppField name="agreeToTerms">
+        <form.AppField name="terms.agreeToTerms">
           {(field) => (
             <div>
               <label className="flex items-start">
@@ -63,15 +62,8 @@ const TermsFields = withFieldGroup({
               <FieldError errors={field.state.meta.errors} className="mt-2" />
             </div>
           )}
-        </group.AppField>
+        </form.AppField>
       </div>
     )
-  },
-})
-
-export const TermsStep = withForm({
-  ...getRegisterClientFormOpts(),
-  render: function Render({ form }) {
-    return <TermsFields form={form} fields="terms" />
   },
 })
