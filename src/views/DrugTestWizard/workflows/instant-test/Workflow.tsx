@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { revalidateLogic } from '@tanstack/react-form'
 import { toast } from 'sonner'
@@ -27,6 +28,8 @@ import {
   verifyDataSchema,
 } from './validators'
 import { extractPdfQueryKey } from '../../queries'
+import type { ExtractedPdfData } from '../../queries'
+import type { SubstanceValue } from '@/fields/substanceOptions'
 import { getClientById } from '../components/client/getClients'
 import { getFileFromStorage, clearFileStorage, hasStoredFile } from './utils/fileStorage'
 import { getFirstGroupError } from '../form-group-errors'
@@ -69,7 +72,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       console.log(`[InstantTest] Starting final submission...`)
       try {
         const queryKey = extractPdfQueryKey(value.upload.file, 'instant-test')
-        const extractedData = queryClient.getQueryData<any>(queryKey)
+        const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
         console.log(`[InstantTest] Extracted data from query cache:`, extractedData ? 'found' : 'not found')
 
         // Convert File to buffer array
@@ -91,7 +94,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
             clientId: value.client.id,
             testType: value.verifyData.testType,
             collectionDate: value.verifyData.collectionDate,
-            detectedSubstances: value.verifyData.detectedSubstances as any,
+            detectedSubstances: value.verifyData.detectedSubstances as SubstanceValue[],
             isDilute: value.verifyData.isDilute,
             breathalyzerTaken: value.verifyData.breathalyzerTaken,
             breathalyzerResult: value.verifyData.breathalyzerResult ?? null,
@@ -100,7 +103,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
             hasConfirmation: extractedData?.hasConfirmation,
             confirmationResults: extractedData?.confirmationResults,
             confirmationDecision: value.verifyData.confirmationDecision ?? null,
-            confirmationSubstances: value.verifyData.confirmationSubstances as any,
+            confirmationSubstances: value.verifyData.confirmationSubstances as SubstanceValue[] | undefined,
           },
           value.medications,
           {
@@ -194,27 +197,6 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     return <TestCompleted testId={completedTestId} onBack={handleBack} />
   }
 
-  const renderStep = () => {
-    switch (currentStep) {
-      case 'upload':
-        return <UploadStep form={form} />
-      case 'extract':
-        return <ExtractStep form={form} />
-      case 'client':
-        return <ClientStep form={form} />
-      case 'medications':
-        return <MedicationsStep form={form} />
-      case 'verifyData':
-        return <VerifyDataStep form={form} />
-      case 'confirm':
-        return <ConfirmStep form={form} />
-      case 'reviewEmails':
-        return <EmailsStep form={form} />
-      default:
-        return <UploadStep form={form} />
-    }
-  }
-
   const currentStepIndex = steps.indexOf(currentStep)
   const isLastStep = currentStepIndex === steps.length - 1
 
@@ -235,45 +217,48 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     focusFirstInvalidField(formRef.current)
   }
 
-  const groupConfig = (() => {
+  const renderStep = () => {
+    const renderGroup = (
+      name: 'upload' | 'extract' | 'client' | 'medications' | 'verifyData' | 'emails',
+      validators: Parameters<typeof form.FormGroup>[0]['validators'],
+      content: ReactNode,
+    ) => (
+      <form.FormGroup
+        key={currentStep}
+        name={name}
+        validationLogic={revalidateLogic()}
+        validators={validators}
+        onGroupSubmit={handleGroupSubmit}
+        onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}
+      >
+        {(group) => (
+          <>
+            <div className="wizard-content mb-8 flex-1">{content}</div>
+            <InstantTestNavigation form={form} group={group} onBack={handleBack} />
+          </>
+        )}
+      </form.FormGroup>
+    )
+
     switch (currentStep) {
       case 'upload':
-        return {
-          name: 'upload' as const,
-          validators: { onDynamic: uploadSchema.shape.upload },
-        }
+        return renderGroup('upload', { onDynamic: uploadSchema.shape.upload }, <UploadStep form={form} />)
       case 'extract':
-        return {
-          name: 'extract' as const,
-          validators: { onDynamic: extractSchema.shape.extract },
-        }
+        return renderGroup('extract', { onDynamic: extractSchema.shape.extract }, <ExtractStep form={form} />)
       case 'client':
-        return {
-          name: 'client' as const,
-          validators: { onDynamic: clientSchema.shape.client },
-        }
+        return renderGroup('client', { onDynamic: clientSchema.shape.client }, <ClientStep form={form} />)
       case 'medications':
-        return {
-          name: 'medications' as const,
-          validators: { onDynamic: medicationsSchema.shape.medications },
-        }
+        return renderGroup('medications', { onDynamic: medicationsSchema.shape.medications }, <MedicationsStep form={form} />)
       case 'verifyData':
-        return {
-          name: 'verifyData' as const,
-          validators: { onDynamic: verifyDataSchema.shape.verifyData },
-        }
+        return renderGroup('verifyData', { onDynamic: verifyDataSchema.shape.verifyData }, <VerifyDataStep form={form} />)
       case 'confirm':
-        return {
-          name: 'verifyData' as const,
-          validators: undefined,
-        }
+        return renderGroup('verifyData', undefined, <ConfirmStep form={form} />)
       case 'reviewEmails':
-        return {
-          name: 'emails' as const,
-          validators: { onDynamic: emailsGroupSchema },
-        }
+        return renderGroup('emails', { onDynamic: emailsGroupSchema }, <EmailsStep form={form} />)
+      default:
+        return renderGroup('upload', { onDynamic: uploadSchema.shape.upload }, <UploadStep form={form} />)
     }
-  })()
+  }
 
   return (
     <form
@@ -283,21 +268,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       }}
       className="flex flex-1 flex-col"
     >
-      <form.FormGroup
-        key={currentStep}
-        name={groupConfig.name}
-        validationLogic={revalidateLogic()}
-        validators={groupConfig.validators as never}
-        onGroupSubmit={handleGroupSubmit}
-        onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}
-      >
-        {(group) => (
-          <>
-            <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
-            <InstantTestNavigation form={form} group={group as never} onBack={handleBack} />
-          </>
-        )}
-      </form.FormGroup>
+      {renderStep()}
     </form>
   )
 }

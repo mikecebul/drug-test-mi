@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { revalidateLogic } from '@tanstack/react-form'
 import { toast } from 'sonner'
@@ -119,23 +120,6 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
     return <TestCompleted testId={completedTestId} onBack={onBack} />
   }
 
-  const renderStep = () => {
-    switch (currentStep) {
-      case 'client':
-        return <ClientStep form={form} />
-      case 'medications':
-        return <MedicationsStep form={form} />
-      case 'collection':
-        return <CollectionStep form={form} />
-      case 'confirm':
-        return <ConfirmStep form={form} />
-      case 'reviewEmails':
-        return <EmailsStep form={form} />
-      default:
-        return <ClientStep form={form} />
-    }
-  }
-
   const currentStepIndex = steps.indexOf(currentStep)
   const isLastStep = currentStepIndex === steps.length - 1
 
@@ -156,35 +140,44 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
     focusFirstInvalidField(formRef.current)
   }
 
-  const groupConfig = (() => {
+  const renderStep = () => {
+    const renderGroup = (
+      name: 'client' | 'medications' | 'collection' | 'emails',
+      validators: Parameters<typeof form.FormGroup>[0]['validators'],
+      content: ReactNode,
+    ) => (
+      <form.FormGroup
+        key={currentStep}
+        name={name}
+        validationLogic={revalidateLogic()}
+        validators={validators}
+        onGroupSubmit={handleGroupSubmit}
+        onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}
+      >
+        {(group) => (
+          <>
+            <div className="wizard-content mb-8 flex-1">{content}</div>
+            <CollectLabNavigation form={form} group={group} onBack={onBack} />
+          </>
+        )}
+      </form.FormGroup>
+    )
+
     switch (currentStep) {
       case 'client':
-        return {
-          name: 'client' as const,
-          validators: { onDynamic: clientSchema.shape.client },
-        }
+        return renderGroup('client', { onDynamic: clientSchema.shape.client }, <ClientStep form={form} />)
       case 'medications':
-        return {
-          name: 'medications' as const,
-          validators: { onDynamic: medicationsSchema.shape.medications },
-        }
+        return renderGroup('medications', { onDynamic: medicationsSchema.shape.medications }, <MedicationsStep form={form} />)
       case 'collection':
-        return {
-          name: 'collection' as const,
-          validators: { onDynamic: collectionSchema.shape.collection },
-        }
+        return renderGroup('collection', { onDynamic: collectionSchema.shape.collection }, <CollectionStep form={form} />)
       case 'confirm':
-        return {
-          name: 'collection' as const,
-          validators: undefined,
-        }
+        return renderGroup('collection', undefined, <ConfirmStep form={form} />)
       case 'reviewEmails':
-        return {
-          name: 'emails' as const,
-          validators: { onDynamic: emailsGroupSchema },
-        }
+        return renderGroup('emails', { onDynamic: emailsGroupSchema }, <EmailsStep form={form} />)
+      default:
+        return renderGroup('client', { onDynamic: clientSchema.shape.client }, <ClientStep form={form} />)
     }
-  })()
+  }
 
   return (
     <form
@@ -194,21 +187,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
       }}
       className="flex flex-1 flex-col"
     >
-      <form.FormGroup
-        key={currentStep}
-        name={groupConfig.name}
-        validationLogic={revalidateLogic()}
-        validators={groupConfig.validators as never}
-        onGroupSubmit={handleGroupSubmit}
-        onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}
-      >
-        {(group) => (
-          <>
-            <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
-            <CollectLabNavigation form={form} group={group as never} onBack={onBack} />
-          </>
-        )}
-      </form.FormGroup>
+      {renderStep()}
     </form>
   )
 }

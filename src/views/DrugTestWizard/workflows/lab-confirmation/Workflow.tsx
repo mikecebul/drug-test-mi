@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { revalidateLogic } from '@tanstack/react-form'
 import { toast } from 'sonner'
@@ -25,6 +26,7 @@ import {
   uploadSchema,
 } from './validators'
 import { extractPdfQueryKey } from '../../queries'
+import type { ExtractedPdfData } from '../../queries'
 import { getFirstGroupError } from '../form-group-errors'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
@@ -55,7 +57,7 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
       // Final submit: Update drug test with confirmation results and send emails
       try {
         const queryKey = extractPdfQueryKey(value.upload.file, 'enter-lab-confirmation')
-        const extractedData = queryClient.getQueryData<any>(queryKey)
+        const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
 
         const result = await updateLabConfirmationWithEmailReview(value, extractedData)
 
@@ -83,25 +85,6 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
     return <TestCompleted testId={completedTestId} onBack={onBack} />
   }
 
-  const renderStep = () => {
-    switch (currentStep) {
-      case 'upload':
-        return <UploadStep form={form} />
-      case 'extract':
-        return <ExtractStep form={form} />
-      case 'matchCollection':
-        return <MatchCollectionStep form={form} />
-      case 'labConfirmationData':
-        return <LabConfirmationDataStep form={form} />
-      case 'confirm':
-        return <ConfirmStep form={form} />
-      case 'emails':
-        return <EmailsStep form={form} />
-      default:
-        return <UploadStep form={form} />
-    }
-  }
-
   const currentStepIndex = steps.indexOf(currentStep)
   const isLastStep = currentStepIndex === steps.length - 1
 
@@ -122,42 +105,54 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
     focusFirstInvalidField(formRef.current)
   }
 
-  const groupConfig = (() => {
+  const renderStep = () => {
+    const renderGroup = (
+      name: 'upload' | 'extract' | 'matchCollection' | 'labConfirmationData' | 'emails',
+      validators: Parameters<typeof form.FormGroup>[0]['validators'],
+      content: ReactNode,
+    ) => (
+      <form.FormGroup
+        key={currentStep}
+        name={name}
+        validationLogic={revalidateLogic()}
+        validators={validators}
+        onGroupSubmit={handleGroupSubmit}
+        onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}
+      >
+        {(group) => (
+          <>
+            <div className="wizard-content mb-8 flex-1">{content}</div>
+            <LabConfirmationNavigation form={form} group={group} onBack={onBack} />
+          </>
+        )}
+      </form.FormGroup>
+    )
+
     switch (currentStep) {
       case 'upload':
-        return {
-          name: 'upload' as const,
-          validators: { onDynamic: uploadSchema.shape.upload },
-        }
+        return renderGroup('upload', { onDynamic: uploadSchema.shape.upload }, <UploadStep form={form} />)
       case 'extract':
-        return {
-          name: 'extract' as const,
-          validators: { onDynamic: extractSchema.shape.extract },
-        }
+        return renderGroup('extract', { onDynamic: extractSchema.shape.extract }, <ExtractStep form={form} />)
       case 'matchCollection':
-        return {
-          name: 'matchCollection' as const,
-          validators: { onDynamic: matchCollectionSchema.shape.matchCollection },
-        }
+        return renderGroup(
+          'matchCollection',
+          { onDynamic: matchCollectionSchema.shape.matchCollection },
+          <MatchCollectionStep form={form} />,
+        )
       case 'labConfirmationData':
-        return {
-          name: 'labConfirmationData' as const,
-          validators: {
-            onDynamic: labConfirmationDataSchema.shape.labConfirmationData,
-          },
-        }
+        return renderGroup(
+          'labConfirmationData',
+          { onDynamic: labConfirmationDataSchema.shape.labConfirmationData },
+          <LabConfirmationDataStep form={form} />,
+        )
       case 'confirm':
-        return {
-          name: 'labConfirmationData' as const,
-          validators: undefined,
-        }
+        return renderGroup('labConfirmationData', undefined, <ConfirmStep form={form} />)
       case 'emails':
-        return {
-          name: 'emails' as const,
-          validators: { onDynamic: emailsGroupSchema },
-        }
+        return renderGroup('emails', { onDynamic: emailsGroupSchema }, <EmailsStep form={form} />)
+      default:
+        return renderGroup('upload', { onDynamic: uploadSchema.shape.upload }, <UploadStep form={form} />)
     }
-  })()
+  }
 
   return (
     <form
@@ -167,21 +162,7 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
       }}
       className="flex flex-1 flex-col"
     >
-      <form.FormGroup
-        key={currentStep}
-        name={groupConfig.name}
-        validationLogic={revalidateLogic()}
-        validators={groupConfig.validators as never}
-        onGroupSubmit={handleGroupSubmit}
-        onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}
-      >
-        {(group) => (
-          <>
-            <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
-            <LabConfirmationNavigation form={form} group={group as never} onBack={onBack} />
-          </>
-        )}
-      </form.FormGroup>
+      {renderStep()}
     </form>
   )
 }
