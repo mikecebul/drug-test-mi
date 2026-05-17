@@ -1,6 +1,6 @@
 'use client'
 
-import { withFieldGroup, withForm } from '@/blocks/Form/hooks/form'
+import { withForm } from '@/blocks/Form/hooks/form'
 import { revalidateLogic } from '@tanstack/react-form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { accountInfoSchema } from '../validators'
@@ -8,38 +8,7 @@ import { RegisterNavigation } from '../components/Navigation'
 import { checkEmailExists } from '../actions'
 import { getFirstGroupError } from '@/views/DrugTestWizard/workflows/form-group-errors'
 import z from 'zod'
-
-const AccountPasswordFields = withFieldGroup({
-  defaultValues: {
-    password: '',
-    confirmPassword: '',
-  },
-  render: function Render({ group }) {
-    return (
-      <>
-        <group.AppField name="password">
-          {(field) => <field.PasswordField label="Password" required autoComplete="new-password" />}
-        </group.AppField>
-
-        <group.AppField
-          name="confirmPassword"
-          validators={{
-            onChangeListenTo: ['password'],
-            onChange: ({ value }) => {
-              const password = group.getFieldValue('password')
-              if (password && value !== password) {
-                return { message: "Passwords don't match" }
-              }
-              return undefined
-            },
-          }}
-        >
-          {(field) => <field.PasswordField label="Confirm Password" required autoComplete="new-password" />}
-        </group.AppField>
-      </>
-    )
-  },
-})
+import { AccountPasswordFields } from './AccountPasswordFields'
 
 export const AccountInfoStep = withForm({
   ...getRegisterClientFormOpts(),

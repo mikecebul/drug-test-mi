@@ -2,18 +2,25 @@
 
 import { withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
-import { useStore } from '@tanstack/react-form'
+import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { SCREENING_TYPES } from '@/app/(frontend)/register/types'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { FieldError } from '@/components/ui/field'
+import { screeningTypeSchema } from '../validators'
+import { RegisterClientNavigation } from '../components/Navigation'
 
 export const ScreeningTypeStep = withForm({
   ...getRegisterClientFormOpts(),
-  render: function Render({ form }) {
+  props: {} as {
+    onBack?: () => void
+    onNext?: () => void
+    onInvalid?: (error: unknown) => void
+  },
+  render: function Render({ form, onBack, onNext, onInvalid }) {
     const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
 
-    return (
-      <div className="space-y-6">
+    const body = (
+      <div className="wizard-content mb-8 flex-1 space-y-6">
         <FieldGroupHeader title="Screening Type" description="Who is requesting this drug screening?" />
 
         <form.AppField name="screeningType.requestedBy">
@@ -47,6 +54,27 @@ export const ScreeningTypeStep = withForm({
           )}
         </form.AppField>
       </div>
+    )
+
+    if (!onNext) {
+      return body
+    }
+
+    return (
+      <form.FormGroup
+        name="screeningType"
+        validationLogic={revalidateLogic()}
+        validators={{ onDynamic: screeningTypeSchema.shape.screeningType }}
+        onGroupSubmit={() => onNext?.()}
+        onGroupSubmitInvalid={({ groupApi }) => onInvalid?.(groupApi.state.meta.errors)}
+      >
+        {(group) => (
+          <>
+            {body}
+            <RegisterClientNavigation form={form} group={group} onBack={onBack ?? (() => {})} />
+          </>
+        )}
+      </form.FormGroup>
     )
   },
 })

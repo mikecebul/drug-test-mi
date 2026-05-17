@@ -3,7 +3,7 @@
 import { withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { Plus, Trash2 } from 'lucide-react'
-import { useStore } from '@tanstack/react-form'
+import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { useEmployerOptions } from '@/app/(frontend)/register/hooks/useEmployerOptions'
 import { useCourtOptions } from '@/app/(frontend)/register/hooks/useCourtOptions'
 import { groupCourtSelectOptions } from '@/app/(frontend)/register/utils/groupCourtSelectOptions'
@@ -19,10 +19,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { getRecipientsGroupSchema } from '../validators'
+import { RegisterClientNavigation } from '../components/Navigation'
 
 export const RecipientsStep = withForm({
   ...getRegisterClientFormOpts(),
-  render: function Render({ form }) {
+  props: {} as {
+    onBack?: () => void
+    onNext?: () => void
+    onInvalid?: (error: unknown) => void
+  },
+  render: function Render({ form, onBack, onNext, onInvalid }) {
     const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
     const CLEAR_SELECTION_VALUE = '__none__'
     const { employers, employersById, isLoading: isLoadingEmployers } = useEmployerOptions()
@@ -372,8 +379,8 @@ export const RecipientsStep = withForm({
       )
     }
 
-    return (
-      <div className="space-y-6">
+    const body = (
+      <div className="wizard-content mb-8 flex-1 space-y-6">
         <FieldGroupHeader title="Results Recipients" description="Where should results be sent?" />
 
         {requestedBy === 'self' && renderSelfFields()}
@@ -388,6 +395,31 @@ export const RecipientsStep = withForm({
           </div>
         )}
       </div>
+    )
+
+    if (!onNext) {
+      return body
+    }
+
+    return (
+      <form.FormGroup
+        name="recipients"
+        validationLogic={revalidateLogic()}
+        validators={{ onDynamic: getRecipientsGroupSchema(requestedBy) }}
+        onGroupSubmit={() => onNext?.()}
+        onGroupSubmitInvalid={({ groupApi }) => onInvalid?.(groupApi.state.meta.errors)}
+      >
+        {(group) => (
+          <>
+            {body}
+            {group.state.meta.submissionAttempts > 0 &&
+            form.state.values.recipients.additionalReferralRecipients?.some((recipient) => !recipient.email?.trim()) ? (
+              <p className="text-destructive mb-4 text-sm">Recipient email is required</p>
+            ) : null}
+            <RegisterClientNavigation form={form} group={group} onBack={onBack ?? (() => {})} />
+          </>
+        )}
+      </form.FormGroup>
     )
   },
 })

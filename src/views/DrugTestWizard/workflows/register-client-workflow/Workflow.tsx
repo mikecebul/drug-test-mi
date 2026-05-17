@@ -2,19 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
-import { revalidateLogic } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
 import { getRegisterClientFormOpts } from './shared-form'
 import {
-  accountInfoOptionalEmailGroupSchema,
   formSchema,
-  getRecipientsGroupSchema,
-  personalInfoSchema,
-  screeningTypeSchema,
   steps,
-  termsSchema,
 } from './validators'
 
 import { PersonalInfoStep } from './steps/PersonalInfo'
@@ -23,31 +17,13 @@ import { ScreeningTypeStep } from './steps/ScreeningType'
 import { RecipientsStep } from './steps/Recipients'
 import { TermsStep } from './steps/Terms'
 import { SuccessStep } from './steps/Success'
-import { RegisterClientNavigation } from './components/Navigation'
 import { registerClientAction } from './actions/registerClientAction'
 import { useRouter } from 'next/navigation'
-import { checkEmailExists } from '@/app/(frontend)/register/actions'
 import { getFirstGroupError } from '../form-group-errors'
-import z from 'zod'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface RegisterClientWorkflowProps {
   onBack: () => void
-}
-
-const staticGroupConfigs = {
-  personalInfo: {
-    name: 'personalInfo' as const,
-    validators: { onDynamic: personalInfoSchema.shape.personalInfo },
-  },
-  screeningType: {
-    name: 'screeningType' as const,
-    validators: { onDynamic: screeningTypeSchema.shape.screeningType },
-  },
-  terms: {
-    name: 'terms' as const,
-    validators: { onDynamic: termsSchema.shape.terms },
-  },
 }
 
 export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) {
@@ -165,27 +141,10 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
     )
   }
 
-  const renderStep = () => {
-    switch (currentStep) {
-      case 'personalInfo':
-        return <PersonalInfoStep form={form} />
-      case 'accountInfo':
-        return <AccountInfoStep form={form} />
-      case 'screeningType':
-        return <ScreeningTypeStep form={form} />
-      case 'recipients':
-        return <RecipientsStep form={form} />
-      case 'terms':
-        return <TermsStep form={form} />
-      default:
-        return <PersonalInfoStep form={form} />
-    }
-  }
-
   const currentStepIndex = steps.indexOf(currentStep)
   const isLastStep = currentStepIndex === steps.length - 1
 
-  const handleGroupSubmit = async () => {
+  const handleNextStep = async () => {
     if (!isLastStep) {
       const nextStep = steps[currentStepIndex + 1]
       if (nextStep) {
@@ -197,7 +156,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
     await form.handleSubmit()
   }
 
-  const handleGroupSubmitInvalid = (error: unknown) => {
+  const handleStepInvalid = (error: unknown) => {
     const message = getFirstGroupError(error)
     if (message) {
       toast.error(message)
@@ -205,49 +164,29 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
     focusFirstInvalidField(formRef.current)
   }
 
-  const accountInfoGroupConfig = {
-    name: 'accountInfo' as const,
-    validators: {
-      onDynamic: accountInfoOptionalEmailGroupSchema,
-      onSubmitAsync: async ({ value }: { value: typeof form.state.values.accountInfo }) => {
-        if (value.noEmail) {
-          return undefined
-        }
+  const renderStep = () => {
+    const stepProps = {
+      form,
+      onBack,
+      onInvalid: handleStepInvalid,
+      onNext: handleNextStep,
+    }
 
-        const email = value.email
-        if (!email || !z.email().safeParse(email).success) {
-          return undefined
-        }
-
-        try {
-          const emailExists = await checkEmailExists(email)
-          if (emailExists) {
-            return {
-              fields: {
-                email: 'An account with this email already exists',
-              },
-            }
-          }
-        } catch (error) {
-          console.warn('Failed to check email existence:', error)
-        }
-
-        return undefined
-      },
-    },
+    switch (currentStep) {
+      case 'personalInfo':
+        return <PersonalInfoStep {...stepProps} />
+      case 'accountInfo':
+        return <AccountInfoStep {...stepProps} />
+      case 'screeningType':
+        return <ScreeningTypeStep {...stepProps} />
+      case 'recipients':
+        return <RecipientsStep {...stepProps} />
+      case 'terms':
+        return <TermsStep {...stepProps} />
+      default:
+        return <PersonalInfoStep {...stepProps} />
+    }
   }
-
-  const groupConfig =
-    currentStep === 'accountInfo'
-      ? accountInfoGroupConfig
-      : currentStep === 'recipients'
-        ? {
-            name: 'recipients' as const,
-            validators: {
-              onDynamic: getRecipientsGroupSchema(form.state.values.screeningType.requestedBy),
-            },
-          }
-        : staticGroupConfigs[currentStep]
 
   return (
     <form
@@ -258,32 +197,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
       }}
       className="flex flex-1 flex-col"
     >
-      <form.FormGroup
-        key={currentStep}
-        name={groupConfig.name}
-        validationLogic={revalidateLogic()}
-        validators={groupConfig.validators as never}
-        onGroupSubmit={handleGroupSubmit}
-        onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}
-      >
-        {(group) => (
-          <>
-            <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
-            {currentStep === 'recipients' &&
-            group.state.meta.submissionAttempts > 0 &&
-            form.state.values.recipients.additionalReferralRecipients?.some(
-              (recipient) => !recipient.email?.trim(),
-            ) ? (
-              <p className="text-destructive mb-4 text-sm">Recipient email is required</p>
-            ) : null}
-            <RegisterClientNavigation
-              form={form}
-              group={group as never}
-              onBack={onBack}
-            />
-          </>
-        )}
-      </form.FormGroup>
+      {renderStep()}
     </form>
   )
 }

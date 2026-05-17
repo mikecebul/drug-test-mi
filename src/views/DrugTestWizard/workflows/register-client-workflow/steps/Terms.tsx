@@ -6,12 +6,20 @@ import { TriangleAlert } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { FieldError } from '@/components/ui/field'
+import { revalidateLogic } from '@tanstack/react-form'
+import { termsSchema } from '../validators'
+import { RegisterClientNavigation } from '../components/Navigation'
 
 export const TermsStep = withForm({
   ...getRegisterClientFormOpts(),
-  render: function Render({ form }) {
-    return (
-      <div className="space-y-6">
+  props: {} as {
+    onBack?: () => void
+    onNext?: () => void
+    onInvalid?: (error: unknown) => void
+  },
+  render: function Render({ form, onBack, onNext, onInvalid }) {
+    const body = (
+      <div className="wizard-content mb-8 flex-1 space-y-6">
         <FieldGroupHeader title="Terms & Conditions" description="Review and confirm" />
 
         <div className="bg-muted border-border overflow-y-auto rounded-lg border p-6">
@@ -64,6 +72,27 @@ export const TermsStep = withForm({
           )}
         </form.AppField>
       </div>
+    )
+
+    if (!onNext) {
+      return body
+    }
+
+    return (
+      <form.FormGroup
+        name="terms"
+        validationLogic={revalidateLogic()}
+        validators={{ onDynamic: termsSchema.shape.terms }}
+        onGroupSubmit={() => onNext?.()}
+        onGroupSubmitInvalid={({ groupApi }) => onInvalid?.(groupApi.state.meta.errors)}
+      >
+        {(group) => (
+          <>
+            {body}
+            <RegisterClientNavigation form={form} group={group} onBack={onBack ?? (() => {})} />
+          </>
+        )}
+      </form.FormGroup>
     )
   },
 })
