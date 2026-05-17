@@ -1,19 +1,22 @@
 'use client'
 
 import { useRef } from 'react'
-import { withForm } from '@/blocks/Form/hooks/form'
+import { withFieldGroup } from '@/blocks/Form/hooks/form'
+import { useStore } from '@tanstack/react-form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Trash2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
+import type { FormValues } from '../validators'
 
-export const MedicationsStep = withForm({
-  ...getRegisterClientFormOpts(),
+const MedicationFields = withFieldGroup<FormValues['medications'], never>({
+  defaultValues: getRegisterClientFormOpts().defaultValues.medications,
 
-  render: function Render({ form }) {
+  render: function Render({ group }) {
     const medicationRowKeysRef = useRef<string[]>([])
     const nextMedicationRowKeyRef = useRef(1)
+    const medications = useStore(group.store, (state) => state.values)
 
     const createMedicationRowKey = () => {
       const key = `medication-row-${nextMedicationRowKeyRef.current}`
@@ -33,9 +36,8 @@ export const MedicationsStep = withForm({
           positives.
         </div>
 
-        <form.Field name="medications" mode="array">
-          {(field) => {
-            const rowCount = field.state.value.length
+        {(() => {
+            const rowCount = medications.length
 
             if (medicationRowKeysRef.current.length < rowCount) {
               const missing = rowCount - medicationRowKeysRef.current.length
@@ -48,15 +50,15 @@ export const MedicationsStep = withForm({
 
             const handleAddMedication = () => {
               medicationRowKeysRef.current.unshift(createMedicationRowKey())
-              field.insertValue(0, {
+              group.insertFieldValue('' as never, 0, {
                 medicationName: '',
                 detectedAs: [],
-              })
+              } as never)
             }
 
             const handleRemoveMedication = (index: number) => {
               medicationRowKeysRef.current.splice(index, 1)
-              field.removeValue(index)
+              group.removeFieldValue('' as never, index)
             }
 
             return (
@@ -66,16 +68,16 @@ export const MedicationsStep = withForm({
                   Add Medication
                 </Button>
 
-                {field.state.value.length === 0 ? (
+                {medications.length === 0 ? (
                   <p className="text-muted-foreground py-8 text-center">
                     No medications added. If none apply, click Next to continue.
                   </p>
                 ) : (
                   <motion.div layout className="space-y-3">
                     <AnimatePresence initial={false} mode="popLayout">
-                      {field.state.value.map((_, i) => {
-                        const medicationIndex = field.state.value.length - i
-                        const medicationName = field.state.value[i]?.medicationName?.trim() || ''
+                      {medications.map((_, i) => {
+                        const medicationIndex = medications.length - i
+                        const medicationName = medications[i]?.medicationName?.trim() || ''
                         const medicationTitle = medicationName
                           ? `${medicationIndex} - ${medicationName}`
                           : `Medication ${medicationIndex}`
@@ -105,13 +107,13 @@ export const MedicationsStep = withForm({
                                   </Button>
                                 </div>
 
-                                <form.AppField name={`medications[${i}].medicationName`}>
+                                <group.AppField name={`[${i}].medicationName`}>
                                   {(f) => <f.MedicationNameField />}
-                                </form.AppField>
+                                </group.AppField>
 
-                                <form.AppField name={`medications[${i}].detectedAs`}>
+                                <group.AppField name={`[${i}].detectedAs`}>
                                   {(f) => <f.MedicationDetectedAsField />}
-                                </form.AppField>
+                                </group.AppField>
                               </CardContent>
                             </Card>
                           </motion.div>
@@ -122,9 +124,12 @@ export const MedicationsStep = withForm({
                 )}
               </div>
             )
-          }}
-        </form.Field>
+          })()}
       </div>
     )
   },
 })
+
+export function MedicationsStep({ form }: { form: any }) {
+  return <MedicationFields form={form} fields={'medications' as never} />
+}

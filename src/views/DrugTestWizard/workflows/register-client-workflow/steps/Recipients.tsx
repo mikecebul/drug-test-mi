@@ -1,7 +1,8 @@
 'use client'
 
-import { withForm } from '@/blocks/Form/hooks/form'
+import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
+import type { FormValues } from '../validators'
 import { Plus, Trash2 } from 'lucide-react'
 import { useStore } from '@tanstack/react-form'
 import { useEmployerOptions } from '@/app/(frontend)/register/hooks/useEmployerOptions'
@@ -20,18 +21,24 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-export const RecipientsStep = withForm({
-  ...getRegisterClientFormOpts(),
+const RecipientsFields = withFieldGroup<
+  FormValues['recipients'],
+  never,
+  { requestedBy: FormValues['screeningType']['requestedBy'] }
+>({
+  defaultValues: getRegisterClientFormOpts().defaultValues.recipients,
+  props: {
+    requestedBy: '',
+  },
 
-  render: function Render({ form }) {
+  render: function Render({ group, requestedBy }) {
     const CLEAR_SELECTION_VALUE = '__none__'
     const { employers, employersById, isLoading: isLoadingEmployers } = useEmployerOptions()
     const { courts, courtsById, isLoading: isLoadingCourts } = useCourtOptions()
     const groupedCourtOptions = groupCourtSelectOptions(courts)
 
-    const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
-    const selectedEmployerValue = useStore(form.store, (state) => state.values.recipients.selectedEmployer)
-    const selectedCourtValue = useStore(form.store, (state) => state.values.recipients.selectedCourt)
+    const selectedEmployerValue = useStore(group.store, (state) => state.values.selectedEmployer)
+    const selectedCourtValue = useStore(group.store, (state) => state.values.selectedCourt)
 
     const selectedEmployer = selectedEmployerValue ? employersById.get(selectedEmployerValue) || null : null
     const selectedCourt = selectedCourtValue ? courtsById.get(selectedCourtValue) || null : null
@@ -43,7 +50,7 @@ export const RecipientsStep = withForm({
     )
 
     const renderAdditionalReferralRecipientFields = () => (
-      <form.Field name="recipients.additionalReferralRecipients" mode="array">
+      <group.Field name="additionalReferralRecipients" mode="array">
         {(field) => {
           const rows = field.state.value || []
           const referralScopeDescription =
@@ -72,12 +79,12 @@ export const RecipientsStep = withForm({
                 <div className="space-y-3">
                   {rows.map((_, index) => (
                     <div key={`additional-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                      <form.AppField name={`recipients.additionalReferralRecipients[${index}].name` as const}>
+                      <group.AppField name={`additionalReferralRecipients[${index}].name` as const}>
                         {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
-                      </form.AppField>
-                      <form.AppField name={`recipients.additionalReferralRecipients[${index}].email` as const}>
+                      </group.AppField>
+                      <group.AppField name={`additionalReferralRecipients[${index}].email` as const}>
                         {(emailField) => <emailField.EmailField label="Recipient Email" required />}
-                      </form.AppField>
+                      </group.AppField>
                       <Button
                         type="button"
                         variant="outline"
@@ -96,12 +103,12 @@ export const RecipientsStep = withForm({
             </div>
           )
         }}
-      </form.Field>
+      </group.Field>
     )
 
     const renderOtherEmployerPresetRecipientFields = () => (
       <div className="mt-2 space-y-4">
-        <form.Field name="recipients.otherEmployerAdditionalRecipients" mode="array">
+        <group.Field name="otherEmployerAdditionalRecipients" mode="array">
           {(field) => {
             const rows = field.state.value || []
 
@@ -124,12 +131,12 @@ export const RecipientsStep = withForm({
                   <div className="space-y-3">
                     {rows.map((_, index) => (
                       <div key={`other-employer-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                        <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].name` as const}>
+                        <group.AppField name={`otherEmployerAdditionalRecipients[${index}].name` as const}>
                           {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
-                        </form.AppField>
-                        <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].email` as const}>
+                        </group.AppField>
+                        <group.AppField name={`otherEmployerAdditionalRecipients[${index}].email` as const}>
                           {(emailField) => <emailField.EmailField label="Recipient Email" required />}
-                        </form.AppField>
+                        </group.AppField>
                         <Button
                           type="button"
                           variant="outline"
@@ -148,13 +155,13 @@ export const RecipientsStep = withForm({
               </div>
             )
           }}
-        </form.Field>
+        </group.Field>
       </div>
     )
 
     const renderOtherCourtPresetRecipientFields = () => (
       <div className="mt-2 space-y-4">
-        <form.Field name="recipients.otherCourtAdditionalRecipients" mode="array">
+        <group.Field name="otherCourtAdditionalRecipients" mode="array">
           {(field) => {
             const rows = field.state.value || []
 
@@ -177,12 +184,12 @@ export const RecipientsStep = withForm({
                   <div className="space-y-3">
                     {rows.map((_, index) => (
                       <div key={`other-court-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                        <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].name` as const}>
+                        <group.AppField name={`otherCourtAdditionalRecipients[${index}].name` as const}>
                           {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
-                        </form.AppField>
-                        <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].email` as const}>
+                        </group.AppField>
+                        <group.AppField name={`otherCourtAdditionalRecipients[${index}].email` as const}>
                           {(emailField) => <emailField.EmailField label="Recipient Email" required />}
-                        </form.AppField>
+                        </group.AppField>
                         <Button
                           type="button"
                           variant="outline"
@@ -201,7 +208,7 @@ export const RecipientsStep = withForm({
               </div>
             )
           }}
-        </form.Field>
+        </group.Field>
       </div>
     )
 
@@ -210,7 +217,7 @@ export const RecipientsStep = withForm({
 
       return (
         <>
-          <form.AppField name="recipients.selectedEmployer">
+          <group.AppField name="selectedEmployer">
             {(field) => (
               <div className="space-y-2">
                 <label htmlFor="employer-select" className="text-foreground block text-sm font-medium">
@@ -234,7 +241,7 @@ export const RecipientsStep = withForm({
                 <FieldError errors={field.state.meta.errors} />
               </div>
             )}
-          </form.AppField>
+          </group.AppField>
 
           {selectedEmployer?.preferredTestTypeLabel && (
             <div className="bg-muted/50 border-border rounded-lg border p-4">
@@ -259,15 +266,15 @@ export const RecipientsStep = withForm({
 
           {isOther && (
             <>
-              <form.AppField name="recipients.otherEmployerName">
+              <group.AppField name="otherEmployerName">
                 {(field) => <field.TextField label="Employer Name" required />}
-              </form.AppField>
-              <form.AppField name="recipients.otherEmployerMainContactName">
+              </group.AppField>
+              <group.AppField name="otherEmployerMainContactName">
                 {(field) => <field.TextField label="Contact Name (optional)" />}
-              </form.AppField>
-              <form.AppField name="recipients.otherEmployerMainContactEmail">
+              </group.AppField>
+              <group.AppField name="otherEmployerMainContactEmail">
                 {(field) => <field.EmailField label="Contact Email" required />}
-              </form.AppField>
+              </group.AppField>
               {renderOtherEmployerPresetRecipientFields()}
             </>
           )}
@@ -283,7 +290,7 @@ export const RecipientsStep = withForm({
 
       return (
         <>
-          <form.AppField name="recipients.selectedCourt">
+          <group.AppField name="selectedCourt">
             {(field) => {
               const errors = field.state.meta.errors
               const hasErrors = errors.length > 0
@@ -332,7 +339,7 @@ export const RecipientsStep = withForm({
                 </Field>
               )
             }}
-          </form.AppField>
+          </group.AppField>
 
           {selectedCourt && (
             <div className="bg-primary/10 border-primary/20 rounded-lg border p-4">
@@ -354,15 +361,15 @@ export const RecipientsStep = withForm({
 
           {isOther && (
             <>
-              <form.AppField name="recipients.otherCourtName">
+              <group.AppField name="otherCourtName">
                 {(field) => <field.TextField label="Court Name" required />}
-              </form.AppField>
-              <form.AppField name="recipients.otherCourtMainContactName">
+              </group.AppField>
+              <group.AppField name="otherCourtMainContactName">
                 {(field) => <field.TextField label="Contact Name (optional)" />}
-              </form.AppField>
-              <form.AppField name="recipients.otherCourtMainContactEmail">
+              </group.AppField>
+              <group.AppField name="otherCourtMainContactEmail">
                 {(field) => <field.EmailField label="Contact Email" required />}
-              </form.AppField>
+              </group.AppField>
               {renderOtherCourtPresetRecipientFields()}
             </>
           )}
@@ -392,3 +399,10 @@ export const RecipientsStep = withForm({
     )
   },
 })
+
+export function RecipientsStep({ form }: { form: any }) {
+  const requestedBy = useStore(form.store, (state: any) => state.values.screeningType.requestedBy)
+
+  return <RecipientsFields form={form} fields={'recipients' as never} requestedBy={requestedBy} />
+}
+
