@@ -3,7 +3,7 @@
 import { withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { Plus, Trash2 } from 'lucide-react'
-import { useStore } from '@tanstack/react-form'
+import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { useEmployerOptions } from '../hooks/useEmployerOptions'
 import { useCourtOptions } from '../hooks/useCourtOptions'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
@@ -18,10 +18,21 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { groupCourtSelectOptions } from '../utils/groupCourtSelectOptions'
+import { getRecipientsGroupSchema } from '../validators'
+import { RegisterNavigation } from '../components/Navigation'
+import { getFirstGroupError } from '@/views/DrugTestWizard/workflows/form-group-errors'
 
 export const RecipientsStep = withForm({
   ...getRegisterClientFormOpts(),
-  render: function Render({ form }) {
+  props: {} as {
+    isFirstStep?: boolean
+    isLastStep?: boolean
+    isSubmitting?: boolean
+    onBack?: () => void
+    onNext?: () => void
+    onInvalid?: () => void
+  },
+  render: function Render({ form, isFirstStep, isLastStep, isSubmitting, onBack, onNext, onInvalid }) {
     const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
     const CLEAR_SELECTION_VALUE = '__none__'
     const { employers, employersById, isLoading: isLoadingEmployers } = useEmployerOptions()
@@ -367,8 +378,8 @@ export const RecipientsStep = withForm({
       )
     }
 
-    return (
-      <div className="space-y-6">
+    const body = (
+      <div className="wizard-content mb-8 flex-1 space-y-6">
         <div className="mb-6 flex items-center">
           <h2 className="text-foreground text-xl font-semibold">Results Recipients</h2>
         </div>
@@ -385,6 +396,40 @@ export const RecipientsStep = withForm({
           </div>
         )}
       </div>
+    )
+
+    if (!onNext) {
+      return body
+    }
+
+    return (
+      <form.FormGroup
+        name="recipients"
+        validationLogic={revalidateLogic()}
+        validators={{ onDynamic: getRecipientsGroupSchema(requestedBy) }}
+        onGroupSubmit={() => onNext?.()}
+        onGroupSubmitInvalid={() => onInvalid?.()}
+      >
+        {(group) => (
+          <>
+            {body}
+
+            {getFirstGroupError(group.state.meta.errors) || getFirstGroupError(group.state.meta.errorMap) ? (
+              <div className="text-destructive mb-4 space-y-1 text-sm">
+                <p>{getFirstGroupError(group.state.meta.errors) || getFirstGroupError(group.state.meta.errorMap)}</p>
+              </div>
+            ) : null}
+            <RegisterNavigation
+              isFirstStep={isFirstStep ?? false}
+              isLastStep={isLastStep ?? false}
+              isSubmitting={isSubmitting ?? false}
+              isNextDisabled={!group.state.meta.canSubmit || group.state.meta.isSubmitting}
+              onBack={() => onBack?.()}
+              onNext={() => group.handleSubmit()}
+            />
+          </>
+        )}
+      </form.FormGroup>
     )
   },
 })

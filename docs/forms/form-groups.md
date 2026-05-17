@@ -175,3 +175,164 @@ Just like you're able to access `group.state.meta.errors`, you're also able to a
 - `group.state.meta.isGroupValid`: `true` when the group-level validators have no errors
 - `group.state.meta.isValid`: `true` when both the field-level and group-level validators have no errors
 - `group.state.meta.isSubmitting`: `true` when the group is in the process of being submitted
+
+# Example
+[github link](https://github.com/TanStack/form/tree/form-group/examples/react/multi-step-wizard/src/features/wizard)
+
+``` tsx
+// page.tsx
+import { revalidateLogic } from '@tanstack/react-form'
+import { z } from 'zod'
+import { useState } from 'react'
+import { useAppForm } from '../../hooks/form.tsx'
+import { step1Schema, step2Schema, wizardFormOpts } from './shared-form.tsx'
+import { Step2Form } from './step2-subform.tsx'
+import { Step1Form } from './step1-subform.tsx'
+
+export const WizardPage = () => {
+  const [step, setStep] = useState(0)
+  const form = useAppForm({
+    ...wizardFormOpts,
+    validationLogic: revalidateLogic(),
+    validators: {
+      // onDynamic is only used when `form.handleSubmit` is called itself.
+      // When `form.FormGroup`'s `handleSubmit` is called, it will only validate the current step's schema.
+      // This means that this schema will not be called when the user submits the form group, but instead when they submit the entire form.
+      onDynamic: z.object({
+        step1: step1Schema,
+        step2: step2Schema,
+      }),
+    },
+    onSubmit: ({ value }) => {
+      alert(`Form submitted: ${JSON.stringify(value)}`)
+    },
+  })
+
+  return (
+    <>
+      {step === 0 && <Step1Form form={form} step={step} setStep={setStep} />}
+      {step === 1 && <Step2Form form={form} step={step} setStep={setStep} />}
+    </>
+  )
+}
+```
+
+```tsx
+// shared-form.tsx
+import { formOptions } from '@tanstack/react-form'
+import z from 'zod'
+
+export const step1Schema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+})
+
+export const step2Schema = z.object({
+  name: z.string().min(3, 'Name must be at least 3 characters'),
+})
+
+export const wizardFormOpts = formOptions({
+  defaultValues: {
+    step1: {
+      name: '',
+    },
+    step2: {
+      name: '',
+    },
+  },
+})
+```
+```tsx
+// step1-subForm.tsx
+import { withForm } from '../../hooks/form'
+import { step1Schema, wizardFormOpts } from './shared-form'
+
+export const Step1Form = withForm({
+  ...wizardFormOpts,
+  props: {
+    step: 0,
+    setStep: (_step: number) => {},
+  },
+  render: function Render({ form, step, setStep }) {
+    return (
+      <form.FormGroup
+        name="step1"
+        validators={{
+          onDynamic: step1Schema,
+        }}
+        onGroupSubmit={({ value: _value }) => {
+          setStep(step + 1)
+        }}
+        onGroupSubmitInvalid={() => {
+          // Just like a form, you can also handle invalid submits at the group level, which is useful for multi-step wizards to prevent going to the next step if the current step is invalid
+        }}
+      >
+        {(formGroup) => (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              formGroup.handleSubmit()
+            }}
+          >
+            <form.AppField name="step1.name">
+              {(field) => <field.TextField label="Step 1 Name" />}
+            </form.AppField>
+
+            <form.AppForm>
+              <form.SubscribeButton label="Submit" />
+            </form.AppForm>
+            {/* formGroup contains errorMaps and errors, just like forms and fields */}
+            <pre>{JSON.stringify(formGroup.state.meta.errorMap, null, 2)}</pre>
+          </form>
+        )}
+      </form.FormGroup>
+    )
+  },
+})
+```
+
+```tsx
+// step2-subForm.tsx
+import { withForm } from '../../hooks/form'
+import { step2Schema, wizardFormOpts } from './shared-form'
+
+export const Step2Form = withForm({
+  ...wizardFormOpts,
+  props: {
+    step: 1,
+    setStep: (_step: number) => {},
+  },
+  render: function Render({ form, step, setStep }) {
+    return (
+      <form.FormGroup
+        name="step2"
+        validators={{
+          onDynamic: step2Schema,
+        }}
+        onGroupSubmit={({ value: _value }) => {
+          form.handleSubmit()
+        }}
+      >
+        {(formGroup) => (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              formGroup.handleSubmit()
+            }}
+          >
+            <form.AppField name="step2.name">
+              {(field) => <field.TextField label="Step 2 Name" />}
+            </form.AppField>
+
+            <button onClick={() => setStep(step - 1)}>Back</button>
+            <form.AppForm>
+              <form.SubscribeButton label="Submit" />
+            </form.AppForm>
+          </form>
+        )}
+      </form.FormGroup>
+    )
+  },
+})
+```

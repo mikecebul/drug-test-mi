@@ -1,12 +1,12 @@
 'use client'
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { ArrowRight, Check } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useQueryState, parseAsStringLiteral } from 'nuqs'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { toast } from 'sonner'
-import { revalidateLogic, useStore } from '@tanstack/react-form'
+import { useStore } from '@tanstack/react-form'
 import {
   focusFirstInvalidField,
   useStepFocus,
@@ -14,17 +14,10 @@ import {
 import { getClientSideURL } from '@/utilities/getURL'
 import { Button } from '@/components/ui/button'
 import {
-  accountInfoOptionalEmailGroupSchema,
   completeRegistrationSchema,
-  getRecipientsGroupSchema,
-  medicationsSchema,
-  personalInfoSchema,
-  screeningTypeSchema,
   steps,
-  termsSchema,
 } from './validators'
 import { getRegisterClientFormOpts } from './shared-form'
-import { RegisterNavigation } from './components/Navigation'
 import {
   PersonalInfoStep,
   AccountInfoStep,
@@ -34,31 +27,9 @@ import {
   TermsStep,
 } from './steps'
 import { registerWebsiteClientAction } from './actions'
-import { checkEmailExists } from './actions'
-import { getFirstGroupError } from '@/views/DrugTestWizard/workflows/form-group-errors'
-import z from 'zod'
 
 interface RegisterClientWorkflowProps {
   onComplete?: () => void
-}
-
-const staticGroupConfigs = {
-  personalInfo: {
-    name: 'personalInfo' as const,
-    validators: { onDynamic: personalInfoSchema.shape.personalInfo },
-  },
-  screeningType: {
-    name: 'screeningType' as const,
-    validators: { onDynamic: screeningTypeSchema.shape.screeningType },
-  },
-  medications: {
-    name: 'medications' as const,
-    validators: { onDynamic: medicationsSchema.shape.medications },
-  },
-  terms: {
-    name: 'terms' as const,
-    validators: { onDynamic: termsSchema.shape.terms },
-  },
 }
 
 function ProgressBar({
@@ -126,10 +97,6 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
     ...getRegisterClientFormOpts(),
     onSubmit: async ({ value }) => {
       try {
-        if (value.accountInfo.password !== value.accountInfo.confirmPassword) {
-          throw new Error('Passwords do not match')
-        }
-
         const registrationValues = completeRegistrationSchema.parse({
           ...value,
           personalInfo: {
@@ -205,7 +172,7 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
     }
   }
 
-  const handleGroupSubmit = async () => {
+  const handleNextStep = async () => {
     if (!isLastStep) {
       const nextStep = steps[stepIndex + 1]
       if (nextStep) {
@@ -217,67 +184,36 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
     await form.handleSubmit()
   }
 
-  const handleGroupSubmitInvalid = () => {
+  const handleStepInvalid = () => {
     focusFirstInvalidField(formRef.current)
   }
 
-  const groupConfig = useMemo(() => {
-    if (currentStep === 'accountInfo') {
-      return {
-        name: 'accountInfo' as const,
-        validators: {
-          onDynamic: accountInfoOptionalEmailGroupSchema,
-          onSubmitAsync: async ({ value }: { value: typeof form.state.values.accountInfo }) => {
-            const normalizedEmail = value.email.trim().toLowerCase()
-            if (!normalizedEmail || !z.email().safeParse(normalizedEmail).success) {
-              return undefined
-            }
-            try {
-              const emailExists = await checkEmailExists(normalizedEmail)
-              if (emailExists) {
-                return {
-                  fields: {
-                    email: 'An account with this email already exists',
-                  },
-                }
-              }
-            } catch (error) {
-              console.warn('Failed to check email existence:', error)
-            }
-            return undefined
-          },
-        },
-      }
-    }
-
-    if (currentStep === 'recipients') {
-      return {
-        name: 'recipients' as const,
-        validators: {
-          onDynamic: getRecipientsGroupSchema(form.state.values.screeningType.requestedBy),
-        },
-      }
-    }
-
-    return staticGroupConfigs[currentStep]
-  }, [currentStep, form])
-
   const renderStep = () => {
+    const stepProps = {
+      form,
+      isFirstStep,
+      isLastStep,
+      isSubmitting,
+      onBack: handlePrevious,
+      onInvalid: handleStepInvalid,
+      onNext: handleNextStep,
+    }
+
     switch (currentStep) {
       case 'personalInfo':
-        return <PersonalInfoStep form={form} />
+        return <PersonalInfoStep {...stepProps} />
       case 'accountInfo':
-        return <AccountInfoStep form={form} />
+        return <AccountInfoStep {...stepProps} />
       case 'screeningType':
-        return <ScreeningTypeStep form={form} />
+        return <ScreeningTypeStep {...stepProps} />
       case 'recipients':
-        return <RecipientsStep form={form} />
+        return <RecipientsStep {...stepProps} />
       case 'medications':
-        return <MedicationsStep form={form} />
+        return <MedicationsStep {...stepProps} />
       case 'terms':
-        return <TermsStep form={form} />
+        return <TermsStep {...stepProps} />
       default:
-        return <PersonalInfoStep form={form} />
+        return <PersonalInfoStep {...stepProps} />
     }
   }
 
@@ -311,38 +247,7 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
       className="flex flex-1 flex-col"
     >
       <ProgressBar stepIndex={stepIndex} />
-      <form.FormGroup
-        key={currentStep}
-        name={groupConfig.name}
-        validationLogic={revalidateLogic()}
-        validators={groupConfig.validators as never}
-        onGroupSubmit={handleGroupSubmit}
-        onGroupSubmitInvalid={handleGroupSubmitInvalid}
-      >
-        {(group) => (
-          <>
-            <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
-            {(() => {
-              const errorMessage =
-                getFirstGroupError(group.state.meta.errors) ||
-                getFirstGroupError(group.state.meta.errorMap)
-              return errorMessage ? (
-                <div className="text-destructive mb-4 space-y-1 text-sm">
-                  <p>{errorMessage}</p>
-                </div>
-              ) : null
-            })()}
-            <RegisterNavigation
-              isFirstStep={isFirstStep}
-              isLastStep={isLastStep}
-              isSubmitting={isSubmitting}
-              isNextDisabled={!group.state.meta.canSubmit || group.state.meta.isSubmitting}
-              onBack={handlePrevious}
-              onNext={() => group.handleSubmit()}
-            />
-          </>
-        )}
-      </form.FormGroup>
+      {renderStep()}
     </form>
   )
 }

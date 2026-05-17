@@ -1,13 +1,25 @@
 'use client'
 
 import { withForm } from '@/blocks/Form/hooks/form'
+import { revalidateLogic } from '@tanstack/react-form'
 import { getRegisterClientFormOpts } from '../shared-form'
+import { termsSchema } from '../validators'
+import { RegisterNavigation } from '../components/Navigation'
+import { getFirstGroupError } from '@/views/DrugTestWizard/workflows/form-group-errors'
 
 export const TermsStep = withForm({
   ...getRegisterClientFormOpts(),
-  render: function Render({ form }) {
-    return (
-      <div className="space-y-6">
+  props: {} as {
+    isFirstStep?: boolean
+    isLastStep?: boolean
+    isSubmitting?: boolean
+    onBack?: () => void
+    onNext?: () => void
+    onInvalid?: () => void
+  },
+  render: function Render({ form, isFirstStep, isLastStep, isSubmitting, onBack, onNext, onInvalid }) {
+    const body = (
+      <div className="wizard-content mb-8 flex-1 space-y-6">
         <div className="flex items-center mb-6">
           <h2 className="text-xl font-semibold text-foreground">Terms & Conditions</h2>
         </div>
@@ -24,8 +36,7 @@ export const TermsStep = withForm({
               <li>Payment is required before testing can be scheduled</li>
             </ul>
             <p className="mt-3">
-              Additional terms and conditions apply. Full documentation will be provided
-              at the testing facility.
+              Additional terms and conditions apply. Full documentation will be provided at the testing facility.
             </p>
           </div>
         </div>
@@ -56,6 +67,40 @@ export const TermsStep = withForm({
           )}
         </form.AppField>
       </div>
+    )
+
+    if (!onNext) {
+      return body
+    }
+
+    return (
+      <form.FormGroup
+        name="terms"
+        validationLogic={revalidateLogic()}
+        validators={{ onDynamic: termsSchema.shape.terms }}
+        onGroupSubmit={() => onNext?.()}
+        onGroupSubmitInvalid={() => onInvalid?.()}
+      >
+        {(group) => (
+          <>
+            {body}
+
+            {getFirstGroupError(group.state.meta.errors) || getFirstGroupError(group.state.meta.errorMap) ? (
+              <div className="text-destructive mb-4 space-y-1 text-sm">
+                <p>{getFirstGroupError(group.state.meta.errors) || getFirstGroupError(group.state.meta.errorMap)}</p>
+              </div>
+            ) : null}
+            <RegisterNavigation
+              isFirstStep={isFirstStep ?? false}
+              isLastStep={isLastStep ?? false}
+              isSubmitting={isSubmitting ?? false}
+              isNextDisabled={!group.state.meta.canSubmit || group.state.meta.isSubmitting}
+              onBack={() => onBack?.()}
+              onNext={() => group.handleSubmit()}
+            />
+          </>
+        )}
+      </form.FormGroup>
     )
   },
 })

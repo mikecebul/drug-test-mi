@@ -3,15 +3,25 @@
 import { withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { SCREENING_TYPES } from '../types'
-import { useStore } from '@tanstack/react-form'
+import { revalidateLogic, useStore } from '@tanstack/react-form'
+import { screeningTypeSchema } from '../validators'
+import { RegisterNavigation } from '../components/Navigation'
+import { getFirstGroupError } from '@/views/DrugTestWizard/workflows/form-group-errors'
 
 export const ScreeningTypeStep = withForm({
   ...getRegisterClientFormOpts(),
-  render: function Render({ form }) {
+  props: {} as {
+    isFirstStep?: boolean
+    isLastStep?: boolean
+    isSubmitting?: boolean
+    onBack?: () => void
+    onNext?: () => void
+    onInvalid?: () => void
+  },
+  render: function Render({ form, isFirstStep, isLastStep, isSubmitting, onBack, onNext, onInvalid }) {
     const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
-
-    return (
-      <div className="space-y-6">
+    const body = (
+      <div className="wizard-content mb-8 flex-1 space-y-6">
         <div className="mb-6 flex items-center">
           <h2 className="text-foreground text-xl font-semibold">Screening Request</h2>
         </div>
@@ -22,8 +32,7 @@ export const ScreeningTypeStep = withForm({
         </p>
 
         <form.AppField name="screeningType.requestedBy">
-          {(field) => {
-            return (
+          {(field) => (
             <div>
               <label className="text-foreground mb-4 block text-sm font-medium">
                 Who is requesting this drug screening?
@@ -33,9 +42,7 @@ export const ScreeningTypeStep = withForm({
                   <label
                     key={option.value}
                     className={`hover:bg-accent/50 flex cursor-pointer items-center rounded-lg border-2 p-4 transition-all ${
-                      requestedBy === option.value
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border'
+                      requestedBy === option.value ? 'border-primary bg-primary/10' : 'border-border'
                     }`}
                   >
                     <input
@@ -61,9 +68,43 @@ export const ScreeningTypeStep = withForm({
                 </em>
               )}
             </div>
-          )}}
+          )}
         </form.AppField>
       </div>
+    )
+
+    if (!onNext) {
+      return body
+    }
+
+    return (
+      <form.FormGroup
+        name="screeningType"
+        validationLogic={revalidateLogic()}
+        validators={{ onDynamic: screeningTypeSchema.shape.screeningType }}
+        onGroupSubmit={() => onNext?.()}
+        onGroupSubmitInvalid={() => onInvalid?.()}
+      >
+        {(group) => (
+          <>
+            {body}
+
+            {getFirstGroupError(group.state.meta.errors) || getFirstGroupError(group.state.meta.errorMap) ? (
+              <div className="text-destructive mb-4 space-y-1 text-sm">
+                <p>{getFirstGroupError(group.state.meta.errors) || getFirstGroupError(group.state.meta.errorMap)}</p>
+              </div>
+            ) : null}
+            <RegisterNavigation
+              isFirstStep={isFirstStep ?? false}
+              isLastStep={isLastStep ?? false}
+              isSubmitting={isSubmitting ?? false}
+              isNextDisabled={!group.state.meta.canSubmit || group.state.meta.isSubmitting}
+              onBack={() => onBack?.()}
+              onNext={() => group.handleSubmit()}
+            />
+          </>
+        )}
+      </form.FormGroup>
     )
   },
 })
