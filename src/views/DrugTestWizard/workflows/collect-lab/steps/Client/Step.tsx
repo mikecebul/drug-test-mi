@@ -7,7 +7,7 @@ import { SimpleClient } from '../../../components/client/getClients'
 import { ClientStepUI } from '../../../components/client/ClientStepUI'
 
 export const ClientStep = withForm({
-  ...getCollectLabFormOpts('client'),
+  ...getCollectLabFormOpts(),
 
   render: function Render({ form }) {
     // Get selected client ID and data from form state

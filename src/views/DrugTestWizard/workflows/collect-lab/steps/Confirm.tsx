@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 
 export const ConfirmStep = withForm({
-  ...getCollectLabFormOpts('confirm'),
+  ...getCollectLabFormOpts(),
 
   render: function Render({ form }) {
     const [formValues] = useStore(form.store, (state) => [state.values])

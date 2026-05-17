@@ -1,5 +1,5 @@
 import { formOptions } from '@tanstack/react-form'
-import { type FormValues, type Steps } from './validators'
+import { type FormValues } from './validators'
 
 // Generate secure password (duplicated from RegisterClientDialog)
 function generatePassword(): string {
@@ -71,8 +71,7 @@ export const registerClientFormOpts = formOptions({
   defaultValues,
 })
 
-// Step-aware form options for Workflow
-export const getRegisterClientFormOpts = (_step: Steps[number]) =>
+export const getRegisterClientFormOpts = () =>
   formOptions({
     defaultValues,
   })

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
+import { revalidateLogic } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
@@ -28,7 +29,7 @@ import {
 import { extractPdfQueryKey } from '../../queries'
 import { getClientById } from '../components/client/getClients'
 import { getFileFromStorage, clearFileStorage, hasStoredFile } from './utils/fileStorage'
-import { createZodGroupValidator, getFirstGroupError } from '../form-group-validation'
+import { getFirstGroupError } from '../form-group-errors'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface InstantTestWorkflowProps {
@@ -62,7 +63,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   })
 
   const form = useAppForm({
-    ...getInstantTestFormOpts(currentStep),
+    ...getInstantTestFormOpts(),
     onSubmit: async ({ value }) => {
       // Final submit: Create drug test
       console.log(`[InstantTest] Starting final submission...`)
@@ -239,27 +240,27 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       case 'upload':
         return {
           name: 'upload' as const,
-          validators: { onSubmit: createZodGroupValidator(uploadSchema.shape.upload) },
+          validators: { onDynamic: uploadSchema.shape.upload },
         }
       case 'extract':
         return {
           name: 'extract' as const,
-          validators: { onSubmit: createZodGroupValidator(extractSchema.shape.extract) },
+          validators: { onDynamic: extractSchema.shape.extract },
         }
       case 'client':
         return {
           name: 'client' as const,
-          validators: { onSubmit: createZodGroupValidator(clientSchema.shape.client) },
+          validators: { onDynamic: clientSchema.shape.client },
         }
       case 'medications':
         return {
           name: 'medications' as const,
-          validators: { onSubmit: createZodGroupValidator(medicationsSchema.shape.medications) },
+          validators: { onDynamic: medicationsSchema.shape.medications },
         }
       case 'verifyData':
         return {
           name: 'verifyData' as const,
-          validators: { onSubmit: createZodGroupValidator(verifyDataSchema.shape.verifyData) },
+          validators: { onDynamic: verifyDataSchema.shape.verifyData },
         }
       case 'confirm':
         return {
@@ -269,7 +270,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       case 'reviewEmails':
         return {
           name: 'emails' as const,
-          validators: { onSubmit: createZodGroupValidator(emailsGroupSchema) },
+          validators: { onDynamic: emailsGroupSchema },
         }
     }
   })()
@@ -285,6 +286,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       <form.FormGroup
         key={currentStep}
         name={groupConfig.name}
+        validationLogic={revalidateLogic()}
         validators={groupConfig.validators as never}
         onGroupSubmit={handleGroupSubmit}
         onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}

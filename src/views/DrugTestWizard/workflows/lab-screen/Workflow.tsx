@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
+import { revalidateLogic } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
@@ -24,7 +25,7 @@ import {
   uploadSchema,
 } from './validators'
 import { extractPdfQueryKey } from '../../queries'
-import { createZodGroupValidator, getFirstGroupError } from '../form-group-validation'
+import { getFirstGroupError } from '../form-group-errors'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface LabScreenWorkflowProps {
@@ -49,7 +50,7 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
   })
 
   const form = useAppForm({
-    ...getLabScreenFormOpts(currentStep),
+    ...getLabScreenFormOpts(),
     onSubmit: async ({ value }) => {
       // Final submit: Update drug test with lab screening results and send emails
       try {
@@ -126,22 +127,22 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
       case 'upload':
         return {
           name: 'upload' as const,
-          validators: { onSubmit: createZodGroupValidator(uploadSchema.shape.upload) },
+          validators: { onDynamic: uploadSchema.shape.upload },
         }
       case 'extract':
         return {
           name: 'extract' as const,
-          validators: { onSubmit: createZodGroupValidator(extractSchema.shape.extract) },
+          validators: { onDynamic: extractSchema.shape.extract },
         }
       case 'matchCollection':
         return {
           name: 'matchCollection' as const,
-          validators: { onSubmit: createZodGroupValidator(matchCollectionSchema.shape.matchCollection) },
+          validators: { onDynamic: matchCollectionSchema.shape.matchCollection },
         }
       case 'labScreenData':
         return {
           name: 'labScreenData' as const,
-          validators: { onSubmit: createZodGroupValidator(labScreenDataSchema.shape.labScreenData) },
+          validators: { onDynamic: labScreenDataSchema.shape.labScreenData },
         }
       case 'confirm':
         return {
@@ -151,7 +152,7 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
       case 'emails':
         return {
           name: 'emails' as const,
-          validators: { onSubmit: createZodGroupValidator(emailsGroupSchema) },
+          validators: { onDynamic: emailsGroupSchema },
         }
     }
   })()
@@ -167,6 +168,7 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
       <form.FormGroup
         key={currentStep}
         name={groupConfig.name}
+        validationLogic={revalidateLogic()}
         validators={groupConfig.validators as never}
         onGroupSubmit={handleGroupSubmit}
         onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}

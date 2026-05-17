@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { useStore } from '@tanstack/react-form'
+import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -38,18 +38,14 @@ import {
 } from '@/app/(frontend)/register/steps'
 import { defaultValues, getRegisterClientFormOpts } from '@/app/(frontend)/register/shared-form'
 import {
-  accountInfoSchema,
+  accountInfoOptionalEmailGroupSchema,
+  getRecipientsGroupSchema,
   personalInfoSchema,
-  recipientsSchema,
   screeningTypeSchema,
   termsSchema,
   type FormValues,
 } from '@/app/(frontend)/register/validators'
-import {
-  createZodGroupValidator,
-  getFirstGroupError,
-  zodErrorToGroupError,
-} from '@/views/DrugTestWizard/workflows/form-group-validation'
+import { getFirstGroupError } from '@/views/DrugTestWizard/workflows/form-group-errors'
 import { checkEmailExists } from '@/app/(frontend)/register/actions'
 import z from 'zod'
 
@@ -148,7 +144,7 @@ export function RegisterClientDialog({
   }
 
   const form = useAppForm({
-    ...getRegisterClientFormOpts('personalInfo'),
+    ...getRegisterClientFormOpts(),
     defaultValues: dialogDefaultValues,
   })
 
@@ -384,16 +380,13 @@ export function RegisterClientDialog({
       case 0:
         return {
           name: 'personalInfo' as const,
-          validators: { onSubmit: createZodGroupValidator(personalInfoSchema.shape.personalInfo) },
+          validators: { onDynamic: personalInfoSchema.shape.personalInfo },
         }
       case 1:
         return {
           name: 'accountInfo' as const,
           validators: {
-            onSubmit: ({ value }: { value: typeof form.state.values.accountInfo }) => {
-              const result = accountInfoSchema.safeParse({ accountInfo: value })
-              return result.success ? undefined : zodErrorToGroupError(result.error, 'accountInfo')
-            },
+            onDynamic: accountInfoOptionalEmailGroupSchema,
             onSubmitAsync: async ({ value }: { value: typeof form.state.values.accountInfo }) => {
               const email = value.email.trim().toLowerCase()
               if (!email || !z.email().safeParse(email).success) {
@@ -420,26 +413,20 @@ export function RegisterClientDialog({
       case 2:
         return {
           name: 'screeningType' as const,
-          validators: { onSubmit: createZodGroupValidator(screeningTypeSchema.shape.screeningType) },
+          validators: { onDynamic: screeningTypeSchema.shape.screeningType },
         }
       case 3:
         return {
           name: 'recipients' as const,
           validators: {
-            onSubmit: ({ value }: { value: typeof form.state.values.recipients }) => {
-              const result = recipientsSchema.safeParse({
-                recipients: value,
-                screeningType: form.state.values.screeningType,
-              })
-              return result.success ? undefined : zodErrorToGroupError(result.error, 'recipients')
-            },
+            onDynamic: getRecipientsGroupSchema(form.state.values.screeningType.requestedBy),
           },
         }
       case 4:
       default:
         return {
           name: 'terms' as const,
-          validators: { onSubmit: createZodGroupValidator(termsSchema.shape.terms) },
+          validators: { onDynamic: termsSchema.shape.terms },
         }
     }
   })()
@@ -487,6 +474,7 @@ export function RegisterClientDialog({
               <form.FormGroup
                 key={currentStep}
                 name={groupConfig.name}
+        validationLogic={revalidateLogic()}
                 validators={groupConfig.validators as never}
                 onGroupSubmit={currentStep < STEPS.length - 1 ? handleNext : handleSubmit}
                 onGroupSubmitInvalid={({ groupApi }) => {
@@ -517,7 +505,11 @@ export function RegisterClientDialog({
                       </Button>
 
                       {currentStep < STEPS.length - 1 ? (
-                        <Button type="button" onClick={() => group.handleSubmit()}>
+                        <Button
+                          type="button"
+                          onClick={() => group.handleSubmit()}
+                          disabled={!group.state.meta.canSubmit || group.state.meta.isSubmitting}
+                        >
                           Next
                           <ChevronRight className="ml-1 h-4 w-4" />
                         </Button>
@@ -525,7 +517,7 @@ export function RegisterClientDialog({
                         <Button
                           type="button"
                           onClick={() => group.handleSubmit()}
-                          disabled={isSubmitting || group.state.meta.isSubmitting}
+                          disabled={isSubmitting || group.state.meta.isSubmitting || !group.state.meta.canSubmit}
                           className="min-w-35"
                         >
                           {isSubmitting || group.state.meta.isSubmitting ? (

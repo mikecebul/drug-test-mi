@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useQueryState, parseAsStringLiteral } from 'nuqs'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { toast } from 'sonner'
-import { useStore } from '@tanstack/react-form'
+import { revalidateLogic, useStore } from '@tanstack/react-form'
 import {
   focusFirstInvalidField,
   useStepFocus,
@@ -14,11 +14,11 @@ import {
 import { getClientSideURL } from '@/utilities/getURL'
 import { Button } from '@/components/ui/button'
 import {
-  accountInfoSchema,
+  accountInfoOptionalEmailGroupSchema,
   completeRegistrationSchema,
+  getRecipientsGroupSchema,
   medicationsSchema,
   personalInfoSchema,
-  recipientsSchema,
   screeningTypeSchema,
   steps,
   termsSchema,
@@ -35,15 +35,30 @@ import {
 } from './steps'
 import { registerWebsiteClientAction } from './actions'
 import { checkEmailExists } from './actions'
-import {
-  createZodGroupValidator,
-  getFirstGroupError,
-  zodErrorToGroupError,
-} from '@/views/DrugTestWizard/workflows/form-group-validation'
+import { getFirstGroupError } from '@/views/DrugTestWizard/workflows/form-group-errors'
 import z from 'zod'
 
 interface RegisterClientWorkflowProps {
   onComplete?: () => void
+}
+
+const staticGroupConfigs = {
+  personalInfo: {
+    name: 'personalInfo' as const,
+    validators: { onDynamic: personalInfoSchema.shape.personalInfo },
+  },
+  screeningType: {
+    name: 'screeningType' as const,
+    validators: { onDynamic: screeningTypeSchema.shape.screeningType },
+  },
+  medications: {
+    name: 'medications' as const,
+    validators: { onDynamic: medicationsSchema.shape.medications },
+  },
+  terms: {
+    name: 'terms' as const,
+    validators: { onDynamic: termsSchema.shape.terms },
+  },
 }
 
 function ProgressBar({
@@ -84,7 +99,6 @@ function ProgressBar({
 export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowProps) {
   const router = useRouter()
   const [showCompletionFallback, setShowCompletionFallback] = useState(false)
-  const [groupError, setGroupError] = useState<string | null>(null)
   const [currentStepRaw, setCurrentStep] = useQueryState(
     'step',
     parseAsStringLiteral(steps as readonly string[]).withDefault('personalInfo'),
@@ -102,19 +116,14 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
     router.refresh()
   }, [router])
 
-  const clearGroupError = useCallback(() => {
-    setGroupError(null)
-  }, [])
-
   useStepFocus({
     containerRef: formRef,
     disabled: showCompletionFallback,
-    onStepChange: clearGroupError,
     stepKey: currentStep,
   })
 
   const form = useAppForm({
-    ...getRegisterClientFormOpts(currentStep),
+    ...getRegisterClientFormOpts(),
     onSubmit: async ({ value }) => {
       try {
         if (value.accountInfo.password !== value.accountInfo.confirmPassword) {
@@ -197,7 +206,6 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
   }
 
   const handleGroupSubmit = async () => {
-    setGroupError(null)
     if (!isLastStep) {
       const nextStep = steps[stepIndex + 1]
       if (nextStep) {
@@ -209,113 +217,49 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
     await form.handleSubmit()
   }
 
-  const handleGroupSubmitInvalid = (error: unknown) => {
-    const metaMessage = getFirstGroupError(error)
-    if (!metaMessage) {
-      const fallbackMessage = getCurrentStepErrorMessage()
-      setGroupError(fallbackMessage?.toLowerCase().includes('recipient') ? fallbackMessage : null)
-    }
-
+  const handleGroupSubmitInvalid = () => {
     focusFirstInvalidField(formRef.current)
   }
 
-  const getCurrentStepErrorMessage = () => {
-    const value = form.state.values
-    if (
-      currentStep === 'recipients' &&
-      value.recipients.additionalReferralRecipients?.some((recipient) => !recipient.email?.trim())
-    ) {
-      return 'Recipient email is required'
-    }
-
-    const result = (() => {
-      switch (currentStep) {
-        case 'personalInfo':
-          return personalInfoSchema.safeParse({ personalInfo: value.personalInfo })
-        case 'accountInfo':
-          return accountInfoSchema.safeParse({ accountInfo: value.accountInfo })
-        case 'screeningType':
-          return screeningTypeSchema.safeParse({ screeningType: value.screeningType })
-        case 'recipients':
-          return recipientsSchema.safeParse({
-            recipients: value.recipients,
-            screeningType: value.screeningType,
-          })
-        case 'medications':
-          return medicationsSchema.safeParse({ medications: value.medications })
-        case 'terms':
-          return termsSchema.safeParse({ terms: value.terms })
-      }
-    })()
-
-    return result.success ? undefined : result.error.issues[0]?.message
-  }
-
   const groupConfig = useMemo(() => {
-    switch (currentStep) {
-      case 'personalInfo':
-        return {
-          name: 'personalInfo' as const,
-          validators: { onSubmit: createZodGroupValidator(personalInfoSchema.shape.personalInfo) },
-        }
-      case 'accountInfo':
-        return {
-          name: 'accountInfo' as const,
-          validators: {
-            onSubmit: ({ value }: { value: typeof form.state.values.accountInfo }) => {
-              const result = accountInfoSchema.safeParse({ accountInfo: value })
-              return result.success ? undefined : zodErrorToGroupError(result.error, 'accountInfo')
-            },
-            onSubmitAsync: async ({ value }: { value: typeof form.state.values.accountInfo }) => {
-              const normalizedEmail = value.email.trim().toLowerCase()
-              if (!normalizedEmail || !z.email().safeParse(normalizedEmail).success) {
-                return undefined
-              }
-              try {
-                const emailExists = await checkEmailExists(normalizedEmail)
-                if (emailExists) {
-                  return {
-                    fields: {
-                      email: 'An account with this email already exists',
-                    },
-                  }
-                }
-              } catch (error) {
-                console.warn('Failed to check email existence:', error)
-              }
+    if (currentStep === 'accountInfo') {
+      return {
+        name: 'accountInfo' as const,
+        validators: {
+          onDynamic: accountInfoOptionalEmailGroupSchema,
+          onSubmitAsync: async ({ value }: { value: typeof form.state.values.accountInfo }) => {
+            const normalizedEmail = value.email.trim().toLowerCase()
+            if (!normalizedEmail || !z.email().safeParse(normalizedEmail).success) {
               return undefined
-            },
+            }
+            try {
+              const emailExists = await checkEmailExists(normalizedEmail)
+              if (emailExists) {
+                return {
+                  fields: {
+                    email: 'An account with this email already exists',
+                  },
+                }
+              }
+            } catch (error) {
+              console.warn('Failed to check email existence:', error)
+            }
+            return undefined
           },
-        }
-      case 'screeningType':
-        return {
-          name: 'screeningType' as const,
-          validators: { onSubmit: createZodGroupValidator(screeningTypeSchema.shape.screeningType) },
-        }
-      case 'recipients':
-        return {
-          name: 'recipients' as const,
-          validators: {
-            onSubmit: ({ value }: { value: typeof form.state.values.recipients }) => {
-              const result = recipientsSchema.safeParse({
-                recipients: value,
-                screeningType: form.state.values.screeningType,
-              })
-              return result.success ? undefined : zodErrorToGroupError(result.error, 'recipients')
-            },
-          },
-        }
-      case 'medications':
-        return {
-          name: 'medications' as const,
-          validators: { onSubmit: createZodGroupValidator(medicationsSchema.shape.medications) },
-        }
-      case 'terms':
-        return {
-          name: 'terms' as const,
-          validators: { onSubmit: createZodGroupValidator(termsSchema.shape.terms) },
-        }
+        },
+      }
     }
+
+    if (currentStep === 'recipients') {
+      return {
+        name: 'recipients' as const,
+        validators: {
+          onDynamic: getRecipientsGroupSchema(form.state.values.screeningType.requestedBy),
+        },
+      }
+    }
+
+    return staticGroupConfigs[currentStep]
   }, [currentStep, form])
 
   const renderStep = () => {
@@ -370,39 +314,21 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
       <form.FormGroup
         key={currentStep}
         name={groupConfig.name}
+        validationLogic={revalidateLogic()}
         validators={groupConfig.validators as never}
         onGroupSubmit={handleGroupSubmit}
-        onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}
+        onGroupSubmitInvalid={handleGroupSubmitInvalid}
       >
         {(group) => (
           <>
             <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
             {(() => {
-              const hasEmptyRecipient =
-                currentStep === 'recipients' &&
-                form.state.values.recipients.additionalReferralRecipients?.some(
-                  (recipient) => !recipient.email?.trim(),
-                )
-              const medicationErrors =
-                currentStep === 'medications' && group.state.meta.submissionAttempts > 0
-                  ? form.state.values.medications.flatMap((medication) => [
-                      ...(medication.medicationName?.trim() ? [] : ['Medication name is required']),
-                      ...(medication.detectedAs?.length ? [] : ['Select at least one detected substance']),
-                    ])
-                  : []
               const errorMessage =
-                groupError ||
                 getFirstGroupError(group.state.meta.errors) ||
-                getFirstGroupError(group.state.meta.errorMap) ||
-                (group.state.meta.submissionAttempts > 0 && hasEmptyRecipient
-                  ? 'Recipient email is required'
-                  : undefined)
-              return errorMessage || medicationErrors.length ? (
+                getFirstGroupError(group.state.meta.errorMap)
+              return errorMessage ? (
                 <div className="text-destructive mb-4 space-y-1 text-sm">
-                  {errorMessage ? <p>{errorMessage}</p> : null}
-                  {medicationErrors.map((message) => (
-                    <p key={message}>{message}</p>
-                  ))}
+                  <p>{errorMessage}</p>
                 </div>
               ) : null
             })()}
@@ -410,7 +336,7 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
               isFirstStep={isFirstStep}
               isLastStep={isLastStep}
               isSubmitting={isSubmitting}
-              isNextDisabled={false}
+              isNextDisabled={!group.state.meta.canSubmit || group.state.meta.isSubmitting}
               onBack={handlePrevious}
               onNext={() => group.handleSubmit()}
             />

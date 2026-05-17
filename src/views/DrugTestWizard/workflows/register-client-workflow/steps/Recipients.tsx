@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select'
 
 export const RecipientsStep = withForm({
-  ...getRegisterClientFormOpts('recipients'),
+  ...getRegisterClientFormOpts(),
 
   render: function Render({ form }) {
     const CLEAR_SELECTION_VALUE = '__none__'

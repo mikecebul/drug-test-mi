@@ -1,5 +1,5 @@
 import { formOptions } from '@tanstack/react-form'
-import { FormValues, type Steps } from './validators'
+import { FormValues } from './validators'
 
 export type InstantTestType = '15-panel-instant' | '17-panel-instant'
 
@@ -45,8 +45,7 @@ export const instantTestFormOpts = formOptions({
   defaultValues: getDefaultValues(),
 })
 
-// Step-aware form options (for Workflow and step components)
-export const getInstantTestFormOpts = (_step: Steps[number], testType: InstantTestType = '15-panel-instant') =>
+export const getInstantTestFormOpts = (testType: InstantTestType = '15-panel-instant') =>
   formOptions({
     defaultValues: getDefaultValues(testType),
   })

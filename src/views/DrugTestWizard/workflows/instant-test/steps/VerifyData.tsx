@@ -25,7 +25,7 @@ import { useEffect } from 'react'
 type InstantTestType = '15-panel-instant' | '17-panel-instant'
 
 export const VerifyDataStep = withForm({
-  ...getInstantTestFormOpts('verifyData'),
+  ...getInstantTestFormOpts(),
 
   render: function Render({ form }) {
     const queryClient = useQueryClient()

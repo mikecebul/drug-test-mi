@@ -1,10 +1,7 @@
 'use client'
 
 import { formOptions } from '@tanstack/react-form'
-import {
-  type FormValues,
-  type Steps,
-} from './validators'
+import { type FormValues } from './validators'
 
 const defaultValues: FormValues = {
   personalInfo: {
@@ -49,7 +46,7 @@ export const registerClientFormOpts = formOptions({
   defaultValues,
 })
 
-export const getRegisterClientFormOpts = (_step: Steps[number]) =>
+export const getRegisterClientFormOpts = () =>
   formOptions({
     defaultValues,
   })

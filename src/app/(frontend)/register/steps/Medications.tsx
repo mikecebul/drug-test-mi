@@ -9,7 +9,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
 export const MedicationsStep = withForm({
-  ...getRegisterClientFormOpts('medications'),
+  ...getRegisterClientFormOpts(),
 
   render: function Render({ form }) {
     const medicationRowKeysRef = useRef<string[]>([])

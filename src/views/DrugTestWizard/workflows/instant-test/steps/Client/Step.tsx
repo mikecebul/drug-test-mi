@@ -10,7 +10,7 @@ import { saveFileToStorage } from '../../utils/fileStorage'
 import { useExtractPdfQuery, useFindMatchingClientsQuery } from '../../../../queries'
 
 export const ClientStep = withForm({
-  ...getInstantTestFormOpts('client'),
+  ...getInstantTestFormOpts(),
 
   render: function Render({ form }) {
     // Get selected client ID and data from form state

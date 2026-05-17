@@ -14,7 +14,7 @@ import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { getInstantTestFormOpts } from '../shared-form'
 
 export const ExtractStep = withForm({
-  ...getInstantTestFormOpts('extract'),
+  ...getInstantTestFormOpts(),
 
   render: function Render({ form }) {
     const uploadedFile = useStore(form.store, (state) => state.values.upload.file)

@@ -12,6 +12,7 @@ type WorkflowGroup = {
   state: {
     meta: {
       isSubmitting: boolean
+      canSubmit: boolean
       isValid: boolean
       submissionAttempts: number
     }
@@ -35,17 +36,9 @@ export const CollectLabNavigation = withForm({
     const currentStep = currentStepRaw as (typeof steps)[number]
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
-    const emails = useStore(form.store, (state) => state.values.emails)
-
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
-    const currentStepHasErrors =
-      (group.state.meta.submissionAttempts > 0 && !group.state.meta.isValid) ||
-      (currentStep === 'reviewEmails' &&
-        emails.referralEmailEnabled &&
-        emails.referralRecipients.length === 0)
-
     const handleBack = () => {
       if (isFirstStep) {
         onBack()
@@ -72,7 +65,7 @@ export const CollectLabNavigation = withForm({
         <Button
           type="button"
           onClick={() => group.handleSubmit()}
-          disabled={isSubmitting || group.state.meta.isSubmitting || currentStepHasErrors}
+          disabled={isSubmitting || group.state.meta.isSubmitting || !group.state.meta.canSubmit}
           size="lg"
           data-testid="wizard-next-button"
         >

@@ -8,9 +8,11 @@ import {
   screeningRequestFieldSchema,
   termsAndConditionsFieldSchema,
   personalInfoSchema,
+  accountInfoOptionalEmailGroupSchema,
   accountInfoSchema,
   screeningTypeSchema,
   recipientsSchema,
+  getRecipientsGroupSchema,
   termsSchema,
 } from '@/views/DrugTestWizard/workflows/register-client-workflow/validators'
 
@@ -31,9 +33,11 @@ export {
   screeningRequestFieldSchema,
   termsAndConditionsFieldSchema,
   personalInfoSchema,
+  accountInfoOptionalEmailGroupSchema,
   accountInfoSchema,
   screeningTypeSchema,
   recipientsSchema,
+  getRecipientsGroupSchema,
   termsSchema,
 }
 

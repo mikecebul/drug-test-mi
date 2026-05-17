@@ -16,7 +16,7 @@ import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { getLabScreenFormOpts } from '../shared-form'
 
 export const MatchCollectionStep = withForm({
-  ...getLabScreenFormOpts('matchCollection'),
+  ...getLabScreenFormOpts(),
 
   render: function Render({ form }) {
     const [matchedTest, setMatchedTest] = useState<DrugTest | null>(null)

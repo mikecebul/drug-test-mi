@@ -12,6 +12,7 @@ type WorkflowGroup = {
   state: {
     meta: {
       isSubmitting: boolean
+      canSubmit: boolean
       isValid: boolean
       submissionAttempts: number
     }
@@ -34,26 +35,9 @@ export const InstantTestNavigation = withForm({
     const currentStep = currentStepRaw as (typeof steps)[number]
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
-    const verifyData = useStore(form.store, (state) => state.values.verifyData)
-
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
-    const verifyDataMissingDecision =
-      currentStep === 'verifyData' &&
-      group.state.meta.submissionAttempts > 0 &&
-      verifyData.confirmationDecisionRequired &&
-      !verifyData.confirmationDecision
-    const verifyDataMissingSubstances =
-      currentStep === 'verifyData' &&
-      group.state.meta.submissionAttempts > 0 &&
-      verifyData.confirmationDecision === 'request-confirmation' &&
-      !verifyData.confirmationSubstances?.length
-    const currentStepHasErrors =
-      (group.state.meta.submissionAttempts > 0 && !group.state.meta.isValid) ||
-      verifyDataMissingDecision ||
-      verifyDataMissingSubstances
-
     const handleBack = () => {
       if (isFirstStep) {
         onBack()
@@ -79,7 +63,7 @@ export const InstantTestNavigation = withForm({
 
         <Button
           type="button"
-          disabled={isSubmitting || group.state.meta.isSubmitting || currentStepHasErrors}
+          disabled={isSubmitting || group.state.meta.isSubmitting || !group.state.meta.canSubmit}
           size="lg"
           onClick={() => group.handleSubmit()}
           data-testid="wizard-next-button"

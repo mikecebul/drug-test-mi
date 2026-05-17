@@ -1,5 +1,5 @@
 import { formOptions } from '@tanstack/react-form'
-import { type FormValues, type Steps } from './validators'
+import { type FormValues } from './validators'
 
 const getDefaultValues = (): FormValues => ({
   client: {
@@ -33,8 +33,7 @@ export const collectLabFormOpts = formOptions({
   defaultValues: getDefaultValues(),
 })
 
-// Step-aware form options for Workflow.tsx
-export const getCollectLabFormOpts = (_step: Steps[number]) =>
+export const getCollectLabFormOpts = () =>
   formOptions({
     defaultValues: getDefaultValues(),
   })

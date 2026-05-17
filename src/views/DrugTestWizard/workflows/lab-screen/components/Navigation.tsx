@@ -10,6 +10,7 @@ type WorkflowGroup = {
   state: {
     meta: {
       isSubmitting: boolean
+      canSubmit: boolean
       isValid: boolean
       submissionAttempts: number
     }
@@ -29,20 +30,9 @@ export const LabScreenNavigation = withForm({
     const currentStep = currentStepRaw as (typeof steps)[number]
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
-    const labScreenData = useStore(form.store, (state) => state.values.labScreenData)
-
     const currentStepIndex = steps.indexOf(currentStep)
     const isFirstStep = currentStepIndex === 0
     const isLastStep = currentStepIndex === steps.length - 1
-    const currentStepHasErrors =
-      (group.state.meta.submissionAttempts > 0 && !group.state.meta.isValid) ||
-      (currentStep === 'labScreenData' &&
-        labScreenData.confirmationDecisionRequired &&
-        !labScreenData.confirmationDecision) ||
-      (currentStep === 'labScreenData' &&
-        labScreenData.confirmationDecision === 'request-confirmation' &&
-        !labScreenData.confirmationSubstances?.length)
-
     const handleBack = () => {
       if (isFirstStep) {
         onBack()
@@ -59,7 +49,7 @@ export const LabScreenNavigation = withForm({
         <Button
           type="button"
           onClick={() => group.handleSubmit()}
-          disabled={currentStepHasErrors || isSubmitting || group.state.meta.isSubmitting}
+          disabled={isSubmitting || group.state.meta.isSubmitting || !group.state.meta.canSubmit}
           data-testid="wizard-next-button"
         >
           {isLastStep ? 'Update Test Record' : 'Next'}

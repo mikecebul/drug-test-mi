@@ -1,13 +1,14 @@
 'use client'
 
-import { withForm } from '@/blocks/Form/hooks/form'
+import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { GENDER_OPTIONS } from '../types'
+import type { FormValues } from '../validators'
 
-export const PersonalInfoStep = withForm({
-  ...getRegisterClientFormOpts('personalInfo'),
+const PersonalInfoFields = withFieldGroup<FormValues['personalInfo'], never>({
+  defaultValues: getRegisterClientFormOpts().defaultValues.personalInfo,
 
-  render: function Render({ form }) {
+  render: function Render({ group }) {
     return (
       <div className="space-y-6">
         <div className="mb-6 flex items-center">
@@ -15,32 +16,48 @@ export const PersonalInfoStep = withForm({
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <form.AppField name="personalInfo.firstName">
+          <group.AppField name="firstName">
             {(field) => <field.TextField label="First Name" required />}
-          </form.AppField>
+          </group.AppField>
 
-          <form.AppField name="personalInfo.middleInitial">
+          <group.AppField name="middleInitial">
             {(field) => <field.TextField label="Middle Initial" description="Single letter" required />}
-          </form.AppField>
+          </group.AppField>
 
-          <form.AppField name="personalInfo.lastName">
+          <group.AppField name="lastName">
             {(field) => <field.TextField label="Last Name" required />}
-          </form.AppField>
+          </group.AppField>
         </div>
 
-        <form.AppField name="personalInfo.gender">
+        <group.AppField name="gender">
           {(field) => <field.SelectField label="Gender" options={GENDER_OPTIONS} required />}
-        </form.AppField>
+        </group.AppField>
 
-        <form.AppField name="personalInfo.dob">
+        <group.AppField name="dob">
           {(field) => <field.DobField label="Date of Birth" required />}
-        </form.AppField>
+        </group.AppField>
 
-        <form.AppField name="personalInfo.phone">
+        <group.AppField name="phone">
           {(field) => <field.PhoneField label="Phone Number" required />}
-        </form.AppField>
+        </group.AppField>
 
       </div>
     )
   },
 })
+
+export function PersonalInfoStep({ form }: { form: any }) {
+  return (
+    <PersonalInfoFields
+      form={form}
+      fields={{
+        firstName: 'personalInfo.firstName',
+        middleInitial: 'personalInfo.middleInitial',
+        lastName: 'personalInfo.lastName',
+        gender: 'personalInfo.gender',
+        dob: 'personalInfo.dob',
+        phone: 'personalInfo.phone',
+      } as never}
+    />
+  )
+}

@@ -1,5 +1,5 @@
 import { formOptions } from '@tanstack/react-form'
-import { FormValues, steps, type Steps } from './validators'
+import { FormValues, steps } from './validators'
 
 const defaultValues: FormValues = {
   upload: {
@@ -39,8 +39,7 @@ export const labConfirmationFormOpts = formOptions({
   defaultValues,
 })
 
-// Step-aware form options (for Workflow and step components)
-export const getLabConfirmationFormOpts = (_step: Steps[number]) =>
+export const getLabConfirmationFormOpts = () =>
   formOptions({
     defaultValues,
   })

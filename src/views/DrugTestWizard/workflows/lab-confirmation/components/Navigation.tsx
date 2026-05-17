@@ -10,6 +10,7 @@ type WorkflowGroup = {
   state: {
     meta: {
       isSubmitting: boolean
+      canSubmit: boolean
       isValid: boolean
       submissionAttempts: number
     }
@@ -33,7 +34,6 @@ export const LabConfirmationNavigation = withForm({
     const currentStepIndex = steps.indexOf(currentStep)
     const isFirstStep = currentStepIndex === 0
     const isLastStep = currentStepIndex === steps.length - 1
-    const currentStepHasErrors = group.state.meta.submissionAttempts > 0 && !group.state.meta.isValid
 
     const handleBack = () => {
       if (isFirstStep) {
@@ -51,7 +51,7 @@ export const LabConfirmationNavigation = withForm({
         <Button
           type="button"
           onClick={() => group.handleSubmit()}
-          disabled={currentStepHasErrors || isSubmitting || group.state.meta.isSubmitting}
+          disabled={isSubmitting || group.state.meta.isSubmitting || !group.state.meta.canSubmit}
           data-testid="wizard-next-button"
         >
           {isLastStep ? 'Update Test Record' : 'Next'}

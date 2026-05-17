@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { FinalStatus } from '@/collections/DrugTests/services/testResults'
 
 export const ConfirmStep = withForm({
-  ...getLabConfirmationFormOpts('confirm'),
+  ...getLabConfirmationFormOpts(),
 
   render: function Render({ form }) {
     const formValues = useStore(form.store, (state) => state.values)

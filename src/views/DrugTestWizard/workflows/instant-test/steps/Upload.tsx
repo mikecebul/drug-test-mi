@@ -7,7 +7,7 @@ import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { clearFileStorage, hasStoredFile } from '../utils/fileStorage'
 
 export const UploadStep = withForm({
-  ...getInstantTestFormOpts('upload'),
+  ...getInstantTestFormOpts(),
 
   render: function Render({ form }) {
     // Defensively clear any stale files from localStorage when starting fresh

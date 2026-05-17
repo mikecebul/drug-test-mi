@@ -29,7 +29,7 @@ import { format } from 'date-fns'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 
 export const LabScreenDataStep = withForm({
-  ...getLabScreenFormOpts('labScreenData'),
+  ...getLabScreenFormOpts(),
 
   render: function Render({ form }) {
     const queryClient = useQueryClient()

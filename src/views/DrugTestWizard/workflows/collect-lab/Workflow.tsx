@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
+import { revalidateLogic } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { getCollectLabFormOpts } from './shared-form'
@@ -15,7 +16,7 @@ import { createCollectionWithEmailReview } from './actions/createCollectionWithE
 import { TestCompleted } from '../../components/TestCompleted'
 import { clientSchema, collectionSchema, emailsGroupSchema, medicationsSchema, steps } from './validators'
 import { getClientById } from '../components/client/getClients'
-import { createZodGroupValidator, getFirstGroupError } from '../form-group-validation'
+import { getFirstGroupError } from '../form-group-errors'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface CollectLabWorkflowProps {
@@ -28,7 +29,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   // URL is the single source of truth for current step
   const [currentStepRaw, setCurrentStep] = useQueryState(
     'step',
-    parseAsStringLiteral(steps as readonly string[]).withDefault('client'),
+    parseAsStringLiteral(steps).withDefault('client'),
   )
   const currentStep = currentStepRaw as (typeof steps)[number]
 
@@ -42,7 +43,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   })
 
   const form = useAppForm({
-    ...getCollectLabFormOpts(currentStep),
+    ...getCollectLabFormOpts(),
     onSubmit: async ({ value }) => {
       // Final submit only happens on last step
       try {
@@ -160,17 +161,17 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
       case 'client':
         return {
           name: 'client' as const,
-          validators: { onSubmit: createZodGroupValidator(clientSchema.shape.client) },
+          validators: { onDynamic: clientSchema.shape.client },
         }
       case 'medications':
         return {
           name: 'medications' as const,
-          validators: { onSubmit: createZodGroupValidator(medicationsSchema.shape.medications) },
+          validators: { onDynamic: medicationsSchema.shape.medications },
         }
       case 'collection':
         return {
           name: 'collection' as const,
-          validators: { onSubmit: createZodGroupValidator(collectionSchema.shape.collection) },
+          validators: { onDynamic: collectionSchema.shape.collection },
         }
       case 'confirm':
         return {
@@ -180,7 +181,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
       case 'reviewEmails':
         return {
           name: 'emails' as const,
-          validators: { onSubmit: createZodGroupValidator(emailsGroupSchema) },
+          validators: { onDynamic: emailsGroupSchema },
         }
     }
   })()
@@ -196,6 +197,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
       <form.FormGroup
         key={currentStep}
         name={groupConfig.name}
+        validationLogic={revalidateLogic()}
         validators={groupConfig.validators as never}
         onGroupSubmit={handleGroupSubmit}
         onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
+import { revalidateLogic } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
@@ -24,7 +25,7 @@ import {
   uploadSchema,
 } from './validators'
 import { extractPdfQueryKey } from '../../queries'
-import { createZodGroupValidator, getFirstGroupError } from '../form-group-validation'
+import { getFirstGroupError } from '../form-group-errors'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface LabConfirmationWorkflowProps {
@@ -49,7 +50,7 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
   })
 
   const form = useAppForm({
-    ...getLabConfirmationFormOpts(currentStep),
+    ...getLabConfirmationFormOpts(),
     onSubmit: async ({ value }) => {
       // Final submit: Update drug test with confirmation results and send emails
       try {
@@ -126,23 +127,23 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
       case 'upload':
         return {
           name: 'upload' as const,
-          validators: { onSubmit: createZodGroupValidator(uploadSchema.shape.upload) },
+          validators: { onDynamic: uploadSchema.shape.upload },
         }
       case 'extract':
         return {
           name: 'extract' as const,
-          validators: { onSubmit: createZodGroupValidator(extractSchema.shape.extract) },
+          validators: { onDynamic: extractSchema.shape.extract },
         }
       case 'matchCollection':
         return {
           name: 'matchCollection' as const,
-          validators: { onSubmit: createZodGroupValidator(matchCollectionSchema.shape.matchCollection) },
+          validators: { onDynamic: matchCollectionSchema.shape.matchCollection },
         }
       case 'labConfirmationData':
         return {
           name: 'labConfirmationData' as const,
           validators: {
-            onSubmit: createZodGroupValidator(labConfirmationDataSchema.shape.labConfirmationData),
+            onDynamic: labConfirmationDataSchema.shape.labConfirmationData,
           },
         }
       case 'confirm':
@@ -153,7 +154,7 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
       case 'emails':
         return {
           name: 'emails' as const,
-          validators: { onSubmit: createZodGroupValidator(emailsGroupSchema) },
+          validators: { onDynamic: emailsGroupSchema },
         }
     }
   })()
@@ -169,6 +170,7 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
       <form.FormGroup
         key={currentStep}
         name={groupConfig.name}
+        validationLogic={revalidateLogic()}
         validators={groupConfig.validators as never}
         onGroupSubmit={handleGroupSubmit}
         onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}

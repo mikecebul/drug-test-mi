@@ -2,15 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
+import { revalidateLogic } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
 import { getRegisterClientFormOpts } from './shared-form'
 import {
-  accountInfoSchema,
+  accountInfoOptionalEmailGroupSchema,
   formSchema,
+  getRecipientsGroupSchema,
   personalInfoSchema,
-  recipientsSchema,
   screeningTypeSchema,
   steps,
   termsSchema,
@@ -26,12 +27,27 @@ import { RegisterClientNavigation } from './components/Navigation'
 import { registerClientAction } from './actions/registerClientAction'
 import { useRouter } from 'next/navigation'
 import { checkEmailExists } from '@/app/(frontend)/register/actions'
-import { createZodGroupValidator, getFirstGroupError, zodErrorToGroupError } from '../form-group-validation'
+import { getFirstGroupError } from '../form-group-errors'
 import z from 'zod'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface RegisterClientWorkflowProps {
   onBack: () => void
+}
+
+const staticGroupConfigs = {
+  personalInfo: {
+    name: 'personalInfo' as const,
+    validators: { onDynamic: personalInfoSchema.shape.personalInfo },
+  },
+  screeningType: {
+    name: 'screeningType' as const,
+    validators: { onDynamic: screeningTypeSchema.shape.screeningType },
+  },
+  terms: {
+    name: 'terms' as const,
+    validators: { onDynamic: termsSchema.shape.terms },
+  },
 }
 
 export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) {
@@ -65,7 +81,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
   })
 
   const form = useAppForm({
-    ...getRegisterClientFormOpts(currentStep),
+    ...getRegisterClientFormOpts(),
     onSubmit: async ({ value }) => {
       // Final submit on last step
       const registrationValues = formSchema.parse({
@@ -189,77 +205,49 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
     focusFirstInvalidField(formRef.current)
   }
 
-  const groupConfig = (() => {
-    switch (currentStep) {
-      case 'personalInfo':
-        return {
-          name: 'personalInfo' as const,
-          validators: { onSubmit: createZodGroupValidator(personalInfoSchema.shape.personalInfo) },
+  const accountInfoGroupConfig = {
+    name: 'accountInfo' as const,
+    validators: {
+      onDynamic: accountInfoOptionalEmailGroupSchema,
+      onSubmitAsync: async ({ value }: { value: typeof form.state.values.accountInfo }) => {
+        if (value.noEmail) {
+          return undefined
         }
-      case 'accountInfo':
-        return {
-          name: 'accountInfo' as const,
-          validators: {
-            onSubmit: ({ value }: { value: typeof form.state.values.accountInfo }) => {
-              if (value.noEmail) {
-                return undefined
-              }
 
-              const result = accountInfoSchema.safeParse({ accountInfo: value })
-              return result.success ? undefined : zodErrorToGroupError(result.error, 'accountInfo')
+        const email = value.email
+        if (!email || !z.email().safeParse(email).success) {
+          return undefined
+        }
+
+        try {
+          const emailExists = await checkEmailExists(email)
+          if (emailExists) {
+            return {
+              fields: {
+                email: 'An account with this email already exists',
+              },
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to check email existence:', error)
+        }
+
+        return undefined
+      },
+    },
+  }
+
+  const groupConfig =
+    currentStep === 'accountInfo'
+      ? accountInfoGroupConfig
+      : currentStep === 'recipients'
+        ? {
+            name: 'recipients' as const,
+            validators: {
+              onDynamic: getRecipientsGroupSchema(form.state.values.screeningType.requestedBy),
             },
-            onSubmitAsync: async ({ value }: { value: typeof form.state.values.accountInfo }) => {
-              if (value.noEmail) {
-                return undefined
-              }
-
-              const email = value.email
-              if (!email || !z.email().safeParse(email).success) {
-                return undefined
-              }
-
-              try {
-                const emailExists = await checkEmailExists(email)
-                if (emailExists) {
-                  return {
-                    fields: {
-                      email: 'An account with this email already exists',
-                    },
-                  }
-                }
-              } catch (error) {
-                console.warn('Failed to check email existence:', error)
-              }
-
-              return undefined
-            },
-          },
-        }
-      case 'screeningType':
-        return {
-          name: 'screeningType' as const,
-          validators: { onSubmit: createZodGroupValidator(screeningTypeSchema.shape.screeningType) },
-        }
-      case 'recipients':
-        return {
-          name: 'recipients' as const,
-          validators: {
-            onSubmit: ({ value }: { value: typeof form.state.values.recipients }) => {
-              const result = recipientsSchema.safeParse({
-                recipients: value,
-                screeningType: form.state.values.screeningType,
-              })
-              return result.success ? undefined : zodErrorToGroupError(result.error, 'recipients')
-            },
-          },
-        }
-      case 'terms':
-        return {
-          name: 'terms' as const,
-          validators: { onSubmit: createZodGroupValidator(termsSchema.shape.terms) },
-        }
-    }
-  })()
+          }
+        : staticGroupConfigs[currentStep]
 
   return (
     <form
@@ -273,6 +261,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
       <form.FormGroup
         key={currentStep}
         name={groupConfig.name}
+        validationLogic={revalidateLogic()}
         validators={groupConfig.validators as never}
         onGroupSubmit={handleGroupSubmit}
         onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}

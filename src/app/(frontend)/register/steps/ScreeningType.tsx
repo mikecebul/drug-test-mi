@@ -1,15 +1,16 @@
 'use client'
 
-import { withForm } from '@/blocks/Form/hooks/form'
+import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { SCREENING_TYPES } from '../types'
 import { useStore } from '@tanstack/react-form'
+import type { FormValues } from '../validators'
 
-export const ScreeningTypeStep = withForm({
-  ...getRegisterClientFormOpts('screeningType'),
+const ScreeningTypeFields = withFieldGroup<FormValues['screeningType'], never>({
+  defaultValues: getRegisterClientFormOpts().defaultValues.screeningType,
 
-  render: function Render({ form }) {
-    const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
+  render: function Render({ group }) {
+    const requestedBy = useStore(group.store, (state) => state.values.requestedBy)
 
     return (
       <div className="space-y-6">
@@ -22,9 +23,8 @@ export const ScreeningTypeStep = withForm({
           selected for your appointments.
         </p>
 
-        <form.AppField name="screeningType.requestedBy">
+        <group.AppField name="requestedBy">
           {(field) => {
-            const hasErrors = field.state.meta.errors.length > 0
             return (
             <div>
               <label className="text-foreground mb-4 block text-sm font-medium">
@@ -47,7 +47,6 @@ export const ScreeningTypeStep = withForm({
                       checked={requestedBy === option.value}
                       onChange={(e) => field.handleChange(e.target.value as (typeof SCREENING_TYPES)[number]['value'])}
                       className="text-primary border-border focus:ring-primary h-5 w-5"
-                      aria-invalid={hasErrors || undefined}
                     />
                     <div className="ml-3">
                       <span className="text-foreground text-base font-medium">{option.label}</span>
@@ -65,8 +64,19 @@ export const ScreeningTypeStep = withForm({
               )}
             </div>
           )}}
-        </form.AppField>
+        </group.AppField>
       </div>
     )
   },
 })
+
+export function ScreeningTypeStep({ form }: { form: any }) {
+  return (
+    <ScreeningTypeFields
+      form={form}
+      fields={{
+        requestedBy: 'screeningType.requestedBy',
+      } as never}
+    />
+  )
+}

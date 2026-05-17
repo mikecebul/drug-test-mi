@@ -24,7 +24,7 @@ const TEST_LABELS: Record<(typeof labTests)[number], string> = {
 }
 
 export const CollectionStep = withForm({
-  ...getCollectLabFormOpts('collection'),
+  ...getCollectLabFormOpts(),
 
   render: function Render({ form }) {
     const queryClient = useQueryClient()
