@@ -1,14 +1,13 @@
 'use client'
 
-import { withFieldGroup } from '@/blocks/Form/hooks/form'
+import { withFieldGroup, withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { TriangleAlert } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { FieldError } from '@/components/ui/field'
-import type { FormValues } from '../validators'
 
-const TermsFields = withFieldGroup<FormValues['terms'], never>({
+const TermsFields = withFieldGroup({
   defaultValues: getRegisterClientFormOpts().defaultValues.terms,
 
   render: function Render({ group }) {
@@ -70,13 +69,9 @@ const TermsFields = withFieldGroup<FormValues['terms'], never>({
   },
 })
 
-export function TermsStep({ form }: { form: any }) {
-  return (
-    <TermsFields
-      form={form}
-      fields={{
-        agreeToTerms: 'terms.agreeToTerms',
-      } as never}
-    />
-  )
-}
+export const TermsStep = withForm({
+  ...getRegisterClientFormOpts(),
+  render: function Render({ form }) {
+    return <TermsFields form={form} fields="terms" />
+  },
+})

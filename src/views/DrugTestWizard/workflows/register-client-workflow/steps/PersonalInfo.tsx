@@ -1,12 +1,11 @@
 'use client'
 
-import { withFieldGroup } from '@/blocks/Form/hooks/form'
+import { withFieldGroup, withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { GENDER_OPTIONS } from '@/app/(frontend)/register/types'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
-import type { FormValues } from '../validators'
 
-const PersonalInfoFields = withFieldGroup<FormValues['personalInfo'], never>({
+const PersonalInfoFields = withFieldGroup({
   defaultValues: getRegisterClientFormOpts().defaultValues.personalInfo,
 
   render: function Render({ group }) {
@@ -54,18 +53,9 @@ const PersonalInfoFields = withFieldGroup<FormValues['personalInfo'], never>({
   },
 })
 
-export function PersonalInfoStep({ form }: { form: any }) {
-  return (
-    <PersonalInfoFields
-      form={form}
-      fields={{
-        firstName: 'personalInfo.firstName',
-        lastName: 'personalInfo.lastName',
-        middleInitial: 'personalInfo.middleInitial',
-        gender: 'personalInfo.gender',
-        dob: 'personalInfo.dob',
-        phone: 'personalInfo.phone',
-      } as never}
-    />
-  )
-}
+export const PersonalInfoStep = withForm({
+  ...getRegisterClientFormOpts(),
+  render: function Render({ form }) {
+    return <PersonalInfoFields form={form} fields="personalInfo" />
+  },
+})

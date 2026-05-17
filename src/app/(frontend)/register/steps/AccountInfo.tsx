@@ -1,10 +1,9 @@
 'use client'
 
-import { withFieldGroup } from '@/blocks/Form/hooks/form'
+import { withFieldGroup, withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
-import type { FormValues } from '../validators'
 
-const AccountInfoFields = withFieldGroup<FormValues['accountInfo'], never>({
+const AccountInfoFields = withFieldGroup({
   defaultValues: getRegisterClientFormOpts().defaultValues.accountInfo,
 
   render: function Render({ group }) {
@@ -30,15 +29,9 @@ const AccountInfoFields = withFieldGroup<FormValues['accountInfo'], never>({
   },
 })
 
-export function AccountInfoStep({ form }: { form: any }) {
-  return (
-    <AccountInfoFields
-      form={form}
-      fields={{
-        email: 'accountInfo.email',
-        password: 'accountInfo.password',
-        confirmPassword: 'accountInfo.confirmPassword',
-      } as never}
-    />
-  )
-}
+export const AccountInfoStep = withForm({
+  ...getRegisterClientFormOpts(),
+  render: function Render({ form }) {
+    return <AccountInfoFields form={form} fields="accountInfo" />
+  },
+})

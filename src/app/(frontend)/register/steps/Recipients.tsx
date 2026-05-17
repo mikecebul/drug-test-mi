@@ -1,6 +1,6 @@
 'use client'
 
-import { withFieldGroup } from '@/blocks/Form/hooks/form'
+import { withFieldGroup, withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import type { FormValues } from '../validators'
 import { Plus, Trash2 } from 'lucide-react'
@@ -20,15 +20,14 @@ import {
 } from '@/components/ui/select'
 import { groupCourtSelectOptions } from '../utils/groupCourtSelectOptions'
 
-const RecipientsFields = withFieldGroup<
-  FormValues['recipients'],
-  never,
-  { requestedBy: FormValues['screeningType']['requestedBy'] }
->({
+const defaultRequestedBy: FormValues['screeningType']['requestedBy'] = ''
+const recipientsFieldProps: { requestedBy: FormValues['screeningType']['requestedBy'] } = {
+  requestedBy: defaultRequestedBy,
+}
+
+const RecipientsFields = withFieldGroup({
   defaultValues: getRegisterClientFormOpts().defaultValues.recipients,
-  props: {
-    requestedBy: '',
-  },
+  props: recipientsFieldProps,
 
   render: function Render({ group, requestedBy }) {
     const CLEAR_SELECTION_VALUE = '__none__'
@@ -397,9 +396,11 @@ const RecipientsFields = withFieldGroup<
   },
 })
 
-export function RecipientsStep({ form }: { form: any }) {
-  const requestedBy = useStore(form.store, (state: any) => state.values.screeningType.requestedBy)
+export const RecipientsStep = withForm({
+  ...getRegisterClientFormOpts(),
+  render: function Render({ form }) {
+    const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
 
-  return <RecipientsFields form={form} fields={'recipients' as never} requestedBy={requestedBy} />
-}
-
+    return <RecipientsFields form={form} fields="recipients" requestedBy={requestedBy} />
+  },
+})

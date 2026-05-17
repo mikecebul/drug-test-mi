@@ -1,22 +1,20 @@
 'use client'
 
 import { useRef } from 'react'
-import { withFieldGroup } from '@/blocks/Form/hooks/form'
+import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Trash2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import type { FormValues } from '../validators'
 
-const MedicationFields = withFieldGroup<FormValues['medications'], never>({
-  defaultValues: getRegisterClientFormOpts().defaultValues.medications,
-
-  render: function Render({ group }) {
+export const MedicationsStep = withForm({
+  ...getRegisterClientFormOpts(),
+  render: function Render({ form }) {
     const medicationRowKeysRef = useRef<string[]>([])
     const nextMedicationRowKeyRef = useRef(1)
-    const medications = useStore(group.store, (state) => state.values)
+    const medications = useStore(form.store, (state) => state.values.medications)
 
     const createMedicationRowKey = () => {
       const key = `medication-row-${nextMedicationRowKeyRef.current}`
@@ -36,8 +34,9 @@ const MedicationFields = withFieldGroup<FormValues['medications'], never>({
           positives.
         </div>
 
-        {(() => {
-            const rowCount = medications.length
+        <form.Field name="medications" mode="array">
+          {(field) => {
+            const rowCount = field.state.value.length
 
             if (medicationRowKeysRef.current.length < rowCount) {
               const missing = rowCount - medicationRowKeysRef.current.length
@@ -50,15 +49,15 @@ const MedicationFields = withFieldGroup<FormValues['medications'], never>({
 
             const handleAddMedication = () => {
               medicationRowKeysRef.current.unshift(createMedicationRowKey())
-              group.insertFieldValue('' as never, 0, {
+              field.insertValue(0, {
                 medicationName: '',
                 detectedAs: [],
-              } as never)
+              })
             }
 
             const handleRemoveMedication = (index: number) => {
               medicationRowKeysRef.current.splice(index, 1)
-              group.removeFieldValue('' as never, index)
+              field.removeValue(index)
             }
 
             return (
@@ -107,13 +106,13 @@ const MedicationFields = withFieldGroup<FormValues['medications'], never>({
                                   </Button>
                                 </div>
 
-                                <group.AppField name={`[${i}].medicationName`}>
-                                  {(f) => <f.MedicationNameField />}
-                                </group.AppField>
+                                <form.AppField name={`medications[${i}].medicationName`}>
+                                  {(medicationNameField) => <medicationNameField.MedicationNameField />}
+                                </form.AppField>
 
-                                <group.AppField name={`[${i}].detectedAs`}>
-                                  {(f) => <f.MedicationDetectedAsField />}
-                                </group.AppField>
+                                <form.AppField name={`medications[${i}].detectedAs`}>
+                                  {(detectedAsField) => <detectedAsField.MedicationDetectedAsField />}
+                                </form.AppField>
                               </CardContent>
                             </Card>
                           </motion.div>
@@ -124,12 +123,9 @@ const MedicationFields = withFieldGroup<FormValues['medications'], never>({
                 )}
               </div>
             )
-          })()}
+          }}
+        </form.Field>
       </div>
     )
   },
 })
-
-export function MedicationsStep({ form }: { form: any }) {
-  return <MedicationFields form={form} fields={'medications' as never} />
-}

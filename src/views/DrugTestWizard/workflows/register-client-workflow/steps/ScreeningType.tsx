@@ -1,14 +1,13 @@
 'use client'
 
-import { withFieldGroup } from '@/blocks/Form/hooks/form'
+import { withFieldGroup, withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { useStore } from '@tanstack/react-form'
 import { SCREENING_TYPES } from '@/app/(frontend)/register/types'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { FieldError } from '@/components/ui/field'
-import type { FormValues } from '../validators'
 
-const ScreeningTypeFields = withFieldGroup<FormValues['screeningType'], never>({
+const ScreeningTypeFields = withFieldGroup({
   defaultValues: getRegisterClientFormOpts().defaultValues.screeningType,
 
   render: function Render({ group }) {
@@ -53,13 +52,9 @@ const ScreeningTypeFields = withFieldGroup<FormValues['screeningType'], never>({
   },
 })
 
-export function ScreeningTypeStep({ form }: { form: any }) {
-  return (
-    <ScreeningTypeFields
-      form={form}
-      fields={{
-        requestedBy: 'screeningType.requestedBy',
-      } as never}
-    />
-  )
-}
+export const ScreeningTypeStep = withForm({
+  ...getRegisterClientFormOpts(),
+  render: function Render({ form }) {
+    return <ScreeningTypeFields form={form} fields="screeningType" />
+  },
+})
