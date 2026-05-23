@@ -69,7 +69,7 @@ export const RegisterClientNavigation = withForm({
         <Button
           type="button"
           onClick={() => group.handleSubmit()}
-          disabled={isSubmitting || group.state.meta.isSubmitting || !group.state.meta.canSubmit}
+          disabled={isSubmitting || group.state.meta.isSubmitting}
           size="lg"
           data-testid="wizard-next-button"
         >

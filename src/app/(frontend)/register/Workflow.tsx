@@ -185,7 +185,10 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
   }
 
   const handleStepInvalid = () => {
-    focusFirstInvalidField(formRef.current)
+    const focusedField = focusFirstInvalidField(formRef.current)
+    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
+      id: 'registration-step-invalid',
+    })
   }
 
   const renderStep = () => {

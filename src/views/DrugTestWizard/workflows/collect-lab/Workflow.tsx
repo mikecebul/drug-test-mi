@@ -17,7 +17,6 @@ import { createCollectionWithEmailReview } from './actions/createCollectionWithE
 import { TestCompleted } from '../../components/TestCompleted'
 import { clientSchema, collectionSchema, emailsGroupSchema, medicationsSchema, steps } from './validators'
 import { getClientById } from '../components/client/getClients'
-import { getFirstGroupError } from '../form-group-errors'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface CollectLabWorkflowProps {
@@ -132,12 +131,11 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
     await form.handleSubmit()
   }
 
-  const handleGroupSubmitInvalid = (error: unknown) => {
-    const message = getFirstGroupError(error)
-    if (message) {
-      toast.error(message)
-    }
-    focusFirstInvalidField(formRef.current)
+  const handleGroupSubmitInvalid = (_error?: unknown) => {
+    const focusedField = focusFirstInvalidField(formRef.current)
+    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
+      id: 'collect-lab-step-invalid',
+    })
   }
 
   const renderStep = () => {

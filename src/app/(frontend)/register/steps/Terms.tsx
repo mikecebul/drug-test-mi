@@ -5,7 +5,6 @@ import { revalidateLogic } from '@tanstack/react-form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { termsSchema } from '../validators'
 import { RegisterNavigation } from '../components/Navigation'
-import { getFirstGroupError } from '@/views/DrugTestWizard/workflows/form-group-errors'
 
 export const TermsStep = withForm({
   ...getRegisterClientFormOpts(),
@@ -85,16 +84,11 @@ export const TermsStep = withForm({
           <>
             {body}
 
-            {getFirstGroupError(group.state.meta.errors) || getFirstGroupError(group.state.meta.errorMap) ? (
-              <div className="text-destructive mb-4 space-y-1 text-sm">
-                <p>{getFirstGroupError(group.state.meta.errors) || getFirstGroupError(group.state.meta.errorMap)}</p>
-              </div>
-            ) : null}
             <RegisterNavigation
               isFirstStep={isFirstStep ?? false}
               isLastStep={isLastStep ?? false}
               isSubmitting={isSubmitting ?? false}
-              isNextDisabled={!group.state.meta.canSubmit || group.state.meta.isSubmitting}
+              isNextDisabled={group.state.meta.isSubmitting}
               onBack={() => onBack?.()}
               onNext={() => group.handleSubmit()}
             />

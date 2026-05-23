@@ -412,10 +412,6 @@ export const RecipientsStep = withForm({
         {(group) => (
           <>
             {body}
-            {group.state.meta.submissionAttempts > 0 &&
-            form.state.values.recipients.additionalReferralRecipients?.some((recipient) => !recipient.email?.trim()) ? (
-              <p className="text-destructive mb-4 text-sm">Recipient email is required</p>
-            ) : null}
             <RegisterClientNavigation form={form} group={group} onBack={onBack ?? (() => {})} />
           </>
         )}

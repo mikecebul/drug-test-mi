@@ -30,22 +30,10 @@ export const LabScreenNavigation = withForm({
     const currentStep = currentStepRaw as (typeof steps)[number]
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
-    const labScreenData = useStore(form.store, (state) => state.values.labScreenData)
     const currentStepIndex = steps.indexOf(currentStep)
     const isFirstStep = currentStepIndex === 0
     const isLastStep = currentStepIndex === steps.length - 1
-    const confirmationDecisionCanAdvance =
-      currentStep === 'labScreenData' && (
-        !labScreenData.confirmationDecisionRequired ||
-        labScreenData.confirmationDecision === 'accept' ||
-        labScreenData.confirmationDecision === 'pending-decision' ||
-        (labScreenData.confirmationDecision === 'request-confirmation' &&
-          (labScreenData.confirmationSubstances?.length ?? 0) > 0)
-      )
-    const nextDisabled =
-      isSubmitting ||
-      group.state.meta.isSubmitting ||
-      (!group.state.meta.canSubmit && !confirmationDecisionCanAdvance)
+    const nextDisabled = isSubmitting || group.state.meta.isSubmitting
     const handleBack = () => {
       if (isFirstStep) {
         onBack()

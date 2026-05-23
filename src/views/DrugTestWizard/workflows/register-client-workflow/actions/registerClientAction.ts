@@ -112,7 +112,16 @@ export async function registerClientAction(formData: CompleteRegistrationValues)
     const formattedMiddleInitial = formatMiddleInitial(personalInfo.middleInitial)
     const formattedPhone = formatPhoneNumber(personalInfo.phone)
     const noEmail = accountInfo.noEmail === true
-    const submittedEmail = accountInfo.email.trim().toLowerCase()
+    const submittedEmail = (accountInfo.email ?? '').trim().toLowerCase()
+    const submittedPassword = accountInfo.password
+
+    if (!submittedPassword) {
+      throw new Error('Password is required.')
+    }
+
+    if (!noEmail && !submittedEmail) {
+      throw new Error('Email is required.')
+    }
 
     const clientEmail = noEmail
       ? await generatePlaceholderEmail(payload, formattedFirstName, formattedLastName)
@@ -139,7 +148,7 @@ export async function registerClientAction(formData: CompleteRegistrationValues)
       lastName: formattedLastName,
       ...(formattedMiddleInitial && { middleInitial: formattedMiddleInitial }),
       email: clientEmail,
-      password: accountInfo.password,
+      password: submittedPassword,
       gender: personalInfo.gender,
       dob: personalInfo.dob,
       phone: formattedPhone,

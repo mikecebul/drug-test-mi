@@ -19,7 +19,6 @@ import { TermsStep } from './steps/Terms'
 import { SuccessStep } from './steps/Success'
 import { registerClientAction } from './actions/registerClientAction'
 import { useRouter } from 'next/navigation'
-import { getFirstGroupError } from '../form-group-errors'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface RegisterClientWorkflowProps {
@@ -76,7 +75,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
           firstName: value.personalInfo.firstName,
           lastName: value.personalInfo.lastName,
           middleInitial: value.personalInfo.middleInitial,
-          email: result.clientEmail || value.accountInfo.email,
+          email: result.clientEmail || value.accountInfo.email || '',
           dob: typeof value.personalInfo.dob === 'string'
             ? value.personalInfo.dob
             : value.personalInfo.dob.toISOString(),
@@ -156,12 +155,11 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
     await form.handleSubmit()
   }
 
-  const handleStepInvalid = (error: unknown) => {
-    const message = getFirstGroupError(error)
-    if (message) {
-      toast.error(message)
-    }
-    focusFirstInvalidField(formRef.current)
+  const handleStepInvalid = () => {
+    const focusedField = focusFirstInvalidField(formRef.current)
+    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
+      id: 'register-client-step-invalid',
+    })
   }
 
   const renderStep = () => {

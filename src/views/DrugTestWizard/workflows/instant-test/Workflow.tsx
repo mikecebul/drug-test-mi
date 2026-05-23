@@ -32,7 +32,6 @@ import type { ExtractedPdfData } from '../../queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { getClientById } from '../components/client/getClients'
 import { getFileFromStorage, clearFileStorage, hasStoredFile, saveFileToStorage } from './utils/fileStorage'
-import { getFirstGroupError } from '../form-group-errors'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface InstantTestWorkflowProps {
@@ -223,12 +222,11 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     await form.handleSubmit()
   }
 
-  const handleGroupSubmitInvalid = (error: unknown) => {
-    const message = getFirstGroupError(error)
-    if (message) {
-      toast.error(message)
-    }
-    focusFirstInvalidField(formRef.current)
+  const handleGroupSubmitInvalid = (_error?: unknown) => {
+    const focusedField = focusFirstInvalidField(formRef.current)
+    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
+      id: 'instant-test-step-invalid',
+    })
   }
 
   const renderStep = () => {

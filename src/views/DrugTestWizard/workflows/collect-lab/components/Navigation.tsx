@@ -36,9 +36,13 @@ export const CollectLabNavigation = withForm({
     const currentStep = currentStepRaw as (typeof steps)[number]
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
+    const referralEmailEnabled = useStore(form.store, (state) => state.values.emails.referralEmailEnabled)
+    const referralRecipients = useStore(form.store, (state) => state.values.emails.referralRecipients)
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
+    const isMissingRequiredReferralRecipient =
+      isLastStep && referralEmailEnabled && referralRecipients.length === 0
     const handleBack = () => {
       if (isFirstStep) {
         onBack()
@@ -65,7 +69,7 @@ export const CollectLabNavigation = withForm({
         <Button
           type="button"
           onClick={() => group.handleSubmit()}
-          disabled={isSubmitting || group.state.meta.isSubmitting || !group.state.meta.canSubmit}
+          disabled={isSubmitting || group.state.meta.isSubmitting || isMissingRequiredReferralRecipient}
           size="lg"
           data-testid="wizard-next-button"
         >

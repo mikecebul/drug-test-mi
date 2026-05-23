@@ -238,6 +238,15 @@ export const accountInfoSchema = z
     path: ['accountInfo', 'confirmPassword'],
   })
 
+const accountPasswordFieldSchema = accountInfoFieldSchema.pick({
+  password: true,
+  confirmPassword: true,
+})
+
+const accountEmailFieldSchema = accountInfoFieldSchema.pick({
+  email: true,
+})
+
 export const accountInfoOptionalEmailGroupSchema = z
   .object({
     noEmail: z.boolean().optional(),
@@ -246,20 +255,15 @@ export const accountInfoOptionalEmailGroupSchema = z
     confirmPassword: z.string().optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.noEmail) {
-      return
-    }
-
-    const result = accountInfoFieldSchema.safeParse(data)
-    if (!result.success) {
-      result.error.issues.forEach((issue) => {
+    const passwordResult = accountPasswordFieldSchema.safeParse(data)
+    if (!passwordResult.success) {
+      passwordResult.error.issues.forEach((issue) => {
         ctx.addIssue({
           code: 'custom',
           message: issue.message,
           path: issue.path,
         })
       })
-      return
     }
 
     if (data.password !== data.confirmPassword) {
@@ -267,6 +271,21 @@ export const accountInfoOptionalEmailGroupSchema = z
         code: 'custom',
         message: "Passwords don't match",
         path: ['confirmPassword'],
+      })
+    }
+
+    if (data.noEmail) {
+      return
+    }
+
+    const emailResult = accountEmailFieldSchema.safeParse(data)
+    if (!emailResult.success) {
+      emailResult.error.issues.forEach((issue) => {
+        ctx.addIssue({
+          code: 'custom',
+          message: issue.message,
+          path: issue.path,
+        })
       })
     }
   })
@@ -298,7 +317,7 @@ export const termsSchema = z.object({
 
 export const formSchema = z.object({
   personalInfo: personalInfoSchema.shape.personalInfo,
-  accountInfo: accountInfoSchema.shape.accountInfo,
+  accountInfo: accountInfoOptionalEmailGroupSchema,
   screeningType: screeningTypeSchema.shape.screeningType,
   recipients: recipientsSchema.shape.recipients,
   terms: termsSchema.shape.terms,

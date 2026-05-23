@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -45,8 +45,8 @@ import {
   termsSchema,
   type FormValues,
 } from '@/app/(frontend)/register/validators'
-import { getFirstGroupError } from '@/views/DrugTestWizard/workflows/form-group-errors'
 import { checkEmailExists } from '@/app/(frontend)/register/actions'
+import { focusFirstInvalidField } from '@/lib/form-scroll-focus'
 import z from 'zod'
 
 interface RegisterClientDialogProps {
@@ -109,6 +109,7 @@ export function RegisterClientDialog({
   const [createdClient, setCreatedClient] = useState<ClientMatch | null>(null)
   const [passwordCopied, setPasswordCopied] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const formRef = useRef<HTMLFormElement | null>(null)
 
   // Map PDF gender code to form gender value
   const mapGenderValue = (pdfGender: string | null): string => {
@@ -168,6 +169,13 @@ export function RegisterClientDialog({
     if (currentStep < STEPS.length - 1) {
       setCurrentStep(currentStep + 1)
     }
+  }
+
+  const handleStepInvalid = () => {
+    const focusedField = focusFirstInvalidField(formRef.current)
+    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
+      id: 'register-client-dialog-step-invalid',
+    })
   }
 
   const handlePrevious = () => {
@@ -463,6 +471,7 @@ export function RegisterClientDialog({
           )}
 
           <form
+            ref={formRef}
             onSubmit={(e) => {
               e.preventDefault()
               e.stopPropagation()
@@ -474,24 +483,14 @@ export function RegisterClientDialog({
               <form.FormGroup
                 key={currentStep}
                 name={groupConfig.name}
-        validationLogic={revalidateLogic()}
+                validationLogic={revalidateLogic()}
                 validators={groupConfig.validators as never}
                 onGroupSubmit={currentStep < STEPS.length - 1 ? handleNext : handleSubmit}
-                onGroupSubmitInvalid={({ groupApi }) => {
-                  const message = getFirstGroupError(groupApi.state.meta.errors)
-                  if (message) {
-                    toast.error(message)
-                  }
-                }}
+                onGroupSubmitInvalid={handleStepInvalid}
               >
                 {(group) => (
                   <>
                     {renderStepContent()}
-                    {group.state.meta.submissionAttempts > 0 && !group.state.meta.isValid ? (
-                      <p className="text-destructive mt-4 text-sm">
-                        {getFirstGroupError(group.state.meta.errors)}
-                      </p>
-                    ) : null}
 
                     <div className="mt-6 flex justify-between">
                       <Button
@@ -508,7 +507,7 @@ export function RegisterClientDialog({
                         <Button
                           type="button"
                           onClick={() => group.handleSubmit()}
-                          disabled={!group.state.meta.canSubmit || group.state.meta.isSubmitting}
+                          disabled={group.state.meta.isSubmitting}
                         >
                           Next
                           <ChevronRight className="ml-1 h-4 w-4" />
@@ -517,7 +516,7 @@ export function RegisterClientDialog({
                         <Button
                           type="button"
                           onClick={() => group.handleSubmit()}
-                          disabled={isSubmitting || group.state.meta.isSubmitting || !group.state.meta.canSubmit}
+                          disabled={isSubmitting || group.state.meta.isSubmitting}
                           className="min-w-35"
                         >
                           {isSubmitting || group.state.meta.isSubmitting ? (

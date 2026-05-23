@@ -27,7 +27,6 @@ import {
 } from './validators'
 import { extractPdfQueryKey } from '../../queries'
 import type { ExtractedPdfData } from '../../queries'
-import { getFirstGroupError } from '../form-group-errors'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface LabConfirmationWorkflowProps {
@@ -97,12 +96,11 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
     await form.handleSubmit()
   }
 
-  const handleGroupSubmitInvalid = (error: unknown) => {
-    const message = getFirstGroupError(error)
-    if (message) {
-      toast.error(message)
-    }
-    focusFirstInvalidField(formRef.current)
+  const handleGroupSubmitInvalid = (_error?: unknown) => {
+    const focusedField = focusFirstInvalidField(formRef.current)
+    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
+      id: 'lab-confirmation-step-invalid',
+    })
   }
 
   const renderStep = () => {

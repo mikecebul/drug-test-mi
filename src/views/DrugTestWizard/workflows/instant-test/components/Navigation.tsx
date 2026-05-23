@@ -35,22 +35,10 @@ export const InstantTestNavigation = withForm({
     const currentStep = currentStepRaw as (typeof steps)[number]
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
-    const verifyData = useStore(form.store, (state) => state.values.verifyData)
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
-    const confirmationDecisionCanAdvance =
-      currentStep === 'verifyData' && (
-        !verifyData.confirmationDecisionRequired ||
-        verifyData.confirmationDecision === 'accept' ||
-        verifyData.confirmationDecision === 'pending-decision' ||
-        (verifyData.confirmationDecision === 'request-confirmation' &&
-          (verifyData.confirmationSubstances?.length ?? 0) > 0)
-      )
-    const nextDisabled =
-      isSubmitting ||
-      group.state.meta.isSubmitting ||
-      (!group.state.meta.canSubmit && !confirmationDecisionCanAdvance)
+    const nextDisabled = isSubmitting || group.state.meta.isSubmitting
     const handleBack = () => {
       if (isFirstStep) {
         onBack()

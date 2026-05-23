@@ -8,7 +8,6 @@ import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { accountInfoOptionalEmailGroupSchema } from '../validators'
 import { RegisterClientNavigation } from '../components/Navigation'
-import { AccountPasswordFields } from '@/app/(frontend)/register/steps'
 import { checkEmailExists } from '@/app/(frontend)/register/actions'
 import z from 'zod'
 
@@ -57,7 +56,7 @@ export const AccountInfoStep = withForm({
               name="accountInfo.email"
               validators={{
                 onSubmitAsync: async ({ value }) => {
-                  const normalizedEmail = value.trim().toLowerCase()
+                  const normalizedEmail = (value ?? '').trim().toLowerCase()
                   if (!normalizedEmail || !z.email().safeParse(normalizedEmail).success) {
                     return undefined
                   }
@@ -78,7 +77,25 @@ export const AccountInfoStep = withForm({
               {(field) => <field.EmailField label="Email Address" required />}
             </form.AppField>
 
-            <AccountPasswordFields form={form} fields="accountInfo" />
+            <form.AppField name="accountInfo.password">
+              {(field) => <field.PasswordField label="Password" required autoComplete="new-password" />}
+            </form.AppField>
+
+            <form.AppField
+              name="accountInfo.confirmPassword"
+              validators={{
+                onChangeListenTo: ['accountInfo.password'],
+                onChange: ({ value, fieldApi }) => {
+                  const password = fieldApi.form.getFieldValue('accountInfo.password')
+                  if (password && value !== password) {
+                    return { message: "Passwords don't match" }
+                  }
+                  return undefined
+                },
+              }}
+            >
+              {(field) => <field.PasswordField label="Confirm Password" required autoComplete="new-password" />}
+            </form.AppField>
           </>
         )}
 

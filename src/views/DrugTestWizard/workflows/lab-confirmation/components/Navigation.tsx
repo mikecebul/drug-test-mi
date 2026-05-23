@@ -51,7 +51,7 @@ export const LabConfirmationNavigation = withForm({
         <Button
           type="button"
           onClick={() => group.handleSubmit()}
-          disabled={isSubmitting || group.state.meta.isSubmitting || !group.state.meta.canSubmit}
+          disabled={isSubmitting || group.state.meta.isSubmitting}
           data-testid="wizard-next-button"
         >
           {isLastStep ? 'Update Test Record' : 'Next'}
