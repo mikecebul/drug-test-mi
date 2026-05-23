@@ -5,7 +5,7 @@ export type InstantTestType = '15-panel-instant' | '17-panel-instant'
 
 const getDefaultValues = (testType: InstantTestType = '15-panel-instant'): FormValues => ({
   upload: {
-    file: null as any, // Will be set by user
+    file: null as unknown as File, // Will be set by user
   },
   extract: {
     extracted: false,
@@ -23,7 +23,7 @@ const getDefaultValues = (testType: InstantTestType = '15-panel-instant'): FormV
   medications: [],
   verifyData: {
     testType,
-    collectionDate: new Date().toISOString(),
+    collectionDate: '',
     detectedSubstances: [],
     isDilute: false,
     breathalyzerTaken: false,

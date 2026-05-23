@@ -179,7 +179,7 @@ Just like you're able to access `group.state.meta.errors`, you're also able to a
 # Example
 [github link](https://github.com/TanStack/form/tree/form-group/examples/react/multi-step-wizard/src/features/wizard)
 
-``` tsx
+```tsx
 // page.tsx
 import { revalidateLogic } from '@tanstack/react-form'
 import { z } from 'zod'

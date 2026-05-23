@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
-import { revalidateLogic } from '@tanstack/react-form'
+import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
@@ -31,7 +31,7 @@ import { extractPdfQueryKey } from '../../queries'
 import type { ExtractedPdfData } from '../../queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { getClientById } from '../components/client/getClients'
-import { getFileFromStorage, clearFileStorage, hasStoredFile } from './utils/fileStorage'
+import { getFileFromStorage, clearFileStorage, hasStoredFile, saveFileToStorage } from './utils/fileStorage'
 import { getFirstGroupError } from '../form-group-errors'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
@@ -42,6 +42,7 @@ interface InstantTestWorkflowProps {
 export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   const queryClient = useQueryClient()
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
+  const [isRestoringFile, setIsRestoringFile] = useState(true)
 
   // Wrap onBack to clear storage when navigating away
   const handleBack = () => {
@@ -131,16 +132,21 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       }
     },
   })
+  const uploadedFile = useStore(form.store, (state) => state.values.upload.file)
 
   // Restore file from localStorage on mount (e.g., after returning from registration)
   useEffect(() => {
     const restoreFile = async () => {
-      if (hasStoredFile() && !form.state.values.upload.file) {
-        const file = await getFileFromStorage()
-        if (file) {
-          form.setFieldValue('upload.file', file)
-          toast.success('Uploaded file restored')
+      try {
+        if (hasStoredFile() && !form.state.values.upload.file) {
+          const file = await getFileFromStorage()
+          if (file) {
+            form.setFieldValue('upload.file', file)
+            toast.success('Uploaded file restored')
+          }
         }
+      } finally {
+        setIsRestoringFile(false)
       }
     }
 
@@ -149,13 +155,24 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Keep the uploaded PDF available across refreshes and workflow detours.
+  useEffect(() => {
+    if (uploadedFile) {
+      void saveFileToStorage(uploadedFile)
+    }
+  }, [uploadedFile])
+
   // Guard against skipping into a later step without required base data
   useEffect(() => {
-    if (currentStep !== 'upload' && !form.state.values.upload.file) {
+    if (isRestoringFile) {
+      return
+    }
+
+    if (currentStep !== 'upload' && !uploadedFile) {
       setCurrentStep('upload', { history: 'replace' })
       toast.info('Please start from the beginning')
     }
-  }, [currentStep, form, setCurrentStep])
+  }, [currentStep, isRestoringFile, setCurrentStep, uploadedFile])
 
   // Handle client pre-population from registration workflow
   useEffect(() => {
@@ -177,9 +194,6 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
 
             // Clear the clientId param after population
             setClientId(null)
-
-            // Clear stored file after successful restoration of both file and client
-            clearFileStorage()
           }
         } catch (error) {
           console.error('Failed to fetch client:', error)

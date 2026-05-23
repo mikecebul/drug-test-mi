@@ -12,7 +12,11 @@ export function getFirstGroupError(error: unknown): string | undefined {
   }
 
   if (typeof error === 'object') {
-    const errorRecord = error as { group?: unknown; fields?: Record<string, unknown> }
+    const errorRecord = error as { group?: unknown; fields?: Record<string, unknown>; message?: unknown }
+
+    const directMessage = getFirstGroupError(errorRecord.message)
+    if (directMessage) return directMessage
+
     const groupMessage = getFirstGroupError(errorRecord.group)
     if (groupMessage) return groupMessage
 

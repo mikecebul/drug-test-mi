@@ -268,9 +268,11 @@ export const LabScreenDataStep = withForm({
                   <p className="text-muted-foreground mb-3 text-sm font-medium">How would you like to proceed?</p>
                   <RadioGroup
                     value={confirmationDecisionValue || ''}
-                    onValueChange={(value) =>
-                      handleConfirmationDecisionChange(value as 'accept' | 'request-confirmation' | 'pending-decision')
-                    }
+                    onValueChange={(value) => {
+                      const decision = value as 'accept' | 'request-confirmation' | 'pending-decision'
+                      field.handleChange(decision)
+                      handleConfirmationDecisionChange(decision)
+                    }}
                     className="space-y-2.5"
                   >
                     <Label

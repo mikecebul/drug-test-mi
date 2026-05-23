@@ -34,6 +34,12 @@ export const VerifyDataStep = withForm({
     const verifyData = formValues.verifyData
     const medications = formValues.medications
 
+    useEffect(() => {
+      if (!verifyData?.collectionDate) {
+        form.setFieldValue('verifyData.collectionDate', new Date().toISOString())
+      }
+    }, [form, verifyData?.collectionDate])
+
     // Convert form client to SimpleClient type with derived fields
     const client = formClient?.id
       ? {
@@ -302,9 +308,11 @@ export const VerifyDataStep = withForm({
                   <FieldLabel>How would you like to proceed?</FieldLabel>
                   <RadioGroup
                     value={confirmationDecisionValue || ''}
-                    onValueChange={(value) =>
-                      handleConfirmationDecisionChange(value as 'accept' | 'request-confirmation' | 'pending-decision')
-                    }
+                    onValueChange={(value) => {
+                      const decision = value as 'accept' | 'request-confirmation' | 'pending-decision'
+                      field.handleChange(decision)
+                      handleConfirmationDecisionChange(decision)
+                    }}
                     className="space-y-2.5"
                   >
                     <Label
