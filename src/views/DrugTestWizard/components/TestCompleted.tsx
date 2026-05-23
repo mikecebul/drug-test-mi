@@ -20,7 +20,7 @@ export const TestCompleted = ({ testId, onBack }: { testId: string; onBack: () =
 
       <div className="flex flex-col justify-center gap-3 sm:flex-row">
         <Button onClick={onBack} size="lg" className="text-lg">
-          Start New Test
+          Choose Another Workflow
         </Button>
         <Button
           data-testid="wizard-view-drug-test-button"

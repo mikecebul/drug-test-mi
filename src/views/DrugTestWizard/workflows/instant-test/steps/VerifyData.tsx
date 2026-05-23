@@ -75,6 +75,8 @@ export const VerifyDataStep = withForm({
       }
       if (requiresDecision === false) {
         form.setFieldValue('verifyData.confirmationDecisionRequired', false)
+        form.setFieldValue('verifyData.confirmationDecision', undefined)
+        form.setFieldValue('verifyData.confirmationSubstances', [])
         form.validate('submit')
       }
     }, [requiresDecision, form])

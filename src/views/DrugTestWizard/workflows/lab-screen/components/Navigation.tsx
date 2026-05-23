@@ -35,12 +35,13 @@ export const LabScreenNavigation = withForm({
     const isFirstStep = currentStepIndex === 0
     const isLastStep = currentStepIndex === steps.length - 1
     const confirmationDecisionCanAdvance =
-      currentStep === 'labScreenData' &&
-      labScreenData.confirmationDecisionRequired &&
-      (labScreenData.confirmationDecision === 'accept' ||
+      currentStep === 'labScreenData' && (
+        !labScreenData.confirmationDecisionRequired ||
+        labScreenData.confirmationDecision === 'accept' ||
         labScreenData.confirmationDecision === 'pending-decision' ||
         (labScreenData.confirmationDecision === 'request-confirmation' &&
-          (labScreenData.confirmationSubstances?.length ?? 0) > 0))
+          (labScreenData.confirmationSubstances?.length ?? 0) > 0)
+      )
     const nextDisabled =
       isSubmitting ||
       group.state.meta.isSubmitting ||

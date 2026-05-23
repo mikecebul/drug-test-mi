@@ -40,12 +40,13 @@ export const InstantTestNavigation = withForm({
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
     const confirmationDecisionCanAdvance =
-      currentStep === 'verifyData' &&
-      verifyData.confirmationDecisionRequired &&
-      (verifyData.confirmationDecision === 'accept' ||
+      currentStep === 'verifyData' && (
+        !verifyData.confirmationDecisionRequired ||
+        verifyData.confirmationDecision === 'accept' ||
         verifyData.confirmationDecision === 'pending-decision' ||
         (verifyData.confirmationDecision === 'request-confirmation' &&
-          (verifyData.confirmationSubstances?.length ?? 0) > 0))
+          (verifyData.confirmationSubstances?.length ?? 0) > 0)
+      )
     const nextDisabled =
       isSubmitting ||
       group.state.meta.isSubmitting ||
