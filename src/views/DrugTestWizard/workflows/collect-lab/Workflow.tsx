@@ -37,7 +37,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
 
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)
-  const [presetTestType] = useQueryState('testType', parseAsString)
+  const [presetTestType] = useQueryState('testType', parseAsStringLiteral(labTests))
   const [bookingId] = useQueryState('bookingId', parseAsString)
   const hydratedClientIdRef = useRef<string | null>(null)
   const formRef = useRef<HTMLFormElement | null>(null)
@@ -81,8 +81,8 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   })
 
   useEffect(() => {
-    if (labTests.includes(presetTestType as (typeof labTests)[number])) {
-      form.setFieldValue('collection.testType', presetTestType as (typeof labTests)[number])
+    if (presetTestType) {
+      form.setFieldValue('collection.testType', presetTestType)
     }
   }, [form, presetTestType])
 

@@ -41,6 +41,8 @@ interface InstantTestWorkflowProps {
   onBack: () => void
 }
 
+const instantTestTypes = ['15-panel-instant', '17-panel-instant'] as const
+
 export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -61,7 +63,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
 
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)
-  const [presetTestType] = useQueryState('testType', parseAsString)
+  const [presetTestType] = useQueryState('testType', parseAsStringLiteral(instantTestTypes))
   const [bookingId] = useQueryState('bookingId', parseAsString)
   const hydratedClientIdRef = useRef<string | null>(null)
   const initialTestType: InstantTestType =

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { parseAsString, useQueryStates } from 'nuqs'
+import { parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs'
 import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -45,6 +45,8 @@ type PaymentMethod = 'cash' | 'card' | 'not-paid' | 'pre-paid'
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type WorkflowStep = 'schedule' | 'registration' | 'payment' | 'toxaccess'
 type PaymentChoice = 'paid' | 'pre-paid' | 'still-owes'
+
+const workflowSteps = ['schedule', 'registration', 'payment', 'toxaccess'] as const
 
 interface GuidedWorkflowProps {
   onBack: () => void
@@ -216,7 +218,7 @@ function getNextStep(booking: Booking): WorkflowStep {
 export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const router = useRouter()
   const [query, setQuery] = useQueryStates({
-    step: parseAsString.withDefault('schedule'),
+    step: parseAsStringLiteral(workflowSteps).withDefault('schedule'),
     bookingId: parseAsString,
   })
   const {
@@ -241,9 +243,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     () => bookings.find((booking) => booking.id === query.bookingId) ?? null,
     [bookings, query.bookingId],
   )
-  const currentStep = (['schedule', 'registration', 'payment', 'toxaccess'].includes(query.step)
-    ? query.step
-    : 'schedule') as WorkflowStep
+  const currentStep: WorkflowStep = query.step
   const [paymentDraft, setPaymentDraft] = useState<ReturnType<typeof getPaymentDefaults> | null>(null)
   const payment = paymentDraft ?? getPaymentDefaults(selectedBooking)
   const balanceDue = Math.max(0, payment.amountDue - payment.amountPaid)
