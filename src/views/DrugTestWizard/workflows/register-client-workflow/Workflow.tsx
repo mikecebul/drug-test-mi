@@ -20,6 +20,10 @@ import { SuccessStep } from './steps/Success'
 import { registerClientAction } from './actions/registerClientAction'
 import { useRouter } from 'next/navigation'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
+import {
+  getBookingRegistrationDefaults,
+  linkBookingToClient,
+} from '../complete-workflow/actions'
 
 interface RegisterClientWorkflowProps {
   onBack: () => void
@@ -48,6 +52,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
 
   // Get returnTo param to know where user came from
   const [returnTo] = useQueryState('returnTo', parseAsString)
+  const [bookingId] = useQueryState('bookingId', parseAsString)
   const formRef = useRef<HTMLFormElement | null>(null)
 
   useStepFocus({
@@ -98,6 +103,22 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
     },
   })
 
+  useEffect(() => {
+    if (!bookingId) return
+    if (form.state.values.personalInfo.firstName || form.state.values.accountInfo.email) return
+
+    getBookingRegistrationDefaults(bookingId)
+      .then((defaults) => {
+        if (defaults.firstName) form.setFieldValue('personalInfo.firstName', defaults.firstName)
+        if (defaults.lastName) form.setFieldValue('personalInfo.lastName', defaults.lastName)
+        if (defaults.email) form.setFieldValue('accountInfo.email', defaults.email)
+        if (defaults.phone) form.setFieldValue('personalInfo.phone', defaults.phone)
+      })
+      .catch((error) => {
+        console.error('Failed to load booking registration defaults:', error)
+      })
+  }, [bookingId, form])
+
   // Guard against skipping into a later step without required base data
   useEffect(() => {
     if (currentStep !== 'personalInfo' && !form.state.values.personalInfo.firstName) {
@@ -119,6 +140,9 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
         router.push(`/admin/drug-test-upload?workflow=collect-lab&step=client&clientId=${createdClientId}`)
       } else if (returnTo === 'dashboard') {
         router.push('/admin')
+      } else if (returnTo === 'complete-workflow' && bookingId) {
+        await linkBookingToClient(bookingId, createdClientId)
+        router.push(`/admin/drug-test-upload?workflow=complete-workflow&step=appointments&bookingId=${bookingId}`)
       } else {
         // No specific workflow, return to wizard selector
         onBack()

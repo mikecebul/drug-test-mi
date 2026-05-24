@@ -60,6 +60,9 @@ export function SuccessStep({
     if (isDashboardReturn) {
       return 'Back to Dashboard'
     }
+    if (returnTo === 'complete-workflow') {
+      return 'Continue Scheduled Collection'
+    }
     return 'Back to Workflow Selector'
   }
 

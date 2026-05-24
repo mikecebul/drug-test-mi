@@ -5,6 +5,7 @@ const TEST_TYPE = {
   label: '17-Panel Instant',
   bookingLabel: '17 Panel Instant',
   category: 'instant' as const,
+  price: 35,
   isActive: true,
 }
 

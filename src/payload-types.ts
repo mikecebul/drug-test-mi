@@ -1129,6 +1129,17 @@ export interface Booking {
    * Client linked to this booking (auto-populated via email match)
    */
   relatedClient?: (string | null) | Client;
+  /**
+   * Payment collected before specimen collection.
+   */
+  payment?: {
+    amountDue?: number | null;
+    amountPaid?: number | null;
+    method?: ('cash' | 'card' | 'not-paid') | null;
+    status?: ('paid' | 'partial' | 'unpaid') | null;
+    collectedAt?: string | null;
+    notes?: string | null;
+  };
   location?: string | null;
   /**
    * Cal.com booking UID
@@ -1463,6 +1474,10 @@ export interface TestType {
    * Helps filter test types in future workflows.
    */
   category?: ('instant' | 'lab') | null;
+  /**
+   * Standard client price in USD.
+   */
+  price: number;
   /**
    * Employers currently mapped to this preferred test type.
    */
@@ -2796,6 +2811,16 @@ export interface BookingsSelect<T extends boolean = true> {
   attendeeName?: T;
   attendeeEmail?: T;
   relatedClient?: T;
+  payment?:
+    | T
+    | {
+        amountDue?: T;
+        amountPaid?: T;
+        method?: T;
+        status?: T;
+        collectedAt?: T;
+        notes?: T;
+      };
   location?: T;
   calcomBookingId?: T;
   eventTypeId?: T;
@@ -3197,6 +3222,7 @@ export interface TestTypesSelect<T extends boolean = true> {
   value?: T;
   bookingLabel?: T;
   category?: T;
+  price?: T;
   employers?: T;
   courts?: T;
   isActive?: T;

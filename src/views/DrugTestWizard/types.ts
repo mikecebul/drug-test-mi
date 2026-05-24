@@ -1,6 +1,7 @@
 import type { SubstanceValue } from '@/fields/substanceOptions'
 
 export const WIZARD_OPTIONS = [
+  'complete-workflow',
   'register-client',
   'collect-lab',
   'instant-test',

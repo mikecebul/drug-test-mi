@@ -11,6 +11,7 @@ import { InstantTestWorkflow } from './workflows/instant-test/Workflow'
 import type { WizardType } from './types'
 import { WizardHeader } from './components/main-wizard/WizardHeader'
 import { CollectLabWorkflow } from './workflows/collect-lab/Workflow'
+import { CompleteWorkflow } from './workflows/complete-workflow/Workflow'
 import { steps as collectLabSteps } from './workflows/collect-lab/validators'
 import { RegisterClientWorkflow } from './workflows/register-client-workflow/Workflow'
 import { steps as registerClientSteps } from './workflows/register-client-workflow/validators'
@@ -20,6 +21,7 @@ import { steps as labConfirmationSteps } from './workflows/lab-confirmation/vali
 import { clearWizardQueryCache } from './queries'
 
 const workflowTypes = [
+  'complete-workflow',
   'register-client',
   'collect-lab',
   'enter-lab-screen',
@@ -38,6 +40,7 @@ export function DrugTestWizardClient() {
       workflow: parseAsStringLiteral(workflowTypes),
       step: parseAsString, // Use generic string so it accepts all workflow step types
       clientId: parseAsString,
+      bookingId: parseAsString,
       reset: parseAsString,
     },
     {
@@ -48,6 +51,7 @@ export function DrugTestWizardClient() {
   const { reset, workflow } = states
 
   const firstStepMap: Record<Workflows[number], string> = {
+    'complete-workflow': 'appointments',
     'register-client': registerClientSteps[0],
     'collect-lab': collectLabSteps[0],
     'instant-test': instantTestSteps[0],
@@ -63,6 +67,7 @@ export function DrugTestWizardClient() {
       workflow: null,
       step: null,
       clientId: null,
+      bookingId: null,
     })
   }
 
@@ -74,6 +79,7 @@ export function DrugTestWizardClient() {
       workflow: wizardType,
       step: firstStepMap[wizardType] ?? null,
       clientId: null,
+      bookingId: null,
     })
   }
 
@@ -92,6 +98,10 @@ export function DrugTestWizardClient() {
   // Route to appropriate workflow
   if (workflow === 'register-client') {
     return <RegisterClientWorkflow key={`${workflow}:${reset ?? ''}`} onBack={handleBack} />
+  }
+
+  if (workflow === 'complete-workflow') {
+    return <CompleteWorkflow key={`${workflow}:${reset ?? ''}`} onBack={handleBack} />
   }
 
   if (workflow === 'collect-lab') {

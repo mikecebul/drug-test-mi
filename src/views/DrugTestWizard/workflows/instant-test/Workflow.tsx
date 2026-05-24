@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
 import { getInstantTestFormOpts } from './shared-form'
+import type { InstantTestType } from './shared-form'
 import { InstantTestNavigation } from './components/Navigation'
 import { UploadStep } from './steps/Upload'
 import { ExtractStep } from './steps/Extract'
@@ -58,6 +59,9 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
 
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)
+  const [presetTestType] = useQueryState('testType', parseAsString)
+  const initialTestType: InstantTestType =
+    presetTestType === '17-panel-instant' ? '17-panel-instant' : '15-panel-instant'
   const formRef = useRef<HTMLFormElement | null>(null)
 
   useStepFocus({
@@ -66,7 +70,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   })
 
   const form = useAppForm({
-    ...getInstantTestFormOpts(),
+    ...getInstantTestFormOpts(initialTestType),
     onSubmit: async ({ value }) => {
       // Final submit: Create drug test
       console.log(`[InstantTest] Starting final submission...`)

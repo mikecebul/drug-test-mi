@@ -15,7 +15,7 @@ import { ConfirmStep } from './steps/Confirm'
 import { EmailsStep } from './steps/Emails'
 import { createCollectionWithEmailReview } from './actions/createCollectionWithEmailReview'
 import { TestCompleted } from '../../components/TestCompleted'
-import { clientSchema, collectionSchema, emailsGroupSchema, medicationsSchema, steps } from './validators'
+import { clientSchema, collectionSchema, emailsGroupSchema, labTests, medicationsSchema, steps } from './validators'
 import { getClientById } from '../components/client/getClients'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
@@ -35,6 +35,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
 
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)
+  const [presetTestType] = useQueryState('testType', parseAsString)
   const formRef = useRef<HTMLFormElement | null>(null)
 
   useStepFocus({
@@ -73,6 +74,12 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
       }
     },
   })
+
+  useEffect(() => {
+    if (labTests.includes(presetTestType as (typeof labTests)[number])) {
+      form.setFieldValue('collection.testType', presetTestType as (typeof labTests)[number])
+    }
+  }, [form, presetTestType])
 
   // Guard against skipping into a later step without required base data
   useEffect(() => {
