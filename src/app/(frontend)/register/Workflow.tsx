@@ -194,6 +194,7 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
   const renderStep = () => {
     const stepProps = {
       form,
+      mode: 'wizard' as const,
       isFirstStep,
       isLastStep,
       isSubmitting,

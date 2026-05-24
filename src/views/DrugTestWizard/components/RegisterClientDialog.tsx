@@ -358,11 +358,11 @@ export function RegisterClientDialog({
 
     switch (currentStep) {
       case 0:
-        return <PersonalInfoStep form={form} />
+        return <PersonalInfoStep form={form} mode="body" />
       case 1:
         return (
           <div className="space-y-6">
-            <AccountInfoStep form={form} />
+            <AccountInfoStep form={form} mode="body" />
             <Alert>
               <AlertDescription className="text-muted-foreground text-sm">
                 Password is auto-generated but can be changed if the client requests a specific
@@ -372,11 +372,11 @@ export function RegisterClientDialog({
           </div>
         )
       case 2:
-        return <ScreeningTypeStep form={form} />
+        return <ScreeningTypeStep form={form} mode="body" />
       case 3:
-        return <RecipientsStep form={form} />
+        return <RecipientsStep form={form} mode="body" />
       case 4:
-        return <TermsStep form={form} />
+        return <TermsStep form={form} mode="body" />
       default:
         return null
     }

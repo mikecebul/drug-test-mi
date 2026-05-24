@@ -6,18 +6,13 @@ import { SCREENING_TYPES } from '../types'
 import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { screeningTypeSchema } from '../validators'
 import { RegisterNavigation } from '../components/Navigation'
+import type { RegisterStepProps } from './types'
 
 export const ScreeningTypeStep = withForm({
   ...getRegisterClientFormOpts(),
-  props: {} as {
-    isFirstStep?: boolean
-    isLastStep?: boolean
-    isSubmitting?: boolean
-    onBack?: () => void
-    onNext?: () => void
-    onInvalid?: () => void
-  },
-  render: function Render({ form, isFirstStep, isLastStep, isSubmitting, onBack, onNext, onInvalid }) {
+  props: {} as RegisterStepProps,
+  render: function Render(props) {
+    const { form } = props
     const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
     const body = (
       <div className="wizard-content mb-8 flex-1 space-y-6">
@@ -72,7 +67,7 @@ export const ScreeningTypeStep = withForm({
       </div>
     )
 
-    if (!onNext) {
+    if (props.mode === 'body') {
       return body
     }
 
@@ -81,19 +76,19 @@ export const ScreeningTypeStep = withForm({
         name="screeningType"
         validationLogic={revalidateLogic()}
         validators={{ onDynamic: screeningTypeSchema.shape.screeningType }}
-        onGroupSubmit={() => onNext?.()}
-        onGroupSubmitInvalid={() => onInvalid?.()}
+        onGroupSubmit={() => props.onNext()}
+        onGroupSubmitInvalid={() => props.onInvalid()}
       >
         {(group) => (
           <>
             {body}
 
             <RegisterNavigation
-              isFirstStep={isFirstStep ?? false}
-              isLastStep={isLastStep ?? false}
-              isSubmitting={isSubmitting ?? false}
+              isFirstStep={props.isFirstStep}
+              isLastStep={props.isLastStep}
+              isSubmitting={props.isSubmitting}
               isNextDisabled={group.state.meta.isSubmitting}
-              onBack={() => onBack?.()}
+              onBack={() => props.onBack()}
               onNext={() => group.handleSubmit()}
             />
           </>
