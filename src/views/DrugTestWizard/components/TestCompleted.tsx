@@ -4,7 +4,15 @@ import { Button } from '@/components/ui/button'
 import { Check } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
-export const TestCompleted = ({ testId, onBack }: { testId: string; onBack: () => void }) => {
+export const TestCompleted = ({
+  testId,
+  onBack,
+  backLabel = 'Choose Another Workflow',
+}: {
+  testId: string
+  onBack: () => void
+  backLabel?: string
+}) => {
   const router = useRouter()
   return (
     <>
@@ -20,7 +28,7 @@ export const TestCompleted = ({ testId, onBack }: { testId: string; onBack: () =
 
       <div className="flex flex-col justify-center gap-3 sm:flex-row">
         <Button onClick={onBack} size="lg" className="text-lg">
-          Choose Another Workflow
+          {backLabel}
         </Button>
         <Button
           data-testid="wizard-view-drug-test-button"

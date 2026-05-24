@@ -126,6 +126,19 @@ export const Bookings: CollectionConfig = {
       },
     },
     {
+      name: 'scheduledTestType',
+      type: 'relationship',
+      relationTo: 'test-types',
+      admin: {
+        description: 'Test type for this scheduled collection when the referral does not provide one.',
+      },
+      filterOptions: {
+        isActive: {
+          equals: true,
+        },
+      },
+    },
+    {
       name: 'payment',
       type: 'group',
       admin: {
@@ -155,6 +168,7 @@ export const Bookings: CollectionConfig = {
           options: [
             { label: 'Cash', value: 'cash' },
             { label: 'Card', value: 'card' },
+            { label: 'Pre-paid', value: 'pre-paid' },
             { label: 'Not Paid', value: 'not-paid' },
           ],
         },
@@ -179,6 +193,38 @@ export const Bookings: CollectionConfig = {
         {
           name: 'notes',
           type: 'textarea',
+        },
+      ],
+    },
+    {
+      name: 'sampleCollection',
+      type: 'group',
+      admin: {
+        description: 'Tracks whether the scheduled specimen collection was completed in a workflow.',
+      },
+      fields: [
+        {
+          name: 'status',
+          type: 'select',
+          options: [
+            { label: 'Pending', value: 'pending' },
+            { label: 'Collected', value: 'collected' },
+          ],
+          defaultValue: 'pending',
+        },
+        {
+          name: 'collectedAt',
+          type: 'date',
+          admin: {
+            date: {
+              pickerAppearance: 'dayAndTime',
+            },
+          },
+        },
+        {
+          name: 'drugTest',
+          type: 'relationship',
+          relationTo: 'drug-tests',
         },
       ],
     },

@@ -18,6 +18,7 @@ type MedicationInput = NonNullable<Client['medications']>[number] & {
 export async function createCollectionWithEmailReview(
   testData: {
     clientId: string
+    bookingId?: string | null
     testType: '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
     collectionDate: string
     breathalyzerTaken: boolean
@@ -96,6 +97,21 @@ export async function createCollectionWithEmailReview(
       },
       overrideAccess: true,
     })
+
+    if (testData.bookingId) {
+      await payload.update({
+        collection: 'bookings',
+        id: testData.bookingId,
+        data: {
+          sampleCollection: {
+            status: 'collected',
+            collectedAt: testData.collectionDate,
+            drugTest: drugTest.id,
+          },
+        },
+        overrideAccess: true,
+      })
+    }
 
     // 4. Fetch client for email generation
     const client = await payload.findByID({

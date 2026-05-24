@@ -19,7 +19,7 @@ interface WizardOption {
 
 const wizardOptions: WizardOption[] = [
   {
-    id: 'complete-workflow',
+    id: 'guided',
     icon: CalendarCheck,
     title: 'Complete Scheduled Collection',
     description: "Start from today's Cal.com appointments, confirm test details, record payment, and continue collection",
@@ -109,7 +109,7 @@ export function WizardTypeSelector({ onSelect }: WizardTypeSelectorProps) {
       {/* Group 1: Registration */}
       <div className="space-y-3">
         <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Guided Workflow</h3>
-        {renderOption('complete-workflow')}
+        {renderOption('guided')}
       </div>
       <Separator />
       <div className="space-y-3">

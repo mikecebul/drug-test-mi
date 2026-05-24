@@ -143,6 +143,48 @@ export async function registerClientAction(formData: CompleteRegistrationValues)
       }
     }
 
+    const duplicateClient = await payload.find({
+      collection: 'clients',
+      where: {
+        or: [
+          {
+            and: [
+              {
+                firstName: {
+                  equals: formattedFirstName,
+                },
+              },
+              {
+                lastName: {
+                  equals: formattedLastName,
+                },
+              },
+              {
+                dob: {
+                  equals: personalInfo.dob,
+                },
+              },
+            ],
+          },
+          {
+            phone: {
+              equals: formattedPhone,
+            },
+          },
+        ],
+      },
+      limit: 1,
+      overrideAccess: true,
+    })
+
+    if (duplicateClient.docs.length > 0) {
+      return {
+        success: false,
+        error:
+          'A likely matching client already exists. Return to the scheduled collection screen and select the existing client instead of registering a new one.',
+      }
+    }
+
     const clientData: Record<string, unknown> = {
       firstName: formattedFirstName,
       lastName: formattedLastName,

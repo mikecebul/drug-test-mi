@@ -11,6 +11,7 @@ import { createAdminAlert } from '@/lib/admin-alerts'
 export async function createInstantTest(
   testData: {
     clientId: string
+    bookingId?: string | null
     testType: '15-panel-instant' | '17-panel-instant'
     collectionDate: string
     detectedSubstances: SubstanceValue[]
@@ -83,6 +84,21 @@ export async function createInstantTest(
     payload.logger.info('[createInstantTest] Calling createDrugTestWithEmailReview...')
     const result = await createDrugTestWithEmailReview(testData, medicationsAtTestTime, emailConfig)
     payload.logger.info({ msg: '[createInstantTest] Result from createDrugTestWithEmailReview', success: result.success, testId: result.testId, error: result.error })
+
+    if (result.testId && testData.bookingId) {
+      await payload.update({
+        collection: 'bookings',
+        id: testData.bookingId,
+        data: {
+          sampleCollection: {
+            status: 'collected',
+            collectedAt: testData.collectionDate,
+            drugTest: result.testId,
+          },
+        },
+        overrideAccess: true,
+      })
+    }
 
     return result
   } catch (error) {

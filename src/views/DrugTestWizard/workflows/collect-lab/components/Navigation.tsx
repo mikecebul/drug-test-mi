@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, Check, Loader2 } from 'lucide-react'
 import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
-import { useQueryState, parseAsStringLiteral } from 'nuqs'
+import { useQueryState, parseAsString, parseAsStringLiteral } from 'nuqs'
 import { steps } from '../validators'
 import { collectLabFormOpts } from '../shared-form'
 
@@ -34,6 +34,7 @@ export const CollectLabNavigation = withForm({
       parseAsStringLiteral(steps as readonly string[]).withDefault('client'),
     )
     const currentStep = currentStepRaw as (typeof steps)[number]
+    const [bookingId] = useQueryState('bookingId', parseAsString)
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
     const referralEmailEnabled = useStore(form.store, (state) => state.values.emails.referralEmailEnabled)
@@ -41,10 +42,11 @@ export const CollectLabNavigation = withForm({
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
+    const isScheduledWorkflowEntry = Boolean(bookingId) && currentStep === 'medications'
     const isMissingRequiredReferralRecipient =
       isLastStep && referralEmailEnabled && referralRecipients.length === 0
     const handleBack = () => {
-      if (isFirstStep) {
+      if (isFirstStep || isScheduledWorkflowEntry) {
         onBack()
       } else {
         const prevStep = steps[currentIndex - 1]

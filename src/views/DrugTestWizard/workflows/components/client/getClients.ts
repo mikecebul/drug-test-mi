@@ -122,6 +122,51 @@ export async function getClientById(id: string): Promise<SimpleClient | null> {
   }
 }
 
+export async function getClientByBookingId(bookingId: string): Promise<SimpleClient | null> {
+  try {
+    const booking = await sdk.findByID({
+      collection: 'bookings',
+      id: bookingId,
+      depth: 2,
+      select: {
+        relatedClient: true,
+      },
+    })
+
+    const client = typeof booking.relatedClient === 'object' ? booking.relatedClient : null
+    if (!client) return null
+
+    const headshot =
+      typeof client.headshot === 'object' && client.headshot
+        ? client.headshot.thumbnailURL || client.headshot.url || undefined
+        : undefined
+
+    const headshotId =
+      typeof client.headshot === 'object' && client.headshot
+        ? client.headshot.id
+        : undefined
+
+    return {
+      id: client.id,
+      firstName: client.firstName,
+      middleInitial: client.middleInitial ?? undefined,
+      lastName: client.lastName,
+      fullName: client.middleInitial
+        ? `${client.firstName} ${client.middleInitial} ${client.lastName}`
+        : `${client.firstName} ${client.lastName}`,
+      initials: `${client.firstName.charAt(0)}${client.lastName.charAt(0)}`,
+      email: client.email,
+      dob: client.dob ?? undefined,
+      phone: client.phone ?? undefined,
+      headshot,
+      headshotId,
+      updatedAt: client.updatedAt ?? undefined,
+    }
+  } catch (_err) {
+    return null
+  }
+}
+
 /**
  * Fetch client from a drug test ID
  * This is useful in workflows where you're updating an existing test and need the client info

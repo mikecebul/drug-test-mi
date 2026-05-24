@@ -15,6 +15,8 @@ export const uploadSchema = z.object({
 export const extractSchema = z.object({
   extract: z.object({
     extracted: z.boolean(),
+    clientMismatchConfirmed: z.boolean(),
+    clientMismatchConfirmationKey: z.string().nullable(),
   }),
 })
 

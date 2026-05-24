@@ -89,6 +89,10 @@ const adminAutoLogin =
       }
     : false
 
+const allowedLoopbackOrigins = Array.from(
+  new Set([baseUrl, 'http://localhost:3000', 'http://127.0.0.1:3000'].filter(Boolean)),
+)
+
 export default buildConfig({
   serverURL: baseUrl,
   admin: {
@@ -279,8 +283,8 @@ export default buildConfig({
     Clients,
     DrugTests,
   ],
-  cors: [baseUrl].filter(Boolean),
-  csrf: [baseUrl].filter(Boolean),
+  cors: allowedLoopbackOrigins,
+  csrf: allowedLoopbackOrigins,
   email:
     process.env.NODE_ENV === 'production'
       ? resendAdapter({

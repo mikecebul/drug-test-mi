@@ -9,6 +9,8 @@ const getDefaultValues = (testType: InstantTestType = '15-panel-instant'): FormV
   },
   extract: {
     extracted: false,
+    clientMismatchConfirmed: false,
+    clientMismatchConfirmationKey: null,
   },
   client: {
     id: '',

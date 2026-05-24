@@ -9,6 +9,7 @@ const TEST_TYPES = [
     bookingLabel: '11 Panel Lab',
     category: 'lab' as const,
     price: 40,
+    toxAccessCode: 'B729',
   },
   {
     value: '11-panel-lab-no-etg',
@@ -16,6 +17,7 @@ const TEST_TYPES = [
     bookingLabel: '11 Panel Lab (no EtG)',
     category: 'lab' as const,
     price: 40,
+    toxAccessCode: 'B829',
   },
   {
     value: '15-panel-instant',

@@ -13,6 +13,8 @@ import { steps as labScreenSteps } from '../../workflows/lab-screen/validators'
 import { steps as registerClientSteps } from '../../workflows/register-client-workflow/validators'
 
 const workflowTypes = [
+  'guided',
+  'complete-workflow',
   'register-client',
   'collect-lab',
   'enter-lab-screen',
@@ -23,6 +25,8 @@ const workflowTypes = [
 ] as const
 
 const firstStepMap: Record<(typeof workflowTypes)[number], string> = {
+  guided: 'schedule',
+  'complete-workflow': 'schedule',
   'register-client': registerClientSteps[0],
   'collect-lab': collectLabSteps[0],
   'instant-test': instantTestSteps[0],
@@ -39,8 +43,9 @@ export const ResetFormButton = () => {
       workflow: parseAsStringLiteral(workflowTypes),
       step: parseAsString,
       clientId: parseAsString,
+      bookingId: parseAsString,
       returnTo: parseAsString,
-      reset: parseAsString,
+      testType: parseAsString,
     },
     { history: 'push' },
   )
@@ -55,12 +60,31 @@ export const ResetFormButton = () => {
     clearWizardQueryCache(queryClient)
     clearFileStorage()
 
+    if (
+      states.bookingId &&
+      (workflow === 'collect-lab' ||
+        workflow === 'instant-test' ||
+        workflow === '15-panel-instant' ||
+        workflow === '17-panel-instant')
+    ) {
+      setStates({
+        workflow: 'guided',
+        step: 'schedule',
+        clientId: null,
+        bookingId: null,
+        returnTo: null,
+        testType: null,
+      })
+      return
+    }
+
     setStates({
       workflow,
       step: firstStepMap[workflow],
       clientId: null,
+      bookingId: null,
       returnTo: null,
-      reset: Date.now().toString(),
+      testType: null,
     })
   }
 

@@ -7,6 +7,7 @@ import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { getInstantTestFormOpts } from './shared-form'
 import type { InstantTestType } from './shared-form'
 import { InstantTestNavigation } from './components/Navigation'
@@ -31,15 +32,17 @@ import {
 import { extractPdfQueryKey } from '../../queries'
 import type { ExtractedPdfData } from '../../queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
-import { getClientById } from '../components/client/getClients'
+import { getClientByBookingId, getClientById } from '../components/client/getClients'
 import { getFileFromStorage, clearFileStorage, hasStoredFile, saveFileToStorage } from './utils/fileStorage'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
+import { getReportClientMatch, getReportClientMismatchKey } from './utils/reportClientMatch'
 
 interface InstantTestWorkflowProps {
   onBack: () => void
 }
 
 export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
+  const router = useRouter()
   const queryClient = useQueryClient()
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
   const [isRestoringFile, setIsRestoringFile] = useState(true)
@@ -60,6 +63,8 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)
   const [presetTestType] = useQueryState('testType', parseAsString)
+  const [bookingId] = useQueryState('bookingId', parseAsString)
+  const hydratedClientIdRef = useRef<string | null>(null)
   const initialTestType: InstantTestType =
     presetTestType === '17-panel-instant' ? '17-panel-instant' : '15-panel-instant'
   const formRef = useRef<HTMLFormElement | null>(null)
@@ -78,6 +83,19 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
         const queryKey = extractPdfQueryKey(value.upload.file, 'instant-test')
         const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
         console.log(`[InstantTest] Extracted data from query cache:`, extractedData ? 'found' : 'not found')
+        const reportClientMatch = getReportClientMatch(extractedData?.donorName, value.client)
+        const mismatchKey = getReportClientMismatchKey(reportClientMatch)
+
+        if (
+          reportClientMatch.status === 'mismatch' &&
+          (!value.extract.clientMismatchConfirmed || value.extract.clientMismatchConfirmationKey !== mismatchKey)
+        ) {
+          toast.error('Confirm the report/client mismatch before submitting.', {
+            id: 'instant-test-report-client-mismatch',
+          })
+          await setCurrentStep('extract', { history: 'push' })
+          return
+        }
 
         // Convert File to buffer array
         console.log(`[InstantTest] Converting file to array buffer...`)
@@ -96,6 +114,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
         const result = await createInstantTest(
           {
             clientId: value.client.id,
+            bookingId,
             testType: value.verifyData.testType,
             collectionDate: value.verifyData.collectionDate,
             detectedSubstances: value.verifyData.detectedSubstances as SubstanceValue[],
@@ -177,41 +196,62 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     }
   }, [currentStep, isRestoringFile, setCurrentStep, uploadedFile])
 
-  // Handle client pre-population from registration workflow
+  // Handle client pre-population from scheduled collection or registration workflow.
   useEffect(() => {
-    if (clientId && currentStep === 'client' && !form.state.values.client.id) {
-      // Fetch client by ID and populate form
-      const fetchAndPopulateClient = async () => {
-        try {
-          const client = await getClientById(clientId)
-          if (client) {
-            form.setFieldValue('client.id', client.id)
-            form.setFieldValue('client.firstName', client.firstName)
-            form.setFieldValue('client.lastName', client.lastName)
-            form.setFieldValue('client.middleInitial', client.middleInitial ?? null)
-            form.setFieldValue('client.email', client.email)
-            form.setFieldValue('client.dob', client.dob ?? null)
-            form.setFieldValue('client.headshot', client.headshot ?? null)
+    if (form.state.values.client.id) return
+    if (!clientId && !bookingId) return
 
-            toast.success(`Client ${client.firstName} ${client.lastName} pre-selected`)
+    const fetchAndPopulateClient = async () => {
+      try {
+        const client = clientId ? await getClientById(clientId) : bookingId ? await getClientByBookingId(bookingId) : null
+        if (client && hydratedClientIdRef.current !== client.id) {
+          form.setFieldValue('client.id', client.id)
+          form.setFieldValue('client.firstName', client.firstName)
+          form.setFieldValue('client.lastName', client.lastName)
+          form.setFieldValue('client.middleInitial', client.middleInitial ?? null)
+          form.setFieldValue('client.email', client.email)
+          form.setFieldValue('client.dob', client.dob ?? null)
+          form.setFieldValue('client.headshot', client.headshot ?? null)
+          form.setFieldValue('client.headshotId', client.headshotId ?? null)
 
-            // Clear the clientId param after population
+          hydratedClientIdRef.current = client.id
+          if (!bookingId) {
+            toast.success(`Client ${client.firstName} ${client.lastName} pre-selected`, {
+              id: `instant-test-client-${client.id}`,
+            })
+          }
+
+          if (clientId && !bookingId) {
             setClientId(null)
           }
-        } catch (error) {
-          console.error('Failed to fetch client:', error)
-          toast.error('Failed to load client information')
-          // Clear the clientId param on error
+        }
+      } catch (error) {
+        console.error('Failed to fetch client:', error)
+        toast.error('Failed to load client information')
+        if (clientId && !bookingId) {
           setClientId(null)
         }
       }
-
-      fetchAndPopulateClient()
     }
-  }, [clientId, currentStep, form, setClientId])
+
+    fetchAndPopulateClient()
+  }, [bookingId, clientId, form, setClientId])
 
   if (completedTestId) {
-    return <TestCompleted testId={completedTestId} onBack={handleBack} />
+    return (
+      <TestCompleted
+        testId={completedTestId}
+        onBack={() => {
+          if (bookingId) {
+            clearFileStorage()
+            router.push(`/admin/drug-test-upload?workflow=guided&step=schedule&bookingId=${bookingId}`)
+            return
+          }
+          handleBack()
+        }}
+        backLabel={bookingId ? "Back to Today's Schedule" : undefined}
+      />
+    )
   }
 
   const currentStepIndex = steps.indexOf(currentStep)
@@ -219,7 +259,27 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
 
   const handleGroupSubmit = async () => {
     if (!isLastStep) {
-      await setCurrentStep(steps[currentStepIndex + 1], { history: 'push' })
+      const nextStep = steps[currentStepIndex + 1]
+      if (currentStep === 'extract' && form.state.values.client.id) {
+        const queryKey = extractPdfQueryKey(form.state.values.upload.file, 'instant-test')
+        const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
+        const reportClientMatch = getReportClientMatch(extractedData?.donorName, form.state.values.client)
+        const mismatchKey = getReportClientMismatchKey(reportClientMatch)
+
+        if (
+          reportClientMatch.status === 'mismatch' &&
+          (!form.state.values.extract.clientMismatchConfirmed ||
+            form.state.values.extract.clientMismatchConfirmationKey !== mismatchKey)
+        ) {
+          toast.error('Confirm the report/client mismatch before continuing.', {
+            id: 'instant-test-report-client-mismatch',
+          })
+          return
+        }
+      }
+
+      const shouldSkipClientStep = Boolean(bookingId && nextStep === 'client' && form.state.values.client.id)
+      await setCurrentStep(shouldSkipClientStep ? 'medications' : nextStep, { history: 'push' })
       return
     }
 

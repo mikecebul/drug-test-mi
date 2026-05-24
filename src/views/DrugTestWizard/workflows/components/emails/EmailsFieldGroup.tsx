@@ -7,8 +7,10 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Loader2, Eye, AlertCircle, CheckCircle2, Pencil } from 'lucide-react'
+import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Loader2, Eye, AlertCircle, CheckCircle2, Pencil, ChevronDown } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { RecipientEditor } from '../../../components/RecipientEditor'
 import { EmailPreviewModal } from './EmailPreviewModal'
 import { FieldGroupHeader } from '../FieldGroupHeader'
@@ -107,6 +109,7 @@ export const EmailsFieldGroup = withFieldGroup({
     const [showClientEmailEditor, setShowClientEmailEditor] = React.useState(false)
     const [showReferralEditor, setShowReferralEditor] = React.useState(false)
     const [referralEditorVersion, setReferralEditorVersion] = React.useState(0)
+    const [oneTimeRecipientsOpen, setOneTimeRecipientsOpen] = React.useState(false)
 
     // Get current field group values
     const clientEmailEnabled = group.getFieldValue('clientEmailEnabled')
@@ -114,6 +117,49 @@ export const EmailsFieldGroup = withFieldGroup({
     const referralEmailEnabled = group.getFieldValue('referralEmailEnabled')
     const referralRecipients = group.getFieldValue('referralRecipients')
     const canSendClientEmail = Boolean(previewData?.clientEmail)
+    const savedReferralRecipients = React.useMemo(() => {
+      const detailedRecipients = [
+        ...(previewData?.referralRecipientsDetailed || []),
+        ...(previewData?.clientAdditionalRecipientsDetailed || []),
+      ].filter((recipient) => recipient.email.trim())
+
+      const seenEmails = new Set<string>()
+      const recipients =
+        detailedRecipients.length > 0
+          ? detailedRecipients
+          : (previewData?.referralEmails || []).map((email) => ({
+              name: previewData?.referralTitle || 'Saved referral recipient',
+              email,
+            }))
+
+      return recipients.filter((recipient) => {
+        const emailKey = recipient.email.trim().toLowerCase()
+        if (!emailKey || seenEmails.has(emailKey)) return false
+        seenEmails.add(emailKey)
+        return true
+      })
+    }, [
+      previewData?.clientAdditionalRecipientsDetailed,
+      previewData?.referralEmails,
+      previewData?.referralRecipientsDetailed,
+      previewData?.referralTitle,
+    ])
+    const savedReferralEmails = React.useMemo(
+      () => savedReferralRecipients.map((recipient) => recipient.email),
+      [savedReferralRecipients],
+    )
+    const savedReferralEmailSet = React.useMemo(
+      () => new Set(savedReferralEmails.map((email) => email.trim().toLowerCase())),
+      [savedReferralEmails],
+    )
+    const oneTimeRecipients = React.useMemo(
+      () =>
+        (referralRecipients || []).filter(
+          (email) => email.trim() && !savedReferralEmailSet.has(email.trim().toLowerCase()),
+        ),
+      [referralRecipients, savedReferralEmailSet],
+    )
+    const validOneTimeRecipientCount = oneTimeRecipients.length
 
     const setEmailFieldValue = React.useCallback(function setEmailFieldValue(
       name: 'clientRecipients' | 'referralRecipients' | 'clientEmailEnabled' | 'referralEmailEnabled',
@@ -311,13 +357,16 @@ export const EmailsFieldGroup = withFieldGroup({
           <Card className="p-6">
             <FieldGroup>
               <FieldSet>
-                <div className="flex items-center justify-between gap-4">
-                  <FieldLegend>
-                    Referral Notification
-                    {previewData.referralTitle && (
-                      <span className="text-muted-foreground ml-2 font-normal">({previewData.referralTitle})</span>
-                    )}
-                  </FieldLegend>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-2">
+                    <FieldLegend>Referral Notification</FieldLegend>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-muted-foreground text-base">Sending to</span>
+                      <Badge variant="secondary" className="text-sm">
+                        {previewData.referralTitle || 'Referral profile'}
+                      </Badge>
+                    </div>
+                  </div>
                   <Button
                     type="button"
                     variant="outline"
@@ -329,7 +378,9 @@ export const EmailsFieldGroup = withFieldGroup({
                     Edit Referral
                   </Button>
                 </div>
-                <FieldDescription>Notify referrals that specimen has been collected</FieldDescription>
+                <FieldDescription>
+                  Review who receives the collection notification before submitting.
+                </FieldDescription>
                 <FieldGroup data-slot="checkbox-group">
                   <group.Field name="referralEmailEnabled">
                     {(field) => (
@@ -352,28 +403,89 @@ export const EmailsFieldGroup = withFieldGroup({
               {referralEmailEnabled && (
                 <FieldSet>
                   <group.Field name="referralRecipients">
-                    {(field) => (
-                      <>
-                        <RecipientEditor
-                          key={`referral-editor-${referralEditorVersion}`}
-                          initialRecipients={referralRecipients || []}
-                          onChange={(recipients) => {
-                            field.handleChange(recipients)
-                            validateSubmitState()
-                          }}
-                          label="Recipient Email Addresses"
-                          required={true}
-                          maxRecipients={10}
-                        />
-                        <FieldError errors={field.state.meta.errors} />
-                      </>
-                    )}
-                  </group.Field>
+                    {(field) => {
+                      const handleOneTimeRecipientsChange = (recipients: string[]) => {
+                        field.handleChange([...savedReferralEmails, ...recipients.filter((email) => email.trim())])
+                        validateSubmitState()
+                      }
 
-                  <Button type="button" variant="outline" size="sm" onClick={() => setShowPreview(true)}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    Preview Notification Email
-                  </Button>
+                      return (
+                        <>
+                          <div className="space-y-4">
+                            <div className="space-y-1">
+                              <FieldLabel className="text-base font-semibold">Saved referral recipients</FieldLabel>
+                              <FieldDescription>
+                                These recipients are saved on the referral and used every time.
+                              </FieldDescription>
+                            </div>
+
+                            <div className="space-y-2">
+                              {savedReferralRecipients.length > 0 ? (
+                                savedReferralRecipients.map((recipient) => (
+                                  <div
+                                    key={recipient.email}
+                                    className="border-border bg-background flex items-center justify-between gap-4 rounded-lg border p-4"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="font-semibold">{recipient.name || 'Saved referral recipient'}</p>
+                                      <p className="text-muted-foreground truncate text-base">{recipient.email}</p>
+                                    </div>
+                                    <Badge variant="secondary">Saved</Badge>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="border-border bg-muted/40 rounded-lg border p-4">
+                                  <p className="text-muted-foreground text-base">
+                                    No saved referral recipients are available.
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="border-border bg-muted/30 rounded-lg border p-4">
+                            <Collapsible open={oneTimeRecipientsOpen} onOpenChange={setOneTimeRecipientsOpen}>
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="space-y-1">
+                                  <FieldLabel className="text-base font-semibold">One-time recipients</FieldLabel>
+                                  <FieldDescription>
+                                    Optional emails for this collection only.
+                                  </FieldDescription>
+                                </div>
+                                <CollapsibleTrigger
+                                  type="button"
+                                  className="border-input bg-background hover:bg-accent hover:text-accent-foreground inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md border px-3 text-sm font-medium whitespace-nowrap shadow-xs transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
+                                >
+                                  <ChevronDown
+                                    className={`h-4 w-4 shrink-0 transition-transform ${oneTimeRecipientsOpen ? 'rotate-180' : ''}`}
+                                  />
+                                  {oneTimeRecipientsOpen ? 'Hide' : 'Add One-Time Email'}
+                                </CollapsibleTrigger>
+                              </div>
+
+                              <CollapsiblePanel>
+                                <div className="pt-4">
+                                  <RecipientEditor
+                                    key={`one-time-recipient-editor-${referralEditorVersion}`}
+                                    initialRecipients={oneTimeRecipients}
+                                    onChange={handleOneTimeRecipientsChange}
+                                    label="One-time email addresses"
+                                    description="These are added to this send only and do not update the saved referral."
+                                    recipientLabel="One-time"
+                                    addButtonLabel="Add One-Time Email"
+                                    required={false}
+                                    maxRecipients={10}
+                                  />
+                                </div>
+                              </CollapsiblePanel>
+                            </Collapsible>
+                          </div>
+
+                          <FieldError errors={field.state.meta.errors} />
+                        </>
+                      )
+                    }}
+                  </group.Field>
                 </FieldSet>
               )}
             </FieldGroup>
@@ -387,27 +499,29 @@ export const EmailsFieldGroup = withFieldGroup({
               {(() => {
                 const clientCount =
                   clientEmailEnabled && clientRecipients && clientRecipients.length > 0 ? clientRecipients.length : 0
-                const referralCount =
-                  referralEmailEnabled && referralRecipients && referralRecipients.length > 0
-                    ? referralRecipients.length
-                    : 0
-                const totalCount = clientCount + referralCount
+                const referralCount = referralEmailEnabled ? savedReferralRecipients.length : 0
+                const oneTimeCount = referralEmailEnabled ? validOneTimeRecipientCount : 0
+                const totalCount = clientCount + referralCount + oneTimeCount
 
                 if (totalCount === 0) {
                   return <span className="text-destructive">No notifications will be sent</span>
                 }
 
-                const parts: string[] = []
-                if (clientCount > 0) {
-                  parts.push(`${clientCount} client notification${clientCount !== 1 ? 's' : ''}`)
-                }
-                if (referralCount > 0) {
-                  parts.push(`${referralCount} referral notification${referralCount !== 1 ? 's' : ''}`)
-                }
-
-                return <span>{parts.join(' and ')}</span>
+                return (
+                  <>
+                    {clientCount > 0 && <span>Client recipients: {clientCount}</span>}
+                    {referralEmailEnabled && <span>Saved referral recipients: {referralCount}</span>}
+                    {referralEmailEnabled && <span>One-time recipients: {oneTimeCount}</span>}
+                  </>
+                )
               })()}
             </AlertDescription>
+            <AlertAction>
+              <Button type="button" variant="default" onClick={() => setShowPreview(true)}>
+                <Eye className="mr-2 h-4 w-4" />
+                Preview Email
+              </Button>
+            </AlertAction>
           </Alert>
 
           {/* Email Preview Modals */}

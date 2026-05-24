@@ -1130,15 +1130,27 @@ export interface Booking {
    */
   relatedClient?: (string | null) | Client;
   /**
+   * Test type for this scheduled collection when the referral does not provide one.
+   */
+  scheduledTestType?: (string | null) | TestType;
+  /**
    * Payment collected before specimen collection.
    */
   payment?: {
     amountDue?: number | null;
     amountPaid?: number | null;
-    method?: ('cash' | 'card' | 'not-paid') | null;
+    method?: ('cash' | 'card' | 'pre-paid' | 'not-paid') | null;
     status?: ('paid' | 'partial' | 'unpaid') | null;
     collectedAt?: string | null;
     notes?: string | null;
+  };
+  /**
+   * Tracks whether the scheduled specimen collection was completed in a workflow.
+   */
+  sampleCollection?: {
+    status?: ('pending' | 'collected') | null;
+    collectedAt?: string | null;
+    drugTest?: (string | null) | DrugTest;
   };
   location?: string | null;
   /**
@@ -1478,6 +1490,10 @@ export interface TestType {
    * Standard client price in USD.
    */
   price: number;
+  /**
+   * Lab test code used when ordering this test in ToxAccess.
+   */
+  toxAccessCode?: string | null;
   /**
    * Employers currently mapped to this preferred test type.
    */
@@ -2811,6 +2827,7 @@ export interface BookingsSelect<T extends boolean = true> {
   attendeeName?: T;
   attendeeEmail?: T;
   relatedClient?: T;
+  scheduledTestType?: T;
   payment?:
     | T
     | {
@@ -2820,6 +2837,13 @@ export interface BookingsSelect<T extends boolean = true> {
         status?: T;
         collectedAt?: T;
         notes?: T;
+      };
+  sampleCollection?:
+    | T
+    | {
+        status?: T;
+        collectedAt?: T;
+        drugTest?: T;
       };
   location?: T;
   calcomBookingId?: T;
@@ -3223,6 +3247,7 @@ export interface TestTypesSelect<T extends boolean = true> {
   bookingLabel?: T;
   category?: T;
   price?: T;
+  toxAccessCode?: T;
   employers?: T;
   courts?: T;
   isActive?: T;
