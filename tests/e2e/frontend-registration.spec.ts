@@ -289,9 +289,12 @@ test('submits frontend registration, signs in, and verifies admin emails in Mail
 
   await expect(page.getByRole('heading', { name: 'Terms & Conditions' })).toBeVisible()
   await page.getByLabel(/I have read and agree to the terms and conditions of service/i).check()
-  await page.getByRole('button', { name: 'Complete Registration' }).click()
 
-  await expect(page).toHaveURL(/\/dashboard/)
+  await Promise.all([
+    page.waitForURL(/\/dashboard/, { timeout: 30_000 }),
+    page.getByRole('button', { name: 'Complete Registration' }).click(),
+  ])
+  await expect(page.getByRole('heading', { name: /Welcome back, Alex Taylor/i })).toBeVisible({ timeout: 30_000 })
 
   createdClientEmails.push(registrationEmail)
 

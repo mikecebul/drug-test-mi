@@ -30,11 +30,10 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   const [isHydratingClient, setIsHydratingClient] = useState(false)
 
   // URL is the single source of truth for current step
-  const [currentStepRaw, setCurrentStep] = useQueryState(
+  const [currentStep, setCurrentStep] = useQueryState(
     'step',
     parseAsStringLiteral(steps).withDefault('client'),
   )
-  const currentStep = currentStepRaw as (typeof steps)[number]
 
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)

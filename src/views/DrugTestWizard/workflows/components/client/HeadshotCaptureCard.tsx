@@ -163,13 +163,7 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
   ])
 
   const hasImage = Boolean(headshotUrl)
-  const canApplyCrop = Boolean(
-    resolvePixelCropForSave({
-      image: imageRef.current,
-      crop,
-      completedCrop,
-    }),
-  )
+  const canApplyCrop = Boolean(completedCrop || crop)
 
   const openCapturePicker = useCallback(() => {
     cameraInputRef.current?.click()

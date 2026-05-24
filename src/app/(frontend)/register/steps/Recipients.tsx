@@ -20,18 +20,13 @@ import {
 import { groupCourtSelectOptions } from '../utils/groupCourtSelectOptions'
 import { getRecipientsGroupSchema } from '../validators'
 import { RegisterNavigation } from '../components/Navigation'
+import type { RegisterStepProps } from './types'
 
 export const RecipientsStep = withForm({
   ...getRegisterClientFormOpts(),
-  props: {} as {
-    isFirstStep?: boolean
-    isLastStep?: boolean
-    isSubmitting?: boolean
-    onBack?: () => void
-    onNext?: () => void
-    onInvalid?: () => void
-  },
-  render: function Render({ form, isFirstStep, isLastStep, isSubmitting, onBack, onNext, onInvalid }) {
+  props: {} as RegisterStepProps,
+  render: function Render(props) {
+    const { form } = props
     const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
     const CLEAR_SELECTION_VALUE = '__none__'
     const { employers, employersById, isLoading: isLoadingEmployers } = useEmployerOptions()
@@ -397,7 +392,7 @@ export const RecipientsStep = withForm({
       </div>
     )
 
-    if (!onNext) {
+    if (props.mode === 'body') {
       return body
     }
 
@@ -406,19 +401,19 @@ export const RecipientsStep = withForm({
         name="recipients"
         validationLogic={revalidateLogic()}
         validators={{ onDynamic: getRecipientsGroupSchema(requestedBy) }}
-        onGroupSubmit={() => onNext?.()}
-        onGroupSubmitInvalid={() => onInvalid?.()}
+        onGroupSubmit={() => props.onNext()}
+        onGroupSubmitInvalid={() => props.onInvalid()}
       >
         {(group) => (
           <>
             {body}
 
             <RegisterNavigation
-              isFirstStep={isFirstStep ?? false}
-              isLastStep={isLastStep ?? false}
-              isSubmitting={isSubmitting ?? false}
+              isFirstStep={props.isFirstStep}
+              isLastStep={props.isLastStep}
+              isSubmitting={props.isSubmitting}
               isNextDisabled={group.state.meta.isSubmitting}
-              onBack={() => onBack?.()}
+              onBack={() => props.onBack()}
               onNext={() => group.handleSubmit()}
             />
           </>

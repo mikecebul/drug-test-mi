@@ -6,18 +6,13 @@ import { getRegisterClientFormOpts } from '../shared-form'
 import { GENDER_OPTIONS } from '../types'
 import { personalInfoSchema } from '../validators'
 import { RegisterNavigation } from '../components/Navigation'
+import type { RegisterStepProps } from './types'
 
 export const PersonalInfoStep = withForm({
   ...getRegisterClientFormOpts(),
-  props: {} as {
-    isFirstStep?: boolean
-    isLastStep?: boolean
-    isSubmitting?: boolean
-    onBack?: () => void
-    onNext?: () => void
-    onInvalid?: () => void
-  },
-  render: function Render({ form, isFirstStep, isLastStep, isSubmitting, onBack, onNext, onInvalid }) {
+  props: {} as RegisterStepProps,
+  render: function Render(props) {
+    const { form } = props
     const body = (
       <div className="wizard-content mb-8 flex-1 space-y-6">
         <div className="mb-6 flex items-center">
@@ -52,7 +47,7 @@ export const PersonalInfoStep = withForm({
       </div>
     )
 
-    if (!onNext) {
+    if (props.mode === 'body') {
       return body
     }
 
@@ -61,19 +56,19 @@ export const PersonalInfoStep = withForm({
         name="personalInfo"
         validationLogic={revalidateLogic()}
         validators={{ onDynamic: personalInfoSchema.shape.personalInfo }}
-        onGroupSubmit={() => onNext?.()}
-        onGroupSubmitInvalid={() => onInvalid?.()}
+        onGroupSubmit={() => props.onNext()}
+        onGroupSubmitInvalid={() => props.onInvalid()}
       >
         {(group) => (
           <>
             {body}
 
             <RegisterNavigation
-              isFirstStep={isFirstStep ?? false}
-              isLastStep={isLastStep ?? false}
-              isSubmitting={isSubmitting ?? false}
+              isFirstStep={props.isFirstStep}
+              isLastStep={props.isLastStep}
+              isSubmitting={props.isSubmitting}
               isNextDisabled={group.state.meta.isSubmitting}
-              onBack={() => onBack?.()}
+              onBack={() => props.onBack()}
               onNext={() => group.handleSubmit()}
             />
           </>

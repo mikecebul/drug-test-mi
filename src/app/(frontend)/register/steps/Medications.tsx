@@ -10,18 +10,13 @@ import { Plus, Trash2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { medicationsSchema } from '../validators'
 import { RegisterNavigation } from '../components/Navigation'
+import type { RegisterStepProps } from './types'
 
 export const MedicationsStep = withForm({
   ...getRegisterClientFormOpts(),
-  props: {} as {
-    isFirstStep?: boolean
-    isLastStep?: boolean
-    isSubmitting?: boolean
-    onBack?: () => void
-    onNext?: () => void
-    onInvalid?: () => void
-  },
-  render: function Render({ form, isFirstStep, isLastStep, isSubmitting, onBack, onNext, onInvalid }) {
+  props: {} as RegisterStepProps,
+  render: function Render(props) {
+    const { form } = props
     const medicationRowKeysRef = useRef<string[]>([])
     const nextMedicationRowKeyRef = useRef(1)
     const medications = useStore(form.store, (state) => state.values.medications)
@@ -32,28 +27,19 @@ export const MedicationsStep = withForm({
       return key
     }
 
-    return (
-      <form.FormGroup
-        name="medications"
-        validationLogic={revalidateLogic()}
-        validators={{ onDynamic: medicationsSchema.shape.medications }}
-        onGroupSubmit={() => onNext?.()}
-        onGroupSubmitInvalid={() => onInvalid?.()}
-      >
-        {(group) => (
-          <>
-            <div className="wizard-content mb-8 flex-1 space-y-6">
-              <div className="mb-6 flex items-center">
-                <h2 className="text-foreground text-xl font-semibold">Medications (Optional)</h2>
-              </div>
+    const body = (
+      <div className="wizard-content mb-8 flex-1 space-y-6">
+        <div className="mb-6 flex items-center">
+          <h2 className="text-foreground text-xl font-semibold">Medications (Optional)</h2>
+        </div>
 
-              <div className="bg-muted/60 border-border rounded-lg border p-4 text-sm text-muted-foreground">
-                Only add medications you know will show positive on a drug screen (e.g., Buprenorphine for Suboxone).
-                Proof of medications is handled with your referral, not MI Drug Test. This list is only to track expected
-                vs unexpected positives.
-              </div>
+        <div className="bg-muted/60 border-border rounded-lg border p-4 text-sm text-muted-foreground">
+          Only add medications you know will show positive on a drug screen (e.g., Buprenorphine for Suboxone). Proof of
+          medications is handled with your referral, not MI Drug Test. This list is only to track expected vs unexpected
+          positives.
+        </div>
 
-              <form.Field name="medications" mode="array">
+        <form.Field name="medications" mode="array">
           {(field) => {
             const rowCount = field.state.value.length
 
@@ -143,15 +129,32 @@ export const MedicationsStep = withForm({
               </div>
             )
           }}
-              </form.Field>
-            </div>
+        </form.Field>
+      </div>
+    )
+
+    if (props.mode === 'body') {
+      return body
+    }
+
+    return (
+      <form.FormGroup
+        name="medications"
+        validationLogic={revalidateLogic()}
+        validators={{ onDynamic: medicationsSchema.shape.medications }}
+        onGroupSubmit={() => props.onNext()}
+        onGroupSubmitInvalid={() => props.onInvalid()}
+      >
+        {(group) => (
+          <>
+            {body}
 
             <RegisterNavigation
-              isFirstStep={isFirstStep ?? false}
-              isLastStep={isLastStep ?? false}
-              isSubmitting={isSubmitting ?? false}
+              isFirstStep={props.isFirstStep}
+              isLastStep={props.isLastStep}
+              isSubmitting={props.isSubmitting}
               isNextDisabled={group.state.meta.isSubmitting}
-              onBack={() => onBack?.()}
+              onBack={() => props.onBack()}
               onNext={() => group.handleSubmit()}
             />
           </>

@@ -29,11 +29,10 @@ export const CollectLabNavigation = withForm({
 
   render: function Render({ form, onBack, group }) {
     // Read step from URL (single source of truth)
-    const [currentStepRaw, setCurrentStep] = useQueryState(
+    const [currentStep, setCurrentStep] = useQueryState(
       'step',
-      parseAsStringLiteral(steps as readonly string[]).withDefault('client'),
+      parseAsStringLiteral(steps).withDefault('client'),
     )
-    const currentStep = currentStepRaw as (typeof steps)[number]
     const [bookingId] = useQueryState('bookingId', parseAsString)
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)

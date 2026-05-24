@@ -38,11 +38,10 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
 
   // URL is single source of truth
-  const [currentStepRaw, setCurrentStep] = useQueryState(
+  const [currentStep, setCurrentStep] = useQueryState(
     'step',
-    parseAsStringLiteral(steps as readonly string[]).withDefault('upload'),
+    parseAsStringLiteral(steps).withDefault('upload'),
   )
-  const currentStep = currentStepRaw as (typeof steps)[number]
   const formRef = useRef<HTMLFormElement | null>(null)
 
   useStepFocus({
