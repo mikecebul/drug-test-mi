@@ -50,11 +50,10 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   }
 
   // URL is single source of truth
-  const [currentStepRaw, setCurrentStep] = useQueryState(
+  const [currentStep, setCurrentStep] = useQueryState(
     'step',
     parseAsStringLiteral(steps).withDefault('upload'),
   )
-  const currentStep = currentStepRaw
 
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)

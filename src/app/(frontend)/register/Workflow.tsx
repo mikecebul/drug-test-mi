@@ -70,12 +70,10 @@ function ProgressBar({
 export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowProps) {
   const router = useRouter()
   const [showCompletionFallback, setShowCompletionFallback] = useState(false)
-  const [currentStepRaw, setCurrentStep] = useQueryState(
+  const [currentStep, setCurrentStep] = useQueryState(
     'step',
     parseAsStringLiteral(steps).withDefault('personalInfo'),
   )
-
-  const currentStep = currentStepRaw
   const stepIndex = steps.indexOf(currentStep)
   const isFirstStep = stepIndex === 0
   const isLastStep = stepIndex === steps.length - 1

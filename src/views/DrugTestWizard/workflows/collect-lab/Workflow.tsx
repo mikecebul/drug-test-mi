@@ -27,11 +27,10 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
 
   // URL is the single source of truth for current step
-  const [currentStepRaw, setCurrentStep] = useQueryState(
+  const [currentStep, setCurrentStep] = useQueryState(
     'step',
     parseAsStringLiteral(steps).withDefault('client'),
   )
-  const currentStep = currentStepRaw
 
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)

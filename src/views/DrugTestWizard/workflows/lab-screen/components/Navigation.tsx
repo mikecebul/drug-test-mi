@@ -23,11 +23,10 @@ export const LabScreenNavigation = withForm({
   props: { onBack: (): void => {}, group: undefined as unknown as WorkflowGroup },
 
   render: function Render({ form, onBack, group }) {
-    const [currentStepRaw, setCurrentStep] = useQueryState(
+    const [currentStep, setCurrentStep] = useQueryState(
       'step',
       parseAsStringLiteral(steps).withDefault('upload'),
     )
-    const currentStep = currentStepRaw
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
     const currentStepIndex = steps.indexOf(currentStep)

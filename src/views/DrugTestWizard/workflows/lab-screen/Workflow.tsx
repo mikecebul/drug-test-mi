@@ -38,11 +38,10 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
 
   // URL is single source of truth
-  const [currentStepRaw, setCurrentStep] = useQueryState(
+  const [currentStep, setCurrentStep] = useQueryState(
     'step',
     parseAsStringLiteral(steps).withDefault('upload'),
   )
-  const currentStep = currentStepRaw
   const formRef = useRef<HTMLFormElement | null>(null)
 
   useStepFocus({
