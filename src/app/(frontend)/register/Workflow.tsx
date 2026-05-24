@@ -72,10 +72,10 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
   const [showCompletionFallback, setShowCompletionFallback] = useState(false)
   const [currentStepRaw, setCurrentStep] = useQueryState(
     'step',
-    parseAsStringLiteral(steps as readonly string[]).withDefault('personalInfo'),
+    parseAsStringLiteral(steps).withDefault('personalInfo'),
   )
 
-  const currentStep = (currentStepRaw ?? 'personalInfo') as (typeof steps)[number]
+  const currentStep = currentStepRaw
   const stepIndex = steps.indexOf(currentStep)
   const isFirstStep = stepIndex === 0
   const isLastStep = stepIndex === steps.length - 1
@@ -223,7 +223,7 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
 
   if (showCompletionFallback) {
     return (
-      <div className="flex min-h-[360px] flex-col items-center justify-center text-center" role="status">
+      <div className="flex min-h-90 flex-col items-center justify-center text-center" role="status">
         <div className="bg-primary/10 mb-6 flex h-20 w-20 items-center justify-center rounded-full">
           <div className="bg-primary flex h-14 w-14 items-center justify-center rounded-full">
             <Check className="text-primary-foreground h-7 w-7" strokeWidth={3} />

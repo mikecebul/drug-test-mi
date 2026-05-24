@@ -42,9 +42,9 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
   // URL is single source of truth for current step
   const [currentStepRaw, setCurrentStep] = useQueryState(
     'step',
-    parseAsStringLiteral(steps as readonly string[]).withDefault('personalInfo'),
+    parseAsStringLiteral(steps).withDefault('personalInfo'),
   )
-  const currentStep = currentStepRaw as (typeof steps)[number]
+  const currentStep = currentStepRaw
 
   // Get returnTo param to know where user came from
   const [returnTo] = useQueryState('returnTo', parseAsString)

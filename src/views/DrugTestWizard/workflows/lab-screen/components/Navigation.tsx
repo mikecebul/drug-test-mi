@@ -25,9 +25,9 @@ export const LabScreenNavigation = withForm({
   render: function Render({ form, onBack, group }) {
     const [currentStepRaw, setCurrentStep] = useQueryState(
       'step',
-      parseAsStringLiteral(steps as readonly string[]).withDefault('upload'),
+      parseAsStringLiteral(steps).withDefault('upload'),
     )
-    const currentStep = currentStepRaw as (typeof steps)[number]
+    const currentStep = currentStepRaw
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
     const currentStepIndex = steps.indexOf(currentStep)

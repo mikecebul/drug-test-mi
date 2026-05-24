@@ -31,9 +31,9 @@ export const CollectLabNavigation = withForm({
     // Read step from URL (single source of truth)
     const [currentStepRaw, setCurrentStep] = useQueryState(
       'step',
-      parseAsStringLiteral(steps as readonly string[]).withDefault('client'),
+      parseAsStringLiteral(steps).withDefault('client'),
     )
-    const currentStep = currentStepRaw as (typeof steps)[number]
+    const currentStep = currentStepRaw
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
     const referralEmailEnabled = useStore(form.store, (state) => state.values.emails.referralEmailEnabled)

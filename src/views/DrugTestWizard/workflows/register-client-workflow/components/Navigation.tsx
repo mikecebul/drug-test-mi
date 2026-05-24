@@ -31,9 +31,9 @@ export const RegisterClientNavigation = withForm({
     // Read step from URL (single source of truth)
     const [currentStepRaw, setCurrentStep] = useQueryState(
       'step',
-      parseAsStringLiteral(steps as readonly string[]).withDefault('personalInfo'),
+      parseAsStringLiteral(steps).withDefault('personalInfo'),
     )
-    const currentStep = currentStepRaw as (typeof steps)[number]
+    const currentStep = currentStepRaw
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
 

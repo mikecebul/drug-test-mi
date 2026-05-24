@@ -31,7 +31,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
     'step',
     parseAsStringLiteral(steps).withDefault('client'),
   )
-  const currentStep = currentStepRaw as (typeof steps)[number]
+  const currentStep = currentStepRaw
 
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)
