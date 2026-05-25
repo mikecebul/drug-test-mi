@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 const mockGetTodaysCollectionBookings = vi.hoisted(() => vi.fn())
 
 import AdminQuickBookWidget from '@/views/dashboard/widgets/AdminQuickBookWidget'
+import AdminAlertsWidget from '@/views/dashboard/widgets/AdminAlertsWidget'
 import NextCalcomBookingWidget from '@/views/dashboard/widgets/NextCalcomBookingWidget'
 import PendingDrugTestsWidget from '@/views/dashboard/widgets/PendingDrugTestsWidget'
 import TotalClientsWidget from '@/views/dashboard/widgets/TotalClientsWidget'
@@ -81,11 +82,17 @@ describe('dashboard widgets', () => {
       await PendingDrugTestsWidget(createWidgetProps(pendingReq, 'pending-drug-tests')),
     )
 
+    const alertsReq = createAdminReq()
+    mockGetTodaysCollectionBookings.mockResolvedValue([])
+    ;(alertsReq.payload.count as ReturnType<typeof vi.fn>).mockResolvedValue({ totalDocs: 0 })
+    const alertsMarkup = renderMarkup(await AdminAlertsWidget(createWidgetProps(alertsReq, 'admin-alerts')))
+
     expect(wizardMarkup).toContain('bg-gradient-to-b')
     expect(totalMarkup).toContain('bg-gradient-to-b')
     expect(quickBookMarkup).toContain('bg-gradient-to-b')
     expect(scheduleMarkup).toContain('bg-gradient-to-b')
     expect(pendingMarkup).toContain('bg-gradient-to-b')
+    expect(alertsMarkup).toContain('bg-gradient-to-b')
   })
 
   test('renders dashboard register link in total clients widget', async () => {
@@ -104,6 +111,7 @@ describe('dashboard widgets', () => {
     const markup = renderMarkup(AdminQuickBookWidget(createWidgetProps(req, 'admin-quick-book')))
 
     expect(markup).toContain('Quick Book')
+    expect(markup).toContain('Book an existing client or start a clean appointment.')
   })
 
   test('renders guided schedule rows that jump into the selected booking workflow', async () => {
@@ -141,8 +149,10 @@ describe('dashboard widgets', () => {
     const markup = renderMarkup(await NextCalcomBookingWidget(createWidgetProps(req, 'next-calcom-booking')))
 
     expect(markup).toContain('Today&#x27;s Schedule')
+    expect(markup).toContain('Start each appointment&#x27;s guided collection workflow.')
     expect(markup).toContain('Jamie Client')
     expect(markup).toContain('Register')
+    expect(markup).toContain('Start Guided Workflow')
     expect(markup).toContain(
       '/admin/drug-test-upload?workflow=guided&amp;step=registration&amp;bookingId=booking-1',
     )
@@ -167,8 +177,33 @@ describe('dashboard widgets', () => {
     const quickBookMarkup = renderMarkup(
       AdminQuickBookWidget(createWidgetProps(req, 'admin-quick-book')),
     )
+    const alertsMarkup = renderMarkup(await AdminAlertsWidget(createWidgetProps(req, 'admin-alerts')))
 
     expect(totalMarkup).toBe('')
     expect(quickBookMarkup).toBe('')
+    expect(alertsMarkup).toBe('')
+  })
+
+  test('renders admin alerts for missing schedule setup and pending decisions', async () => {
+    const req = createAdminReq()
+    mockGetTodaysCollectionBookings.mockResolvedValue([
+      {
+        id: 'booking-1',
+        attendeeName: 'Jamie Client',
+        startTime: '2026-05-24T14:30:00.000Z',
+        client: null,
+        payment: null,
+        sampleCollection: null,
+        needsRegistration: true,
+        needsTestType: false,
+      },
+    ])
+    ;(req.payload.count as ReturnType<typeof vi.fn>).mockResolvedValue({ totalDocs: 2 })
+
+    const markup = renderMarkup(await AdminAlertsWidget(createWidgetProps(req, 'admin-alerts')))
+
+    expect(markup).toContain('Admin Alerts')
+    expect(markup).toContain('Bookings need registration or test type review')
+    expect(markup).toContain('Tests waiting on confirmation decision')
   })
 })

@@ -20,9 +20,8 @@ describe('dashboard widget layout config', () => {
     assertTokenOrder(source, [
       "slug: 'next-calcom-booking'",
       "slug: 'admin-quick-book'",
-      "slug: 'wizard-entry'",
-      "slug: 'total-clients'",
       "slug: 'pending-drug-tests'",
+      "slug: 'admin-alerts'",
     ])
   })
 
@@ -30,9 +29,20 @@ describe('dashboard widget layout config', () => {
     assertTokenOrder(source, [
       "widgetSlug: 'next-calcom-booking'",
       "widgetSlug: 'admin-quick-book'",
-      "widgetSlug: 'wizard-entry'",
-      "widgetSlug: 'total-clients'",
       "widgetSlug: 'pending-drug-tests'",
+      "widgetSlug: 'admin-alerts'",
+    ])
+  })
+
+  test('uses equal side-by-side widths and full-width priority rows', () => {
+    expect(source).toContain("widgetSlug: 'next-calcom-booking',\n          width: 'full'")
+    expect(source).toContain("widgetSlug: 'admin-quick-book',\n          width: 'medium'")
+    expect(source).toContain("widgetSlug: 'pending-drug-tests',\n          width: 'medium'")
+    expect(source).toContain("widgetSlug: 'admin-alerts',\n          width: 'full'")
+    assertTokenOrder(source, [
+      "'@/views/beforeNavLinks/DrugTestCollectorLink'",
+      "'@/views/beforeNavLinks/QuickBookLink'",
+      "'@/views/beforeNavLinks/DrugTestTrackerLink'",
     ])
   })
 })

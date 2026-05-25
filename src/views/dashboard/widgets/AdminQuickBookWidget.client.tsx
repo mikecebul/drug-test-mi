@@ -7,6 +7,7 @@ import { Calendar, Loader2, Search } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   extractPreferredTestType,
   extractReferralRelation,
@@ -133,7 +134,15 @@ function resolveTestLabel(options: TestTypeOption[], recommendation: Recommended
   )
 }
 
-export function AdminQuickBookWidgetClient() {
+type AdminQuickBookWidgetClientProps = {
+  resultsMode?: 'inline' | 'popover'
+  searchInputId?: string
+}
+
+export function AdminQuickBookWidgetClient({
+  resultsMode = 'popover',
+  searchInputId = 'admin-quick-book-search',
+}: AdminQuickBookWidgetClientProps = {}) {
   const [clients, setClients] = useState<SimpleClient[]>([])
   const [testTypes, setTestTypes] = useState<TestTypeOption[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -241,73 +250,94 @@ export function AdminQuickBookWidgetClient() {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <div className="relative flex-1">
-          <label htmlFor="admin-quick-book-search" className="sr-only">
-            Search Existing Client
-          </label>
-          <Search className="text-primary/70 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-          <Input
-            id="admin-quick-book-search"
-            value={searchQuery}
-            onChange={(event) => {
-              setSearchQuery(event.target.value)
-              setIsDropdownOpen(true)
-            }}
-            onFocus={() => setIsDropdownOpen(true)}
-            onBlur={() => {
-              setTimeout(() => setIsDropdownOpen(false), 120)
-            }}
-            placeholder="Search client name, email, phone, or DOB..."
-            className="h-11 rounded-lg border-2 border-primary/50 bg-background pl-10 pr-10 shadow-[0_0_0_1px_hsl(var(--primary)/0.2)] focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/25"
-            disabled={isLoadingClients || isOpeningBooking || !!loadError}
-          />
-          {(isLoadingClients || isOpeningBooking) && (
-            <Loader2 className="text-muted-foreground absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin" />
-          )}
-          {isDropdownOpen && !isLoadingClients && results.length > 0 && (
-            <div className="bg-popover border-border absolute z-[80] mt-1 max-h-80 w-full overflow-y-auto rounded-lg border shadow-lg">
-              {results.map((client) => (
-                <button
-                  key={client.id}
-                  type="button"
-                  className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-3 py-2 text-left"
-                  onMouseDown={(event) => {
-                    event.preventDefault()
-                    void handleSelectClient(client)
-                  }}
-                >
-                  <Avatar className="size-8 shrink-0">
-                    <AvatarImage
-                      src={client.headshot ?? undefined}
-                      alt={client.fullName || `${client.firstName} ${client.lastName}`}
-                    />
-                    <AvatarFallback className="text-xs font-semibold">{client.initials}</AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {client.fullName || `${client.firstName} ${client.lastName}`}
-                    </p>
-                    <p className="text-muted-foreground truncate text-xs">{client.email}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+    <div className="space-y-3">
+      <Tabs defaultValue="existing">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="existing">Existing Client</TabsTrigger>
+          <TabsTrigger value="new">New Client</TabsTrigger>
+        </TabsList>
 
-        <Button
-          type="button"
-          variant="secondary"
-          className="h-11 shrink-0 px-4"
-          onClick={() => void handleBookUnregistered()}
-          disabled={isOpeningBooking}
-        >
-          <Calendar className="mr-2 h-4 w-4" />
-          Book New Client
-        </Button>
-      </div>
+        <TabsContent value="existing" className="mt-2 space-y-2">
+          <div className="relative">
+            <label htmlFor={searchInputId} className="sr-only">
+              Search Existing Client
+            </label>
+            <Search className="text-primary/70 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+            <Input
+              id={searchInputId}
+              value={searchQuery}
+              onChange={(event) => {
+                setSearchQuery(event.target.value)
+                setIsDropdownOpen(true)
+              }}
+              onFocus={() => setIsDropdownOpen(true)}
+              onBlur={() => {
+                setTimeout(() => setIsDropdownOpen(false), 120)
+              }}
+              placeholder="Search client name, email, phone, or DOB..."
+              className="h-11 rounded-md border-primary/35 bg-background pl-10 pr-10 shadow-sm focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/20"
+              disabled={isLoadingClients || isOpeningBooking || !!loadError}
+            />
+            {(isLoadingClients || isOpeningBooking) && (
+              <Loader2 className="text-muted-foreground absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin" />
+            )}
+            {isDropdownOpen && !isLoadingClients && results.length > 0 && (
+              <div
+                className={
+                  resultsMode === 'inline'
+                    ? 'bg-popover border-border relative mt-2 max-h-[min(18rem,36vh)] w-full overflow-y-auto rounded-md border shadow-sm'
+                    : 'bg-popover border-border absolute z-[80] mt-1 max-h-80 w-full overflow-y-auto rounded-md border shadow-lg'
+                }
+              >
+                {results.map((client) => (
+                  <button
+                    key={client.id}
+                    type="button"
+                    className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-3 py-2 text-left"
+                    onMouseDown={(event) => {
+                      event.preventDefault()
+                      void handleSelectClient(client)
+                    }}
+                  >
+                    <Avatar className="size-8 shrink-0">
+                      <AvatarImage
+                        src={client.headshot ?? undefined}
+                        alt={client.fullName || `${client.firstName} ${client.lastName}`}
+                      />
+                      <AvatarFallback className="text-xs font-semibold">{client.initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {client.fullName || `${client.firstName} ${client.lastName}`}
+                      </p>
+                      <p className="text-muted-foreground truncate text-xs">{client.email}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <p className="text-muted-foreground text-xs">Selecting a client opens Cal.com with their details.</p>
+        </TabsContent>
+
+        <TabsContent value="new" className="mt-2 space-y-3">
+          <div className="border-border/70 bg-muted/30 rounded-md border px-3 py-3">
+            <p className="text-sm font-medium">Book an appointment before registration.</p>
+            <p className="text-muted-foreground mt-1 text-xs">
+              Use this for walk-ins or clients who are not in Payload yet.
+            </p>
+          </div>
+          <Button
+            type="button"
+            className="h-11 w-full justify-center px-4"
+            onClick={() => void handleBookUnregistered()}
+            disabled={isOpeningBooking}
+          >
+            <Calendar className="h-4 w-4" />
+            Book Appointment
+          </Button>
+        </TabsContent>
+      </Tabs>
 
       {loadError && <p className="text-destructive text-xs">{loadError}</p>}
       {bookingError && <p className="text-destructive text-xs">{bookingError}</p>}

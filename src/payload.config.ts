@@ -102,6 +102,7 @@ export default buildConfig({
     components: {
       beforeNavLinks: [
         '@/views/beforeNavLinks/DrugTestCollectorLink',
+        '@/views/beforeNavLinks/QuickBookLink',
         '@/views/beforeNavLinks/DrugTestTrackerLink',
       ],
       afterNavLinks: ['@/views/afterNavLinks/LinkToAnalyticsDefaultRootView'],
@@ -130,58 +131,47 @@ export default buildConfig({
           slug: 'next-calcom-booking',
           label: 'Schedule',
           Component: '@/views/dashboard/widgets/NextCalcomBookingWidget',
-          minWidth: 'small',
+          minWidth: 'medium',
           maxWidth: 'full',
         },
         {
           slug: 'admin-quick-book',
           label: 'Quick Book',
           Component: '@/views/dashboard/widgets/AdminQuickBookWidget',
-          minWidth: 'small',
-          maxWidth: 'full',
-        },
-        {
-          slug: 'wizard-entry',
-          label: 'Drug Test Wizard',
-          Component: '@/views/dashboard/widgets/WizardEntryWidget',
-          minWidth: 'small',
-          maxWidth: 'full',
-        },
-        {
-          slug: 'total-clients',
-          label: 'Total Clients',
-          Component: '@/views/dashboard/widgets/TotalClientsWidget',
-          minWidth: 'small',
-          maxWidth: 'full',
+          minWidth: 'medium',
+          maxWidth: 'medium',
         },
         {
           slug: 'pending-drug-tests',
           label: 'Pending Drug Tests',
           Component: '@/views/dashboard/widgets/PendingDrugTestsWidget',
-          minWidth: 'small',
+          minWidth: 'medium',
+          maxWidth: 'medium',
+        },
+        {
+          slug: 'admin-alerts',
+          label: 'Admin Alerts',
+          Component: '@/views/dashboard/widgets/AdminAlertsWidget',
+          minWidth: 'medium',
           maxWidth: 'full',
         },
       ],
       defaultLayout: [
         {
           widgetSlug: 'next-calcom-booking',
-          width: 'medium',
+          width: 'full',
         },
         {
           widgetSlug: 'admin-quick-book',
           width: 'medium',
         },
         {
-          widgetSlug: 'wizard-entry',
-          width: 'medium',
-        },
-        {
-          widgetSlug: 'total-clients',
-          width: 'medium',
-        },
-        {
           widgetSlug: 'pending-drug-tests',
           width: 'medium',
+        },
+        {
+          widgetSlug: 'admin-alerts',
+          width: 'full',
         },
       ],
     },

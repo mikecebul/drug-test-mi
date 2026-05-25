@@ -179,9 +179,8 @@ export interface Config {
   widgets: {
     'next-calcom-booking': NextCalcomBookingWidget;
     'admin-quick-book': AdminQuickBookWidget;
-    'wizard-entry': WizardEntryWidget;
-    'total-clients': TotalClientsWidget;
     'pending-drug-tests': PendingDrugTestsWidget;
+    'admin-alerts': AdminAlertsWidget;
     collections: CollectionsWidget;
   };
   user: Admin | Client;
@@ -3726,7 +3725,7 @@ export interface NextCalcomBookingWidget {
   data?: {
     [k: string]: unknown;
   };
-  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
+  width: 'medium' | 'large' | 'x-large' | 'full';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3736,27 +3735,7 @@ export interface AdminQuickBookWidget {
   data?: {
     [k: string]: unknown;
   };
-  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "wizard-entry_widget".
- */
-export interface WizardEntryWidget {
-  data?: {
-    [k: string]: unknown;
-  };
-  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "total-clients_widget".
- */
-export interface TotalClientsWidget {
-  data?: {
-    [k: string]: unknown;
-  };
-  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
+  width: 'medium';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3766,7 +3745,17 @@ export interface PendingDrugTestsWidget {
   data?: {
     [k: string]: unknown;
   };
-  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
+  width: 'medium';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-alerts_widget".
+ */
+export interface AdminAlertsWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'medium' | 'large' | 'x-large' | 'full';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

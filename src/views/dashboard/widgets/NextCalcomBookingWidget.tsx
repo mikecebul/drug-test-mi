@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { WidgetServerProps } from 'payload'
-import { CalendarDays, Clock } from 'lucide-react'
+import { CalendarDays, Clock, PlayCircle } from 'lucide-react'
 
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { Badge } from '@/components/ui/badge'
@@ -32,36 +32,42 @@ function ScheduleRow({ booking }: { booking: Booking }) {
   const paymentLabel = getGuidedPaymentLabel(booking)
   const needsRegistration = booking.needsRegistration
   const needsTestType = booking.needsTestType
+  const workflowLabel = needsRegistration || needsTestType ? 'Review & Start' : 'Start Guided Workflow'
   return (
     <Link
       href={getGuidedScheduleHref(booking)}
       className={cn(
-        'border-border bg-card hover:bg-muted/50 focus-visible:ring-ring grid w-full grid-cols-[1fr_auto] gap-3',
-        'rounded-lg border p-4 text-left transition focus-visible:ring-2 focus-visible:outline-none',
+        'border-border/70 bg-card hover:bg-muted/50 focus-visible:ring-ring grid w-full gap-4',
+        'rounded-md border p-4 text-left transition focus-visible:ring-2 focus-visible:outline-none',
+        'md:grid-cols-[minmax(0,1fr)_auto]',
       )}
     >
-      <span className="min-w-0 space-y-1">
-        <span className="block truncate text-base font-semibold">{booking.attendeeName}</span>
-        <span className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-          <span className="inline-flex items-center gap-1">
-            <Clock className="size-3.5" />
-            {formatTime(booking.startTime)}
+      <span className="grid min-w-0 gap-3 sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-center">
+        <span className="text-foreground inline-flex items-center gap-2 text-sm font-semibold">
+          <Clock className="text-muted-foreground size-3.5" />
+          {formatTime(booking.startTime)}
+        </span>
+        <span className="min-w-0 space-y-2">
+          <span className="block truncate text-base font-semibold">{booking.attendeeName}</span>
+          <span className="flex flex-wrap items-center gap-2">
+            <Badge
+              variant={paymentLabel === 'Unpaid' || paymentLabel === 'Still owes' ? 'outline' : 'default'}
+              className={cn(
+                paymentLabel === 'Still owes' && 'border-destructive text-destructive',
+                paymentLabel === 'Collected' && 'bg-primary text-primary-foreground',
+              )}
+            >
+              {paymentLabel}
+            </Badge>
+            <Badge variant="secondary">{formatGender(booking.client?.gender)}</Badge>
+            {needsRegistration && <Badge variant="secondary">Register</Badge>}
+            {needsTestType && <Badge variant="secondary">Set test</Badge>}
           </span>
-          <span>{formatGender(booking.client?.gender)}</span>
         </span>
       </span>
-      <span className="flex flex-col items-end gap-2">
-        <Badge
-          variant={paymentLabel === 'Unpaid' || paymentLabel === 'Still owes' ? 'outline' : 'default'}
-          className={cn(
-            paymentLabel === 'Still owes' && 'border-destructive text-destructive',
-            paymentLabel === 'Collected' && 'bg-primary text-primary-foreground',
-          )}
-        >
-          {paymentLabel}
-        </Badge>
-        {needsRegistration && <Badge variant="secondary">Register</Badge>}
-        {needsTestType && <Badge variant="secondary">Set test</Badge>}
+      <span className="bg-primary text-primary-foreground inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium md:self-center">
+        <PlayCircle className="size-4" />
+        {workflowLabel}
       </span>
     </Link>
   )
@@ -85,12 +91,17 @@ export default async function NextCalcomBookingWidget({ req }: WidgetServerProps
   return (
     <ShadcnWrapper className="pb-0">
       <Card variant="admin">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-3">
-            <CalendarDays className="size-5" />
-            Today&apos;s Schedule
-          </CardTitle>
-          <CardDescription>Name, time, payment status, and registration status.</CardDescription>
+        <CardHeader className="flex-row items-start justify-between gap-4 pb-4">
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <CalendarDays className="size-5" />
+              Today&apos;s Schedule
+            </CardTitle>
+            <CardDescription>Start each appointment&apos;s guided collection workflow.</CardDescription>
+          </div>
+          <Badge variant="outline" className="shrink-0">
+            {bookings.length} today
+          </Badge>
         </CardHeader>
         <CardContent className="space-y-3">
           {hasLoadError && <p className="text-muted-foreground text-sm">Unable to load booking data right now.</p>}
