@@ -1,6 +1,8 @@
 import { describe, expect, test, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 
+const mockGetTodaysCollectionBookings = vi.hoisted(() => vi.fn())
+
 import AdminQuickBookWidget from '@/views/dashboard/widgets/AdminQuickBookWidget'
 import NextCalcomBookingWidget from '@/views/dashboard/widgets/NextCalcomBookingWidget'
 import PendingDrugTestsWidget from '@/views/dashboard/widgets/PendingDrugTestsWidget'
@@ -20,6 +22,10 @@ vi.mock('next/link', () => ({
 
 vi.mock('@/views/dashboard/widgets/AdminQuickBookWidget.client', () => ({
   AdminQuickBookWidgetClient: () => <div>Quick Book Client</div>,
+}))
+
+vi.mock('@/views/DrugTestWizard/workflows/complete-workflow/actions', () => ({
+  getTodaysCollectionBookings: mockGetTodaysCollectionBookings,
 }))
 
 function renderMarkup(node: React.ReactNode) {
@@ -50,6 +56,8 @@ function createWidgetProps(req: WidgetReq, widgetSlug: string): WidgetProps {
 
 describe('dashboard widgets', () => {
   test('renders admin card variant styles for all dashboard cards', async () => {
+    mockGetTodaysCollectionBookings.mockResolvedValue([])
+
     const wizardReq = createAdminReq()
     const wizardMarkup = renderMarkup(WizardEntryWidget(createWidgetProps(wizardReq, 'wizard-entry')))
 
@@ -63,7 +71,6 @@ describe('dashboard widgets', () => {
     )
 
     const scheduleReq = createAdminReq()
-    ;(scheduleReq.payload.find as ReturnType<typeof vi.fn>).mockResolvedValue({ docs: [] })
     const scheduleMarkup = renderMarkup(
       await NextCalcomBookingWidget(createWidgetProps(scheduleReq, 'next-calcom-booking')),
     )
@@ -97,6 +104,59 @@ describe('dashboard widgets', () => {
     const markup = renderMarkup(AdminQuickBookWidget(createWidgetProps(req, 'admin-quick-book')))
 
     expect(markup).toContain('Quick Book')
+  })
+
+  test('renders guided schedule rows that jump into the selected booking workflow', async () => {
+    const req = createAdminReq()
+    mockGetTodaysCollectionBookings.mockResolvedValue([
+      {
+        id: 'booking-1',
+        attendeeName: 'Jamie Client',
+        startTime: '2026-05-24T14:30:00.000Z',
+        client: {
+          gender: 'female',
+        },
+        payment: null,
+        sampleCollection: null,
+        needsRegistration: true,
+        needsTestType: false,
+      },
+      {
+        id: 'booking-2',
+        attendeeName: 'Morgan Ready',
+        startTime: '2026-05-24T15:30:00.000Z',
+        client: {
+          gender: 'male',
+        },
+        payment: {
+          status: 'paid',
+          method: 'pre-paid',
+        },
+        sampleCollection: null,
+        needsRegistration: false,
+        needsTestType: false,
+      },
+    ])
+
+    const markup = renderMarkup(await NextCalcomBookingWidget(createWidgetProps(req, 'next-calcom-booking')))
+
+    expect(markup).toContain('Today&#x27;s Schedule')
+    expect(markup).toContain('Jamie Client')
+    expect(markup).toContain('Register')
+    expect(markup).toContain(
+      '/admin/drug-test-upload?workflow=guided&amp;step=registration&amp;bookingId=booking-1',
+    )
+    expect(markup).toContain(
+      '/admin/drug-test-upload?workflow=guided&amp;step=payment&amp;bookingId=booking-2',
+    )
+  })
+
+  test('describes the wizard widget as manual collection and lab result work', () => {
+    const req = createAdminReq()
+    const markup = renderMarkup(WizardEntryWidget(createWidgetProps(req, 'wizard-entry')))
+
+    expect(markup).toContain('Manually collect unscheduled samples')
+    expect(markup).toContain('lab screen and confirmation results')
   })
 
   test('hides widgets for non-admin users', async () => {

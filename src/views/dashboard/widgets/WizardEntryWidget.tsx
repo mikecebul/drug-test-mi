@@ -17,7 +17,7 @@ export default function WizardEntryWidget({ req }: WidgetServerProps) {
         <CardHeader className="">
           <CardTitle>Drug Test Wizard</CardTitle>
           <CardDescription>
-            Start the admin workflow for registration, instant tests, and lab processing.
+            Manually collect unscheduled samples or update tests with lab screen and confirmation results.
           </CardDescription>
         </CardHeader>
         <CardContent>

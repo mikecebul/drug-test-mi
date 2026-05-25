@@ -38,6 +38,11 @@ import {
   refreshBookingClientContext,
   setBookingScheduledTestType,
 } from './actions'
+import {
+  getGuidedBookingNextStep,
+  getGuidedPaymentChoice,
+  getGuidedPaymentLabel,
+} from './schedule-utils'
 
 type Booking = Awaited<ReturnType<typeof getTodaysCollectionBookings>>[number]
 type TestType = NonNullable<Booking['testType']>
@@ -82,10 +87,7 @@ function formatDateOnly(value?: string | null) {
 }
 
 function getPaymentChoice(payment: Booking['payment'] | undefined): PaymentChoice | null {
-  if (!payment?.status) return null
-  if (payment.method === 'pre-paid') return 'pre-paid'
-  if (payment.status === 'partial') return 'still-owes'
-  return 'paid'
+  return getGuidedPaymentChoice(payment)
 }
 
 function getPaymentDefaults(booking: Booking | null) {
@@ -130,12 +132,7 @@ function getPersistedPayment(input: ReturnType<typeof getPaymentDefaults>): {
 }
 
 function getPaymentLabel(booking: Booking) {
-  if (booking.sampleCollection?.status === 'collected') return 'Collected'
-  const choice = getPaymentChoice(booking.payment)
-  if (choice === 'pre-paid') return 'Pre-paid'
-  if (choice === 'still-owes') return 'Still owes'
-  if (choice === 'paid') return 'Paid'
-  return 'Unpaid'
+  return getGuidedPaymentLabel(booking)
 }
 
 function getAmountDisplay(booking: Booking) {
@@ -212,7 +209,7 @@ function getCollectionRoute(testType: TestType, clientId: string, bookingId: str
 }
 
 function getNextStep(booking: Booking): WorkflowStep {
-  return booking.needsRegistration || booking.needsTestType ? 'registration' : 'payment'
+  return getGuidedBookingNextStep(booking)
 }
 
 export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {

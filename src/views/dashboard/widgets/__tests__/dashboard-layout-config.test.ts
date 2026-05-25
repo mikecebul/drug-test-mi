@@ -18,21 +18,21 @@ describe('dashboard widget layout config', () => {
 
   test('keeps dashboard widget registry in requested order', () => {
     assertTokenOrder(source, [
-      "slug: 'wizard-entry'",
+      "slug: 'next-calcom-booking'",
       "slug: 'admin-quick-book'",
+      "slug: 'wizard-entry'",
       "slug: 'total-clients'",
       "slug: 'pending-drug-tests'",
-      "slug: 'next-calcom-booking'",
     ])
   })
 
   test('keeps default dashboard layout in requested order', () => {
     assertTokenOrder(source, [
-      "widgetSlug: 'wizard-entry'",
+      "widgetSlug: 'next-calcom-booking'",
       "widgetSlug: 'admin-quick-book'",
+      "widgetSlug: 'wizard-entry'",
       "widgetSlug: 'total-clients'",
       "widgetSlug: 'pending-drug-tests'",
-      "widgetSlug: 'next-calcom-booking'",
     ])
   })
 })

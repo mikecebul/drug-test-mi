@@ -64,7 +64,7 @@ async function waitForAdminShell(page: Page) {
     page.getByText('Drug Test Workflow'),
     page.getByText('Select the type of workflow you want to perform'),
     page.getByText('Register New Client'),
-    page.getByRole('link', { name: /Drug Test Collector/i }),
+    page.getByRole('link', { name: /Collect Test/i }),
     page.getByRole('link', { name: /Drug Test Tracker/i }),
     page.getByRole('heading', { name: /Total Clients/i }),
   ]

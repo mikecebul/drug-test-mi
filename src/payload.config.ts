@@ -127,9 +127,9 @@ export default buildConfig({
     dashboard: {
       widgets: [
         {
-          slug: 'wizard-entry',
-          label: 'Drug Test Wizard',
-          Component: '@/views/dashboard/widgets/WizardEntryWidget',
+          slug: 'next-calcom-booking',
+          label: 'Schedule',
+          Component: '@/views/dashboard/widgets/NextCalcomBookingWidget',
           minWidth: 'small',
           maxWidth: 'full',
         },
@@ -137,6 +137,13 @@ export default buildConfig({
           slug: 'admin-quick-book',
           label: 'Quick Book',
           Component: '@/views/dashboard/widgets/AdminQuickBookWidget',
+          minWidth: 'small',
+          maxWidth: 'full',
+        },
+        {
+          slug: 'wizard-entry',
+          label: 'Drug Test Wizard',
+          Component: '@/views/dashboard/widgets/WizardEntryWidget',
           minWidth: 'small',
           maxWidth: 'full',
         },
@@ -154,21 +161,18 @@ export default buildConfig({
           minWidth: 'small',
           maxWidth: 'full',
         },
-        {
-          slug: 'next-calcom-booking',
-          label: 'Next Cal.com Booking',
-          Component: '@/views/dashboard/widgets/NextCalcomBookingWidget',
-          minWidth: 'small',
-          maxWidth: 'full',
-        },
       ],
       defaultLayout: [
         {
-          widgetSlug: 'wizard-entry',
+          widgetSlug: 'next-calcom-booking',
           width: 'medium',
         },
         {
           widgetSlug: 'admin-quick-book',
+          width: 'medium',
+        },
+        {
+          widgetSlug: 'wizard-entry',
           width: 'medium',
         },
         {
@@ -177,10 +181,6 @@ export default buildConfig({
         },
         {
           widgetSlug: 'pending-drug-tests',
-          width: 'medium',
-        },
-        {
-          widgetSlug: 'next-calcom-booking',
           width: 'medium',
         },
       ],
