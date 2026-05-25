@@ -8,9 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Loader2, Eye, AlertCircle, CheckCircle2, Pencil, ChevronDown } from 'lucide-react'
+import { Loader2, Eye, AlertCircle, CheckCircle2, Pencil } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { RecipientEditor } from '../../../components/RecipientEditor'
 import { EmailPreviewModal } from './EmailPreviewModal'
 import { FieldGroupHeader } from '../FieldGroupHeader'
@@ -109,7 +108,6 @@ export const EmailsFieldGroup = withFieldGroup({
     const [showClientEmailEditor, setShowClientEmailEditor] = React.useState(false)
     const [showReferralEditor, setShowReferralEditor] = React.useState(false)
     const [referralEditorVersion, setReferralEditorVersion] = React.useState(0)
-    const [oneTimeRecipientsOpen, setOneTimeRecipientsOpen] = React.useState(false)
 
     // Get current field group values
     const clientEmailEnabled = group.getFieldValue('clientEmailEnabled')
@@ -443,43 +441,19 @@ export const EmailsFieldGroup = withFieldGroup({
                             </div>
                           </div>
 
-                          <div className="border-border bg-muted/30 rounded-lg border p-4">
-                            <Collapsible open={oneTimeRecipientsOpen} onOpenChange={setOneTimeRecipientsOpen}>
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="space-y-1">
-                                  <FieldLabel className="text-base font-semibold">One-time recipients</FieldLabel>
-                                  <FieldDescription>
-                                    Optional emails for this collection only.
-                                  </FieldDescription>
-                                </div>
-                                <CollapsibleTrigger
-                                  type="button"
-                                  className="border-input bg-background hover:bg-accent hover:text-accent-foreground inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md border px-3 text-sm font-medium whitespace-nowrap shadow-xs transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
-                                >
-                                  <ChevronDown
-                                    className={`h-4 w-4 shrink-0 transition-transform ${oneTimeRecipientsOpen ? 'rotate-180' : ''}`}
-                                  />
-                                  {oneTimeRecipientsOpen ? 'Hide' : 'Add One-Time Email'}
-                                </CollapsibleTrigger>
-                              </div>
+                          <FieldSeparator />
 
-                              <CollapsiblePanel>
-                                <div className="pt-4">
-                                  <RecipientEditor
-                                    key={`one-time-recipient-editor-${referralEditorVersion}`}
-                                    initialRecipients={oneTimeRecipients}
-                                    onChange={handleOneTimeRecipientsChange}
-                                    label="One-time email addresses"
-                                    description="These are added to this send only and do not update the saved referral."
-                                    recipientLabel="One-time"
-                                    addButtonLabel="Add One-Time Email"
-                                    required={false}
-                                    maxRecipients={10}
-                                  />
-                                </div>
-                              </CollapsiblePanel>
-                            </Collapsible>
-                          </div>
+                          <RecipientEditor
+                            key={`one-time-recipient-editor-${referralEditorVersion}`}
+                            initialRecipients={oneTimeRecipients}
+                            onChange={handleOneTimeRecipientsChange}
+                            label="One-time email addresses"
+                            description="These are added to this send only and do not update the saved referral."
+                            recipientLabel="One-time"
+                            addButtonLabel="Add One-Time Email"
+                            required={false}
+                            maxRecipients={10}
+                          />
 
                           <FieldError errors={field.state.meta.errors} />
                         </>
@@ -492,7 +466,7 @@ export const EmailsFieldGroup = withFieldGroup({
           </Card>
 
           {/* Summary */}
-          <Alert>
+          <Alert variant="info">
             <CheckCircle2 className="size-5" />
             <AlertTitle>Ready to send</AlertTitle>
             <AlertDescription>
