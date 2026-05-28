@@ -8,55 +8,46 @@ import { useQueryState, parseAsStringLiteral } from 'nuqs'
 import { steps } from '../validators'
 import { collectLabFormOpts } from '../shared-form'
 
+type WorkflowGroup = {
+  state: {
+    meta: {
+      isSubmitting: boolean
+      canSubmit: boolean
+      isValid: boolean
+      submissionAttempts: number
+    }
+  }
+  handleSubmit: () => void | Promise<void>
+}
+
 export const CollectLabNavigation = withForm({
   ...collectLabFormOpts,
   props: {
     onBack: (): void => {},
+    group: undefined as unknown as WorkflowGroup,
   },
 
-  render: function Render({ form, onBack }) {
+  render: function Render({ form, onBack, group }) {
     // Read step from URL (single source of truth)
-    const [currentStepRaw, setCurrentStep] = useQueryState(
+    const [currentStep, setCurrentStep] = useQueryState(
       'step',
-      parseAsStringLiteral(steps as readonly string[]).withDefault('client'),
+      parseAsStringLiteral(steps).withDefault('client'),
     )
-    const currentStep = currentStepRaw as (typeof steps)[number]
 
-    const [isSubmitting, errors] = useStore(form.store, (state) => [state.isSubmitting, state.errors])
-
+    const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
+    const referralEmailEnabled = useStore(form.store, (state) => state.values.emails.referralEmailEnabled)
+    const referralRecipients = useStore(form.store, (state) => state.values.emails.referralRecipients)
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
-    const isStepField = (fieldName: string, stepName: string) => fieldName === stepName || fieldName.startsWith(`${stepName}.`)
-
-    // Only consider errors from the current step for enabling/disabling navigation
-    const currentStepHasErrors = errors.some((errorObj) => {
-      if (!errorObj) return false
-      const fieldNames = Object.keys(errorObj)
-      return fieldNames.some((fieldName) => {
-        switch (currentStep) {
-          case 'client':
-            return isStepField(fieldName, 'client')
-          case 'medications':
-            return isStepField(fieldName, 'medications')
-          case 'collection':
-            return isStepField(fieldName, 'collection')
-          case 'confirm':
-            return false
-          case 'reviewEmails':
-            return isStepField(fieldName, 'emails')
-          default:
-            return false
-        }
-      })
-    })
-
+    const isMissingRequiredReferralRecipient =
+      isLastStep && referralEmailEnabled && referralRecipients.length === 0
     const handleBack = () => {
       if (isFirstStep) {
         onBack()
       } else {
         const prevStep = steps[currentIndex - 1]
-        setCurrentStep(prevStep, { history: 'push' }) // Update URL, triggers validation reset in Workflow.tsx
+        setCurrentStep(prevStep, { history: 'push' })
       }
     }
 
@@ -76,8 +67,8 @@ export const CollectLabNavigation = withForm({
 
         <Button
           type="button"
-          onClick={() => form.handleSubmit()}
-          disabled={isSubmitting || currentStepHasErrors}
+          onClick={() => group.handleSubmit()}
+          disabled={isSubmitting || group.state.meta.isSubmitting || isMissingRequiredReferralRecipient}
           size="lg"
           data-testid="wizard-next-button"
         >

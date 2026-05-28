@@ -6,28 +6,33 @@ import { parseAsStringLiteral, useQueryState } from 'nuqs'
 import { Button } from '@/components/ui/button'
 import { labConfirmationFormOpts, steps } from '../shared-form'
 
+type WorkflowGroup = {
+  state: {
+    meta: {
+      isSubmitting: boolean
+      canSubmit: boolean
+      isValid: boolean
+      submissionAttempts: number
+    }
+  }
+  handleSubmit: () => void | Promise<void>
+}
+
 export const LabConfirmationNavigation = withForm({
   ...labConfirmationFormOpts,
-  props: { onBack: (): void => {} },
+  props: { onBack: (): void => {}, group: undefined as unknown as WorkflowGroup },
 
-  render: function Render({ form, onBack }) {
+  render: function Render({ form, onBack, group }) {
     const [currentStep, setCurrentStep] = useQueryState(
       'step',
-      parseAsStringLiteral(steps as readonly string[]).withDefault('upload'),
+      parseAsStringLiteral(steps).withDefault('upload'),
     )
 
-    const [isSubmitting, errors] = useStore(form.store, (state) => [state.isSubmitting, state.errors])
+    const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
 
-    const currentStepIndex = steps.indexOf(currentStep as any)
+    const currentStepIndex = steps.indexOf(currentStep)
     const isFirstStep = currentStepIndex === 0
     const isLastStep = currentStepIndex === steps.length - 1
-    const isStepField = (fieldName: string, stepName: string) => fieldName === stepName || fieldName.startsWith(`${stepName}.`)
-
-    const currentStepHasErrors = errors.some((errorObj) => {
-      if (!errorObj) return false
-      const fieldNames = Object.keys(errorObj)
-      return fieldNames.some((fieldName) => isStepField(fieldName, currentStep))
-    })
 
     const handleBack = () => {
       if (isFirstStep) {
@@ -44,8 +49,8 @@ export const LabConfirmationNavigation = withForm({
         </Button>
         <Button
           type="button"
-          onClick={() => form.handleSubmit()}
-          disabled={currentStepHasErrors || isSubmitting}
+          onClick={() => group.handleSubmit()}
+          disabled={isSubmitting || group.state.meta.isSubmitting}
           data-testid="wizard-next-button"
         >
           {isLastStep ? 'Update Test Record' : 'Next'}

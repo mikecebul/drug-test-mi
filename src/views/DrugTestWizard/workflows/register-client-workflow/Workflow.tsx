@@ -6,7 +6,10 @@ import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
 import { getRegisterClientFormOpts } from './shared-form'
-import { formSchema, steps } from './validators'
+import {
+  formSchema,
+  steps,
+} from './validators'
 
 import { PersonalInfoStep } from './steps/PersonalInfo'
 import { AccountInfoStep } from './steps/AccountInfo'
@@ -14,9 +17,9 @@ import { ScreeningTypeStep } from './steps/ScreeningType'
 import { RecipientsStep } from './steps/Recipients'
 import { TermsStep } from './steps/Terms'
 import { SuccessStep } from './steps/Success'
-import { RegisterClientNavigation } from './components/Navigation'
 import { registerClientAction } from './actions/registerClientAction'
 import { useRouter } from 'next/navigation'
+import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface RegisterClientWorkflowProps {
   onBack: () => void
@@ -37,33 +40,23 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
   } | null>(null)
 
   // URL is single source of truth for current step
-  const [currentStepRaw, setCurrentStep] = useQueryState(
+  const [currentStep, setCurrentStep] = useQueryState(
     'step',
-    parseAsStringLiteral(steps as readonly string[]).withDefault('personalInfo'),
+    parseAsStringLiteral(steps).withDefault('personalInfo'),
   )
-  const currentStep = currentStepRaw as (typeof steps)[number]
 
   // Get returnTo param to know where user came from
   const [returnTo] = useQueryState('returnTo', parseAsString)
+  const formRef = useRef<HTMLFormElement | null>(null)
 
-  // Track previous step for navigation direction
-  const prevStepRef = useRef(currentStep)
+  useStepFocus({
+    containerRef: formRef,
+    stepKey: currentStep,
+  })
 
   const form = useAppForm({
-    ...getRegisterClientFormOpts(currentStep),
+    ...getRegisterClientFormOpts(),
     onSubmit: async ({ value }) => {
-      const currentStepIndex = steps.indexOf(currentStep)
-      const isLastStep = currentStepIndex === steps.length - 1
-
-      if (!isLastStep) {
-        // Navigate to next step
-        const nextStep = steps[currentStepIndex + 1]
-        if (nextStep) {
-          await setCurrentStep(nextStep, { history: 'push' })
-        }
-        return
-      }
-
       // Final submit on last step
       const registrationValues = formSchema.parse({
         ...value,
@@ -81,7 +74,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
           firstName: value.personalInfo.firstName,
           lastName: value.personalInfo.lastName,
           middleInitial: value.personalInfo.middleInitial,
-          email: result.clientEmail || value.accountInfo.email,
+          email: result.clientEmail || value.accountInfo.email || '',
           dob: typeof value.personalInfo.dob === 'string'
             ? value.personalInfo.dob
             : value.personalInfo.dob.toISOString(),
@@ -104,19 +97,11 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
     },
   })
 
-  // Handle validation reset on backward navigation
+  // Guard against skipping into a later step without required base data
   useEffect(() => {
-    const currentIndex = steps.indexOf(currentStep)
-    const prevIndex = steps.indexOf(prevStepRef.current)
-
-    // Only reset validation when going BACKWARD (not forward)
-    if (currentIndex < prevIndex) {
-      form.validate('submit')
-    }
     if (currentStep !== 'personalInfo' && !form.state.values.personalInfo.firstName) {
       router.push('/admin/drug-test-upload')
     }
-    prevStepRef.current = currentStep
   }, [currentStep, form, router])
 
   // If registration complete, show success screen
@@ -154,34 +139,62 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
     )
   }
 
+  const currentStepIndex = steps.indexOf(currentStep)
+  const isLastStep = currentStepIndex === steps.length - 1
+
+  const handleNextStep = async () => {
+    if (!isLastStep) {
+      const nextStep = steps[currentStepIndex + 1]
+      if (nextStep) {
+        await setCurrentStep(nextStep, { history: 'push' })
+      }
+      return
+    }
+
+    await form.handleSubmit()
+  }
+
+  const handleStepInvalid = () => {
+    const focusedField = focusFirstInvalidField(formRef.current)
+    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
+      id: 'register-client-step-invalid',
+    })
+  }
+
   const renderStep = () => {
+    const stepProps = {
+      form,
+      onBack,
+      onInvalid: handleStepInvalid,
+      onNext: handleNextStep,
+    }
+
     switch (currentStep) {
       case 'personalInfo':
-        return <PersonalInfoStep form={form} />
+        return <PersonalInfoStep {...stepProps} />
       case 'accountInfo':
-        return <AccountInfoStep form={form} />
+        return <AccountInfoStep {...stepProps} />
       case 'screeningType':
-        return <ScreeningTypeStep form={form} />
+        return <ScreeningTypeStep {...stepProps} />
       case 'recipients':
-        return <RecipientsStep form={form} />
+        return <RecipientsStep {...stepProps} />
       case 'terms':
-        return <TermsStep form={form} />
+        return <TermsStep {...stepProps} />
       default:
-        return <PersonalInfoStep form={form} />
+        return <PersonalInfoStep {...stepProps} />
     }
   }
 
   return (
     <form
+      ref={formRef}
       onSubmit={(e) => {
         e.preventDefault()
         e.stopPropagation()
-        form.handleSubmit()
       }}
       className="flex flex-1 flex-col"
     >
-      <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
-      <RegisterClientNavigation form={form} onBack={onBack} />
+      {renderStep()}
     </form>
   )
 }

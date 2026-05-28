@@ -38,13 +38,14 @@ export function DrugTestWizardClient() {
       workflow: parseAsStringLiteral(workflowTypes),
       step: parseAsString, // Use generic string so it accepts all workflow step types
       clientId: parseAsString,
+      reset: parseAsString,
     },
     {
       history: 'push', // Default all updates to push to history
     },
   )
 
-  const { workflow } = states
+  const { reset, workflow } = states
 
   const firstStepMap: Record<Workflows[number], string> = {
     'register-client': registerClientSteps[0],
@@ -90,23 +91,23 @@ export function DrugTestWizardClient() {
 
   // Route to appropriate workflow
   if (workflow === 'register-client') {
-    return <RegisterClientWorkflow onBack={handleBack} />
+    return <RegisterClientWorkflow key={`${workflow}:${reset ?? ''}`} onBack={handleBack} />
   }
 
   if (workflow === 'collect-lab') {
-    return <CollectLabWorkflow onBack={handleBack} />
+    return <CollectLabWorkflow key={`${workflow}:${reset ?? ''}`} onBack={handleBack} />
   }
 
   if (workflow === 'enter-lab-screen') {
-    return <LabScreenWorkflow onBack={handleBack} />
+    return <LabScreenWorkflow key={`${workflow}:${reset ?? ''}`} onBack={handleBack} />
   }
 
   if (workflow === 'enter-lab-confirmation') {
-    return <LabConfirmationWorkflow onBack={handleBack} />
+    return <LabConfirmationWorkflow key={`${workflow}:${reset ?? ''}`} onBack={handleBack} />
   }
 
   if (workflow === 'instant-test' || workflow === '15-panel-instant' || workflow === '17-panel-instant') {
-    return <InstantTestWorkflow onBack={handleBack} />
+    return <InstantTestWorkflow key={`${workflow}:${reset ?? ''}`} onBack={handleBack} />
   }
 
   return null

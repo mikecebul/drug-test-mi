@@ -3,7 +3,7 @@
 import { withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { Plus, Trash2 } from 'lucide-react'
-import { useStore } from '@tanstack/react-form'
+import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { useEmployerOptions } from '../hooks/useEmployerOptions'
 import { useCourtOptions } from '../hooks/useCourtOptions'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
@@ -18,17 +18,21 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { groupCourtSelectOptions } from '../utils/groupCourtSelectOptions'
+import { getRecipientsGroupSchema } from '../validators'
+import { RegisterNavigation } from '../components/Navigation'
+import type { RegisterStepProps } from './types'
 
 export const RecipientsStep = withForm({
-  ...getRegisterClientFormOpts('recipients'),
-
-  render: function Render({ form }) {
+  ...getRegisterClientFormOpts(),
+  props: {} as RegisterStepProps,
+  render: function Render(props) {
+    const { form } = props
+    const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
     const CLEAR_SELECTION_VALUE = '__none__'
     const { employers, employersById, isLoading: isLoadingEmployers } = useEmployerOptions()
     const { courts, courtsById, isLoading: isLoadingCourts } = useCourtOptions()
     const groupedCourtOptions = groupCourtSelectOptions(courts)
 
-    const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
     const selectedEmployerValue = useStore(form.store, (state) => state.values.recipients.selectedEmployer)
     const selectedCourtValue = useStore(form.store, (state) => state.values.recipients.selectedCourt)
 
@@ -71,10 +75,10 @@ export const RecipientsStep = withForm({
                 <div className="space-y-3">
                   {rows.map((_, index) => (
                     <div key={`additional-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                      <form.AppField name={`recipients.additionalReferralRecipients[${index}].name` as const}>
+                      <form.AppField name={`recipients.additionalReferralRecipients[${index}].name`}>
                         {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
                       </form.AppField>
-                      <form.AppField name={`recipients.additionalReferralRecipients[${index}].email` as const}>
+                      <form.AppField name={`recipients.additionalReferralRecipients[${index}].email`}>
                         {(emailField) => <emailField.EmailField label="Recipient Email" required />}
                       </form.AppField>
                       <Button
@@ -123,10 +127,10 @@ export const RecipientsStep = withForm({
                   <div className="space-y-3">
                     {rows.map((_, index) => (
                       <div key={`other-employer-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                        <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].name` as const}>
+                        <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].name`}>
                           {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
                         </form.AppField>
-                        <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].email` as const}>
+                        <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].email`}>
                           {(emailField) => <emailField.EmailField label="Recipient Email" required />}
                         </form.AppField>
                         <Button
@@ -176,10 +180,10 @@ export const RecipientsStep = withForm({
                   <div className="space-y-3">
                     {rows.map((_, index) => (
                       <div key={`other-court-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                        <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].name` as const}>
+                        <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].name`}>
                           {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
                         </form.AppField>
-                        <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].email` as const}>
+                        <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].email`}>
                           {(emailField) => <emailField.EmailField label="Recipient Email" required />}
                         </form.AppField>
                         <Button
@@ -368,8 +372,8 @@ export const RecipientsStep = withForm({
       )
     }
 
-    return (
-      <div className="space-y-6">
+    const body = (
+      <div className="wizard-content mb-8 flex-1 space-y-6">
         <div className="mb-6 flex items-center">
           <h2 className="text-foreground text-xl font-semibold">Results Recipients</h2>
         </div>
@@ -386,6 +390,35 @@ export const RecipientsStep = withForm({
           </div>
         )}
       </div>
+    )
+
+    if (props.mode === 'body') {
+      return body
+    }
+
+    return (
+      <form.FormGroup
+        name="recipients"
+        validationLogic={revalidateLogic()}
+        validators={{ onDynamic: getRecipientsGroupSchema(requestedBy) }}
+        onGroupSubmit={() => props.onNext()}
+        onGroupSubmitInvalid={() => props.onInvalid()}
+      >
+        {(group) => (
+          <>
+            {body}
+
+            <RegisterNavigation
+              isFirstStep={props.isFirstStep}
+              isLastStep={props.isLastStep}
+              isSubmitting={props.isSubmitting}
+              isNextDisabled={group.state.meta.isSubmitting}
+              onBack={() => props.onBack()}
+              onNext={() => group.handleSubmit()}
+            />
+          </>
+        )}
+      </form.FormGroup>
     )
   },
 })

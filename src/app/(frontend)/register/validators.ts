@@ -8,9 +8,11 @@ import {
   screeningRequestFieldSchema,
   termsAndConditionsFieldSchema,
   personalInfoSchema,
+  accountInfoOptionalEmailGroupSchema,
   accountInfoSchema,
   screeningTypeSchema,
   recipientsSchema,
+  getRecipientsGroupSchema,
   termsSchema,
 } from '@/views/DrugTestWizard/workflows/register-client-workflow/validators'
 
@@ -31,9 +33,11 @@ export {
   screeningRequestFieldSchema,
   termsAndConditionsFieldSchema,
   personalInfoSchema,
+  accountInfoOptionalEmailGroupSchema,
   accountInfoSchema,
   screeningTypeSchema,
   recipientsSchema,
+  getRecipientsGroupSchema,
   termsSchema,
 }
 
@@ -61,15 +65,6 @@ export const formSchema = z
   })
 
 export const completeRegistrationSchema = formSchema
-
-export const stepSchemas = [
-  personalInfoSchema,
-  accountInfoSchema,
-  screeningTypeSchema,
-  recipientsSchema,
-  medicationsSchema,
-  termsSchema,
-]
 
 export type FormValues = z.input<typeof formSchema>
 export type CompleteRegistrationValues = z.output<typeof completeRegistrationSchema>

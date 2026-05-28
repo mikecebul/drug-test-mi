@@ -1,22 +1,23 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, Check, Loader2 } from 'lucide-react'
+import { useCallback, useRef, useState } from 'react'
+import { ArrowRight, Check } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useQueryState, parseAsStringLiteral } from 'nuqs'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { toast } from 'sonner'
 import { useStore } from '@tanstack/react-form'
 import {
-  focusElementWithoutScroll,
-  focusFirstInteractiveField,
-  scrollElementIntoViewWithMargin,
+  focusFirstInvalidField,
+  useStepFocus,
 } from '@/lib/form-scroll-focus'
 import { getClientSideURL } from '@/utilities/getURL'
 import { Button } from '@/components/ui/button'
-import { completeRegistrationSchema, steps } from './validators'
+import {
+  completeRegistrationSchema,
+  steps,
+} from './validators'
 import { getRegisterClientFormOpts } from './shared-form'
-import { RegisterNavigation } from './components/Navigation'
 import {
   PersonalInfoStep,
   AccountInfoStep,
@@ -31,115 +32,69 @@ interface RegisterClientWorkflowProps {
   onComplete?: () => void
 }
 
+function ProgressBar({
+  stepIndex,
+}: {
+  stepIndex: number
+}) {
+  return (
+    <div className="mb-8 w-full">
+      <div className="mb-2 flex justify-between">
+        {steps.map((step, index) => {
+          const stepNumber = index + 1
+          const isComplete = index < stepIndex
+          const isActive = index <= stepIndex
+          return (
+            <div
+              key={step}
+              className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 ${
+                isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {isComplete ? <Check className="h-5 w-5" /> : stepNumber}
+            </div>
+          )
+        })}
+      </div>
+      <div className="relative">
+        <div className="bg-border absolute inset-0 h-1 rounded-full"></div>
+        <div
+          className="bg-primary absolute h-1 rounded-full transition-all duration-500"
+          style={{ width: `${(stepIndex / (steps.length - 1)) * 100}%` }}
+        ></div>
+      </div>
+    </div>
+  )
+}
+
 export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowProps) {
   const router = useRouter()
-  const [isRedirecting, setIsRedirecting] = useState(false)
-  const redirectTimeoutRef = useRef<number | null>(null)
-  const [currentStepRaw, setCurrentStep] = useQueryState(
+  const [showCompletionFallback, setShowCompletionFallback] = useState(false)
+  const [currentStep, setCurrentStep] = useQueryState(
     'step',
-    parseAsStringLiteral(steps as readonly string[]).withDefault('personalInfo'),
+    parseAsStringLiteral(steps).withDefault('personalInfo'),
   )
-
-  const currentStep = (currentStepRaw ?? 'personalInfo') as (typeof steps)[number]
   const stepIndex = steps.indexOf(currentStep)
   const isFirstStep = stepIndex === 0
   const isLastStep = stepIndex === steps.length - 1
-  const prevStepRef = useRef(currentStep)
-  const hasInitializedStepRef = useRef(false)
 
   const formRef = useRef<HTMLFormElement | null>(null)
 
   const goToDashboard = useCallback(() => {
-    if (redirectTimeoutRef.current) {
-      window.clearTimeout(redirectTimeoutRef.current)
-      redirectTimeoutRef.current = null
-    }
-
     router.push('/dashboard')
     router.refresh()
   }, [router])
 
-  useEffect(() => {
-    return () => {
-      if (redirectTimeoutRef.current) {
-        window.clearTimeout(redirectTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (isRedirecting) return
-
-    const firstField = focusFirstInteractiveField(formRef.current)
-
-    if (!hasInitializedStepRef.current) {
-      hasInitializedStepRef.current = true
-      return
-    }
-
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-
-    focusElementWithoutScroll(firstField)
-  }, [currentStep, isRedirecting])
+  useStepFocus({
+    containerRef: formRef,
+    disabled: showCompletionFallback,
+    stepKey: currentStep,
+  })
 
   const form = useAppForm({
-    ...getRegisterClientFormOpts(currentStep),
-    onSubmitInvalid: ({ formApi }) => {
-      const errorMaps = Array.isArray(formApi.state.errors) ? formApi.state.errors : [formApi.state.errors]
-
-      const stepErrorField = errorMaps
-        .flatMap((errorMap) => {
-          if (!errorMap) return []
-          return Object.keys(errorMap)
-        })
-        .find((fieldName) => {
-          switch (currentStep) {
-            case 'personalInfo':
-              return fieldName.startsWith('personalInfo.')
-            case 'accountInfo':
-              return fieldName.startsWith('accountInfo.')
-            case 'screeningType':
-              return fieldName.startsWith('screeningType.')
-            case 'recipients':
-              return fieldName.startsWith('recipients.')
-            case 'medications':
-              return fieldName.startsWith('medications.')
-            case 'terms':
-              return fieldName.startsWith('terms.')
-            default:
-              return false
-          }
-        })
-
-      const target =
-        (stepErrorField && document.getElementById(stepErrorField)) ||
-        formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')
-
-      if (target) {
-        scrollElementIntoViewWithMargin(target, {
-          behavior: 'smooth',
-          block: 'center',
-        })
-        focusElementWithoutScroll(target)
-      }
-    },
+    ...getRegisterClientFormOpts(),
     onSubmit: async ({ value }) => {
-      const currentStepIndex = steps.indexOf(currentStep)
-      const isLast = currentStepIndex === steps.length - 1
-
-      if (!isLast) {
-        const nextStep = steps[currentStepIndex + 1]
-        if (nextStep) {
-          await setCurrentStep(nextStep, { history: 'push' })
-          return
-        }
-      }
-
       try {
-        if (value.accountInfo.password !== value.accountInfo.confirmPassword) {
-          throw new Error('Passwords do not match')
-        }
-
         const registrationValues = completeRegistrationSchema.parse({
           ...value,
           personalInfo: {
@@ -170,15 +125,25 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
             loginResponse?.message ||
             'Registration succeeded, but automatic sign-in failed. Please sign in.'
 
-          throw new Error(errorMessage)
+          setShowCompletionFallback(true)
+          onComplete?.()
+          toast.success('Registration complete!', {
+            description: errorMessage,
+          })
+          return
         }
 
-        setIsRedirecting(true)
         onComplete?.()
         toast.success('Registration complete!', {
-          description: 'Taking you to your dashboard.',
+          description: 'Taking you to your dashboard now.',
         })
-        redirectTimeoutRef.current = window.setTimeout(goToDashboard, 1000)
+
+        try {
+          goToDashboard()
+        } catch (error) {
+          console.error('Dashboard redirect failed:', error)
+          setShowCompletionFallback(true)
+        }
       } catch (error) {
         console.error('Registration error:', error)
 
@@ -195,44 +160,7 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
     },
   })
 
-  useEffect(() => {
-    const currentIndex = steps.indexOf(currentStep)
-    const prevIndex = steps.indexOf(prevStepRef.current)
-
-    if (currentIndex < prevIndex) {
-      void form.validate('submit')
-    }
-
-    prevStepRef.current = currentStep
-  }, [currentStep, form])
-
-  const [isSubmitting, errors] = useStore(form.store, (state) => [state.isSubmitting, state.errors])
-
-  const currentStepHasErrors = useMemo(() => {
-    const errorMaps = Array.isArray(errors) ? errors : [errors]
-    return errorMaps.some((errorMap) => {
-      if (!errorMap) return false
-      const fieldNames = Object.keys(errorMap)
-      return fieldNames.some((fieldName) => {
-        switch (currentStep) {
-          case 'personalInfo':
-            return fieldName.startsWith('personalInfo.')
-          case 'accountInfo':
-            return fieldName.startsWith('accountInfo.')
-          case 'screeningType':
-            return fieldName.startsWith('screeningType.')
-          case 'recipients':
-            return fieldName.startsWith('recipients.')
-          case 'medications':
-            return fieldName.startsWith('medications.')
-          case 'terms':
-            return fieldName.startsWith('terms.')
-          default:
-            return false
-        }
-      })
-    })
-  }, [currentStep, errors])
+  const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
 
   const handlePrevious = () => {
     if (isFirstStep) return
@@ -242,57 +170,58 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
     }
   }
 
-  const ProgressBar = () => (
-    <div className="mb-8 w-full">
-      <div className="mb-2 flex justify-between">
-        {steps.map((step, index) => {
-          const stepNumber = index + 1
-          const isComplete = index < stepIndex
-          const isActive = index <= stepIndex
-          return (
-            <div
-              key={step}
-              className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 ${
-                isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              {isComplete ? <Check className="h-5 w-5" /> : stepNumber}
-            </div>
-          )
-        })}
-      </div>
-      <div className="relative">
-        <div className="bg-border absolute inset-0 h-1 rounded-full"></div>
-        <div
-          className="bg-primary absolute h-1 rounded-full transition-all duration-500"
-          style={{ width: `${(stepIndex / (steps.length - 1)) * 100}%` }}
-        ></div>
-      </div>
-    </div>
-  )
+  const handleNextStep = async () => {
+    if (!isLastStep) {
+      const nextStep = steps[stepIndex + 1]
+      if (nextStep) {
+        await setCurrentStep(nextStep, { history: 'push' })
+      }
+      return
+    }
+
+    await form.handleSubmit()
+  }
+
+  const handleStepInvalid = () => {
+    const focusedField = focusFirstInvalidField(formRef.current)
+    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
+      id: 'registration-step-invalid',
+    })
+  }
 
   const renderStep = () => {
+    const stepProps = {
+      form,
+      mode: 'wizard' as const,
+      isFirstStep,
+      isLastStep,
+      isSubmitting,
+      onBack: handlePrevious,
+      onInvalid: handleStepInvalid,
+      onNext: handleNextStep,
+    }
+
     switch (currentStep) {
       case 'personalInfo':
-        return <PersonalInfoStep form={form} />
+        return <PersonalInfoStep {...stepProps} />
       case 'accountInfo':
-        return <AccountInfoStep form={form} />
+        return <AccountInfoStep {...stepProps} />
       case 'screeningType':
-        return <ScreeningTypeStep form={form} />
+        return <ScreeningTypeStep {...stepProps} />
       case 'recipients':
-        return <RecipientsStep form={form} />
+        return <RecipientsStep {...stepProps} />
       case 'medications':
-        return <MedicationsStep form={form} />
+        return <MedicationsStep {...stepProps} />
       case 'terms':
-        return <TermsStep form={form} />
+        return <TermsStep {...stepProps} />
       default:
-        return <PersonalInfoStep form={form} />
+        return <PersonalInfoStep {...stepProps} />
     }
   }
 
-  if (isRedirecting) {
+  if (showCompletionFallback) {
     return (
-      <div className="flex min-h-[360px] flex-col items-center justify-center text-center" role="status">
+      <div className="flex min-h-90 flex-col items-center justify-center text-center" role="status">
         <div className="bg-primary/10 mb-6 flex h-20 w-20 items-center justify-center rounded-full">
           <div className="bg-primary flex h-14 w-14 items-center justify-center rounded-full">
             <Check className="text-primary-foreground h-7 w-7" strokeWidth={3} />
@@ -300,12 +229,8 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
         </div>
         <h2 className="text-foreground text-2xl font-semibold tracking-tight">Submission Successful</h2>
         <p className="text-muted-foreground mt-3 max-w-sm text-base">
-          Your registration is complete. We&apos;re signing you in and forwarding you to your dashboard.
+          Your registration is complete. Continue to your dashboard when you&apos;re ready.
         </p>
-        <div className="text-muted-foreground mt-6 flex items-center gap-2 text-sm">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Redirecting to dashboard
-        </div>
         <Button type="button" className="mt-8" onClick={goToDashboard}>
           Go to dashboard
           <ArrowRight className="h-4 w-4" />
@@ -320,20 +245,11 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
       onSubmit={(e) => {
         e.preventDefault()
         e.stopPropagation()
-        form.handleSubmit()
       }}
       className="flex flex-1 flex-col"
     >
-      <ProgressBar />
-      <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
-      <RegisterNavigation
-        isFirstStep={isFirstStep}
-        isLastStep={isLastStep}
-        isSubmitting={isSubmitting}
-        isNextDisabled={currentStepHasErrors}
-        onBack={handlePrevious}
-        onNext={() => form.handleSubmit()}
-      />
+      <ProgressBar stepIndex={stepIndex} />
+      {renderStep()}
     </form>
   )
 }

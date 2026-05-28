@@ -12,7 +12,7 @@ import { useStore } from '@tanstack/react-form'
 import { ClientInfoContent } from '../../../components/client/ClientDisplayCard'
 
 export const ConfirmStep = withForm({
-  ...getInstantTestFormOpts('confirm'),
+  ...getInstantTestFormOpts(),
 
   render: function Render({ form }) {
     const formValues = useStore(form.store, (state) => state.values)

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { emailsSchema, uploadSchema, extractSchema } from '../shared-validators'
+import { emailsGroupSchema, emailsSchema, uploadSchema, extractSchema } from '../shared-validators'
 import { TEST_TYPES } from '../../utils/testMatching'
 
 // Step names as readonly tuple (6 steps - no medications)
@@ -53,7 +53,7 @@ export const labScreenDataSchema = z.object({
     }),
 })
 
-export { emailsSchema, uploadSchema, extractSchema }
+export { emailsGroupSchema, emailsSchema, uploadSchema, extractSchema }
 
 // Combined schema (no medications)
 export const formSchema = z.object({

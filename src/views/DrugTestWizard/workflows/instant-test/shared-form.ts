@@ -1,11 +1,11 @@
 import { formOptions } from '@tanstack/react-form'
-import { FormValues, formSchema, uploadSchema, extractSchema, clientSchema, medicationsSchema, verifyDataSchema, emailsSchema, type Steps } from './validators'
+import { FormValues } from './validators'
 
 export type InstantTestType = '15-panel-instant' | '17-panel-instant'
 
 const getDefaultValues = (testType: InstantTestType = '15-panel-instant'): FormValues => ({
   upload: {
-    file: null as any, // Will be set by user
+    file: null as unknown as File, // Will be set by user
   },
   extract: {
     extracted: false,
@@ -23,7 +23,7 @@ const getDefaultValues = (testType: InstantTestType = '15-panel-instant'): FormV
   medications: [],
   verifyData: {
     testType,
-    collectionDate: new Date().toISOString(),
+    collectionDate: '',
     detectedSubstances: [],
     isDilute: false,
     breathalyzerTaken: false,
@@ -45,33 +45,7 @@ export const instantTestFormOpts = formOptions({
   defaultValues: getDefaultValues(),
 })
 
-// Step-aware form options (for Workflow and step components)
-export const getInstantTestFormOpts = (step: Steps[number], testType: InstantTestType = '15-panel-instant') =>
+export const getInstantTestFormOpts = (testType: InstantTestType = '15-panel-instant') =>
   formOptions({
     defaultValues: getDefaultValues(testType),
-    validators: {
-      onSubmit: ({ formApi }) => {
-        if (step === 'upload') {
-          return formApi.parseValuesWithSchema(uploadSchema as typeof formSchema)
-        }
-        if (step === 'extract') {
-          return formApi.parseValuesWithSchema(extractSchema as typeof formSchema)
-        }
-        if (step === 'client') {
-          return formApi.parseValuesWithSchema(clientSchema as typeof formSchema)
-        }
-        if (step === 'medications') {
-          return formApi.parseValuesWithSchema(medicationsSchema as typeof formSchema)
-        }
-        if (step === 'verifyData') {
-          return formApi.parseValuesWithSchema(verifyDataSchema as typeof formSchema)
-        }
-        if (step === 'confirm') {
-          return undefined // No validation on confirm step
-        }
-        if (step === 'reviewEmails') {
-          return formApi.parseValuesWithSchema(emailsSchema as typeof formSchema)
-        }
-      },
-    },
   })

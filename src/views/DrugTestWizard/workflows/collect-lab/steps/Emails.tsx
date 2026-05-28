@@ -10,7 +10,7 @@ import { EmailsFieldGroup } from '../../components/emails/EmailsFieldGroup'
 import { invalidateWizardClientDerivedData } from '../../../queries'
 
 export const EmailsStep = withForm({
-  ...getCollectLabFormOpts('reviewEmails'),
+  ...getCollectLabFormOpts(),
 
   render: function Render({ form }) {
     const queryClient = useQueryClient()

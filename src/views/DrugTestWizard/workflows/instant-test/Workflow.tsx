@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
+import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
@@ -16,10 +18,21 @@ import { ConfirmStep } from './steps/confirm/Step'
 import { EmailsStep } from './steps/Emails'
 import { createInstantTest } from './actions/createInstantTest'
 import { TestCompleted } from '../../components/TestCompleted'
-import { steps } from './validators'
+import {
+  clientSchema,
+  emailsGroupSchema,
+  extractSchema,
+  medicationsSchema,
+  steps,
+  uploadSchema,
+  verifyDataSchema,
+} from './validators'
 import { extractPdfQueryKey } from '../../queries'
+import type { ExtractedPdfData } from '../../queries'
+import type { SubstanceValue } from '@/fields/substanceOptions'
 import { getClientById } from '../components/client/getClients'
-import { getFileFromStorage, clearFileStorage, hasStoredFile } from './utils/fileStorage'
+import { getFileFromStorage, clearFileStorage, hasStoredFile, saveFileToStorage } from './utils/fileStorage'
+import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface InstantTestWorkflowProps {
   onBack: () => void
@@ -28,6 +41,7 @@ interface InstantTestWorkflowProps {
 export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   const queryClient = useQueryClient()
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
+  const [isRestoringFile, setIsRestoringFile] = useState(true)
 
   // Wrap onBack to clear storage when navigating away
   const handleBack = () => {
@@ -36,37 +50,28 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   }
 
   // URL is single source of truth
-  const [currentStepRaw, setCurrentStep] = useQueryState(
+  const [currentStep, setCurrentStep] = useQueryState(
     'step',
-    parseAsStringLiteral(steps as readonly string[]).withDefault('upload'),
+    parseAsStringLiteral(steps).withDefault('upload'),
   )
-  const currentStep = currentStepRaw as (typeof steps)[number]
 
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)
+  const formRef = useRef<HTMLFormElement | null>(null)
 
-  // Track previous step for navigation direction
-  const prevStepRef = useRef(currentStep)
+  useStepFocus({
+    containerRef: formRef,
+    stepKey: currentStep,
+  })
 
   const form = useAppForm({
-    ...getInstantTestFormOpts(currentStep),
+    ...getInstantTestFormOpts(),
     onSubmit: async ({ value }) => {
-      const currentStepIndex = steps.indexOf(currentStep)
-      const isLastStep = currentStepIndex === steps.length - 1
-      console.log(`[InstantTest] onSubmit called - step: ${currentStep}, isLastStep: ${isLastStep}`)
-
-      if (!isLastStep) {
-        // Navigate to next step
-        await setCurrentStep(steps[currentStepIndex + 1], { history: 'push' })
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-        return
-      }
-
       // Final submit: Create drug test
       console.log(`[InstantTest] Starting final submission...`)
       try {
         const queryKey = extractPdfQueryKey(value.upload.file, 'instant-test')
-        const extractedData = queryClient.getQueryData<any>(queryKey)
+        const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
         console.log(`[InstantTest] Extracted data from query cache:`, extractedData ? 'found' : 'not found')
 
         // Convert File to buffer array
@@ -88,7 +93,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
             clientId: value.client.id,
             testType: value.verifyData.testType,
             collectionDate: value.verifyData.collectionDate,
-            detectedSubstances: value.verifyData.detectedSubstances as any,
+            detectedSubstances: value.verifyData.detectedSubstances as SubstanceValue[],
             isDilute: value.verifyData.isDilute,
             breathalyzerTaken: value.verifyData.breathalyzerTaken,
             breathalyzerResult: value.verifyData.breathalyzerResult ?? null,
@@ -97,7 +102,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
             hasConfirmation: extractedData?.hasConfirmation,
             confirmationResults: extractedData?.confirmationResults,
             confirmationDecision: value.verifyData.confirmationDecision ?? null,
-            confirmationSubstances: value.verifyData.confirmationSubstances as any,
+            confirmationSubstances: value.verifyData.confirmationSubstances as SubstanceValue[] | undefined,
           },
           value.medications,
           {
@@ -125,16 +130,21 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       }
     },
   })
+  const uploadedFile = useStore(form.store, (state) => state.values.upload.file)
 
   // Restore file from localStorage on mount (e.g., after returning from registration)
   useEffect(() => {
     const restoreFile = async () => {
-      if (hasStoredFile() && !form.state.values.upload.file) {
-        const file = await getFileFromStorage()
-        if (file) {
-          form.setFieldValue('upload.file', file)
-          toast.success('Uploaded file restored')
+      try {
+        if (hasStoredFile() && !form.state.values.upload.file) {
+          const file = await getFileFromStorage()
+          if (file) {
+            form.setFieldValue('upload.file', file)
+            toast.success('Uploaded file restored')
+          }
         }
+      } finally {
+        setIsRestoringFile(false)
       }
     }
 
@@ -143,24 +153,24 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Handle validation on backward navigation
+  // Keep the uploaded PDF available across refreshes and workflow detours.
   useEffect(() => {
-    const currentIndex = steps.indexOf(currentStep)
-    const prevIndex = steps.indexOf(prevStepRef.current)
+    if (uploadedFile) {
+      void saveFileToStorage(uploadedFile)
+    }
+  }, [uploadedFile])
 
-    // Validate when going backward
-    if (currentIndex < prevIndex) {
-      form.validate('submit')
+  // Guard against skipping into a later step without required base data
+  useEffect(() => {
+    if (isRestoringFile) {
+      return
     }
 
-    // Guard: prevent skipping to advanced steps
-    if (currentStep !== 'upload' && !form.state.values.upload.file) {
+    if (currentStep !== 'upload' && !uploadedFile) {
       setCurrentStep('upload', { history: 'replace' })
       toast.info('Please start from the beginning')
     }
-
-    prevStepRef.current = currentStep
-  }, [currentStep, form, setCurrentStep])
+  }, [currentStep, isRestoringFile, setCurrentStep, uploadedFile])
 
   // Handle client pre-population from registration workflow
   useEffect(() => {
@@ -182,9 +192,6 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
 
             // Clear the clientId param after population
             setClientId(null)
-
-            // Clear stored file after successful restoration of both file and client
-            clearFileStorage()
           }
         } catch (error) {
           console.error('Failed to fetch client:', error)
@@ -202,37 +209,77 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     return <TestCompleted testId={completedTestId} onBack={handleBack} />
   }
 
+  const currentStepIndex = steps.indexOf(currentStep)
+  const isLastStep = currentStepIndex === steps.length - 1
+
+  const handleGroupSubmit = async () => {
+    if (!isLastStep) {
+      await setCurrentStep(steps[currentStepIndex + 1], { history: 'push' })
+      return
+    }
+
+    await form.handleSubmit()
+  }
+
+  const handleGroupSubmitInvalid = (_error?: unknown) => {
+    const focusedField = focusFirstInvalidField(formRef.current)
+    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
+      id: 'instant-test-step-invalid',
+    })
+  }
+
   const renderStep = () => {
+    const renderGroup = (
+      name: 'upload' | 'extract' | 'client' | 'medications' | 'verifyData' | 'emails',
+      validators: Parameters<typeof form.FormGroup>[0]['validators'],
+      content: ReactNode,
+    ) => (
+      <form.FormGroup
+        key={currentStep}
+        name={name}
+        validationLogic={revalidateLogic()}
+        validators={validators}
+        onGroupSubmit={handleGroupSubmit}
+        onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}
+      >
+        {(group) => (
+          <>
+            <div className="wizard-content mb-8 flex-1">{content}</div>
+            <InstantTestNavigation form={form} group={group} onBack={handleBack} />
+          </>
+        )}
+      </form.FormGroup>
+    )
+
     switch (currentStep) {
       case 'upload':
-        return <UploadStep form={form} />
+        return renderGroup('upload', { onDynamic: uploadSchema.shape.upload }, <UploadStep form={form} />)
       case 'extract':
-        return <ExtractStep form={form} />
+        return renderGroup('extract', { onDynamic: extractSchema.shape.extract }, <ExtractStep form={form} />)
       case 'client':
-        return <ClientStep form={form} />
+        return renderGroup('client', { onDynamic: clientSchema.shape.client }, <ClientStep form={form} />)
       case 'medications':
-        return <MedicationsStep form={form} />
+        return renderGroup('medications', { onDynamic: medicationsSchema.shape.medications }, <MedicationsStep form={form} />)
       case 'verifyData':
-        return <VerifyDataStep form={form} />
+        return renderGroup('verifyData', { onDynamic: verifyDataSchema.shape.verifyData }, <VerifyDataStep form={form} />)
       case 'confirm':
-        return <ConfirmStep form={form} />
+        return renderGroup('verifyData', undefined, <ConfirmStep form={form} />)
       case 'reviewEmails':
-        return <EmailsStep form={form} />
+        return renderGroup('emails', { onDynamic: emailsGroupSchema }, <EmailsStep form={form} />)
       default:
-        return <UploadStep form={form} />
+        return renderGroup('upload', { onDynamic: uploadSchema.shape.upload }, <UploadStep form={form} />)
     }
   }
 
   return (
     <form
+      ref={formRef}
       onSubmit={(e) => {
         e.preventDefault()
-        form.handleSubmit()
       }}
       className="flex flex-1 flex-col"
     >
-      <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
-      <InstantTestNavigation form={form} onBack={handleBack} />
+      {renderStep()}
     </form>
   )
 }

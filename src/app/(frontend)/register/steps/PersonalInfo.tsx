@@ -1,15 +1,20 @@
 'use client'
 
 import { withForm } from '@/blocks/Form/hooks/form'
+import { revalidateLogic } from '@tanstack/react-form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { GENDER_OPTIONS } from '../types'
+import { personalInfoSchema } from '../validators'
+import { RegisterNavigation } from '../components/Navigation'
+import type { RegisterStepProps } from './types'
 
 export const PersonalInfoStep = withForm({
-  ...getRegisterClientFormOpts('personalInfo'),
-
-  render: function Render({ form }) {
-    return (
-      <div className="space-y-6">
+  ...getRegisterClientFormOpts(),
+  props: {} as RegisterStepProps,
+  render: function Render(props) {
+    const { form } = props
+    const body = (
+      <div className="wizard-content mb-8 flex-1 space-y-6">
         <div className="mb-6 flex items-center">
           <h2 className="text-foreground text-xl font-semibold">Personal Information</h2>
         </div>
@@ -39,8 +44,36 @@ export const PersonalInfoStep = withForm({
         <form.AppField name="personalInfo.phone">
           {(field) => <field.PhoneField label="Phone Number" required />}
         </form.AppField>
-
       </div>
+    )
+
+    if (props.mode === 'body') {
+      return body
+    }
+
+    return (
+      <form.FormGroup
+        name="personalInfo"
+        validationLogic={revalidateLogic()}
+        validators={{ onDynamic: personalInfoSchema.shape.personalInfo }}
+        onGroupSubmit={() => props.onNext()}
+        onGroupSubmitInvalid={() => props.onInvalid()}
+      >
+        {(group) => (
+          <>
+            {body}
+
+            <RegisterNavigation
+              isFirstStep={props.isFirstStep}
+              isLastStep={props.isLastStep}
+              isSubmitting={props.isSubmitting}
+              isNextDisabled={group.state.meta.isSubmitting}
+              onBack={() => props.onBack()}
+              onNext={() => group.handleSubmit()}
+            />
+          </>
+        )}
+      </form.FormGroup>
     )
   },
 })

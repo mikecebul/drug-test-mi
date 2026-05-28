@@ -8,37 +8,37 @@ import { useQueryState, parseAsStringLiteral } from 'nuqs'
 import { steps } from '../validators'
 import { registerClientFormOpts } from '../shared-form'
 
+type WorkflowGroup = {
+  state: {
+    meta: {
+      isSubmitting: boolean
+      canSubmit: boolean
+      isValid: boolean
+      submissionAttempts: number
+    }
+  }
+  handleSubmit: () => void | Promise<void>
+}
+
 export const RegisterClientNavigation = withForm({
   ...registerClientFormOpts,
   props: {
     onBack: (): void => {},
+    group: undefined as unknown as WorkflowGroup,
   },
 
-  render: function Render({ form, onBack }) {
+  render: function Render({ form, onBack, group }) {
     // Read step from URL (single source of truth)
-    const [currentStepRaw, setCurrentStep] = useQueryState(
+    const [currentStep, setCurrentStep] = useQueryState(
       'step',
-      parseAsStringLiteral(steps as readonly string[]).withDefault('personalInfo'),
+      parseAsStringLiteral(steps).withDefault('personalInfo'),
     )
-    const currentStep = currentStepRaw as (typeof steps)[number]
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
-    const fieldMeta = useStore(form.store, (state) => state.fieldMeta)
-    const noEmail = useStore(form.store, (state) => state.values.accountInfo.noEmail === true)
 
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
-
-    // Check field-level errors for the current step only
-    const currentStepHasErrors = noEmail && currentStep === 'accountInfo'
-      ? false
-      : Object.entries(fieldMeta).some(([fieldName, meta]) => {
-          // Only check fields that belong to the current step
-          if (!fieldName.startsWith(`${currentStep}.`)) return false
-          // Check if this field has errors
-          return meta?.errors && meta.errors.length > 0
-        })
 
     const handleBack = () => {
       if (isFirstStep) {
@@ -48,12 +48,6 @@ export const RegisterClientNavigation = withForm({
         if (prevStep) {
           setCurrentStep(prevStep, { history: 'push' })
         }
-        form.validate('submit')
-        form.setFieldMeta('accountInfo.email', (prev) => ({
-          ...prev,
-          errors: [],
-          errorMap: {},
-        }))
       }
     }
 
@@ -73,8 +67,8 @@ export const RegisterClientNavigation = withForm({
 
         <Button
           type="button"
-          onClick={() => form.handleSubmit()}
-          disabled={isSubmitting || currentStepHasErrors}
+          onClick={() => group.handleSubmit()}
+          disabled={isSubmitting || group.state.meta.isSubmitting}
           size="lg"
           data-testid="wizard-next-button"
         >

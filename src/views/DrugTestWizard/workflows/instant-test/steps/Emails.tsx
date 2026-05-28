@@ -11,7 +11,7 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
 import { invalidateWizardClientDerivedData } from '../../../queries'
 
 export const EmailsStep = withForm({
-  ...getInstantTestFormOpts('reviewEmails'),
+  ...getInstantTestFormOpts(),
 
   render: function Render({ form }) {
     const queryClient = useQueryClient()
