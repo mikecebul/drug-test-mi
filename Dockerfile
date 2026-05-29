@@ -1,27 +1,29 @@
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
+ARG PNPM_VERSION=11.4.0
 
 # Install dependencies only when needed
 FROM base AS deps
+ARG PNPM_VERSION
 # Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Update and enable Corepack
-RUN npm install -g corepack@latest
+# Enable the pinned pnpm version used by this repo.
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 # Install dependencies based on the preferred package manager
-COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+COPY package.json pnpm-workspace.yaml yarn.lock* package-lock.json* pnpm-lock.yaml* ./
 RUN \
-  if [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
+  if [ -f pnpm-lock.yaml ]; then pnpm i --frozen-lockfile; \
   else echo "Lockfile not found." && exit 1; \
   fi
 
-# install require in the middle package
-RUN pnpm add require-in-the-middle@"$(jq -r '.dependencies["require-in-the-middle"]' < package.json)"
-
+# Sentry's Payload admin integration expects this package to be present.
+RUN node -e "require.resolve('require-in-the-middle')"
 
 # Rebuild the source code only when needed
 FROM base AS builder
+ARG PNPM_VERSION
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -29,8 +31,8 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_OUTPUT=standalone
 
-# Update and enable Corepack
-RUN npm install -g corepack@latest
+# Enable the same pinned pnpm version in the builder stage.
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 RUN --mount=type=secret,id=DATABASE_URI,env=DATABASE_URI \
   --mount=type=secret,id=EMAIL_HOST,env=EMAIL_HOST \
@@ -58,7 +60,6 @@ RUN --mount=type=secret,id=DATABASE_URI,env=DATABASE_URI \
   --mount=type=secret,id=UNSPLASH_ACCESS_KEY,env=UNSPLASH_ACCESS_KEY \
   --mount=type=secret,id=UNSPLASH_URL,env=UNSPLASH_URL \
   if [ -f pnpm-lock.yaml ]; then \
-  corepack enable pnpm && \
   pnpm run build; \
   else \
   echo "Lockfile not found." && exit 1; \
