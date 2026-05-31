@@ -774,7 +774,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <div className="px-4 lg:px-6">
+      <div className="px-6 lg:px-10 xl:px-12">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Test Results</h1>
@@ -783,7 +783,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
         </div>
       </div>
 
-      <div className="px-4 lg:px-6">
+      <div className="px-6 lg:px-10 xl:px-12">
         <Card>
           <CardHeader>
             <CardTitle>Drug Test History</CardTitle>
@@ -1083,7 +1083,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
         </Card>
       </div>
 
-      <div className="px-4 lg:px-6">
+      <div className="px-6 lg:px-10 xl:px-12">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader>

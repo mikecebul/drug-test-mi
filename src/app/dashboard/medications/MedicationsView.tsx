@@ -98,7 +98,7 @@ export function MedicationsView({ medications }: MedicationsViewProps) {
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <div className="px-4 lg:px-6">
+      <div className="px-6 lg:px-10 xl:px-12">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Medications</h1>
@@ -110,7 +110,7 @@ export function MedicationsView({ medications }: MedicationsViewProps) {
         </div>
       </div>
 
-      <div className="px-4 lg:px-6">
+      <div className="px-6 lg:px-10 xl:px-12">
         <div className="grid gap-4">
           {medications.length === 0 ? (
             <Card>
@@ -331,7 +331,7 @@ export function MedicationsView({ medications }: MedicationsViewProps) {
         </DialogContent>
       </Dialog>
 
-      <div className="px-4 lg:px-6">
+      <div className="px-6 lg:px-10 xl:px-12">
         <Card>
           <CardHeader>
             <CardTitle>Important Information</CardTitle>
