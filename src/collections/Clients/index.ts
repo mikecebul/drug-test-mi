@@ -156,7 +156,7 @@ export const Clients: CollectionConfig = {
     afterChange: [notifyNewRegistration],
   },
   admin: {
-    defaultColumns: ['headshot', 'lastName', 'email', 'referralType'],
+    defaultColumns: ['headshot', 'lastName', 'email', 'referralType', 'moneyOwed'],
     useAsTitle: 'fullName',
     listSearchableFields: ['email', 'firstName', 'lastName'],
     components: {
@@ -226,6 +226,19 @@ export const Clients: CollectionConfig = {
       admin: {
         description: 'Allow this client to book through the hidden unpaid Cal.com drug test event.',
         position: 'sidebar',
+      },
+    },
+    {
+      name: 'moneyOwed',
+      type: 'number',
+      label: 'Money Owed',
+      defaultValue: 0,
+      min: 0,
+      admin: {
+        description: 'Auto-calculated from drug tests with a remaining payment balance.',
+        position: 'sidebar',
+        readOnly: true,
+        step: 1,
       },
     },
     {
@@ -535,6 +548,21 @@ export const Clients: CollectionConfig = {
               on: 'relatedClient',
               admin: {
                 description: 'Drug tests automatically linked to this client',
+              },
+            },
+            {
+              name: 'drugTestsWithBalance',
+              type: 'join',
+              collection: 'drug-tests',
+              on: 'relatedClient',
+              where: {
+                'payment.balanceDue': {
+                  greater_than: 0,
+                },
+              },
+              admin: {
+                defaultColumns: ['collectionDate', 'testType', 'payment.status', 'payment.balanceDue'],
+                description: 'Drug tests where this client still has a balance due.',
               },
             },
             // Bookings (auto-populated via join)

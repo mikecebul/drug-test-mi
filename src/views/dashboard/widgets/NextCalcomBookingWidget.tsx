@@ -4,6 +4,7 @@ import { CalendarDays, Clock, PlayCircle } from 'lucide-react'
 
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { Badge } from '@/components/ui/badge'
+import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/utilities/cn'
 import { getTodaysCollectionBookings } from '@/views/DrugTestWizard/workflows/complete-workflow/actions'
@@ -97,11 +98,22 @@ export default async function NextCalcomBookingWidget({ req }: WidgetServerProps
               <CalendarDays className="size-5" />
               Today&apos;s Schedule
             </CardTitle>
-            <CardDescription>Start each appointment&apos;s guided collection workflow.</CardDescription>
+            <CardDescription>
+              {bookings.length === 1 ? '1 test scheduled today.' : `${bookings.length} tests scheduled today.`}
+            </CardDescription>
           </div>
-          <Badge variant="outline" className="shrink-0">
-            {bookings.length} today
-          </Badge>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              href="/admin/drug-test-upload"
+              className={cn(
+                buttonVariants({ size: 'sm', variant: bookings.length > 0 ? 'secondary' : 'default' }),
+                'gap-2',
+              )}
+            >
+              <PlayCircle className="size-4" />
+              Collect Test
+            </Link>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {hasLoadError && <p className="text-muted-foreground text-sm">Unable to load booking data right now.</p>}

@@ -133,6 +133,7 @@ export interface Config {
     };
     clients: {
       drugTests: 'drug-tests';
+      drugTestsWithBalance: 'drug-tests';
       bookings: 'bookings';
       privateDocuments: 'private-media';
     };
@@ -1211,6 +1212,10 @@ export interface Client {
    */
   allowUnpaidBookings?: boolean | null;
   /**
+   * Auto-calculated from drug tests with a remaining payment balance.
+   */
+  moneyOwed?: number | null;
+  /**
    * Whether this client is active
    */
   isActive?: boolean | null;
@@ -1282,6 +1287,14 @@ export interface Client {
    * Drug tests automatically linked to this client
    */
   drugTests?: {
+    docs?: (string | DrugTest)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Drug tests where this client still has a balance due.
+   */
+  drugTestsWithBalance?: {
     docs?: (string | DrugTest)[];
     hasNextPage?: boolean;
     totalDocs?: number;
@@ -1615,6 +1628,26 @@ export interface DrugTest {
     | '17-panel-instant'
     | '17-panel-sos-lab'
     | 'etg-lab';
+  /**
+   * Scheduled booking that produced this test, when applicable.
+   */
+  sourceBooking?: (string | null) | Booking;
+  /**
+   * Payment snapshot for this test.
+   */
+  payment: {
+    status: 'paid' | 'unpaid' | 'partial';
+    amountDue?: number | null;
+    amountPaid?: number | null;
+    /**
+     * Automatically calculated from amount due minus amount paid.
+     */
+    balanceDue?: number | null;
+    /**
+     * Payment notes or balance details captured during the workflow.
+     */
+    notes?: string | null;
+  };
   /**
    * Snapshot of active medications at time of test (auto-populated from client, editable by superAdmin only)
    */
@@ -3300,6 +3333,7 @@ export interface ClientsSelect<T extends boolean = true> {
   headshot?: T;
   disableClientEmails?: T;
   allowUnpaidBookings?: T;
+  moneyOwed?: T;
   isActive?: T;
   firstName?: T;
   lastName?: T;
@@ -3330,6 +3364,7 @@ export interface ClientsSelect<T extends boolean = true> {
             };
       };
   drugTests?: T;
+  drugTestsWithBalance?: T;
   bookings?: T;
   medications?:
     | T
@@ -3380,6 +3415,16 @@ export interface DrugTestsSelect<T extends boolean = true> {
   relatedClient?: T;
   collectionDate?: T;
   testType?: T;
+  sourceBooking?: T;
+  payment?:
+    | T
+    | {
+        status?: T;
+        amountDue?: T;
+        amountPaid?: T;
+        balanceDue?: T;
+        notes?: T;
+      };
   medicationsAtTestTime?: T;
   medicationsArrayAtTestTime?:
     | T

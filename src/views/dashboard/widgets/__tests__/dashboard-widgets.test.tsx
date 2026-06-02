@@ -149,7 +149,9 @@ describe('dashboard widgets', () => {
     const markup = renderMarkup(await NextCalcomBookingWidget(createWidgetProps(req, 'next-calcom-booking')))
 
     expect(markup).toContain('Today&#x27;s Schedule')
-    expect(markup).toContain('Start each appointment&#x27;s guided collection workflow.')
+    expect(markup).toContain('2 tests scheduled today.')
+    expect(markup).toContain('Collect Test')
+    expect(markup).toContain('/admin/drug-test-upload')
     expect(markup).toContain('Jamie Client')
     expect(markup).toContain('Register')
     expect(markup).toContain('Start Guided Workflow')

@@ -15,7 +15,7 @@ export default function DrugTestTrackerLink() {
   }
 
   return (
-    <ShadcnWrapper className="pt-2 pb-3">
+    <ShadcnWrapper className="py-1.5">
       <Button size="lg" asChild variant="secondary" className="w-full min-w-2xs gap-2">
         <Link href="/admin/drug-test-tracker">
           <svg

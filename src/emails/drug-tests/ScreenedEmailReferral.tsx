@@ -4,6 +4,7 @@ import type { ScreenedEmailData } from '@/collections/DrugTests/email/types'
 import {
   BreathalyzerResult,
   ClientIdentity,
+  ConfirmationDecisionNotice,
   DetailRow,
   EmailLayout,
   SubstancesSection,
@@ -25,6 +26,7 @@ export function ScreenedEmailReferral(data: ScreenedEmailData) {
     unexpectedPositives,
     unexpectedNegatives,
     isDilute,
+    confirmationDecision,
     breathalyzerTaken,
     breathalyzerResult,
     clientHeadshotDataUri,
@@ -74,6 +76,13 @@ export function ScreenedEmailReferral(data: ScreenedEmailData) {
         expectedPositives={expectedPositives}
         unexpectedPositives={unexpectedPositives}
         unexpectedNegatives={unexpectedNegatives}
+      />
+
+      <ConfirmationDecisionNotice
+        audience="referral"
+        confirmationDecision={confirmationDecision}
+        testType={testType}
+        unexpectedPositives={unexpectedPositives}
       />
 
       <Section

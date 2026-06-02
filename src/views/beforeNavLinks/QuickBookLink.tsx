@@ -32,7 +32,7 @@ const AdminQuickBookWidgetClient = dynamic(
 
 export default function QuickBookLink() {
   return (
-    <ShadcnWrapper className="pb-3">
+    <ShadcnWrapper className="py-1.5">
       <Drawer direction="right">
         <DrawerTrigger asChild>
           <Button type="button" size="lg" variant="secondary" className="w-full min-w-2xs gap-2">

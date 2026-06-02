@@ -157,10 +157,16 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   })
   const uploadedFile = useStore(form.store, (state) => state.values.upload.file)
 
-  // Restore file from localStorage on mount (e.g., after returning from registration)
+  // Restore file from localStorage only after the upload step. Starting or reloading
+  // the upload step is treated as a fresh test and clears any previous PDF.
   useEffect(() => {
     const restoreFile = async () => {
       try {
+        if (currentStep === 'upload') {
+          clearFileStorage()
+          return
+        }
+
         if (hasStoredFile() && !form.state.values.upload.file) {
           const file = await getFileFromStorage()
           if (file) {
@@ -178,12 +184,13 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Keep the uploaded PDF available across refreshes and workflow detours.
+  // Keep the uploaded PDF available across refreshes and workflow detours once
+  // the workflow has moved beyond the fresh upload step.
   useEffect(() => {
-    if (uploadedFile) {
+    if (uploadedFile && currentStep !== 'upload') {
       void saveFileToStorage(uploadedFile)
     }
-  }, [uploadedFile])
+  }, [currentStep, uploadedFile])
 
   // Guard against skipping into a later step without required base data
   useEffect(() => {

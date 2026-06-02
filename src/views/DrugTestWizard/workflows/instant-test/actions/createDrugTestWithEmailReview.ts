@@ -7,6 +7,7 @@ import { computeTestResultPreview } from '@/views/DrugTestWizard/actions'
 import { fetchDocument, sendEmails } from '@/collections/DrugTests/services'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 import { createAdminAlert } from '@/lib/admin-alerts'
+import { getDrugTestPaymentSnapshot } from '../../paymentSnapshot'
 
 /**
  * Create drug test and send approved emails (instant-test workflow final step)
@@ -14,6 +15,7 @@ import { createAdminAlert } from '@/lib/admin-alerts'
 export async function createDrugTestWithEmailReview(
   testData: {
     clientId: string
+    bookingId?: string | null
     testType: '15-panel-instant' | '17-panel-instant'
     collectionDate: string
     detectedSubstances: SubstanceValue[]
@@ -101,9 +103,16 @@ export async function createDrugTestWithEmailReview(
       medications: medicationsSnapshot,
     })
 
+    const paymentSnapshot = await getDrugTestPaymentSnapshot({
+      payload,
+      bookingId: testData.bookingId,
+    })
+
     // 3. Prepare drug test data
     const drugTestData: any = {
       relatedClient: testData.clientId,
+      sourceBooking: paymentSnapshot.sourceBooking,
+      payment: paymentSnapshot.payment,
       testType: testData.testType,
       collectionDate: testData.collectionDate,
       detectedSubstances: testData.detectedSubstances,

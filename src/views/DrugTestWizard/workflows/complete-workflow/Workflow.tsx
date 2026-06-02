@@ -93,11 +93,11 @@ function getPaymentChoice(payment: Booking['payment'] | undefined): PaymentChoic
 function getPaymentDefaults(booking: Booking | null) {
   const amountDue = booking?.testType?.price ?? 0
   const existing = booking?.payment
-  const choice = getPaymentChoice(existing) ?? 'paid'
+  const choice = getPaymentChoice(existing)
 
   return {
     amountDue,
-    amountPaid: typeof existing?.amountPaid === 'number' ? existing.amountPaid : amountDue,
+    amountPaid: typeof existing?.amountPaid === 'number' ? existing.amountPaid : choice ? amountDue : 0,
     choice,
     notes: typeof existing?.notes === 'string' ? existing.notes : '',
   }
@@ -317,6 +317,10 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
   const handlePaymentNext = () => {
     if (!selectedBooking?.testType) return
+    if (!payment.choice) {
+      toast.error('Select a payment status before continuing.')
+      return
+    }
 
     const persistedPayment = getPersistedPayment(payment)
     if (payment.choice === 'still-owes' && payment.amountPaid >= payment.amountDue) {
@@ -662,7 +666,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             <div className="space-y-3">
               <Label className="text-base">Payment status</Label>
               <RadioGroup
-                value={payment.choice}
+                value={payment.choice ?? ''}
                 onValueChange={(value) => {
                   const choice = value as PaymentChoice
                   setPaymentDraft((current) => {
@@ -828,7 +832,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const nextLabel = currentStep === 'toxaccess' ? 'Continue Collection' : 'Next'
   const canGoNext =
     currentStep === 'payment'
-      ? Boolean(selectedBooking?.testType)
+      ? Boolean(selectedBooking?.testType && payment.choice)
       : currentStep === 'toxaccess'
         ? Boolean(paymentRecorded && selectedBooking?.testType && selectedBooking.client?.id)
         : false
