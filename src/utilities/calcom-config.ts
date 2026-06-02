@@ -2,7 +2,8 @@ import type { Client } from '@/payload-types'
 import { FALLBACK_BOOKING_TEST_TYPES, resolveRecommendedTestLabel } from '@/lib/quick-book'
 
 export const DEFAULT_BOOKING_CAL_LINK = 'midrugtest'
-export const UNPAID_BOOKING_CAL_LINK = 'midrugtest/drug-test'
+export const INSTANT_17_PANEL_CAL_LINK = 'midrugtest/instant-17-panel'
+export const UNPAID_BOOKING_CAL_LINK = INSTANT_17_PANEL_CAL_LINK
 
 export function getClientBookingCalLink(client: Pick<Client, 'allowUnpaidBookings'>): string {
   return client.allowUnpaidBookings ? UNPAID_BOOKING_CAL_LINK : DEFAULT_BOOKING_CAL_LINK
@@ -43,21 +44,22 @@ function getPreferredTestLabel(client: Client): string | undefined {
   }
 
   const value =
-    'value' in preferredTestType && typeof preferredTestType.value === 'string'
-      ? preferredTestType.value
-      : undefined
+    'value' in preferredTestType && typeof preferredTestType.value === 'string' ? preferredTestType.value : undefined
   const bookingLabel =
     'bookingLabel' in preferredTestType && typeof preferredTestType.bookingLabel === 'string'
       ? preferredTestType.bookingLabel
       : undefined
   const label =
-    'label' in preferredTestType && typeof preferredTestType.label === 'string'
-      ? preferredTestType.label
-      : undefined
+    'label' in preferredTestType && typeof preferredTestType.label === 'string' ? preferredTestType.label : undefined
 
-  return resolveRecommendedTestLabel(FALLBACK_BOOKING_TEST_TYPES, {
-    recommendedTestTypeValue: value,
-  }) || bookingLabel || label || value
+  return (
+    resolveRecommendedTestLabel(FALLBACK_BOOKING_TEST_TYPES, {
+      recommendedTestTypeValue: value,
+    }) ||
+    bookingLabel ||
+    label ||
+    value
+  )
 }
 
 // Helper: Format phone for Cal.com (E.164 format)

@@ -19,7 +19,7 @@ const defaultFeatures = [
   {
     title: 'Observed Testing',
     description:
-      'All male tests are observed and women are encouraged to schedule for Saturday mornings to ensure a female can be available for observation.',
+      'Observed collections are coordinated with staff availability. Contact us if you have a specific observer preference or scheduling concern.',
     icon: 'Users',
   },
 ]

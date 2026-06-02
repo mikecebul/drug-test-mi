@@ -5,7 +5,14 @@ import { getE2EEnv } from './helpers/env'
 import { loginAdmin } from './helpers/auth'
 import { ensureMailpitReachable, findMailpitMessages } from './helpers/mailpit'
 import { seedFixtures, type FixtureContext } from './helpers/seed'
-import { clickBack, clickNext, extractTestIdFromSuccess, openWizard, selectClientFromSearchDialog, selectWorkflow } from './helpers/wizard'
+import {
+  clickBack,
+  clickNext,
+  extractTestIdFromSuccess,
+  openWizard,
+  selectClientFromSearchDialog,
+  selectWorkflow,
+} from './helpers/wizard'
 
 let fixtures: FixtureContext
 
@@ -79,11 +86,13 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await expect(page.getByRole('button', { name: /^Submit$/i })).toBeEnabled()
 
     await page.getByLabel(/Send referral notifications/i).check()
-    await expect(page.getByText('At least one recipient is required')).toBeVisible()
-    await expect(page.getByRole('button', { name: /^Submit$/i })).toBeDisabled()
+    await expect(page.getByText('Saved referral recipients: 1')).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Submit$/i })).toBeEnabled()
   })
 
-  test('submits collect-lab workflow, creates test, and verifies collected-stage email in Mailpit', async ({ page }) => {
+  test('submits collect-lab workflow, creates test, and verifies collected-stage email in Mailpit', async ({
+    page,
+  }) => {
     const env = getE2EEnv({ requirePdfs: false })
     const testStart = new Date()
 
@@ -99,23 +108,13 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await expect(page.getByRole('heading', { name: 'Review Collection Notification' })).toBeVisible()
 
     await page.getByLabel(/Send referral notifications/i).check()
-    let recipientInputs = page.getByPlaceholder('email@example.com')
-    if ((await recipientInputs.count()) === 0) {
-      await page.getByRole('button', { name: /Add Recipient/i }).click()
-      recipientInputs = page.getByPlaceholder('email@example.com')
-    }
-
-    const referralRecipients: string[] = []
-    const inputCount = await recipientInputs.count()
-    for (let index = 0; index < inputCount; index++) {
-      const recipient = `collect.ref.${fixtures.runId}.${Date.now()}.${index}@example.com`
-      await recipientInputs.nth(index).fill(recipient)
-      referralRecipients.push(recipient)
-    }
+    await expect(page.getByText('Saved referral recipients: 1')).toBeVisible()
 
     await page.getByRole('button', { name: /^Submit$/i }).click()
 
-    await expect(page.getByRole('heading', { name: 'Drug Test Created Successfully!' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('heading', { name: 'Drug Test Created Successfully!' })).toBeVisible({
+      timeout: 30_000,
+    })
 
     const testId = await extractTestIdFromSuccess(page)
     fixtures.created.drugTestIds.push(testId)
@@ -130,7 +129,7 @@ test.describe('Wizard Collect Lab Workflow', () => {
       const messages = await findMailpitMessages({
         apiBase: env.mailpitApiBase,
         createdAfter: testStart,
-        to: referralRecipients[0],
+        to: fixtures.clients.collectLab.referralRecipients[0],
         subject: expectedSubject,
         requireAttachment: 'none',
         timeoutMs: 45_000,

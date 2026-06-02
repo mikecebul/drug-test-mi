@@ -40,11 +40,7 @@ export function ScreenedEmail(data: ScreenedEmailData) {
     <EmailLayout preview="Your drug test results are ready" title="Drug Test Results">
       <ResultBadge result={initialScreenResult} />
 
-      <ClientIdentity
-        headshotDataUri={clientHeadshotDataUri}
-        name={clientName}
-        dob={clientDob}
-      />
+      <ClientIdentity headshotDataUri={clientHeadshotDataUri} name={clientName} dob={clientDob} />
 
       <Section style={{ marginBottom: '24px' }}>
         <Text
@@ -64,9 +60,7 @@ export function ScreenedEmail(data: ScreenedEmailData) {
       {isDilute && (
         <Section style={errorBox}>
           <Text style={{ margin: '0 0 4px 0', fontWeight: 700 }}>⚠️ DILUTE SAMPLE</Text>
-          <Text style={{ margin: '0' }}>
-            This sample was dilute and may affect result accuracy.
-          </Text>
+          <Text style={{ margin: '0' }}>This sample was dilute and may affect result accuracy.</Text>
         </Section>
       )}
 
@@ -83,15 +77,14 @@ export function ScreenedEmail(data: ScreenedEmailData) {
       <ConfirmationDecisionNotice
         audience="client"
         confirmationDecision={confirmationDecision}
+        initialScreenResult={initialScreenResult}
         testType={testType}
         unexpectedPositives={unexpectedPositives}
+        unexpectedNegatives={unexpectedNegatives}
       />
 
       <Section style={{ textAlign: 'center', marginBottom: '24px' }}>
-        <Button
-          href={`${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard/results`}
-          style={button}
-        >
+        <Button href={`${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard/results`} style={button}>
           View Test Results
         </Button>
       </Section>

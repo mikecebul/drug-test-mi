@@ -20,13 +20,6 @@ const TEST_TYPES = [
     toxAccessCode: 'B829',
   },
   {
-    value: '15-panel-instant',
-    label: '15-Panel Instant',
-    bookingLabel: '15 Panel Instant',
-    category: 'instant' as const,
-    price: 35,
-  },
-  {
     value: '17-panel-instant',
     label: '17-Panel Instant',
     bookingLabel: '17 Panel Instant',
@@ -366,19 +359,19 @@ export async function POST(request: NextRequest) {
         success: false,
         error: 'Test booking API is disabled in production',
       },
-      { status: 403 }
+      { status: 403 },
     )
   }
 
   try {
     const payload = await getPayload({ config: configPromise })
-    
+
     // Get query params for customization
     const { searchParams } = new URL(request.url)
     const testType = searchParams.get('type') || 'new' // 'new', 'existing', 'multiple'
-    
+
     let mockBookingData
-    
+
     switch (testType) {
       case 'today': {
         const bookings = await createTodayMockBookings(payload)
@@ -396,7 +389,7 @@ export async function POST(request: NextRequest) {
         mockBookingData = {
           title: 'Instant Drug Test',
           type: 'Instant Drug Test',
-          description: '15 panel drug test',
+          description: '17 panel instant drug test',
           startTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
           endTime: new Date(Date.now() + 24 * 60 * 60 * 1000 + 10 * 60 * 1000).toISOString(), // Tomorrow + 10min
           status: 'confirmed',
@@ -415,19 +408,19 @@ export async function POST(request: NextRequest) {
           eventTypeId: 456,
           customInputs: {
             reason: 'Follow-up testing',
-            special_instructions: 'Rush results needed'
+            special_instructions: 'Rush results needed',
           },
           createdViaWebhook: false, // Mark as test
         }
         break
-        
+
       case 'multiple':
         // Create multiple bookings for the same client
         const baseTime = Date.now() + 48 * 60 * 60 * 1000 // Day after tomorrow
-        
+
         for (let i = 0; i < 3; i++) {
           const bookingTime = new Date(baseTime + i * 2 * 60 * 60 * 1000) // 2 hours apart
-          
+
           await payload.create({
             collection: 'bookings',
             data: {
@@ -457,13 +450,13 @@ export async function POST(request: NextRequest) {
             },
           })
         }
-        
+
         return NextResponse.json({
           success: true,
           message: 'Created 3 test bookings for Sarah Johnson',
-          type: 'multiple'
+          type: 'multiple',
         })
-        
+
       default: // 'new'
         mockBookingData = {
           title: 'Drug Test Appointment',
@@ -487,22 +480,22 @@ export async function POST(request: NextRequest) {
           eventTypeId: 456,
           customInputs: {
             reason: 'Pre-employment screening',
-            company: 'Test Company Inc.'
+            company: 'Test Company Inc.',
           },
           webhookData: {
             test: true,
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
           },
           createdViaWebhook: false, // Mark as test so we can identify it
         }
     }
-    
+
     // Create the booking (this will trigger the syncClient hook)
     const booking = await payload.create({
       collection: 'bookings',
       data: mockBookingData,
     })
-    
+
     // Check if client was created/updated
     const client = await payload.find({
       collection: 'clients',
@@ -513,7 +506,7 @@ export async function POST(request: NextRequest) {
       },
       limit: 1,
     })
-    
+
     return NextResponse.json({
       success: true,
       message: 'Test booking created successfully',
@@ -524,14 +517,16 @@ export async function POST(request: NextRequest) {
         attendeeEmail: booking.attendeeEmail,
         startTime: booking.startTime,
       },
-      client: client.docs.length > 0 ? {
-        id: client.docs[0].id,
-        name: client.docs[0].fullName,
-        email: client.docs[0].email,
-      } : null,
+      client:
+        client.docs.length > 0
+          ? {
+              id: client.docs[0].id,
+              name: client.docs[0].fullName,
+              email: client.docs[0].email,
+            }
+          : null,
       type: testType,
     })
-    
   } catch (error) {
     console.error('Test booking creation failed:', error)
     return NextResponse.json(
@@ -540,7 +535,7 @@ export async function POST(request: NextRequest) {
         error: 'Failed to create test booking',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
@@ -553,7 +548,7 @@ export async function GET() {
         success: false,
         error: 'Test booking API is disabled in production',
       },
-      { status: 403 }
+      { status: 403 },
     )
   }
 
@@ -567,6 +562,6 @@ export async function GET() {
       'POST /api/test-booking?type=today': 'Reset and create 5 mock bookings for today',
     },
     note: 'This will trigger the syncClient hook to create/update clients automatically',
-    environment: 'development'
+    environment: 'development',
   })
 }

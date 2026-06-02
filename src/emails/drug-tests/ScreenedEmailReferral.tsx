@@ -22,6 +22,7 @@ export function ScreenedEmailReferral(data: ScreenedEmailData) {
     clientName,
     collectionDate,
     testType,
+    initialScreenResult,
     expectedPositives,
     unexpectedPositives,
     unexpectedNegatives,
@@ -34,15 +35,8 @@ export function ScreenedEmailReferral(data: ScreenedEmailData) {
   } = data
 
   return (
-    <EmailLayout
-      preview={`Drug test results for ${clientName}`}
-      title="Drug Test Results"
-    >
-      <ClientIdentity
-        headshotDataUri={clientHeadshotDataUri}
-        name={clientName}
-        dob={clientDob}
-      />
+    <EmailLayout preview={`Drug test results for ${clientName}`} title="Drug Test Results">
+      <ClientIdentity headshotDataUri={clientHeadshotDataUri} name={clientName} dob={clientDob} />
 
       <Section style={{ marginBottom: '24px' }}>
         <Text
@@ -62,9 +56,7 @@ export function ScreenedEmailReferral(data: ScreenedEmailData) {
       {isDilute && (
         <Section style={errorBox}>
           <Text style={{ margin: '0 0 4px 0', fontWeight: 700 }}>⚠️ DILUTE SAMPLE</Text>
-          <Text style={{ margin: '0' }}>
-            This sample was dilute and may affect result accuracy.
-          </Text>
+          <Text style={{ margin: '0' }}>This sample was dilute and may affect result accuracy.</Text>
         </Section>
       )}
 
@@ -81,8 +73,10 @@ export function ScreenedEmailReferral(data: ScreenedEmailData) {
       <ConfirmationDecisionNotice
         audience="referral"
         confirmationDecision={confirmationDecision}
+        initialScreenResult={initialScreenResult}
         testType={testType}
         unexpectedPositives={unexpectedPositives}
+        unexpectedNegatives={unexpectedNegatives}
       />
 
       <Section
@@ -92,9 +86,7 @@ export function ScreenedEmailReferral(data: ScreenedEmailData) {
           borderRadius: '8px',
         }}
       >
-        <Text style={{ margin: '0 0 8px 0', fontWeight: 700 }}>
-          Complete test report is attached to this email.
-        </Text>
+        <Text style={{ margin: '0 0 8px 0', fontWeight: 700 }}>Complete test report is attached to this email.</Text>
         <Text style={{ margin: '0', fontSize: '12px', color: '#6b7280' }}>
           This is an automated notification from MI Drug Test.
         </Text>

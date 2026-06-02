@@ -20,7 +20,6 @@ const workflowTypes = [
   'enter-lab-screen',
   'enter-lab-confirmation',
   'instant-test',
-  '15-panel-instant',
   '17-panel-instant',
 ] as const
 
@@ -30,7 +29,6 @@ const firstStepMap: Record<(typeof workflowTypes)[number], string> = {
   'register-client': registerClientSteps[0],
   'collect-lab': collectLabSteps[0],
   'instant-test': instantTestSteps[0],
-  '15-panel-instant': instantTestSteps[0],
   '17-panel-instant': instantTestSteps[0],
   'enter-lab-screen': labScreenSteps[0],
   'enter-lab-confirmation': labConfirmationSteps[0],
@@ -62,10 +60,7 @@ export const ResetFormButton = () => {
 
     if (
       states.bookingId &&
-      (workflow === 'collect-lab' ||
-        workflow === 'instant-test' ||
-        workflow === '15-panel-instant' ||
-        workflow === '17-panel-instant')
+      (workflow === 'collect-lab' || workflow === 'instant-test' || workflow === '17-panel-instant')
     ) {
       setStates({
         workflow: 'guided',

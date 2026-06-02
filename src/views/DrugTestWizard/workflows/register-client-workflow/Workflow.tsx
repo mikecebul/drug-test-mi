@@ -6,10 +6,7 @@ import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
 import { getRegisterClientFormOpts } from './shared-form'
-import {
-  formSchema,
-  steps,
-} from './validators'
+import { formSchema, steps } from './validators'
 
 import { PersonalInfoStep } from './steps/PersonalInfo'
 import { AccountInfoStep } from './steps/AccountInfo'
@@ -20,10 +17,7 @@ import { SuccessStep } from './steps/Success'
 import { registerClientAction } from './actions/registerClientAction'
 import { useRouter } from 'next/navigation'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
-import {
-  getBookingRegistrationDefaults,
-  linkBookingToClient,
-} from '../complete-workflow/actions'
+import { getBookingRegistrationDefaults, linkBookingToClient } from '../complete-workflow/actions'
 
 interface RegisterClientWorkflowProps {
   onBack: () => void
@@ -44,10 +38,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
   } | null>(null)
 
   // URL is single source of truth for current step
-  const [currentStep, setCurrentStep] = useQueryState(
-    'step',
-    parseAsStringLiteral(steps).withDefault('personalInfo'),
-  )
+  const [currentStep, setCurrentStep] = useQueryState('step', parseAsStringLiteral(steps).withDefault('personalInfo'))
 
   // Get returnTo param to know where user came from
   const [returnTo] = useQueryState('returnTo', parseAsString)
@@ -80,9 +71,8 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
           lastName: value.personalInfo.lastName,
           middleInitial: value.personalInfo.middleInitial,
           email: result.clientEmail || value.accountInfo.email || '',
-          dob: typeof value.personalInfo.dob === 'string'
-            ? value.personalInfo.dob
-            : value.personalInfo.dob.toISOString(),
+          dob:
+            typeof value.personalInfo.dob === 'string' ? value.personalInfo.dob : value.personalInfo.dob.toISOString(),
           phone: value.personalInfo.phone,
         })
         setRegistrationComplete(true)
@@ -129,11 +119,9 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
   if (registrationComplete && createdClientId && createdClientData) {
     const handleContinue = async () => {
       // Determine where to navigate based on returnTo param
-      if (returnTo === 'instant-test' || returnTo === '15-panel-instant' || returnTo === '17-panel-instant') {
+      if (returnTo === 'instant-test' || returnTo === '17-panel-instant') {
         // Navigate to instant-test workflow with new client
-        router.push(
-          `/admin/drug-test-upload?workflow=instant-test&step=client&clientId=${createdClientId}`,
-        )
+        router.push(`/admin/drug-test-upload?workflow=instant-test&step=client&clientId=${createdClientId}`)
       } else if (returnTo === 'collect-lab') {
         // Navigate to collect-lab workflow with new client
         router.push(`/admin/drug-test-upload?workflow=collect-lab&step=client&clientId=${createdClientId}`)

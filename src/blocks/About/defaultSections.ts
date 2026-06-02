@@ -21,16 +21,17 @@ const createParagraphNode = (value: string) => ({
   version: 1,
 })
 
-export const makeRichText = (text: string): RichTextContent => ({
-  root: {
-    type: 'root' as const,
-    children: [createParagraphNode(text)],
-    direction: 'ltr' as const,
-    format: '' as const,
-    indent: 0,
-    version: 1,
-  },
-}) as RichTextContent
+export const makeRichText = (text: string): RichTextContent =>
+  ({
+    root: {
+      type: 'root' as const,
+      children: [createParagraphNode(text)],
+      direction: 'ltr' as const,
+      format: '' as const,
+      indent: 0,
+      version: 1,
+    },
+  }) as RichTextContent
 
 export const DEFAULT_ABOUT_SECTIONS = [
   {
@@ -49,20 +50,16 @@ export const DEFAULT_ABOUT_SECTIONS = [
     navLabel: 'Our Services',
     badge: 'What We Offer',
     heading: 'Our Services',
-    intro: makeRichText(
-      'Comprehensive drug testing solutions for court-ordered, employment, and self-referral needs:',
-    ),
+    intro: makeRichText('Comprehensive drug testing solutions for court-ordered, employment, and self-referral needs:'),
     services: [
       {
         title: 'Instant & Lab Screens',
-        description:
-          'Choose between immediate instant results or comprehensive lab testing based on your requirements',
+        description: 'Choose between immediate instant results or comprehensive lab testing based on your requirements',
         icon: 'FlaskConical',
       },
       {
         title: 'Court, Employment & Self-Referral',
-        description:
-          'Testing services for all needs - court orders, employment screening, or personal accountability',
+        description: 'Testing services for all needs - court orders, employment screening, or personal accountability',
         icon: 'FileCheck',
       },
       {
@@ -77,14 +74,12 @@ export const DEFAULT_ABOUT_SECTIONS = [
       },
       {
         title: 'Referral Communication',
-        description:
-          'Direct result reporting to courts, employers, or designated recipients via email',
+        description: 'Direct result reporting to courts, employers, or designated recipients via email',
         icon: 'MessageSquare',
       },
       {
         title: 'Medication Documentation',
-        description:
-          'Declare prescribed medications that may result in expected positive results',
+        description: 'Declare prescribed medications that may result in expected positive results',
         icon: 'Pill',
       },
     ],
@@ -151,7 +146,7 @@ export const DEFAULT_ABOUT_SECTIONS = [
       {
         title: 'Standard Instant Test',
         price: '$35',
-        description: '15-panel test today, with 17-panel instant screening being introduced soon',
+        description: '17-panel instant screening with same-day results',
         featured: true,
       },
       {

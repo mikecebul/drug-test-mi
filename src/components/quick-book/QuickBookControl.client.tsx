@@ -6,11 +6,8 @@ import { Calendar } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/utilities/cn'
-import {
-  FALLBACK_BOOKING_TEST_TYPES,
-  formatPhoneForCal,
-  type TestTypeBookingOption,
-} from '@/lib/quick-book'
+import { FALLBACK_BOOKING_TEST_TYPES, formatPhoneForCal, type TestTypeBookingOption } from '@/lib/quick-book'
+import { INSTANT_17_PANEL_CAL_LINK } from '@/utilities/calcom-config'
 
 type TestTypeOption = TestTypeBookingOption
 
@@ -134,7 +131,7 @@ export function QuickBookControl({
     }
 
     cal('modal', {
-      calLink: 'midrugtest/drug-test',
+      calLink: INSTANT_17_PANEL_CAL_LINK,
       config,
     })
   }

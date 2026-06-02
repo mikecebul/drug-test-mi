@@ -5,9 +5,11 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Calendar } from 'lucide-react'
 
+type CalModalConfig = Record<string, string | string[] | Record<string, string>>
+
 interface CalPopupButtonProps extends Omit<React.ComponentProps<typeof Button>, 'onClick'> {
   calUsername?: string
-  config?: Record<string, unknown>
+  config?: CalModalConfig
   onModalOpen?: () => void
 }
 
@@ -94,7 +96,7 @@ export function CalPopupButton({
             </>
           )}
         </Button>
-        <p className="text-xs text-destructive">{error}</p>
+        <p className="text-destructive text-xs">{error}</p>
       </div>
     )
   }

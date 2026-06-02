@@ -18,6 +18,7 @@ import {
   type TestTypeBookingOption,
 } from '@/lib/quick-book'
 import { sdk } from '@/lib/payload-sdk'
+import { INSTANT_17_PANEL_CAL_LINK } from '@/utilities/calcom-config'
 import { searchClients } from '@/views/DrugTestWizard/workflows/components/client/clientSearch'
 import { getClients, SimpleClient } from '@/views/DrugTestWizard/workflows/components/client/getClients'
 
@@ -128,9 +129,7 @@ async function fetchTestTypes(): Promise<TestTypeOption[]> {
 
 function resolveTestLabel(options: TestTypeOption[], recommendation: RecommendedTestType): string {
   return (
-    resolveRecommendedTestLabel(options, recommendation) ??
-    options[0]?.label ??
-    FALLBACK_BOOKING_TEST_TYPES[0].label
+    resolveRecommendedTestLabel(options, recommendation) ?? options[0]?.label ?? FALLBACK_BOOKING_TEST_TYPES[0].label
   )
 }
 
@@ -193,7 +192,7 @@ export function AdminQuickBookWidgetClient({
     const cal = await getCalApi()
 
     cal('modal', {
-      calLink: 'midrugtest/drug-test',
+      calLink: INSTANT_17_PANEL_CAL_LINK,
       config: {
         overlayCalendar: 'true',
         ...config,
@@ -275,7 +274,7 @@ export function AdminQuickBookWidgetClient({
                 setTimeout(() => setIsDropdownOpen(false), 120)
               }}
               placeholder="Search client name, email, phone, or DOB..."
-              className="h-11 rounded-md border-primary/35 bg-background pl-10 pr-10 shadow-sm focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/20"
+              className="border-primary/35 bg-background focus-visible:border-primary focus-visible:ring-primary/20 h-11 rounded-md pr-10 pl-10 shadow-sm focus-visible:ring-4"
               disabled={isLoadingClients || isOpeningBooking || !!loadError}
             />
             {(isLoadingClients || isOpeningBooking) && (

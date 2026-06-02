@@ -25,8 +25,8 @@ const COURT_DOCS = [
     contacts: [{ name: 'Probation Desk', email: 'probation@waynecourt.example' }],
     recipientEmails: [{ email: 'probation@waynecourt.example' }],
     preferredTestType: {
-      label: '15 Panel Instant',
-      value: '15-panel',
+      label: '17 Panel Instant',
+      value: '17-panel-instant',
     },
   },
   {
@@ -110,9 +110,7 @@ test.afterAll(async () => {
   }
 })
 
-test('validates steps, supports back-forward navigation, and validates medications in self flow', async ({
-  page,
-}) => {
+test('validates steps, supports back-forward navigation, and validates medications in self flow', async ({ page }) => {
   await openRegistration(page)
 
   await page.getByRole('button', { name: 'Next', exact: true }).click()

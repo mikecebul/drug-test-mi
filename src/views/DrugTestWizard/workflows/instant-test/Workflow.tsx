@@ -41,8 +41,6 @@ interface InstantTestWorkflowProps {
   onBack: () => void
 }
 
-const instantTestTypes = ['15-panel-instant', '17-panel-instant'] as const
-
 export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -56,18 +54,13 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   }
 
   // URL is single source of truth
-  const [currentStep, setCurrentStep] = useQueryState(
-    'step',
-    parseAsStringLiteral(steps).withDefault('upload'),
-  )
+  const [currentStep, setCurrentStep] = useQueryState('step', parseAsStringLiteral(steps).withDefault('upload'))
 
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)
-  const [presetTestType] = useQueryState('testType', parseAsStringLiteral(instantTestTypes))
   const [bookingId] = useQueryState('bookingId', parseAsString)
   const hydratedClientIdRef = useRef<string | null>(null)
-  const initialTestType: InstantTestType =
-    presetTestType === '17-panel-instant' ? '17-panel-instant' : '15-panel-instant'
+  const initialTestType: InstantTestType = '17-panel-instant'
   const formRef = useRef<HTMLFormElement | null>(null)
 
   useStepFocus({
@@ -84,6 +77,15 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
         const queryKey = extractPdfQueryKey(value.upload.file, 'instant-test')
         const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
         console.log(`[InstantTest] Extracted data from query cache:`, extractedData ? 'found' : 'not found')
+
+        if (extractedData?.testType === '15-panel-instant') {
+          toast.error('15-panel instant tests are no longer supported. Upload a 17-panel instant report.', {
+            id: 'instant-test-unsupported-15-panel',
+          })
+          await setCurrentStep('extract', { history: 'push' })
+          return
+        }
+
         const reportClientMatch = getReportClientMatch(extractedData?.donorName, value.client)
         const mismatchKey = getReportClientMismatchKey(reportClientMatch)
 
@@ -108,7 +110,9 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
         const originalSizeMB = (value.upload.file.size / 1024 / 1024).toFixed(2)
         const bufferSizeMB = (arrayBuffer.byteLength / 1024 / 1024).toFixed(2)
         const jsonSizeMB = (JSON.stringify(pdfBuffer).length / 1024 / 1024).toFixed(2)
-        console.log(`[InstantTest] PDF Sizes - Original: ${originalSizeMB}MB, Buffer: ${bufferSizeMB}MB, JSON: ${jsonSizeMB}MB`)
+        console.log(
+          `[InstantTest] PDF Sizes - Original: ${originalSizeMB}MB, Buffer: ${bufferSizeMB}MB, JSON: ${jsonSizeMB}MB`,
+        )
 
         console.log(`[InstantTest] Calling createInstantTest server action...`)
 
@@ -211,7 +215,11 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
 
     const fetchAndPopulateClient = async () => {
       try {
-        const client = clientId ? await getClientById(clientId) : bookingId ? await getClientByBookingId(bookingId) : null
+        const client = clientId
+          ? await getClientById(clientId)
+          : bookingId
+            ? await getClientByBookingId(bookingId)
+            : null
         if (client && hydratedClientIdRef.current !== client.id) {
           form.setFieldValue('client.id', client.id)
           form.setFieldValue('client.firstName', client.firstName)
@@ -268,6 +276,18 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   const handleGroupSubmit = async () => {
     if (!isLastStep) {
       const nextStep = steps[currentStepIndex + 1]
+      if (currentStep === 'extract') {
+        const queryKey = extractPdfQueryKey(form.state.values.upload.file, 'instant-test')
+        const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
+
+        if (extractedData?.testType === '15-panel-instant') {
+          toast.error('15-panel instant tests are no longer supported. Upload a 17-panel instant report.', {
+            id: 'instant-test-unsupported-15-panel',
+          })
+          return
+        }
+      }
+
       if (currentStep === 'extract' && form.state.values.client.id) {
         const queryKey = extractPdfQueryKey(form.state.values.upload.file, 'instant-test')
         const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
@@ -332,9 +352,17 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       case 'client':
         return renderGroup('client', { onDynamic: clientSchema.shape.client }, <ClientStep form={form} />)
       case 'medications':
-        return renderGroup('medications', { onDynamic: medicationsSchema.shape.medications }, <MedicationsStep form={form} />)
+        return renderGroup(
+          'medications',
+          { onDynamic: medicationsSchema.shape.medications },
+          <MedicationsStep form={form} />,
+        )
       case 'verifyData':
-        return renderGroup('verifyData', { onDynamic: verifyDataSchema.shape.verifyData }, <VerifyDataStep form={form} />)
+        return renderGroup(
+          'verifyData',
+          { onDynamic: verifyDataSchema.shape.verifyData },
+          <VerifyDataStep form={form} />,
+        )
       case 'confirm':
         return renderGroup('verifyData', undefined, <ConfirmStep form={form} />)
       case 'reviewEmails':

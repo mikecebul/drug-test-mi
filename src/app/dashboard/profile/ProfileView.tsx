@@ -1,10 +1,11 @@
-"use client"
+'use client'
 
-import { useState, type FormEvent, type ReactNode } from "react"
-import { formatDateOnly } from "@/lib/date-utils"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import { Edit, MailPlus, MessageSquare, Phone } from "lucide-react"
+import { useState, type FormEvent, type ReactNode } from 'react'
+import { formatDateOnly } from '@/lib/date-utils'
+import { Button } from '@/components/ui/button'
+import { ButtonGroup } from '@/components/ui/button-group'
+import { Separator } from '@/components/ui/separator'
+import { Edit, MailPlus, MessageSquare, Phone } from 'lucide-react'
 import { useStore } from '@tanstack/react-form'
 import { z } from 'zod'
 import { useAppForm } from '@/blocks/Form/hooks/form'
@@ -44,8 +45,8 @@ function SettingsSection({
     <section className="py-7">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
-          {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+          <h2 className="text-foreground text-lg font-semibold">{title}</h2>
+          {description ? <p className="text-muted-foreground mt-1 text-sm">{description}</p> : null}
         </div>
         {action}
       </div>
@@ -67,31 +68,27 @@ function SettingsRow({
 }) {
   return (
     <div className="grid gap-2 sm:grid-cols-[180px_minmax(0,640px)] sm:gap-8">
-      <p className="text-sm font-medium text-foreground">
+      <p className="text-foreground text-sm font-medium">
         {label}
-        {required ? <span className="ml-1 text-destructive">*</span> : null}
+        {required ? <span className="text-destructive ml-1">*</span> : null}
       </p>
-      <div className="min-w-0 text-sm text-muted-foreground">{children || value || 'Not provided'}</div>
+      <div className="text-muted-foreground min-w-0 text-sm">{children || value || 'Not provided'}</div>
     </div>
   )
 }
 
 function FormControlSlot({ children }: { children: ReactNode }) {
-  return (
-    <div className="max-w-2xl [&_[data-slot=field-label]]:sr-only [&_[data-slot=field]]:gap-2">
-      {children}
-    </div>
-  )
+  return <div className="max-w-2xl [&_[data-slot=field-label]]:sr-only [&_[data-slot=field]]:gap-2">{children}</div>
 }
 
 function getReferralTypeLabel(type?: string | null) {
   switch (type) {
-    case "court":
-      return "Court"
-    case "employer":
-      return "Employer"
-    case "self":
-      return "Self"
+    case 'court':
+      return 'Court'
+    case 'employer':
+      return 'Employer'
+    case 'self':
+      return 'Self'
     default:
       return type || 'Not provided'
   }
@@ -243,15 +240,15 @@ ${clientName}`,
     const { mailHref, smsHref, callHref } = getReferralUpdateLinks(type)
 
     return (
-      <div className="inline-flex overflow-hidden rounded-md border bg-background shadow-xs">
-        <Button asChild variant="ghost" size="sm" className="rounded-none border-r shadow-none">
+      <ButtonGroup>
+        <Button asChild variant="outline" size="sm" className="shadow-none">
           <a href={mailHref}>
             <MailPlus className="h-4 w-4" />
             Email
           </a>
         </Button>
         {smsHref ? (
-          <Button asChild variant="ghost" size="sm" className="rounded-none border-r shadow-none">
+          <Button asChild variant="outline" size="sm" className="shadow-none">
             <a href={smsHref}>
               <MessageSquare className="h-4 w-4" />
               Text
@@ -259,14 +256,14 @@ ${clientName}`,
           </Button>
         ) : null}
         {callHref ? (
-          <Button asChild variant="ghost" size="sm" className="rounded-none shadow-none">
+          <Button asChild variant="outline" size="sm" className="shadow-none">
             <a href={callHref}>
               <Phone className="h-4 w-4" />
               Call
             </a>
           </Button>
         ) : null}
-      </div>
+      </ButtonGroup>
     )
   }
 
@@ -293,7 +290,8 @@ ${clientName}`,
               <ul className="space-y-1">
                 {referralContacts.map((recipient) => (
                   <li key={recipient.email}>
-                    {recipient.name || 'Recipient'} <span className="text-muted-foreground/80">({recipient.email})</span>
+                    {recipient.name || 'Recipient'}{' '}
+                    <span className="text-muted-foreground/80">({recipient.email})</span>
                   </li>
                 ))}
               </ul>
@@ -310,7 +308,8 @@ ${clientName}`,
               <ul className="space-y-1">
                 {referralContacts.map((recipient) => (
                   <li key={recipient.email}>
-                    {recipient.name || 'Recipient'} <span className="text-muted-foreground/80">({recipient.email})</span>
+                    {recipient.name || 'Recipient'}{' '}
+                    <span className="text-muted-foreground/80">({recipient.email})</span>
                   </li>
                 ))}
               </ul>
@@ -338,7 +337,7 @@ ${clientName}`,
       <SettingsSection title="Personal details" description="Information used to identify you at testing.">
         <SettingsRow label="Name" required={isEditing} value={clientName}>
           {isEditing ? (
-            <div className="grid max-w-2xl gap-3 sm:grid-cols-2 [&>div]:!col-span-1 [&_[data-slot=field-label]]:sr-only [&_[data-slot=field]]:gap-2">
+            <div className="grid max-w-2xl gap-3 sm:grid-cols-2 [&_[data-slot=field-label]]:sr-only [&_[data-slot=field]]:gap-2 [&>div]:!col-span-1">
               <form.AppField
                 name="firstName"
                 validators={{
@@ -366,10 +365,7 @@ ${clientName}`,
               <form.AppField
                 name="email"
                 validators={{
-                  onChange: z
-                    .string()
-                    .email('Invalid email address')
-                    .min(1, 'Email is required'),
+                  onChange: z.string().email('Invalid email address').min(1, 'Email is required'),
                 }}
               >
                 {(formField) => <formField.EmailField label="Email Address" required />}
@@ -410,9 +406,7 @@ ${clientName}`,
                     .string()
                     .optional()
                     .refine(
-                      (val) =>
-                        !val ||
-                        /^(?:\+?1[-. ]?)?\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/.test(val),
+                      (val) => !val || /^(?:\+?1[-. ]?)?\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/.test(val),
                       {
                         message: 'Invalid phone number',
                       },
@@ -475,9 +469,9 @@ ${clientName}`,
         title="Referral"
         description="Where your results are sent."
         action={
-          user?.referralType === 'court' || user?.referralType === 'employer' ? (
-            renderRequestUpdateAction(user.referralType as 'court' | 'employer')
-          ) : null
+          user?.referralType === 'court' || user?.referralType === 'employer'
+            ? renderRequestUpdateAction(user.referralType as 'court' | 'employer')
+            : null
         }
       >
         {renderReferralRows()}
@@ -486,7 +480,10 @@ ${clientName}`,
       <Separator />
 
       <SettingsSection title="Preferences" description="How you prefer to be contacted.">
-        <SettingsRow label="Preferred contact method" value={<span className="capitalize">{preferredContactMethod}</span>}>
+        <SettingsRow
+          label="Preferred contact method"
+          value={<span className="capitalize">{preferredContactMethod}</span>}
+        >
           {isEditing ? (
             <FormControlSlot>
               <form.AppField
@@ -513,7 +510,10 @@ ${clientName}`,
 
       <Separator />
 
-      <SettingsSection title="Privacy" description="Your testing data is protected and shared only with authorized recipients.">
+      <SettingsSection
+        title="Privacy"
+        description="Your testing data is protected and shared only with authorized recipients."
+      >
         <SettingsRow
           label="Data protection"
           value="Personal information and test results are handled through secure, access-controlled systems."
@@ -529,9 +529,9 @@ ${clientName}`,
           <form onSubmit={handleSubmit}>
             <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-sm font-medium text-primary">Settings</p>
-                <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">Profile</h1>
-                <p className="mt-2 text-muted-foreground">Manage your information</p>
+                <p className="text-primary text-sm font-medium">Settings</p>
+                <h1 className="text-foreground mt-2 text-3xl font-semibold tracking-tight">Profile</h1>
+                <p className="text-muted-foreground mt-2">Manage your information</p>
               </div>
               <div className="flex gap-2">
                 <Button type="button" variant="outline" onClick={handleCancel}>
@@ -548,9 +548,9 @@ ${clientName}`,
           <>
             <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-sm font-medium text-primary">Settings</p>
-                <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">Profile</h1>
-                <p className="mt-2 text-muted-foreground">Manage your information</p>
+                <p className="text-primary text-sm font-medium">Settings</p>
+                <h1 className="text-foreground mt-2 text-3xl font-semibold tracking-tight">Profile</h1>
+                <p className="text-muted-foreground mt-2">Manage your information</p>
               </div>
               <Button type="button" variant="outline" onClick={() => setIsEditing(true)} className="gap-2">
                 <Edit className="h-4 w-4" />

@@ -62,7 +62,7 @@ export const ExtractStep = withForm({
     useEffect(() => {
       if (extractedData) {
         form.setFieldValue('extract.extracted', true)
-        if (extractedData.testType === '15-panel-instant' || extractedData.testType === '17-panel-instant') {
+        if (extractedData.testType === '17-panel-instant') {
           form.setFieldValue('verifyData.testType', extractedData.testType)
         }
         // Pre-populate verifyData with extracted values
@@ -119,9 +119,7 @@ export const ExtractStep = withForm({
 
     // No data yet
     if (!extractedData) {
-      return (
-          <FieldGroupHeader title="No Data" description="No file uploaded. Please go back." />
-      )
+      return <FieldGroupHeader title="No Data" description="No file uploaded. Please go back." />
     }
 
     // Build ParsedPDFData object for display
@@ -137,14 +135,10 @@ export const ExtractStep = withForm({
       hasConfirmation: extractedData.hasConfirmation,
       confirmationResults: extractedData.confirmationResults as ParsedPDFData['confirmationResults'],
     }
-    const reportClientMatch = selectedClient.id
-      ? getReportClientMatch(extractedData.donorName, selectedClient)
-      : null
+    const reportClientMatch = selectedClient.id ? getReportClientMatch(extractedData.donorName, selectedClient) : null
     const mismatchKey = getReportClientMismatchKey(reportClientMatch)
     const mismatchIsConfirmed = Boolean(
-      reportClientMatch?.status === 'mismatch' &&
-        mismatchConfirmed &&
-        mismatchConfirmationKey === mismatchKey,
+      reportClientMatch?.status === 'mismatch' && mismatchConfirmed && mismatchConfirmationKey === mismatchKey,
     )
     const detectedSubstances = parsedData.detectedSubstances ?? []
     const collectionDate = formatCollectionDate(parsedData.collectionDate)
@@ -173,7 +167,9 @@ export const ExtractStep = withForm({
                   <p className="text-foreground mt-2 text-2xl font-semibold">{reportClientMatch.reportName}</p>
                 </div>
                 <div className="border-destructive/30 bg-card rounded-lg border p-4">
-                  <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">Selected client</p>
+                  <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
+                    Selected client
+                  </p>
                   <p className="text-foreground mt-2 text-2xl font-semibold">{reportClientMatch.clientName}</p>
                 </div>
               </div>

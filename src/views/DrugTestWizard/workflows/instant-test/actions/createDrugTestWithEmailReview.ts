@@ -16,7 +16,7 @@ export async function createDrugTestWithEmailReview(
   testData: {
     clientId: string
     bookingId?: string | null
-    testType: '15-panel-instant' | '17-panel-instant'
+    testType: '17-panel-instant'
     collectionDate: string
     detectedSubstances: SubstanceValue[]
     isDilute: boolean
@@ -72,10 +72,53 @@ export async function createDrugTestWithEmailReview(
     const { buildScreenedEmail } = await import('@/collections/DrugTests/email/render')
     const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
 
+    // 2. Use medications snapshot passed from wizard (already filtered to active meds)
+    const medicationsSnapshot = medicationsAtTestTime || []
+    payload.logger.info({
+      msg: '[createDrugTestWithEmailReview] Using medications snapshot',
+      count: medicationsSnapshot.length,
+      medications: medicationsSnapshot,
+    })
+
+    payload.logger.info({
+      msg: '[createDrugTestWithEmailReview] Computing test results',
+      detectedSubstances: testData.detectedSubstances,
+      medications: medicationsSnapshot,
+    })
+    const previewResult = await computeTestResultPreview(
+      testData.clientId,
+      testData.detectedSubstances,
+      testData.testType,
+      testData.breathalyzerTaken,
+      testData.breathalyzerResult,
+      medicationsSnapshot,
+    )
+    payload.logger.info({
+      msg: '[createDrugTestWithEmailReview] Test result classification',
+      initialScreenResult: previewResult.initialScreenResult,
+      expectedPositives: previewResult.expectedPositives,
+      unexpectedPositives: previewResult.unexpectedPositives,
+      autoAccept: previewResult.autoAccept,
+    })
+
+    const hasUnexpectedPositives = previewResult.unexpectedPositives.length > 0
+    const requiresDecision = hasUnexpectedPositives && !previewResult.autoAccept
+
+    if (requiresDecision && !testData.confirmationDecision) {
+      return {
+        success: false,
+        error:
+          'Confirmation decision is required when unexpected positive substances are detected. Please go back and select how to proceed.',
+      }
+    }
+
     // Convert number array back to Buffer
     payload.logger.info('[createDrugTestWithEmailReview] Converting PDF buffer...')
     const buffer = Buffer.from(testData.pdfBuffer)
-    payload.logger.info({ msg: '[createDrugTestWithEmailReview] Buffer size', sizeKB: (buffer.length / 1024).toFixed(2) })
+    payload.logger.info({
+      msg: '[createDrugTestWithEmailReview] Buffer size',
+      sizeKB: (buffer.length / 1024).toFixed(2),
+    })
 
     // 1. Upload PDF to private-media collection
     payload.logger.info('[createDrugTestWithEmailReview] Uploading PDF to private-media...')
@@ -94,14 +137,6 @@ export async function createDrugTestWithEmailReview(
       overrideAccess: true,
     })
     payload.logger.info({ msg: '[createDrugTestWithEmailReview] PDF uploaded', fileId: uploadedFile.id })
-
-    // 2. Use medications snapshot passed from wizard (already filtered to active meds)
-    const medicationsSnapshot = medicationsAtTestTime || []
-    payload.logger.info({
-      msg: '[createDrugTestWithEmailReview] Using medications snapshot',
-      count: medicationsSnapshot.length,
-      medications: medicationsSnapshot,
-    })
 
     const paymentSnapshot = await getDrugTestPaymentSnapshot({
       payload,
@@ -170,40 +205,6 @@ export async function createDrugTestWithEmailReview(
     // 3a. Fetch client headshot for email embedding
     const clientHeadshotDataUri = await fetchClientHeadshot(testData.clientId, payload)
 
-    // 4. Compute test results for email content using medications snapshot
-    payload.logger.info({
-      msg: '[createDrugTestWithEmailReview] Computing test results',
-      detectedSubstances: testData.detectedSubstances,
-      medications: medicationsSnapshot,
-    })
-    const previewResult = await computeTestResultPreview(
-      testData.clientId,
-      testData.detectedSubstances,
-      testData.testType,
-      testData.breathalyzerTaken,
-      testData.breathalyzerResult,
-      medicationsSnapshot, // Use snapshot from wizard
-    )
-    payload.logger.info({
-      msg: '[createDrugTestWithEmailReview] Test result classification',
-      initialScreenResult: previewResult.initialScreenResult,
-      expectedPositives: previewResult.expectedPositives,
-      unexpectedPositives: previewResult.unexpectedPositives,
-      autoAccept: previewResult.autoAccept,
-    })
-
-    // 4a. Validate confirmation decision is provided when required
-    const hasUnexpectedPositives = previewResult.unexpectedPositives.length > 0
-    const requiresDecision = hasUnexpectedPositives && !previewResult.autoAccept
-
-    if (requiresDecision && !testData.confirmationDecision) {
-      return {
-        success: false,
-        error:
-          'Confirmation decision is required when unexpected positive substances are detected. Please go back and select how to proceed.',
-      }
-    }
-
     // 5. Build email content
     const clientName = `${client.firstName} ${client.lastName}`
     const clientDob = client.dob || null
@@ -224,8 +225,7 @@ export async function createDrugTestWithEmailReview(
       clientDob,
     })
 
-    const clientRecipients =
-      !disableClientEmails && emailConfig.clientEmailEnabled ? emailConfig.clientRecipients : []
+    const clientRecipients = !disableClientEmails && emailConfig.clientEmailEnabled ? emailConfig.clientRecipients : []
     const referralRecipients = emailConfig.referralEmailEnabled ? emailConfig.referralRecipients : []
 
     // 6-8. Fetch document and send emails using service layer
@@ -292,10 +292,9 @@ export async function createDrugTestWithEmailReview(
       recipients: sentTo.join(', ') || null,
       status: failedTo.length > 0 ? 'failed' : 'sent',
       intendedRecipients:
-        [
-          ...clientRecipients.map((e) => `Client: ${e}`),
-          ...referralRecipients.map((e) => `Referral: ${e}`),
-        ].join(', ') || null,
+        [...clientRecipients.map((e) => `Client: ${e}`), ...referralRecipients.map((e) => `Referral: ${e}`)].join(
+          ', ',
+        ) || null,
       errorMessage: failedTo.length > 0 ? `Failed to send to: ${failedTo.join(', ')}` : null,
     } as const
 

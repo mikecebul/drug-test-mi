@@ -6,7 +6,7 @@ import { FormMedications } from '../../shared-validators'
 
 interface UseInstantTestEmailPreviewParams {
   clientId?: string | null
-  testType?: '15-panel-instant' | '17-panel-instant' | null
+  testType?: '17-panel-instant' | null
   collectionDate?: string | null
   detectedSubstances?: SubstanceValue[]
   isDilute?: boolean

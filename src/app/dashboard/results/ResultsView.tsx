@@ -15,25 +15,12 @@ import { formatCollectionDateShort, APP_TIMEZONE } from '@/lib/date-utils'
 import { TZDate } from '@date-fns/tz'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FileText, X, Filter } from 'lucide-react'
 import { DrugTest } from '@/payload-types'
 import { CheckCircle, Circle, Clock, Truck, FlaskConical, FileCheck } from 'lucide-react'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DateRangePicker } from '@/components/date-range-picker'
 import {
   Drawer,
@@ -60,8 +47,7 @@ interface CustodyStep {
 // Generate chain of custody steps based on test data
 function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
   // Use screeningStatus for accurate workflow tracking
-  const screeningStatus =
-    result.screeningStatus || (result.initialScreenResult ? 'screened' : 'collected')
+  const screeningStatus = result.screeningStatus || (result.initialScreenResult ? 'screened' : 'collected')
   const hasInitialResult = !!result.initialScreenResult
   const confirmationDecision = result.confirmationDecision
   const isConfirmationRequested = confirmationDecision === 'request-confirmation'
@@ -83,9 +69,7 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
 
   // Determine if screening is complete
   const isScreened =
-    screeningStatus === 'screened' ||
-    screeningStatus === 'confirmation-pending' ||
-    screeningStatus === 'complete'
+    screeningStatus === 'screened' || screeningStatus === 'confirmation-pending' || screeningStatus === 'complete'
 
   // Handle inconclusive tests separately - they were never actually screened
   if (isInconclusive && isComplete) {
@@ -188,9 +172,7 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
   // Add confirmation steps if unexpected results (but NOT for warnings)
   const hasUnexpectedResults =
     result.initialScreenResult &&
-    ['unexpected-positive', 'unexpected-negative-critical', 'mixed-unexpected'].includes(
-      result.initialScreenResult,
-    )
+    ['unexpected-positive', 'unexpected-negative-critical', 'mixed-unexpected'].includes(result.initialScreenResult)
 
   if (hasUnexpectedResults) {
     if (isConfirmationRequested) {
@@ -215,8 +197,7 @@ function generateCustodyChain(result: DrugTestResult): CustodyStep[] {
           label: 'Confirmed',
           icon: CheckCircle,
           completed: !!isConfirmed,
-          current:
-            Array.isArray(confirmationResults) && confirmationResults.length > 0 && !isConfirmed,
+          current: Array.isArray(confirmationResults) && confirmationResults.length > 0 && !isConfirmed,
         },
       )
     } else if (confirmationDecision === 'accept') {
@@ -272,11 +253,7 @@ const ChainOfCustody = React.memo(({ result }: { result: DrugTestResult }) => {
               <IconComponent className="h-3 w-3" />
             </div>
             {index < steps.length - 1 && (
-              <div
-                className={`mx-1 h-0.5 w-8 ${
-                  steps[index + 1].completed ? 'bg-green-500' : 'bg-gray-300'
-                }`}
-              />
+              <div className={`mx-1 h-0.5 w-8 ${steps[index + 1].completed ? 'bg-green-500' : 'bg-gray-300'}`} />
             )}
           </div>
         )
@@ -385,12 +362,8 @@ function formatTestResult(testData: DrugTestResult): {
 
     // Filter out confirmed substances from unexpectedPositives/negatives
     // Only keep substances that were NOT confirmed (weren't contested)
-    finalUnexpectedPositives = unexpectedPositives?.filter(
-      (sub) => !confirmationSubstances.includes(sub),
-    )
-    finalUnexpectedNegatives = unexpectedNegatives?.filter(
-      (sub) => !confirmationSubstances.includes(sub),
-    )
+    finalUnexpectedPositives = unexpectedPositives?.filter((sub) => !confirmationSubstances.includes(sub))
+    finalUnexpectedNegatives = unexpectedNegatives?.filter((sub) => !confirmationSubstances.includes(sub))
   }
 
   // Format substances for display
@@ -412,9 +385,7 @@ function formatTestResult(testData: DrugTestResult): {
   }
 }
 
-const getResultBadgeVariant = (
-  result: string,
-): 'secondary' | 'warning' | 'destructive' | 'outline' => {
+const getResultBadgeVariant = (result: string): 'secondary' | 'warning' | 'destructive' | 'outline' => {
   // Color scheme: Red (destructive), Yellow (warning), Blue (secondary), White (outline)
 
   // Use map pattern for exact matches (Blue - PASS results)
@@ -434,11 +405,7 @@ const getResultBadgeVariant = (
   }
 
   // Red - Critical unexpected negatives, unexpected positives, mixed results
-  if (
-    result.includes('Negative (Critical)') ||
-    result.includes('Positive') ||
-    result.includes('Mixed')
-  ) {
+  if (result.includes('Negative (Critical)') || result.includes('Positive') || result.includes('Mixed')) {
     return 'destructive'
   }
 
@@ -473,11 +440,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
         const estDate = TZDate.tz(APP_TIMEZONE, utcDate)
 
         // Reset time to start of day for accurate comparison (in EST)
-        const resultDateOnly = new Date(
-          estDate.getFullYear(),
-          estDate.getMonth(),
-          estDate.getDate(),
-        )
+        const resultDateOnly = new Date(estDate.getFullYear(), estDate.getMonth(), estDate.getDate())
 
         if (dateRange.from) {
           const fromDateOnly = new Date(
@@ -489,11 +452,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
         }
 
         if (dateRange.to) {
-          const toDateOnly = new Date(
-            dateRange.to.getFullYear(),
-            dateRange.to.getMonth(),
-            dateRange.to.getDate(),
-          )
+          const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate())
           if (resultDateOnly > toDateOnly) return false
         }
 
@@ -511,13 +470,11 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
             return formattedResult.toLowerCase().includes('negative')
           case 'positive-expected':
             return (
-              formattedResult.toLowerCase().includes('positive') &&
-              formattedResult.toLowerCase().includes('expected')
+              formattedResult.toLowerCase().includes('positive') && formattedResult.toLowerCase().includes('expected')
             )
           case 'positive-unexpected':
             return (
-              formattedResult.toLowerCase().includes('positive') &&
-              !formattedResult.toLowerCase().includes('expected')
+              formattedResult.toLowerCase().includes('positive') && !formattedResult.toLowerCase().includes('expected')
             )
           case 'pending':
             return formattedResult.toLowerCase().includes('pending')
@@ -547,9 +504,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
           const collectionDate = row.original.collectionDate
           const createdAt = row.original.createdAt
           return (
-            <div className="whitespace-nowrap text-sm">
-              {formatCollectionDateShort(collectionDate || createdAt)}
-            </div>
+            <div className="text-sm whitespace-nowrap">{formatCollectionDateShort(collectionDate || createdAt)}</div>
           )
         },
       },
@@ -580,7 +535,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
               label = 'EtG Lab'
               break
           }
-          return <div className="whitespace-nowrap text-sm">{label}</div>
+          return <div className="text-sm whitespace-nowrap">{label}</div>
         },
       },
       {
@@ -588,8 +543,9 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
         header: 'Result',
         size: 200,
         cell: ({ row }) => {
-          const { result, unexpectedPositives, unexpectedNegatives, confirmationResults } =
-            formatTestResult(row.original)
+          const { result, unexpectedPositives, unexpectedNegatives, confirmationResults } = formatTestResult(
+            row.original,
+          )
 
           return (
             <div className="space-y-2 py-2">
@@ -599,7 +555,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
               {/* Show confirmation results FIRST */}
               {confirmationResults && confirmationResults.length > 0 && (
                 <div className="space-y-1">
-                  <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wide">
+                  <div className="text-muted-foreground text-[10px] font-semibold tracking-wide uppercase">
                     Confirmed:
                   </div>
                   <div className="flex flex-wrap gap-1">
@@ -630,7 +586,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
               {/* Then show presumptive results that weren't confirmed */}
               {unexpectedPositives && unexpectedPositives.length > 0 && (
                 <div className="space-y-1">
-                  <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wide">
+                  <div className="text-muted-foreground text-[10px] font-semibold tracking-wide uppercase">
                     Unexpected Positive:
                   </div>
                   <div className="flex flex-wrap gap-1">
@@ -644,7 +600,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
               )}
               {unexpectedNegatives && unexpectedNegatives.length > 0 && (
                 <div className="space-y-1">
-                  <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wide">
+                  <div className="text-muted-foreground text-[10px] font-semibold tracking-wide uppercase">
                     Unexpected Negative:
                   </div>
                   <div className="flex flex-wrap gap-1">
@@ -705,9 +661,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
             typeof result.confirmationDocument === 'object' &&
             result.confirmationDocument.url
               ? result.confirmationDocument
-              : result.testDocument &&
-                  typeof result.testDocument === 'object' &&
-                  result.testDocument.url
+              : result.testDocument && typeof result.testDocument === 'object' && result.testDocument.url
                 ? result.testDocument
                 : null
 
@@ -835,7 +789,6 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                         <SelectItem value="all">All Types</SelectItem>
                         <SelectItem value="11-panel-lab">11-Panel Lab</SelectItem>
                         <SelectItem value="11-panel-lab-no-etg">11-Panel Lab (no EtG)</SelectItem>
-                        <SelectItem value="15-panel-instant">15-Panel Instant</SelectItem>
                         <SelectItem value="17-panel-instant">17-Panel Instant</SelectItem>
                         <SelectItem value="17-panel-sos-lab">17-Panel SOS Lab</SelectItem>
                         <SelectItem value="etg-lab">EtG Lab</SelectItem>
@@ -951,9 +904,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                             <SelectItem value="all">All Results</SelectItem>
                             <SelectItem value="negative">Negative</SelectItem>
                             <SelectItem value="positive-expected">Positive (Expected)</SelectItem>
-                            <SelectItem value="positive-unexpected">
-                              Positive (Unexpected)
-                            </SelectItem>
+                            <SelectItem value="positive-unexpected">Positive (Unexpected)</SelectItem>
                             <SelectItem value="pending">Pending</SelectItem>
                             <SelectItem value="inconclusive">Inconclusive</SelectItem>
                           </SelectContent>
@@ -971,7 +922,6 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                             <SelectItem value="all">All Types</SelectItem>
                             <SelectItem value="11-panel-lab">11-Panel Lab</SelectItem>
                             <SelectItem value="11-panel-lab-no-etg">11-Panel Lab (no EtG)</SelectItem>
-                            <SelectItem value="15-panel-instant">15-Panel Instant</SelectItem>
                             <SelectItem value="17-panel-instant">17-Panel Instant</SelectItem>
                             <SelectItem value="17-panel-sos-lab">17-Panel SOS Lab</SelectItem>
                             <SelectItem value="etg-lab">EtG Lab</SelectItem>
@@ -1007,10 +957,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                     <TableRow key={headerGroup.id} className="bg-muted/50">
                       {headerGroup.headers.map((header) => {
                         return (
-                          <TableHead
-                            key={header.id}
-                            className="text-xs font-semibold uppercase tracking-wide"
-                          >
+                          <TableHead key={header.id} className="text-xs font-semibold tracking-wide uppercase">
                             {header.isPlaceholder
                               ? null
                               : flexRender(header.column.columnDef.header, header.getContext())}
@@ -1047,12 +994,9 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
             </div>
             <div className="flex items-center justify-between py-4">
               <div className="text-muted-foreground text-sm">
-                Showing{' '}
-                {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}{' '}
-                to{' '}
+                Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{' '}
                 {Math.min(
-                  (table.getState().pagination.pageIndex + 1) *
-                    table.getState().pagination.pageSize,
+                  (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
                   filteredData.length,
                 )}{' '}
                 of {filteredData.length} results
@@ -1069,12 +1013,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                 <div className="text-sm">
                   Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                >
+                <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
                   Next
                 </Button>
               </div>
@@ -1097,42 +1036,30 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <Badge variant="secondary">Negative</Badge>
-                      <span className="text-muted-foreground text-sm">
-                        All substances negative as expected
-                      </span>
+                      <span className="text-muted-foreground text-sm">All substances negative as expected</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="secondary">Expected Positive</Badge>
-                      <span className="text-muted-foreground text-sm">
-                        Only prescribed medications detected
-                      </span>
+                      <span className="text-muted-foreground text-sm">Only prescribed medications detected</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Red - Unexpected Positive Results */}
                 <div>
-                  <h4 className="mb-3 text-sm font-medium text-red-700">
-                    Red - Unexpected Positive Results & Issues
-                  </h4>
+                  <h4 className="mb-3 text-sm font-medium text-red-700">Red - Unexpected Positive Results & Issues</h4>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <Badge variant="destructive">Presumptive Positive</Badge>
-                      <span className="text-muted-foreground text-sm">
-                        Substance detected that was not expected
-                      </span>
+                      <span className="text-muted-foreground text-sm">Substance detected that was not expected</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="destructive">Positive</Badge>
-                      <span className="text-muted-foreground text-sm">
-                        Final confirmed unexpected positive
-                      </span>
+                      <span className="text-muted-foreground text-sm">Final confirmed unexpected positive</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="destructive">Mixed Results</Badge>
-                      <span className="text-muted-foreground text-sm">
-                        Both unexpected positives and negatives
-                      </span>
+                      <span className="text-muted-foreground text-sm">Both unexpected positives and negatives</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="destructive">Dilute</Badge>
@@ -1145,9 +1072,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
 
                 {/* Yellow - Unexpected Negative Results */}
                 <div>
-                  <h4 className="mb-3 text-sm font-medium text-yellow-700">
-                    Yellow - Unexpected Negative Results
-                  </h4>
+                  <h4 className="mb-3 text-sm font-medium text-yellow-700">Yellow - Unexpected Negative Results</h4>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <Badge variant="warning">Negative (Unexpected)</Badge>
@@ -1160,21 +1085,15 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
 
                 {/* White - Pending/Inconclusive */}
                 <div>
-                  <h4 className="mb-3 text-sm font-medium text-gray-700">
-                    White - Pending/Inconclusive
-                  </h4>
+                  <h4 className="mb-3 text-sm font-medium text-gray-700">White - Pending/Inconclusive</h4>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <Badge variant="outline">Pending</Badge>
-                      <span className="text-muted-foreground text-sm">
-                        Awaiting initial results
-                      </span>
+                      <span className="text-muted-foreground text-sm">Awaiting initial results</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="outline">Pending Confirmation</Badge>
-                      <span className="text-muted-foreground text-sm">
-                        Awaiting confirmation testing
-                      </span>
+                      <span className="text-muted-foreground text-sm">Awaiting confirmation testing</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="outline">Inconclusive</Badge>
@@ -1191,9 +1110,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                       <Badge variant="destructive" className="text-xs">
                         *Substance
                       </Badge>
-                      <span className="text-muted-foreground text-sm">
-                        Red badges = Unexpected positive substances
-                      </span>
+                      <span className="text-muted-foreground text-sm">Red badges = Unexpected positive substances</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="warning" className="text-xs">

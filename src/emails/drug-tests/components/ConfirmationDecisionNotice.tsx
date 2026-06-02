@@ -1,15 +1,17 @@
 import { Section, Text } from '@react-email/components'
 import * as React from 'react'
 import { formatSubstance } from '../utils/formatters'
-import { warningBox } from '../utils/styles'
+import { errorBox, warningBox } from '../utils/styles'
 
 type ConfirmationDecision = 'accept' | 'request-confirmation' | 'pending-decision' | null | undefined
 
 type ConfirmationDecisionNoticeProps = {
   audience: 'client' | 'referral'
   confirmationDecision?: ConfirmationDecision
+  initialScreenResult?: string | null
   testType: string
   unexpectedPositives: string[]
+  unexpectedNegatives?: string[]
 }
 
 function formatSubstanceList(substances: string[]) {
@@ -19,15 +21,41 @@ function formatSubstanceList(substances: string[]) {
 export function ConfirmationDecisionNotice({
   audience,
   confirmationDecision,
+  initialScreenResult,
   testType,
   unexpectedPositives,
+  unexpectedNegatives = [],
 }: ConfirmationDecisionNoticeProps) {
+  const isClient = audience === 'client'
+
+  if (
+    unexpectedNegatives.length > 0 &&
+    (initialScreenResult === 'unexpected-negative-critical' || initialScreenResult === 'unexpected-negative-warning')
+  ) {
+    const isCritical = initialScreenResult === 'unexpected-negative-critical'
+    const substances = formatSubstanceList(unexpectedNegatives)
+    const title = isCritical ? 'Unexpected Negative - Critical' : 'Unexpected Negative - Warning'
+    const message = isClient
+      ? `The screen did not detect ${substances}, which was expected based on current medication records.`
+      : `The screen did not detect ${substances}, which was expected based on the client's medication records.`
+    const detail = isCritical
+      ? 'This result requires staff review because at least one missing expected substance is marked as confirmation-required.'
+      : 'This result has been flagged for awareness because an expected substance was not detected.'
+
+    return (
+      <Section style={{ ...(isCritical ? errorBox : warningBox), marginBottom: '24px' }}>
+        <Text style={{ margin: '0 0 8px 0', fontWeight: 700 }}>{title}</Text>
+        <Text style={{ margin: '0 0 8px 0' }}>{message}</Text>
+        <Text style={{ margin: '0' }}>{detail}</Text>
+      </Section>
+    )
+  }
+
   if (unexpectedPositives.length === 0) return null
 
-  const isClient = audience === 'client'
   const isInstantTest = testType === '15-panel-instant' || testType === '17-panel-instant'
   const substances = formatSubstanceList(unexpectedPositives)
-  const confirmationWindow = isInstantTest ? '30 days' : '60 days'
+  const confirmationWindow = '30 days'
   const confirmationPrice = isInstantTest ? '$30' : '$45'
 
   let title = 'Confirmation Decision Pending'

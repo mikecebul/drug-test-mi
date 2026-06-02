@@ -4,13 +4,7 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import type { Client, Court, Employer, TestType } from '@/payload-types'
 
-type TestTypeValue =
-  | '11-panel-lab'
-  | '11-panel-lab-no-etg'
-  | '15-panel-instant'
-  | '17-panel-instant'
-  | '17-panel-sos-lab'
-  | 'etg-lab'
+type TestTypeValue = '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-instant' | '17-panel-sos-lab' | 'etg-lab'
 
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type PaymentMethod = 'cash' | 'card' | 'not-paid' | 'pre-paid'
@@ -26,11 +20,18 @@ type Payload = Awaited<ReturnType<typeof getPayload>>
 const FALLBACK_TEST_PRICES: Record<TestTypeValue, number> = {
   '11-panel-lab': 40,
   '11-panel-lab-no-etg': 40,
-  '15-panel-instant': 35,
   '17-panel-instant': 35,
   '17-panel-sos-lab': 45,
   'etg-lab': 40,
 }
+
+const ACTIVE_GUIDED_TEST_TYPES = new Set<TestTypeValue>([
+  '11-panel-lab',
+  '11-panel-lab-no-etg',
+  '17-panel-instant',
+  '17-panel-sos-lab',
+  'etg-lab',
+])
 
 function startOfToday() {
   const date = new Date()
@@ -97,19 +98,21 @@ async function getPreferredTestType(payload: Payload, referral: PopulatedReferra
 function mapTestType(testType: TestType | null | undefined) {
   if (!testType) return null
 
-  const value = testType.value as TestTypeValue | undefined
-  if (!value) return null
+  const value = testType.value
+  if (!value || !ACTIVE_GUIDED_TEST_TYPES.has(value as TestTypeValue)) return null
+  const activeValue = value as TestTypeValue
 
   return {
     id: testType.id as string,
     label: testType.label,
-    value,
-    category: testType.category === 'instant' || testType.category === 'lab'
-      ? testType.category
-      : value.includes('instant')
-        ? 'instant'
-        : 'lab',
-    price: typeof testType.price === 'number' ? testType.price : FALLBACK_TEST_PRICES[value],
+    value: activeValue,
+    category:
+      testType.category === 'instant' || testType.category === 'lab'
+        ? testType.category
+        : activeValue.includes('instant')
+          ? 'instant'
+          : 'lab',
+    price: typeof testType.price === 'number' ? testType.price : FALLBACK_TEST_PRICES[activeValue],
     toxAccessCode: typeof testType.toxAccessCode === 'string' ? testType.toxAccessCode : null,
   }
 }
@@ -120,7 +123,7 @@ async function getBookingTestType(
   referral: PopulatedReferral | null | undefined,
 ) {
   const scheduledTestType = await resolveTestType(payload, bookingTestType)
-  return mapTestType(scheduledTestType) ?? await getPreferredTestType(payload, referral)
+  return mapTestType(scheduledTestType) ?? (await getPreferredTestType(payload, referral))
 }
 
 function splitName(name: string) {
@@ -200,50 +203,52 @@ export async function getTodaysCollectionBookings() {
     overrideAccess: true,
   })
 
-  return Promise.all(result.docs.map(async (booking) => {
-    const client = typeof booking.relatedClient === 'object' ? booking.relatedClient as PopulatedClient : null
-    const referral = await resolveReferral(payload, client)
-    const testType = await getBookingTestType(payload, booking.scheduledTestType, referral)
-    const referralType = client?.referralType as 'court' | 'employer' | 'self' | undefined
-    const firstDrugTestDate = await getFirstDrugTestDate(payload, client?.id as string | undefined)
+  return Promise.all(
+    result.docs.map(async (booking) => {
+      const client = typeof booking.relatedClient === 'object' ? (booking.relatedClient as PopulatedClient) : null
+      const referral = await resolveReferral(payload, client)
+      const testType = await getBookingTestType(payload, booking.scheduledTestType, referral)
+      const referralType = client?.referralType as 'court' | 'employer' | 'self' | undefined
+      const firstDrugTestDate = await getFirstDrugTestDate(payload, client?.id as string | undefined)
 
-    return {
-      id: booking.id as string,
-      title: booking.title as string,
-      startTime: booking.startTime as string,
-      endTime: booking.endTime as string,
-      attendeeName: booking.attendeeName as string,
-      attendeeEmail: booking.attendeeEmail as string,
-      attendeePhone: getPhoneFromCustomInputs(booking.customInputs),
-      calcomBookingId: booking.calcomBookingId as string | null | undefined,
-      client: client
-        ? {
-            id: client.id as string,
-            firstName: client.firstName as string,
-            middleInitial: typeof client.middleInitial === 'string' ? client.middleInitial : null,
-            lastName: client.lastName as string,
-            email: client.email as string,
-            dob: typeof client.dob === 'string' ? client.dob : null,
-            gender: typeof client.gender === 'string' ? client.gender : null,
-            phone: typeof client.phone === 'string' ? client.phone : null,
-            firstDrugTestDate,
-            referralType,
-          }
-        : null,
-      referral: referral
-        ? {
-            id: referral.id as string,
-            name: referral.name as string,
-            type: client?.referral?.relationTo === 'courts' ? 'Court' : 'Employer',
-          }
-        : null,
-      testType,
-      payment: booking.payment || null,
-      sampleCollection: booking.sampleCollection || null,
-      needsRegistration: !client,
-      needsTestType: Boolean(client && !testType),
-    }
-  }))
+      return {
+        id: booking.id as string,
+        title: booking.title as string,
+        startTime: booking.startTime as string,
+        endTime: booking.endTime as string,
+        attendeeName: booking.attendeeName as string,
+        attendeeEmail: booking.attendeeEmail as string,
+        attendeePhone: getPhoneFromCustomInputs(booking.customInputs),
+        calcomBookingId: booking.calcomBookingId as string | null | undefined,
+        client: client
+          ? {
+              id: client.id as string,
+              firstName: client.firstName as string,
+              middleInitial: typeof client.middleInitial === 'string' ? client.middleInitial : null,
+              lastName: client.lastName as string,
+              email: client.email as string,
+              dob: typeof client.dob === 'string' ? client.dob : null,
+              gender: typeof client.gender === 'string' ? client.gender : null,
+              phone: typeof client.phone === 'string' ? client.phone : null,
+              firstDrugTestDate,
+              referralType,
+            }
+          : null,
+        referral: referral
+          ? {
+              id: referral.id as string,
+              name: referral.name as string,
+              type: client?.referral?.relationTo === 'courts' ? 'Court' : 'Employer',
+            }
+          : null,
+        testType,
+        payment: booking.payment || null,
+        sampleCollection: booking.sampleCollection || null,
+        needsRegistration: !client,
+        needsTestType: Boolean(client && !testType),
+      }
+    }),
+  )
 }
 
 export async function getActiveCollectionTestTypes() {
@@ -261,7 +266,9 @@ export async function getActiveCollectionTestTypes() {
     overrideAccess: true,
   })
 
-  return result.docs.map((testType) => mapTestType(testType)).filter((testType): testType is NonNullable<ReturnType<typeof mapTestType>> => Boolean(testType))
+  return result.docs
+    .map((testType) => mapTestType(testType))
+    .filter((testType): testType is NonNullable<ReturnType<typeof mapTestType>> => Boolean(testType))
 }
 
 export async function getBookingRegistrationDefaults(bookingId: string) {
@@ -366,7 +373,7 @@ export async function refreshBookingClientContext(bookingId: string) {
     overrideAccess: true,
   })
 
-  const client = typeof booking.relatedClient === 'object' ? booking.relatedClient as PopulatedClient : null
+  const client = typeof booking.relatedClient === 'object' ? (booking.relatedClient as PopulatedClient) : null
   const referral = await resolveReferral(payload, client)
   const testType = await getBookingTestType(payload, booking.scheduledTestType, referral)
 
