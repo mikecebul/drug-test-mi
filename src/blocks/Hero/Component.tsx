@@ -2,6 +2,7 @@ import type { Hero as HeroType, HomepageHero, Link, Page } from '@/payload-types
 import { HeroMedium } from '@/components/Hero/HeroMedium'
 import { Hero } from '@/components/Hero'
 import { HomepageHeroBlock } from './HomepageHero/Component'
+import Container from '@/components/Container'
 
 type Props = Extract<Page['layout'][number], HeroType>
 type LegacyLocationSplitHero = Omit<Props, 'type'> & {
@@ -44,12 +45,14 @@ export async function HeroBlock(props: Props) {
       {type === 'highImpact' && !!highImpact ? (
         <Hero {...highImpact} />
       ) : type === 'mediumImpact' && !!mediumImpact ? (
-        <HeroMedium
-          {...mediumImpact}
-          description={mediumImpact.description ?? undefined}
-          subtitle={mediumImpact.subtitle ?? undefined}
-          heading={mediumImpact.heading ?? undefined}
-        />
+        <Container>
+          <HeroMedium
+            {...mediumImpact}
+            description={mediumImpact.description ?? undefined}
+            subtitle={mediumImpact.subtitle ?? undefined}
+            heading={mediumImpact.heading ?? undefined}
+          />
+        </Container>
       ) : type === 'locationSplit' && !!legacyLocationSplit ? (
         <HomepageHeroBlock
           blockType="homepageHero"

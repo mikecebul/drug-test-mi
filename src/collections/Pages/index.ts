@@ -27,6 +27,7 @@ import { SchedulePage } from '@/blocks/SchedulePage/config'
 import { Trust } from '@/blocks/Trust/config'
 import { TechniciansBlock } from '@/blocks/TechniciansBlock/config'
 import { About } from '@/blocks/About/config'
+import { CTA } from '@/blocks/CTA/config'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
@@ -78,6 +79,7 @@ export const Pages: CollectionConfig = {
                 About,
                 Trust,
                 TechniciansBlock,
+                CTA,
                 RichText,
                 Links,
                 Form,

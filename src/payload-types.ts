@@ -247,6 +247,7 @@ export interface Page {
     | About
     | TrustBlock
     | TechniciansBlock
+    | CTABlock
     | RichTextBlock
     | LinksBlock
     | FormBlock
@@ -656,6 +657,7 @@ export interface TrustBlock {
  * via the `definition` "TechniciansBlock".
  */
 export interface TechniciansBlock {
+  showIntro?: boolean | null;
   heading?: string | null;
   description?: string | null;
   /**
@@ -665,6 +667,18 @@ export interface TechniciansBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'techniciansBlock';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CTABlock".
+ */
+export interface CTABlock {
+  title: string;
+  description?: string | null;
+  links?: LinkGroup;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'cta';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2422,6 +2436,7 @@ export interface PagesSelect<T extends boolean = true> {
         about?: T | AboutSelect<T>;
         trust?: T | TrustBlockSelect<T>;
         techniciansBlock?: T | TechniciansBlockSelect<T>;
+        cta?: T | CTABlockSelect<T>;
         richText?: T | RichTextBlockSelect<T>;
         linksBlock?: T | LinksBlockSelect<T>;
         formBlock?: T | FormBlockSelect<T>;
@@ -2708,9 +2723,21 @@ export interface TrustBlockSelect<T extends boolean = true> {
  * via the `definition` "TechniciansBlock_select".
  */
 export interface TechniciansBlockSelect<T extends boolean = true> {
+  showIntro?: T;
   heading?: T;
   description?: T;
   maxTechnicians?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CTABlock_select".
+ */
+export interface CTABlockSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  links?: T | LinkGroupSelect<T>;
   id?: T;
   blockName?: T;
 }

@@ -19,10 +19,19 @@ export const TechniciansBlock: Block = {
   },
   fields: [
     {
+      name: 'showIntro',
+      type: 'checkbox',
+      label: 'Show heading and description',
+      defaultValue: true,
+    },
+    {
       name: 'heading',
       type: 'text',
       label: 'Heading',
       defaultValue: 'Our Technicians',
+      admin: {
+        condition: (_, siblingData) => siblingData?.showIntro !== false,
+      },
     },
     {
       name: 'description',
@@ -30,6 +39,9 @@ export const TechniciansBlock: Block = {
       label: 'Description',
       defaultValue:
         'Meet our drug testing professionals. Each technician is trained, experienced, and committed to providing professional and discreet testing services.',
+      admin: {
+        condition: (_, siblingData) => siblingData?.showIntro !== false,
+      },
     },
     {
       name: 'maxTechnicians',
