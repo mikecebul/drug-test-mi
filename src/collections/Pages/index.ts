@@ -22,6 +22,7 @@ import { revalidateDelete } from './hooks/revalidateDelete'
 import { admins } from '@/access/admins'
 import { CalendarEmbedBlock } from '@/blocks/Cal/config'
 import { Hero } from '@/blocks/Hero/config'
+import { HomepageHero } from '@/blocks/Hero/HomepageHero/config'
 import { SchedulePage } from '@/blocks/SchedulePage/config'
 import { Trust } from '@/blocks/Trust/config'
 import { TechniciansBlock } from '@/blocks/TechniciansBlock/config'
@@ -72,6 +73,7 @@ export const Pages: CollectionConfig = {
               type: 'blocks',
               blocks: [
                 CalendarEmbedBlock,
+                HomepageHero,
                 Hero,
                 About,
                 Trust,

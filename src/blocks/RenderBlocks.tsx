@@ -10,6 +10,7 @@ import { LayoutBlock } from './Layout/Component'
 import { TwoColumnLayoutBlock } from './TwoColumnLayout/Component'
 import { CalendarEmbedBlock } from './Cal/Component'
 import { HeroBlock } from './Hero/Component'
+import { HomepageHeroBlock } from './Hero/HomepageHero/Component'
 import { SchedulePageBlock } from './SchedulePage/Component'
 import { TrustBlock } from './Trust/Component'
 import TechniciansBlockComponent from './TechniciansBlock/Component'
@@ -23,6 +24,7 @@ const blockComponents = {
   TwoColumnLayout: TwoColumnLayoutBlock,
   layout: LayoutBlock,
   calendarEmbed: CalendarEmbedBlock,
+  homepageHero: HomepageHeroBlock,
   hero: HeroBlock,
   schedulePage: SchedulePageBlock,
   trust: TrustBlock,
@@ -54,10 +56,11 @@ export const RenderBlocks: React.FC<{
                 <div
                   key={index}
                   className={
-                    blockType === 'hero' && (block as any).type === 'highImpact'
+                    blockType === 'homepageHero' ||
+                    (blockType === 'hero' && (block as any).type === 'locationSplit')
+                      ? 'space-y-16 last:pb-36'
+                      : blockType === 'hero' && (block as any).type === 'highImpact'
                       ? 'space-y-16 pt-24 last:pb-36'
-                      : blockType === 'hero' && (block as any).type === 'locationSplit'
-                        ? 'space-y-16 last:pb-36'
                       : blockType === 'about'
                         ? 'space-y-16 pt-8 last:pb-36'
                         : 'space-y-16 py-24 last:pb-36'

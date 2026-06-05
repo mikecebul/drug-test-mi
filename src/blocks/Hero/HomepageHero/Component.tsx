@@ -1,74 +1,55 @@
 import Container from '@/components/Container'
 import { CMSLink } from '@/components/Link'
 import { Card, CardFooter, CardHeader } from '@/components/ui/card'
-import type { Hero as HeroType, Media } from '@/payload-types'
+import type { CompanyInfo, HomepageHero as HomepageHeroType, Media } from '@/payload-types'
 import { ArrowRight, MapPin, Phone, ShieldCheck } from 'lucide-react'
 import Image from 'next/image'
-import { Description, Subtitle, Title } from './HeroMedium'
+import { getPayload } from 'payload'
+import payloadConfig from '@payload-config'
+import { Description, Subtitle, Title } from '@/components/Hero/HeroMedium'
 
-type Props = NonNullable<HeroType['locationSplit']>
+type Props = HomepageHeroType
 
 const fallbackMapImageSrc = '/Chx_Website_Image.png'
+const fallbackLocationText = 'Clinton St, Charlevoix, Michigan'
+const mapTitle = 'MI Drug Test'
+const mapFooterText = 'Downtown Charlevoix'
+const directionsLabel = 'Get Directions'
+const policyNote = 'We do not book appointments without registering or calling first.'
 
 const isExternalUrl = (value: string) => /^https?:\/\//i.test(value)
 
-export function HeroLocationSplit(props: Props) {
-  const {
-    badgeText,
-    headingPrefix,
-    headingHighlight,
-    description,
-    locationText,
-    policyNote,
-    links,
-    mapTitle,
-    mapSubtitle,
-    mapImage,
-    mapFooterText,
-    directionsLabel,
-    directionsUrl,
-  } = props
-
+export async function HomepageHeroBlock(props: Props) {
+  const { title, description, mapImage, directionsUrl } = props
+  const primaryCta = getPrimaryCta(props)
+  const secondaryCta = getSecondaryCta(props)
+  const companyInfo = await getCompanyInfo()
+  const locationText = getAddressText(companyInfo) || fallbackLocationText
   const uploadedMapImage = typeof mapImage === 'object' ? (mapImage as Media) : null
   const hasUploadedMapImage = Boolean(uploadedMapImage?.url)
   const resolvedMapAlt = uploadedMapImage?.alt || 'Map of MI Drug Test location'
-
-  const legacyLocationSplit = props as Props & {
-    registerCta?: NonNullable<NonNullable<HeroType['locationSplit']>['links']>[number]['link']
-    callCta?: NonNullable<NonNullable<HeroType['locationSplit']>['links']>[number]['link']
-  }
-  const primaryCta = links?.[0]?.link || legacyLocationSplit.registerCta
-  const secondaryCta = links?.[1]?.link || legacyLocationSplit.callCta
-
   const directionsTarget = isExternalUrl(directionsUrl) ? '_blank' : undefined
   const directionsRel = isExternalUrl(directionsUrl) ? 'noopener noreferrer' : undefined
 
   return (
     <section className="relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
-        <div className="absolute -right-40 -top-40 h-[36rem] w-[36rem] rounded-full bg-gradient-to-br from-secondary/30 via-primary/15 to-transparent blur-3xl" />
-        <div className="absolute -left-16 top-24 h-[24rem] w-[24rem] rounded-full bg-gradient-to-br from-primary/15 via-secondary/10 to-transparent blur-3xl" />
-      </div>
+      <div className="from-background via-muted to-secondary/20 pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br" />
 
       <Container className="pb-20 pt-16 md:pb-28 md:pt-24">
         <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-12 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,34rem)] xl:gap-16">
           <div className="text-left">
             <div className="mb-3 flex items-center gap-2">
               <ShieldCheck className="size-4 text-primary" />
-              <Subtitle text={badgeText} className="text-left text-secondary normal-case" />
+              <Subtitle
+                text="Accepted by Michigan courts"
+                className="text-left text-secondary normal-case"
+              />
             </div>
 
             <Title
               heading="h1"
               className="md:text-6xl lg:text-6xl"
-              text={
-                <>
-                  {headingPrefix}{' '}
-                  <span className="bg-gradient-to-r from-primary via-secondary to-primary/70 bg-clip-text text-transparent">
-                    {headingHighlight}
-                  </span>
-                </>
-              }
+              text={<HomepageHeroTitle title={title} />}
             />
 
             <Description text={description} className="mt-6 max-w-2xl leading-relaxed" />
@@ -109,7 +90,7 @@ export function HeroLocationSplit(props: Props) {
               </div>
               <div>
                 <p className="text-sm font-semibold text-foreground">{mapTitle}</p>
-                <p className="text-muted-foreground text-xs">{mapSubtitle}</p>
+                <p className="text-muted-foreground text-xs">{locationText}</p>
               </div>
             </CardHeader>
 
@@ -144,4 +125,57 @@ export function HeroLocationSplit(props: Props) {
       </Container>
     </section>
   )
+}
+
+function HomepageHeroTitle({ title }: { title: string }) {
+  const highlight = 'Charlevoix County'
+  const [prefix, suffix] = title.split(highlight)
+
+  if (!title.includes(highlight)) {
+    return title
+  }
+
+  return (
+    <>
+      {prefix}
+      <span className="bg-gradient-to-r from-primary via-secondary to-primary/70 bg-clip-text text-transparent">
+        {highlight}
+      </span>
+      {suffix}
+    </>
+  )
+}
+
+async function getCompanyInfo() {
+  const payload = await getPayload({ config: payloadConfig })
+
+  return payload.findGlobal({
+    slug: 'company-info',
+    depth: 0,
+  }) as Promise<CompanyInfo>
+}
+
+function getAddressText(companyInfo: CompanyInfo) {
+  const street = companyInfo.contact?.physicalAddress?.street?.trim()
+  const cityStateZip = companyInfo.contact?.physicalAddress?.cityStateZip?.trim()
+
+  return [street, cityStateZip]
+    .filter((value): value is string => Boolean(value && value.length > 0))
+    .join(', ')
+}
+
+function getPrimaryCta(props: Props) {
+  const legacyLinks = ('links' in props ? props.links : undefined) as
+    | Array<{ link?: HomepageHeroType['primaryCta'] }>
+    | undefined
+
+  return props.primaryCta || legacyLinks?.[0]?.link
+}
+
+function getSecondaryCta(props: Props) {
+  const legacyLinks = ('links' in props ? props.links : undefined) as
+    | Array<{ link?: HomepageHeroType['secondaryCta'] }>
+    | undefined
+
+  return props.secondaryCta || legacyLinks?.[1]?.link
 }

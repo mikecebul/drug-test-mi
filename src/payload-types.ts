@@ -242,6 +242,7 @@ export interface Page {
   title: string;
   layout: (
     | CalendarEmbedBlock
+    | HomepageHero
     | Hero
     | About
     | TrustBlock
@@ -285,39 +286,18 @@ export interface CalendarEmbedBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "Hero".
+ * via the `definition` "HomepageHero".
  */
-export interface Hero {
-  type: 'highImpact' | 'mediumImpact' | 'locationSplit';
-  highImpact?: {
-    title: string;
-    description: string;
-    links?: LinkGroup;
-  };
-  mediumImpact?: {
-    subtitle?: string | null;
-    title: string;
-    heading?: ('h1' | 'h2') | null;
-    description?: string | null;
-  };
-  locationSplit?: {
-    badgeText: string;
-    headingPrefix: string;
-    headingHighlight: string;
-    description: string;
-    policyNote: string;
-    locationText: string;
-    links?: LinkGroup;
-    mapTitle: string;
-    mapSubtitle: string;
-    mapImage?: (string | null) | Media;
-    mapFooterText: string;
-    directionsLabel: string;
-    directionsUrl: string;
-  };
+export interface HomepageHero {
+  title: string;
+  description: string;
+  primaryCta: Link;
+  secondaryCta: Link;
+  mapImage?: (string | null) | Media;
+  directionsUrl: string;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'hero';
+  blockType: 'homepageHero';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -384,6 +364,27 @@ export interface Media {
       filename?: string | null;
     };
   };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "Hero".
+ */
+export interface Hero {
+  type: 'highImpact' | 'mediumImpact';
+  highImpact?: {
+    title: string;
+    description: string;
+    links?: LinkGroup;
+  };
+  mediumImpact?: {
+    subtitle?: string | null;
+    title: string;
+    heading?: ('h1' | 'h2') | null;
+    description?: string | null;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'hero';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2413,6 +2414,7 @@ export interface PagesSelect<T extends boolean = true> {
     | T
     | {
         calendarEmbed?: T | CalendarEmbedBlockSelect<T>;
+        homepageHero?: T | HomepageHeroSelect<T>;
         hero?: T | HeroSelect<T>;
         about?: T | AboutSelect<T>;
         trust?: T | TrustBlockSelect<T>;
@@ -2456,6 +2458,32 @@ export interface CalendarEmbedBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HomepageHero_select".
+ */
+export interface HomepageHeroSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  primaryCta?: T | LinkSelect<T>;
+  secondaryCta?: T | LinkSelect<T>;
+  mapImage?: T;
+  directionsUrl?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "Link_select".
+ */
+export interface LinkSelect<T extends boolean = true> {
+  type?: T;
+  newTab?: T;
+  reference?: T;
+  url?: T;
+  label?: T;
+  appearance?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "Hero_select".
  */
 export interface HeroSelect<T extends boolean = true> {
@@ -2475,23 +2503,6 @@ export interface HeroSelect<T extends boolean = true> {
         heading?: T;
         description?: T;
       };
-  locationSplit?:
-    | T
-    | {
-        badgeText?: T;
-        headingPrefix?: T;
-        headingHighlight?: T;
-        description?: T;
-        policyNote?: T;
-        locationText?: T;
-        links?: T | LinkGroupSelect<T>;
-        mapTitle?: T;
-        mapSubtitle?: T;
-        mapImage?: T;
-        mapFooterText?: T;
-        directionsLabel?: T;
-        directionsUrl?: T;
-      };
   id?: T;
   blockName?: T;
 }
@@ -2502,18 +2513,6 @@ export interface HeroSelect<T extends boolean = true> {
 export interface LinkGroupSelect<T extends boolean = true> {
   link?: T | LinkSelect<T>;
   id?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "Link_select".
- */
-export interface LinkSelect<T extends boolean = true> {
-  type?: T;
-  newTab?: T;
-  reference?: T;
-  url?: T;
-  label?: T;
-  appearance?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
