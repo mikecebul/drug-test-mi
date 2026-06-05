@@ -12,6 +12,7 @@ export default async function TechniciansBlockComponent({
   maxTechnicians,
 }: TechniciansBlock) {
   const payload = await getPayload({ config: configPromise })
+  const limit = Math.min(Math.max(maxTechnicians || 6, 1), 20)
 
   const technicians = await payload.find({
     collection: 'technicians',
@@ -22,7 +23,7 @@ export default async function TechniciansBlockComponent({
     },
     sort: 'name',
     depth: 1,
-    limit: maxTechnicians || 6,
+    limit,
   })
 
   return (

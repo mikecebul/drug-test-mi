@@ -34,7 +34,7 @@ export const HeaderClient = ({
         }}
         className="static!"
       />
-      <div className="flex w-full items-center px-4 py-3 md:px-8 2xl:container 2xl:mx-auto">
+      <div className="flex w-full items-center px-4 py-3 md:px-8 lg:px-12 xl:px-16 2xl:container 2xl:mx-auto">
         <Logo name={companyName ?? 'MI Drug Test LLC'} />
         <MainNav navItems={navItems} />
         <MobileNav navItems={navItems} contact={contact} />

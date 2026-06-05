@@ -390,7 +390,7 @@ export function AboutBlock({ enabled, sections }: AboutType) {
   }
 
   return (
-    <div className="container mx-auto px-4">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-16">
       <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[240px_1fr]">
         <aside className="hidden lg:block">
           {!!navSections.length && <TimelineNav sections={navSections} />}

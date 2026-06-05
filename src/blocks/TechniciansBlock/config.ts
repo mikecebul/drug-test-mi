@@ -3,6 +3,16 @@ import type { Block } from 'payload'
 export const TechniciansBlock: Block = {
   slug: 'techniciansBlock',
   interfaceName: 'TechniciansBlock',
+  admin: {
+    group: 'Front Page',
+    images: {
+      icon: '/admin/block-icons/technicians.svg',
+      thumbnail: {
+        url: '/admin/block-thumbnails/technicians.svg',
+        alt: 'Technicians block with profile cards',
+      },
+    },
+  },
   labels: {
     singular: 'Technicians Block',
     plural: 'Technicians Blocks',
@@ -18,7 +28,8 @@ export const TechniciansBlock: Block = {
       name: 'description',
       type: 'textarea',
       label: 'Description',
-      defaultValue: 'Meet our drug testing professionals. Each technician is trained, experienced, and committed to providing professional and discreet testing services.',
+      defaultValue:
+        'Meet our drug testing professionals. Each technician is trained, experienced, and committed to providing professional and discreet testing services.',
     },
     {
       name: 'maxTechnicians',
@@ -27,6 +38,9 @@ export const TechniciansBlock: Block = {
       defaultValue: 6,
       min: 1,
       max: 20,
+      admin: {
+        description: 'Active technicians are displayed alphabetically by name.',
+      },
     },
   ],
 }

@@ -25,7 +25,7 @@ export default async function TechniciansPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-12 lg:py-12 xl:px-16">
         <div className="text-center mb-8 sm:mb-12 lg:mb-16">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
             Our Technicians

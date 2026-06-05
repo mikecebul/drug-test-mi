@@ -11,7 +11,7 @@ export const HomepageHero: Block = {
   slug: 'homepageHero',
   interfaceName: 'HomepageHero',
   admin: {
-    group: 'Heroes',
+    group: 'Front Page',
     images: {
       icon: '/admin/block-icons/homepage-hero.svg',
       thumbnail: {

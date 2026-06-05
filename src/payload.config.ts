@@ -99,6 +99,7 @@ export default buildConfig({
     autoLogin: adminAutoLogin,
     autoRefresh: true,
     avatar: 'default',
+    suppressHydrationWarning: true,
     components: {
       beforeNavLinks: [
         '@/views/beforeNavLinks/DrugTestCollectorLink',

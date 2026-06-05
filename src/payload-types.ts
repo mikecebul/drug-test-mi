@@ -642,7 +642,7 @@ export interface TrustBlock {
   features?:
     | {
         title: string;
-        description?: string | null;
+        description: string;
         icon?: string | null;
         id?: string | null;
       }[]
@@ -658,6 +658,9 @@ export interface TrustBlock {
 export interface TechniciansBlock {
   heading?: string | null;
   description?: string | null;
+  /**
+   * Active technicians are displayed alphabetically by name.
+   */
   maxTechnicians?: number | null;
   id?: string | null;
   blockName?: string | null;
@@ -2064,7 +2067,7 @@ export interface Technician {
   gender: 'male' | 'female';
   photo?: (string | null) | Media;
   /**
-   * Cal.com username for booking appointments
+   * Shared Cal.com username used by the booking widget.
    */
   calComUsername: string;
   location: 'charlevoix';

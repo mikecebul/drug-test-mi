@@ -1,9 +1,9 @@
 'use client'
 
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { Technician } from '@/payload-types'
+import { TechnicianGenderBadge } from './TechnicianGenderBadge'
 
 interface TechniciansGridProps {
   technicians: Technician[]
@@ -49,12 +49,10 @@ export function TechniciansGrid({ technicians }: TechniciansGridProps) {
                 <div className="space-y-2">
                   <div className="flex items-center justify-center gap-2">
                     <h3 className="text-xl font-semibold">{technician.name}</h3>
-                    <Badge variant="secondary" className="capitalize">
-                      {technician.gender}
-                    </Badge>
+                    <TechnicianGenderBadge gender={technician.gender} />
                   </div>
 
-                  <p className="text-muted-foreground min-h-[3rem] text-sm leading-relaxed">
+                  <p className="text-muted-foreground min-h-[3rem] text-left text-sm leading-relaxed">
                     {technician.bio}
                   </p>
                 </div>
