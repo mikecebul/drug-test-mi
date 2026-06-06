@@ -3,14 +3,12 @@
 import { cn } from '@/utilities/cn'
 import { CMSLink } from '@/components/Link'
 import { Icons } from '@/components/Icons'
-import { useAuth } from '@payloadcms/ui' 
+import type { HeaderAuthUser } from '@/globals/Header/types'
 
-export function AuthButton() {
-  const { user } = useAuth()
-
-  if (user) {
-    const accountUrl = user.collection === 'clients' ? '/dashboard' : '/admin'
-    const accountLabel = user.collection === 'clients' ? 'Account' : 'Admin'
+export function AuthButton({ authUser }: { authUser: HeaderAuthUser }) {
+  if (authUser) {
+    const accountUrl = authUser.collection === 'clients' ? '/dashboard' : '/admin'
+    const accountLabel = authUser.collection === 'clients' ? 'Dashboard' : 'Admin'
 
     return (
       <CMSLink

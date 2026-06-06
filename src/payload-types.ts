@@ -3657,6 +3657,7 @@ export interface Header {
   id: string;
   navItems?:
     | {
+        icon?: string | null;
         link: Link;
         id?: string | null;
       }[]
@@ -3734,6 +3735,7 @@ export interface HeaderSelect<T extends boolean = true> {
   navItems?:
     | T
     | {
+        icon?: T;
         link?: T | LinkSelect<T>;
         id?: T;
       };

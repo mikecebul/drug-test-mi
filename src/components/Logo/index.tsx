@@ -13,9 +13,9 @@ export const Logo = ({ name }: { name: string }) => {
 }
 export const SheetLogo = ({ name }: { name: string }) => {
   return (
-    <Link href="/" className="mt-8 flex flex-col items-center justify-center gap-2">
-      <FlaskConical className="text-primary h-8 w-8 shrink-0" />
-      <span className="text-primary text-center text-xl font-bold text-balance">{name}</span>
+    <Link href="/" className="mt-8 flex flex-col items-center justify-center gap-3">
+      <FlaskConical className="text-primary h-11 w-11 shrink-0 stroke-[2.5]" />
+      <span className="text-foreground text-center text-2xl font-bold text-balance">{name}</span>
     </Link>
   )
 }
