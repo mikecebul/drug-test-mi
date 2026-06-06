@@ -28,6 +28,12 @@ import { Trust } from '@/blocks/Trust/config'
 import { TechniciansBlock } from '@/blocks/TechniciansBlock/config'
 import { About } from '@/blocks/About/config'
 import { CTA } from '@/blocks/CTA/config'
+import { AboutContactAvailability } from '@/blocks/About/ContactAvailability/config'
+import { AboutMission } from '@/blocks/About/Mission/config'
+import { AboutPricing } from '@/blocks/About/Pricing/config'
+import { AboutProcess } from '@/blocks/About/Process/config'
+import { AboutServices } from '@/blocks/About/Services/config'
+import { DocumentationLayout } from '@/blocks/DocumentationLayout/config'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
@@ -77,6 +83,12 @@ export const Pages: CollectionConfig = {
                 HomepageHero,
                 Hero,
                 About,
+                DocumentationLayout,
+                AboutMission,
+                AboutServices,
+                AboutProcess,
+                AboutPricing,
+                AboutContactAvailability,
                 Trust,
                 TechniciansBlock,
                 CTA,

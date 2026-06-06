@@ -36,8 +36,6 @@ export const makeRichText = (text: string): RichTextContent =>
 export const DEFAULT_ABOUT_SECTIONS = [
   {
     blockType: 'aboutMission',
-    anchorId: 'mission',
-    navLabel: 'Our Mission',
     badge: 'About Us',
     heading: 'Our Mission',
     intro: makeRichText(
@@ -46,8 +44,6 @@ export const DEFAULT_ABOUT_SECTIONS = [
   },
   {
     blockType: 'aboutServices',
-    anchorId: 'services',
-    navLabel: 'Our Services',
     badge: 'What We Offer',
     heading: 'Our Services',
     intro: makeRichText('Comprehensive drug testing solutions for court-ordered, employment, and self-referral needs:'),
@@ -104,8 +100,6 @@ export const DEFAULT_ABOUT_SECTIONS = [
   },
   {
     blockType: 'aboutProcess',
-    anchorId: 'how-it-works',
-    navLabel: 'How It Works',
     badge: 'Process',
     heading: 'How It Works',
     steps: [
@@ -138,8 +132,6 @@ export const DEFAULT_ABOUT_SECTIONS = [
   },
   {
     blockType: 'aboutPricing',
-    anchorId: 'pricing',
-    navLabel: 'Pricing',
     badge: 'Transparent Costs',
     heading: 'Pricing',
     pricingCards: [
@@ -177,8 +169,6 @@ export const DEFAULT_ABOUT_SECTIONS = [
   },
   {
     blockType: 'aboutContact',
-    anchorId: 'contact',
-    navLabel: 'Contact & Availability',
     badge: 'Get In Touch',
     heading: 'Contact & Availability',
     intro: makeRichText(
@@ -225,8 +215,6 @@ export const DEFAULT_ABOUT_SECTIONS = [
   },
   {
     blockType: 'aboutRegister',
-    anchorId: 'register',
-    navLabel: 'Get Started',
     badge: 'Get Started',
     heading: 'Ready to Schedule?',
     title: 'Create Your Account',

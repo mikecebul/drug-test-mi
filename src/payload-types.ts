@@ -245,6 +245,12 @@ export interface Page {
     | HomepageHero
     | Hero
     | About
+    | DocumentationLayoutBlock
+    | AboutMissionBlock
+    | AboutServicesBlock
+    | AboutProcessBlock
+    | AboutPricingBlock
+    | AboutContactBlock
     | TrustBlock
     | TechniciansBlock
     | CTABlock
@@ -413,11 +419,6 @@ export interface About {
  * via the `definition` "AboutMissionBlock".
  */
 export interface AboutMissionBlock {
-  /**
-   * Used for on-page anchor; must be unique and lowercase with dashes
-   */
-  anchorId: string;
-  navLabel: string;
   badge?: string | null;
   heading?: string | null;
   intro?: {
@@ -444,11 +445,6 @@ export interface AboutMissionBlock {
  * via the `definition` "AboutServicesBlock".
  */
 export interface AboutServicesBlock {
-  /**
-   * Used for on-page anchor; must be unique and lowercase with dashes
-   */
-  anchorId: string;
-  navLabel: string;
   badge?: string | null;
   heading?: string | null;
   intro?: {
@@ -490,11 +486,6 @@ export interface AboutServicesBlock {
  * via the `definition` "AboutProcessBlock".
  */
 export interface AboutProcessBlock {
-  /**
-   * Used for on-page anchor; must be unique and lowercase with dashes
-   */
-  anchorId: string;
-  navLabel: string;
   badge?: string | null;
   heading?: string | null;
   steps?:
@@ -513,11 +504,6 @@ export interface AboutProcessBlock {
  * via the `definition` "AboutPricingBlock".
  */
 export interface AboutPricingBlock {
-  /**
-   * Used for on-page anchor; must be unique and lowercase with dashes
-   */
-  anchorId: string;
-  navLabel: string;
   badge?: string | null;
   heading?: string | null;
   pricingCards?:
@@ -548,11 +534,6 @@ export interface AboutPricingBlock {
  * via the `definition` "AboutContactBlock".
  */
 export interface AboutContactBlock {
-  /**
-   * Used for on-page anchor; must be unique and lowercase with dashes
-   */
-  anchorId: string;
-  navLabel: string;
   badge?: string | null;
   heading?: string | null;
   intro?: {
@@ -604,11 +585,6 @@ export interface AboutContactBlock {
  * via the `definition` "AboutRegisterBlock".
  */
 export interface AboutRegisterBlock {
-  /**
-   * Used for on-page anchor; must be unique and lowercase with dashes
-   */
-  anchorId: string;
-  navLabel: string;
   badge?: string | null;
   heading?: string | null;
   title?: string | null;
@@ -632,6 +608,24 @@ export interface AboutRegisterBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'aboutRegister';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DocumentationLayoutBlock".
+ */
+export interface DocumentationLayoutBlock {
+  tocTitle: string;
+  sections: (
+    | AboutMissionBlock
+    | AboutServicesBlock
+    | AboutProcessBlock
+    | AboutPricingBlock
+    | AboutContactBlock
+    | AboutRegisterBlock
+  )[];
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'documentationLayout';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2434,6 +2428,12 @@ export interface PagesSelect<T extends boolean = true> {
         homepageHero?: T | HomepageHeroSelect<T>;
         hero?: T | HeroSelect<T>;
         about?: T | AboutSelect<T>;
+        documentationLayout?: T | DocumentationLayoutBlockSelect<T>;
+        aboutMission?: T | AboutMissionBlockSelect<T>;
+        aboutServices?: T | AboutServicesBlockSelect<T>;
+        aboutProcess?: T | AboutProcessBlockSelect<T>;
+        aboutPricing?: T | AboutPricingBlockSelect<T>;
+        aboutContact?: T | AboutContactBlockSelect<T>;
         trust?: T | TrustBlockSelect<T>;
         techniciansBlock?: T | TechniciansBlockSelect<T>;
         cta?: T | CTABlockSelect<T>;
@@ -2556,8 +2556,6 @@ export interface AboutSelect<T extends boolean = true> {
  * via the `definition` "AboutMissionBlock_select".
  */
 export interface AboutMissionBlockSelect<T extends boolean = true> {
-  anchorId?: T;
-  navLabel?: T;
   badge?: T;
   heading?: T;
   intro?: T;
@@ -2569,8 +2567,6 @@ export interface AboutMissionBlockSelect<T extends boolean = true> {
  * via the `definition` "AboutServicesBlock_select".
  */
 export interface AboutServicesBlockSelect<T extends boolean = true> {
-  anchorId?: T;
-  navLabel?: T;
   badge?: T;
   heading?: T;
   intro?: T;
@@ -2597,8 +2593,6 @@ export interface AboutServicesBlockSelect<T extends boolean = true> {
  * via the `definition` "AboutProcessBlock_select".
  */
 export interface AboutProcessBlockSelect<T extends boolean = true> {
-  anchorId?: T;
-  navLabel?: T;
   badge?: T;
   heading?: T;
   steps?:
@@ -2616,8 +2610,6 @@ export interface AboutProcessBlockSelect<T extends boolean = true> {
  * via the `definition` "AboutPricingBlock_select".
  */
 export interface AboutPricingBlockSelect<T extends boolean = true> {
-  anchorId?: T;
-  navLabel?: T;
   badge?: T;
   heading?: T;
   pricingCards?:
@@ -2649,8 +2641,6 @@ export interface AboutPricingBlockSelect<T extends boolean = true> {
  * via the `definition` "AboutContactBlock_select".
  */
 export interface AboutContactBlockSelect<T extends boolean = true> {
-  anchorId?: T;
-  navLabel?: T;
   badge?: T;
   heading?: T;
   intro?: T;
@@ -2689,14 +2679,31 @@ export interface AboutContactBlockSelect<T extends boolean = true> {
  * via the `definition` "AboutRegisterBlock_select".
  */
 export interface AboutRegisterBlockSelect<T extends boolean = true> {
-  anchorId?: T;
-  navLabel?: T;
   badge?: T;
   heading?: T;
   title?: T;
   body?: T;
   links?: T | LinkGroupSelect<T>;
   footerText?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DocumentationLayoutBlock_select".
+ */
+export interface DocumentationLayoutBlockSelect<T extends boolean = true> {
+  tocTitle?: T;
+  sections?:
+    | T
+    | {
+        aboutMission?: T | AboutMissionBlockSelect<T>;
+        aboutServices?: T | AboutServicesBlockSelect<T>;
+        aboutProcess?: T | AboutProcessBlockSelect<T>;
+        aboutPricing?: T | AboutPricingBlockSelect<T>;
+        aboutContact?: T | AboutContactBlockSelect<T>;
+        aboutRegister?: T | AboutRegisterBlockSelect<T>;
+      };
   id?: T;
   blockName?: T;
 }

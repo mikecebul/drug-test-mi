@@ -1,28 +1,41 @@
 import type { Block } from 'payload'
 import { sectionFields } from '../sectionFields'
 import { iconSelect } from '@/fields/iconSelect/config'
+import { DEFAULT_ABOUT_SECTIONS } from '../defaultSections'
+
+const defaultSection = DEFAULT_ABOUT_SECTIONS.find((section) => section.blockType === 'aboutContact')
 
 export const AboutContact: Block = {
   slug: 'aboutContact',
   interfaceName: 'AboutContactBlock',
+  admin: {
+    group: 'About Page',
+    images: {
+      icon: '/admin/block-icons/about-contact.svg',
+      thumbnail: {
+        url: '/admin/block-thumbnails/about-contact.svg',
+        alt: 'About contact and availability block',
+      },
+    },
+  },
   labels: {
     singular: 'About Contact & Availability',
     plural: 'About Contact & Availability Sections',
   },
   fields: [
     ...sectionFields({
-      anchorId: 'contact',
-      navLabel: 'Contact & Availability',
-      badge: 'Get In Touch',
-      heading: 'Contact & Availability',
+      badge: defaultSection?.badge,
+      heading: defaultSection?.heading,
     }),
     {
       name: 'intro',
       type: 'richText',
+      defaultValue: defaultSection?.intro,
     },
     {
       name: 'availability',
       type: 'group',
+      defaultValue: defaultSection?.availability,
       fields: [
         {
           name: 'title',
@@ -53,6 +66,7 @@ export const AboutContact: Block = {
     {
       name: 'contactItems',
       type: 'array',
+      defaultValue: defaultSection?.contactItems,
       admin: {
         components: {
           RowLabel: '@/components/RowLabel/RowLabelWithTitle',
@@ -78,6 +92,7 @@ export const AboutContact: Block = {
     {
       name: 'footerText',
       type: 'text',
+      defaultValue: defaultSection?.footerText,
     },
   ],
 }
