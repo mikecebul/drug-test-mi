@@ -6,7 +6,14 @@ import { z } from 'zod'
 import { toast } from 'sonner'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer'
 import { FieldError } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -27,13 +34,7 @@ type ClientEmailDialogProps = {
   onSaved: (data: { email: string }) => void
 }
 
-export function ClientEmailDialog({
-  open,
-  onOpenChange,
-  clientId,
-  currentEmail,
-  onSaved,
-}: ClientEmailDialogProps) {
+export function ClientEmailDialog({ open, onOpenChange, clientId, currentEmail, onSaved }: ClientEmailDialogProps) {
   const initialValues = React.useMemo<ClientEmailFormValues>(() => ({ email: currentEmail || '' }), [currentEmail])
   const wasOpenRef = React.useRef(false)
 
@@ -86,12 +87,12 @@ export function ClientEmailDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Edit Client Email</DialogTitle>
-          <DialogDescription>Update the client profile email used for notifications.</DialogDescription>
-        </DialogHeader>
+    <Drawer direction="right" open={open} onOpenChange={handleDialogOpenChange}>
+      <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(32rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+        <DrawerHeader className="border-border border-b px-6 py-5">
+          <DrawerTitle className="text-2xl tracking-tight">Edit Client Email</DrawerTitle>
+          <DrawerDescription>Update the client profile email used for notifications.</DrawerDescription>
+        </DrawerHeader>
 
         <form
           onSubmit={async (event) => {
@@ -99,26 +100,28 @@ export function ClientEmailDialog({
             event.stopPropagation()
             await form.handleSubmit()
           }}
-          className="space-y-4"
+          className="flex min-h-0 flex-1 flex-col"
         >
-          <form.Field name="email">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>Client Email Address</Label>
-                <Input
-                  id={field.name}
-                  type="email"
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                  placeholder="client@example.com"
-                />
-                <FieldError errors={field.state.meta.errors} />
-              </div>
-            )}
-          </form.Field>
+          <div className="no-scrollbar flex-1 overflow-y-auto px-6 py-5">
+            <form.Field name="email">
+              {(field) => (
+                <div className="space-y-2">
+                  <Label htmlFor={field.name}>Client Email Address</Label>
+                  <Input
+                    id={field.name}
+                    type="email"
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    onBlur={field.handleBlur}
+                    placeholder="client@example.com"
+                  />
+                  <FieldError errors={field.state.meta.errors} />
+                </div>
+              )}
+            </form.Field>
+          </div>
 
-          <div className="flex justify-end gap-2">
+          <DrawerFooter className="border-border border-t px-6 py-4 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)}>
               Cancel
             </Button>
@@ -126,9 +129,9 @@ export function ClientEmailDialog({
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Email
             </Button>
-          </div>
+          </DrawerFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </DrawerContent>
+    </Drawer>
   )
 }

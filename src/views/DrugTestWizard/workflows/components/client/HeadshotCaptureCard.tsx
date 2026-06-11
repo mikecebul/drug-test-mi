@@ -4,7 +4,7 @@ import { useCallback, useRef, useState, type SyntheticEvent } from 'react'
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Drawer, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { cn } from '@/utilities/cn'
 import { Camera, Check, Crop as CropIcon, Loader2, Upload, X } from 'lucide-react'
 import { formatDateOnly } from '@/lib/date-utils'
@@ -277,16 +277,20 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
         />
       </div>
 
-      <Dialog open={showCropper} onOpenChange={(open) => (!open ? resetCropState() : setShowCropper(true))}>
-        <DialogContent className="max-h-[94vh] w-[95vw] max-w-4xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+      <Drawer
+        direction="right"
+        open={showCropper}
+        onOpenChange={(open) => (!open ? resetCropState() : setShowCropper(true))}
+      >
+        <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(56rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+          <DrawerHeader className="border-border border-b px-6 py-5">
+            <DrawerTitle className="flex items-center gap-2 text-2xl tracking-tight">
               <CropIcon className="size-5" />
               Crop Headshot
-            </DialogTitle>
-          </DialogHeader>
+            </DrawerTitle>
+          </DrawerHeader>
 
-          <div className="space-y-4">
+          <div className="no-scrollbar flex-1 space-y-4 overflow-y-auto px-6 py-5">
             <div className="bg-muted max-h-[65vh] overflow-auto rounded-lg p-2">
               {tempImage && (
                 <ReactCrop
@@ -309,20 +313,20 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
                 </ReactCrop>
               )}
             </div>
-
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button type="button" variant="outline" onClick={resetCropState} disabled={isUploading}>
-                <X className="mr-2 size-4" />
-                Cancel
-              </Button>
-              <Button type="button" onClick={handleCropSave} disabled={isUploading || !canApplyCrop}>
-                {isUploading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Check className="mr-2 size-4" />}
-                Apply Crop
-              </Button>
-            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+
+          <DrawerFooter className="border-border border-t px-6 py-4 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={resetCropState} disabled={isUploading}>
+              <X className="mr-2 size-4" />
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleCropSave} disabled={isUploading || !canApplyCrop}>
+              {isUploading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Check className="mr-2 size-4" />}
+              Apply Crop
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </>
   )
 }

@@ -4,27 +4,11 @@ import React, { useRef, useState } from 'react'
 import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
-import {
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  Copy,
-  Check,
-  CheckCircle2,
-  AlertCircle,
-  Eye,
-  EyeOff,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Copy, Check, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import type { ClientMatch } from '../types'
 import { registerClientFromWizard } from '../actions'
@@ -189,9 +173,7 @@ export function RegisterClientDialog({
 
     try {
       const { personalInfo, accountInfo, screeningType, recipients } = formValues
-      const toAdditionalRecipients = (
-        rows: Array<{ name?: string; email?: string }> | undefined,
-      ) =>
+      const toAdditionalRecipients = (rows: Array<{ name?: string; email?: string }> | undefined) =>
         (rows || []).flatMap((row) => {
           const email = row.email?.trim()
           return email ? [{ name: row.name, email }] : []
@@ -312,14 +294,10 @@ export function RegisterClientDialog({
           <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
             <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             <AlertDescription className="space-y-3">
-              <p className="font-medium text-amber-900 dark:text-amber-100">
-                Client Password (Save this now!)
-              </p>
+              <p className="font-medium text-amber-900 dark:text-amber-100">Client Password (Save this now!)</p>
               <div className="flex items-center gap-2">
                 <code className="flex-1 rounded bg-amber-100 px-3 py-2 font-mono text-lg dark:bg-amber-900/50">
-                  {showPassword
-                    ? formValues.accountInfo?.password || generatedPassword
-                    : '••••••••••••'}
+                  {showPassword ? formValues.accountInfo?.password || generatedPassword : '••••••••••••'}
                 </code>
                 <Button
                   type="button"
@@ -330,19 +308,12 @@ export function RegisterClientDialog({
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyPassword}
-                  className="shrink-0"
-                >
+                <Button type="button" variant="outline" size="sm" onClick={handleCopyPassword} className="shrink-0">
                   {passwordCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
               <p className="text-sm text-amber-700 dark:text-amber-300">
-                The client can use this password to log in and reset it later if they choose to use
-                the dashboard.
+                The client can use this password to log in and reset it later if they choose to use the dashboard.
               </p>
             </AlertDescription>
           </Alert>
@@ -365,8 +336,7 @@ export function RegisterClientDialog({
             <AccountInfoStep form={form} mode="body" />
             <Alert>
               <AlertDescription className="text-muted-foreground text-sm">
-                Password is auto-generated but can be changed if the client requests a specific
-                password.
+                Password is auto-generated but can be changed if the client requests a specific password.
               </AlertDescription>
             </Alert>
           </div>
@@ -440,106 +410,101 @@ export function RegisterClientDialog({
   })()
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <ShadcnWrapper className="">
-          <DialogHeader>
-            <DialogTitle>Register New Client</DialogTitle>
-            <DialogDescription>
+    <Drawer direction="right" open={open} onOpenChange={handleOpenChange}>
+      <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(48rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+        <ShadcnWrapper className="flex min-h-0 flex-1 flex-col">
+          <DrawerHeader className="border-border border-b px-6 py-5">
+            <DrawerTitle className="text-2xl tracking-tight">Register New Client</DrawerTitle>
+            <DrawerDescription>
               {registrationComplete
                 ? 'Registration complete'
                 : `Step ${currentStep + 1} of ${STEPS.length}: ${STEPS[currentStep].title}`}
-            </DialogDescription>
-          </DialogHeader>
+            </DrawerDescription>
+          </DrawerHeader>
 
-          {!registrationComplete && (
-            <div className="mb-6">
-              <Progress value={progress} className="h-2" />
-              <div className="mt-2 flex justify-between text-xs">
-                {STEPS.map((step, index) => (
-                  <div
-                    key={step.title}
-                    className={`${
-                      index <= currentStep ? 'text-primary font-medium' : 'text-muted-foreground'
-                    }`}
-                  >
-                    <span className="hidden sm:inline">{step.title}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <form
-            ref={formRef}
-            onSubmit={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-            }}
-          >
-            {registrationComplete ? (
-              renderStepContent()
-            ) : (
-              <form.FormGroup
-                key={currentStep}
-                name={groupConfig.name}
-                validationLogic={revalidateLogic()}
-                validators={groupConfig.validators as never}
-                onGroupSubmit={currentStep < STEPS.length - 1 ? handleNext : handleSubmit}
-                onGroupSubmitInvalid={handleStepInvalid}
-              >
-                {(group) => (
-                  <>
-                    {renderStepContent()}
-
-                    <div className="mt-6 flex justify-between">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handlePrevious}
-                        disabled={currentStep === 0}
-                      >
-                        <ChevronLeft className="mr-1 h-4 w-4" />
-                        Back
-                      </Button>
-
-                      {currentStep < STEPS.length - 1 ? (
-                        <Button
-                          type="button"
-                          onClick={() => group.handleSubmit()}
-                          disabled={group.state.meta.isSubmitting}
-                        >
-                          Next
-                          <ChevronRight className="ml-1 h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          onClick={() => group.handleSubmit()}
-                          disabled={isSubmitting || group.state.meta.isSubmitting}
-                          className="min-w-35"
-                        >
-                          {isSubmitting || group.state.meta.isSubmitting ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Registering...
-                            </>
-                          ) : (
-                            <>
-                              <Check className="mr-2 h-4 w-4" />
-                              Register Client
-                            </>
-                          )}
-                        </Button>
-                      )}
+          <div className="no-scrollbar flex-1 overflow-y-auto px-6 py-5">
+            {!registrationComplete && (
+              <div className="mb-6">
+                <Progress value={progress} className="h-2" />
+                <div className="mt-2 flex justify-between text-xs">
+                  {STEPS.map((step, index) => (
+                    <div
+                      key={step.title}
+                      className={`${index <= currentStep ? 'text-primary font-medium' : 'text-muted-foreground'}`}
+                    >
+                      <span className="hidden sm:inline">{step.title}</span>
                     </div>
-                  </>
-                )}
-              </form.FormGroup>
+                  ))}
+                </div>
+              </div>
             )}
-          </form>
+
+            <form
+              ref={formRef}
+              onSubmit={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+              }}
+            >
+              {registrationComplete ? (
+                renderStepContent()
+              ) : (
+                <form.FormGroup
+                  key={currentStep}
+                  name={groupConfig.name}
+                  validationLogic={revalidateLogic()}
+                  validators={groupConfig.validators as never}
+                  onGroupSubmit={currentStep < STEPS.length - 1 ? handleNext : handleSubmit}
+                  onGroupSubmitInvalid={handleStepInvalid}
+                >
+                  {(group) => (
+                    <>
+                      {renderStepContent()}
+
+                      <div className="mt-6 flex justify-between">
+                        <Button type="button" variant="outline" onClick={handlePrevious} disabled={currentStep === 0}>
+                          <ChevronLeft className="mr-1 h-4 w-4" />
+                          Back
+                        </Button>
+
+                        {currentStep < STEPS.length - 1 ? (
+                          <Button
+                            type="button"
+                            onClick={() => group.handleSubmit()}
+                            disabled={group.state.meta.isSubmitting}
+                          >
+                            Next
+                            <ChevronRight className="ml-1 h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            onClick={() => group.handleSubmit()}
+                            disabled={isSubmitting || group.state.meta.isSubmitting}
+                            className="min-w-35"
+                          >
+                            {isSubmitting || group.state.meta.isSubmitting ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Registering...
+                              </>
+                            ) : (
+                              <>
+                                <Check className="mr-2 h-4 w-4" />
+                                Register Client
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </form.FormGroup>
+              )}
+            </form>
+          </div>
         </ShadcnWrapper>
-      </DialogContent>
-    </Dialog>
+      </DrawerContent>
+    </Drawer>
   )
 }

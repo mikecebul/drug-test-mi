@@ -7,14 +7,14 @@ import { Button } from '@/components/ui/button'
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { ConfirmationSubstanceSelector } from '@/blocks/Form/field-components/confirmation-substance-selector'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer'
 
 export interface DrugTest {
   id: string
@@ -406,38 +406,40 @@ function RequestConfirmationDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
+    <Drawer direction="right" open={open} onOpenChange={handleOpenChange}>
+      <DrawerTrigger asChild>
         <Button size="sm" variant="secondary" disabled={disabled || unexpectedPositives.length === 0}>
           Request Confirmation
         </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Request Confirmation</DialogTitle>
-          <DialogDescription>
+      </DrawerTrigger>
+      <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(44rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+        <DrawerHeader className="border-border border-b px-6 py-5">
+          <DrawerTitle className="text-2xl tracking-tight">Request Confirmation</DrawerTitle>
+          <DrawerDescription>
             Select the unexpected positive substances that should be sent for confirmation testing.
-          </DialogDescription>
-        </DialogHeader>
+          </DrawerDescription>
+        </DrawerHeader>
 
-        {unexpectedPositives.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            No unexpected positive substances are available for this test. Edit the test if confirmation is still
-            needed.
-          </p>
-        ) : (
-          <ConfirmationSubstanceSelector
-            unexpectedPositives={unexpectedPositives}
-            selectedSubstances={selectedSubstances}
-            onSelectionChange={(substances) => {
-              setSelectedSubstances(substances)
-              setError(undefined)
-            }}
-            error={error}
-          />
-        )}
+        <div className="no-scrollbar flex-1 overflow-y-auto px-6 py-5">
+          {unexpectedPositives.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No unexpected positive substances are available for this test. Edit the test if confirmation is still
+              needed.
+            </p>
+          ) : (
+            <ConfirmationSubstanceSelector
+              unexpectedPositives={unexpectedPositives}
+              selectedSubstances={selectedSubstances}
+              onSelectionChange={(substances) => {
+                setSelectedSubstances(substances)
+                setError(undefined)
+              }}
+              error={error}
+            />
+          )}
+        </div>
 
-        <DialogFooter>
+        <DrawerFooter className="border-border border-t px-6 py-4 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
@@ -448,8 +450,8 @@ function RequestConfirmationDialog({
           >
             {isSubmitting ? 'Requesting...' : 'Request Confirmation'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   )
 }

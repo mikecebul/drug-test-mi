@@ -4,14 +4,14 @@ import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { useAddMedicationFormOpts } from '../hooks/use-add-medication-form-opts'
 import { DRUG_TEST_SUBSTANCES } from '../types'
@@ -28,20 +28,20 @@ export function AddMedicationDialog({ buttonText = 'Add Medication' }: AddMedica
   const form = useAppForm(formOpts)
 
   return (
-    <Dialog open={showDialog} onOpenChange={setShowDialog}>
-      <DialogTrigger asChild>
+    <Drawer direction="right" open={showDialog} onOpenChange={setShowDialog}>
+      <DrawerTrigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
           {buttonText}
         </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[525px]">
-        <DialogHeader>
-          <DialogTitle>Add New Medication</DialogTitle>
-          <DialogDescription>
+      </DrawerTrigger>
+      <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(36rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+        <DrawerHeader className="border-border border-b px-6 py-5">
+          <DrawerTitle className="text-2xl tracking-tight">Add New Medication</DrawerTitle>
+          <DrawerDescription>
             Add a new medication to your documented list for drug test verification.
-          </DialogDescription>
-        </DialogHeader>
+          </DrawerDescription>
+        </DrawerHeader>
 
         <form
           onSubmit={(e) => {
@@ -49,21 +49,16 @@ export function AddMedicationDialog({ buttonText = 'Add Medication' }: AddMedica
             e.stopPropagation()
             form.handleSubmit()
           }}
+          className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="grid gap-4 py-4">
+          <div className="no-scrollbar grid flex-1 gap-4 overflow-y-auto px-6 py-5">
             <form.AppField
               name="medicationName"
               validators={{
                 onChange: z.string().min(1, 'Medication name is required'),
               }}
             >
-              {(formField) => (
-                <formField.TextField
-                  label="Medication Name"
-                  placeholder="e.g., Adderall XR"
-                  required
-                />
-              )}
+              {(formField) => <formField.TextField label="Medication Name" placeholder="e.g., Adderall XR" required />}
             </form.AppField>
 
             <form.AppField
@@ -72,12 +67,7 @@ export function AddMedicationDialog({ buttonText = 'Add Medication' }: AddMedica
                 onChange: z.string().optional(),
               }}
             >
-              {(formField) => (
-                <formField.SelectField
-                  label="Detected As (Optional)"
-                  options={DRUG_TEST_SUBSTANCES}
-                />
-              )}
+              {(formField) => <formField.SelectField label="Detected As (Optional)" options={DRUG_TEST_SUBSTANCES} />}
             </form.AppField>
 
             <form.AppField
@@ -117,16 +107,16 @@ export function AddMedicationDialog({ buttonText = 'Add Medication' }: AddMedica
               )}
             </form.AppField>
           </div>
-          <DialogFooter className="flex w-full sm:justify-between">
+          <DrawerFooter className="border-border border-t px-6 py-4 sm:flex-row sm:justify-between">
             <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
               Cancel
             </Button>
             <form.AppForm>
               <form.SubmitButton label="Add Medication" className="w-fit" />
             </form.AppForm>
-          </DialogFooter>
+          </DrawerFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </DrawerContent>
+    </Drawer>
   )
 }
