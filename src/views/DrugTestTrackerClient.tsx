@@ -1,12 +1,22 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
+import { ConfirmationSubstanceSelector } from '@/blocks/Form/field-components/confirmation-substance-selector'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 
-interface DrugTest {
+export interface DrugTest {
   id: string
   relatedClient: {
     id: string
@@ -23,8 +33,14 @@ interface DrugTest {
     result?: string
   }>
   confirmationSubstances?: string[]
+  unexpectedPositives?: string[]
   isComplete: boolean
   processNotes?: string
+}
+
+interface DrugTestTrackerClientProps {
+  initialError?: string | null
+  initialTests: DrugTest[]
 }
 
 const getTestStage = (test: DrugTest) => {
@@ -79,11 +95,45 @@ const getTestStage = (test: DrugTest) => {
   return { stage: 'Unknown', color: 'bg-gray-500', priority: 0 }
 }
 
-export function DrugTestTrackerClient() {
-  const [tests, setTests] = useState<DrugTest[]>([])
-  const [loading, setLoading] = useState(true)
+export function DrugTestTrackerClient({ initialError = null, initialTests }: DrugTestTrackerClientProps) {
+  const [tests, setTests] = useState<DrugTest[]>(initialTests)
   const [updatingTests, setUpdatingTests] = useState<Record<string, boolean>>({})
-  const [actionError, setActionError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(initialError)
+
+  function applyUpdatedTest(
+    testId: string,
+    updatedTest: Partial<DrugTest> | undefined,
+    fallbackUpdate?: Partial<DrugTest>,
+  ) {
+    if (updatedTest?.id) {
+      setTests((prev) => {
+        if (updatedTest.isComplete) {
+          return prev.filter((test) => test.id !== testId)
+        }
+
+        return prev.map((test) => {
+          if (test.id !== testId) return test
+
+          return {
+            ...test,
+            ...updatedTest,
+            relatedClient:
+              updatedTest.relatedClient && typeof updatedTest.relatedClient === 'object'
+                ? updatedTest.relatedClient
+                : test.relatedClient,
+          }
+        })
+      })
+      return
+    }
+
+    if (fallbackUpdate) {
+      setTests((prev) => prev.map((test) => (test.id === testId ? { ...test, ...fallbackUpdate } : test)))
+      return
+    }
+
+    setTests((prev) => prev.filter((test) => test.id !== testId))
+  }
 
   async function markAsAccepted(testId: string) {
     setActionError(null)
@@ -92,6 +142,7 @@ export function DrugTestTrackerClient() {
     try {
       const response = await fetch(`/api/drug-tests/${testId}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -106,20 +157,7 @@ export function DrugTestTrackerClient() {
 
       const data = await response.json()
       const updatedTest = (data?.doc ?? data) as Partial<DrugTest> | undefined
-
-      if (updatedTest?.id) {
-        setTests((prev) => {
-          // Accepted tests should typically become complete and leave this incomplete tracker.
-          if (updatedTest.isComplete) {
-            return prev.filter((test) => test.id !== testId)
-          }
-
-          return prev.map((test) => (test.id === testId ? { ...test, ...updatedTest } : test))
-        })
-      } else {
-        // Safe fallback: remove from list to avoid stale pending-decision state.
-        setTests((prev) => prev.filter((test) => test.id !== testId))
-      }
+      applyUpdatedTest(testId, updatedTest)
     } catch (error) {
       console.error('Error marking test as accepted:', error)
       setActionError('Unable to mark test as accepted. Please try again.')
@@ -132,25 +170,52 @@ export function DrugTestTrackerClient() {
     }
   }
 
-  useEffect(() => {
-    async function fetchIncompleteTests() {
-      try {
-        const response = await fetch(
-          '/api/drug-tests?where[isComplete][equals]=false&depth=1&limit=100',
-        )
-        const data = await response.json()
-        setTests(data.docs || [])
-      } catch (error) {
-        console.error('Error fetching incomplete tests:', error)
-      } finally {
-        setLoading(false)
-      }
+  async function requestConfirmation(testId: string, confirmationSubstances: string[]) {
+    if (confirmationSubstances.length === 0) {
+      setActionError('Select at least one substance to request confirmation.')
+      return
     }
 
-    fetchIncompleteTests()
-  }, [])
+    setActionError(null)
+    setUpdatingTests((prev) => ({ ...prev, [testId]: true }))
 
-  const sortedTests = tests.sort((a, b) => {
+    try {
+      const response = await fetch(`/api/drug-tests/${testId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          confirmationDecision: 'request-confirmation',
+          confirmationSubstances,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to update test (${response.status})`)
+      }
+
+      const data = await response.json()
+      const updatedTest = (data?.doc ?? data) as Partial<DrugTest> | undefined
+      applyUpdatedTest(testId, updatedTest, {
+        confirmationDecision: 'request-confirmation',
+        confirmationSubstances,
+        isComplete: false,
+      })
+    } catch (error) {
+      console.error('Error requesting confirmation:', error)
+      setActionError('Unable to request confirmation. Please try again.')
+    } finally {
+      setUpdatingTests((prev) => {
+        const next = { ...prev }
+        delete next[testId]
+        return next
+      })
+    }
+  }
+
+  const sortedTests = [...tests].sort((a, b) => {
     const aStage = getTestStage(a)
     const bStage = getTestStage(b)
     return aStage.priority - bStage.priority
@@ -170,108 +235,91 @@ export function DrugTestTrackerClient() {
     <ShadcnWrapper className="mx-auto flex flex-col">
       <div className="mb-6">
         <h1 className="text-4xl font-bold">Drug Test Tracker</h1>
-        <p className="text-muted-foreground mt-2 text-lg">
-          Track and manage drug tests that require attention
-        </p>
+        <p className="text-muted-foreground mt-2 text-lg">Track and manage drug tests that require attention</p>
         {actionError && <p className="mt-3 text-sm font-medium text-red-600">{actionError}</p>}
       </div>
 
-      {loading ? (
-        <div className="py-8 text-center">
-          <p>Loading incomplete tests...</p>
-        </div>
-      ) : (
-        <div className="space-y-6 pb-8">
-          {Object.entries(testsByStage).map(([stage, stageTests]) => (
-            <div key={stage}>
-              <div className="mb-4 flex items-center gap-3">
-                <Badge
-                  variant="secondary"
-                  className={`${getTestStage(stageTests[0]).color} px-3 py-1 ${getTestStage(stageTests[0]).color.includes('yellow') ? 'text-black' : 'text-white'}`}
-                >
-                  {stage}
-                </Badge>
-                <span className="text-muted-foreground text-sm">({stageTests.length} tests)</span>
-              </div>
+      <div className="space-y-6 pb-8">
+        {Object.entries(testsByStage).map(([stage, stageTests]) => (
+          <div key={stage}>
+            <div className="mb-4 flex items-center gap-3">
+              <Badge
+                variant="secondary"
+                className={`${getTestStage(stageTests[0]).color} px-3 py-1 ${getTestStage(stageTests[0]).color.includes('yellow') ? 'text-black' : 'text-white'}`}
+              >
+                {stage}
+              </Badge>
+              <span className="text-muted-foreground text-sm">({stageTests.length} tests)</span>
+            </div>
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-6">
-                {stageTests.map((test) => (
-                  <Card key={test.id} className="">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-6">
+              {stageTests.map((test) => (
+                <Card key={test.id} className="">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="text-lg md:text-xl">
+                          {test.relatedClient.firstName} {test.relatedClient.lastName}
+                        </CardTitle>
+                        <p className="text-muted-foreground text-sm md:text-base">{test.relatedClient.email}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {test.testType?.replace('-', ' ') || 'Unknown'}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div>
+                        <span className="text-muted-foreground text-xs font-medium md:text-sm">Collection Date:</span>
+                        <p className="text-sm md:text-base">
+                          {test.collectionDate
+                            ? new Date(test.collectionDate).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : 'Not scheduled'}
+                        </p>
+                      </div>
+
+                      {test.initialScreenResult && (
                         <div>
-                          <CardTitle className="text-lg md:text-xl">
-                            {test.relatedClient.firstName} {test.relatedClient.lastName}
-                          </CardTitle>
-                          <p className="text-muted-foreground text-sm md:text-base">
-                            {test.relatedClient.email}
+                          <span className="text-muted-foreground text-xs font-medium md:text-sm">Screen Result:</span>
+                          <p className="text-sm capitalize md:text-base">
+                            {test.initialScreenResult.replace('-', ' ')}
                           </p>
                         </div>
-                        <Badge variant="outline" className="text-xs">
-                          {test.testType?.replace('-', ' ') || 'Unknown'}
-                        </Badge>
-                      </div>
-                    </CardHeader>
+                      )}
 
-                    <CardContent>
-                      <div className="space-y-2">
+                      {test.confirmationDecision === 'request-confirmation' && (
                         <div>
-                          <span className="text-muted-foreground text-xs font-medium md:text-sm">
-                            Collection Date:
-                          </span>
+                          <span className="text-muted-foreground text-xs font-medium md:text-sm">Confirmation:</span>
                           <p className="text-sm md:text-base">
-                            {test.collectionDate
-                              ? new Date(test.collectionDate).toLocaleDateString('en-US', {
-                                  year: 'numeric',
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })
-                              : 'Not scheduled'}
+                            {test.confirmationResults &&
+                            test.confirmationSubstances &&
+                            test.confirmationResults.length === test.confirmationSubstances.length &&
+                            test.confirmationResults.every((r) => r.result)
+                              ? 'All results received'
+                              : `Pending (${test.confirmationResults?.filter((r) => r.result).length || 0}/${test.confirmationSubstances?.length || 0})`}
                           </p>
                         </div>
+                      )}
 
-                        {test.initialScreenResult && (
-                          <div>
-                            <span className="text-muted-foreground text-xs font-medium md:text-sm">
-                              Screen Result:
-                            </span>
-                            <p className="text-sm capitalize md:text-base">
-                              {test.initialScreenResult.replace('-', ' ')}
-                            </p>
-                          </div>
-                        )}
+                      {test.processNotes && (
+                        <div>
+                          <span className="text-muted-foreground text-xs font-medium md:text-sm">Notes:</span>
+                          <p className="line-clamp-2 text-sm md:text-base">{test.processNotes}</p>
+                        </div>
+                      )}
+                    </div>
 
-                        {test.confirmationDecision === 'request-confirmation' && (
-                          <div>
-                            <span className="text-muted-foreground text-xs font-medium md:text-sm">
-                              Confirmation:
-                            </span>
-                            <p className="text-sm md:text-base">
-                              {test.confirmationResults &&
-                              test.confirmationSubstances &&
-                              test.confirmationResults.length ===
-                                test.confirmationSubstances.length &&
-                              test.confirmationResults.every((r) => r.result)
-                                ? 'All results received'
-                                : `Pending (${test.confirmationResults?.filter((r) => r.result).length || 0}/${test.confirmationSubstances?.length || 0})`}
-                            </p>
-                          </div>
-                        )}
-
-                        {test.processNotes && (
-                          <div>
-                            <span className="text-muted-foreground text-xs font-medium md:text-sm">
-                              Notes:
-                            </span>
-                            <p className="line-clamp-2 text-sm md:text-base">{test.processNotes}</p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {stage === 'Awaiting Client Decision' && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {stage === 'Awaiting Client Decision' && (
+                        <>
                           <Button
                             size="sm"
                             onClick={() => markAsAccepted(test.id)}
@@ -279,46 +327,129 @@ export function DrugTestTrackerClient() {
                           >
                             {updatingTests[test.id] ? 'Accepting...' : 'Mark Accepted'}
                           </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            window.open(`/admin/collections/drug-tests/${test.id}`, '_blank')
-                          }
-                        >
-                          Edit Test
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            window.open(
-                              `/admin/collections/clients/${test.relatedClient.id}`,
-                              '_blank',
-                            )
-                          }
-                        >
-                          View Client
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                          <RequestConfirmationDialog
+                            disabled={Boolean(updatingTests[test.id])}
+                            isSubmitting={Boolean(updatingTests[test.id])}
+                            test={test}
+                            onConfirm={(substances) => requestConfirmation(test.id, substances)}
+                          />
+                        </>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(`/admin/collections/drug-tests/${test.id}`, '_blank')}
+                      >
+                        Edit Test
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(`/admin/collections/clients/${test.relatedClient.id}`, '_blank')}
+                      >
+                        View Client
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-          ))}
+          </div>
+        ))}
 
-          {tests.length === 0 && (
-            <Card>
-              <CardContent className="py-8 text-center">
-                <p className="text-muted-foreground">No incomplete drug tests found.</p>
-                <p className="text-muted-foreground mt-2 text-sm">All tests have been completed!</p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+        {tests.length === 0 && (
+          <Card>
+            <CardContent className="py-8 text-center">
+              <p className="text-muted-foreground">No incomplete drug tests found.</p>
+              <p className="text-muted-foreground mt-2 text-sm">All tests have been completed!</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </ShadcnWrapper>
+  )
+}
+
+function RequestConfirmationDialog({
+  disabled,
+  isSubmitting,
+  onConfirm,
+  test,
+}: {
+  disabled: boolean
+  isSubmitting: boolean
+  onConfirm: (substances: string[]) => Promise<void>
+  test: DrugTest
+}) {
+  const unexpectedPositives = test.unexpectedPositives ?? []
+  const [open, setOpen] = useState(false)
+  const [selectedSubstances, setSelectedSubstances] = useState<string[]>(unexpectedPositives)
+  const [error, setError] = useState<string | undefined>()
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen)
+    setError(undefined)
+
+    if (nextOpen) {
+      setSelectedSubstances(unexpectedPositives)
+    }
+  }
+
+  const handleConfirm = async () => {
+    if (selectedSubstances.length === 0) {
+      setError('Select at least one substance for confirmation.')
+      return
+    }
+
+    await onConfirm(selectedSubstances)
+    setOpen(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="secondary" disabled={disabled || unexpectedPositives.length === 0}>
+          Request Confirmation
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Request Confirmation</DialogTitle>
+          <DialogDescription>
+            Select the unexpected positive substances that should be sent for confirmation testing.
+          </DialogDescription>
+        </DialogHeader>
+
+        {unexpectedPositives.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            No unexpected positive substances are available for this test. Edit the test if confirmation is still
+            needed.
+          </p>
+        ) : (
+          <ConfirmationSubstanceSelector
+            unexpectedPositives={unexpectedPositives}
+            selectedSubstances={selectedSubstances}
+            onSelectionChange={(substances) => {
+              setSelectedSubstances(substances)
+              setError(undefined)
+            }}
+            error={error}
+          />
+        )}
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void handleConfirm()}
+            disabled={isSubmitting || selectedSubstances.length === 0}
+          >
+            {isSubmitting ? 'Requesting...' : 'Request Confirmation'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

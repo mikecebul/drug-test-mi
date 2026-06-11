@@ -6,6 +6,7 @@ import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { APP_TIMEZONE } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
 import { getTodaysCollectionBookings } from '@/views/DrugTestWizard/workflows/complete-workflow/actions'
 import {
@@ -19,6 +20,7 @@ function formatTime(value: string) {
   return new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: APP_TIMEZONE,
   }).format(new Date(value))
 }
 

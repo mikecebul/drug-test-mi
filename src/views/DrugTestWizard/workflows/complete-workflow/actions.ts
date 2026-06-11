@@ -3,6 +3,8 @@
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import type { Client, Court, Employer, TestType } from '@/payload-types'
+import { APP_TIMEZONE } from '@/lib/date-utils'
+import { TZDate } from '@date-fns/tz'
 
 type TestTypeValue = '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-instant' | '17-panel-sos-lab' | 'etg-lab'
 
@@ -34,9 +36,8 @@ const ACTIVE_GUIDED_TEST_TYPES = new Set<TestTypeValue>([
 ])
 
 function startOfToday() {
-  const date = new Date()
-  date.setHours(0, 0, 0, 0)
-  return date
+  const now = TZDate.tz(APP_TIMEZONE, new Date())
+  return TZDate.tz(APP_TIMEZONE, now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
 }
 
 function startOfTomorrow() {

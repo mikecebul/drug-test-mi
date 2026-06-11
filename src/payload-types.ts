@@ -1267,6 +1267,10 @@ export interface Client {
         value: string | Employer;
       } | null);
   /**
+   * Resolved from the selected court or employer preferred test type.
+   */
+  requiredTestType?: string | null;
+  /**
    * Additional recipients for this client only. These do not modify the linked referral profile.
    */
   referralAdditionalRecipients?:
@@ -3380,6 +3384,7 @@ export interface ClientsSelect<T extends boolean = true> {
   preferredContactMethod?: T;
   referralType?: T;
   referral?: T;
+  requiredTestType?: T;
   referralAdditionalRecipients?:
     | T
     | {

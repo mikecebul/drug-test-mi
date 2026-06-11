@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
+import { APP_TIMEZONE } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
 import { ClientSearchDialog } from '../components/client/ClientSearchDialog'
 import { getClients, type SimpleClient } from '../components/client/getClients'
@@ -67,6 +68,7 @@ function formatTime(value: string) {
   return new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: APP_TIMEZONE,
   }).format(new Date(value))
 }
 
