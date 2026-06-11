@@ -22,6 +22,7 @@ export const ClientStep = withForm({
       form.setFieldValue('client.dob', client.dob ?? null)
       form.setFieldValue('client.headshot', client.headshot ?? null)
       form.setFieldValue('client.headshotId', client.headshotId ?? null)
+      form.setFieldValue('client.recommendedTestTypeValue', client.recommendedTestTypeValue)
     }
 
     return (

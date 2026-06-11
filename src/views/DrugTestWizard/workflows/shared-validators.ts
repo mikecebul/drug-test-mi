@@ -21,6 +21,7 @@ export const clientSchema = z.object({
     dob: z.string().nullable(),
     headshot: z.string().nullable(),
     headshotId: z.string().nullable(),
+    recommendedTestTypeValue: z.enum(['11-panel-lab', '11-panel-lab-no-etg', '17-panel-sos-lab', 'etg-lab']).optional(),
   }),
 })
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { revalidateLogic } from '@tanstack/react-form'
+import { useStore } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
@@ -30,10 +31,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   const [isHydratingClient, setIsHydratingClient] = useState(false)
 
   // URL is the single source of truth for current step
-  const [currentStep, setCurrentStep] = useQueryState(
-    'step',
-    parseAsStringLiteral(steps).withDefault('client'),
-  )
+  const [currentStep, setCurrentStep] = useQueryState('step', parseAsStringLiteral(steps).withDefault('client'))
 
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)
@@ -80,15 +78,26 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
     },
   })
 
+  const selectedClientId = useStore(form.store, (state) => state.values.client.id)
+  const recommendedTestType = useStore(form.store, (state) => state.values.client.recommendedTestTypeValue)
+
   useEffect(() => {
     if (presetTestType) {
       form.setFieldValue('collection.testType', presetTestType)
     }
   }, [form, presetTestType])
 
+  useEffect(() => {
+    if (presetTestType) {
+      return
+    }
+
+    form.setFieldValue('collection.testType', recommendedTestType ?? '11-panel-lab')
+  }, [form, selectedClientId, recommendedTestType, presetTestType])
+
   // Handle client pre-population from scheduled collection or registration workflow.
   useEffect(() => {
-    if (form.state.values.client.id) return
+    if (selectedClientId) return
     if (!clientId && !bookingId) return
 
     const hydrationKey = clientId ?? bookingId
@@ -106,6 +115,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
           form.setFieldValue('client.email', client.email)
           form.setFieldValue('client.dob', client.dob ?? null)
           form.setFieldValue('client.headshot', client.headshot ?? null)
+          form.setFieldValue('client.recommendedTestTypeValue', client.recommendedTestTypeValue)
 
           hydratedClientIdRef.current = client.id
           if (!bookingId) {
@@ -130,16 +140,16 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
     }
 
     fetchAndPopulateClient()
-  }, [bookingId, clientId, form, setClientId])
+  }, [bookingId, clientId, form, selectedClientId, setClientId])
 
   // Guard against skipping into a later step without required base data.
   // Guided booking URLs can hydrate the client from bookingId after a refresh.
   useEffect(() => {
-    if (currentStep !== 'client' && !clientId && !bookingId && !isHydratingClient && !form.state.values.client.id) {
+    if (currentStep !== 'client' && !clientId && !bookingId && !isHydratingClient && !selectedClientId) {
       setCurrentStep('client', { history: 'replace' })
       toast.info('Please start from the beginning')
     }
-  }, [bookingId, clientId, currentStep, form, isHydratingClient, setCurrentStep])
+  }, [bookingId, clientId, currentStep, isHydratingClient, selectedClientId, setCurrentStep])
 
   if (completedTestId) {
     return (
@@ -203,9 +213,17 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
       case 'client':
         return renderGroup('client', { onDynamic: clientSchema.shape.client }, <ClientStep form={form} />)
       case 'medications':
-        return renderGroup('medications', { onDynamic: medicationsSchema.shape.medications }, <MedicationsStep form={form} />)
+        return renderGroup(
+          'medications',
+          { onDynamic: medicationsSchema.shape.medications },
+          <MedicationsStep form={form} />,
+        )
       case 'collection':
-        return renderGroup('collection', { onDynamic: collectionSchema.shape.collection }, <CollectionStep form={form} />)
+        return renderGroup(
+          'collection',
+          { onDynamic: collectionSchema.shape.collection },
+          <CollectionStep form={form} />,
+        )
       case 'confirm':
         return renderGroup('collection', undefined, <ConfirmStep form={form} />)
       case 'reviewEmails':
