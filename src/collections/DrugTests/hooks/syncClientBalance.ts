@@ -79,4 +79,3 @@ export const syncClientBalanceAfterDelete: CollectionAfterDeleteHook = async ({ 
 
   return doc
 }
-

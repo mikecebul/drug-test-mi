@@ -212,7 +212,7 @@ Current ${type === 'court' ? 'Court' : 'Employment'} Information:
 - Recipients: ${recipientsList}
 
 Requested update:
-- 
+-
 
 Thank you,
 ${clientName}`,
