@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { cleanupFixtures } from './helpers/cleanup'
 import { assertNotificationSent, getDrugTestById } from './helpers/db-assert'
 import { getE2EEnv } from './helpers/env'
@@ -25,6 +25,11 @@ function isoDateTimeForInput(date: string) {
     minute: '2-digit',
     hour12: true,
   })
+}
+
+async function expectReferralRecipientsReady(page: Page, count: number) {
+  const readyAlert = page.getByRole('alert').filter({ hasText: /Ready to send/i })
+  await expect(readyAlert).toContainText(new RegExp(`Referral recipients:\\s*${count}`, 'i'))
 }
 
 test.describe('Wizard Collect Lab Workflow', () => {
@@ -86,7 +91,7 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await expect(page.getByRole('button', { name: /^Submit$/i })).toBeEnabled()
 
     await page.getByLabel(/Send referral notifications/i).check()
-    await expect(page.getByText('Saved referral recipients: 1')).toBeVisible()
+    await expectReferralRecipientsReady(page, 1)
     await expect(page.getByRole('button', { name: /^Submit$/i })).toBeEnabled()
   })
 
@@ -108,7 +113,7 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await expect(page.getByRole('heading', { name: 'Review Collection Notification' })).toBeVisible()
 
     await page.getByLabel(/Send referral notifications/i).check()
-    await expect(page.getByText('Saved referral recipients: 1')).toBeVisible()
+    await expectReferralRecipientsReady(page, 1)
 
     await page.getByRole('button', { name: /^Submit$/i }).click()
 

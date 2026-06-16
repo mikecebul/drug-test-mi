@@ -84,13 +84,13 @@ export const VerifyDataStep = withForm({
 
     // Handler for confirmation decision changes
     const handleConfirmationDecisionChange = (value: 'accept' | 'request-confirmation' | 'pending-decision') => {
-      form.setFieldValue('verifyData.confirmationDecision', value)
+      form.setFieldValue('verifyData.confirmationDecision', value, { dontValidate: true })
 
       // Auto-populate confirmation substances when requesting confirmation
       if (value === 'request-confirmation' && preview?.unexpectedPositives) {
         const currentSubstances = confirmationSubstancesValue || []
         if (currentSubstances.length === 0) {
-          form.setFieldValue('verifyData.confirmationSubstances', preview.unexpectedPositives)
+          form.setFieldValue('verifyData.confirmationSubstances', preview.unexpectedPositives, { dontValidate: true })
         }
       }
 
@@ -275,7 +275,6 @@ export const VerifyDataStep = withForm({
                     value={confirmationDecisionValue || ''}
                     onValueChange={(value) => {
                       const decision = value as 'accept' | 'request-confirmation' | 'pending-decision'
-                      field.handleChange(decision)
                       handleConfirmationDecisionChange(decision)
                     }}
                     className="space-y-2.5"

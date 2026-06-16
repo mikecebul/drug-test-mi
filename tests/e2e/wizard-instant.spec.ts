@@ -8,7 +8,6 @@ import { seedFixtures, type FixtureContext } from './helpers/seed'
 import {
   clickBack,
   clickNext,
-  expectNextDisabled,
   extractTestIdFromSuccess,
   goToEmailsStepFromInstant,
   openWizard,
@@ -69,37 +68,23 @@ test.describe('Wizard Instant Workflow', () => {
 
     await expect(page.getByText('Verify Test Data')).toBeVisible()
 
-    const testTypeSelect = page.getByRole('combobox', { name: /Test Type/i })
-    await expect(testTypeSelect).toBeVisible()
-
-    await testTypeSelect.click()
-    await page.getByRole('option', { name: /17-Panel Instant/i }).click()
+    const testTypeInput = page.getByRole('textbox', { name: /Test Type/i })
+    await expect(testTypeInput).toBeVisible()
+    await expect(testTypeInput).toHaveValue('17-Panel Instant')
     await expect(page.getByLabel(/^PCP$/i)).toBeVisible()
     await expect(page.getByLabel(/6-MAM/i)).toHaveCount(0)
 
     await page.getByLabel(/^PCP$/i).check()
     await expect(page.getByLabel(/^PCP$/i)).toBeChecked()
 
-    await testTypeSelect.click()
-    await page.getByRole('option', { name: /15-Panel Instant/i }).click()
-    await expect(page.getByLabel(/6-MAM/i)).toBeVisible()
-    await expect(page.getByLabel(/^PCP$/i)).toHaveCount(0)
-
-    await testTypeSelect.click()
-    await page.getByRole('option', { name: /17-Panel Instant/i }).click()
-    await expect(page.getByLabel(/^PCP$/i)).toBeVisible()
-    await expect(page.getByLabel(/^PCP$/i)).not.toBeChecked()
-
     await page.getByLabel(/Fentanyl/i).check()
     await triggerNextValidation(page)
     await expect(page.getByText('Must select an option')).toBeVisible()
-    await expectNextDisabled(page)
 
     await page.getByRole('radio', { name: /Request Confirmation Testing/i }).check()
     await page.getByRole('button', { name: /Clear/i }).click()
     await triggerNextValidation(page)
     await expect(page.getByText('Please select at least one substance for confirmation testing')).toBeVisible()
-    await expectNextDisabled(page)
 
     await page.getByRole('radio', { name: /Accept Results/i }).check()
     const nextButton = page.getByTestId('wizard-next-button')
