@@ -7,7 +7,9 @@ import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { getInstantTestFormOpts } from './shared-form'
+import type { InstantTestType } from './shared-form'
 import { InstantTestNavigation } from './components/Navigation'
 import { UploadStep } from './steps/Upload'
 import { ExtractStep } from './steps/Extract'
@@ -30,15 +32,17 @@ import {
 import { extractPdfQueryKey } from '../../queries'
 import type { ExtractedPdfData } from '../../queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
-import { getClientById } from '../components/client/getClients'
+import { getClientByBookingId, getClientById } from '../components/client/getClients'
 import { getFileFromStorage, clearFileStorage, hasStoredFile, saveFileToStorage } from './utils/fileStorage'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
+import { getReportClientMatch, getReportClientMismatchKey } from './utils/reportClientMatch'
 
 interface InstantTestWorkflowProps {
   onBack: () => void
 }
 
 export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
+  const router = useRouter()
   const queryClient = useQueryClient()
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
   const [isRestoringFile, setIsRestoringFile] = useState(true)
@@ -50,13 +54,13 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   }
 
   // URL is single source of truth
-  const [currentStep, setCurrentStep] = useQueryState(
-    'step',
-    parseAsStringLiteral(steps).withDefault('upload'),
-  )
+  const [currentStep, setCurrentStep] = useQueryState('step', parseAsStringLiteral(steps).withDefault('upload'))
 
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)
+  const [bookingId] = useQueryState('bookingId', parseAsString)
+  const hydratedClientIdRef = useRef<string | null>(null)
+  const initialTestType: InstantTestType = '17-panel-instant'
   const formRef = useRef<HTMLFormElement | null>(null)
 
   useStepFocus({
@@ -65,7 +69,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   })
 
   const form = useAppForm({
-    ...getInstantTestFormOpts(),
+    ...getInstantTestFormOpts(initialTestType),
     onSubmit: async ({ value }) => {
       // Final submit: Create drug test
       console.log(`[InstantTest] Starting final submission...`)
@@ -73,6 +77,28 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
         const queryKey = extractPdfQueryKey(value.upload.file, 'instant-test')
         const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
         console.log(`[InstantTest] Extracted data from query cache:`, extractedData ? 'found' : 'not found')
+
+        if (extractedData?.testType === '15-panel-instant') {
+          toast.error('15-panel instant tests are no longer supported. Upload a 17-panel instant report.', {
+            id: 'instant-test-unsupported-15-panel',
+          })
+          await setCurrentStep('extract', { history: 'push' })
+          return
+        }
+
+        const reportClientMatch = getReportClientMatch(extractedData?.donorName, value.client)
+        const mismatchKey = getReportClientMismatchKey(reportClientMatch)
+
+        if (
+          reportClientMatch.status === 'mismatch' &&
+          (!value.extract.clientMismatchConfirmed || value.extract.clientMismatchConfirmationKey !== mismatchKey)
+        ) {
+          toast.error('Confirm the report/client mismatch before submitting.', {
+            id: 'instant-test-report-client-mismatch',
+          })
+          await setCurrentStep('extract', { history: 'push' })
+          return
+        }
 
         // Convert File to buffer array
         console.log(`[InstantTest] Converting file to array buffer...`)
@@ -84,13 +110,16 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
         const originalSizeMB = (value.upload.file.size / 1024 / 1024).toFixed(2)
         const bufferSizeMB = (arrayBuffer.byteLength / 1024 / 1024).toFixed(2)
         const jsonSizeMB = (JSON.stringify(pdfBuffer).length / 1024 / 1024).toFixed(2)
-        console.log(`[InstantTest] PDF Sizes - Original: ${originalSizeMB}MB, Buffer: ${bufferSizeMB}MB, JSON: ${jsonSizeMB}MB`)
+        console.log(
+          `[InstantTest] PDF Sizes - Original: ${originalSizeMB}MB, Buffer: ${bufferSizeMB}MB, JSON: ${jsonSizeMB}MB`,
+        )
 
         console.log(`[InstantTest] Calling createInstantTest server action...`)
 
         const result = await createInstantTest(
           {
             clientId: value.client.id,
+            bookingId,
             testType: value.verifyData.testType,
             collectionDate: value.verifyData.collectionDate,
             detectedSubstances: value.verifyData.detectedSubstances as SubstanceValue[],
@@ -132,10 +161,16 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   })
   const uploadedFile = useStore(form.store, (state) => state.values.upload.file)
 
-  // Restore file from localStorage on mount (e.g., after returning from registration)
+  // Restore file from localStorage only after the upload step. Starting or reloading
+  // the upload step is treated as a fresh test and clears any previous PDF.
   useEffect(() => {
     const restoreFile = async () => {
       try {
+        if (currentStep === 'upload') {
+          clearFileStorage()
+          return
+        }
+
         if (hasStoredFile() && !form.state.values.upload.file) {
           const file = await getFileFromStorage()
           if (file) {
@@ -153,12 +188,13 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Keep the uploaded PDF available across refreshes and workflow detours.
+  // Keep the uploaded PDF available across refreshes and workflow detours once
+  // the workflow has moved beyond the fresh upload step.
   useEffect(() => {
-    if (uploadedFile) {
+    if (uploadedFile && currentStep !== 'upload') {
       void saveFileToStorage(uploadedFile)
     }
-  }, [uploadedFile])
+  }, [currentStep, uploadedFile])
 
   // Guard against skipping into a later step without required base data
   useEffect(() => {
@@ -172,41 +208,66 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     }
   }, [currentStep, isRestoringFile, setCurrentStep, uploadedFile])
 
-  // Handle client pre-population from registration workflow
+  // Handle client pre-population from scheduled collection or registration workflow.
   useEffect(() => {
-    if (clientId && currentStep === 'client' && !form.state.values.client.id) {
-      // Fetch client by ID and populate form
-      const fetchAndPopulateClient = async () => {
-        try {
-          const client = await getClientById(clientId)
-          if (client) {
-            form.setFieldValue('client.id', client.id)
-            form.setFieldValue('client.firstName', client.firstName)
-            form.setFieldValue('client.lastName', client.lastName)
-            form.setFieldValue('client.middleInitial', client.middleInitial ?? null)
-            form.setFieldValue('client.email', client.email)
-            form.setFieldValue('client.dob', client.dob ?? null)
-            form.setFieldValue('client.headshot', client.headshot ?? null)
+    if (form.state.values.client.id) return
+    if (!clientId && !bookingId) return
 
-            toast.success(`Client ${client.firstName} ${client.lastName} pre-selected`)
+    const fetchAndPopulateClient = async () => {
+      try {
+        const client = clientId
+          ? await getClientById(clientId)
+          : bookingId
+            ? await getClientByBookingId(bookingId)
+            : null
+        if (client && hydratedClientIdRef.current !== client.id) {
+          form.setFieldValue('client.id', client.id)
+          form.setFieldValue('client.firstName', client.firstName)
+          form.setFieldValue('client.lastName', client.lastName)
+          form.setFieldValue('client.middleInitial', client.middleInitial ?? null)
+          form.setFieldValue('client.email', client.email)
+          form.setFieldValue('client.dob', client.dob ?? null)
+          form.setFieldValue('client.headshot', client.headshot ?? null)
+          form.setFieldValue('client.headshotId', client.headshotId ?? null)
 
-            // Clear the clientId param after population
+          hydratedClientIdRef.current = client.id
+          if (!bookingId) {
+            toast.success(`Client ${client.firstName} ${client.lastName} pre-selected`, {
+              id: `instant-test-client-${client.id}`,
+            })
+          }
+
+          if (clientId && !bookingId) {
             setClientId(null)
           }
-        } catch (error) {
-          console.error('Failed to fetch client:', error)
-          toast.error('Failed to load client information')
-          // Clear the clientId param on error
+        }
+      } catch (error) {
+        console.error('Failed to fetch client:', error)
+        toast.error('Failed to load client information')
+        if (clientId && !bookingId) {
           setClientId(null)
         }
       }
-
-      fetchAndPopulateClient()
     }
-  }, [clientId, currentStep, form, setClientId])
+
+    fetchAndPopulateClient()
+  }, [bookingId, clientId, form, setClientId])
 
   if (completedTestId) {
-    return <TestCompleted testId={completedTestId} onBack={handleBack} />
+    return (
+      <TestCompleted
+        testId={completedTestId}
+        onBack={() => {
+          if (bookingId) {
+            clearFileStorage()
+            router.push(`/admin/drug-test-upload?workflow=guided&step=schedule&bookingId=${bookingId}`)
+            return
+          }
+          handleBack()
+        }}
+        backLabel={bookingId ? "Back to Today's Schedule" : undefined}
+      />
+    )
   }
 
   const currentStepIndex = steps.indexOf(currentStep)
@@ -214,7 +275,39 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
 
   const handleGroupSubmit = async () => {
     if (!isLastStep) {
-      await setCurrentStep(steps[currentStepIndex + 1], { history: 'push' })
+      const nextStep = steps[currentStepIndex + 1]
+      if (currentStep === 'extract') {
+        const queryKey = extractPdfQueryKey(form.state.values.upload.file, 'instant-test')
+        const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
+
+        if (extractedData?.testType === '15-panel-instant') {
+          toast.error('15-panel instant tests are no longer supported. Upload a 17-panel instant report.', {
+            id: 'instant-test-unsupported-15-panel',
+          })
+          return
+        }
+      }
+
+      if (currentStep === 'extract' && form.state.values.client.id) {
+        const queryKey = extractPdfQueryKey(form.state.values.upload.file, 'instant-test')
+        const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
+        const reportClientMatch = getReportClientMatch(extractedData?.donorName, form.state.values.client)
+        const mismatchKey = getReportClientMismatchKey(reportClientMatch)
+
+        if (
+          reportClientMatch.status === 'mismatch' &&
+          (!form.state.values.extract.clientMismatchConfirmed ||
+            form.state.values.extract.clientMismatchConfirmationKey !== mismatchKey)
+        ) {
+          toast.error('Confirm the report/client mismatch before continuing.', {
+            id: 'instant-test-report-client-mismatch',
+          })
+          return
+        }
+      }
+
+      const shouldSkipClientStep = Boolean(bookingId && nextStep === 'client' && form.state.values.client.id)
+      await setCurrentStep(shouldSkipClientStep ? 'medications' : nextStep, { history: 'push' })
       return
     }
 
@@ -259,9 +352,17 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       case 'client':
         return renderGroup('client', { onDynamic: clientSchema.shape.client }, <ClientStep form={form} />)
       case 'medications':
-        return renderGroup('medications', { onDynamic: medicationsSchema.shape.medications }, <MedicationsStep form={form} />)
+        return renderGroup(
+          'medications',
+          { onDynamic: medicationsSchema.shape.medications },
+          <MedicationsStep form={form} />,
+        )
       case 'verifyData':
-        return renderGroup('verifyData', { onDynamic: verifyDataSchema.shape.verifyData }, <VerifyDataStep form={form} />)
+        return renderGroup(
+          'verifyData',
+          { onDynamic: verifyDataSchema.shape.verifyData },
+          <VerifyDataStep form={form} />,
+        )
       case 'confirm':
         return renderGroup('verifyData', undefined, <ConfirmStep form={form} />)
       case 'reviewEmails':

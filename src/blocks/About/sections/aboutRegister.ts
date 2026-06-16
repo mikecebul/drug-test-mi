@@ -1,6 +1,9 @@
 import type { Block } from 'payload'
 import { sectionFields } from '../sectionFields'
 import { linkGroup } from '@/fields/link/linkGroup'
+import { DEFAULT_ABOUT_SECTIONS } from '../defaultSections'
+
+const defaultSection = DEFAULT_ABOUT_SECTIONS.find((section) => section.blockType === 'aboutRegister')
 
 export const AboutRegister: Block = {
   slug: 'aboutRegister',
@@ -11,22 +14,22 @@ export const AboutRegister: Block = {
   },
   fields: [
     ...sectionFields({
-      anchorId: 'register',
-      navLabel: 'Get Started',
-      badge: 'Get Started',
-      heading: 'Ready to Schedule?',
+      badge: defaultSection?.badge,
+      heading: defaultSection?.heading,
     }),
     {
       name: 'title',
       type: 'text',
-      defaultValue: 'Create Your Account',
+      defaultValue: defaultSection?.title,
     },
     {
       name: 'body',
       type: 'richText',
+      defaultValue: defaultSection?.body,
     },
     linkGroup({
       overrides: {
+        defaultValue: defaultSection?.links,
         admin: {
           components: {
             RowLabel: '@/fields/link/LinkRowLabel',
@@ -37,6 +40,7 @@ export const AboutRegister: Block = {
     {
       name: 'footerText',
       type: 'text',
+      defaultValue: defaultSection?.footerText,
     },
   ],
 }

@@ -11,6 +11,7 @@ const getDefaultValues = (): FormValues => ({
     dob: null,
     headshot: null,
     headshotId: null,
+    recommendedTestTypeValue: undefined,
   },
   medications: [],
   collection: {

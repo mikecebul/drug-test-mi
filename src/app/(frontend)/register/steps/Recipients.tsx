@@ -38,6 +38,8 @@ export const RecipientsStep = withForm({
 
     const selectedEmployer = selectedEmployerValue ? employersById.get(selectedEmployerValue) || null : null
     const selectedCourt = selectedCourtValue ? courtsById.get(selectedCourtValue) || null : null
+    const additionalRecipientRowClass =
+      'grid gap-4 rounded-md border border-border bg-muted/20 p-4 md:grid-cols-[1fr_1fr_auto]'
 
     const renderSelfFields = () => (
       <>
@@ -63,7 +65,12 @@ export const RecipientsStep = withForm({
                   <p className="text-foreground text-sm font-medium">Additional recipients for you only</p>
                   <p className="text-muted-foreground text-xs">{referralScopeDescription}</p>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={() => field.pushValue({ name: '', email: '' })}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => field.pushValue({ name: '', email: '' }, { dontValidate: true })}
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   Add Recipient
                 </Button>
@@ -72,9 +79,9 @@ export const RecipientsStep = withForm({
               {rows.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No additional recipients added.</p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-5">
                   {rows.map((_, index) => (
-                    <div key={`additional-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+                    <div key={`additional-recipient-${index}`} className={additionalRecipientRowClass}>
                       <form.AppField name={`recipients.additionalReferralRecipients[${index}].name`}>
                         {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
                       </form.AppField>
@@ -85,8 +92,8 @@ export const RecipientsStep = withForm({
                         type="button"
                         variant="outline"
                         size="icon"
-                        className="mt-8"
-                        onClick={() => field.removeValue(index)}
+                        className="md:mt-8"
+                        onClick={() => field.removeValue(index, { dontValidate: true })}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -115,7 +122,12 @@ export const RecipientsStep = withForm({
                     <p className="text-foreground text-sm font-medium">Additional recipients for the new employer</p>
                     <p className="text-muted-foreground text-xs">Saved to the new employer referral profile.</p>
                   </div>
-                  <Button type="button" variant="outline" size="sm" onClick={() => field.pushValue({ name: '', email: '' })}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => field.pushValue({ name: '', email: '' }, { dontValidate: true })}
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Add Recipient
                   </Button>
@@ -124,9 +136,9 @@ export const RecipientsStep = withForm({
                 {rows.length === 0 ? (
                   <p className="text-muted-foreground text-sm">No extra recipients added for this new employer referral.</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-5">
                     {rows.map((_, index) => (
-                      <div key={`other-employer-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+                      <div key={`other-employer-recipient-${index}`} className={additionalRecipientRowClass}>
                         <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].name`}>
                           {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
                         </form.AppField>
@@ -137,8 +149,8 @@ export const RecipientsStep = withForm({
                           type="button"
                           variant="outline"
                           size="icon"
-                          className="mt-8"
-                          onClick={() => field.removeValue(index)}
+                          className="md:mt-8"
+                          onClick={() => field.removeValue(index, { dontValidate: true })}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -168,7 +180,12 @@ export const RecipientsStep = withForm({
                     <p className="text-foreground text-sm font-medium">Additional recipients for the new court</p>
                     <p className="text-muted-foreground text-xs">Saved to the new court referral profile.</p>
                   </div>
-                  <Button type="button" variant="outline" size="sm" onClick={() => field.pushValue({ name: '', email: '' })}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => field.pushValue({ name: '', email: '' }, { dontValidate: true })}
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Add Recipient
                   </Button>
@@ -177,9 +194,9 @@ export const RecipientsStep = withForm({
                 {rows.length === 0 ? (
                   <p className="text-muted-foreground text-sm">No extra recipients added for this new court referral.</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-5">
                     {rows.map((_, index) => (
-                      <div key={`other-court-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+                      <div key={`other-court-recipient-${index}`} className={additionalRecipientRowClass}>
                         <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].name`}>
                           {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
                         </form.AppField>
@@ -190,8 +207,8 @@ export const RecipientsStep = withForm({
                           type="button"
                           variant="outline"
                           size="icon"
-                          className="mt-8"
-                          onClick={() => field.removeValue(index)}
+                          className="md:mt-8"
+                          onClick={() => field.removeValue(index, { dontValidate: true })}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

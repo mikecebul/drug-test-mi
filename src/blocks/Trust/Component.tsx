@@ -3,33 +3,17 @@ import { CheckCircle, Scale } from 'lucide-react'
 import { Icon } from '@/components/Icons/Icon'
 import { Card, CardContent } from '@/components/ui/card'
 import { HeroMedium } from '@/components/Hero/HeroMedium'
+import { DEFAULT_TRUST_FEATURES } from './defaultFeatures'
 
-const defaultFeatures = [
-  {
-    title: 'Certified Professionals',
-    description: 'All our testers are certified in recovery and experienced in professional drug screening procedures.',
-    icon: 'Shield',
-  },
-  {
-    title: 'Always Available',
-    description:
-      'Evening appointments available on weekdays and late morning appointments on weekends. Just call if you need special accomadation.',
-    icon: 'Calendar',
-  },
-  {
-    title: 'Observed Testing',
-    description:
-      'All male tests are observed and women are encouraged to schedule for Saturday mornings to ensure a female can be available for observation.',
-    icon: 'Users',
-  },
-]
+type TrustFeature = NonNullable<TrustBlockType['features']>[number]
 
 export function TrustBlock({ heading, description, features }: TrustBlockType) {
-  const displayFeatures = features && features.length > 0 ? features : defaultFeatures
+  const displayFeatures: TrustFeature[] =
+    features && features.length > 0 ? features : DEFAULT_TRUST_FEATURES
 
   return (
     <section>
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12 xl:px-16">
         {/* Header */}
         <div className="mb-10">
           <HeroMedium
@@ -67,10 +51,10 @@ export function TrustBlock({ heading, description, features }: TrustBlockType) {
 
         {/* Trust Features - FeatureGrid Cards */}
         <div className="grid gap-8 md:grid-cols-3">
-          {displayFeatures.map((feature: any, index: number) => (
+          {displayFeatures.map((feature, index) => (
             <Card key={index} className="text-center">
               <CardContent className="pt-6">
-                <Icon name={feature.icon ?? 'Trophy'} className="text-primary mx-auto mb-4 h-12 w-12" />
+                <Icon name={feature.icon || 'Trophy'} className="text-primary mx-auto mb-4 h-12 w-12" />
                 <h3 className="mb-2 text-xl font-semibold">{feature.title}</h3>
                 <p className="text-muted-foreground">
                   {feature.description ||

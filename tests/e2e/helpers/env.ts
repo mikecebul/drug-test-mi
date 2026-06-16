@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-const DEFAULT_INSTANT_PDF = '/Users/mikecebul/Documents/Drug Tests/Shane Sutherland/SS_Instant_10-6-25.pdf'
+const DEFAULT_INSTANT_PDF = '/Users/mikecebul/Documents/MI Drug Test/tests/17-panel-instant-all-neg.pdf'
 const DEFAULT_LAB_SCREEN_PDF = '/Users/mikecebul/Documents/Drug Tests/Tom Vachon/TV_Lab_1-7-26.pdf'
 const DEFAULT_LAB_CONFIRM_PDF = '/Users/mikecebul/Documents/Drug Tests/Tom Vachon/TV_Confirm_10-3-25.pdf'
 

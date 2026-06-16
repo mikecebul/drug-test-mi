@@ -16,7 +16,7 @@ export const Bookings: CollectionConfig = {
   },
   admin: {
     useAsTitle: 'title',
-    defaultColumns: ['title', 'startTime', 'attendeeName', 'attendeeEmail', 'status'],
+    defaultColumns: ['title', 'startTime', 'attendeeName', 'attendeeEmail', 'status', 'payment.status'],
   },
   fields: [
     {
@@ -124,6 +124,109 @@ export const Bookings: CollectionConfig = {
       admin: {
         description: 'Client linked to this booking (auto-populated via email match)',
       },
+    },
+    {
+      name: 'scheduledTestType',
+      type: 'relationship',
+      relationTo: 'test-types',
+      admin: {
+        description: 'Test type for this scheduled collection when the referral does not provide one.',
+      },
+      filterOptions: {
+        isActive: {
+          equals: true,
+        },
+      },
+    },
+    {
+      name: 'payment',
+      type: 'group',
+      admin: {
+        description: 'Payment collected before specimen collection.',
+      },
+      fields: [
+        {
+          name: 'amountDue',
+          type: 'number',
+          min: 0,
+          admin: {
+            step: 1,
+          },
+        },
+        {
+          name: 'amountPaid',
+          type: 'number',
+          min: 0,
+          defaultValue: 0,
+          admin: {
+            step: 1,
+          },
+        },
+        {
+          name: 'method',
+          type: 'select',
+          options: [
+            { label: 'Cash', value: 'cash' },
+            { label: 'Card', value: 'card' },
+            { label: 'Pre-paid', value: 'pre-paid' },
+            { label: 'Not Paid', value: 'not-paid' },
+          ],
+        },
+        {
+          name: 'status',
+          type: 'select',
+          options: [
+            { label: 'Paid in Full', value: 'paid' },
+            { label: 'Partially Paid', value: 'partial' },
+            { label: 'Unpaid', value: 'unpaid' },
+          ],
+        },
+        {
+          name: 'collectedAt',
+          type: 'date',
+          admin: {
+            date: {
+              pickerAppearance: 'dayAndTime',
+            },
+          },
+        },
+        {
+          name: 'notes',
+          type: 'textarea',
+        },
+      ],
+    },
+    {
+      name: 'sampleCollection',
+      type: 'group',
+      admin: {
+        description: 'Tracks whether the scheduled specimen collection was completed in a workflow.',
+      },
+      fields: [
+        {
+          name: 'status',
+          type: 'select',
+          options: [
+            { label: 'Pending', value: 'pending' },
+            { label: 'Collected', value: 'collected' },
+          ],
+          defaultValue: 'pending',
+        },
+        {
+          name: 'collectedAt',
+          type: 'date',
+          admin: {
+            date: {
+              pickerAppearance: 'dayAndTime',
+            },
+          },
+        },
+        {
+          name: 'drugTest',
+          type: 'relationship',
+          relationTo: 'drug-tests',
+        },
+      ],
     },
     {
       name: 'location',

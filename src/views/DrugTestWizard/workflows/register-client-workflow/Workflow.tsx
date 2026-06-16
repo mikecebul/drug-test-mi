@@ -6,10 +6,7 @@ import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
 import { getRegisterClientFormOpts } from './shared-form'
-import {
-  formSchema,
-  steps,
-} from './validators'
+import { formSchema, steps } from './validators'
 
 import { PersonalInfoStep } from './steps/PersonalInfo'
 import { AccountInfoStep } from './steps/AccountInfo'
@@ -20,6 +17,7 @@ import { SuccessStep } from './steps/Success'
 import { registerClientAction } from './actions/registerClientAction'
 import { useRouter } from 'next/navigation'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
+import { getBookingRegistrationDefaults, linkBookingToClient } from '../complete-workflow/actions'
 
 interface RegisterClientWorkflowProps {
   onBack: () => void
@@ -40,13 +38,11 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
   } | null>(null)
 
   // URL is single source of truth for current step
-  const [currentStep, setCurrentStep] = useQueryState(
-    'step',
-    parseAsStringLiteral(steps).withDefault('personalInfo'),
-  )
+  const [currentStep, setCurrentStep] = useQueryState('step', parseAsStringLiteral(steps).withDefault('personalInfo'))
 
   // Get returnTo param to know where user came from
   const [returnTo] = useQueryState('returnTo', parseAsString)
+  const [bookingId] = useQueryState('bookingId', parseAsString)
   const formRef = useRef<HTMLFormElement | null>(null)
 
   useStepFocus({
@@ -75,9 +71,8 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
           lastName: value.personalInfo.lastName,
           middleInitial: value.personalInfo.middleInitial,
           email: result.clientEmail || value.accountInfo.email || '',
-          dob: typeof value.personalInfo.dob === 'string'
-            ? value.personalInfo.dob
-            : value.personalInfo.dob.toISOString(),
+          dob:
+            typeof value.personalInfo.dob === 'string' ? value.personalInfo.dob : value.personalInfo.dob.toISOString(),
           phone: value.personalInfo.phone,
         })
         setRegistrationComplete(true)
@@ -97,6 +92,22 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
     },
   })
 
+  useEffect(() => {
+    if (!bookingId) return
+    if (form.state.values.personalInfo.firstName || form.state.values.accountInfo.email) return
+
+    getBookingRegistrationDefaults(bookingId)
+      .then((defaults) => {
+        if (defaults.firstName) form.setFieldValue('personalInfo.firstName', defaults.firstName)
+        if (defaults.lastName) form.setFieldValue('personalInfo.lastName', defaults.lastName)
+        if (defaults.email) form.setFieldValue('accountInfo.email', defaults.email)
+        if (defaults.phone) form.setFieldValue('personalInfo.phone', defaults.phone)
+      })
+      .catch((error) => {
+        console.error('Failed to load booking registration defaults:', error)
+      })
+  }, [bookingId, form])
+
   // Guard against skipping into a later step without required base data
   useEffect(() => {
     if (currentStep !== 'personalInfo' && !form.state.values.personalInfo.firstName) {
@@ -108,16 +119,17 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
   if (registrationComplete && createdClientId && createdClientData) {
     const handleContinue = async () => {
       // Determine where to navigate based on returnTo param
-      if (returnTo === 'instant-test' || returnTo === '15-panel-instant' || returnTo === '17-panel-instant') {
+      if (returnTo === 'instant-test' || returnTo === '17-panel-instant') {
         // Navigate to instant-test workflow with new client
-        router.push(
-          `/admin/drug-test-upload?workflow=instant-test&step=client&clientId=${createdClientId}`,
-        )
+        router.push(`/admin/drug-test-upload?workflow=instant-test&step=client&clientId=${createdClientId}`)
       } else if (returnTo === 'collect-lab') {
         // Navigate to collect-lab workflow with new client
         router.push(`/admin/drug-test-upload?workflow=collect-lab&step=client&clientId=${createdClientId}`)
       } else if (returnTo === 'dashboard') {
         router.push('/admin')
+      } else if ((returnTo === 'guided' || returnTo === 'complete-workflow') && bookingId) {
+        await linkBookingToClient(bookingId, createdClientId)
+        router.push(`/admin/drug-test-upload?workflow=guided&step=payment&bookingId=${bookingId}`)
       } else {
         // No specific workflow, return to wizard selector
         onBack()

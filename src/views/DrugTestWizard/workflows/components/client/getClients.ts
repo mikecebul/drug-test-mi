@@ -1,6 +1,11 @@
 'use client'
 
 import { sdk } from '@/lib/payload-sdk'
+import { extractPreferredTestType } from '@/lib/quick-book'
+
+type LabTestType = '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
+
+const LAB_TEST_TYPES = new Set<string>(['11-panel-lab', '11-panel-lab-no-etg', '17-panel-sos-lab', 'etg-lab'])
 
 export interface SimpleClient {
   id: string
@@ -17,6 +22,52 @@ export interface SimpleClient {
   score?: number
   phone?: string
   updatedAt?: string
+  recommendedTestTypeValue?: LabTestType
+}
+
+function getReferralPreferredTestType(client: { referral?: unknown }): unknown {
+  const referral = client.referral
+  if (!referral || typeof referral !== 'object' || !('value' in referral)) {
+    return undefined
+  }
+
+  const referralValue = referral.value
+  if (!referralValue || typeof referralValue !== 'object' || !('preferredTestType' in referralValue)) {
+    return undefined
+  }
+
+  return referralValue.preferredTestType
+}
+
+function toLabTestType(value: unknown): LabTestType | undefined {
+  return typeof value === 'string' && LAB_TEST_TYPES.has(value) ? (value as LabTestType) : undefined
+}
+
+async function resolveRecommendedLabTestType(client: { referral?: unknown }): Promise<LabTestType | undefined> {
+  const extracted = extractPreferredTestType(getReferralPreferredTestType(client))
+  const valueFromReferral = toLabTestType(extracted.recommendedTestTypeValue)
+  if (valueFromReferral) {
+    return valueFromReferral
+  }
+
+  if (!extracted.recommendedTestTypeId) {
+    return undefined
+  }
+
+  try {
+    const testType = await sdk.findByID({
+      collection: 'test-types',
+      id: extracted.recommendedTestTypeId,
+      depth: 0,
+      select: {
+        value: true,
+      },
+    })
+
+    return toLabTestType(testType?.value)
+  } catch (_err) {
+    return undefined
+  }
 }
 
 export async function getClients(): Promise<SimpleClient[]> {
@@ -34,38 +85,39 @@ export async function getClients(): Promise<SimpleClient[]> {
       dob: true,
       phone: true,
       headshot: true,
+      referral: true,
       updatedAt: true,
     },
   })
-  const clients = clientsResult.map((client): SimpleClient => {
-    // Prefer thumbnail for performance, fallback to full image
-    const headshot =
-      typeof client.headshot === 'object' && client.headshot
-        ? client.headshot.thumbnailURL || client.headshot.url || undefined
-        : undefined
+  const clients = await Promise.all(
+    clientsResult.map(async (client): Promise<SimpleClient> => {
+      // Prefer thumbnail for performance, fallback to full image
+      const headshot =
+        typeof client.headshot === 'object' && client.headshot
+          ? client.headshot.thumbnailURL || client.headshot.url || undefined
+          : undefined
 
-    const headshotId =
-      typeof client.headshot === 'object' && client.headshot
-        ? client.headshot.id
-        : undefined
+      const headshotId = typeof client.headshot === 'object' && client.headshot ? client.headshot.id : undefined
 
-    return {
-      id: client.id,
-      firstName: client.firstName,
-      middleInitial: client.middleInitial ?? undefined,
-      lastName: client.lastName,
-      fullName: client.middleInitial
-        ? `${client.firstName} ${client.middleInitial} ${client.lastName}`
-        : `${client.firstName} ${client.lastName}`,
-      initials: `${client.firstName.charAt(0)}${client.lastName.charAt(0)}`,
-      email: client.email,
-      dob: client.dob ?? undefined,
-      phone: client.phone ?? undefined,
-      headshot,
-      headshotId,
-      updatedAt: client.updatedAt ?? undefined,
-    }
-  })
+      return {
+        id: client.id,
+        firstName: client.firstName,
+        middleInitial: client.middleInitial ?? undefined,
+        lastName: client.lastName,
+        fullName: client.middleInitial
+          ? `${client.firstName} ${client.middleInitial} ${client.lastName}`
+          : `${client.firstName} ${client.lastName}`,
+        initials: `${client.firstName.charAt(0)}${client.lastName.charAt(0)}`,
+        email: client.email,
+        dob: client.dob ?? undefined,
+        phone: client.phone ?? undefined,
+        headshot,
+        headshotId,
+        updatedAt: client.updatedAt ?? undefined,
+        recommendedTestTypeValue: await resolveRecommendedLabTestType(client),
+      }
+    }),
+  )
   return clients
 }
 
@@ -83,6 +135,7 @@ export async function getClientById(id: string): Promise<SimpleClient | null> {
         email: true,
         dob: true,
         headshot: true,
+        referral: true,
         phone: true,
         updatedAt: true,
       },
@@ -95,10 +148,7 @@ export async function getClientById(id: string): Promise<SimpleClient | null> {
         ? client.headshot.thumbnailURL || client.headshot.url || undefined
         : undefined
 
-    const headshotId =
-      typeof client.headshot === 'object' && client.headshot
-        ? client.headshot.id
-        : undefined
+    const headshotId = typeof client.headshot === 'object' && client.headshot ? client.headshot.id : undefined
 
     return {
       id: client.id,
@@ -115,9 +165,53 @@ export async function getClientById(id: string): Promise<SimpleClient | null> {
       headshot,
       headshotId,
       updatedAt: client.updatedAt ?? undefined,
+      recommendedTestTypeValue: await resolveRecommendedLabTestType(client),
     }
   } catch (_err) {
     // Payload throws if not found
+    return null
+  }
+}
+
+export async function getClientByBookingId(bookingId: string): Promise<SimpleClient | null> {
+  try {
+    const booking = await sdk.findByID({
+      collection: 'bookings',
+      id: bookingId,
+      depth: 2,
+      select: {
+        relatedClient: true,
+      },
+    })
+
+    const client = typeof booking.relatedClient === 'object' ? booking.relatedClient : null
+    if (!client) return null
+
+    const headshot =
+      typeof client.headshot === 'object' && client.headshot
+        ? client.headshot.thumbnailURL || client.headshot.url || undefined
+        : undefined
+
+    const headshotId = typeof client.headshot === 'object' && client.headshot ? client.headshot.id : undefined
+
+    return {
+      id: client.id,
+      firstName: client.firstName,
+      middleInitial: client.middleInitial ?? undefined,
+      lastName: client.lastName,
+      fullName: client.middleInitial
+        ? `${client.firstName} ${client.middleInitial} ${client.lastName}`
+        : `${client.firstName} ${client.lastName}`,
+      initials: `${client.firstName.charAt(0)}${client.lastName.charAt(0)}`,
+      email: client.email,
+      dob: client.dob ?? undefined,
+      phone: client.phone ?? undefined,
+      headshot,
+      headshotId,
+      updatedAt: client.updatedAt ?? undefined,
+      recommendedTestTypeValue: await resolveRecommendedLabTestType(client),
+    }
+  } catch (_err) {
     return null
   }
 }
@@ -150,10 +244,7 @@ export async function getClientFromTestId(testId: string): Promise<SimpleClient 
         ? client.headshot.thumbnailURL || client.headshot.url || undefined
         : undefined
 
-    const headshotId =
-      typeof client.headshot === 'object' && client.headshot
-        ? client.headshot.id
-        : undefined
+    const headshotId = typeof client.headshot === 'object' && client.headshot ? client.headshot.id : undefined
 
     return {
       id: client.id,
@@ -179,7 +270,13 @@ export async function getClientFromTestId(testId: string): Promise<SimpleClient 
 
 export interface DrugTestWithMedications {
   id: string
-  testType: '15-panel-instant' | '17-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
+  testType:
+    | '15-panel-instant'
+    | '17-panel-instant'
+    | '11-panel-lab'
+    | '11-panel-lab-no-etg'
+    | '17-panel-sos-lab'
+    | 'etg-lab'
   collectionDate: string | null | undefined
   screeningStatus: 'collected' | 'screened' | 'confirmation-pending' | 'complete'
   medicationsArrayAtTestTime: any[]

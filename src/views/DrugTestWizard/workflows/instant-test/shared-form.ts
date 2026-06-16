@@ -1,14 +1,16 @@
 import { formOptions } from '@tanstack/react-form'
 import { FormValues } from './validators'
 
-export type InstantTestType = '15-panel-instant' | '17-panel-instant'
+export type InstantTestType = '17-panel-instant'
 
-const getDefaultValues = (testType: InstantTestType = '15-panel-instant'): FormValues => ({
+const getDefaultValues = (testType: InstantTestType = '17-panel-instant'): FormValues => ({
   upload: {
     file: null as unknown as File, // Will be set by user
   },
   extract: {
     extracted: false,
+    clientMismatchConfirmed: false,
+    clientMismatchConfirmationKey: null,
   },
   client: {
     id: '',
@@ -45,7 +47,7 @@ export const instantTestFormOpts = formOptions({
   defaultValues: getDefaultValues(),
 })
 
-export const getInstantTestFormOpts = (testType: InstantTestType = '15-panel-instant') =>
+export const getInstantTestFormOpts = (testType: InstantTestType = '17-panel-instant') =>
   formOptions({
     defaultValues: getDefaultValues(testType),
   })

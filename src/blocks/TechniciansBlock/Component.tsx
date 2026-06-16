@@ -7,11 +7,13 @@ import Container from '@/components/Container'
 import { HeroMedium } from '@/components/Hero/HeroMedium'
 
 export default async function TechniciansBlockComponent({
+  showIntro,
   heading,
   description,
   maxTechnicians,
 }: TechniciansBlock) {
   const payload = await getPayload({ config: configPromise })
+  const limit = Math.min(Math.max(maxTechnicians || 6, 1), 20)
 
   const technicians = await payload.find({
     collection: 'technicians',
@@ -22,18 +24,20 @@ export default async function TechniciansBlockComponent({
     },
     sort: 'name',
     depth: 1,
-    limit: maxTechnicians || 6,
+    limit,
   })
 
   return (
     <Container className="space-y-16">
-      <HeroMedium
-        title={heading || 'Our technicians'}
-        description={
-          description ||
-          'Meet our drug testing professionals. Each technician is trained, experienced, and committed to providing professional and discreet testing services.'
-        }
-      />
+      {showIntro !== false && (
+        <HeroMedium
+          title={heading || 'Our technicians'}
+          description={
+            description ||
+            'Meet our drug testing professionals. Each technician is trained, experienced, and committed to providing professional and discreet testing services.'
+          }
+        />
+      )}
 
       <TechniciansGrid technicians={technicians.docs} />
     </Container>

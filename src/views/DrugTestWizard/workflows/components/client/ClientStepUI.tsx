@@ -18,7 +18,7 @@ interface ClientStepUIProps {
   selectedClient: FormClient
   onSelectClient: (client: SimpleClient) => void
   errors: string[]
-  returnToWorkflow: 'collect-lab' | 'instant-test' | '15-panel-instant' | '17-panel-instant'
+  returnToWorkflow: 'collect-lab' | 'instant-test' | '17-panel-instant'
   onRegisterNewClient?: () => void
   suggestedMatches?: SimpleClient[]
   donorName?: string | null
@@ -81,9 +81,7 @@ export const ClientStepUI = ({
       <FieldGroupHeader
         title="Choose a Client"
         description={
-          donorName
-            ? `Select the correct client for: ${donorName}`
-            : 'Select an existing client or register a new one.'
+          donorName ? `Select the correct client for: ${donorName}` : 'Select an existing client or register a new one.'
         }
       />
       <div className="space-y-6">

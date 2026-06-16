@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { cn } from '@/utilities/cn'
 
 interface Section {
@@ -9,36 +9,40 @@ interface Section {
 }
 
 interface TimelineNavProps {
+  className?: string
   sections: Section[]
+  title?: string
 }
 
-export function TimelineNav({ sections }: TimelineNavProps) {
+export function TimelineNav({ className, sections, title = 'On This Page' }: TimelineNavProps) {
   const [activeSection, setActiveSection] = useState<string>(sections[0]?.id || '')
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActiveSection(entry.target.id)
-          }
-        })
-      },
-      {
-        rootMargin: '-20% 0px -70% 0px',
-        threshold: 0,
-      },
-    )
+  const updateActiveSection = useCallback(() => {
+    let currentSection = sections[0]?.id || ''
 
     sections.forEach((section) => {
       const element = document.getElementById(section.id)
-      if (element) {
-        observer.observe(element)
+      if (!element) return
+
+      if (element.getBoundingClientRect().top <= 180) {
+        currentSection = section.id
       }
     })
 
-    return () => observer.disconnect()
+    setActiveSection(currentSection)
   }, [sections])
+
+  useEffect(() => {
+    updateActiveSection()
+
+    window.addEventListener('scroll', updateActiveSection, { passive: true })
+    window.addEventListener('resize', updateActiveSection)
+
+    return () => {
+      window.removeEventListener('scroll', updateActiveSection)
+      window.removeEventListener('resize', updateActiveSection)
+    }
+  }, [updateActiveSection])
 
   const handleClick = (id: string) => {
     const element = document.getElementById(id)
@@ -48,9 +52,11 @@ export function TimelineNav({ sections }: TimelineNavProps) {
   }
 
   return (
-    <nav className="sticky top-32">
-      <div className="space-y-1">
-        <h2 className="text-foreground mb-4 px-3 text-sm font-semibold">On This Page</h2>
+    <nav className={cn('sticky top-32', className)}>
+      <div className="space-y-1 pt-2">
+        <h2 className="border-border/70 text-muted-foreground mb-3 border-b px-2 pb-3 text-xs font-semibold tracking-wider uppercase">
+          {title}
+        </h2>
 
         <ul className="space-y-0.5">
           {sections.map((section) => {
@@ -61,7 +67,7 @@ export function TimelineNav({ sections }: TimelineNavProps) {
                 <button
                   onClick={() => handleClick(section.id)}
                   className={cn(
-                    'group relative flex w-full items-center rounded-md px-3 py-2 text-left text-sm transition-all duration-200',
+                    'group relative flex w-full items-center rounded-md px-2 py-2 text-left text-sm transition-all duration-200',
                     isActive
                       ? 'bg-primary/10 text-primary font-medium'
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',

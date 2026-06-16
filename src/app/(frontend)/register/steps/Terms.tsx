@@ -18,7 +18,7 @@ export const TermsStep = withForm({
           <h2 className="text-xl font-semibold text-foreground">Terms & Conditions</h2>
         </div>
 
-        <div className="bg-muted rounded-lg p-6 max-h-64 overflow-y-auto border border-border">
+        <div className="bg-muted rounded-lg border border-border p-6">
           <h3 className="font-semibold text-foreground mb-3">Service Agreement</h3>
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>By agreeing to these terms, you acknowledge that:</p>

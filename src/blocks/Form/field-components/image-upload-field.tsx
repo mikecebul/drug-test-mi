@@ -154,11 +154,9 @@ export default function ImageUploadField({
   }, [completedCrop, crop, field, originalFileName, resetCropState, tempImage])
 
   const canApplyCrop = Boolean(
-    resolvePixelCropForSave({
-      image: imageRef.current,
-      crop,
-      completedCrop,
-    }),
+    tempImage &&
+    (((completedCrop?.width ?? 0) > 0 && (completedCrop?.height ?? 0) > 0) ||
+      ((crop?.width ?? 0) > 0 && (crop?.height ?? 0) > 0)),
   )
 
   const handleRemove = useCallback(() => {
@@ -186,9 +184,15 @@ export default function ImageUploadField({
       {description ? <FieldDescription>{description}</FieldDescription> : null}
 
       {preview && !showCropper && (
-        <div className="bg-muted relative h-48 w-48 overflow-hidden rounded-lg border-2 border-border">
+        <div className="bg-muted border-border relative h-48 w-48 overflow-hidden rounded-lg border-2">
           <img src={preview} alt="Preview" className="h-full w-full object-cover" />
-          <Button type="button" size="sm" variant="destructive" className="absolute top-2 right-2" onClick={handleRemove}>
+          <Button
+            type="button"
+            size="sm"
+            variant="destructive"
+            className="absolute top-2 right-2"
+            onClick={handleRemove}
+          >
             <XCircle className="h-4 w-4" />
           </Button>
         </div>
@@ -243,7 +247,7 @@ export default function ImageUploadField({
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="max-h-[65vh] overflow-auto rounded-lg bg-muted p-2">
+            <div className="bg-muted max-h-[65vh] overflow-auto rounded-lg p-2">
               {tempImage && (
                 <ReactCrop
                   crop={crop}

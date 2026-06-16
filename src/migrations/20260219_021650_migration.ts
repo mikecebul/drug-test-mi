@@ -28,36 +28,42 @@ const CANONICAL_TEST_TYPES: Array<{
   label: string
   bookingLabel: string
   category: 'instant' | 'lab'
+  price: number
 }> = [
   {
     value: '11-panel-lab',
     label: '11-Panel Lab',
     bookingLabel: '11 Panel Lab',
     category: 'lab',
+    price: 40,
   },
   {
     value: '15-panel-instant',
     label: '15-Panel Instant',
     bookingLabel: '15 Panel Instant',
     category: 'instant',
+    price: 35,
   },
   {
     value: '17-panel-instant',
     label: '17-Panel Instant',
     bookingLabel: '17 Panel Instant',
     category: 'instant',
+    price: 35,
   },
   {
     value: '17-panel-sos-lab',
     label: '17-Panel SOS Lab',
     bookingLabel: '17 SOS Lab',
     category: 'lab',
+    price: 45,
   },
   {
     value: 'etg-lab',
     label: 'EtG Lab',
     bookingLabel: 'EtG Lab',
     category: 'lab',
+    price: 40,
   },
 ]
 
@@ -388,6 +394,7 @@ export async function up({ payload }: MigrateUpArgs): Promise<void> {
         label: entry.label,
         bookingLabel: entry.bookingLabel,
         category: entry.category,
+        price: entry.price,
         isActive: true,
       },
       overrideAccess: true,

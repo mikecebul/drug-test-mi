@@ -197,3 +197,11 @@
     opacity: initial;
   }
 }
+
+@layer components {
+  @media (max-width: 900px) {
+    .dashboard .modular-dashboard > .widget {
+      width: 100% !important;
+    }
+  }
+}

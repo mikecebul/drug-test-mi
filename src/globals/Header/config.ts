@@ -1,4 +1,5 @@
 import { link } from '@/fields/link'
+import { iconSelect } from '@/fields/iconSelect/config'
 import { revalidateHeader } from './hooks/revalidateHeader'
 import { admins } from '@/access/admins'
 import type { GlobalConfig } from 'payload'
@@ -19,6 +20,7 @@ export const Header: GlobalConfig = {
         },
       },
       fields: [
+        iconSelect,
         link({
           appearances: false,
         }),

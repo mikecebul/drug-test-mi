@@ -67,7 +67,6 @@ export async function extractPdfData(
         extracted = await extractLabTest(buffer)
         break
       case 'instant-test':
-      case '15-panel-instant':
       case '17-panel-instant':
       default:
         extracted = await extract15PanelInstant(buffer)
@@ -459,7 +458,13 @@ export async function getClients(): Promise<SimpleClient[]> {
 export async function computeTestResultPreview(
   clientId: string,
   detectedSubstances: SubstanceValue[],
-  testType: '15-panel-instant' | '17-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab',
+  testType:
+    | '15-panel-instant'
+    | '17-panel-instant'
+    | '11-panel-lab'
+    | '11-panel-lab-no-etg'
+    | '17-panel-sos-lab'
+    | 'etg-lab',
   breathalyzerTaken?: boolean,
   breathalyzerResult?: number | null,
   medications?: MedicationSnapshot[],
@@ -519,7 +524,13 @@ export async function computeTestResultPreview(
  */
 export async function createDrugTest(data: {
   clientId: string
-  testType: '15-panel-instant' | '17-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
+  testType:
+    | '15-panel-instant'
+    | '17-panel-instant'
+    | '11-panel-lab'
+    | '11-panel-lab-no-etg'
+    | '17-panel-sos-lab'
+    | 'etg-lab'
   collectionDate: string
   detectedSubstances: SubstanceValue[]
   isDilute: boolean
@@ -624,7 +635,13 @@ export async function createDrugTest(data: {
 export async function getEmailPreview(data: {
   clientId: string
   detectedSubstances: SubstanceValue[]
-  testType: '15-panel-instant' | '17-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
+  testType:
+    | '15-panel-instant'
+    | '17-panel-instant'
+    | '11-panel-lab'
+    | '11-panel-lab-no-etg'
+    | '17-panel-sos-lab'
+    | 'etg-lab'
   collectionDate: string
   isDilute: boolean
   breathalyzerTaken?: boolean
@@ -1022,7 +1039,13 @@ export async function getConfirmationEmailPreview(data: {
 export async function createDrugTestWithEmailReview(
   testData: {
     clientId: string
-    testType: '15-panel-instant' | '17-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
+    testType:
+      | '15-panel-instant'
+      | '17-panel-instant'
+      | '11-panel-lab'
+      | '11-panel-lab-no-etg'
+      | '17-panel-sos-lab'
+      | 'etg-lab'
     collectionDate: string
     detectedSubstances: SubstanceValue[]
     isDilute: boolean
@@ -1134,7 +1157,8 @@ export async function createDrugTestWithEmailReview(
       })
       return {
         success: false,
-        error: 'Confirmation decision is required when unexpected positive substances are detected. Please go back and select how to proceed.',
+        error:
+          'Confirmation decision is required when unexpected positive substances are detected. Please go back and select how to proceed.',
       }
     }
 
@@ -1223,7 +1247,8 @@ export async function createDrugTestWithEmailReview(
       })
       return {
         success: false,
-        error: 'Failed to create drug test record - database returned invalid result. Please try again or contact support.',
+        error:
+          'Failed to create drug test record - database returned invalid result. Please try again or contact support.',
       }
     }
 
@@ -1390,6 +1415,7 @@ export async function createCollectionOnlyTest(data: {
         screeningStatus: 'collected', // Status will remain "collected" until results entered
         detectedSubstances: [], // No substances yet
         isDilute: false,
+        payment: unpaidDrugTestPayment,
         processNotes: 'Specimen collected - awaiting lab results',
       },
       overrideAccess: true,
@@ -1459,6 +1485,7 @@ export async function createCollectionWithEmailReview(
         isDilute: false,
         breathalyzerTaken: testData.breathalyzerTaken,
         breathalyzerResult: testData.breathalyzerResult,
+        payment: unpaidDrugTestPayment,
         processNotes: 'Specimen collected - awaiting lab results (email review)',
       },
       context: {
@@ -1555,6 +1582,13 @@ export async function createCollectionWithEmailReview(
       error: `Failed to create collection: ${error instanceof Error ? error.message : String(error)}`,
     }
   }
+}
+
+const unpaidDrugTestPayment = {
+  status: 'unpaid' as const,
+  amountDue: 0,
+  amountPaid: 0,
+  balanceDue: 0,
 }
 
 /**

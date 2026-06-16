@@ -42,7 +42,7 @@ function SchedulePageContent({ technicians }: SchedulePageClientProps) {
 export const SchedulePageClient = ({ title, technicians }: SchedulePageClientProps) => {
   return (
     <div className="bg-muted/30">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-12">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-12 lg:py-12 xl:px-16">
         <div className="mb-6 sm:mb-8 lg:mb-10">
           <h1 className="text-foreground mb-2 text-2xl font-bold sm:mb-3 sm:text-3xl lg:text-4xl">
             {title || 'Schedule Your Drug Test'}

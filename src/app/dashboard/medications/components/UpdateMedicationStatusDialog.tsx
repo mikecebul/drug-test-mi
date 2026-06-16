@@ -2,13 +2,13 @@
 
 import { Button } from '@/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { useUpdateMedicationFormOpts } from '../hooks/use-update-medication-form-opts'
 import { z } from 'zod'
@@ -40,14 +40,14 @@ export function UpdateMedicationStatusDialog({
   const form = useAppForm(formOpts)
 
   return (
-    <Dialog open={showDialog} onOpenChange={setShowDialog}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Update Medication Status</DialogTitle>
-          <DialogDescription>
+    <Drawer direction="right" open={showDialog} onOpenChange={setShowDialog}>
+      <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(34rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+        <DrawerHeader className="border-border border-b px-6 py-5">
+          <DrawerTitle className="text-2xl tracking-tight">Update Medication Status</DrawerTitle>
+          <DrawerDescription>
             {selectedMedication && `Update status for ${selectedMedication.medicationName}`}
-          </DialogDescription>
-        </DialogHeader>
+          </DrawerDescription>
+        </DrawerHeader>
 
         <form
           onSubmit={(e) => {
@@ -55,21 +55,16 @@ export function UpdateMedicationStatusDialog({
             e.stopPropagation()
             form.handleSubmit()
           }}
+          className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="grid gap-4 py-4">
+          <div className="no-scrollbar grid flex-1 gap-4 overflow-y-auto px-6 py-5">
             <form.AppField
               name="status"
               validators={{
                 onChange: z.enum(['active', 'discontinued']),
               }}
             >
-              {(formField) => (
-                <formField.SelectField
-                  label="Status"
-                  required
-                  options={MEDICATION_STATUS_OPTIONS}
-                />
-              )}
+              {(formField) => <formField.SelectField label="Status" required options={MEDICATION_STATUS_OPTIONS} />}
             </form.AppField>
 
             <form.AppField
@@ -147,16 +142,16 @@ export function UpdateMedicationStatusDialog({
             </form.AppField>
           </div>
 
-          <DialogFooter className="flex w-full sm:justify-between">
+          <DrawerFooter className="border-border border-t px-6 py-4 sm:flex-row sm:justify-between">
             <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
               Cancel
             </Button>
             <form.AppForm>
               <form.SubmitButton label="Update Status" className="w-fit" />
             </form.AppForm>
-          </DialogFooter>
+          </DrawerFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </DrawerContent>
+    </Drawer>
   )
 }

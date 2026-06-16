@@ -5,12 +5,11 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Calendar } from 'lucide-react'
 
-interface CalPopupButtonProps {
+type CalModalConfig = Record<string, string | string[] | Record<string, string>>
+
+interface CalPopupButtonProps extends Omit<React.ComponentProps<typeof Button>, 'onClick'> {
   calUsername?: string
-  config?: Record<string, any>
-  children?: React.ReactNode
-  className?: string
-  variant?: 'default' | 'outline' | 'secondary' | 'ghost' | 'link' | 'destructive'
+  config?: CalModalConfig
   onModalOpen?: () => void
 }
 
@@ -21,6 +20,7 @@ export function CalPopupButton({
   className,
   variant = 'default',
   onModalOpen,
+  ...props
 }: CalPopupButtonProps) {
   const [isReady, setIsReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -88,7 +88,7 @@ export function CalPopupButton({
   if (error) {
     return (
       <div className="space-y-2">
-        <Button onClick={handleClick} className={className} variant={variant} disabled>
+        <Button {...props} onClick={handleClick} className={className} variant={variant} disabled>
           {children || (
             <>
               <Calendar className="mr-2 h-4 w-4" />
@@ -96,13 +96,13 @@ export function CalPopupButton({
             </>
           )}
         </Button>
-        <p className="text-xs text-destructive">{error}</p>
+        <p className="text-destructive text-xs">{error}</p>
       </div>
     )
   }
 
   return (
-    <Button onClick={handleClick} className={className} variant={variant} disabled={!isReady}>
+    <Button {...props} onClick={handleClick} className={className} variant={variant} disabled={!isReady}>
       {children || (
         <>
           <Calendar className="mr-2 h-4 w-4" />

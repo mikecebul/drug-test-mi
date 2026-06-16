@@ -6,11 +6,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { X, Plus, AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 
 type RecipientEditorProps = {
   initialRecipients: string[]
   onChange: (recipients: string[]) => void
   label: string
+  description?: string
+  recipientLabel?: string
+  addButtonLabel?: string
   required?: boolean
   maxRecipients?: number
 }
@@ -22,6 +26,9 @@ export function RecipientEditor({
   initialRecipients,
   onChange,
   label,
+  description,
+  recipientLabel,
+  addButtonLabel = 'Add Recipient',
   required = false,
   maxRecipients = 10,
 }: RecipientEditorProps) {
@@ -90,12 +97,15 @@ export function RecipientEditor({
   const missingRequired = required && validRecipients.length === 0
 
   return (
-    <div className="space-y-4 max-w-2xl">
-      <div className="flex items-center justify-between">
-        <Label className="text-base font-semibold">
-          {label}
-          {required && <span className="ml-1 text-destructive">*</span>}
-        </Label>
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <Label className="text-base font-semibold">
+            {label}
+            {required && <span className="ml-1 text-destructive">*</span>}
+          </Label>
+          {description && <p className="text-muted-foreground text-sm leading-relaxed">{description}</p>}
+        </div>
         <Button
           type="button"
           variant="outline"
@@ -104,7 +114,7 @@ export function RecipientEditor({
           disabled={recipients.length >= maxRecipients}
         >
           <Plus className="mr-2 h-4 w-4" />
-          Add Recipient
+          {addButtonLabel}
         </Button>
       </div>
 
@@ -121,8 +131,20 @@ export function RecipientEditor({
           const hasChanged = isOriginal && email !== initialRecipients[index]
 
           return (
-            <div key={index} className="flex gap-2">
-              <div className="relative flex-1">
+            <div key={index} className="border-border bg-background flex items-start gap-3 rounded-lg border p-3">
+              <div className="flex-1 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {recipientLabel && (
+                    <Badge variant="secondary" className="text-xs">
+                      {recipientLabel}
+                    </Badge>
+                  )}
+                  {hasChanged && (
+                    <Badge variant="warning" className="text-xs">
+                      Modified
+                    </Badge>
+                  )}
+                </div>
                 <Input
                   type="email"
                   value={email}
@@ -131,9 +153,6 @@ export function RecipientEditor({
                   placeholder="email@example.com"
                   className={errors[index] ? 'border-destructive' : ''}
                 />
-                {hasChanged && (
-                  <div className="absolute right-2 top-2 text-xs text-amber-600">Modified</div>
-                )}
                 {errors[index] && (
                   <p className="mt-1 text-xs text-destructive">{errors[index]}</p>
                 )}
@@ -144,6 +163,7 @@ export function RecipientEditor({
                 size="icon"
                 onClick={() => handleRemoveRecipient(index)}
                 disabled={required && validRecipients.length === 1}
+                aria-label="Remove recipient"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -152,16 +172,18 @@ export function RecipientEditor({
         })}
       </div>
 
-      <div className="text-sm text-muted-foreground">
-        {validRecipients.length} valid recipient{validRecipients.length !== 1 ? 's' : ''}
-        {initialRecipients.length > 0 && (
-          <>
-            {' '}
-            • {recipients.length - initialRecipients.length > 0 ? 'Added' : 'Removed'}{' '}
-            {Math.abs(recipients.length - initialRecipients.length)} from original
-          </>
-        )}
-      </div>
+      {(recipients.length > 0 || validRecipients.length > 0) && (
+        <div className="text-sm text-muted-foreground">
+          {validRecipients.length} valid recipient{validRecipients.length !== 1 ? 's' : ''}
+          {initialRecipients.length > 0 && (
+            <>
+              {' '}
+              • {recipients.length - initialRecipients.length > 0 ? 'Added' : 'Removed'}{' '}
+              {Math.abs(recipients.length - initialRecipients.length)} from original
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }

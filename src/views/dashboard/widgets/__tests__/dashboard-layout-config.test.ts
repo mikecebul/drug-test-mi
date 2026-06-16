@@ -18,21 +18,31 @@ describe('dashboard widget layout config', () => {
 
   test('keeps dashboard widget registry in requested order', () => {
     assertTokenOrder(source, [
-      "slug: 'wizard-entry'",
-      "slug: 'admin-quick-book'",
-      "slug: 'total-clients'",
-      "slug: 'pending-drug-tests'",
       "slug: 'next-calcom-booking'",
+      "slug: 'admin-quick-book'",
+      "slug: 'pending-drug-tests'",
+      "slug: 'admin-alerts'",
     ])
   })
 
   test('keeps default dashboard layout in requested order', () => {
     assertTokenOrder(source, [
-      "widgetSlug: 'wizard-entry'",
-      "widgetSlug: 'admin-quick-book'",
-      "widgetSlug: 'total-clients'",
-      "widgetSlug: 'pending-drug-tests'",
       "widgetSlug: 'next-calcom-booking'",
+      "widgetSlug: 'admin-quick-book'",
+      "widgetSlug: 'pending-drug-tests'",
+      "widgetSlug: 'admin-alerts'",
+    ])
+  })
+
+  test('uses equal side-by-side widths and full-width priority rows', () => {
+    expect(source).toContain("widgetSlug: 'next-calcom-booking',\n          width: 'full'")
+    expect(source).toContain("widgetSlug: 'admin-quick-book',\n          width: 'medium'")
+    expect(source).toContain("widgetSlug: 'pending-drug-tests',\n          width: 'medium'")
+    expect(source).toContain("widgetSlug: 'admin-alerts',\n          width: 'full'")
+    assertTokenOrder(source, [
+      "'@/views/beforeNavLinks/DrugTestCollectorLink'",
+      "'@/views/beforeNavLinks/QuickBookLink'",
+      "'@/views/beforeNavLinks/DrugTestTrackerLink'",
     ])
   })
 })

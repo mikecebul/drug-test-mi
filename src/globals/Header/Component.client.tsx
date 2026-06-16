@@ -10,11 +10,14 @@ import { DashboardLogo, Logo } from '@/components/Logo'
 import { PayloadAdminBar } from '@payloadcms/admin-bar'
 import { baseUrl } from '@/utilities/baseUrl'
 import { AuthButton } from '@/components/AuthButton'
+import type { HeaderAuthUser } from './types'
 
 export const HeaderClient = ({
+  authUser,
   header,
   contact,
 }: {
+  authUser: HeaderAuthUser
   header: Header
   contact: CompanyInfo['contact']
 }) => {
@@ -34,12 +37,12 @@ export const HeaderClient = ({
         }}
         className="static!"
       />
-      <div className="flex w-full items-center px-4 py-3 md:px-8 2xl:container 2xl:mx-auto">
+      <div className="flex w-full items-center px-4 py-3 md:px-8 lg:px-12 xl:px-16 2xl:container 2xl:mx-auto">
         <Logo name={companyName ?? 'MI Drug Test LLC'} />
         <MainNav navItems={navItems} />
-        <MobileNav navItems={navItems} contact={contact} />
+        <MobileNav authUser={authUser} navItems={navItems} contact={contact} />
         <div className="lg:flex flex-col items-center gap-4 hidden">
-          <AuthButton />
+          <AuthButton authUser={authUser} />
           <div className="flex flex-col items-center text-lg lg:flex-row 2xl:space-x-2">
             <a
               href={cleanedPhone ? `tel:${cleanedPhone}` : '#'}

@@ -15,6 +15,8 @@ export const uploadSchema = z.object({
 export const extractSchema = z.object({
   extract: z.object({
     extracted: z.boolean(),
+    clientMismatchConfirmed: z.boolean(),
+    clientMismatchConfirmationKey: z.string().nullable(),
   }),
 })
 
@@ -23,7 +25,7 @@ export { clientSchema, medicationsSchema, emailsGroupSchema, emailsSchema }
 export const verifyDataSchema = z.object({
   verifyData: z
     .object({
-      testType: z.enum(['15-panel-instant', '17-panel-instant']),
+      testType: z.literal('17-panel-instant'),
       collectionDate: z.string().min(1, 'Collection date is required'),
       detectedSubstances: z.array(z.string()),
       isDilute: z.boolean(),

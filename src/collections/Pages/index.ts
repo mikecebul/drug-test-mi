@@ -22,10 +22,18 @@ import { revalidateDelete } from './hooks/revalidateDelete'
 import { admins } from '@/access/admins'
 import { CalendarEmbedBlock } from '@/blocks/Cal/config'
 import { Hero } from '@/blocks/Hero/config'
+import { HomepageHero } from '@/blocks/Hero/HomepageHero/config'
 import { SchedulePage } from '@/blocks/SchedulePage/config'
 import { Trust } from '@/blocks/Trust/config'
 import { TechniciansBlock } from '@/blocks/TechniciansBlock/config'
 import { About } from '@/blocks/About/config'
+import { CTA } from '@/blocks/CTA/config'
+import { AboutContactAvailability } from '@/blocks/About/ContactAvailability/config'
+import { AboutMission } from '@/blocks/About/Mission/config'
+import { AboutPricing } from '@/blocks/About/Pricing/config'
+import { AboutProcess } from '@/blocks/About/Process/config'
+import { AboutServices } from '@/blocks/About/Services/config'
+import { DocumentationLayout } from '@/blocks/DocumentationLayout/config'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
@@ -72,10 +80,18 @@ export const Pages: CollectionConfig = {
               type: 'blocks',
               blocks: [
                 CalendarEmbedBlock,
+                HomepageHero,
                 Hero,
                 About,
+                DocumentationLayout,
+                AboutMission,
+                AboutServices,
+                AboutProcess,
+                AboutPricing,
+                AboutContactAvailability,
                 Trust,
                 TechniciansBlock,
+                CTA,
                 RichText,
                 Links,
                 Form,
