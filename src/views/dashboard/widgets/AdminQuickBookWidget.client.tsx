@@ -225,11 +225,13 @@ function resolveTestLabel(options: TestTypeOption[], recommendation: Recommended
 }
 
 type AdminQuickBookWidgetClientProps = {
+  onBeforeOpenBooking?: () => void | Promise<void>
   resultsMode?: 'inline' | 'popover'
   searchInputId?: string
 }
 
 export function AdminQuickBookWidgetClient({
+  onBeforeOpenBooking,
   resultsMode = 'popover',
   searchInputId = 'admin-quick-book-search',
 }: AdminQuickBookWidgetClientProps = {}) {
@@ -281,6 +283,14 @@ export function AdminQuickBookWidgetClient({
 
   const openCalBookingModal = async (config: CalModalConfig, calLink = DRUG_TEST_CAL_LINK) => {
     const cal = await getCalApi()
+
+    if (onBeforeOpenBooking) {
+      try {
+        await onBeforeOpenBooking()
+      } catch (error) {
+        console.error('[AdminQuickBookWidget] Failed to run booking pre-open callback', error)
+      }
+    }
 
     cal('modal', {
       calLink,
