@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import { useCallback, useState } from 'react'
 import { Loader2, Search } from 'lucide-react'
 
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
@@ -30,10 +31,19 @@ const AdminQuickBookWidgetClient = dynamic(
   },
 )
 
+const DRAWER_CLOSE_BEFORE_BOOKING_MS = 250
+
 export default function QuickBookLink() {
+  const [open, setOpen] = useState(false)
+
+  const closeDrawerBeforeBooking = useCallback(async () => {
+    setOpen(false)
+    await new Promise((resolve) => setTimeout(resolve, DRAWER_CLOSE_BEFORE_BOOKING_MS))
+  }, [])
+
   return (
     <ShadcnWrapper className="py-1.5">
-      <Drawer direction="right">
+      <Drawer direction="right" open={open} onOpenChange={setOpen}>
         <DrawerTrigger asChild>
           <Button type="button" size="lg" variant="secondary" className="w-full min-w-2xs gap-2">
             <Search className="size-[18px]" />
@@ -49,6 +59,7 @@ export default function QuickBookLink() {
           </DrawerHeader>
           <div className="no-scrollbar flex-1 overflow-y-auto px-6 py-5">
             <AdminQuickBookWidgetClient
+              onBeforeOpenBooking={closeDrawerBeforeBooking}
               searchInputId="admin-nav-quick-book-search"
               resultsMode="inline"
             />
