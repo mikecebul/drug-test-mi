@@ -1169,6 +1169,14 @@ export interface Booking {
    * Cal.com booking UID
    */
   calcomBookingId?: string | null;
+  /**
+   * Previous Cal.com booking UID when this appointment was rescheduled.
+   */
+  calcomRescheduledFromId?: string | null;
+  /**
+   * Cal.com or Stripe payment identifier when the booking was prepaid.
+   */
+  calcomPaymentId?: string | null;
   eventTypeId?: number | null;
   /**
    * Additional form responses from Cal.com
@@ -2919,6 +2927,8 @@ export interface BookingsSelect<T extends boolean = true> {
       };
   location?: T;
   calcomBookingId?: T;
+  calcomRescheduledFromId?: T;
+  calcomPaymentId?: T;
   eventTypeId?: T;
   customInputs?: T;
   webhookData?: T;

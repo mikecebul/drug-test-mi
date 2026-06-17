@@ -3,10 +3,30 @@ import { FALLBACK_BOOKING_TEST_TYPES, resolveRecommendedTestLabel } from '@/lib/
 
 export const DEFAULT_BOOKING_CAL_LINK = 'midrugtest'
 export const INSTANT_17_PANEL_CAL_LINK = 'midrugtest/instant-17-panel'
-export const UNPAID_BOOKING_CAL_LINK = INSTANT_17_PANEL_CAL_LINK
+export const DRUG_TEST_CAL_LINK = 'midrugtest/drug-test'
+export const LCEMS_DRUG_TEST_CAL_LINK = 'midrugtest/lcems-drug-test-booking'
+export const UNPAID_BOOKING_CAL_LINK = DRUG_TEST_CAL_LINK
 
 export function getClientBookingCalLink(client: Pick<Client, 'allowUnpaidBookings'>): string {
   return client.allowUnpaidBookings ? UNPAID_BOOKING_CAL_LINK : DEFAULT_BOOKING_CAL_LINK
+}
+
+export function isLCEMSEmployerReferral(referralName?: string | null): boolean {
+  const normalizedName = referralName?.trim().toLowerCase()
+  if (!normalizedName) return false
+
+  return normalizedName === 'lcems' || normalizedName.includes('lake charlevoix ems')
+}
+
+export function getAdminQuickBookCalLink(input?: {
+  referralType?: string | null
+  referralName?: string | null
+}): string {
+  if (input?.referralType === 'employer' && isLCEMSEmployerReferral(input.referralName)) {
+    return LCEMS_DRUG_TEST_CAL_LINK
+  }
+
+  return DRUG_TEST_CAL_LINK
 }
 
 // Helper: Extract referral organization name based on client type
