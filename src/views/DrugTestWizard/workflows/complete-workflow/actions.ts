@@ -341,6 +341,10 @@ export async function recordBookingPayment(input: {
     return { success: false, error: 'Amount paid cannot be negative.' }
   }
 
+  if (input.status !== 'paid' && input.amountDue > 0 && input.amountPaid >= input.amountDue) {
+    return { success: false, error: 'Use Paid if the full amount was collected.' }
+  }
+
   const payload = await getPayload({ config })
   const booking = await payload.update({
     collection: 'bookings',

@@ -11,6 +11,8 @@ export type GuidedScheduleBooking = {
   payment?: {
     status?: string | null
     method?: string | null
+    amountDue?: number | null
+    amountPaid?: number | null
   } | null
 }
 
@@ -18,9 +20,15 @@ export function getGuidedPaymentChoice(
   payment: GuidedScheduleBooking['payment'] | undefined,
 ): GuidedPaymentChoice | null {
   if (!payment?.status) return null
+  const amountDue = typeof payment.amountDue === 'number' ? payment.amountDue : 0
+  const amountPaid = typeof payment.amountPaid === 'number' ? payment.amountPaid : 0
+
+  if (amountDue > 0 && amountPaid >= amountDue) return 'paid'
   if (payment.method === 'pre-paid') return 'pre-paid'
   if (payment.status === 'partial') return 'still-owes'
-  return 'paid'
+  if (payment.status === 'unpaid') return 'still-owes'
+  if (payment.status === 'paid') return 'paid'
+  return null
 }
 
 export function getGuidedPaymentLabel(booking: GuidedScheduleBooking) {

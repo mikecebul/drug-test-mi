@@ -96,10 +96,11 @@ function getPaymentDefaults(booking: Booking | null) {
   const amountDue = booking?.testType?.price ?? 0
   const existing = booking?.payment
   const choice = getPaymentChoice(existing)
+  const defaultAmountPaid = choice === 'paid' || choice === 'pre-paid' ? amountDue : 0
 
   return {
     amountDue,
-    amountPaid: typeof existing?.amountPaid === 'number' ? existing.amountPaid : choice ? amountDue : 0,
+    amountPaid: typeof existing?.amountPaid === 'number' ? existing.amountPaid : defaultAmountPaid,
     choice,
     notes: typeof existing?.notes === 'string' ? existing.notes : '',
   }
@@ -673,10 +674,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   const choice = value as PaymentChoice
                   setPaymentDraft((current) => {
                     const next = current ?? payment
+                    const maxPartialPayment = Math.max(0, next.amountDue - 1)
+                    const stillOwesAmountPaid = Math.max(0, Math.min(next.amountPaid, maxPartialPayment))
                     return {
                       ...next,
                       choice,
-                      amountPaid: choice === 'still-owes' ? Math.min(next.amountPaid, next.amountDue - 1) : next.amountDue,
+                      amountPaid: choice === 'still-owes' ? stillOwesAmountPaid : next.amountDue,
                     }
                   })
                 }}
@@ -715,12 +718,24 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     min={0}
                     max={payment.amountDue}
                     value={payment.amountPaid}
-                    onChange={(event) =>
-                      setPaymentDraft((current) => ({
-                        ...(current ?? payment),
-                        amountPaid: Number(event.target.value || 0),
-                      }))
-                    }
+                    onChange={(event) => {
+                      const amountPaid = Number(event.target.value || 0)
+                      setPaymentDraft((current) => {
+                        const next = current ?? payment
+                        if (next.amountDue > 0 && amountPaid >= next.amountDue) {
+                          return {
+                            ...next,
+                            choice: 'paid',
+                            amountPaid: next.amountDue,
+                          }
+                        }
+
+                        return {
+                          ...next,
+                          amountPaid,
+                        }
+                      })
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
