@@ -9,6 +9,7 @@ import { fetchClientHeadshot } from '@/collections/DrugTests/email/fetch-headsho
 import { createAdminAlert } from '@/lib/admin-alerts'
 import type { Client } from '@/payload-types'
 import { getDrugTestPaymentSnapshot } from '../../paymentSnapshot'
+import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 
 // Extract medication type from Client payload type
 type MedicationInput = NonNullable<Client['medications']>[number] & {
@@ -110,6 +111,7 @@ export async function createCollectionWithEmailReview(
         collection: 'bookings',
         id: testData.bookingId,
         data: {
+          status: 'cancelled',
           sampleCollection: {
             status: 'collected',
             collectedAt: testData.collectionDate,
@@ -118,6 +120,7 @@ export async function createCollectionWithEmailReview(
         },
         overrideAccess: true,
       })
+      revalidateBookingViews()
     }
 
     // 4. Fetch client for email generation

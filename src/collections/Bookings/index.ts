@@ -242,6 +242,14 @@ export const Bookings: CollectionConfig = {
       },
     },
     {
+      name: 'calcomBookingNumericId',
+      type: 'number',
+      index: true,
+      admin: {
+        description: 'Cal.com numeric booking ID from API/webhook payloads.',
+      },
+    },
+    {
       name: 'calcomRescheduledFromId',
       type: 'text',
       admin: {

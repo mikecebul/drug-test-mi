@@ -5,6 +5,7 @@ import config from '@payload-config'
 import type { Client, Court, Employer, TestType } from '@/payload-types'
 import { APP_TIMEZONE } from '@/lib/date-utils'
 import { TZDate } from '@date-fns/tz'
+import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 
 type TestTypeValue = '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-instant' | '17-panel-sos-lab' | 'etg-lab'
 
@@ -301,6 +302,7 @@ export async function linkBookingToClient(bookingId: string, clientId: string) {
     },
     overrideAccess: true,
   })
+  revalidateBookingViews()
 }
 
 export async function setBookingScheduledTestType(bookingId: string, testTypeId: string) {
@@ -317,6 +319,7 @@ export async function setBookingScheduledTestType(bookingId: string, testTypeId:
     },
     overrideAccess: true,
   })
+  revalidateBookingViews()
 
   return { success: true }
 }
@@ -362,6 +365,7 @@ export async function recordBookingPayment(input: {
     depth: 0,
     overrideAccess: true,
   })
+  revalidateBookingViews()
 
   return {
     success: true,

@@ -18,7 +18,7 @@ import { steps as registerClientSteps } from './workflows/register-client-workfl
 import { steps as instantTestSteps } from './workflows/instant-test/validators'
 import { steps as labScreenSteps } from './workflows/lab-screen/validators'
 import { steps as labConfirmationSteps } from './workflows/lab-confirmation/validators'
-import { clearWizardQueryCache } from './queries'
+import { clearWizardQueryCache, invalidateGuidedSchedule } from './queries'
 
 const workflowTypes = [
   'guided',
@@ -63,11 +63,12 @@ export function DrugTestWizardClient() {
   // Reset workflow selection and clear step params
   const handleBack = async () => {
     if (bookingId && (workflow === 'collect-lab' || workflow === 'instant-test' || workflow === '17-panel-instant')) {
+      invalidateGuidedSchedule(queryClient)
       setStates({
         workflow: 'guided',
-        step: 'toxaccess',
+        step: 'schedule',
         clientId: null,
-        bookingId,
+        bookingId: null,
       })
       return
     }

@@ -7,6 +7,7 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
 import { FormMedications } from '../../shared-validators'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 import { createAdminAlert } from '@/lib/admin-alerts'
+import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 
 export async function createInstantTest(
   testData: {
@@ -95,6 +96,7 @@ export async function createInstantTest(
         collection: 'bookings',
         id: testData.bookingId,
         data: {
+          status: 'cancelled',
           sampleCollection: {
             status: 'collected',
             collectedAt: testData.collectionDate,
@@ -103,6 +105,7 @@ export async function createInstantTest(
         },
         overrideAccess: true,
       })
+      revalidateBookingViews()
     }
 
     return result

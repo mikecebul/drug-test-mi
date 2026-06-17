@@ -260,7 +260,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
         onBack={() => {
           if (bookingId) {
             clearFileStorage()
-            router.push(`/admin/drug-test-upload?workflow=guided&step=schedule&bookingId=${bookingId}`)
+            router.push('/admin/drug-test-upload?workflow=guided&step=schedule')
             return
           }
           handleBack()

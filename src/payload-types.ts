@@ -1170,6 +1170,10 @@ export interface Booking {
    */
   calcomBookingId?: string | null;
   /**
+   * Cal.com numeric booking ID from API/webhook payloads.
+   */
+  calcomBookingNumericId?: number | null;
+  /**
    * Previous Cal.com booking UID when this appointment was rescheduled.
    */
   calcomRescheduledFromId?: string | null;
@@ -2927,6 +2931,7 @@ export interface BookingsSelect<T extends boolean = true> {
       };
   location?: T;
   calcomBookingId?: T;
+  calcomBookingNumericId?: T;
   calcomRescheduledFromId?: T;
   calcomPaymentId?: T;
   eventTypeId?: T;
