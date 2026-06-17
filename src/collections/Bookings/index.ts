@@ -242,6 +242,20 @@ export const Bookings: CollectionConfig = {
       },
     },
     {
+      name: 'calcomRescheduledFromId',
+      type: 'text',
+      admin: {
+        description: 'Previous Cal.com booking UID when this appointment was rescheduled.',
+      },
+    },
+    {
+      name: 'calcomPaymentId',
+      type: 'text',
+      admin: {
+        description: 'Cal.com or Stripe payment identifier when the booking was prepaid.',
+      },
+    },
+    {
       name: 'eventTypeId',
       type: 'number',
     },

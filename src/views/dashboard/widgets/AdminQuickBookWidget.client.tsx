@@ -18,15 +18,31 @@ import {
   type TestTypeBookingOption,
 } from '@/lib/quick-book'
 import { sdk } from '@/lib/payload-sdk'
-import { INSTANT_17_PANEL_CAL_LINK } from '@/utilities/calcom-config'
+import { DRUG_TEST_CAL_LINK, getAdminQuickBookCalLink } from '@/utilities/calcom-config'
 import { searchClients } from '@/views/DrugTestWizard/workflows/components/client/clientSearch'
-import { getClients, SimpleClient } from '@/views/DrugTestWizard/workflows/components/client/getClients'
+import type { SimpleClient } from '@/views/DrugTestWizard/workflows/components/client/getClients'
 
 type TestTypeOption = TestTypeBookingOption
 
 type CalModalConfig = Record<string, string | string[] | Record<string, string>>
+type AdminQuickBookClientContext = {
+  calLink: string
+  recommendation: RecommendedTestType
+}
 
-async function resolveClientRecommendation(clientId: string): Promise<RecommendedTestType> {
+function buildClientInitials(firstName: string, lastName: string): string {
+  return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
+}
+
+function getReferralNameFromValue(referralValue: unknown): string | undefined {
+  if (referralValue && typeof referralValue === 'object' && 'name' in referralValue) {
+    return typeof referralValue.name === 'string' ? referralValue.name : undefined
+  }
+
+  return undefined
+}
+
+async function resolveClientQuickBookContext(clientId: string): Promise<AdminQuickBookClientContext> {
   const client = await sdk.findByID({
     collection: 'clients',
     id: clientId,
@@ -38,45 +54,68 @@ async function resolveClientRecommendation(clientId: string): Promise<Recommende
   })
 
   if (client.referralType !== 'court' && client.referralType !== 'employer') {
-    return {}
+    return {
+      calLink: DRUG_TEST_CAL_LINK,
+      recommendation: {},
+    }
   }
 
   const relationRef = extractReferralRelation(client.referral)
   if (!relationRef) {
-    return {}
+    return {
+      calLink: DRUG_TEST_CAL_LINK,
+      recommendation: {},
+    }
   }
+
+  let referralName: string | undefined
+  let recommendation: RecommendedTestType = {}
 
   if (client.referral && typeof client.referral === 'object' && 'value' in client.referral) {
     const referralValue = client.referral.value
+    referralName = getReferralNameFromValue(referralValue)
+
     if (typeof referralValue === 'object' && referralValue !== null) {
       const extracted = extractPreferredTestType(
         'preferredTestType' in referralValue ? referralValue.preferredTestType : undefined,
       )
       if (extracted.recommendedTestTypeId || extracted.recommendedTestTypeValue) {
-        return extracted
+        recommendation = extracted
       }
     }
   }
 
-  const referralDoc = await sdk.findByID({
-    collection: relationRef.relationTo,
-    id: relationRef.referralId,
-    depth: 1,
-    select: {
-      preferredTestType: true,
-    },
-  })
+  if (!referralName || (!recommendation.recommendedTestTypeId && !recommendation.recommendedTestTypeValue)) {
+    const referralDoc = await sdk.findByID({
+      collection: relationRef.relationTo,
+      id: relationRef.referralId,
+      depth: 1,
+      select: {
+        name: true,
+        preferredTestType: true,
+      },
+    })
 
-  const extractedFromReferral = extractPreferredTestType(referralDoc.preferredTestType)
-  if (!extractedFromReferral.recommendedTestTypeId && !extractedFromReferral.recommendedTestTypeValue) {
-    return {}
+    referralName = referralName || getReferralNameFromValue(referralDoc)
+    recommendation = extractPreferredTestType(referralDoc.preferredTestType)
   }
 
-  if (!extractedFromReferral.recommendedTestTypeValue && extractedFromReferral.recommendedTestTypeId) {
+  const calLink = getAdminQuickBookCalLink({
+    referralType: client.referralType,
+    referralName,
+  })
+  if (!recommendation.recommendedTestTypeId && !recommendation.recommendedTestTypeValue) {
+    return {
+      calLink,
+      recommendation: {},
+    }
+  }
+
+  if (!recommendation.recommendedTestTypeValue && recommendation.recommendedTestTypeId) {
     try {
       const testTypeDoc = await sdk.findByID({
         collection: 'test-types',
-        id: extractedFromReferral.recommendedTestTypeId,
+        id: recommendation.recommendedTestTypeId,
         depth: 0,
         select: {
           value: true,
@@ -84,15 +123,67 @@ async function resolveClientRecommendation(clientId: string): Promise<Recommende
       })
 
       return {
-        ...extractedFromReferral,
-        ...(testTypeDoc.value ? { recommendedTestTypeValue: testTypeDoc.value } : {}),
+        calLink,
+        recommendation: {
+          ...recommendation,
+          ...(testTypeDoc.value ? { recommendedTestTypeValue: testTypeDoc.value } : {}),
+        },
       }
     } catch (error) {
       console.warn('[AdminQuickBookWidget] Failed to fetch recommended test type value', error)
     }
   }
 
-  return extractedFromReferral
+  return {
+    calLink,
+    recommendation,
+  }
+}
+
+async function fetchQuickBookClients(): Promise<SimpleClient[]> {
+  const { docs } = await sdk.find({
+    collection: 'clients',
+    limit: 1000,
+    sort: 'lastName',
+    depth: 1,
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      middleInitial: true,
+      email: true,
+      dob: true,
+      phone: true,
+      headshot: true,
+      updatedAt: true,
+    },
+  })
+
+  return docs.map((client) => {
+    const headshot =
+      typeof client.headshot === 'object' && client.headshot
+        ? client.headshot.thumbnailURL || client.headshot.url || undefined
+        : undefined
+    const headshotId = typeof client.headshot === 'object' && client.headshot ? client.headshot.id : undefined
+    const fullName = client.middleInitial
+      ? `${client.firstName} ${client.middleInitial} ${client.lastName}`
+      : `${client.firstName} ${client.lastName}`
+
+    return {
+      id: client.id,
+      firstName: client.firstName,
+      middleInitial: client.middleInitial ?? undefined,
+      lastName: client.lastName,
+      fullName,
+      initials: buildClientInitials(client.firstName, client.lastName),
+      email: client.email,
+      dob: client.dob ?? undefined,
+      phone: client.phone ?? undefined,
+      headshot,
+      headshotId,
+      updatedAt: client.updatedAt ?? undefined,
+    }
+  })
 }
 
 async function fetchTestTypes(): Promise<TestTypeOption[]> {
@@ -162,7 +253,7 @@ export function AdminQuickBookWidgetClient({
 
     const loadData = async () => {
       try {
-        const [clientList, availableTestTypes] = await Promise.all([getClients(), fetchTestTypes()])
+        const [clientList, availableTestTypes] = await Promise.all([fetchQuickBookClients(), fetchTestTypes()])
         if (!mounted) return
         setClients(clientList)
         setTestTypes(availableTestTypes)
@@ -188,11 +279,11 @@ export function AdminQuickBookWidgetClient({
     return searchClients(clients, searchQuery.trim(), 8)
   }, [clients, searchQuery])
 
-  const openCalBookingModal = async (config: CalModalConfig) => {
+  const openCalBookingModal = async (config: CalModalConfig, calLink = DRUG_TEST_CAL_LINK) => {
     const cal = await getCalApi()
 
     cal('modal', {
-      calLink: INSTANT_17_PANEL_CAL_LINK,
+      calLink,
       config: {
         overlayCalendar: 'true',
         ...config,
@@ -207,9 +298,9 @@ export function AdminQuickBookWidgetClient({
     setIsOpeningBooking(true)
 
     try {
-      const recommendation = await resolveClientRecommendation(client.id)
+      const quickBookContext = await resolveClientQuickBookContext(client.id)
       const options = testTypes.length > 0 ? testTypes : FALLBACK_BOOKING_TEST_TYPES
-      const selectedTestLabel = resolveTestLabel(options, recommendation)
+      const selectedTestLabel = resolveTestLabel(options, quickBookContext.recommendation)
 
       const config: CalModalConfig = {
         name: client.fullName || `${client.firstName} ${client.lastName}`,
@@ -223,7 +314,7 @@ export function AdminQuickBookWidgetClient({
         config.smsReminderNumber = formattedPhone
       }
 
-      await openCalBookingModal(config)
+      await openCalBookingModal(config, quickBookContext.calLink)
     } catch (error) {
       console.error('[AdminQuickBookWidget] Failed to open booking', error)
       setBookingError('Could not open booking. Please try again.')
@@ -261,7 +352,7 @@ export function AdminQuickBookWidgetClient({
             <label htmlFor={searchInputId} className="sr-only">
               Search Existing Client
             </label>
-            <Search className="text-primary/70 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+            <Search className="text-primary/70 pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
             <Input
               id={searchInputId}
               value={searchQuery}
@@ -275,10 +366,10 @@ export function AdminQuickBookWidgetClient({
               }}
               placeholder="Search client name, email, phone, or DOB..."
               className="border-primary/35 bg-background focus-visible:border-primary focus-visible:ring-primary/20 h-11 rounded-md pr-10 pl-10 shadow-sm focus-visible:ring-4"
-              disabled={isLoadingClients || isOpeningBooking || !!loadError}
+              disabled={isOpeningBooking}
             />
             {(isLoadingClients || isOpeningBooking) && (
-              <Loader2 className="text-muted-foreground absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin" />
+              <Loader2 className="text-muted-foreground pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin" />
             )}
             {isDropdownOpen && !isLoadingClients && results.length > 0 && (
               <div

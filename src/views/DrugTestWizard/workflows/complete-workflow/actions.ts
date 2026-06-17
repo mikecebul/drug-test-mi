@@ -193,7 +193,7 @@ export async function getTodaysCollectionBookings() {
         },
         {
           status: {
-            not_equals: 'cancelled',
+            in: ['confirmed', 'pending'],
           },
         },
       ],
