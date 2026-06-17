@@ -28,6 +28,7 @@ type MedicationInput = {
 export type ExtractedPdfData = ParsedPDFData
 
 const WIZARD_QUERY_ROOTS = [
+  'guided',
   'clients',
   'all-clients',
   'matching-clients',
@@ -49,6 +50,12 @@ export function clearWizardQueryCache(queryClient: QueryClient) {
       queryKey: [root],
     })
   }
+}
+
+export function invalidateGuidedSchedule(queryClient: QueryClient) {
+  queryClient.invalidateQueries({
+    queryKey: ['guided', 'today-bookings'],
+  })
 }
 
 export function invalidateWizardClientDerivedData(

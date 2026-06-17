@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getPayload, type Payload } from 'payload'
 import configPromise from '@payload-config'
 import type { Booking } from '@/payload-types'
+import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 
 import {
   buildCalcomBookingData,
   type CalcomBookingData,
   type CalcomWebhookPayload,
+  getCalcomBookingNumericId,
   getCalcomBookingUid,
   getCalcomRescheduleUid,
   handledCalcomBookingEvents,
@@ -34,19 +36,38 @@ async function findBookingByCalcomUid(payload: Payload, uid?: string | null): Pr
   return result.docs[0] || null
 }
 
+async function findBookingByCalcomNumericId(payload: Payload, numericId?: number | null): Promise<Booking | null> {
+  if (!numericId) return null
+
+  const result = await payload.find({
+    collection: 'bookings',
+    where: {
+      calcomBookingNumericId: {
+        equals: numericId,
+      },
+    },
+    limit: 1,
+    overrideAccess: true,
+  })
+
+  return result.docs[0] || null
+}
+
 async function updateBooking(
   payload: Payload,
   id: string,
   data: Partial<CalcomBookingData>,
   req: NextRequest,
 ) {
-  return payload.update({
+  const booking = await payload.update({
     collection: 'bookings',
     id,
     data,
     req,
     overrideAccess: true,
   })
+  revalidateBookingViews()
+  return booking
 }
 
 async function createBooking(
@@ -54,12 +75,14 @@ async function createBooking(
   data: CalcomBookingData,
   req: NextRequest,
 ) {
-  return payload.create({
+  const booking = await payload.create({
     collection: 'bookings',
     data,
     req,
     overrideAccess: true,
   })
+  revalidateBookingViews()
+  return booking
 }
 
 export async function POST(req: NextRequest) {
@@ -84,8 +107,10 @@ export async function POST(req: NextRequest) {
 
     const payloadClient = await getPayload({ config: configPromise })
     const uid = getCalcomBookingUid(payload)
+    const numericId = getCalcomBookingNumericId(payload)
     const rescheduleUid = getCalcomRescheduleUid(payload)
     const existingByUid = await findBookingByCalcomUid(payloadClient, uid)
+    const existingByNumericId = existingByUid ? null : await findBookingByCalcomNumericId(payloadClient, numericId)
     const existingByRescheduleUid =
       triggerEvent === 'BOOKING_RESCHEDULED' ? await findBookingByCalcomUid(payloadClient, rescheduleUid) : null
 
@@ -107,7 +132,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Booking rescheduled', id: updatedBooking.id }, { status: 200 })
     }
 
-    const existingBooking = existingByRescheduleUid || existingByUid
+    const existingBooking = existingByRescheduleUid || existingByUid || existingByNumericId
     const bookingData = buildCalcomBookingData(webhookData, existingBooking?.payment)
 
     if (triggerEvent === 'BOOKING_CANCELLED' || triggerEvent === 'BOOKING_REJECTED') {

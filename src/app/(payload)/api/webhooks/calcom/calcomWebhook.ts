@@ -22,6 +22,7 @@ export interface CalcomWebhookPayload {
   triggerEvent: CalcomWebhookTrigger
   createdAt: string
   payload: {
+    id?: number | string
     type?: string
     title?: string
     description?: string
@@ -158,6 +159,11 @@ export function getCalcomBookingUid(payload: CalcomWebhookPayload['payload']) {
   )
 }
 
+export function getCalcomBookingNumericId(payload: CalcomWebhookPayload['payload']) {
+  const id = getNumberLike(payload.id) ?? getNumberLike(payload.metadata?.id) ?? getNumberLike(payload.metadata?.bookingId)
+  return typeof id === 'number' && Number.isInteger(id) ? id : null
+}
+
 export function getCalcomRescheduleUid(payload: CalcomWebhookPayload['payload']) {
   return payload.rescheduleUid || getNestedString(payload.metadata, ['rescheduleUid'])
 }
@@ -269,6 +275,7 @@ export function buildCalcomBookingData(
   const location = locationValue || payload.location || ''
   const uid = getCalcomBookingUid(payload)
   const rescheduleUid = getCalcomRescheduleUid(payload)
+  const numericId = getCalcomBookingNumericId(payload)
   const payment = buildCalcomPaymentUpdate(triggerEvent, payload, existingPayment, webhookData.createdAt)
 
   const bookingData: CalcomBookingData = {
@@ -291,6 +298,7 @@ export function buildCalcomBookingData(
     attendeeEmail,
     location: location || null,
     calcomBookingId: uid || null,
+    calcomBookingNumericId: numericId,
     calcomRescheduledFromId: rescheduleUid || null,
     calcomPaymentId: getCalcomPaymentId(payload) || null,
     eventTypeId: payload.eventTypeId || null,

@@ -157,7 +157,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
         testId={completedTestId}
         onBack={() => {
           if (bookingId) {
-            router.push(`/admin/drug-test-upload?workflow=guided&step=schedule&bookingId=${bookingId}`)
+            router.push('/admin/drug-test-upload?workflow=guided&step=schedule')
             return
           }
           onBack()

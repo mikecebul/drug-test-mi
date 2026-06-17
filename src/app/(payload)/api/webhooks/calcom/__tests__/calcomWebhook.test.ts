@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 
 import {
   buildCalcomBookingData,
+  getCalcomBookingNumericId,
   getCalcomBookingUid,
   getCalcomRescheduleUid,
   normalizeCalcomMoney,
@@ -16,6 +17,7 @@ function createWebhook(overrides: Partial<CalcomWebhookPayload> = {}): CalcomWeb
     title: 'Drug Test Appointment',
     startTime: '2026-06-17T14:00:00.000Z',
     endTime: '2026-06-17T14:15:00.000Z',
+    id: 12345,
     uid: 'booking-new',
     organizer: {
       id: 12,
@@ -67,8 +69,10 @@ describe('Cal.com webhook helpers', () => {
     })
 
     expect(getCalcomBookingUid(webhook.payload)).toBe('booking-new')
+    expect(getCalcomBookingNumericId(webhook.payload)).toBe(12345)
     expect(getCalcomRescheduleUid(webhook.payload)).toBe('booking-original')
     expect(buildCalcomBookingData(webhook).calcomBookingId).toBe('booking-new')
+    expect(buildCalcomBookingData(webhook).calcomBookingNumericId).toBe(12345)
     expect(buildCalcomBookingData(webhook).calcomRescheduledFromId).toBe('booking-original')
   })
 
