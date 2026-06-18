@@ -5,6 +5,7 @@ import type { Booking } from '@/payload-types'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 
 import {
+  allowsUnsignedCalcomWebhooks,
   buildCalcomBookingData,
   type CalcomBookingData,
   type CalcomWebhookPayload,
@@ -85,6 +86,44 @@ async function createBooking(
   return booking
 }
 
+function isDuplicateKeyError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+
+  const maybeError = error as { code?: unknown; message?: unknown; cause?: unknown }
+  if (maybeError.code === 11000) return true
+  if (typeof maybeError.message === 'string' && /duplicate\s+key/i.test(maybeError.message)) return true
+
+  return isDuplicateKeyError(maybeError.cause)
+}
+
+async function findBookingByCalcomIdentifiers(payload: Payload, data: CalcomBookingData): Promise<Booking | null> {
+  const existingByUid = await findBookingByCalcomUid(payload, data.calcomBookingId)
+  return existingByUid || (await findBookingByCalcomNumericId(payload, data.calcomBookingNumericId))
+}
+
+async function createOrUpdateBooking(
+  payload: Payload,
+  data: CalcomBookingData,
+  req: NextRequest,
+): Promise<{ booking: Booking; created: boolean }> {
+  try {
+    const booking = await createBooking(payload, data, req)
+    return { booking, created: true }
+  } catch (error) {
+    if (!isDuplicateKeyError(error) || (!data.calcomBookingId && !data.calcomBookingNumericId)) {
+      throw error
+    }
+
+    const existingBooking = await findBookingByCalcomIdentifiers(payload, data)
+    if (!existingBooking) {
+      throw error
+    }
+
+    const booking = await updateBooking(payload, existingBooking.id, data, req)
+    return { booking, created: false }
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text()
@@ -92,7 +131,11 @@ export async function POST(req: NextRequest) {
     const secret = getWebhookSecret()
 
     if (!verifyCalcomWebhookSignature(rawBody, signature, secret)) {
-      console.error('Invalid Cal.com webhook signature')
+      if (!secret && !allowsUnsignedCalcomWebhooks()) {
+        console.error('Cal.com webhook secret is not configured outside local development')
+      } else {
+        console.error('Invalid Cal.com webhook signature')
+      }
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
@@ -142,9 +185,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ message: 'Booking status updated', id: updatedBooking.id }, { status: 200 })
       }
 
-      const booking = await createBooking(payloadClient, bookingData, req)
-      console.log(`Created historical ${triggerEvent.toLowerCase()} booking: ${booking.id}`)
-      return NextResponse.json({ message: 'Historical booking created', id: booking.id }, { status: 201 })
+      const { booking, created } = await createOrUpdateBooking(payloadClient, bookingData, req)
+      console.log(
+        created
+          ? `Created historical ${triggerEvent.toLowerCase()} booking: ${booking.id}`
+          : `Recovered duplicate historical ${triggerEvent.toLowerCase()} booking: ${booking.id}`,
+      )
+      return NextResponse.json(
+        { message: created ? 'Historical booking created' : 'Booking status updated', id: booking.id },
+        { status: created ? 201 : 200 },
+      )
     }
 
     if (existingBooking) {
@@ -153,9 +203,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Booking updated', id: updatedBooking.id }, { status: 200 })
     }
 
-    const booking = await createBooking(payloadClient, bookingData, req)
-    console.log(`Created Cal.com booking: ${booking.id}`)
-    return NextResponse.json({ message: 'Booking created', id: booking.id }, { status: 201 })
+    const { booking, created } = await createOrUpdateBooking(payloadClient, bookingData, req)
+    console.log(created ? `Created Cal.com booking: ${booking.id}` : `Recovered duplicate Cal.com booking: ${booking.id}`)
+    return NextResponse.json(
+      { message: created ? 'Booking created' : 'Booking updated', id: booking.id },
+      { status: created ? 201 : 200 },
+    )
   } catch (error) {
     console.error('Error processing Cal.com webhook:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

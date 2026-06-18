@@ -1,7 +1,8 @@
 import crypto from 'crypto'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 
 import {
+  allowsUnsignedCalcomWebhooks,
   buildCalcomBookingData,
   getCalcomBookingNumericId,
   getCalcomBookingUid,
@@ -55,6 +56,20 @@ describe('Cal.com webhook helpers', () => {
     expect(verifyCalcomWebhookSignature(rawBody, signature, secret)).toBe(true)
     expect(verifyCalcomWebhookSignature(rawBody, `sha256=${'0'.repeat(64)}`, secret)).toBe(false)
     expect(verifyCalcomWebhookSignature(rawBody, null, secret)).toBe(false)
+  })
+
+  test('allows unsigned Cal.com webhooks in test mode only', () => {
+    try {
+      vi.stubEnv('NODE_ENV', 'test')
+      expect(allowsUnsignedCalcomWebhooks()).toBe(true)
+      expect(verifyCalcomWebhookSignature('{}', null, undefined)).toBe(true)
+
+      vi.stubEnv('NODE_ENV', 'production')
+      expect(allowsUnsignedCalcomWebhooks()).toBe(false)
+      expect(verifyCalcomWebhookSignature('{}', null, undefined)).toBe(false)
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   test('maps Cal.com reschedules to the original and new booking UIDs', () => {

@@ -1,11 +1,19 @@
 import type { Client } from '@/payload-types'
-import { FALLBACK_BOOKING_TEST_TYPES, resolveRecommendedTestLabel } from '@/lib/quick-book'
+import {
+  extractPreferredTestType,
+  FALLBACK_BOOKING_TEST_TYPES,
+  formatPhoneForCal,
+  resolveRecommendedTestLabel,
+  type RecommendedTestType,
+} from '@/lib/quick-book'
 
 export const DEFAULT_BOOKING_CAL_LINK = 'midrugtest'
 export const INSTANT_17_PANEL_CAL_LINK = 'midrugtest/instant-17-panel'
 export const DRUG_TEST_CAL_LINK = 'midrugtest/drug-test'
 export const LCEMS_DRUG_TEST_CAL_LINK = 'midrugtest/lcems-drug-test-booking'
 export const UNPAID_BOOKING_CAL_LINK = DRUG_TEST_CAL_LINK
+
+export type CalBookingConfig = Record<string, string | string[] | Record<string, string>>
 
 export function getClientBookingCalLink(client: Pick<Client, 'allowUnpaidBookings'>): string {
   return client.allowUnpaidBookings ? UNPAID_BOOKING_CAL_LINK : DEFAULT_BOOKING_CAL_LINK
@@ -30,21 +38,7 @@ export function getAdminQuickBookCalLink(input?: {
 }
 
 // Helper: Extract referral organization name based on client type
-function getReferralName(client: Client): string | undefined {
-  switch (client.referralType) {
-    case 'court':
-    case 'employer':
-      if (client.referral && typeof client.referral === 'object' && 'value' in client.referral) {
-        return typeof client.referral.value === 'object' ? client.referral.value?.name || undefined : undefined
-      }
-      return undefined
-    case 'self':
-    default:
-      return undefined
-  }
-}
-
-function getPreferredTestLabel(client: Client): string | undefined {
+function getReferralValue(client: Client): unknown {
   if (client.referralType !== 'court' && client.referralType !== 'employer') {
     return undefined
   }
@@ -53,12 +47,33 @@ function getPreferredTestLabel(client: Client): string | undefined {
     return undefined
   }
 
-  const referralValue = client.referral.value
+  return client.referral.value
+}
+
+function getReferralName(client: Client): string | undefined {
+  switch (client.referralType) {
+    case 'court':
+    case 'employer':
+      const referralValue = getReferralValue(client)
+      return referralValue && typeof referralValue === 'object' && 'name' in referralValue
+        ? String(referralValue.name || '') || undefined
+        : undefined
+    case 'self':
+    default:
+      return undefined
+  }
+}
+
+function getReferralPreferredTestType(client: Client): unknown {
+  const referralValue = getReferralValue(client)
   if (!referralValue || typeof referralValue !== 'object' || !('preferredTestType' in referralValue)) {
     return undefined
   }
 
-  const preferredTestType = referralValue.preferredTestType
+  return referralValue.preferredTestType
+}
+
+function getPopulatedPreferredTestLabel(preferredTestType: unknown): string | undefined {
   if (!preferredTestType || typeof preferredTestType !== 'object') {
     return undefined
   }
@@ -73,38 +88,46 @@ function getPreferredTestLabel(client: Client): string | undefined {
     'label' in preferredTestType && typeof preferredTestType.label === 'string' ? preferredTestType.label : undefined
 
   return (
+    bookingLabel ||
     resolveRecommendedTestLabel(FALLBACK_BOOKING_TEST_TYPES, {
       recommendedTestTypeValue: value,
     }) ||
-    bookingLabel ||
     label ||
     value
   )
 }
 
-// Helper: Format phone for Cal.com (E.164 format)
-function formatPhone(phone?: string | null): string | undefined {
-  if (!phone) return undefined
-
-  // Strip all non-digit characters
-  const digits = phone.replace(/\D/g, '')
-
-  // Handle US phone numbers (10 digits)
-  if (digits.length === 10) {
-    return `+1${digits}`
-  }
-
-  // Handle numbers that already have country code
-  if (digits.length === 11 && digits.startsWith('1')) {
-    return `+${digits}`
-  }
-
-  // Invalid format - don't prefill
-  return undefined
+function getPreferredTestLabel(client: Client): string | undefined {
+  const preferredTestType = getReferralPreferredTestType(client)
+  return getPopulatedPreferredTestLabel(preferredTestType)
 }
 
-export function buildCalConfig(client: Client): Record<string, any> {
-  // Validate required fields
+async function resolvePreferredTestLabel(recommendation: RecommendedTestType): Promise<string | undefined> {
+  if (!recommendation.recommendedTestTypeValue && recommendation.recommendedTestTypeId) {
+    try {
+      const [{ getPayload }, { default: config }] = await Promise.all([import('payload'), import('@payload-config')])
+      const payload = await getPayload({ config })
+      const testType = await payload.findByID({
+        collection: 'test-types',
+        id: recommendation.recommendedTestTypeId,
+        depth: 0,
+        select: {
+          bookingLabel: true,
+          label: true,
+          value: true,
+        },
+      })
+
+      return testType.bookingLabel || testType.label || testType.value || undefined
+    } catch (error) {
+      console.warn('[CalConfig] Failed to resolve preferred test type', error)
+    }
+  }
+
+  return resolveRecommendedTestLabel(FALLBACK_BOOKING_TEST_TYPES, recommendation)
+}
+
+function buildBaseCalConfig(client: Client): CalBookingConfig {
   if (!client.firstName?.trim() || !client.lastName?.trim()) {
     console.error('Client missing required name fields:', {
       hasFirstName: !!client.firstName,
@@ -118,13 +141,12 @@ export function buildCalConfig(client: Client): Record<string, any> {
     throw new Error('Invalid email address. Please update your profile before booking.')
   }
 
-  const calConfig: Record<string, any> = {
+  const calConfig: CalBookingConfig = {
     name: `${client.firstName.trim()} ${client.lastName.trim()}`,
     email: client.email.trim(),
   }
 
-  // Add phone if available and valid
-  const formattedPhone = formatPhone(client.phone)
+  const formattedPhone = formatPhoneForCal(client.phone)
   if (formattedPhone) {
     calConfig.attendeePhoneNumber = formattedPhone
   } else if (client.phone) {
@@ -137,7 +159,26 @@ export function buildCalConfig(client: Client): Record<string, any> {
     calConfig.title = referralName.trim()
   }
 
+  return calConfig
+}
+
+export function buildCalConfig(client: Client): CalBookingConfig {
+  const calConfig = buildBaseCalConfig(client)
   const preferredTestLabel = getPreferredTestLabel(client)
+
+  if (preferredTestLabel) {
+    calConfig.test = preferredTestLabel
+  }
+
+  return calConfig
+}
+
+export async function buildClientBookingCalConfig(client: Client): Promise<CalBookingConfig> {
+  const calConfig = buildBaseCalConfig(client)
+  const preferredTestType = getReferralPreferredTestType(client)
+  const populatedLabel = getPopulatedPreferredTestLabel(preferredTestType)
+  const preferredTestLabel = populatedLabel || (await resolvePreferredTestLabel(extractPreferredTestType(preferredTestType)))
+
   if (preferredTestLabel) {
     calConfig.test = preferredTestLabel
   }
