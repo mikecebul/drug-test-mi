@@ -10,7 +10,7 @@ import { EmailsFieldGroup } from '../../components/emails/EmailsFieldGroup'
 import { invalidateWizardClientDerivedData } from '../../../queries'
 
 export const EmailsStep = withForm({
-  ...getCollectLabFormOpts('reviewEmails'),
+  ...getCollectLabFormOpts(),
 
   render: function Render({ form }) {
     const queryClient = useQueryClient()
@@ -30,7 +30,7 @@ export const EmailsStep = withForm({
       breathalyzerResult: formValues?.collection?.breathalyzerResult,
     })
 
-    // Initialize and sync referral recipients without clobbering manual edits.
+    // Keep referral recipients synced to the current referral profile.
     useEffect(() => {
       if (!previewData) {
         return
@@ -46,19 +46,20 @@ export const EmailsStep = withForm({
       })
       const clientChanged = lastClientIdRef.current !== clientId
       const previewChanged = lastPreviewRecipientsHashRef.current !== previewRecipientsHash
-      const recipientsEmpty = formValues.emails.referralRecipients.length === 0
 
       if (clientChanged) {
         form.setFieldValue('emails.referralRecipients', nextReferralRecipients)
         form.setFieldValue('emails.referralEmailEnabled', nextReferralRecipients.length > 0)
-      } else if (previewChanged && recipientsEmpty) {
+      } else if (previewChanged) {
         form.setFieldValue('emails.referralRecipients', nextReferralRecipients)
-        form.setFieldValue('emails.referralEmailEnabled', nextReferralRecipients.length > 0)
+        if (formValues.emails.referralEmailEnabled && nextReferralRecipients.length === 0) {
+          form.setFieldValue('emails.referralEmailEnabled', false)
+        }
       }
 
       lastClientIdRef.current = clientId
       lastPreviewRecipientsHashRef.current = previewRecipientsHash
-    }, [previewData, formValues.client?.id, formValues.emails.referralRecipients.length, form])
+    }, [previewData, formValues.client?.id, formValues.emails.referralEmailEnabled, form])
 
     const handleReferralProfileSaved = useCallback(async () => {
       invalidateWizardClientDerivedData(queryClient, { clientId: formValues?.client?.id || null })

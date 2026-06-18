@@ -89,15 +89,21 @@ const adminAutoLogin =
       }
     : false
 
+const allowedLoopbackOrigins = Array.from(
+  new Set([baseUrl, 'http://localhost:3000', 'http://127.0.0.1:3000'].filter(Boolean)),
+)
+
 export default buildConfig({
-  // serverURL: baseUrl,
+  serverURL: baseUrl,
   admin: {
     autoLogin: adminAutoLogin,
     autoRefresh: true,
     avatar: 'default',
+    suppressHydrationWarning: true,
     components: {
       beforeNavLinks: [
         '@/views/beforeNavLinks/DrugTestCollectorLink',
+        '@/views/beforeNavLinks/QuickBookLink',
         '@/views/beforeNavLinks/DrugTestTrackerLink',
       ],
       afterNavLinks: ['@/views/afterNavLinks/LinkToAnalyticsDefaultRootView'],
@@ -123,52 +129,41 @@ export default buildConfig({
     dashboard: {
       widgets: [
         {
-          slug: 'wizard-entry',
-          label: 'Drug Test Wizard',
-          Component: '@/views/dashboard/widgets/WizardEntryWidget',
-          minWidth: 'small',
+          slug: 'next-calcom-booking',
+          label: 'Schedule',
+          Component: '@/views/dashboard/widgets/NextCalcomBookingWidget',
+          minWidth: 'medium',
           maxWidth: 'full',
         },
         {
           slug: 'admin-quick-book',
           label: 'Quick Book',
           Component: '@/views/dashboard/widgets/AdminQuickBookWidget',
-          minWidth: 'small',
-          maxWidth: 'full',
-        },
-        {
-          slug: 'total-clients',
-          label: 'Total Clients',
-          Component: '@/views/dashboard/widgets/TotalClientsWidget',
-          minWidth: 'small',
-          maxWidth: 'full',
+          minWidth: 'medium',
+          maxWidth: 'medium',
         },
         {
           slug: 'pending-drug-tests',
           label: 'Pending Drug Tests',
           Component: '@/views/dashboard/widgets/PendingDrugTestsWidget',
-          minWidth: 'small',
-          maxWidth: 'full',
+          minWidth: 'medium',
+          maxWidth: 'medium',
         },
         {
-          slug: 'next-calcom-booking',
-          label: 'Next Cal.com Booking',
-          Component: '@/views/dashboard/widgets/NextCalcomBookingWidget',
-          minWidth: 'small',
+          slug: 'admin-alerts',
+          label: 'Admin Alerts',
+          Component: '@/views/dashboard/widgets/AdminAlertsWidget',
+          minWidth: 'medium',
           maxWidth: 'full',
         },
       ],
       defaultLayout: [
         {
-          widgetSlug: 'wizard-entry',
-          width: 'medium',
+          widgetSlug: 'next-calcom-booking',
+          width: 'full',
         },
         {
           widgetSlug: 'admin-quick-book',
-          width: 'medium',
-        },
-        {
-          widgetSlug: 'total-clients',
           width: 'medium',
         },
         {
@@ -176,8 +171,8 @@ export default buildConfig({
           width: 'medium',
         },
         {
-          widgetSlug: 'next-calcom-booking',
-          width: 'medium',
+          widgetSlug: 'admin-alerts',
+          width: 'full',
         },
       ],
     },
@@ -279,8 +274,8 @@ export default buildConfig({
     Clients,
     DrugTests,
   ],
-  cors: [baseUrl].filter(Boolean),
-  csrf: [baseUrl].filter(Boolean),
+  cors: allowedLoopbackOrigins,
+  csrf: allowedLoopbackOrigins,
   email:
     process.env.NODE_ENV === 'production'
       ? resendAdapter({

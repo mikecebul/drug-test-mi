@@ -3,7 +3,7 @@ import { cleanupFixtures } from './helpers/cleanup'
 import { findClientByEmail, deleteClientAndRelatedDataByEmail } from './helpers/db-assert'
 import { loginAdmin } from './helpers/auth'
 import { seedFixtures, type FixtureContext } from './helpers/seed'
-import { openWizard, selectWorkflow } from './helpers/wizard'
+import { clickNext, openWizard, selectWorkflow } from './helpers/wizard'
 
 let fixtures: FixtureContext
 const createdClientEmails: string[] = []
@@ -12,7 +12,14 @@ function uniqueEmail(prefix: string) {
   return `${prefix}.${Date.now()}.${Math.floor(Math.random() * 1000)}@example.com`
 }
 
-async function fillPersonalInfo(page: Page) {
+async function fillPersonalInfo(
+  page: Page,
+  overrides: { firstName?: string; lastName?: string; dob?: string; phone?: string } = {},
+) {
+  const firstName = overrides.firstName ?? 'Admin'
+  const lastName = overrides.lastName ?? 'Registrant'
+  const dob = overrides.dob ?? '01/15/1990'
+  const phone = overrides.phone ?? '2485551212'
   const firstNameInput = page.getByRole('textbox', { name: /^First Name/i })
   const lastNameInput = page.getByRole('textbox', { name: /^Last Name/i })
 
@@ -21,20 +28,29 @@ async function fillPersonalInfo(page: Page) {
   await expect(lastNameInput).toBeVisible()
   await expect(lastNameInput).toBeEditable()
 
-  await firstNameInput.fill('Admin')
-  await expect(firstNameInput).toHaveValue('Admin')
+  await firstNameInput.fill(firstName)
+  await expect(firstNameInput).toHaveValue(firstName)
 
   await page.locator('input[name="personalInfo.middleInitial"]').fill('Q')
   await expect(page.locator('input[name="personalInfo.middleInitial"]')).toHaveValue('Q')
 
-  await lastNameInput.fill('Registrant')
-  await expect(lastNameInput).toHaveValue('Registrant')
+  await lastNameInput.fill(lastName)
+  await expect(lastNameInput).toHaveValue(lastName)
 
-  await page.getByLabel('Gender').click()
-  await page.getByRole('option', { name: /^Male$/i }).click()
-  await page.getByLabel('Date of Birth').fill('01/15/1990')
+  const genderSelect = page.getByLabel('Gender')
+  const maleOption = page.getByRole('option', { name: /^Male$/i })
+  const genderDeadline = Date.now() + 10_000
+  do {
+    await genderSelect.click()
+    if (await maleOption.isVisible().catch(() => false)) {
+      break
+    }
+    await page.waitForTimeout(500)
+  } while (Date.now() < genderDeadline)
+  await maleOption.click()
+  await page.getByLabel('Date of Birth').fill(dob)
   await page.getByLabel('Date of Birth').press('Tab')
-  await page.getByLabel('Phone Number').fill('2485551212')
+  await page.getByLabel('Phone Number').fill(phone)
   await expect(page.getByRole('button', { name: /^Next$/i })).toBeEnabled()
 }
 
@@ -65,30 +81,30 @@ test.describe('Wizard Register Client', () => {
   })
 
   test('validates required fields and supports back-forward in recipient setup', async ({ page }) => {
-    await page.getByRole('button', { name: /^Next$/i }).click()
+    await clickNext(page)
     await expect(page.getByText('First name is required')).toBeVisible()
     await expect(page.getByText('Middle initial is required')).toBeVisible()
     await expect(page.getByText('Last name is required')).toBeVisible()
 
     await fillPersonalInfo(page)
-    await page.getByRole('button', { name: /^Next$/i }).click()
+    await clickNext(page)
 
     await expect(page.getByText('Account Information')).toBeVisible({ timeout: 20_000 })
-    await page.getByRole('button', { name: /^Next$/i }).click()
+    await clickNext(page)
     await expect(page.getByText('Email is required')).toBeVisible()
 
     await fillAccountInfo(page, uniqueEmail('wizard-admin-validation'))
-    await page.getByRole('button', { name: /^Next$/i }).click()
+    await clickNext(page)
 
     await expect(page.getByText('Screening Type')).toBeVisible({ timeout: 20_000 })
     await page.getByRole('radio', { name: /Employer/i }).check()
-    await page.getByRole('button', { name: /^Next$/i }).click()
+    await clickNext(page)
 
     await expect(page.getByText('Results Recipients')).toBeVisible({ timeout: 20_000 })
     await page.locator('#employer-select').selectOption(fixtures.referrals.employer.id)
 
     await page.getByRole('button', { name: /Add Recipient/i }).click()
-    await page.getByRole('button', { name: /^Next$/i }).click()
+    await clickNext(page)
     await expect(page.getByText('Recipient email is required')).toBeVisible()
 
     await page.getByLabel('Recipient Email').fill(`admin.recipient.${Date.now()}@example.com`)
@@ -96,28 +112,33 @@ test.describe('Wizard Register Client', () => {
     await page.getByRole('button', { name: /^Back$/i }).click()
     await expect(page.getByText('Screening Type')).toBeVisible({ timeout: 20_000 })
 
-    await page.getByRole('button', { name: /^Next$/i }).click()
+    await clickNext(page)
     await expect(page.getByText('Results Recipients')).toBeVisible({ timeout: 20_000 })
     await expect(page.getByLabel('Recipient Email')).toHaveValue(/admin\.recipient\./)
   })
 
   test('submits register-client workflow and persists referral configuration', async ({ page }) => {
     const email = uniqueEmail('wizard-admin-submit')
+    const uniqueSuffix = Date.now().toString(36)
 
-    await fillPersonalInfo(page)
-    await page.getByRole('button', { name: /^Next$/i }).click()
+    await fillPersonalInfo(page, {
+      firstName: 'Submit',
+      lastName: `Registrant${uniqueSuffix}`,
+      phone: '2485553434',
+    })
+    await clickNext(page)
     await expect(page.getByText('Account Information')).toBeVisible({ timeout: 20_000 })
 
     await fillAccountInfo(page, email)
-    await page.getByRole('button', { name: /^Next$/i }).click()
+    await clickNext(page)
 
     await page.getByRole('radio', { name: /Employer/i }).check()
-    await page.getByRole('button', { name: /^Next$/i }).click()
+    await clickNext(page)
 
     await page.locator('#employer-select').selectOption(fixtures.referrals.employer.id)
     await page.getByRole('button', { name: /Add Recipient/i }).click()
     await page.getByLabel('Recipient Email').fill(`submit.ref.${Date.now()}@example.com`)
-    await page.getByRole('button', { name: /^Next$/i }).click()
+    await clickNext(page)
 
     await expect(page.getByText('Terms & Conditions')).toBeVisible({ timeout: 20_000 })
     await page.getByLabel(/I confirm the client has been informed and consents to testing/i).check()

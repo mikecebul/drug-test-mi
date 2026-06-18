@@ -1,0 +1,18 @@
+version: 2
+
+secret:
+  ignored_matches:
+    - name: Cal.com docs fake live API key
+      match: cal_live_abc123xyz789
+    - name: Cal.com docs fake partial live API key
+      match: cal_live_abc123xyz
+    - name: Cal.com docs fake current API key
+      match: cal_live_current_key
+    - name: Cal.com docs fake refreshed API key
+      match: cal_live_new_key_xyz
+    - name: Cal.com docs fake platform admin API key
+      match: cal_live_platform_admin_key
+    - name: Cal.com docs fake short API key
+      match: cal_live_abc123
+    - name: Cal.com docs fake placeholder API key
+      match: cal_live_your_api_key

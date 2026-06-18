@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { CalPopupButton } from '@/components/cal-popup-button'
 import { Button } from '@/components/ui/button'
 import { formatPhoneForCal } from '@/lib/quick-book'
+import { INSTANT_17_PANEL_CAL_LINK } from '@/utilities/calcom-config'
 import { Calendar, Check } from 'lucide-react'
 import { HeadshotCaptureCard } from '../../components'
 
@@ -34,10 +35,10 @@ export function SuccessStep({
 
   const scheduleConfig = useMemo(() => {
     const nameParts = [firstName, middleInitial?.trim(), lastName].filter(Boolean)
-    const config: Record<string, unknown> = {
+    const config: Record<string, string | string[] | Record<string, string>> = {
       name: nameParts.join(' '),
       email,
-      overlayCalendar: true,
+      overlayCalendar: 'true',
     }
 
     const formattedPhone = formatPhoneForCal(phone)
@@ -51,14 +52,17 @@ export function SuccessStep({
 
   // Determine button text based on where user came from
   const getButtonText = () => {
-    if (returnTo === 'instant-test') {
-      return 'Continue with 15 Panel Test'
+    if (returnTo === 'instant-test' || returnTo === '17-panel-instant') {
+      return 'Continue with Instant Test'
     }
     if (returnTo === 'collect-lab') {
       return 'Continue with Lab Collection'
     }
     if (isDashboardReturn) {
       return 'Back to Dashboard'
+    }
+    if (returnTo === 'guided' || returnTo === 'complete-workflow') {
+      return 'Continue Scheduled Collection'
     }
     return 'Back to Workflow Selector'
   }
@@ -101,7 +105,12 @@ export function SuccessStep({
       <div className="mx-auto w-full max-w-xl space-y-3">
         {isDashboardReturn ? (
           <>
-            <CalPopupButton calUsername="midrugtest/drug-test" config={scheduleConfig} className="w-full" variant="default">
+            <CalPopupButton
+              calUsername={INSTANT_17_PANEL_CAL_LINK}
+              config={scheduleConfig}
+              className="w-full"
+              variant="default"
+            >
               <Calendar className="mr-2 h-4 w-4" />
               Schedule First Appointment
             </CalPopupButton>

@@ -3,7 +3,7 @@
 import { withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { Plus, Trash2 } from 'lucide-react'
-import { useStore } from '@tanstack/react-form'
+import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { useEmployerOptions } from '@/app/(frontend)/register/hooks/useEmployerOptions'
 import { useCourtOptions } from '@/app/(frontend)/register/hooks/useCourtOptions'
 import { groupCourtSelectOptions } from '@/app/(frontend)/register/utils/groupCourtSelectOptions'
@@ -19,17 +19,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { getRecipientsGroupSchema } from '../validators'
+import { RegisterClientNavigation } from '../components/Navigation'
 
 export const RecipientsStep = withForm({
-  ...getRegisterClientFormOpts('recipients'),
-
-  render: function Render({ form }) {
+  ...getRegisterClientFormOpts(),
+  props: {} as {
+    onBack?: () => void
+    onNext?: () => void
+    onInvalid?: (error: unknown) => void
+  },
+  render: function Render({ form, onBack, onNext, onInvalid }) {
+    const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
     const CLEAR_SELECTION_VALUE = '__none__'
     const { employers, employersById, isLoading: isLoadingEmployers } = useEmployerOptions()
     const { courts, courtsById, isLoading: isLoadingCourts } = useCourtOptions()
     const groupedCourtOptions = groupCourtSelectOptions(courts)
 
-    const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
     const selectedEmployerValue = useStore(form.store, (state) => state.values.recipients.selectedEmployer)
     const selectedCourtValue = useStore(form.store, (state) => state.values.recipients.selectedCourt)
 
@@ -72,10 +78,10 @@ export const RecipientsStep = withForm({
                 <div className="space-y-3">
                   {rows.map((_, index) => (
                     <div key={`additional-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                      <form.AppField name={`recipients.additionalReferralRecipients[${index}].name` as const}>
+                      <form.AppField name={`recipients.additionalReferralRecipients[${index}].name`}>
                         {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
                       </form.AppField>
-                      <form.AppField name={`recipients.additionalReferralRecipients[${index}].email` as const}>
+                      <form.AppField name={`recipients.additionalReferralRecipients[${index}].email`}>
                         {(emailField) => <emailField.EmailField label="Recipient Email" required />}
                       </form.AppField>
                       <Button
@@ -124,10 +130,10 @@ export const RecipientsStep = withForm({
                   <div className="space-y-3">
                     {rows.map((_, index) => (
                       <div key={`other-employer-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                        <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].name` as const}>
+                        <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].name`}>
                           {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
                         </form.AppField>
-                        <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].email` as const}>
+                        <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].email`}>
                           {(emailField) => <emailField.EmailField label="Recipient Email" required />}
                         </form.AppField>
                         <Button
@@ -177,10 +183,10 @@ export const RecipientsStep = withForm({
                   <div className="space-y-3">
                     {rows.map((_, index) => (
                       <div key={`other-court-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                        <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].name` as const}>
+                        <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].name`}>
                           {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
                         </form.AppField>
-                        <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].email` as const}>
+                        <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].email`}>
                           {(emailField) => <emailField.EmailField label="Recipient Email" required />}
                         </form.AppField>
                         <Button
@@ -373,8 +379,8 @@ export const RecipientsStep = withForm({
       )
     }
 
-    return (
-      <div className="space-y-6">
+    const body = (
+      <div className="wizard-content mb-8 flex-1 space-y-6">
         <FieldGroupHeader title="Results Recipients" description="Where should results be sent?" />
 
         {requestedBy === 'self' && renderSelfFields()}
@@ -389,6 +395,27 @@ export const RecipientsStep = withForm({
           </div>
         )}
       </div>
+    )
+
+    if (!onNext) {
+      return body
+    }
+
+    return (
+      <form.FormGroup
+        name="recipients"
+        validationLogic={revalidateLogic()}
+        validators={{ onDynamic: getRecipientsGroupSchema(requestedBy) }}
+        onGroupSubmit={() => onNext?.()}
+        onGroupSubmitInvalid={({ groupApi }) => onInvalid?.(groupApi.state.meta.errors)}
+      >
+        {(group) => (
+          <>
+            {body}
+            <RegisterClientNavigation form={form} group={group} onBack={onBack ?? (() => {})} />
+          </>
+        )}
+      </form.FormGroup>
     )
   },
 })

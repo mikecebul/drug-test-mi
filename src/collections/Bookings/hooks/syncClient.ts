@@ -1,7 +1,21 @@
 import { CollectionAfterChangeHook } from 'payload'
 import { createAdminAlert } from '@/lib/admin-alerts'
 
+function getRelationshipId(value: unknown): string | null {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object' && 'id' in value && typeof value.id === 'string') {
+    return value.id
+  }
+  return null
+}
+
 export const syncClient: CollectionAfterChangeHook = async ({ doc, req }) => {
+  // A staff-selected relationship is authoritative. Do not overwrite it just
+  // because the appointment email matches a different client profile.
+  if (getRelationshipId(doc.relatedClient)) {
+    return doc
+  }
+
   // Only sync if we have attendee email
   if (!doc.attendeeEmail) {
     return doc
@@ -27,7 +41,11 @@ export const syncClient: CollectionAfterChangeHook = async ({ doc, req }) => {
       const clientId = existingClient.id
 
       // Update the booking with the client relationship if not already set
-      if (!doc.relatedClient || (typeof doc.relatedClient === 'object' && doc.relatedClient.id !== clientId) || (typeof doc.relatedClient === 'string' && doc.relatedClient !== clientId)) {
+      if (
+        !doc.relatedClient ||
+        (typeof doc.relatedClient === 'object' && doc.relatedClient.id !== clientId) ||
+        (typeof doc.relatedClient === 'string' && doc.relatedClient !== clientId)
+      ) {
         await payload.update({
           collection: 'bookings',
           id: doc.id,
@@ -55,7 +73,6 @@ export const syncClient: CollectionAfterChangeHook = async ({ doc, req }) => {
         },
       })
     }
-
   } catch (error) {
     // Log error but don't fail the booking creation
     req.payload.logger.error(`Failed to sync client for booking ${doc.id}: ${error}`)

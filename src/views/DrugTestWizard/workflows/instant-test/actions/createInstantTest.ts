@@ -7,11 +7,13 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
 import { FormMedications } from '../../shared-validators'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 import { createAdminAlert } from '@/lib/admin-alerts'
+import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 
 export async function createInstantTest(
   testData: {
     clientId: string
-    testType: '15-panel-instant'
+    bookingId?: string | null
+    testType: '17-panel-instant'
     collectionDate: string
     detectedSubstances: SubstanceValue[]
     isDilute: boolean
@@ -76,13 +78,35 @@ export async function createInstantTest(
         medicationName: med.medicationName,
         detectedAs: med.detectedAs || [],
         required: med.requireConfirmation ?? false,
-        id: undefined
+        id: undefined,
       }))
 
     // 3. Create drug test using existing action
     payload.logger.info('[createInstantTest] Calling createDrugTestWithEmailReview...')
     const result = await createDrugTestWithEmailReview(testData, medicationsAtTestTime, emailConfig)
-    payload.logger.info({ msg: '[createInstantTest] Result from createDrugTestWithEmailReview', success: result.success, testId: result.testId, error: result.error })
+    payload.logger.info({
+      msg: '[createInstantTest] Result from createDrugTestWithEmailReview',
+      success: result.success,
+      testId: result.testId,
+      error: result.error,
+    })
+
+    if (result.testId && testData.bookingId) {
+      await payload.update({
+        collection: 'bookings',
+        id: testData.bookingId,
+        data: {
+          status: 'cancelled',
+          sampleCollection: {
+            status: 'collected',
+            collectedAt: testData.collectionDate,
+            drugTest: result.testId,
+          },
+        },
+        overrideAccess: true,
+      })
+      revalidateBookingViews()
+    }
 
     return result
   } catch (error) {

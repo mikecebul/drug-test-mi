@@ -5,6 +5,7 @@ const TEST_TYPE = {
   label: '11-Panel Lab (no EtG)',
   bookingLabel: '11 Panel Lab (no EtG)',
   category: 'lab' as const,
+  price: 40,
   isActive: true,
 }
 

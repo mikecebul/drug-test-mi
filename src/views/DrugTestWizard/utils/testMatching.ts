@@ -16,6 +16,7 @@ export interface TestMatchResult {
 
 export const TEST_TYPES = [
   '15-panel-instant',
+  '17-panel-instant',
   '11-panel-lab',
   '11-panel-lab-no-etg',
   '17-panel-sos-lab',
@@ -73,6 +74,7 @@ export function filterByTestType(tests: DrugTest[], uploadedTestType?: TestType)
   // Database stores the value (e.g., '11-panel-lab'), not the label (e.g., '11-Panel Lab')
   const testTypeMap: Record<TestType, string[]> = {
     '15-panel-instant': ['15-panel-instant'],
+    '17-panel-instant': ['17-panel-instant'],
     '11-panel-lab': ['11-panel-lab'],
     '11-panel-lab-no-etg': ['11-panel-lab-no-etg'],
     '17-panel-sos-lab': ['17-panel-sos-lab'],

@@ -138,7 +138,12 @@ export default async function DashboardPage() {
 
   // Calculate stats
   const totalTests = drugScreenResults.length
-  const activeMedications = client.medications?.filter((med) => med.status === 'active').length || 0
+  const activeMedicationNames =
+    client.medications
+      ?.filter((med) => med.status === 'active')
+      .map((med) => med.medicationName)
+      .filter(Boolean) || []
+  const activeMedications = activeMedicationNames.length
   const completedTests = drugScreenResults.filter((test) => test.isComplete)
   const pendingTests = drugScreenResults.filter((test) => !test.initialScreenResult).length
 
@@ -196,6 +201,7 @@ export default async function DashboardPage() {
       compliantTests,
       complianceRate,
       activeMedications,
+      activeMedicationNames,
       pendingTests,
     },
     nextAppointment: nextBooking

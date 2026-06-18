@@ -18,14 +18,20 @@ interface SubstanceChecklistFieldProps {
   label?: string
   description?: string
   required?: boolean
-  testType?: '15-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
+  testType?:
+    | '15-panel-instant'
+    | '17-panel-instant'
+    | '11-panel-lab'
+    | '11-panel-lab-no-etg'
+    | '17-panel-sos-lab'
+    | 'etg-lab'
 }
 
 export default function SubstanceChecklistField({
   label = 'Detected Substances',
   description = 'Select all substances that tested positive. Leave unchecked for negative results.',
   required = false,
-  testType = '15-panel-instant',
+  testType = '17-panel-instant',
 }: SubstanceChecklistFieldProps) {
   const field = useFieldContext<SubstanceValue[]>()
 

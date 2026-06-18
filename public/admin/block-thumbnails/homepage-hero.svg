@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320" fill="none" viewBox="0 0 480 320">
+  <rect width="480" height="320" fill="#F8FAF8"/>
+  <rect width="480" height="320" fill="url(#a)" opacity=".55"/>
+  <rect width="248" height="22" x="56" y="76" rx="11" fill="#235347"/>
+  <rect width="300" height="48" x="56" y="118" rx="8" fill="#235347"/>
+  <rect width="236" height="16" x="56" y="188" rx="8" fill="#6B9F8D"/>
+  <rect width="168" height="16" x="56" y="214" rx="8" fill="#D7E7DF"/>
+  <rect width="84" height="34" x="56" y="254" rx="8" fill="#235347"/>
+  <rect width="120" height="168" x="326" y="76" rx="12" fill="#fff" stroke="#D7E7DF" stroke-width="3"/>
+  <rect width="120" height="34" x="326" y="76" rx="12" fill="#EFF6F2"/>
+  <rect width="120" height="88" x="326" y="110" fill="#D7E7DF"/>
+  <path fill="#6B9F8D" d="M386 132a18 18 0 0 0-18 18c0 13.5 18 30 18 30s18-16.5 18-30a18 18 0 0 0-18-18Zm0 24a6 6 0 1 1 0-12 6 6 0 0 1 0 12Z"/>
+  <defs>
+    <linearGradient id="a" x1="57" x2="439" y1="42" y2="282" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff"/>
+      <stop offset=".55" stop-color="#E8F2ED"/>
+      <stop offset="1" stop-color="#BFD7CC"/>
+    </linearGradient>
+  </defs>
+</svg>

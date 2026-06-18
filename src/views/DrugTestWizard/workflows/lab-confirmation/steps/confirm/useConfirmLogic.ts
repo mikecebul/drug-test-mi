@@ -40,7 +40,7 @@ export function useConfirmLogic(formValues: FormValues) {
   const previewQuery = useComputeTestResultPreviewQuery(
     client?.id,
     adjustedSubstances as SubstanceValue[],
-    matchCollection?.testType as '11-panel-lab' | '11-panel-lab-no-etg' | '15-panel-instant' | '17-panel-sos-lab' | 'etg-lab',
+    matchCollection?.testType as '11-panel-lab' | '11-panel-lab-no-etg' | '15-panel-instant' | '17-panel-instant' | '17-panel-sos-lab' | 'etg-lab',
     matchedTest?.breathalyzerTaken ?? false,
     matchedTest?.breathalyzerResult ?? null,
     medications,

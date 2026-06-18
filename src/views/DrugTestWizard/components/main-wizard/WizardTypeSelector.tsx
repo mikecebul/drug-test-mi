@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Zap, Beaker, ClipboardList, CheckCircle, UserPlus } from 'lucide-react'
+import { Zap, Beaker, ClipboardList, CheckCircle, UserPlus, CalendarCheck } from 'lucide-react'
 import { cn } from '@/utilities/cn'
 import type { WizardType } from '../../types'
 import { Separator } from '@/components/ui/separator'
@@ -18,6 +18,15 @@ interface WizardOption {
 }
 
 const wizardOptions: WizardOption[] = [
+  {
+    id: 'guided',
+    icon: CalendarCheck,
+    title: 'Complete Scheduled Collection',
+    description: "Start from today's Cal.com appointments, confirm test details, record payment, and continue collection",
+    color: 'text-teal-600',
+    borderColor: 'border-teal-300 dark:border-teal-700',
+    bgColor: 'bg-teal-50 dark:bg-teal-950/30',
+  },
   {
     id: 'register-client',
     icon: UserPlus,
@@ -37,10 +46,10 @@ const wizardOptions: WizardOption[] = [
     bgColor: 'bg-blue-50 dark:bg-blue-950/30',
   },
   {
-    id: '15-panel-instant',
+    id: 'instant-test',
     icon: Zap,
-    title: 'Screen 15-Panel Instant',
-    description: 'Perform an on-site 15-panel instant drug screen',
+    title: 'Screen Instant Test',
+    description: 'Upload an instant report and verify the detected panel type',
     color: 'text-green-600',
     borderColor: 'border-green-300 dark:border-green-700',
     bgColor: 'bg-green-50 dark:bg-green-950/30',
@@ -83,7 +92,7 @@ export function WizardTypeSelector({ onSelect }: WizardTypeSelectorProps) {
       >
         <CardHeader className="p-4">
           <div className="flex items-center gap-6">
-            <div className={cn('flexsize-12 shrink-0 items-center justify-center rounded-lg', option.bgColor)}>
+            <div className={cn('flex size-12 shrink-0 items-center justify-center rounded-lg', option.bgColor)}>
               <Icon className={cn('size-6', option.color)} />
             </div>
             <div className="flex-1">
@@ -99,6 +108,11 @@ export function WizardTypeSelector({ onSelect }: WizardTypeSelectorProps) {
     <div className="max-w-2xl space-y-6">
       {/* Group 1: Registration */}
       <div className="space-y-3">
+        <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Guided Workflow</h3>
+        {renderOption('guided')}
+      </div>
+      <Separator />
+      <div className="space-y-3">
         <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Onboarding</h3>
         {renderOption('register-client')}
       </div>
@@ -107,7 +121,7 @@ export function WizardTypeSelector({ onSelect }: WizardTypeSelectorProps) {
       <div className="space-y-3">
         <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Specimen Collection</h3>
         <div className="grid gap-4">
-          {renderOption('15-panel-instant')}
+          {renderOption('instant-test')}
           {renderOption('collect-lab')}
         </div>
       </div>

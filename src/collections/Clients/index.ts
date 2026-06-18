@@ -1,9 +1,97 @@
-import type { CollectionConfig } from 'payload'
+import type { CollectionConfig, FieldHook } from 'payload'
 import { superAdmin } from '@/access/superAdmin'
 import { baseUrl } from '@/utilities/baseUrl'
 import { anyone } from '@/access/anyone'
 import { notifyNewRegistration } from './hooks/notifyNewRegistration'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
+import type { Court, Employer, TestType } from '@/payload-types'
+
+type ReferralRelation = {
+  relationTo?: 'courts' | 'employers'
+  value?: string | Court | Employer | null
+}
+
+function getRelationshipId(value: unknown): string | null {
+  if (!value) return null
+  if (typeof value === 'string') return value
+  if (typeof value === 'object' && 'id' in value && typeof value.id === 'string') return value.id
+  return null
+}
+
+function getTestTypeLabel(testType: unknown): string | null {
+  if (!testType) return null
+  if (typeof testType === 'object' && 'label' in testType && typeof testType.label === 'string') {
+    return testType.label
+  }
+  return null
+}
+
+const resolveRequiredTestTypeLabel: FieldHook = async ({ currentDepth, data, req, siblingData, value }) => {
+  if (typeof currentDepth === 'number' && currentDepth > 0) {
+    return typeof value === 'string' && value ? value : null
+  }
+
+  const referralType =
+    typeof siblingData?.referralType === 'string'
+      ? siblingData.referralType
+      : typeof data?.referralType === 'string'
+        ? data.referralType
+        : undefined
+
+  if (referralType === 'self') {
+    return 'Self referral - no preset test'
+  }
+
+  const referral = (siblingData?.referral ?? data?.referral) as ReferralRelation | undefined
+  const relationTo = referral?.relationTo
+  const referralValue = referral?.value
+
+  if (!relationTo || !referralValue) {
+    return 'No referral selected'
+  }
+
+  let preferredTestType =
+    typeof referralValue === 'object' && 'preferredTestType' in referralValue
+      ? referralValue.preferredTestType
+      : undefined
+
+  if (typeof referralValue === 'string') {
+    try {
+      const referralDoc = await req.payload.findByID({
+        collection: relationTo,
+        id: referralValue,
+        depth: 1,
+        req,
+        overrideAccess: false,
+      })
+      preferredTestType = referralDoc.preferredTestType
+    } catch {
+      return typeof value === 'string' && value ? value : 'Unable to load referral test type'
+    }
+  }
+
+  const populatedLabel = getTestTypeLabel(preferredTestType)
+  if (populatedLabel) return populatedLabel
+
+  const testTypeId = getRelationshipId(preferredTestType)
+  if (!testTypeId) {
+    return 'No preferred test type set'
+  }
+
+  try {
+    const testType = (await req.payload.findByID({
+      collection: 'test-types',
+      id: testTypeId,
+      depth: 0,
+      req,
+      overrideAccess: false,
+    })) as TestType
+
+    return testType.label || 'No preferred test type set'
+  } catch {
+    return typeof value === 'string' && value ? value : 'Unable to load referral test type'
+  }
+}
 
 export const Clients: CollectionConfig = {
   slug: 'clients',
@@ -156,7 +244,7 @@ export const Clients: CollectionConfig = {
     afterChange: [notifyNewRegistration],
   },
   admin: {
-    defaultColumns: ['headshot', 'lastName', 'email', 'referralType'],
+    defaultColumns: ['headshot', 'lastName', 'email', 'referralType', 'moneyOwed'],
     useAsTitle: 'fullName',
     listSearchableFields: ['email', 'firstName', 'lastName'],
     components: {
@@ -226,6 +314,19 @@ export const Clients: CollectionConfig = {
       admin: {
         description: 'Allow this client to book through the hidden unpaid Cal.com drug test event.',
         position: 'sidebar',
+      },
+    },
+    {
+      name: 'moneyOwed',
+      type: 'number',
+      label: 'Money Owed',
+      defaultValue: 0,
+      min: 0,
+      admin: {
+        description: 'Auto-calculated from drug tests with a remaining payment balance.',
+        position: 'sidebar',
+        readOnly: true,
+        step: 1,
       },
     },
     {
@@ -339,8 +440,8 @@ export const Clients: CollectionConfig = {
                       referralValue &&
                       typeof referralValue === 'object' &&
                       'relationTo' in referralValue &&
-                      ((nextType === 'court' && referralValue.relationTo !== 'courts')
-                        || (nextType === 'employer' && referralValue.relationTo !== 'employers'))
+                      ((nextType === 'court' && referralValue.relationTo !== 'courts') ||
+                        (nextType === 'employer' && referralValue.relationTo !== 'employers'))
                     ) {
                       siblingData.referral = null
                     }
@@ -428,6 +529,19 @@ export const Clients: CollectionConfig = {
                   }
                 }
                 return true
+              },
+            },
+            {
+              name: 'requiredTestType',
+              label: 'Required Test Type',
+              type: 'text',
+              virtual: true,
+              admin: {
+                description: 'Resolved from the selected court or employer preferred test type.',
+                readOnly: true,
+              },
+              hooks: {
+                afterRead: [resolveRequiredTestTypeLabel],
               },
             },
             {
@@ -535,6 +649,21 @@ export const Clients: CollectionConfig = {
               on: 'relatedClient',
               admin: {
                 description: 'Drug tests automatically linked to this client',
+              },
+            },
+            {
+              name: 'drugTestsWithBalance',
+              type: 'join',
+              collection: 'drug-tests',
+              on: 'relatedClient',
+              where: {
+                'payment.balanceDue': {
+                  greater_than: 0,
+                },
+              },
+              admin: {
+                defaultColumns: ['collectionDate', 'testType', 'payment.status', 'payment.balanceDue'],
+                description: 'Drug tests where this client still has a balance due.',
               },
             },
             // Bookings (auto-populated via join)

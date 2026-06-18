@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "esModuleInterop": true,
     "target": "es6",
     "lib": [
@@ -32,6 +33,9 @@
       ],
       "react": [
         "./node_modules/@types/react"
+      ],
+      "src/*": [
+        "./src/*"
       ],
       "@/*": [
         "./src/*"

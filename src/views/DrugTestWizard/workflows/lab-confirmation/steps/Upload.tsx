@@ -5,7 +5,7 @@ import { getLabConfirmationFormOpts } from '../shared-form'
 import { FieldGroupHeader } from '../../components'
 
 export const UploadStep = withForm({
-  ...getLabConfirmationFormOpts('upload'),
+  ...getLabConfirmationFormOpts(),
 
   render: function Render({ form }) {
     return (

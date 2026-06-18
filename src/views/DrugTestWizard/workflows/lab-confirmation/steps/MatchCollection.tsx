@@ -16,7 +16,7 @@ import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { getLabConfirmationFormOpts } from '../shared-form'
 
 export const MatchCollectionStep = withForm({
-  ...getLabConfirmationFormOpts('matchCollection'),
+  ...getLabConfirmationFormOpts(),
 
   render: function Render({ form }) {
     const [matchedTest, setMatchedTest] = useState<DrugTest | null>(null)

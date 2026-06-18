@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { emailsSchema, uploadSchema, extractSchema } from '../shared-validators'
+import { emailsGroupSchema, emailsSchema, uploadSchema, extractSchema } from '../shared-validators'
 
 // Step names as readonly tuple (6 steps - same as lab-screen but for confirmation)
 export const steps = [
@@ -44,7 +44,7 @@ export const labConfirmationDataSchema = z.object({
   }),
 })
 
-export { emailsSchema, uploadSchema, extractSchema }
+export { emailsGroupSchema, emailsSchema, uploadSchema, extractSchema }
 
 // Combined schema
 export const formSchema = z.object({

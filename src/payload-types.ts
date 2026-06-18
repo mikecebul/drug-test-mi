@@ -133,6 +133,7 @@ export interface Config {
     };
     clients: {
       drugTests: 'drug-tests';
+      drugTestsWithBalance: 'drug-tests';
       bookings: 'bookings';
       privateDocuments: 'private-media';
     };
@@ -177,11 +178,10 @@ export interface Config {
   };
   locale: null;
   widgets: {
-    'wizard-entry': WizardEntryWidget;
-    'admin-quick-book': AdminQuickBookWidget;
-    'total-clients': TotalClientsWidget;
-    'pending-drug-tests': PendingDrugTestsWidget;
     'next-calcom-booking': NextCalcomBookingWidget;
+    'admin-quick-book': AdminQuickBookWidget;
+    'pending-drug-tests': PendingDrugTestsWidget;
+    'admin-alerts': AdminAlertsWidget;
     collections: CollectionsWidget;
   };
   user: Admin | Client;
@@ -242,10 +242,18 @@ export interface Page {
   title: string;
   layout: (
     | CalendarEmbedBlock
+    | HomepageHero
     | Hero
     | About
+    | DocumentationLayoutBlock
+    | AboutMissionBlock
+    | AboutServicesBlock
+    | AboutProcessBlock
+    | AboutPricingBlock
+    | AboutContactBlock
     | TrustBlock
     | TechniciansBlock
+    | CTABlock
     | RichTextBlock
     | LinksBlock
     | FormBlock
@@ -285,39 +293,18 @@ export interface CalendarEmbedBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "Hero".
+ * via the `definition` "HomepageHero".
  */
-export interface Hero {
-  type: 'highImpact' | 'mediumImpact' | 'locationSplit';
-  highImpact?: {
-    title: string;
-    description: string;
-    links?: LinkGroup;
-  };
-  mediumImpact?: {
-    subtitle?: string | null;
-    title: string;
-    heading?: ('h1' | 'h2') | null;
-    description?: string | null;
-  };
-  locationSplit?: {
-    badgeText: string;
-    headingPrefix: string;
-    headingHighlight: string;
-    description: string;
-    policyNote: string;
-    locationText: string;
-    links?: LinkGroup;
-    mapTitle: string;
-    mapSubtitle: string;
-    mapImage?: (string | null) | Media;
-    mapFooterText: string;
-    directionsLabel: string;
-    directionsUrl: string;
-  };
+export interface HomepageHero {
+  title: string;
+  description: string;
+  primaryCta: Link;
+  secondaryCta: Link;
+  mapImage?: (string | null) | Media;
+  directionsUrl: string;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'hero';
+  blockType: 'homepageHero';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -387,6 +374,27 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "Hero".
+ */
+export interface Hero {
+  type: 'highImpact' | 'mediumImpact';
+  highImpact?: {
+    title: string;
+    description: string;
+    links?: LinkGroup;
+  };
+  mediumImpact?: {
+    subtitle?: string | null;
+    title: string;
+    heading?: ('h1' | 'h2') | null;
+    description?: string | null;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'hero';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "About".
  */
 export interface About {
@@ -411,11 +419,6 @@ export interface About {
  * via the `definition` "AboutMissionBlock".
  */
 export interface AboutMissionBlock {
-  /**
-   * Used for on-page anchor; must be unique and lowercase with dashes
-   */
-  anchorId: string;
-  navLabel: string;
   badge?: string | null;
   heading?: string | null;
   intro?: {
@@ -442,11 +445,6 @@ export interface AboutMissionBlock {
  * via the `definition` "AboutServicesBlock".
  */
 export interface AboutServicesBlock {
-  /**
-   * Used for on-page anchor; must be unique and lowercase with dashes
-   */
-  anchorId: string;
-  navLabel: string;
   badge?: string | null;
   heading?: string | null;
   intro?: {
@@ -488,11 +486,6 @@ export interface AboutServicesBlock {
  * via the `definition` "AboutProcessBlock".
  */
 export interface AboutProcessBlock {
-  /**
-   * Used for on-page anchor; must be unique and lowercase with dashes
-   */
-  anchorId: string;
-  navLabel: string;
   badge?: string | null;
   heading?: string | null;
   steps?:
@@ -511,11 +504,6 @@ export interface AboutProcessBlock {
  * via the `definition` "AboutPricingBlock".
  */
 export interface AboutPricingBlock {
-  /**
-   * Used for on-page anchor; must be unique and lowercase with dashes
-   */
-  anchorId: string;
-  navLabel: string;
   badge?: string | null;
   heading?: string | null;
   pricingCards?:
@@ -546,11 +534,6 @@ export interface AboutPricingBlock {
  * via the `definition` "AboutContactBlock".
  */
 export interface AboutContactBlock {
-  /**
-   * Used for on-page anchor; must be unique and lowercase with dashes
-   */
-  anchorId: string;
-  navLabel: string;
   badge?: string | null;
   heading?: string | null;
   intro?: {
@@ -602,11 +585,6 @@ export interface AboutContactBlock {
  * via the `definition` "AboutRegisterBlock".
  */
 export interface AboutRegisterBlock {
-  /**
-   * Used for on-page anchor; must be unique and lowercase with dashes
-   */
-  anchorId: string;
-  navLabel: string;
   badge?: string | null;
   heading?: string | null;
   title?: string | null;
@@ -633,6 +611,24 @@ export interface AboutRegisterBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DocumentationLayoutBlock".
+ */
+export interface DocumentationLayoutBlock {
+  tocTitle: string;
+  sections: (
+    | AboutMissionBlock
+    | AboutServicesBlock
+    | AboutProcessBlock
+    | AboutPricingBlock
+    | AboutContactBlock
+    | AboutRegisterBlock
+  )[];
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'documentationLayout';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TrustBlock".
  */
 export interface TrustBlock {
@@ -641,7 +637,7 @@ export interface TrustBlock {
   features?:
     | {
         title: string;
-        description?: string | null;
+        description: string;
         icon?: string | null;
         id?: string | null;
       }[]
@@ -655,12 +651,28 @@ export interface TrustBlock {
  * via the `definition` "TechniciansBlock".
  */
 export interface TechniciansBlock {
+  showIntro?: boolean | null;
   heading?: string | null;
   description?: string | null;
+  /**
+   * Active technicians are displayed alphabetically by name.
+   */
   maxTechnicians?: number | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'techniciansBlock';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CTABlock".
+ */
+export interface CTABlock {
+  title: string;
+  description?: string | null;
+  links?: LinkGroup;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'cta';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1129,11 +1141,46 @@ export interface Booking {
    * Client linked to this booking (auto-populated via email match)
    */
   relatedClient?: (string | null) | Client;
+  /**
+   * Test type for this scheduled collection when the referral does not provide one.
+   */
+  scheduledTestType?: (string | null) | TestType;
+  /**
+   * Payment collected before specimen collection.
+   */
+  payment?: {
+    amountDue?: number | null;
+    amountPaid?: number | null;
+    method?: ('cash' | 'card' | 'pre-paid' | 'not-paid') | null;
+    status?: ('paid' | 'partial' | 'unpaid') | null;
+    collectedAt?: string | null;
+    notes?: string | null;
+  };
+  /**
+   * Tracks whether the scheduled specimen collection was completed in a workflow.
+   */
+  sampleCollection?: {
+    status?: ('pending' | 'collected') | null;
+    collectedAt?: string | null;
+    drugTest?: (string | null) | DrugTest;
+  };
   location?: string | null;
   /**
    * Cal.com booking UID
    */
   calcomBookingId?: string | null;
+  /**
+   * Cal.com numeric booking ID from API/webhook payloads.
+   */
+  calcomBookingNumericId?: number | null;
+  /**
+   * Previous Cal.com booking UID when this appointment was rescheduled.
+   */
+  calcomRescheduledFromId?: string | null;
+  /**
+   * Cal.com or Stripe payment identifier when the booking was prepaid.
+   */
+  calcomPaymentId?: string | null;
   eventTypeId?: number | null;
   /**
    * Additional form responses from Cal.com
@@ -1189,6 +1236,10 @@ export interface Client {
    */
   allowUnpaidBookings?: boolean | null;
   /**
+   * Auto-calculated from drug tests with a remaining payment balance.
+   */
+  moneyOwed?: number | null;
+  /**
    * Whether this client is active
    */
   isActive?: boolean | null;
@@ -1228,6 +1279,10 @@ export interface Client {
         value: string | Employer;
       } | null);
   /**
+   * Resolved from the selected court or employer preferred test type.
+   */
+  requiredTestType?: string | null;
+  /**
    * Additional recipients for this client only. These do not modify the linked referral profile.
    */
   referralAdditionalRecipients?:
@@ -1260,6 +1315,14 @@ export interface Client {
    * Drug tests automatically linked to this client
    */
   drugTests?: {
+    docs?: (string | DrugTest)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Drug tests where this client still has a balance due.
+   */
+  drugTestsWithBalance?: {
     docs?: (string | DrugTest)[];
     hasNextPage?: boolean;
     totalDocs?: number;
@@ -1311,6 +1374,7 @@ export interface Client {
               | 'mdma'
               | 'methadone'
               | 'methamphetamines'
+              | 'morphine'
               | 'opiates'
               | 'oxycodone'
               | 'pcp'
@@ -1463,6 +1527,14 @@ export interface TestType {
    */
   category?: ('instant' | 'lab') | null;
   /**
+   * Standard client price in USD.
+   */
+  price: number;
+  /**
+   * Lab test code used when ordering this test in ToxAccess.
+   */
+  toxAccessCode?: string | null;
+  /**
    * Employers currently mapped to this preferred test type.
    */
   employers?: {
@@ -1577,7 +1649,33 @@ export interface DrugTest {
   /**
    * Type of drug test panel used
    */
-  testType: '11-panel-lab' | '11-panel-lab-no-etg' | '15-panel-instant' | '17-panel-sos-lab' | 'etg-lab';
+  testType:
+    | '11-panel-lab'
+    | '11-panel-lab-no-etg'
+    | '15-panel-instant'
+    | '17-panel-instant'
+    | '17-panel-sos-lab'
+    | 'etg-lab';
+  /**
+   * Scheduled booking that produced this test, when applicable.
+   */
+  sourceBooking?: (string | null) | Booking;
+  /**
+   * Payment snapshot for this test.
+   */
+  payment: {
+    status: 'paid' | 'unpaid' | 'partial';
+    amountDue?: number | null;
+    amountPaid?: number | null;
+    /**
+     * Automatically calculated from amount due minus amount paid.
+     */
+    balanceDue?: number | null;
+    /**
+     * Payment notes or balance details captured during the workflow.
+     */
+    notes?: string | null;
+  };
   /**
    * Snapshot of active medications at time of test (auto-populated from client, editable by superAdmin only)
    */
@@ -1609,6 +1707,7 @@ export interface DrugTest {
               | 'mdma'
               | 'methadone'
               | 'methamphetamines'
+              | 'morphine'
               | 'opiates'
               | 'oxycodone'
               | 'pcp'
@@ -1662,6 +1761,7 @@ export interface DrugTest {
         | 'mdma'
         | 'methadone'
         | 'methamphetamines'
+        | 'morphine'
         | 'opiates'
         | 'oxycodone'
         | 'pcp'
@@ -1690,6 +1790,7 @@ export interface DrugTest {
         | 'mdma'
         | 'methadone'
         | 'methamphetamines'
+        | 'morphine'
         | 'opiates'
         | 'oxycodone'
         | 'pcp'
@@ -1718,6 +1819,7 @@ export interface DrugTest {
         | 'mdma'
         | 'methadone'
         | 'methamphetamines'
+        | 'morphine'
         | 'opiates'
         | 'oxycodone'
         | 'pcp'
@@ -1746,6 +1848,7 @@ export interface DrugTest {
         | 'mdma'
         | 'methadone'
         | 'methamphetamines'
+        | 'morphine'
         | 'opiates'
         | 'oxycodone'
         | 'pcp'
@@ -1782,6 +1885,7 @@ export interface DrugTest {
         | 'mdma'
         | 'methadone'
         | 'methamphetamines'
+        | 'morphine'
         | 'opiates'
         | 'oxycodone'
         | 'pcp'
@@ -1814,6 +1918,7 @@ export interface DrugTest {
           | 'mdma'
           | 'methadone'
           | 'methamphetamines'
+          | 'morphine'
           | 'opiates'
           | 'oxycodone'
           | 'pcp'
@@ -1986,7 +2091,7 @@ export interface Technician {
   gender: 'male' | 'female';
   photo?: (string | null) | Media;
   /**
-   * Cal.com username for booking appointments
+   * Shared Cal.com username used by the booking widget.
    */
   calComUsername: string;
   location: 'charlevoix';
@@ -2336,10 +2441,18 @@ export interface PagesSelect<T extends boolean = true> {
     | T
     | {
         calendarEmbed?: T | CalendarEmbedBlockSelect<T>;
+        homepageHero?: T | HomepageHeroSelect<T>;
         hero?: T | HeroSelect<T>;
         about?: T | AboutSelect<T>;
+        documentationLayout?: T | DocumentationLayoutBlockSelect<T>;
+        aboutMission?: T | AboutMissionBlockSelect<T>;
+        aboutServices?: T | AboutServicesBlockSelect<T>;
+        aboutProcess?: T | AboutProcessBlockSelect<T>;
+        aboutPricing?: T | AboutPricingBlockSelect<T>;
+        aboutContact?: T | AboutContactBlockSelect<T>;
         trust?: T | TrustBlockSelect<T>;
         techniciansBlock?: T | TechniciansBlockSelect<T>;
+        cta?: T | CTABlockSelect<T>;
         richText?: T | RichTextBlockSelect<T>;
         linksBlock?: T | LinksBlockSelect<T>;
         formBlock?: T | FormBlockSelect<T>;
@@ -2379,6 +2492,32 @@ export interface CalendarEmbedBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HomepageHero_select".
+ */
+export interface HomepageHeroSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  primaryCta?: T | LinkSelect<T>;
+  secondaryCta?: T | LinkSelect<T>;
+  mapImage?: T;
+  directionsUrl?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "Link_select".
+ */
+export interface LinkSelect<T extends boolean = true> {
+  type?: T;
+  newTab?: T;
+  reference?: T;
+  url?: T;
+  label?: T;
+  appearance?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "Hero_select".
  */
 export interface HeroSelect<T extends boolean = true> {
@@ -2398,23 +2537,6 @@ export interface HeroSelect<T extends boolean = true> {
         heading?: T;
         description?: T;
       };
-  locationSplit?:
-    | T
-    | {
-        badgeText?: T;
-        headingPrefix?: T;
-        headingHighlight?: T;
-        description?: T;
-        policyNote?: T;
-        locationText?: T;
-        links?: T | LinkGroupSelect<T>;
-        mapTitle?: T;
-        mapSubtitle?: T;
-        mapImage?: T;
-        mapFooterText?: T;
-        directionsLabel?: T;
-        directionsUrl?: T;
-      };
   id?: T;
   blockName?: T;
 }
@@ -2425,18 +2547,6 @@ export interface HeroSelect<T extends boolean = true> {
 export interface LinkGroupSelect<T extends boolean = true> {
   link?: T | LinkSelect<T>;
   id?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "Link_select".
- */
-export interface LinkSelect<T extends boolean = true> {
-  type?: T;
-  newTab?: T;
-  reference?: T;
-  url?: T;
-  label?: T;
-  appearance?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2462,8 +2572,6 @@ export interface AboutSelect<T extends boolean = true> {
  * via the `definition` "AboutMissionBlock_select".
  */
 export interface AboutMissionBlockSelect<T extends boolean = true> {
-  anchorId?: T;
-  navLabel?: T;
   badge?: T;
   heading?: T;
   intro?: T;
@@ -2475,8 +2583,6 @@ export interface AboutMissionBlockSelect<T extends boolean = true> {
  * via the `definition` "AboutServicesBlock_select".
  */
 export interface AboutServicesBlockSelect<T extends boolean = true> {
-  anchorId?: T;
-  navLabel?: T;
   badge?: T;
   heading?: T;
   intro?: T;
@@ -2503,8 +2609,6 @@ export interface AboutServicesBlockSelect<T extends boolean = true> {
  * via the `definition` "AboutProcessBlock_select".
  */
 export interface AboutProcessBlockSelect<T extends boolean = true> {
-  anchorId?: T;
-  navLabel?: T;
   badge?: T;
   heading?: T;
   steps?:
@@ -2522,8 +2626,6 @@ export interface AboutProcessBlockSelect<T extends boolean = true> {
  * via the `definition` "AboutPricingBlock_select".
  */
 export interface AboutPricingBlockSelect<T extends boolean = true> {
-  anchorId?: T;
-  navLabel?: T;
   badge?: T;
   heading?: T;
   pricingCards?:
@@ -2555,8 +2657,6 @@ export interface AboutPricingBlockSelect<T extends boolean = true> {
  * via the `definition` "AboutContactBlock_select".
  */
 export interface AboutContactBlockSelect<T extends boolean = true> {
-  anchorId?: T;
-  navLabel?: T;
   badge?: T;
   heading?: T;
   intro?: T;
@@ -2595,14 +2695,31 @@ export interface AboutContactBlockSelect<T extends boolean = true> {
  * via the `definition` "AboutRegisterBlock_select".
  */
 export interface AboutRegisterBlockSelect<T extends boolean = true> {
-  anchorId?: T;
-  navLabel?: T;
   badge?: T;
   heading?: T;
   title?: T;
   body?: T;
   links?: T | LinkGroupSelect<T>;
   footerText?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DocumentationLayoutBlock_select".
+ */
+export interface DocumentationLayoutBlockSelect<T extends boolean = true> {
+  tocTitle?: T;
+  sections?:
+    | T
+    | {
+        aboutMission?: T | AboutMissionBlockSelect<T>;
+        aboutServices?: T | AboutServicesBlockSelect<T>;
+        aboutProcess?: T | AboutProcessBlockSelect<T>;
+        aboutPricing?: T | AboutPricingBlockSelect<T>;
+        aboutContact?: T | AboutContactBlockSelect<T>;
+        aboutRegister?: T | AboutRegisterBlockSelect<T>;
+      };
   id?: T;
   blockName?: T;
 }
@@ -2629,9 +2746,21 @@ export interface TrustBlockSelect<T extends boolean = true> {
  * via the `definition` "TechniciansBlock_select".
  */
 export interface TechniciansBlockSelect<T extends boolean = true> {
+  showIntro?: T;
   heading?: T;
   description?: T;
   maxTechnicians?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CTABlock_select".
+ */
+export interface CTABlockSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  links?: T | LinkGroupSelect<T>;
   id?: T;
   blockName?: T;
 }
@@ -2782,8 +2911,29 @@ export interface BookingsSelect<T extends boolean = true> {
   attendeeName?: T;
   attendeeEmail?: T;
   relatedClient?: T;
+  scheduledTestType?: T;
+  payment?:
+    | T
+    | {
+        amountDue?: T;
+        amountPaid?: T;
+        method?: T;
+        status?: T;
+        collectedAt?: T;
+        notes?: T;
+      };
+  sampleCollection?:
+    | T
+    | {
+        status?: T;
+        collectedAt?: T;
+        drugTest?: T;
+      };
   location?: T;
   calcomBookingId?: T;
+  calcomBookingNumericId?: T;
+  calcomRescheduledFromId?: T;
+  calcomPaymentId?: T;
   eventTypeId?: T;
   customInputs?: T;
   webhookData?: T;
@@ -3183,6 +3333,8 @@ export interface TestTypesSelect<T extends boolean = true> {
   value?: T;
   bookingLabel?: T;
   category?: T;
+  price?: T;
+  toxAccessCode?: T;
   employers?: T;
   courts?: T;
   isActive?: T;
@@ -3236,6 +3388,7 @@ export interface ClientsSelect<T extends boolean = true> {
   headshot?: T;
   disableClientEmails?: T;
   allowUnpaidBookings?: T;
+  moneyOwed?: T;
   isActive?: T;
   firstName?: T;
   lastName?: T;
@@ -3246,6 +3399,7 @@ export interface ClientsSelect<T extends boolean = true> {
   preferredContactMethod?: T;
   referralType?: T;
   referral?: T;
+  requiredTestType?: T;
   referralAdditionalRecipients?:
     | T
     | {
@@ -3266,6 +3420,7 @@ export interface ClientsSelect<T extends boolean = true> {
             };
       };
   drugTests?: T;
+  drugTestsWithBalance?: T;
   bookings?: T;
   medications?:
     | T
@@ -3316,6 +3471,16 @@ export interface DrugTestsSelect<T extends boolean = true> {
   relatedClient?: T;
   collectionDate?: T;
   testType?: T;
+  sourceBooking?: T;
+  payment?:
+    | T
+    | {
+        status?: T;
+        amountDue?: T;
+        amountPaid?: T;
+        balanceDue?: T;
+        notes?: T;
+      };
   medicationsAtTestTime?: T;
   medicationsArrayAtTestTime?:
     | T
@@ -3512,6 +3677,7 @@ export interface Header {
   id: string;
   navItems?:
     | {
+        icon?: string | null;
         link: Link;
         id?: string | null;
       }[]
@@ -3589,6 +3755,7 @@ export interface HeaderSelect<T extends boolean = true> {
   navItems?:
     | T
     | {
+        icon?: T;
         link?: T | LinkSelect<T>;
         id?: T;
       };
@@ -3655,13 +3822,13 @@ export interface CompanyInfoSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "wizard-entry_widget".
+ * via the `definition` "next-calcom-booking_widget".
  */
-export interface WizardEntryWidget {
+export interface NextCalcomBookingWidget {
   data?: {
     [k: string]: unknown;
   };
-  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
+  width: 'medium' | 'large' | 'x-large' | 'full';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3671,17 +3838,7 @@ export interface AdminQuickBookWidget {
   data?: {
     [k: string]: unknown;
   };
-  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "total-clients_widget".
- */
-export interface TotalClientsWidget {
-  data?: {
-    [k: string]: unknown;
-  };
-  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
+  width: 'medium';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3691,17 +3848,17 @@ export interface PendingDrugTestsWidget {
   data?: {
     [k: string]: unknown;
   };
-  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
+  width: 'medium';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "next-calcom-booking_widget".
+ * via the `definition` "admin-alerts_widget".
  */
-export interface NextCalcomBookingWidget {
+export interface AdminAlertsWidget {
   data?: {
     [k: string]: unknown;
   };
-  width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
+  width: 'medium' | 'large' | 'x-large' | 'full';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

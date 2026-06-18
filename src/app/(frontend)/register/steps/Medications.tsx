@@ -2,18 +2,24 @@
 
 import { useRef } from 'react'
 import { withForm } from '@/blocks/Form/hooks/form'
+import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Trash2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
+import { medicationsSchema } from '../validators'
+import { RegisterNavigation } from '../components/Navigation'
+import type { RegisterStepProps } from './types'
 
 export const MedicationsStep = withForm({
-  ...getRegisterClientFormOpts('medications'),
-
-  render: function Render({ form }) {
+  ...getRegisterClientFormOpts(),
+  props: {} as RegisterStepProps,
+  render: function Render(props) {
+    const { form } = props
     const medicationRowKeysRef = useRef<string[]>([])
     const nextMedicationRowKeyRef = useRef(1)
+    const medications = useStore(form.store, (state) => state.values.medications)
 
     const createMedicationRowKey = () => {
       const key = `medication-row-${nextMedicationRowKeyRef.current}`
@@ -21,8 +27,8 @@ export const MedicationsStep = withForm({
       return key
     }
 
-    return (
-      <div className="space-y-6">
+    const body = (
+      <div className="wizard-content mb-8 flex-1 space-y-6">
         <div className="mb-6 flex items-center">
           <h2 className="text-foreground text-xl font-semibold">Medications (Optional)</h2>
         </div>
@@ -66,16 +72,16 @@ export const MedicationsStep = withForm({
                   Add Medication
                 </Button>
 
-                {field.state.value.length === 0 ? (
+                {medications.length === 0 ? (
                   <p className="text-muted-foreground py-8 text-center">
                     No medications added. If none apply, click Next to continue.
                   </p>
                 ) : (
                   <motion.div layout className="space-y-3">
                     <AnimatePresence initial={false} mode="popLayout">
-                      {field.state.value.map((_, i) => {
-                        const medicationIndex = field.state.value.length - i
-                        const medicationName = field.state.value[i]?.medicationName?.trim() || ''
+                      {medications.map((_, i) => {
+                        const medicationIndex = medications.length - i
+                        const medicationName = medications[i]?.medicationName?.trim() || ''
                         const medicationTitle = medicationName
                           ? `${medicationIndex} - ${medicationName}`
                           : `Medication ${medicationIndex}`
@@ -106,11 +112,11 @@ export const MedicationsStep = withForm({
                                 </div>
 
                                 <form.AppField name={`medications[${i}].medicationName`}>
-                                  {(f) => <f.MedicationNameField />}
+                                  {(medicationNameField) => <medicationNameField.MedicationNameField />}
                                 </form.AppField>
 
                                 <form.AppField name={`medications[${i}].detectedAs`}>
-                                  {(f) => <f.MedicationDetectedAsField />}
+                                  {(detectedAsField) => <detectedAsField.MedicationDetectedAsField />}
                                 </form.AppField>
                               </CardContent>
                             </Card>
@@ -125,6 +131,35 @@ export const MedicationsStep = withForm({
           }}
         </form.Field>
       </div>
+    )
+
+    if (props.mode === 'body') {
+      return body
+    }
+
+    return (
+      <form.FormGroup
+        name="medications"
+        validationLogic={revalidateLogic()}
+        validators={{ onDynamic: medicationsSchema.shape.medications }}
+        onGroupSubmit={() => props.onNext()}
+        onGroupSubmitInvalid={() => props.onInvalid()}
+      >
+        {(group) => (
+          <>
+            {body}
+
+            <RegisterNavigation
+              isFirstStep={props.isFirstStep}
+              isLastStep={props.isLastStep}
+              isSubmitting={props.isSubmitting}
+              isNextDisabled={group.state.meta.isSubmitting}
+              onBack={() => props.onBack()}
+              onNext={() => group.handleSubmit()}
+            />
+          </>
+        )}
+      </form.FormGroup>
     )
   },
 })

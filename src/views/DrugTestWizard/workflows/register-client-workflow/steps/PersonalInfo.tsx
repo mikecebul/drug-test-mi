@@ -4,13 +4,20 @@ import { withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { GENDER_OPTIONS } from '@/app/(frontend)/register/types'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
+import { revalidateLogic } from '@tanstack/react-form'
+import { personalInfoSchema } from '../validators'
+import { RegisterClientNavigation } from '../components/Navigation'
 
 export const PersonalInfoStep = withForm({
-  ...getRegisterClientFormOpts('personalInfo'),
-
-  render: function Render({ form }) {
-    return (
-      <div className="space-y-6">
+  ...getRegisterClientFormOpts(),
+  props: {} as {
+    onBack?: () => void
+    onNext?: () => void
+    onInvalid?: (error: unknown) => void
+  },
+  render: function Render({ form, onBack, onNext, onInvalid }) {
+    const body = (
+      <div className="wizard-content mb-8 flex-1 space-y-6">
         <FieldGroupHeader title="Personal Information" description="Basic client information" />
 
         {/* Name fields in flex row */}
@@ -49,6 +56,27 @@ export const PersonalInfoStep = withForm({
           </form.AppField>
         </div>
       </div>
+    )
+
+    if (!onNext) {
+      return body
+    }
+
+    return (
+      <form.FormGroup
+        name="personalInfo"
+        validationLogic={revalidateLogic()}
+        validators={{ onDynamic: personalInfoSchema.shape.personalInfo }}
+        onGroupSubmit={() => onNext?.()}
+        onGroupSubmitInvalid={({ groupApi }) => onInvalid?.(groupApi.state.meta.errors)}
+      >
+        {(group) => (
+          <>
+            {body}
+            <RegisterClientNavigation form={form} group={group} onBack={onBack ?? (() => {})} />
+          </>
+        )}
+      </form.FormGroup>
     )
   },
 })

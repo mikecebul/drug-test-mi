@@ -12,7 +12,7 @@ import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { getLabConfirmationFormOpts } from '../shared-form'
 
 export const ExtractStep = withForm({
-  ...getLabConfirmationFormOpts('extract'),
+  ...getLabConfirmationFormOpts(),
 
   render: function Render({ form }) {
     const uploadedFile = useStore(form.store, (state) => state.values.upload.file)

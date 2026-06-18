@@ -10,7 +10,7 @@ import { MedicationFieldGroup } from '../../components/medications/MedicationFie
 import { invalidateWizardClientDerivedData } from '../../../queries'
 
 export const MedicationsStep = withForm({
-  ...getInstantTestFormOpts('medications'),
+  ...getInstantTestFormOpts(),
 
   render: function Render({ form }) {
     const queryClient = useQueryClient()

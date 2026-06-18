@@ -45,8 +45,9 @@ export const Technicians: CollectionConfig = {
       name: 'calComUsername',
       type: 'text',
       required: true,
+      defaultValue: 'midrugtest',
       admin: {
-        description: 'Cal.com username for booking appointments',
+        description: 'Shared Cal.com username used by the booking widget.',
       },
     },
     {

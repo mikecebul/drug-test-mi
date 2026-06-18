@@ -8,7 +8,6 @@ import { seedFixtures, type FixtureContext } from './helpers/seed'
 import {
   clickBack,
   clickNext,
-  expectNextDisabled,
   extractTestIdFromSuccess,
   openWizard,
   selectWorkflow,
@@ -80,7 +79,6 @@ test.describe('Wizard Lab Confirmation Workflow', () => {
     await expect(page.getByText('Enter Confirmation Results')).toBeVisible()
     await triggerNextValidation(page)
     await expect(page.getByText('At least one confirmation result is required')).toBeVisible()
-    await expectNextDisabled(page)
 
     await clickBack(page)
     await expect(page.getByText('Match Test for Confirmation')).toBeVisible()

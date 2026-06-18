@@ -29,7 +29,7 @@ import { format } from 'date-fns'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 
 export const LabScreenDataStep = withForm({
-  ...getLabScreenFormOpts('labScreenData'),
+  ...getLabScreenFormOpts(),
 
   render: function Render({ form }) {
     const queryClient = useQueryClient()
@@ -74,6 +74,8 @@ export const LabScreenDataStep = withForm({
       }
       if (requiresDecision === false) {
         form.setFieldValue('labScreenData.confirmationDecisionRequired', false)
+        form.setFieldValue('labScreenData.confirmationDecision', undefined)
+        form.setFieldValue('labScreenData.confirmationSubstances', [])
         form.validate('submit')
       }
     }, [requiresDecision, form])
@@ -268,9 +270,11 @@ export const LabScreenDataStep = withForm({
                   <p className="text-muted-foreground mb-3 text-sm font-medium">How would you like to proceed?</p>
                   <RadioGroup
                     value={confirmationDecisionValue || ''}
-                    onValueChange={(value) =>
-                      handleConfirmationDecisionChange(value as 'accept' | 'request-confirmation' | 'pending-decision')
-                    }
+                    onValueChange={(value) => {
+                      const decision = value as 'accept' | 'request-confirmation' | 'pending-decision'
+                      field.handleChange(decision)
+                      handleConfirmationDecisionChange(decision)
+                    }}
                     className="space-y-2.5"
                   >
                     <Label
@@ -322,10 +326,13 @@ export const LabScreenDataStep = withForm({
                         </p>
                       </div>
                     </Label>
-                  </RadioGroup>
-                  <FieldError errors={field.state.meta.errors} />
-                </div>
-              )}
+	                  </RadioGroup>
+	                  {requiresDecision && !confirmationDecisionValue && field.state.meta.errors.length === 0 && (
+	                    <p className="text-destructive text-sm">Must select an option</p>
+	                  )}
+	                  <FieldError errors={field.state.meta.errors} />
+	                </div>
+	              )}
             </form.Field>
 
             {/* Substance selection when request-confirmation is chosen */}
@@ -333,16 +340,25 @@ export const LabScreenDataStep = withForm({
               <form.Field name="labScreenData.confirmationSubstances">
                 {(field) => (
                   <div className="mt-5">
-                    <ConfirmationSubstanceSelector
+	                    <ConfirmationSubstanceSelector
                       unexpectedPositives={preview?.unexpectedPositives ?? []}
                       selectedSubstances={confirmationSubstancesValue ?? []}
                       onSelectionChange={(substances) => {
                         form.setFieldValue('labScreenData.confirmationSubstances', substances)
                         form.validate('submit')
                       }}
-                      error={field.state.meta.errors?.[0]?.message}
-                    />
-                  </div>
+                      error={
+                        typeof field.state.meta.errors?.[0] === 'string'
+                          ? field.state.meta.errors[0]
+                          : (field.state.meta.errors?.[0] as { message?: string } | undefined)?.message
+	                      }
+	                    />
+	                    {!confirmationSubstancesValue?.length && field.state.meta.errors.length === 0 ? (
+	                      <p className="text-destructive mt-2 text-sm">
+	                        Please select at least one substance for confirmation testing
+	                      </p>
+	                    ) : null}
+	                  </div>
                 )}
               </form.Field>
             )}

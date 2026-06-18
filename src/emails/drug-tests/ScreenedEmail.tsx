@@ -4,13 +4,14 @@ import type { ScreenedEmailData } from '@/collections/DrugTests/email/types'
 import {
   BreathalyzerResult,
   ClientIdentity,
+  ConfirmationDecisionNotice,
   DetailRow,
   EmailLayout,
   ResultBadge,
   SubstancesSection,
 } from './components'
 import { formatDate, formatTestType } from './utils/formatters'
-import { button, errorBox, warningBox } from './utils/styles'
+import { button, errorBox } from './utils/styles'
 
 /**
  * ScreenedEmail (Client Version)
@@ -35,140 +36,11 @@ export function ScreenedEmail(data: ScreenedEmailData) {
     clientDob,
   } = data
 
-  const hasUnexpected =
-    initialScreenResult === 'unexpected-positive' ||
-    initialScreenResult === 'unexpected-negative-critical' ||
-    initialScreenResult === 'unexpected-negative-warning' ||
-    initialScreenResult === 'mixed-unexpected'
-
-  const isInstantTest = testType === '15-panel-instant'
-  const isLabScreen = testType !== '15-panel-instant'
-  const hasConfirmationDecision = confirmationDecision !== null && confirmationDecision !== undefined
-  const isAccepted = confirmationDecision === 'accept'
-  const isPending = confirmationDecision === 'pending-decision'
-
-  // Confirmation messaging helper
-  const getConfirmationMessage = () => {
-    if (!hasUnexpected) return null
-
-    if (initialScreenResult === 'unexpected-negative-warning') {
-      return (
-        <Section style={{...warningBox, marginBottom: '24px'}}>
-          <Text style={{ margin: '0 0 8px 0', fontWeight: 700 }}>⚠️ About Your Results</Text>
-          <Text style={{ margin: '0 0 8px 0' }}>
-            Your test shows that some of your prescribed medications were not detected. This is being monitored for patterns but does not automatically fail your test.
-          </Text>
-          <Text style={{ margin: '0' }}>
-            <strong>Note:</strong> One-off missed medications are not uncommon and can be due to timing or other factors. Your referral source will review this as part of your ongoing monitoring.
-          </Text>
-        </Section>
-      )
-    }
-
-    if (initialScreenResult === 'unexpected-negative-critical') {
-      return (
-        <Section style={{...errorBox, marginBottom: '24px'}}>
-          <Text style={{ margin: '0 0 8px 0', fontWeight: 700 }}>‼️ Critical: Required Medication Missing</Text>
-          <Text style={{ margin: '0 0 8px 0' }}>
-            Your test shows that required medications (marked for strict monitoring) were not detected. This requires immediate review.
-          </Text>
-          <Text style={{ margin: '0' }}>
-            <strong>Action Required:</strong> Your referral source has been notified and may request confirmation testing. Please contact them directly if you have questions.
-          </Text>
-        </Section>
-      )
-    }
-
-    // Unexpected positive messaging
-    if (isInstantTest && hasConfirmationDecision) {
-      return isAccepted ? (
-        <Section style={{...warningBox, marginBottom: '24px'}}>
-          <Text style={{ margin: '0 0 8px 0', fontWeight: 700 }}>Results Accepted</Text>
-          <Text style={{ margin: '0 0 8px 0' }}>
-            You chose to accept these screening results as final at the time of collection. The sample has been disposed and confirmation testing is no longer available for this test.
-          </Text>
-          <Text style={{ margin: '0' }}>
-            Please call us if you have questions about your results.
-          </Text>
-        </Section>
-      ) : (
-        <Section style={{...warningBox, marginBottom: '24px'}}>
-          <Text style={{ margin: '0 0 8px 0', fontWeight: 700 }}>Confirmation Testing Requested</Text>
-          <Text style={{ margin: '0 0 8px 0' }}>
-            Your sample has been sent to the laboratory for LC-MS/MS confirmation testing on the unexpected positive substances. You will receive an update when confirmation results are available (typically 2-4 business days).
-          </Text>
-          <Text style={{ margin: '0' }}>
-            Thank you for choosing confirmation testing to verify your results.
-          </Text>
-        </Section>
-      )
-    }
-
-    if (isLabScreen && hasConfirmationDecision) {
-      if (isAccepted) {
-        return (
-          <Section style={{...warningBox, marginBottom: '24px'}}>
-            <Text style={{ margin: '0 0 8px 0', fontWeight: 700 }}>Results Accepted</Text>
-            <Text style={{ margin: '0 0 8px 0' }}>
-              You have accepted these screening results as final. Your sample will be held by the laboratory for 30 days in case you change your mind and wish to request confirmation testing.
-            </Text>
-            <Text style={{ margin: '0' }}>
-              Confirmation testing is available for <strong>$45 per substance</strong> within <strong>30 days</strong>. Please call us if you have questions.
-            </Text>
-          </Section>
-        )
-      }
-
-      if (isPending) {
-        return (
-          <Section style={{...warningBox, marginBottom: '24px'}}>
-            <Text style={{ margin: '0 0 8px 0', fontWeight: 700 }}>Confirmation Testing Available</Text>
-            <Text style={{ margin: '0 0 8px 0' }}>
-              We were unable to reach you about your screening results. Your sample is being held by the laboratory for <strong>30 days</strong> to give you the opportunity to request confirmation testing.
-            </Text>
-            <Text style={{ margin: '0' }}>
-              Confirmation testing is available for <strong>$45 per substance</strong> within <strong>30 days</strong> to verify these results. Please call us at your earliest convenience to discuss your options.
-            </Text>
-          </Section>
-        )
-      }
-
-      return (
-        <Section style={{...warningBox, marginBottom: '24px'}}>
-          <Text style={{ margin: '0 0 8px 0', fontWeight: 700 }}>Confirmation Testing Requested</Text>
-          <Text style={{ margin: '0 0 8px 0' }}>
-            Your sample has been sent to the laboratory for LC-MS/MS confirmation testing on the unexpected positive substances. You will receive an update when confirmation results are available (typically 2-4 business days).
-          </Text>
-          <Text style={{ margin: '0' }}>
-            Thank you for choosing confirmation testing to verify your results.
-          </Text>
-        </Section>
-      )
-    }
-
-    // Default: no decision yet
-    return (
-      <Section style={{...warningBox, marginBottom: '24px'}}>
-        <Text style={{ margin: '0 0 8px 0', fontWeight: 700 }}>Confirmation Testing Available</Text>
-        <Text style={{ margin: '0 0 8px 0' }}>
-          Your initial screening detected unexpected substances. Confirmation testing is available for <strong>$45 per substance</strong> within <strong>30 days</strong> to verify these results.
-        </Text>
-        <Text style={{ margin: '0' }}>
-          Please call us at your earliest convenience to discuss your results.
-        </Text>
-      </Section>
-    )
-  }
-
   return (
     <EmailLayout preview="Your drug test results are ready" title="Drug Test Results">
       <ResultBadge result={initialScreenResult} />
 
-      <ClientIdentity
-        headshotDataUri={clientHeadshotDataUri}
-        name={clientName}
-        dob={clientDob}
-      />
+      <ClientIdentity headshotDataUri={clientHeadshotDataUri} name={clientName} dob={clientDob} />
 
       <Section style={{ marginBottom: '24px' }}>
         <Text
@@ -188,9 +60,7 @@ export function ScreenedEmail(data: ScreenedEmailData) {
       {isDilute && (
         <Section style={errorBox}>
           <Text style={{ margin: '0 0 4px 0', fontWeight: 700 }}>⚠️ DILUTE SAMPLE</Text>
-          <Text style={{ margin: '0' }}>
-            This sample was dilute and may affect result accuracy.
-          </Text>
+          <Text style={{ margin: '0' }}>This sample was dilute and may affect result accuracy.</Text>
         </Section>
       )}
 
@@ -204,13 +74,17 @@ export function ScreenedEmail(data: ScreenedEmailData) {
         unexpectedNegatives={unexpectedNegatives}
       />
 
-      {getConfirmationMessage()}
+      <ConfirmationDecisionNotice
+        audience="client"
+        confirmationDecision={confirmationDecision}
+        initialScreenResult={initialScreenResult}
+        testType={testType}
+        unexpectedPositives={unexpectedPositives}
+        unexpectedNegatives={unexpectedNegatives}
+      />
 
       <Section style={{ textAlign: 'center', marginBottom: '24px' }}>
-        <Button
-          href={`${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard/results`}
-          style={button}
-        >
+        <Button href={`${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard/results`} style={button}>
           View Test Results
         </Button>
       </Section>

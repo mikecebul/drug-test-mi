@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { personalInfoFieldSchema, recipientsSchema } from '../validators'
+import { formSchema, personalInfoFieldSchema, recipientsSchema } from '../validators'
 
 function buildBaseRecipientsInput() {
   return {
@@ -117,5 +117,38 @@ describe('personalInfoFieldSchema middle initial', () => {
         result.error.issues.some((issue) => issue.message === 'Middle initial must be a single character'),
       ).toBe(true)
     }
+  })
+})
+
+describe('formSchema account email handling', () => {
+  test('allows admin registration to defer email generation when noEmail is selected', () => {
+    const result = formSchema.safeParse({
+      personalInfo: {
+        firstName: 'Alex',
+        lastName: 'Taylor',
+        middleInitial: 'Q',
+        gender: 'male',
+        dob: '1990-01-15',
+        phone: '2485551212',
+        headshot: null,
+      },
+      accountInfo: {
+        noEmail: true,
+        email: '',
+        password: 'Generated123',
+        confirmPassword: 'Generated123',
+      },
+      screeningType: {
+        requestedBy: 'self',
+      },
+      recipients: {
+        additionalReferralRecipients: [],
+      },
+      terms: {
+        agreeToTerms: true,
+      },
+    })
+
+    expect(result.success).toBe(true)
   })
 })

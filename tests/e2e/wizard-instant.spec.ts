@@ -8,7 +8,6 @@ import { seedFixtures, type FixtureContext } from './helpers/seed'
 import {
   clickBack,
   clickNext,
-  expectNextDisabled,
   extractTestIdFromSuccess,
   goToEmailsStepFromInstant,
   openWizard,
@@ -43,7 +42,7 @@ test.describe('Wizard Instant Workflow', () => {
   test.beforeEach(async ({ page }) => {
     await loginAdmin(page, fixtures.admin)
     await openWizard(page)
-    await selectWorkflow(page, 'Screen 15-Panel Instant')
+    await selectWorkflow(page, 'Screen Instant Test')
   })
 
   test('validates upload and confirmation-decision branches, with back-forward navigation', async ({ page }) => {
@@ -69,16 +68,23 @@ test.describe('Wizard Instant Workflow', () => {
 
     await expect(page.getByText('Verify Test Data')).toBeVisible()
 
+    const testTypeInput = page.getByRole('textbox', { name: /Test Type/i })
+    await expect(testTypeInput).toBeVisible()
+    await expect(testTypeInput).toHaveValue('17-Panel Instant')
+    await expect(page.getByLabel(/^PCP$/i)).toBeVisible()
+    await expect(page.getByLabel(/6-MAM/i)).toHaveCount(0)
+
+    await page.getByLabel(/^PCP$/i).check()
+    await expect(page.getByLabel(/^PCP$/i)).toBeChecked()
+
     await page.getByLabel(/Fentanyl/i).check()
     await triggerNextValidation(page)
     await expect(page.getByText('Must select an option')).toBeVisible()
-    await expectNextDisabled(page)
 
     await page.getByRole('radio', { name: /Request Confirmation Testing/i }).check()
     await page.getByRole('button', { name: /Clear/i }).click()
     await triggerNextValidation(page)
     await expect(page.getByText('Please select at least one substance for confirmation testing')).toBeVisible()
-    await expectNextDisabled(page)
 
     await page.getByRole('radio', { name: /Accept Results/i }).check()
     const nextButton = page.getByTestId('wizard-next-button')

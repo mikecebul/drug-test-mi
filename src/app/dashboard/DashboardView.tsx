@@ -4,7 +4,20 @@ import { formatCollectionDateShort, formatCollectionDate } from '@/lib/date-util
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Calendar, CheckCircle, Clock, FileText, Pill, User, TrendingUp, AlertCircle, Shield } from 'lucide-react'
+import {
+  AlertCircle,
+  Calendar,
+  CheckCircle,
+  Clock,
+  Edit,
+  FileText,
+  Mail,
+  Pill,
+  Shield,
+  TrendingUp,
+  User,
+  UserRound,
+} from 'lucide-react'
 import Link from 'next/link'
 import { CalPopupButton } from '@/components/cal-popup-button'
 import { buildCalConfig, getClientBookingCalLink } from '@/utilities/calcom-config'
@@ -25,6 +38,7 @@ export type DashboardData = {
     compliantTests: number
     complianceRate: number
     activeMedications: number
+    activeMedicationNames: string[]
     pendingTests: number
   }
   nextAppointment?: {
@@ -100,11 +114,79 @@ const getDaysUntil = (dateString: string) => {
   return diffDays
 }
 
+type RecipientContact = {
+  name?: string | null
+  email?: string | null
+}
+
+type ReferralDocument = {
+  contacts?: RecipientContact[] | null
+  mainContactName?: string | null
+  mainContactEmail?: string | null
+  recipientEmails?: Array<{ email?: string | null }> | null
+}
+
+function getReferralDocument(client: Client): ReferralDocument | null {
+  if (!client.referral) {
+    return null
+  }
+
+  if (typeof client.referral === 'object' && 'value' in client.referral) {
+    return client.referral.value as ReferralDocument
+  }
+
+  return client.referral as ReferralDocument
+}
+
+function getResultsRecipients(client: Client) {
+  const recipients = new Map<string, { name?: string; email: string }>()
+  const add = (recipient?: RecipientContact | null) => {
+    const email = typeof recipient?.email === 'string' ? recipient.email.trim() : ''
+    if (!email) return
+
+    const key = email.toLowerCase()
+    const name = typeof recipient?.name === 'string' ? recipient.name.trim() || undefined : undefined
+    const existing = recipients.get(key)
+
+    if (!existing) {
+      recipients.set(key, { ...(name ? { name } : {}), email })
+      return
+    }
+
+    if (!existing.name && name) {
+      recipients.set(key, { name, email: existing.email })
+    }
+  }
+
+  const referralDoc = getReferralDocument(client)
+  for (const contact of referralDoc?.contacts || []) {
+    add(contact)
+  }
+  add({ name: referralDoc?.mainContactName, email: referralDoc?.mainContactEmail })
+  for (const row of referralDoc?.recipientEmails || []) {
+    add({ email: row?.email })
+  }
+
+  if (client.referralType === 'self') {
+    for (const row of client.selfReferral?.recipients || []) {
+      add(row)
+    }
+  }
+
+  for (const row of client.referralAdditionalRecipients || []) {
+    add(row)
+  }
+
+  return Array.from(recipients.values())
+}
+
 export function DashboardView({ data }: { data: DashboardData }) {
   const { user, stats, nextAppointment, recentTest } = data
+  const resultsRecipients = getResultsRecipients(data.client)
+
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <div className="px-4 lg:px-6">
+      <div className="px-6 lg:px-10 xl:px-12">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Welcome back, {user.name}</h1>
@@ -116,7 +198,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
       </div>
 
       {/* Stats Cards */}
-      <div className="px-4 lg:px-6">
+      <div className="px-6 lg:px-10 xl:px-12">
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <Card className="bg-gradient-to-br from-green-400 to-green-600 text-white">
             <CardContent className="p-4">
@@ -170,17 +252,17 @@ export function DashboardView({ data }: { data: DashboardData }) {
         </div>
       </div>
 
-      <div className="px-4 lg:px-6">
+      <div className="px-6 lg:px-10 xl:px-12">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* Quick Actions */}
-          <Card>
+          <Card className="lg:order-1">
             <CardHeader>
               <CardTitle className="flex items-center">
                 <User className="mr-2 h-5 w-5" />
                 Quick Actions
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="flex flex-col gap-3">
               <CalPopupButton
                 calUsername={getClientBookingCalLink(data.client)}
                 config={buildCalConfig(data.client)}
@@ -190,13 +272,13 @@ export function DashboardView({ data }: { data: DashboardData }) {
                 <Calendar className="mr-2 h-4 w-4" />
                 Schedule Appointment
               </CalPopupButton>
-              <Link href="/dashboard/results">
+              <Link href="/dashboard/results" className="block">
                 <Button className="w-full justify-start" variant="outline">
                   <FileText className="mr-2 h-4 w-4" />
                   View Test Results
                 </Button>
               </Link>
-              <Link href="/dashboard/medications">
+              <Link href="/dashboard/medications" className="block">
                 <Button className="w-full justify-start" variant="outline">
                   <Pill className="mr-2 h-4 w-4" />
                   Manage Medications
@@ -207,7 +289,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
 
           {/* Next Appointment */}
           {nextAppointment && (
-            <Card>
+            <Card className="lg:order-3">
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Calendar className="mr-2 h-5 w-5" />
@@ -246,15 +328,15 @@ export function DashboardView({ data }: { data: DashboardData }) {
           )}
 
           {/* Recent Test Result */}
-          {recentTest && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <FileText className="mr-2 h-5 w-5" />
-                  Recent Test Result
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+          <Card className="lg:order-2 lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <FileText className="mr-2 h-5 w-5" />
+                Recent Test Result
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {recentTest ? (
                 <div className="space-y-3">
                   <div>
                     <p className="text-muted-foreground text-sm">
@@ -275,42 +357,98 @@ export function DashboardView({ data }: { data: DashboardData }) {
                     </Button>
                   </Link>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Profile Summary */}
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Shield className="mr-2 h-5 w-5" />
-                Profile Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
+              ) : (
                 <div className="space-y-3">
                   <div>
-                    <p className="text-muted-foreground text-sm">Client Type</p>
-                    <Badge variant="outline" className="capitalize">
-                      {user.referralType === 'court' ? 'Court' : user.referralType}
-                    </Badge>
+                    <p className="text-sm font-medium">No tests taken yet</p>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      Your most recent result will appear here after your first completed test.
+                    </p>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground text-sm">Email</p>
-                    <p className="text-sm font-medium">{user.email}</p>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-muted-foreground text-sm">Reported Medications</p>
-                    <p className="text-sm font-medium">{stats.activeMedications} active</p>
-                  </div>
-                  <Link href="/dashboard/profile">
+                  <Link href="/dashboard/results">
                     <Button variant="outline" size="sm">
-                      Edit Profile
+                      View Test Results
                     </Button>
                   </Link>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Profile Summary */}
+          <Card className="@container/profile-info md:col-span-2 lg:order-4 lg:col-span-3">
+            <CardHeader className="border-border border-b">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="flex items-center">
+                  <Shield className="mr-2 h-5 w-5" />
+                  Profile Information
+                </CardTitle>
+                <Link href="/dashboard/profile">
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Edit className="h-4 w-4" />
+                    Edit Profile
+                  </Button>
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid gap-6 @[900px]/profile-info:grid-cols-[minmax(0,1.35fr)_minmax(200px,0.7fr)_minmax(240px,0.9fr)]">
+                <div>
+                  <p className="text-muted-foreground text-sm font-medium">Results Recipients</p>
+                  <div className="mt-3">
+                    {resultsRecipients.length > 0 ? (
+                      resultsRecipients.map((recipient) => (
+                        <div
+                          key={recipient.email}
+                          className="border-border/70 grid gap-3 border-b py-3 last:border-b-0 first:pt-0 last:pb-0 sm:grid-cols-[minmax(120px,0.45fr)_minmax(0,1fr)] sm:items-center"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span className="bg-muted text-muted-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-full">
+                              <UserRound className="h-4 w-4" />
+                            </span>
+                            <p className="truncate text-sm font-medium">
+                              {recipient.name || 'Recipient'}
+                            </p>
+                          </div>
+                          <p className="text-muted-foreground min-w-0 truncate pl-12 text-sm sm:pl-0">
+                            {recipient.email}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="mt-1 text-sm font-medium">Only you</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="@[900px]/profile-info:border-l @[900px]/profile-info:pl-6">
+                  <p className="text-muted-foreground text-sm font-medium">Reported Medications</p>
+                  {stats.activeMedicationNames.length > 0 ? (
+                    <div className="mt-3 flex flex-col items-start gap-2">
+                      {stats.activeMedicationNames.map((medicationName) => (
+                        <Badge
+                          key={medicationName}
+                          variant="secondary"
+                          className="gap-1.5 px-3 py-1.5"
+                        >
+                          <Pill className="h-3.5 w-3.5" />
+                          {medicationName}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-sm font-medium">No active medications</p>
+                  )}
+                </div>
+
+                <div className="@[900px]/profile-info:border-l @[900px]/profile-info:pl-6">
+                  <p className="text-muted-foreground text-sm font-medium">Account Email</p>
+                  <div className="mt-3 flex items-center gap-3">
+                    <span className="bg-muted text-muted-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-full">
+                      <Mail className="h-4 w-4" />
+                    </span>
+                    <p className="min-w-0 break-all text-sm font-medium">{user.email}</p>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -319,7 +457,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
       </div>
 
       {/* Important Notes */}
-      <div className="px-4 lg:px-6">
+      <div className="px-6 lg:px-10 xl:px-12">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">

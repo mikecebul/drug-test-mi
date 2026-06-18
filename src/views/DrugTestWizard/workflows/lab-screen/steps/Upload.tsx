@@ -5,7 +5,7 @@ import { getLabScreenFormOpts } from '../shared-form'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 
 export const UploadStep = withForm({
-  ...getLabScreenFormOpts('upload'),
+  ...getLabScreenFormOpts(),
 
   render: function Render({ form }) {
     return (

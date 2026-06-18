@@ -4,11 +4,11 @@ import { useMemo, useCallback } from "react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Clock, User, Calendar, Filter, MapPin } from "lucide-react"
 import type { Technician } from "@/payload-types"
+import { TechnicianGenderBadge } from "./TechnicianGenderBadge"
 
 type GenderPreference = "any" | "male" | "female"
 type TimePreference = "any" | "morning" | "evening"
@@ -359,9 +359,7 @@ export function TechnicianSelection({ onTechnicianSelect, technicians }: Technic
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-2">
                             <h4 className="text-base lg:text-lg font-semibold">{technician.name}</h4>
-                            <Badge variant="secondary" className="capitalize w-fit text-xs">
-                              {technician.gender}
-                            </Badge>
+                            <TechnicianGenderBadge gender={technician.gender} className="text-xs" />
                           </div>
 
                           <p className="text-muted-foreground text-xs lg:text-sm mb-2 lg:mb-3 line-clamp-2">

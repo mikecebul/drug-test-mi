@@ -25,6 +25,7 @@ const SUBSTANCE_MAPPING: Record<string, string> = {
   'barbiturates': 'barbiturates',
   'barbiturate': 'barbiturates',
   'methadone': 'methadone',
+  'morphine': 'morphine',
   'mdma': 'mdma',
   'ecstasy': 'mdma',
   'buprenorphine': 'buprenorphine',

@@ -15,6 +15,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
 } from '@/components/ui/sidebar'
 import type { Client } from '@/payload-types'
 
@@ -69,14 +70,20 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
+    <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
+            <SidebarMenuButton
+              tooltip="MI Drug Test"
+              asChild
+              className="data-[slot=sidebar-menu-button]:!p-1.5"
+            >
               <Link href="/dashboard">
                 <FlaskConical className="h-5 w-5" />
-                <span className="text-base font-semibold">MI Drug Test</span>
+                <span className="text-base font-semibold group-data-[collapsible=icon]:hidden">
+                  MI Drug Test
+                </span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -89,6 +96,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       <SidebarFooter>
         <NavUser user={user} />
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   )
 }

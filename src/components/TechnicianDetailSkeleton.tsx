@@ -5,7 +5,7 @@ import { ArrowLeft, Calendar } from "lucide-react"
 export function TechnicianDetailSkeleton() {
   return (
     <div className="min-h-screen bg-muted/30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-12 lg:py-12 xl:px-16">
         <div className="mb-6 sm:mb-8 lg:mb-10">
           {/* Back Button Skeleton */}
           <div className="flex items-center gap-2 mb-4">

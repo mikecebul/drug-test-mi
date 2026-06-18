@@ -17,7 +17,7 @@ export const TestTypes: CollectionConfig = {
   },
   admin: {
     useAsTitle: 'label',
-    defaultColumns: ['label', 'value', 'category', 'isActive'],
+    defaultColumns: ['label', 'value', 'category', 'price', 'toxAccessCode', 'isActive'],
   },
   fields: [
     {
@@ -54,6 +54,25 @@ export const TestTypes: CollectionConfig = {
       ],
       admin: {
         description: 'Helps filter test types in future workflows.',
+      },
+    },
+    {
+      name: 'price',
+      type: 'number',
+      required: true,
+      min: 0,
+      admin: {
+        description: 'Standard client price in USD.',
+        step: 1,
+      },
+    },
+    {
+      name: 'toxAccessCode',
+      label: 'Test Code',
+      type: 'text',
+      admin: {
+        description: 'Lab test code used when ordering this test in ToxAccess.',
+        condition: (_, siblingData) => siblingData?.category === 'lab',
       },
     },
     {

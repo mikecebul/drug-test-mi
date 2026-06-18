@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "calcom-api": {
+      "source": "calcom/cal.com",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/calcom-api/SKILL.md",
+      "computedHash": "544a43edc72eccc843388905fc7c0b5f91ca703d11fd9097ea6c67eaa19250e3"
+    },
+    "playwright-best-practices": {
+      "source": "currents-dev/playwright-best-practices-skill",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "320eaf861e3a0a923bfaad0726cb311a3fe30093378f8d26c89b9c5ae5c42b35"
+    }
+  }
+}
