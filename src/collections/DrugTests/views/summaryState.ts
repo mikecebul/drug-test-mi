@@ -95,6 +95,7 @@ const TEST_TYPE_LABELS: Record<DrugTest['testType'], string> = {
   '11-panel-lab': '11-Panel Lab',
   '11-panel-lab-no-etg': '11-Panel Lab (no EtG)',
   '15-panel-instant': '15-Panel Instant',
+  '17-panel-instant': '17-Panel Instant',
   '17-panel-sos-lab': '17-Panel SOS Lab',
   'etg-lab': 'EtG Lab',
 }

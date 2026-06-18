@@ -3,6 +3,7 @@ import { superAdmin } from '@/access/superAdmin'
 import { admins } from '@/access/admins'
 import { superAdminFieldAccess } from '@/access/superAdminFieldAccess'
 import { computeTestResults } from './hooks/computeTestResults'
+import { syncClientBalanceAfterChange, syncClientBalanceAfterDelete } from './hooks/syncClientBalance'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
 
 export const DrugTests: CollectionConfig = {
@@ -13,6 +14,8 @@ export const DrugTests: CollectionConfig = {
   },
   hooks: {
     beforeChange: [computeTestResults],
+    afterChange: [syncClientBalanceAfterChange],
+    afterDelete: [syncClientBalanceAfterDelete],
   },
   access: {
     create: admins,
@@ -247,6 +250,7 @@ export const DrugTests: CollectionConfig = {
                 { label: '11-Panel Lab', value: '11-panel-lab' },
                 { label: '11-Panel Lab (no EtG)', value: '11-panel-lab-no-etg' },
                 { label: '15-Panel Instant', value: '15-panel-instant' },
+                { label: '17-Panel Instant', value: '17-panel-instant' },
                 { label: '17-Panel SOS Lab', value: '17-panel-sos-lab' },
                 { label: 'EtG Lab', value: 'etg-lab' },
               ],
@@ -254,6 +258,87 @@ export const DrugTests: CollectionConfig = {
               admin: {
                 description: 'Type of drug test panel used',
               },
+            },
+            {
+              name: 'sourceBooking',
+              type: 'relationship',
+              relationTo: 'bookings',
+              admin: {
+                description: 'Scheduled booking that produced this test, when applicable.',
+              },
+            },
+            {
+              name: 'payment',
+              type: 'group',
+              admin: {
+                description: 'Payment snapshot for this test.',
+              },
+              fields: [
+                {
+                  name: 'status',
+                  type: 'select',
+                  required: true,
+                  defaultValue: 'unpaid',
+                  options: [
+                    { label: 'Paid', value: 'paid' },
+                    { label: 'Unpaid', value: 'unpaid' },
+                    { label: 'Partial / Still Owes', value: 'partial' },
+                  ],
+                },
+                {
+                  type: 'row',
+                  fields: [
+                    {
+                      name: 'amountDue',
+                      type: 'number',
+                      min: 0,
+                      defaultValue: 0,
+                      admin: {
+                        step: 1,
+                        width: '33%',
+                      },
+                    },
+                    {
+                      name: 'amountPaid',
+                      type: 'number',
+                      min: 0,
+                      defaultValue: 0,
+                      admin: {
+                        step: 1,
+                        width: '33%',
+                      },
+                    },
+                    {
+                      name: 'balanceDue',
+                      type: 'number',
+                      min: 0,
+                      defaultValue: 0,
+                      admin: {
+                        readOnly: true,
+                        step: 1,
+                        width: '33%',
+                        description: 'Automatically calculated from amount due minus amount paid.',
+                      },
+                      hooks: {
+                        beforeChange: [
+                          ({ siblingData }) => {
+                            const amountDue = typeof siblingData?.amountDue === 'number' ? siblingData.amountDue : 0
+                            const amountPaid = typeof siblingData?.amountPaid === 'number' ? siblingData.amountPaid : 0
+                            return Math.max(0, amountDue - amountPaid)
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+                {
+                  name: 'notes',
+                  type: 'textarea',
+                  admin: {
+                    description: 'Payment notes or balance details captured during the workflow.',
+                  },
+                },
+              ],
             },
             {
               name: 'medicationsAtTestTime',

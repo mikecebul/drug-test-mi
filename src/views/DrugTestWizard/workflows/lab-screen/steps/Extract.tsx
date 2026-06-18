@@ -14,7 +14,7 @@ import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { getLabScreenFormOpts } from '../shared-form'
 
 export const ExtractStep = withForm({
-  ...getLabScreenFormOpts('extract'),
+  ...getLabScreenFormOpts(),
 
   render: function Render({ form }) {
     const uploadedFile = useStore(form.store, (state) => state.values.upload.file)

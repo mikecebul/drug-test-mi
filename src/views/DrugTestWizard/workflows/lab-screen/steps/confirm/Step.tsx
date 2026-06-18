@@ -16,7 +16,7 @@ import {
 } from '../../../instant-test/steps/confirm/components'
 
 export const ConfirmStep = withForm({
-  ...getLabScreenFormOpts('confirm'),
+  ...getLabScreenFormOpts(),
 
   render: function Render({ form }) {
     const formValues = useStore(form.store, (state) => state.values)

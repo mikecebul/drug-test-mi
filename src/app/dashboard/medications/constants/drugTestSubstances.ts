@@ -10,6 +10,7 @@ export const DRUG_TEST_SUBSTANCES = [
   { label: 'MDMA (Ecstasy)', value: 'mdma' },
   { label: 'Methadone', value: 'methadone' },
   { label: 'Methamphetamines', value: 'methamphetamines' },
+  { label: 'Morphine', value: 'morphine' },
   { label: 'Opiates', value: 'opiates' },
   { label: 'Oxycodone', value: 'oxycodone' },
   { label: 'Phencyclidine (PCP)', value: 'pcp' },

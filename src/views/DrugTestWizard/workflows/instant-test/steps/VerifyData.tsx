@@ -22,7 +22,7 @@ import { AlertTriangle } from 'lucide-react'
 import { useEffect } from 'react'
 
 export const VerifyDataStep = withForm({
-  ...getInstantTestFormOpts('verifyData'),
+  ...getInstantTestFormOpts(),
 
   render: function Render({ form }) {
     const queryClient = useQueryClient()
@@ -30,6 +30,12 @@ export const VerifyDataStep = withForm({
     const formClient = formValues.client
     const verifyData = formValues.verifyData
     const medications = formValues.medications
+
+    useEffect(() => {
+      if (!verifyData?.collectionDate) {
+        form.setFieldValue('verifyData.collectionDate', new Date().toISOString())
+      }
+    }, [form, verifyData?.collectionDate])
 
     // Convert form client to SimpleClient type with derived fields
     const client = formClient?.id
@@ -50,7 +56,7 @@ export const VerifyDataStep = withForm({
     const { data: preview } = useComputeTestResultPreviewQuery(
       client?.id,
       (verifyData?.detectedSubstances ?? []) as SubstanceValue[],
-      verifyData?.testType ?? '15-panel-instant',
+      verifyData?.testType ?? '17-panel-instant',
       verifyData?.breathalyzerTaken,
       verifyData?.breathalyzerResult,
       medications, // Pass medications to properly compute expected vs unexpected positives
@@ -58,7 +64,6 @@ export const VerifyDataStep = withForm({
 
     const hasUnexpectedPositives = (preview?.unexpectedPositives?.length ?? 0) > 0
     const requiresDecision = hasUnexpectedPositives && !preview?.autoAccept
-
     // Clear error if no decision required
     useEffect(() => {
       if (requiresDecision === true) {
@@ -67,6 +72,8 @@ export const VerifyDataStep = withForm({
       }
       if (requiresDecision === false) {
         form.setFieldValue('verifyData.confirmationDecisionRequired', false)
+        form.setFieldValue('verifyData.confirmationDecision', undefined)
+        form.setFieldValue('verifyData.confirmationSubstances', [])
         form.validate('submit')
       }
     }, [requiresDecision, form])
@@ -77,13 +84,13 @@ export const VerifyDataStep = withForm({
 
     // Handler for confirmation decision changes
     const handleConfirmationDecisionChange = (value: 'accept' | 'request-confirmation' | 'pending-decision') => {
-      form.setFieldValue('verifyData.confirmationDecision', value)
+      form.setFieldValue('verifyData.confirmationDecision', value, { dontValidate: true })
 
       // Auto-populate confirmation substances when requesting confirmation
       if (value === 'request-confirmation' && preview?.unexpectedPositives) {
         const currentSubstances = confirmationSubstancesValue || []
         if (currentSubstances.length === 0) {
-          form.setFieldValue('verifyData.confirmationSubstances', preview.unexpectedPositives)
+          form.setFieldValue('verifyData.confirmationSubstances', preview.unexpectedPositives, { dontValidate: true })
         }
       }
 
@@ -115,12 +122,16 @@ export const VerifyDataStep = withForm({
         {/* Test Data Form */}
         <Card className="@container shadow-md">
           <CardContent className="grid gap-6 pt-6">
-            {/* Test Type (read-only for instant tests) */}
             <FieldGroup className="grid @lg:grid-cols-2">
-              <Field className="@lg:col-span-1">
-                <FieldLabel>Test Type</FieldLabel>
-                <Input value="15-Panel Instant" disabled readOnly />
-              </Field>
+              <form.Field name="verifyData.testType">
+                {(field) => (
+                  <Field className="@lg:col-span-1">
+                    <FieldLabel htmlFor="instant-test-type">Test Type</FieldLabel>
+                    <Input id="instant-test-type" value="17-Panel Instant" readOnly />
+                    <FieldError errors={field.state.meta.errors} />
+                  </Field>
+                )}
+              </form.Field>
             </FieldGroup>
 
             {/* Collection Date/Time */}
@@ -154,7 +165,7 @@ export const VerifyDataStep = withForm({
                 },
               }}
             >
-              {(field) => <field.SubstanceChecklistField />}
+              {(field) => <field.SubstanceChecklistField testType={verifyData?.testType ?? '17-panel-instant'} />}
             </form.AppField>
 
             {/* Dilute Sample */}
@@ -262,9 +273,10 @@ export const VerifyDataStep = withForm({
                   <FieldLabel>How would you like to proceed?</FieldLabel>
                   <RadioGroup
                     value={confirmationDecisionValue || ''}
-                    onValueChange={(value) =>
-                      handleConfirmationDecisionChange(value as 'accept' | 'request-confirmation' | 'pending-decision')
-                    }
+                    onValueChange={(value) => {
+                      const decision = value as 'accept' | 'request-confirmation' | 'pending-decision'
+                      handleConfirmationDecisionChange(decision)
+                    }}
                     className="space-y-2.5"
                   >
                     <Label
@@ -317,6 +329,9 @@ export const VerifyDataStep = withForm({
                       </div>
                     </Label>
                   </RadioGroup>
+                  {requiresDecision && !confirmationDecisionValue && field.state.meta.errors.length === 0 && (
+                    <p className="text-destructive text-sm">Must select an option</p>
+                  )}
                   <FieldError errors={field.state.meta.errors} />
                 </Field>
               )}
@@ -334,8 +349,17 @@ export const VerifyDataStep = withForm({
                         form.setFieldValue('verifyData.confirmationSubstances', substances)
                         form.validate('submit')
                       }}
-                      error={field.state.meta.errors?.[0]?.message}
+                      error={
+                        typeof field.state.meta.errors?.[0] === 'string'
+                          ? field.state.meta.errors[0]
+                          : (field.state.meta.errors?.[0] as { message?: string } | undefined)?.message
+                      }
                     />
+                    {!confirmationSubstancesValue?.length && field.state.meta.errors.length === 0 ? (
+                      <p className="text-destructive mt-2 text-sm">
+                        Please select at least one substance for confirmation testing
+                      </p>
+                    ) : null}
                   </div>
                 )}
               </form.Field>

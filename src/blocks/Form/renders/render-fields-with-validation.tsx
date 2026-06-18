@@ -5,6 +5,8 @@ import { ArrayFieldComponent } from './render-array-field'
 import { GroupFieldComponent } from './render-group-field'
 import { RichText } from '@/components/RichText'
 
+const getZodErrorMessage = (error: z.ZodError) => error.issues[0]?.message
+
 export const RenderFields = ({
   field,
   defaultValues,
@@ -24,9 +26,14 @@ export const RenderFields = ({
           key={field.id}
           name={field.name}
           validators={{
-            onChange: field.required
-              ? z.string().min(1, `${field.label || field.name} is required`)
-              : z.string().optional(),
+            onChange: ({ value }) => {
+              const result = (field.required
+                ? z.string().min(1, `${field.label || field.name} is required`)
+                : z.string().optional()
+              ).safeParse(value)
+
+              return result.success ? undefined : getZodErrorMessage(result.error)
+            },
           }}
         >
           {(formField) => <formField.TextField {...field} />}
@@ -38,9 +45,14 @@ export const RenderFields = ({
           key={field.id}
           name={field.name}
           validators={{
-            onChange: field.required
-              ? z.string().min(1, 'Email is required').email()
-              : z.string().email().optional(),
+            onChange: ({ value }) => {
+              const result = (field.required
+                ? z.string().min(1, 'Email is required').email()
+                : z.string().email().optional()
+              ).safeParse(value)
+
+              return result.success ? undefined : getZodErrorMessage(result.error)
+            },
           }}
         >
           {(formField) => <formField.EmailField {...field} />}
@@ -52,21 +64,26 @@ export const RenderFields = ({
           key={field.id}
           name={field.name}
           validators={{
-            onChange: field.required
-              ? z
-                  .string()
-                  .min(1, 'Phone number required')
-                  .regex(
-                    /^(?:\+?1[-. ]?)?\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/,
-                    'Invalid phone number',
-                  )
-              : z
-                  .string()
-                  .regex(
-                    /^(?:\+?1[-. ]?)?\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/,
-                    'Invalid phone number',
-                  )
-                  .optional(),
+            onChange: ({ value }) => {
+              const result = (field.required
+                ? z
+                    .string()
+                    .min(1, 'Phone number required')
+                    .regex(
+                      /^(?:\+?1[-. ]?)?\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/,
+                      'Invalid phone number',
+                    )
+                : z
+                    .string()
+                    .regex(
+                      /^(?:\+?1[-. ]?)?\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/,
+                      'Invalid phone number',
+                    )
+                    .optional()
+              ).safeParse(value)
+
+              return result.success ? undefined : getZodErrorMessage(result.error)
+            },
           }}
         >
           {(formField) => <formField.PhoneField {...field} />}
@@ -78,9 +95,14 @@ export const RenderFields = ({
           key={field.id}
           name={field.name}
           validators={{
-            onChange: field.required
-              ? z.string().min(1, `${field.label || field.name} is required`)
-              : z.string().optional(),
+            onChange: ({ value }) => {
+              const result = (field.required
+                ? z.string().min(1, `${field.label || field.name} is required`)
+                : z.string().optional()
+              ).safeParse(value)
+
+              return result.success ? undefined : getZodErrorMessage(result.error)
+            },
           }}
         >
           {(formField) => <formField.TextareaField {...field} />}
@@ -109,7 +131,7 @@ export const RenderFields = ({
           key={field.id}
           name={field.name}
           validators={{
-            onChange: (() => {
+            onChange: ({ value }) => {
               // Start with base schema for coercing to number
               let schema = z.coerce.number()
 
@@ -130,14 +152,13 @@ export const RenderFields = ({
               }
 
               // Handle required vs optional
-              if (field.required) {
-                return schema
-              } else {
-                // For optional fields, allow empty values
-                // This handles empty string ('') which coerces to 0
-                return z.union([schema, z.literal('').transform(() => undefined), z.undefined()])
-              }
-            })(),
+              const result = (field.required
+                ? schema
+                : z.union([schema, z.literal('').transform(() => undefined), z.undefined()])
+              ).safeParse(value)
+
+              return result.success ? undefined : getZodErrorMessage(result.error)
+            },
           }}
         >
           {(formField) => <formField.NumberField {...field} />}
@@ -149,9 +170,14 @@ export const RenderFields = ({
           key={field.id}
           name={field.name}
           validators={{
-            onChange: field.required
-              ? z.string().min(1, `${field.label || field.name} is required`)
-              : z.string().optional(),
+            onChange: ({ value }) => {
+              const result = (field.required
+                ? z.string().min(1, `${field.label || field.name} is required`)
+                : z.string().optional()
+              ).safeParse(value)
+
+              return result.success ? undefined : getZodErrorMessage(result.error)
+            },
           }}
         >
           {(formField) => <formField.CountryField {...field} />}
@@ -163,9 +189,14 @@ export const RenderFields = ({
           key={field.id}
           name={field.name}
           validators={{
-            onChange: field.required
-              ? z.string().min(1, `${field.label || field.name} is required`)
-              : z.string().optional(),
+            onChange: ({ value }) => {
+              const result = (field.required
+                ? z.string().min(1, `${field.label || field.name} is required`)
+                : z.string().optional()
+              ).safeParse(value)
+
+              return result.success ? undefined : getZodErrorMessage(result.error)
+            },
           }}
         >
           {(formField) => <formField.StateField {...field} />}
@@ -177,28 +208,29 @@ export const RenderFields = ({
           key={field.id}
           name={field.name}
           validators={{
-            onChange: field.required
-              ? z
-                  .string()
-                  .refine(
-                    (value) => field.options?.some((option) => option.value === value) ?? false,
-                    { message: `Please select a valid option for ${field.label || field.name}` },
-                  )
-              : z
-                  .string()
-                  .optional()
-                  .refine(
-                    (value) =>
-                      (!value || field.options?.some((option) => option.value === value)) ?? true,
-                    { message: `Please select a valid option for ${field.label || field.name}` },
-                  ),
+            onChange: ({ value }) => {
+              const result = (field.required
+                ? z
+                    .string()
+                    .refine(
+                      (value) => field.options?.some((option) => option.value === value) ?? false,
+                      { message: `Please select a valid option for ${field.label || field.name}` },
+                    )
+                : z
+                    .string()
+                    .optional()
+                    .refine(
+                      (value) =>
+                        (!value || field.options?.some((option) => option.value === value)) ?? true,
+                      { message: `Please select a valid option for ${field.label || field.name}` },
+                    )
+              ).safeParse(value)
+
+              return result.success ? undefined : getZodErrorMessage(result.error)
+            },
           }}
         >
-          {(formField) => (
-            <formField.SelectField
-              {...field}
-            />
-          )}
+          {(formField) => <formField.SelectField {...field} />}
         </form.AppField>
       )
     case 'array':

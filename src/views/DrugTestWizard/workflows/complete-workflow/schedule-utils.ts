@@ -1,0 +1,55 @@
+export type GuidedScheduleStep = 'registration' | 'payment'
+export type GuidedPaymentChoice = 'paid' | 'pre-paid' | 'still-owes'
+
+export type GuidedScheduleBooking = {
+  id: string
+  needsRegistration: boolean
+  needsTestType: boolean
+  sampleCollection?: {
+    status?: string | null
+  } | null
+  payment?: {
+    status?: string | null
+    method?: string | null
+    amountDue?: number | null
+    amountPaid?: number | null
+  } | null
+}
+
+export function getGuidedPaymentChoice(
+  payment: GuidedScheduleBooking['payment'] | undefined,
+): GuidedPaymentChoice | null {
+  if (!payment?.status) return null
+  const amountDue = typeof payment.amountDue === 'number' ? payment.amountDue : 0
+  const amountPaid = typeof payment.amountPaid === 'number' ? payment.amountPaid : 0
+
+  if (amountDue > 0 && amountPaid >= amountDue) return 'paid'
+  if (payment.method === 'pre-paid') return 'pre-paid'
+  if (payment.status === 'partial') return 'still-owes'
+  if (payment.status === 'unpaid') return 'still-owes'
+  if (payment.status === 'paid') return 'paid'
+  return null
+}
+
+export function getGuidedPaymentLabel(booking: GuidedScheduleBooking) {
+  if (booking.sampleCollection?.status === 'collected') return 'Collected'
+  const choice = getGuidedPaymentChoice(booking.payment)
+  if (choice === 'pre-paid') return 'Pre-paid'
+  if (choice === 'still-owes') return 'Still owes'
+  if (choice === 'paid') return 'Paid'
+  return 'Unpaid'
+}
+
+export function getGuidedBookingNextStep(booking: GuidedScheduleBooking): GuidedScheduleStep {
+  return booking.needsRegistration || booking.needsTestType ? 'registration' : 'payment'
+}
+
+export function getGuidedScheduleHref(booking: GuidedScheduleBooking) {
+  const params = new URLSearchParams({
+    workflow: 'guided',
+    step: getGuidedBookingNextStep(booking),
+    bookingId: booking.id,
+  })
+
+  return `/admin/drug-test-upload?${params.toString()}`
+}

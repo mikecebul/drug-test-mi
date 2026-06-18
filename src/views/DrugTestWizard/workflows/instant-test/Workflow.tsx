@@ -1,11 +1,15 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
+import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { getInstantTestFormOpts } from './shared-form'
+import type { InstantTestType } from './shared-form'
 import { InstantTestNavigation } from './components/Navigation'
 import { UploadStep } from './steps/Upload'
 import { ExtractStep } from './steps/Extract'
@@ -16,18 +20,32 @@ import { ConfirmStep } from './steps/confirm/Step'
 import { EmailsStep } from './steps/Emails'
 import { createInstantTest } from './actions/createInstantTest'
 import { TestCompleted } from '../../components/TestCompleted'
-import { steps } from './validators'
+import {
+  clientSchema,
+  emailsGroupSchema,
+  extractSchema,
+  medicationsSchema,
+  steps,
+  uploadSchema,
+  verifyDataSchema,
+} from './validators'
 import { extractPdfQueryKey } from '../../queries'
-import { getClientById } from '../components/client/getClients'
-import { getFileFromStorage, clearFileStorage, hasStoredFile } from './utils/fileStorage'
+import type { ExtractedPdfData } from '../../queries'
+import type { SubstanceValue } from '@/fields/substanceOptions'
+import { getClientByBookingId, getClientById } from '../components/client/getClients'
+import { getFileFromStorage, clearFileStorage, hasStoredFile, saveFileToStorage } from './utils/fileStorage'
+import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
+import { getReportClientMatch, getReportClientMismatchKey } from './utils/reportClientMatch'
 
 interface InstantTestWorkflowProps {
   onBack: () => void
 }
 
 export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
+  const router = useRouter()
   const queryClient = useQueryClient()
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
+  const [isRestoringFile, setIsRestoringFile] = useState(true)
 
   // Wrap onBack to clear storage when navigating away
   const handleBack = () => {
@@ -36,38 +54,51 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   }
 
   // URL is single source of truth
-  const [currentStepRaw, setCurrentStep] = useQueryState(
-    'step',
-    parseAsStringLiteral(steps as readonly string[]).withDefault('upload'),
-  )
-  const currentStep = currentStepRaw as (typeof steps)[number]
+  const [currentStep, setCurrentStep] = useQueryState('step', parseAsStringLiteral(steps).withDefault('upload'))
 
   // Manage clientId param for pre-populating from registration workflow
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)
+  const [bookingId] = useQueryState('bookingId', parseAsString)
+  const hydratedClientIdRef = useRef<string | null>(null)
+  const initialTestType: InstantTestType = '17-panel-instant'
+  const formRef = useRef<HTMLFormElement | null>(null)
 
-  // Track previous step for navigation direction
-  const prevStepRef = useRef(currentStep)
+  useStepFocus({
+    containerRef: formRef,
+    stepKey: currentStep,
+  })
 
   const form = useAppForm({
-    ...getInstantTestFormOpts(currentStep),
+    ...getInstantTestFormOpts(initialTestType),
     onSubmit: async ({ value }) => {
-      const currentStepIndex = steps.indexOf(currentStep)
-      const isLastStep = currentStepIndex === steps.length - 1
-      console.log(`[InstantTest] onSubmit called - step: ${currentStep}, isLastStep: ${isLastStep}`)
-
-      if (!isLastStep) {
-        // Navigate to next step
-        await setCurrentStep(steps[currentStepIndex + 1], { history: 'push' })
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-        return
-      }
-
       // Final submit: Create drug test
       console.log(`[InstantTest] Starting final submission...`)
       try {
-        const queryKey = extractPdfQueryKey(value.upload.file, '15-panel-instant')
-        const extractedData = queryClient.getQueryData<any>(queryKey)
+        const queryKey = extractPdfQueryKey(value.upload.file, 'instant-test')
+        const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
         console.log(`[InstantTest] Extracted data from query cache:`, extractedData ? 'found' : 'not found')
+
+        if (extractedData?.testType === '15-panel-instant') {
+          toast.error('15-panel instant tests are no longer supported. Upload a 17-panel instant report.', {
+            id: 'instant-test-unsupported-15-panel',
+          })
+          await setCurrentStep('extract', { history: 'push' })
+          return
+        }
+
+        const reportClientMatch = getReportClientMatch(extractedData?.donorName, value.client)
+        const mismatchKey = getReportClientMismatchKey(reportClientMatch)
+
+        if (
+          reportClientMatch.status === 'mismatch' &&
+          (!value.extract.clientMismatchConfirmed || value.extract.clientMismatchConfirmationKey !== mismatchKey)
+        ) {
+          toast.error('Confirm the report/client mismatch before submitting.', {
+            id: 'instant-test-report-client-mismatch',
+          })
+          await setCurrentStep('extract', { history: 'push' })
+          return
+        }
 
         // Convert File to buffer array
         console.log(`[InstantTest] Converting file to array buffer...`)
@@ -79,16 +110,19 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
         const originalSizeMB = (value.upload.file.size / 1024 / 1024).toFixed(2)
         const bufferSizeMB = (arrayBuffer.byteLength / 1024 / 1024).toFixed(2)
         const jsonSizeMB = (JSON.stringify(pdfBuffer).length / 1024 / 1024).toFixed(2)
-        console.log(`[InstantTest] PDF Sizes - Original: ${originalSizeMB}MB, Buffer: ${bufferSizeMB}MB, JSON: ${jsonSizeMB}MB`)
+        console.log(
+          `[InstantTest] PDF Sizes - Original: ${originalSizeMB}MB, Buffer: ${bufferSizeMB}MB, JSON: ${jsonSizeMB}MB`,
+        )
 
         console.log(`[InstantTest] Calling createInstantTest server action...`)
 
         const result = await createInstantTest(
           {
             clientId: value.client.id,
+            bookingId,
             testType: value.verifyData.testType,
             collectionDate: value.verifyData.collectionDate,
-            detectedSubstances: value.verifyData.detectedSubstances as any,
+            detectedSubstances: value.verifyData.detectedSubstances as SubstanceValue[],
             isDilute: value.verifyData.isDilute,
             breathalyzerTaken: value.verifyData.breathalyzerTaken,
             breathalyzerResult: value.verifyData.breathalyzerResult ?? null,
@@ -97,7 +131,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
             hasConfirmation: extractedData?.hasConfirmation,
             confirmationResults: extractedData?.confirmationResults,
             confirmationDecision: value.verifyData.confirmationDecision ?? null,
-            confirmationSubstances: value.verifyData.confirmationSubstances as any,
+            confirmationSubstances: value.verifyData.confirmationSubstances as SubstanceValue[] | undefined,
           },
           value.medications,
           {
@@ -125,16 +159,27 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       }
     },
   })
+  const uploadedFile = useStore(form.store, (state) => state.values.upload.file)
 
-  // Restore file from localStorage on mount (e.g., after returning from registration)
+  // Restore file from localStorage only after the upload step. Starting or reloading
+  // the upload step is treated as a fresh test and clears any previous PDF.
   useEffect(() => {
     const restoreFile = async () => {
-      if (hasStoredFile() && !form.state.values.upload.file) {
-        const file = await getFileFromStorage()
-        if (file) {
-          form.setFieldValue('upload.file', file)
-          toast.success('Uploaded file restored')
+      try {
+        if (currentStep === 'upload') {
+          clearFileStorage()
+          return
         }
+
+        if (hasStoredFile() && !form.state.values.upload.file) {
+          const file = await getFileFromStorage()
+          if (file) {
+            form.setFieldValue('upload.file', file)
+            toast.success('Uploaded file restored')
+          }
+        }
+      } finally {
+        setIsRestoringFile(false)
       }
     }
 
@@ -143,96 +188,199 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Handle validation on backward navigation
+  // Keep the uploaded PDF available across refreshes and workflow detours once
+  // the workflow has moved beyond the fresh upload step.
   useEffect(() => {
-    const currentIndex = steps.indexOf(currentStep)
-    const prevIndex = steps.indexOf(prevStepRef.current)
+    if (uploadedFile && currentStep !== 'upload') {
+      void saveFileToStorage(uploadedFile)
+    }
+  }, [currentStep, uploadedFile])
 
-    // Validate when going backward
-    if (currentIndex < prevIndex) {
-      form.validate('submit')
+  // Guard against skipping into a later step without required base data
+  useEffect(() => {
+    if (isRestoringFile) {
+      return
     }
 
-    // Guard: prevent skipping to advanced steps
-    if (currentStep !== 'upload' && !form.state.values.upload.file) {
+    if (currentStep !== 'upload' && !uploadedFile) {
       setCurrentStep('upload', { history: 'replace' })
       toast.info('Please start from the beginning')
     }
+  }, [currentStep, isRestoringFile, setCurrentStep, uploadedFile])
 
-    prevStepRef.current = currentStep
-  }, [currentStep, form, setCurrentStep])
-
-  // Handle client pre-population from registration workflow
+  // Handle client pre-population from scheduled collection or registration workflow.
   useEffect(() => {
-    if (clientId && currentStep === 'client' && !form.state.values.client.id) {
-      // Fetch client by ID and populate form
-      const fetchAndPopulateClient = async () => {
-        try {
-          const client = await getClientById(clientId)
-          if (client) {
-            form.setFieldValue('client.id', client.id)
-            form.setFieldValue('client.firstName', client.firstName)
-            form.setFieldValue('client.lastName', client.lastName)
-            form.setFieldValue('client.middleInitial', client.middleInitial ?? null)
-            form.setFieldValue('client.email', client.email)
-            form.setFieldValue('client.dob', client.dob ?? null)
-            form.setFieldValue('client.headshot', client.headshot ?? null)
+    if (form.state.values.client.id) return
+    if (!clientId && !bookingId) return
 
-            toast.success(`Client ${client.firstName} ${client.lastName} pre-selected`)
+    const fetchAndPopulateClient = async () => {
+      try {
+        const client = clientId
+          ? await getClientById(clientId)
+          : bookingId
+            ? await getClientByBookingId(bookingId)
+            : null
+        if (client && hydratedClientIdRef.current !== client.id) {
+          form.setFieldValue('client.id', client.id)
+          form.setFieldValue('client.firstName', client.firstName)
+          form.setFieldValue('client.lastName', client.lastName)
+          form.setFieldValue('client.middleInitial', client.middleInitial ?? null)
+          form.setFieldValue('client.email', client.email)
+          form.setFieldValue('client.dob', client.dob ?? null)
+          form.setFieldValue('client.headshot', client.headshot ?? null)
+          form.setFieldValue('client.headshotId', client.headshotId ?? null)
 
-            // Clear the clientId param after population
-            setClientId(null)
-
-            // Clear stored file after successful restoration of both file and client
-            clearFileStorage()
+          hydratedClientIdRef.current = client.id
+          if (!bookingId) {
+            toast.success(`Client ${client.firstName} ${client.lastName} pre-selected`, {
+              id: `instant-test-client-${client.id}`,
+            })
           }
-        } catch (error) {
-          console.error('Failed to fetch client:', error)
-          toast.error('Failed to load client information')
-          // Clear the clientId param on error
+
+          if (clientId && !bookingId) {
+            setClientId(null)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch client:', error)
+        toast.error('Failed to load client information')
+        if (clientId && !bookingId) {
           setClientId(null)
         }
       }
-
-      fetchAndPopulateClient()
     }
-  }, [clientId, currentStep, form, setClientId])
+
+    fetchAndPopulateClient()
+  }, [bookingId, clientId, form, setClientId])
 
   if (completedTestId) {
-    return <TestCompleted testId={completedTestId} onBack={handleBack} />
+    return (
+      <TestCompleted
+        testId={completedTestId}
+        onBack={() => {
+          if (bookingId) {
+            clearFileStorage()
+            router.push('/admin/drug-test-upload?workflow=guided&step=schedule')
+            return
+          }
+          handleBack()
+        }}
+        backLabel={bookingId ? "Back to Today's Schedule" : undefined}
+      />
+    )
+  }
+
+  const currentStepIndex = steps.indexOf(currentStep)
+  const isLastStep = currentStepIndex === steps.length - 1
+
+  const handleGroupSubmit = async () => {
+    if (!isLastStep) {
+      const nextStep = steps[currentStepIndex + 1]
+      if (currentStep === 'extract') {
+        const queryKey = extractPdfQueryKey(form.state.values.upload.file, 'instant-test')
+        const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
+
+        if (extractedData?.testType === '15-panel-instant') {
+          toast.error('15-panel instant tests are no longer supported. Upload a 17-panel instant report.', {
+            id: 'instant-test-unsupported-15-panel',
+          })
+          return
+        }
+      }
+
+      if (currentStep === 'extract' && form.state.values.client.id) {
+        const queryKey = extractPdfQueryKey(form.state.values.upload.file, 'instant-test')
+        const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
+        const reportClientMatch = getReportClientMatch(extractedData?.donorName, form.state.values.client)
+        const mismatchKey = getReportClientMismatchKey(reportClientMatch)
+
+        if (
+          reportClientMatch.status === 'mismatch' &&
+          (!form.state.values.extract.clientMismatchConfirmed ||
+            form.state.values.extract.clientMismatchConfirmationKey !== mismatchKey)
+        ) {
+          toast.error('Confirm the report/client mismatch before continuing.', {
+            id: 'instant-test-report-client-mismatch',
+          })
+          return
+        }
+      }
+
+      const shouldSkipClientStep = Boolean(bookingId && nextStep === 'client' && form.state.values.client.id)
+      await setCurrentStep(shouldSkipClientStep ? 'medications' : nextStep, { history: 'push' })
+      return
+    }
+
+    await form.handleSubmit()
+  }
+
+  const handleGroupSubmitInvalid = (_error?: unknown) => {
+    const focusedField = focusFirstInvalidField(formRef.current)
+    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
+      id: 'instant-test-step-invalid',
+    })
   }
 
   const renderStep = () => {
+    const renderGroup = (
+      name: 'upload' | 'extract' | 'client' | 'medications' | 'verifyData' | 'emails',
+      validators: Parameters<typeof form.FormGroup>[0]['validators'],
+      content: ReactNode,
+    ) => (
+      <form.FormGroup
+        key={currentStep}
+        name={name}
+        validationLogic={revalidateLogic()}
+        validators={validators}
+        onGroupSubmit={handleGroupSubmit}
+        onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}
+      >
+        {(group) => (
+          <>
+            <div className="wizard-content mb-8 flex-1">{content}</div>
+            <InstantTestNavigation form={form} group={group} onBack={handleBack} />
+          </>
+        )}
+      </form.FormGroup>
+    )
+
     switch (currentStep) {
       case 'upload':
-        return <UploadStep form={form} />
+        return renderGroup('upload', { onDynamic: uploadSchema.shape.upload }, <UploadStep form={form} />)
       case 'extract':
-        return <ExtractStep form={form} />
+        return renderGroup('extract', { onDynamic: extractSchema.shape.extract }, <ExtractStep form={form} />)
       case 'client':
-        return <ClientStep form={form} />
+        return renderGroup('client', { onDynamic: clientSchema.shape.client }, <ClientStep form={form} />)
       case 'medications':
-        return <MedicationsStep form={form} />
+        return renderGroup(
+          'medications',
+          { onDynamic: medicationsSchema.shape.medications },
+          <MedicationsStep form={form} />,
+        )
       case 'verifyData':
-        return <VerifyDataStep form={form} />
+        return renderGroup(
+          'verifyData',
+          { onDynamic: verifyDataSchema.shape.verifyData },
+          <VerifyDataStep form={form} />,
+        )
       case 'confirm':
-        return <ConfirmStep form={form} />
+        return renderGroup('verifyData', undefined, <ConfirmStep form={form} />)
       case 'reviewEmails':
-        return <EmailsStep form={form} />
+        return renderGroup('emails', { onDynamic: emailsGroupSchema }, <EmailsStep form={form} />)
       default:
-        return <UploadStep form={form} />
+        return renderGroup('upload', { onDynamic: uploadSchema.shape.upload }, <UploadStep form={form} />)
     }
   }
 
   return (
     <form
+      ref={formRef}
       onSubmit={(e) => {
         e.preventDefault()
-        form.handleSubmit()
       }}
       className="flex flex-1 flex-col"
     >
-      <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
-      <InstantTestNavigation form={form} onBack={handleBack} />
+      {renderStep()}
     </form>
   )
 }

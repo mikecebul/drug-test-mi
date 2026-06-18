@@ -28,6 +28,7 @@ type MedicationInput = {
 export type ExtractedPdfData = ParsedPDFData
 
 const WIZARD_QUERY_ROOTS = [
+  'guided',
   'clients',
   'all-clients',
   'matching-clients',
@@ -49,6 +50,12 @@ export function clearWizardQueryCache(queryClient: QueryClient) {
       queryKey: [root],
     })
   }
+}
+
+export function invalidateGuidedSchedule(queryClient: QueryClient) {
+  queryClient.invalidateQueries({
+    queryKey: ['guided', 'today-bookings'],
+  })
 }
 
 export function invalidateWizardClientDerivedData(
@@ -127,7 +134,15 @@ export function useGetClientsQuery() {
 export function useComputeTestResultPreviewQuery(
   clientId: string | null | undefined,
   detectedSubstances: SubstanceValue[],
-  testType: '15-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab' | null | undefined,
+  testType:
+    | '15-panel-instant'
+    | '17-panel-instant'
+    | '11-panel-lab'
+    | '11-panel-lab-no-etg'
+    | '17-panel-sos-lab'
+    | 'etg-lab'
+    | null
+    | undefined,
   breathalyzerTaken?: boolean,
   breathalyzerResult?: number | null,
   medications?: MedicationInput[],
@@ -284,7 +299,15 @@ export function useGetDrugTestQuery(testId: string | null | undefined) {
 export function useGetEmailPreviewQuery(data: {
   clientId: string | null | undefined
   detectedSubstances: SubstanceValue[]
-  testType: '15-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab' | null | undefined
+  testType:
+    | '15-panel-instant'
+    | '17-panel-instant'
+    | '11-panel-lab'
+    | '11-panel-lab-no-etg'
+    | '17-panel-sos-lab'
+    | 'etg-lab'
+    | null
+    | undefined
   collectionDate: string | null | undefined
   isDilute: boolean
   breathalyzerTaken?: boolean

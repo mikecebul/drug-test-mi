@@ -1,41 +1,79 @@
 import Link from 'next/link'
 import type { WidgetServerProps } from 'payload'
-import { format } from 'date-fns'
-import { TZDate } from '@date-fns/tz'
+import { CalendarDays, Clock, PlayCircle } from 'lucide-react'
 
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { APP_TIMEZONE } from '@/lib/date-utils'
-import type { Booking } from '@/payload-types'
 import { cn } from '@/utilities/cn'
+import { getTodaysCollectionBookings } from '@/views/DrugTestWizard/workflows/complete-workflow/actions'
+import {
+  getGuidedPaymentLabel,
+  getGuidedScheduleHref,
+} from '@/views/DrugTestWizard/workflows/complete-workflow/schedule-utils'
 
-const ACTIVE_STATUSES = ['confirmed', 'pending', 'rescheduled'] as const
-const CALCOM_UPCOMING_BOOKINGS_URL = 'https://app.cal.com/bookings/upcoming'
+type Booking = Awaited<ReturnType<typeof getTodaysCollectionBookings>>[number]
 
-function getClientName(booking: Booking): string {
-  const relatedClient = booking.relatedClient
-  if (relatedClient && typeof relatedClient === 'object') {
-    const firstName = relatedClient.firstName?.trim()
-    const lastName = relatedClient.lastName?.trim()
-    if (firstName && lastName) return `${firstName} ${lastName}`
-    if (relatedClient.fullName?.trim()) return relatedClient.fullName.trim()
-  }
-
-  return booking.attendeeName || 'Unknown client'
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: APP_TIMEZONE,
+  }).format(new Date(value))
 }
 
-function formatBookingDateTime(dateString: string): string {
-  const tzDate = TZDate.tz(APP_TIMEZONE, new Date(dateString))
-  return format(tzDate, 'EEE, MMM d • h:mm a')
+function formatGender(value?: string | null) {
+  if (value === 'male') return 'Male'
+  if (value === 'female') return 'Female'
+  if (value === 'other') return 'Other'
+  return 'Unknown'
 }
 
-function isSameAppDate(dateA: Date, dateB: Date): boolean {
-  const a = TZDate.tz(APP_TIMEZONE, dateA)
-  const b = TZDate.tz(APP_TIMEZONE, dateB)
-
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+function ScheduleRow({ booking }: { booking: Booking }) {
+  const paymentLabel = getGuidedPaymentLabel(booking)
+  const needsRegistration = booking.needsRegistration
+  const needsTestType = booking.needsTestType
+  const workflowLabel = needsRegistration || needsTestType ? 'Review & Start' : 'Start Guided Workflow'
+  return (
+    <Link
+      href={getGuidedScheduleHref(booking)}
+      className={cn(
+        'border-border/70 bg-card hover:bg-muted/50 focus-visible:ring-ring grid w-full gap-4',
+        'rounded-md border p-4 text-left transition focus-visible:ring-2 focus-visible:outline-none',
+        'md:grid-cols-[minmax(0,1fr)_auto]',
+      )}
+    >
+      <span className="grid min-w-0 gap-3 sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-center">
+        <span className="text-foreground inline-flex items-center gap-2 text-sm font-semibold">
+          <Clock className="text-muted-foreground size-3.5" />
+          {formatTime(booking.startTime)}
+        </span>
+        <span className="min-w-0 space-y-2">
+          <span className="block truncate text-base font-semibold">{booking.attendeeName}</span>
+          <span className="flex flex-wrap items-center gap-2">
+            <Badge
+              variant={paymentLabel === 'Unpaid' || paymentLabel === 'Still owes' ? 'outline' : 'default'}
+              className={cn(
+                paymentLabel === 'Still owes' && 'border-destructive text-destructive',
+                paymentLabel === 'Collected' && 'bg-primary text-primary-foreground',
+              )}
+            >
+              {paymentLabel}
+            </Badge>
+            <Badge variant="secondary">{formatGender(booking.client?.gender)}</Badge>
+            {needsRegistration && <Badge variant="secondary">Register</Badge>}
+            {needsTestType && <Badge variant="secondary">Set test</Badge>}
+          </span>
+        </span>
+      </span>
+      <span className="bg-primary text-primary-foreground inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium md:self-center">
+        <PlayCircle className="size-4" />
+        {workflowLabel}
+      </span>
+    </Link>
+  )
 }
 
 export default async function NextCalcomBookingWidget({ req }: WidgetServerProps) {
@@ -43,127 +81,50 @@ export default async function NextCalcomBookingWidget({ req }: WidgetServerProps
     return null
   }
 
-  let nextBooking: Booking | null = null
-  let todayBookingCount = 0
+  let bookings: Booking[] = []
   let hasLoadError = false
 
-  const now = new Date()
-  const appNow = TZDate.tz(APP_TIMEZONE, now)
-  const startOfToday = TZDate.tz(APP_TIMEZONE, appNow.getFullYear(), appNow.getMonth(), appNow.getDate(), 0, 0, 0, 0)
-  const startOfTomorrow = TZDate.tz(
-    APP_TIMEZONE,
-    appNow.getFullYear(),
-    appNow.getMonth(),
-    appNow.getDate() + 1,
-    0,
-    0,
-    0,
-    0,
-  )
-
   try {
-    const [nextBookingResult, todayBookingCountResult] = await Promise.all([
-      req.payload.find({
-        collection: 'bookings',
-        where: {
-          and: [
-            {
-              status: {
-                in: [...ACTIVE_STATUSES],
-              },
-            },
-            {
-              startTime: {
-                greater_than: now.toISOString(),
-              },
-            },
-          ],
-        },
-        sort: 'startTime',
-        limit: 1,
-        depth: 1,
-        req,
-        overrideAccess: false,
-      }),
-      req.payload.count({
-        collection: 'bookings',
-        where: {
-          and: [
-            {
-              status: {
-                in: [...ACTIVE_STATUSES],
-              },
-            },
-            {
-              startTime: {
-                greater_than_equal: startOfToday.toISOString(),
-              },
-            },
-            {
-              startTime: {
-                less_than: startOfTomorrow.toISOString(),
-              },
-            },
-          ],
-        },
-        req,
-        overrideAccess: false,
-      }),
-    ])
-
-    nextBooking = (nextBookingResult.docs[0] as Booking | undefined) || null
-    todayBookingCount = todayBookingCountResult.totalDocs
+    bookings = await getTodaysCollectionBookings()
   } catch (error) {
     hasLoadError = true
-    req.payload.logger.error({ err: error, msg: 'Failed to load next booking dashboard widget' })
+    req.payload.logger.error({ err: error, msg: 'Failed to load schedule dashboard widget' })
   }
-
-  const nextBookingIsToday = nextBooking ? isSameAppDate(new Date(nextBooking.startTime), now) : false
 
   return (
     <ShadcnWrapper className="pb-0">
       <Card variant="admin">
-        <CardHeader>
-          <CardTitle>Schedule</CardTitle>
+        <CardHeader className="flex-row items-start justify-between gap-4 pb-4">
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <CalendarDays className="size-5" />
+              Today&apos;s Schedule
+            </CardTitle>
+            <CardDescription>
+              {bookings.length === 1 ? '1 test scheduled today.' : `${bookings.length} tests scheduled today.`}
+            </CardDescription>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              href="/admin/drug-test-upload"
+              className={cn(
+                buttonVariants({ size: 'sm', variant: bookings.length > 0 ? 'secondary' : 'default' }),
+                'gap-2',
+              )}
+            >
+              <PlayCircle className="size-4" />
+              Collect Test
+            </Link>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {hasLoadError && <p className="text-muted-foreground text-sm">Unable to load booking data right now.</p>}
 
-          {!hasLoadError && (
-            <>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="border-border bg-background/40 rounded-md border px-3 py-2">
-                  <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">Today</p>
-                  <p className="mt-1 text-xl font-semibold tabular-nums">{todayBookingCount}</p>
-                </div>
-                <div className="border-border bg-background/40 rounded-md border px-3 py-2">
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">Next</p>
-                    <Badge variant={nextBookingIsToday ? 'default' : 'outline'}>
-                      {nextBooking ? (nextBookingIsToday ? 'Today' : 'Upcoming') : 'None'}
-                    </Badge>
-                  </div>
-                  {nextBooking ? (
-                    <div className="min-w-0">
-                      <p className="line-clamp-1 text-sm font-semibold">{getClientName(nextBooking)}</p>
-                      <p className="text-muted-foreground text-xs">{formatBookingDateTime(nextBooking.startTime)}</p>
-                    </div>
-                  ) : (
-                    <p className="text-sm font-semibold">No upcoming bookings</p>
-                  )}
-                </div>
-              </div>
-
-              <Link
-                href={CALCOM_UPCOMING_BOOKINGS_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(buttonVariants({ variant: 'secondary' }), 'w-full justify-center')}
-              >
-                View Full Schedule
-              </Link>
-            </>
+          {!hasLoadError && bookings.length === 0 && (
+            <p className="text-muted-foreground text-sm">No Cal.com appointments scheduled for today.</p>
           )}
+
+          {!hasLoadError && bookings.map((booking) => <ScheduleRow key={booking.id} booking={booking} />)}
         </CardContent>
       </Card>
     </ShadcnWrapper>

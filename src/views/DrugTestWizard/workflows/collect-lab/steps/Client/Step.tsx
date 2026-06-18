@@ -7,7 +7,7 @@ import { SimpleClient } from '../../../components/client/getClients'
 import { ClientStepUI } from '../../../components/client/ClientStepUI'
 
 export const ClientStep = withForm({
-  ...getCollectLabFormOpts('client'),
+  ...getCollectLabFormOpts(),
 
   render: function Render({ form }) {
     // Get selected client ID and data from form state
@@ -22,6 +22,7 @@ export const ClientStep = withForm({
       form.setFieldValue('client.dob', client.dob ?? null)
       form.setFieldValue('client.headshot', client.headshot ?? null)
       form.setFieldValue('client.headshotId', client.headshotId ?? null)
+      form.setFieldValue('client.recommendedTestTypeValue', client.recommendedTestTypeValue)
     }
 
     return (
@@ -30,7 +31,9 @@ export const ClientStep = withForm({
           <ClientStepUI
             selectedClient={selectedClient}
             onSelectClient={handleSelectClient}
-            errors={idField.state.meta.errors.map((e) => e?.message || 'Validation error')}
+            errors={idField.state.meta.errors.map((e) =>
+              typeof e === 'string' ? e : (e as { message?: string } | undefined)?.message || 'Validation error',
+            )}
             returnToWorkflow="collect-lab"
           />
         )}

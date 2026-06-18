@@ -11,7 +11,7 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
 import { invalidateWizardClientDerivedData, useGetClientFromTestQuery } from '../../../queries'
 
 export const EmailsStep = withForm({
-  ...getLabConfirmationFormOpts('emails'),
+  ...getLabConfirmationFormOpts(),
 
   render: function Render({ form }) {
     const queryClient = useQueryClient()
@@ -24,16 +24,21 @@ export const EmailsStep = withForm({
     const { data: client } = useGetClientFromTestQuery(formValues?.matchCollection?.testId)
 
     // Use lab confirmation email preview hook
-    const { data: previewData, isLoading, error } = useLabConfirmationEmailPreview({
+    const {
+      data: previewData,
+      isLoading,
+      error,
+    } = useLabConfirmationEmailPreview({
       testId: formValues?.matchCollection?.testId,
       confirmationResults: formValues?.labConfirmationData?.confirmationResults?.map((r) => ({
         ...r,
         substance: r.substance as SubstanceValue,
       })),
-      originalDetectedSubstances: (formValues?.labConfirmationData?.originalDetectedSubstances || []) as SubstanceValue[],
+      originalDetectedSubstances: (formValues?.labConfirmationData?.originalDetectedSubstances ||
+        []) as SubstanceValue[],
     })
 
-    // Initialize and sync recipients without clobbering manual edits.
+    // Keep client recipients initialized and referral recipients synced to the current referral profile.
     useEffect(() => {
       if (!previewData) {
         return
@@ -52,7 +57,6 @@ export const EmailsStep = withForm({
       const clientChanged = lastClientIdRef.current !== clientId
       const previewChanged = lastPreviewHashRef.current !== previewHash
       const clientRecipientsEmpty = formValues.emails.clientRecipients.length === 0
-      const referralRecipientsEmpty = formValues.emails.referralRecipients.length === 0
 
       if (clientChanged) {
         form.setFieldValue('emails.clientRecipients', nextClientRecipients)
@@ -64,9 +68,9 @@ export const EmailsStep = withForm({
           form.setFieldValue('emails.clientRecipients', nextClientRecipients)
           form.setFieldValue('emails.clientEmailEnabled', nextClientRecipients.length > 0)
         }
-        if (referralRecipientsEmpty) {
-          form.setFieldValue('emails.referralRecipients', nextReferralRecipients)
-          form.setFieldValue('emails.referralEmailEnabled', nextReferralRecipients.length > 0)
+        form.setFieldValue('emails.referralRecipients', nextReferralRecipients)
+        if (formValues.emails.referralEmailEnabled && nextReferralRecipients.length === 0) {
+          form.setFieldValue('emails.referralEmailEnabled', false)
         }
       }
 
@@ -76,7 +80,7 @@ export const EmailsStep = withForm({
       client?.id,
       previewData,
       formValues.emails.clientRecipients.length,
-      formValues.emails.referralRecipients.length,
+      formValues.emails.referralEmailEnabled,
       form,
     ])
 

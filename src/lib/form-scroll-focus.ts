@@ -1,3 +1,7 @@
+'use client'
+
+import { RefObject, useEffect, useRef } from 'react'
+
 const FIRST_INTERACTIVE_FIELD_SELECTOR =
   '.wizard-content input:not([type="hidden"]):not([disabled]), .wizard-content select:not([disabled]), .wizard-content textarea:not([disabled])'
 
@@ -5,6 +9,15 @@ type ScrollWithMarginOptions = {
   behavior?: ScrollBehavior
   block?: ScrollLogicalPosition
   topMarginPx?: number
+}
+
+type UseStepFocusOptions<TStepKey> = {
+  containerRef: RefObject<ParentNode | null>
+  disabled?: boolean
+  onStepChange?: () => void
+  scrollBehavior?: ScrollBehavior
+  skipInitialFocus?: boolean
+  stepKey: TStepKey
 }
 
 export function focusElementWithoutScroll(element: HTMLElement | null) {
@@ -27,6 +40,18 @@ export function focusFirstInteractiveField(container: ParentNode | null) {
   return field
 }
 
+export function focusFirstInvalidField(container: ParentNode | null) {
+  const field = container?.querySelector<HTMLElement>('[aria-invalid="true"]') ?? null
+  if (!field) return false
+
+  scrollElementIntoViewWithMargin(field, {
+    behavior: 'smooth',
+    block: 'center',
+  })
+  focusElementWithoutScroll(field)
+  return true
+}
+
 export function scrollElementIntoViewWithMargin(
   element: Element | null,
   {
@@ -46,3 +71,30 @@ export function scrollElementIntoViewWithMargin(
   element.scrollIntoView({ behavior, block })
 }
 
+export function useStepFocus<TStepKey>({
+  containerRef,
+  disabled = false,
+  onStepChange,
+  scrollBehavior = 'smooth',
+  skipInitialFocus = true,
+  stepKey,
+}: UseStepFocusOptions<TStepKey>) {
+  const hasInitializedStepRef = useRef(false)
+
+  useEffect(() => {
+    if (disabled) return
+
+    onStepChange?.()
+
+    if (skipInitialFocus && !hasInitializedStepRef.current) {
+      hasInitializedStepRef.current = true
+      return
+    }
+
+    hasInitializedStepRef.current = true
+    const firstField = findFirstInteractiveField(containerRef.current)
+
+    window.scrollTo({ top: 0, behavior: scrollBehavior })
+    focusElementWithoutScroll(firstField)
+  }, [containerRef, disabled, onStepChange, scrollBehavior, skipInitialFocus, stepKey])
+}

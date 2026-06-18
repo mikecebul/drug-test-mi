@@ -2,7 +2,6 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ArrowLeft, Calendar, Clock, MapPin } from 'lucide-react'
 import { CalPopupButton } from '@/components/cal-popup-button'
@@ -10,6 +9,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useMemo } from 'react'
 import type { Technician } from '@/payload-types'
+import { TechnicianGenderBadge } from './TechnicianGenderBadge'
 
 interface TechnicianDetailPageProps {
   technician: Technician
@@ -58,7 +58,7 @@ export function TechnicianDetailPage({ technician }: TechnicianDetailPageProps) 
 
   return (
     <div className="bg-muted/30 min-h-screen">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-12">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-12 lg:py-12 xl:px-16">
         <div className="mb-6 sm:mb-8 lg:mb-10">
           <Link href={backNavigation.href}>
             <Button
@@ -101,9 +101,7 @@ export function TechnicianDetailPage({ technician }: TechnicianDetailPageProps) 
                 <div className="flex-1 text-center sm:text-left">
                   <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                     <h2 className="text-xl font-semibold lg:text-2xl">{technician.name}</h2>
-                    <Badge variant="secondary" className="mx-auto w-fit capitalize sm:mx-0">
-                      {technician.gender}
-                    </Badge>
+                    <TechnicianGenderBadge gender={technician.gender} className="mx-auto sm:mx-0" />
                   </div>
 
                   <p className="text-muted-foreground mb-4 max-w-md text-sm lg:text-base">

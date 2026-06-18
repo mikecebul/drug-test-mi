@@ -11,20 +11,24 @@ import { InstantTestWorkflow } from './workflows/instant-test/Workflow'
 import type { WizardType } from './types'
 import { WizardHeader } from './components/main-wizard/WizardHeader'
 import { CollectLabWorkflow } from './workflows/collect-lab/Workflow'
+import { GuidedWorkflow } from './workflows/complete-workflow/Workflow'
 import { steps as collectLabSteps } from './workflows/collect-lab/validators'
 import { RegisterClientWorkflow } from './workflows/register-client-workflow/Workflow'
 import { steps as registerClientSteps } from './workflows/register-client-workflow/validators'
 import { steps as instantTestSteps } from './workflows/instant-test/validators'
 import { steps as labScreenSteps } from './workflows/lab-screen/validators'
 import { steps as labConfirmationSteps } from './workflows/lab-confirmation/validators'
-import { clearWizardQueryCache } from './queries'
+import { clearWizardQueryCache, invalidateGuidedSchedule } from './queries'
 
 const workflowTypes = [
+  'guided',
+  'complete-workflow',
   'register-client',
   'collect-lab',
   'enter-lab-screen',
   'enter-lab-confirmation',
-  '15-panel-instant',
+  'instant-test',
+  '17-panel-instant',
 ] as const
 
 type Workflows = typeof workflowTypes
@@ -36,28 +40,44 @@ export function DrugTestWizardClient() {
       workflow: parseAsStringLiteral(workflowTypes),
       step: parseAsString, // Use generic string so it accepts all workflow step types
       clientId: parseAsString,
+      bookingId: parseAsString,
     },
     {
       history: 'push', // Default all updates to push to history
     },
   )
 
-  const { workflow } = states
+  const { bookingId, workflow } = states
 
   const firstStepMap: Record<Workflows[number], string> = {
+    guided: 'schedule',
+    'complete-workflow': 'schedule',
     'register-client': registerClientSteps[0],
     'collect-lab': collectLabSteps[0],
-    '15-panel-instant': instantTestSteps[0],
+    'instant-test': instantTestSteps[0],
+    '17-panel-instant': instantTestSteps[0],
     'enter-lab-screen': labScreenSteps[0],
     'enter-lab-confirmation': labConfirmationSteps[0],
   }
 
   // Reset workflow selection and clear step params
   const handleBack = async () => {
+    if (bookingId && (workflow === 'collect-lab' || workflow === 'instant-test' || workflow === '17-panel-instant')) {
+      invalidateGuidedSchedule(queryClient)
+      setStates({
+        workflow: 'guided',
+        step: 'schedule',
+        clientId: null,
+        bookingId: null,
+      })
+      return
+    }
+
     setStates({
       workflow: null,
       step: null,
       clientId: null,
+      bookingId: null,
     })
   }
 
@@ -69,6 +89,7 @@ export function DrugTestWizardClient() {
       workflow: wizardType,
       step: firstStepMap[wizardType] ?? null,
       clientId: null,
+      bookingId: null,
     })
   }
 
@@ -89,6 +110,10 @@ export function DrugTestWizardClient() {
     return <RegisterClientWorkflow onBack={handleBack} />
   }
 
+  if (workflow === 'guided' || workflow === 'complete-workflow') {
+    return <GuidedWorkflow onBack={handleBack} />
+  }
+
   if (workflow === 'collect-lab') {
     return <CollectLabWorkflow onBack={handleBack} />
   }
@@ -101,7 +126,7 @@ export function DrugTestWizardClient() {
     return <LabConfirmationWorkflow onBack={handleBack} />
   }
 
-  if (workflow === '15-panel-instant') {
+  if (workflow === 'instant-test' || workflow === '17-panel-instant') {
     return <InstantTestWorkflow onBack={handleBack} />
   }
 

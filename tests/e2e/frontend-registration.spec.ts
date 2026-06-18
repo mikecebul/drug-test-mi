@@ -25,8 +25,8 @@ const COURT_DOCS = [
     contacts: [{ name: 'Probation Desk', email: 'probation@waynecourt.example' }],
     recipientEmails: [{ email: 'probation@waynecourt.example' }],
     preferredTestType: {
-      label: '15 Panel Instant',
-      value: '15-panel',
+      label: '17 Panel Instant',
+      value: '17-panel-instant',
     },
   },
   {
@@ -110,9 +110,7 @@ test.afterAll(async () => {
   }
 })
 
-test('validates steps, supports back-forward navigation, and validates medications in self flow', async ({
-  page,
-}) => {
+test('validates steps, supports back-forward navigation, and validates medications in self flow', async ({ page }) => {
   await openRegistration(page)
 
   await page.getByRole('button', { name: 'Next', exact: true }).click()
@@ -289,11 +287,12 @@ test('submits frontend registration, signs in, and verifies admin emails in Mail
 
   await expect(page.getByRole('heading', { name: 'Terms & Conditions' })).toBeVisible()
   await page.getByLabel(/I have read and agree to the terms and conditions of service/i).check()
-  await page.getByRole('button', { name: 'Complete Registration' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Submission Successful' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Go to dashboard' })).toBeVisible()
-  await expect(page).toHaveURL(/\/dashboard/)
+  await Promise.all([
+    page.waitForURL(/\/dashboard/, { timeout: 30_000 }),
+    page.getByRole('button', { name: 'Complete Registration' }).click(),
+  ])
+  await expect(page.getByRole('heading', { name: /Welcome back, Alex Taylor/i })).toBeVisible({ timeout: 30_000 })
 
   createdClientEmails.push(registrationEmail)
 

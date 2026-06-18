@@ -1,30 +1,14 @@
 'use client'
 
-import React, { useState } from 'react'
-import { useStore } from '@tanstack/react-form'
+import React, { useRef, useState } from 'react'
+import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
-import {
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  Copy,
-  Check,
-  CheckCircle2,
-  AlertCircle,
-  Eye,
-  EyeOff,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Copy, Check, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import type { ClientMatch } from '../types'
 import { registerClientFromWizard } from '../actions'
@@ -36,9 +20,18 @@ import {
   RecipientsStep,
   TermsStep,
 } from '@/app/(frontend)/register/steps'
-import { stepSchemas } from '@/views/DrugTestWizard/workflows/register-client-workflow/validators'
 import { defaultValues, getRegisterClientFormOpts } from '@/app/(frontend)/register/shared-form'
-import type { FormValues } from '@/app/(frontend)/register/validators'
+import {
+  accountInfoOptionalEmailGroupSchema,
+  getRecipientsGroupSchema,
+  personalInfoSchema,
+  screeningTypeSchema,
+  termsSchema,
+  type FormValues,
+} from '@/app/(frontend)/register/validators'
+import { checkEmailExists } from '@/app/(frontend)/register/actions'
+import { focusFirstInvalidField } from '@/lib/form-scroll-focus'
+import z from 'zod'
 
 interface RegisterClientDialogProps {
   open: boolean
@@ -100,6 +93,7 @@ export function RegisterClientDialog({
   const [createdClient, setCreatedClient] = useState<ClientMatch | null>(null)
   const [passwordCopied, setPasswordCopied] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const formRef = useRef<HTMLFormElement | null>(null)
 
   // Map PDF gender code to form gender value
   const mapGenderValue = (pdfGender: string | null): string => {
@@ -135,11 +129,11 @@ export function RegisterClientDialog({
   }
 
   const form = useAppForm({
-    ...getRegisterClientFormOpts('personalInfo'),
+    ...getRegisterClientFormOpts(),
     defaultValues: dialogDefaultValues,
   })
 
-  const formValues = useStore(form.store, (state: any) => state.values)
+  const formValues = useStore(form.store, (state) => state.values)
   const _requestedBy = formValues.screeningType?.requestedBy || ''
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -155,41 +149,17 @@ export function RegisterClientDialog({
     onOpenChange(newOpen)
   }
 
-  const validateStep = async (step: number): Promise<boolean> => {
-    const schema = stepSchemas[step]
-    if (!schema) return true
-
-    try {
-      // Get only the fields relevant to this step
-      const stepData: any = {}
-      if (step === 0) stepData.personalInfo = formValues.personalInfo
-      if (step === 1) stepData.accountInfo = formValues.accountInfo
-      if (step === 2) stepData.screeningType = formValues.screeningType
-      if (step === 3) {
-        // Results recipient validation needs screeningType.requestedBy to determine which rules to apply
-        stepData.recipients = formValues.recipients
-        stepData.screeningType = formValues.screeningType
-      }
-      if (step === 4) stepData.terms = formValues.terms
-
-      const result = schema.safeParse(stepData)
-      if (!result.success) {
-        const firstError = result.error.issues[0]
-        toast.error(firstError.message)
-        return false
-      }
-      return true
-    } catch (_error) {
-      toast.error('Validation error')
-      return false
+  const handleNext = async () => {
+    if (currentStep < STEPS.length - 1) {
+      setCurrentStep(currentStep + 1)
     }
   }
 
-  const handleNext = async () => {
-    const isValid = await validateStep(currentStep)
-    if (isValid && currentStep < STEPS.length - 1) {
-      setCurrentStep(currentStep + 1)
-    }
+  const handleStepInvalid = () => {
+    const focusedField = focusFirstInvalidField(formRef.current)
+    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
+      id: 'register-client-dialog-step-invalid',
+    })
   }
 
   const handlePrevious = () => {
@@ -203,13 +173,18 @@ export function RegisterClientDialog({
 
     try {
       const { personalInfo, accountInfo, screeningType, recipients } = formValues
+      const toAdditionalRecipients = (rows: Array<{ name?: string; email?: string }> | undefined) =>
+        (rows || []).flatMap((row) => {
+          const email = row.email?.trim()
+          return email ? [{ name: row.name, email }] : []
+        })
 
       const data: Parameters<typeof registerClientFromWizard>[0] = {
         firstName: personalInfo.firstName,
         lastName: personalInfo.lastName,
         middleInitial: personalInfo.middleInitial || undefined,
         gender: personalInfo.gender,
-        dob: personalInfo.dob,
+        dob: typeof personalInfo.dob === 'string' ? personalInfo.dob : personalInfo.dob.toISOString(),
         phone: personalInfo.phone,
         email: accountInfo.email,
         referralType: screeningType.requestedBy as 'self' | 'employer' | 'court',
@@ -217,7 +192,7 @@ export function RegisterClientDialog({
 
       const referralType = screeningType.requestedBy
       if (referralType === 'court') {
-        data.additionalReferralRecipients = recipients.additionalReferralRecipients || []
+        data.additionalReferralRecipients = toAdditionalRecipients(recipients.additionalReferralRecipients)
 
         if (!recipients.selectedCourt) {
           throw new Error('Please select a court before continuing.')
@@ -225,11 +200,11 @@ export function RegisterClientDialog({
         if (recipients.selectedCourt === 'other') {
           data.otherReferral = {
             type: 'court',
-            name: recipients.otherCourtName,
-            mainContactName: recipients.otherCourtMainContactName,
-            mainContactEmail: recipients.otherCourtMainContactEmail,
+            name: recipients.otherCourtName || '',
+            mainContactName: recipients.otherCourtMainContactName || '',
+            mainContactEmail: recipients.otherCourtMainContactEmail || '',
             recipientEmails: recipients.otherCourtRecipientEmails,
-            additionalRecipients: recipients.otherCourtAdditionalRecipients || [],
+            additionalRecipients: toAdditionalRecipients(recipients.otherCourtAdditionalRecipients),
           }
         } else {
           data.referral = {
@@ -238,7 +213,7 @@ export function RegisterClientDialog({
           }
         }
       } else if (referralType === 'employer') {
-        data.additionalReferralRecipients = recipients.additionalReferralRecipients || []
+        data.additionalReferralRecipients = toAdditionalRecipients(recipients.additionalReferralRecipients)
 
         if (!recipients.selectedEmployer) {
           throw new Error('Please select an employer before continuing.')
@@ -246,11 +221,11 @@ export function RegisterClientDialog({
         if (recipients.selectedEmployer === 'other') {
           data.otherReferral = {
             type: 'employer',
-            name: recipients.otherEmployerName,
-            mainContactName: recipients.otherEmployerMainContactName,
-            mainContactEmail: recipients.otherEmployerMainContactEmail,
+            name: recipients.otherEmployerName || '',
+            mainContactName: recipients.otherEmployerMainContactName || '',
+            mainContactEmail: recipients.otherEmployerMainContactEmail || '',
             recipientEmails: recipients.otherEmployerRecipientEmails,
-            additionalRecipients: recipients.otherEmployerAdditionalRecipients || [],
+            additionalRecipients: toAdditionalRecipients(recipients.otherEmployerAdditionalRecipients),
           }
         } else {
           data.referral = {
@@ -259,7 +234,7 @@ export function RegisterClientDialog({
           }
         }
       } else if (referralType === 'self') {
-        data.additionalReferralRecipients = recipients.additionalReferralRecipients || []
+        data.additionalReferralRecipients = toAdditionalRecipients(recipients.additionalReferralRecipients)
       }
 
       const result = await registerClientFromWizard(data)
@@ -319,14 +294,10 @@ export function RegisterClientDialog({
           <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
             <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             <AlertDescription className="space-y-3">
-              <p className="font-medium text-amber-900 dark:text-amber-100">
-                Client Password (Save this now!)
-              </p>
+              <p className="font-medium text-amber-900 dark:text-amber-100">Client Password (Save this now!)</p>
               <div className="flex items-center gap-2">
                 <code className="flex-1 rounded bg-amber-100 px-3 py-2 font-mono text-lg dark:bg-amber-900/50">
-                  {showPassword
-                    ? formValues.accountInfo?.password || generatedPassword
-                    : '••••••••••••'}
+                  {showPassword ? formValues.accountInfo?.password || generatedPassword : '••••••••••••'}
                 </code>
                 <Button
                   type="button"
@@ -337,19 +308,12 @@ export function RegisterClientDialog({
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyPassword}
-                  className="shrink-0"
-                >
+                <Button type="button" variant="outline" size="sm" onClick={handleCopyPassword} className="shrink-0">
                   {passwordCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
               <p className="text-sm text-amber-700 dark:text-amber-300">
-                The client can use this password to log in and reset it later if they choose to use
-                the dashboard.
+                The client can use this password to log in and reset it later if they choose to use the dashboard.
               </p>
             </AlertDescription>
           </Alert>
@@ -365,113 +329,182 @@ export function RegisterClientDialog({
 
     switch (currentStep) {
       case 0:
-        return <PersonalInfoStep form={form} />
+        return <PersonalInfoStep form={form} mode="body" />
       case 1:
         return (
           <div className="space-y-6">
-            <AccountInfoStep form={form} />
+            <AccountInfoStep form={form} mode="body" />
             <Alert>
               <AlertDescription className="text-muted-foreground text-sm">
-                Password is auto-generated but can be changed if the client requests a specific
-                password.
+                Password is auto-generated but can be changed if the client requests a specific password.
               </AlertDescription>
             </Alert>
           </div>
         )
       case 2:
-        return <ScreeningTypeStep form={form} />
+        return <ScreeningTypeStep form={form} mode="body" />
       case 3:
-        return <RecipientsStep form={form} />
+        return <RecipientsStep form={form} mode="body" />
       case 4:
-        return <TermsStep form={form} />
+        return <TermsStep form={form} mode="body" />
       default:
         return null
     }
   }
 
   const progress = ((currentStep + 1) / STEPS.length) * 100
+  const groupConfig = (() => {
+    switch (currentStep) {
+      case 0:
+        return {
+          name: 'personalInfo' as const,
+          validators: { onDynamic: personalInfoSchema.shape.personalInfo },
+        }
+      case 1:
+        return {
+          name: 'accountInfo' as const,
+          validators: {
+            onDynamic: accountInfoOptionalEmailGroupSchema,
+            onSubmitAsync: async ({ value }: { value: typeof form.state.values.accountInfo }) => {
+              const email = value.email.trim().toLowerCase()
+              if (!email || !z.email().safeParse(email).success) {
+                return undefined
+              }
+
+              try {
+                const emailExists = await checkEmailExists(email)
+                if (emailExists) {
+                  return {
+                    fields: {
+                      email: 'An account with this email already exists',
+                    },
+                  }
+                }
+              } catch (error) {
+                console.warn('Failed to check email existence:', error)
+              }
+
+              return undefined
+            },
+          },
+        }
+      case 2:
+        return {
+          name: 'screeningType' as const,
+          validators: { onDynamic: screeningTypeSchema.shape.screeningType },
+        }
+      case 3:
+        return {
+          name: 'recipients' as const,
+          validators: {
+            onDynamic: getRecipientsGroupSchema(form.state.values.screeningType.requestedBy),
+          },
+        }
+      case 4:
+      default:
+        return {
+          name: 'terms' as const,
+          validators: { onDynamic: termsSchema.shape.terms },
+        }
+    }
+  })()
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <ShadcnWrapper className="">
-          <DialogHeader>
-            <DialogTitle>Register New Client</DialogTitle>
-            <DialogDescription>
+    <Drawer direction="right" open={open} onOpenChange={handleOpenChange}>
+      <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(48rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+        <ShadcnWrapper className="flex min-h-0 flex-1 flex-col">
+          <DrawerHeader className="border-border border-b px-6 py-5">
+            <DrawerTitle className="text-2xl tracking-tight">Register New Client</DrawerTitle>
+            <DrawerDescription>
               {registrationComplete
                 ? 'Registration complete'
                 : `Step ${currentStep + 1} of ${STEPS.length}: ${STEPS[currentStep].title}`}
-            </DialogDescription>
-          </DialogHeader>
+            </DrawerDescription>
+          </DrawerHeader>
 
-          {!registrationComplete && (
-            <div className="mb-6">
-              <Progress value={progress} className="h-2" />
-              <div className="mt-2 flex justify-between text-xs">
-                {STEPS.map((step, index) => (
-                  <div
-                    key={step.title}
-                    className={`${
-                      index <= currentStep ? 'text-primary font-medium' : 'text-muted-foreground'
-                    }`}
-                  >
-                    <span className="hidden sm:inline">{step.title}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-            }}
-          >
-            {renderStepContent()}
-
+          <div className="no-scrollbar flex-1 overflow-y-auto px-6 py-5">
             {!registrationComplete && (
-              <div className="mt-6 flex justify-between">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handlePrevious}
-                  disabled={currentStep === 0}
-                >
-                  <ChevronLeft className="mr-1 h-4 w-4" />
-                  Back
-                </Button>
-
-                {currentStep < STEPS.length - 1 ? (
-                  <Button type="button" onClick={handleNext}>
-                    Next
-                    <ChevronRight className="ml-1 h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    className="min-w-35"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Registering...
-                      </>
-                    ) : (
-                      <>
-                        <Check className="mr-2 h-4 w-4" />
-                        Register Client
-                      </>
-                    )}
-                  </Button>
-                )}
+              <div className="mb-6">
+                <Progress value={progress} className="h-2" />
+                <div className="mt-2 flex justify-between text-xs">
+                  {STEPS.map((step, index) => (
+                    <div
+                      key={step.title}
+                      className={`${index <= currentStep ? 'text-primary font-medium' : 'text-muted-foreground'}`}
+                    >
+                      <span className="hidden sm:inline">{step.title}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
-          </form>
+
+            <form
+              ref={formRef}
+              onSubmit={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+              }}
+            >
+              {registrationComplete ? (
+                renderStepContent()
+              ) : (
+                <form.FormGroup
+                  key={currentStep}
+                  name={groupConfig.name}
+                  validationLogic={revalidateLogic()}
+                  validators={groupConfig.validators as never}
+                  onGroupSubmit={currentStep < STEPS.length - 1 ? handleNext : handleSubmit}
+                  onGroupSubmitInvalid={handleStepInvalid}
+                >
+                  {(group) => (
+                    <>
+                      {renderStepContent()}
+
+                      <div className="mt-6 flex justify-between">
+                        <Button type="button" variant="outline" onClick={handlePrevious} disabled={currentStep === 0}>
+                          <ChevronLeft className="mr-1 h-4 w-4" />
+                          Back
+                        </Button>
+
+                        {currentStep < STEPS.length - 1 ? (
+                          <Button
+                            type="button"
+                            onClick={() => group.handleSubmit()}
+                            disabled={group.state.meta.isSubmitting}
+                          >
+                            Next
+                            <ChevronRight className="ml-1 h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            onClick={() => group.handleSubmit()}
+                            disabled={isSubmitting || group.state.meta.isSubmitting}
+                            className="min-w-35"
+                          >
+                            {isSubmitting || group.state.meta.isSubmitting ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Registering...
+                              </>
+                            ) : (
+                              <>
+                                <Check className="mr-2 h-4 w-4" />
+                                Register Client
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </form.FormGroup>
+              )}
+            </form>
+          </div>
         </ShadcnWrapper>
-      </DialogContent>
-    </Dialog>
+      </DrawerContent>
+    </Drawer>
   )
 }

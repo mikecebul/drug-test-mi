@@ -343,12 +343,9 @@ E2E helpers also seed/cleanup data using Payload local API utilities under `test
 - `main` is intended to be merged via PR with required CI checks:
   - `integration` (Vitest run mode)
   - `ui-smoke` (Playwright CI-safe smoke suite)
+- Smoke tests run on PR open/reopen and branch updates only. The workflow does not run on `ready_for_review`, because marking a draft PR ready immediately before merge can repeat the same smoke suite on the same commit.
 - Full local-file-dependent Playwright flows remain non-required/manual.
-- Every merge/push to `main` runs `Auto Release`:
-  - bumps patch version in `package.json` (`x.y.z` -> `x.y.(z+1)`)
-  - creates commit `chore: bump version`
-  - creates and pushes tag `vX.Y.Z`
-  - creates a GitHub Release for that tag
+- Every merge/push to `main` runs `Build Docker images`, which builds and pushes the production Docker image.
 
 ## Deployment (Dokploy)
 

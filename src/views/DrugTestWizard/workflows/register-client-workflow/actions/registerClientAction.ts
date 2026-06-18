@@ -2,7 +2,7 @@
 
 import { getPayload } from 'payload'
 import config from '@payload-config'
-import type { FormValues } from '../validators'
+import type { CompleteRegistrationValues } from '../validators'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
 import {
   assertReferralHasContacts,
@@ -95,7 +95,7 @@ async function generatePlaceholderEmail(
   )
 }
 
-export async function registerClientAction(formData: FormValues): Promise<{
+export async function registerClientAction(formData: CompleteRegistrationValues): Promise<{
   success: boolean
   clientId?: string
   clientFirstName?: string
@@ -112,7 +112,16 @@ export async function registerClientAction(formData: FormValues): Promise<{
     const formattedMiddleInitial = formatMiddleInitial(personalInfo.middleInitial)
     const formattedPhone = formatPhoneNumber(personalInfo.phone)
     const noEmail = accountInfo.noEmail === true
-    const submittedEmail = accountInfo.email.trim().toLowerCase()
+    const submittedEmail = (accountInfo.email ?? '').trim().toLowerCase()
+    const submittedPassword = accountInfo.password
+
+    if (!submittedPassword) {
+      throw new Error('Password is required.')
+    }
+
+    if (!noEmail && !submittedEmail) {
+      throw new Error('Email is required.')
+    }
 
     const clientEmail = noEmail
       ? await generatePlaceholderEmail(payload, formattedFirstName, formattedLastName)
@@ -134,12 +143,54 @@ export async function registerClientAction(formData: FormValues): Promise<{
       }
     }
 
+    const duplicateClient = await payload.find({
+      collection: 'clients',
+      where: {
+        or: [
+          {
+            and: [
+              {
+                firstName: {
+                  equals: formattedFirstName,
+                },
+              },
+              {
+                lastName: {
+                  equals: formattedLastName,
+                },
+              },
+              {
+                dob: {
+                  equals: personalInfo.dob,
+                },
+              },
+            ],
+          },
+          {
+            phone: {
+              equals: formattedPhone,
+            },
+          },
+        ],
+      },
+      limit: 1,
+      overrideAccess: true,
+    })
+
+    if (duplicateClient.docs.length > 0) {
+      return {
+        success: false,
+        error:
+          'A likely matching client already exists. Return to the scheduled collection screen and select the existing client instead of registering a new one.',
+      }
+    }
+
     const clientData: Record<string, unknown> = {
       firstName: formattedFirstName,
       lastName: formattedLastName,
       ...(formattedMiddleInitial && { middleInitial: formattedMiddleInitial }),
       email: clientEmail,
-      password: accountInfo.password,
+      password: submittedPassword,
       gender: personalInfo.gender,
       dob: personalInfo.dob,
       phone: formattedPhone,

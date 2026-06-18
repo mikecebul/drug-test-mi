@@ -3,7 +3,7 @@
 import { withForm } from '@/blocks/Form/hooks/form'
 import { getRegisterClientFormOpts } from '../shared-form'
 import { Plus, Trash2 } from 'lucide-react'
-import { useStore } from '@tanstack/react-form'
+import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { useEmployerOptions } from '../hooks/useEmployerOptions'
 import { useCourtOptions } from '../hooks/useCourtOptions'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
@@ -18,22 +18,28 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { groupCourtSelectOptions } from '../utils/groupCourtSelectOptions'
+import { getRecipientsGroupSchema } from '../validators'
+import { RegisterNavigation } from '../components/Navigation'
+import type { RegisterStepProps } from './types'
 
 export const RecipientsStep = withForm({
-  ...getRegisterClientFormOpts('recipients'),
-
-  render: function Render({ form }) {
+  ...getRegisterClientFormOpts(),
+  props: {} as RegisterStepProps,
+  render: function Render(props) {
+    const { form } = props
+    const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
     const CLEAR_SELECTION_VALUE = '__none__'
     const { employers, employersById, isLoading: isLoadingEmployers } = useEmployerOptions()
     const { courts, courtsById, isLoading: isLoadingCourts } = useCourtOptions()
     const groupedCourtOptions = groupCourtSelectOptions(courts)
 
-    const requestedBy = useStore(form.store, (state) => state.values.screeningType.requestedBy)
     const selectedEmployerValue = useStore(form.store, (state) => state.values.recipients.selectedEmployer)
     const selectedCourtValue = useStore(form.store, (state) => state.values.recipients.selectedCourt)
 
     const selectedEmployer = selectedEmployerValue ? employersById.get(selectedEmployerValue) || null : null
     const selectedCourt = selectedCourtValue ? courtsById.get(selectedCourtValue) || null : null
+    const additionalRecipientRowClass =
+      'grid gap-4 rounded-md border border-border bg-muted/20 p-4 md:grid-cols-[1fr_1fr_auto]'
 
     const renderSelfFields = () => (
       <>
@@ -59,7 +65,12 @@ export const RecipientsStep = withForm({
                   <p className="text-foreground text-sm font-medium">Additional recipients for you only</p>
                   <p className="text-muted-foreground text-xs">{referralScopeDescription}</p>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={() => field.pushValue({ name: '', email: '' })}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => field.pushValue({ name: '', email: '' }, { dontValidate: true })}
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   Add Recipient
                 </Button>
@@ -68,21 +79,21 @@ export const RecipientsStep = withForm({
               {rows.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No additional recipients added.</p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-5">
                   {rows.map((_, index) => (
-                    <div key={`additional-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                      <form.AppField name={`recipients.additionalReferralRecipients[${index}].name` as const}>
+                    <div key={`additional-recipient-${index}`} className={additionalRecipientRowClass}>
+                      <form.AppField name={`recipients.additionalReferralRecipients[${index}].name`}>
                         {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
                       </form.AppField>
-                      <form.AppField name={`recipients.additionalReferralRecipients[${index}].email` as const}>
+                      <form.AppField name={`recipients.additionalReferralRecipients[${index}].email`}>
                         {(emailField) => <emailField.EmailField label="Recipient Email" required />}
                       </form.AppField>
                       <Button
                         type="button"
                         variant="outline"
                         size="icon"
-                        className="mt-8"
-                        onClick={() => field.removeValue(index)}
+                        className="md:mt-8"
+                        onClick={() => field.removeValue(index, { dontValidate: true })}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -111,7 +122,12 @@ export const RecipientsStep = withForm({
                     <p className="text-foreground text-sm font-medium">Additional recipients for the new employer</p>
                     <p className="text-muted-foreground text-xs">Saved to the new employer referral profile.</p>
                   </div>
-                  <Button type="button" variant="outline" size="sm" onClick={() => field.pushValue({ name: '', email: '' })}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => field.pushValue({ name: '', email: '' }, { dontValidate: true })}
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Add Recipient
                   </Button>
@@ -120,21 +136,21 @@ export const RecipientsStep = withForm({
                 {rows.length === 0 ? (
                   <p className="text-muted-foreground text-sm">No extra recipients added for this new employer referral.</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-5">
                     {rows.map((_, index) => (
-                      <div key={`other-employer-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                        <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].name` as const}>
+                      <div key={`other-employer-recipient-${index}`} className={additionalRecipientRowClass}>
+                        <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].name`}>
                           {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
                         </form.AppField>
-                        <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].email` as const}>
+                        <form.AppField name={`recipients.otherEmployerAdditionalRecipients[${index}].email`}>
                           {(emailField) => <emailField.EmailField label="Recipient Email" required />}
                         </form.AppField>
                         <Button
                           type="button"
                           variant="outline"
                           size="icon"
-                          className="mt-8"
-                          onClick={() => field.removeValue(index)}
+                          className="md:mt-8"
+                          onClick={() => field.removeValue(index, { dontValidate: true })}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -164,7 +180,12 @@ export const RecipientsStep = withForm({
                     <p className="text-foreground text-sm font-medium">Additional recipients for the new court</p>
                     <p className="text-muted-foreground text-xs">Saved to the new court referral profile.</p>
                   </div>
-                  <Button type="button" variant="outline" size="sm" onClick={() => field.pushValue({ name: '', email: '' })}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => field.pushValue({ name: '', email: '' }, { dontValidate: true })}
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Add Recipient
                   </Button>
@@ -173,21 +194,21 @@ export const RecipientsStep = withForm({
                 {rows.length === 0 ? (
                   <p className="text-muted-foreground text-sm">No extra recipients added for this new court referral.</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-5">
                     {rows.map((_, index) => (
-                      <div key={`other-court-recipient-${index}`} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                        <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].name` as const}>
+                      <div key={`other-court-recipient-${index}`} className={additionalRecipientRowClass}>
+                        <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].name`}>
                           {(nameField) => <nameField.TextField label="Recipient Name (optional)" />}
                         </form.AppField>
-                        <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].email` as const}>
+                        <form.AppField name={`recipients.otherCourtAdditionalRecipients[${index}].email`}>
                           {(emailField) => <emailField.EmailField label="Recipient Email" required />}
                         </form.AppField>
                         <Button
                           type="button"
                           variant="outline"
                           size="icon"
-                          className="mt-8"
-                          onClick={() => field.removeValue(index)}
+                          className="md:mt-8"
+                          onClick={() => field.removeValue(index, { dontValidate: true })}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -368,8 +389,8 @@ export const RecipientsStep = withForm({
       )
     }
 
-    return (
-      <div className="space-y-6">
+    const body = (
+      <div className="wizard-content mb-8 flex-1 space-y-6">
         <div className="mb-6 flex items-center">
           <h2 className="text-foreground text-xl font-semibold">Results Recipients</h2>
         </div>
@@ -386,6 +407,35 @@ export const RecipientsStep = withForm({
           </div>
         )}
       </div>
+    )
+
+    if (props.mode === 'body') {
+      return body
+    }
+
+    return (
+      <form.FormGroup
+        name="recipients"
+        validationLogic={revalidateLogic()}
+        validators={{ onDynamic: getRecipientsGroupSchema(requestedBy) }}
+        onGroupSubmit={() => props.onNext()}
+        onGroupSubmitInvalid={() => props.onInvalid()}
+      >
+        {(group) => (
+          <>
+            {body}
+
+            <RegisterNavigation
+              isFirstStep={props.isFirstStep}
+              isLastStep={props.isLastStep}
+              isSubmitting={props.isSubmitting}
+              isNextDisabled={group.state.meta.isSubmitting}
+              onBack={() => props.onBack()}
+              onNext={() => group.handleSubmit()}
+            />
+          </>
+        )}
+      </form.FormGroup>
     )
   },
 })

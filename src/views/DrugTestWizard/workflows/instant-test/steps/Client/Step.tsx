@@ -10,7 +10,7 @@ import { saveFileToStorage } from '../../utils/fileStorage'
 import { useExtractPdfQuery, useFindMatchingClientsQuery } from '../../../../queries'
 
 export const ClientStep = withForm({
-  ...getInstantTestFormOpts('client'),
+  ...getInstantTestFormOpts(),
 
   render: function Render({ form }) {
     // Get selected client ID and data from form state
@@ -19,7 +19,7 @@ export const ClientStep = withForm({
     const hasAutoSelected = useRef(false)
 
     // Get extracted data from PDF
-    const { data: extractedData } = useExtractPdfQuery(uploadedFile, '15-panel-instant')
+    const { data: extractedData } = useExtractPdfQuery(uploadedFile, 'instant-test')
     const donorName = extractedData?.donorName ?? null
 
     // Parse donor name into parts
@@ -110,7 +110,9 @@ export const ClientStep = withForm({
           <ClientStepUI
             selectedClient={selectedClient}
             onSelectClient={handleSelectClient}
-            errors={idField.state.meta.errors.map((e) => e?.message || 'Validation error')}
+            errors={idField.state.meta.errors.map((e) =>
+              typeof e === 'string' ? e : (e as { message?: string } | undefined)?.message || 'Validation error',
+            )}
             returnToWorkflow="instant-test"
             onRegisterNewClient={handleRegisterNewClient}
             suggestedMatches={suggestedMatches}

@@ -1,10 +1,15 @@
-import * as migration_20251005_184859_migration from './20251005_184859_migration';
-import * as migration_20251017_145316_migration from './20251017_145316_migration';
-import * as migration_20251211_191941_migration from './20251211_191941_migration';
-import * as migration_20251228_063653_migration from './20251228_063653_migration';
-import * as migration_20260208_120000_migration from './20260208_120000_migration';
-import * as migration_20260219_021650_migration from './20260219_021650_migration';
-import * as migration_20260222_042245_migration from './20260222_042245_migration';
+import * as migration_20251005_184859_migration from './20251005_184859_migration'
+import * as migration_20251017_145316_migration from './20251017_145316_migration'
+import * as migration_20251211_191941_migration from './20251211_191941_migration'
+import * as migration_20251228_063653_migration from './20251228_063653_migration'
+import * as migration_20260208_120000_migration from './20260208_120000_migration'
+import * as migration_20260219_021650_migration from './20260219_021650_migration'
+import * as migration_20260222_042245_migration from './20260222_042245_migration'
+import * as migration_20260512_000000_add_17_panel_instant_test_type from './20260512_000000_add_17_panel_instant_test_type'
+import * as migration_20260523_000000_add_test_type_prices from './20260523_000000_add_test_type_prices'
+import * as migration_20260524_000000_add_toxaccess_test_codes from './20260524_000000_add_toxaccess_test_codes'
+import * as migration_20260525_000000_deactivate_15_panel_instant_test_type from './20260525_000000_deactivate_15_panel_instant_test_type'
+import * as migration_20260526_000000_migrate_referrals_to_17_panel_instant from './20260526_000000_migrate_referrals_to_17_panel_instant'
 
 export const migrations = [
   {
@@ -40,6 +45,31 @@ export const migrations = [
   {
     up: migration_20260222_042245_migration.up,
     down: migration_20260222_042245_migration.down,
-    name: '20260222_042245_migration'
+    name: '20260222_042245_migration',
   },
-];
+  {
+    up: migration_20260512_000000_add_17_panel_instant_test_type.up,
+    down: migration_20260512_000000_add_17_panel_instant_test_type.down,
+    name: '20260512_000000_add_17_panel_instant_test_type',
+  },
+  {
+    up: migration_20260523_000000_add_test_type_prices.up,
+    down: migration_20260523_000000_add_test_type_prices.down,
+    name: '20260523_000000_add_test_type_prices',
+  },
+  {
+    up: migration_20260524_000000_add_toxaccess_test_codes.up,
+    down: migration_20260524_000000_add_toxaccess_test_codes.down,
+    name: '20260524_000000_add_toxaccess_test_codes',
+  },
+  {
+    up: migration_20260525_000000_deactivate_15_panel_instant_test_type.up,
+    down: migration_20260525_000000_deactivate_15_panel_instant_test_type.down,
+    name: '20260525_000000_deactivate_15_panel_instant_test_type',
+  },
+  {
+    up: migration_20260526_000000_migrate_referrals_to_17_panel_instant.up,
+    down: migration_20260526_000000_migrate_referrals_to_17_panel_instant.down,
+    name: '20260526_000000_migrate_referrals_to_17_panel_instant',
+  },
+]

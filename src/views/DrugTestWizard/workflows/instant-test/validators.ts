@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { clientSchema, medicationsSchema, emailsSchema } from '../shared-validators'
+import { clientSchema, medicationsSchema, emailsGroupSchema, emailsSchema } from '../shared-validators'
 
 // Step names as readonly tuple
 export const steps = ['upload', 'extract', 'client', 'medications', 'verifyData', 'confirm', 'reviewEmails'] as const
@@ -15,15 +15,17 @@ export const uploadSchema = z.object({
 export const extractSchema = z.object({
   extract: z.object({
     extracted: z.boolean(),
+    clientMismatchConfirmed: z.boolean(),
+    clientMismatchConfirmationKey: z.string().nullable(),
   }),
 })
 
-export { clientSchema, medicationsSchema, emailsSchema }
+export { clientSchema, medicationsSchema, emailsGroupSchema, emailsSchema }
 
 export const verifyDataSchema = z.object({
   verifyData: z
     .object({
-      testType: z.enum(['15-panel-instant']),
+      testType: z.literal('17-panel-instant'),
       collectionDate: z.string().min(1, 'Collection date is required'),
       detectedSubstances: z.array(z.string()),
       isDilute: z.boolean(),

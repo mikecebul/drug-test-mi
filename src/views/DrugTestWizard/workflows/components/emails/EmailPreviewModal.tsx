@@ -1,13 +1,7 @@
 'use client'
 
 import React from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Badge } from '@/components/ui/badge'
 import { Mail } from 'lucide-react'
 
@@ -29,14 +23,14 @@ export function EmailPreviewModal({
   emailType,
 }: EmailPreviewModalProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-4xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+    <Drawer direction="right" open={isOpen} onOpenChange={onClose}>
+      <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(64rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+        <DrawerHeader className="border-border border-b px-6 py-5">
+          <DrawerTitle className="flex items-center gap-2 text-2xl tracking-tight">
             <Mail className="h-5 w-5" />
             Email Preview
-          </DialogTitle>
-          <DialogDescription asChild className="space-y-2">
+          </DrawerTitle>
+          <DrawerDescription asChild className="space-y-2">
             <div>
               <div className="flex items-center gap-2">
                 <Badge variant={emailType === 'client' ? 'default' : 'secondary'}>
@@ -51,10 +45,10 @@ export function EmailPreviewModal({
                 <strong>To:</strong> {recipients.join(', ')}
               </div>
             </div>
-          </DialogDescription>
-        </DialogHeader>
+          </DrawerDescription>
+        </DrawerHeader>
 
-        <div className="flex-1 overflow-auto rounded-md border">
+        <div className="mx-6 my-5 flex-1 overflow-auto rounded-md border">
           <iframe
             srcDoc={emailHtml}
             sandbox="allow-same-origin"
@@ -62,7 +56,7 @@ export function EmailPreviewModal({
             title="Email Preview"
           />
         </div>
-      </DialogContent>
-    </Dialog>
+      </DrawerContent>
+    </Drawer>
   )
 }

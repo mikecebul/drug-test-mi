@@ -26,7 +26,7 @@ import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMed
 import { format } from 'date-fns'
 
 export const LabConfirmationDataStep = withForm({
-  ...getLabConfirmationFormOpts('labConfirmationData'),
+  ...getLabConfirmationFormOpts(),
 
   render: function Render({ form }) {
     const queryClient = useQueryClient()

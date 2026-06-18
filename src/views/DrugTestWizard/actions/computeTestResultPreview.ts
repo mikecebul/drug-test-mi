@@ -18,7 +18,7 @@ import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMed
 export async function computeTestResultPreview(
   clientId: string,
   detectedSubstances: SubstanceValue[],
-  testType: '15-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab',
+  testType: '15-panel-instant' | '17-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab',
   breathalyzerTaken?: boolean,
   breathalyzerResult?: number | null,
   medications?: FormMedications,

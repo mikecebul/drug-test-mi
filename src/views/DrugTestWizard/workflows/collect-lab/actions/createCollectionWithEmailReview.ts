@@ -8,6 +8,8 @@ import { buildCollectedEmail } from '@/collections/DrugTests/email/render'
 import { fetchClientHeadshot } from '@/collections/DrugTests/email/fetch-headshot'
 import { createAdminAlert } from '@/lib/admin-alerts'
 import type { Client } from '@/payload-types'
+import { getDrugTestPaymentSnapshot } from '../../paymentSnapshot'
+import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 
 // Extract medication type from Client payload type
 type MedicationInput = NonNullable<Client['medications']>[number] & {
@@ -18,6 +20,7 @@ type MedicationInput = NonNullable<Client['medications']>[number] & {
 export async function createCollectionWithEmailReview(
   testData: {
     clientId: string
+    bookingId?: string | null
     testType: '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
     collectionDate: string
     breathalyzerTaken: boolean
@@ -78,12 +81,18 @@ export async function createCollectionWithEmailReview(
 
     // 2. Fetch updated active medications for drug test snapshot
     const activeMedications = await getActiveMedications(testData.clientId, payload)
+    const paymentSnapshot = await getDrugTestPaymentSnapshot({
+      payload,
+      bookingId: testData.bookingId,
+    })
 
     // 3. Create drug test
     const drugTest = await payload.create({
       collection: 'drug-tests',
       data: {
         relatedClient: testData.clientId,
+        sourceBooking: paymentSnapshot.sourceBooking,
+        payment: paymentSnapshot.payment,
         testType: testData.testType,
         collectionDate: testData.collectionDate,
         screeningStatus: 'collected',
@@ -96,6 +105,23 @@ export async function createCollectionWithEmailReview(
       },
       overrideAccess: true,
     })
+
+    if (testData.bookingId) {
+      await payload.update({
+        collection: 'bookings',
+        id: testData.bookingId,
+        data: {
+          status: 'cancelled',
+          sampleCollection: {
+            status: 'collected',
+            collectedAt: testData.collectionDate,
+            drugTest: drugTest.id,
+          },
+        },
+        overrideAccess: true,
+      })
+      revalidateBookingViews()
+    }
 
     // 4. Fetch client for email generation
     const client = await payload.findByID({

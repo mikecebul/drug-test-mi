@@ -8,7 +8,6 @@ import { seedFixtures, type FixtureContext } from './helpers/seed'
 import {
   clickBack,
   clickNext,
-  expectNextDisabled,
   extractTestIdFromSuccess,
   openWizard,
   selectWorkflow,
@@ -146,15 +145,12 @@ test.describe('Wizard Lab Screen Workflow', () => {
 
     if (await decisionSection.isVisible().catch(() => false)) {
       await page.getByLabel(/Fentanyl/i).check()
-      await triggerNextValidation(page)
       await expect(page.getByText('Must select an option')).toBeVisible()
-      await expectNextDisabled(page)
 
       await page.getByRole('radio', { name: /Request Confirmation Testing/i }).click()
       await page.getByRole('button', { name: /Clear/i }).click()
       await triggerNextValidation(page)
       await expect(page.getByText('Please select at least one substance for confirmation testing')).toBeVisible()
-      await expectNextDisabled(page)
 
       await resolveConfirmationDecision(page)
     }

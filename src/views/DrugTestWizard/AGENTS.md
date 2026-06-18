@@ -5,8 +5,8 @@ This folder contains admin-panel multi-step workflows for client registration an
 ## Core Workflow Rules
 - **Step routing**: `step` query param (`nuqs`) is the navigation source of truth
 - **Form state**: TanStack Form with `withForm` wrappers per step
-- **Validation**: form-level only (avoid field-level validators inside step components)
-- **Step validation**: validate only the current step before advancing (`parseValuesWithSchema(...)`)
+- **Validation**: FormGroup-level for multi-step workflows (avoid field-level validators inside step components)
+- **Step validation**: validate only the active `<form.FormGroup>` before advancing (`group.handleSubmit()`)
 - **Email uniqueness checks**: performed during the account step
 
 ## Files to Know

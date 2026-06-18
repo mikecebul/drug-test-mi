@@ -7,6 +7,7 @@ import { Calendar, Loader2, Search } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   extractPreferredTestType,
   extractReferralRelation,
@@ -17,14 +18,31 @@ import {
   type TestTypeBookingOption,
 } from '@/lib/quick-book'
 import { sdk } from '@/lib/payload-sdk'
+import { DRUG_TEST_CAL_LINK, getAdminQuickBookCalLink } from '@/utilities/calcom-config'
 import { searchClients } from '@/views/DrugTestWizard/workflows/components/client/clientSearch'
-import { getClients, SimpleClient } from '@/views/DrugTestWizard/workflows/components/client/getClients'
+import type { SimpleClient } from '@/views/DrugTestWizard/workflows/components/client/getClients'
 
 type TestTypeOption = TestTypeBookingOption
 
 type CalModalConfig = Record<string, string | string[] | Record<string, string>>
+type AdminQuickBookClientContext = {
+  calLink: string
+  recommendation: RecommendedTestType
+}
 
-async function resolveClientRecommendation(clientId: string): Promise<RecommendedTestType> {
+function buildClientInitials(firstName: string, lastName: string): string {
+  return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
+}
+
+function getReferralNameFromValue(referralValue: unknown): string | undefined {
+  if (referralValue && typeof referralValue === 'object' && 'name' in referralValue) {
+    return typeof referralValue.name === 'string' ? referralValue.name : undefined
+  }
+
+  return undefined
+}
+
+async function resolveClientQuickBookContext(clientId: string): Promise<AdminQuickBookClientContext> {
   const client = await sdk.findByID({
     collection: 'clients',
     id: clientId,
@@ -36,45 +54,68 @@ async function resolveClientRecommendation(clientId: string): Promise<Recommende
   })
 
   if (client.referralType !== 'court' && client.referralType !== 'employer') {
-    return {}
+    return {
+      calLink: DRUG_TEST_CAL_LINK,
+      recommendation: {},
+    }
   }
 
   const relationRef = extractReferralRelation(client.referral)
   if (!relationRef) {
-    return {}
+    return {
+      calLink: DRUG_TEST_CAL_LINK,
+      recommendation: {},
+    }
   }
+
+  let referralName: string | undefined
+  let recommendation: RecommendedTestType = {}
 
   if (client.referral && typeof client.referral === 'object' && 'value' in client.referral) {
     const referralValue = client.referral.value
+    referralName = getReferralNameFromValue(referralValue)
+
     if (typeof referralValue === 'object' && referralValue !== null) {
       const extracted = extractPreferredTestType(
         'preferredTestType' in referralValue ? referralValue.preferredTestType : undefined,
       )
       if (extracted.recommendedTestTypeId || extracted.recommendedTestTypeValue) {
-        return extracted
+        recommendation = extracted
       }
     }
   }
 
-  const referralDoc = await sdk.findByID({
-    collection: relationRef.relationTo,
-    id: relationRef.referralId,
-    depth: 1,
-    select: {
-      preferredTestType: true,
-    },
-  })
+  if (!referralName || (!recommendation.recommendedTestTypeId && !recommendation.recommendedTestTypeValue)) {
+    const referralDoc = await sdk.findByID({
+      collection: relationRef.relationTo,
+      id: relationRef.referralId,
+      depth: 1,
+      select: {
+        name: true,
+        preferredTestType: true,
+      },
+    })
 
-  const extractedFromReferral = extractPreferredTestType(referralDoc.preferredTestType)
-  if (!extractedFromReferral.recommendedTestTypeId && !extractedFromReferral.recommendedTestTypeValue) {
-    return {}
+    referralName = referralName || getReferralNameFromValue(referralDoc)
+    recommendation = extractPreferredTestType(referralDoc.preferredTestType)
   }
 
-  if (!extractedFromReferral.recommendedTestTypeValue && extractedFromReferral.recommendedTestTypeId) {
+  const calLink = getAdminQuickBookCalLink({
+    referralType: client.referralType,
+    referralName,
+  })
+  if (!recommendation.recommendedTestTypeId && !recommendation.recommendedTestTypeValue) {
+    return {
+      calLink,
+      recommendation: {},
+    }
+  }
+
+  if (!recommendation.recommendedTestTypeValue && recommendation.recommendedTestTypeId) {
     try {
       const testTypeDoc = await sdk.findByID({
         collection: 'test-types',
-        id: extractedFromReferral.recommendedTestTypeId,
+        id: recommendation.recommendedTestTypeId,
         depth: 0,
         select: {
           value: true,
@@ -82,15 +123,67 @@ async function resolveClientRecommendation(clientId: string): Promise<Recommende
       })
 
       return {
-        ...extractedFromReferral,
-        ...(testTypeDoc.value ? { recommendedTestTypeValue: testTypeDoc.value } : {}),
+        calLink,
+        recommendation: {
+          ...recommendation,
+          ...(testTypeDoc.value ? { recommendedTestTypeValue: testTypeDoc.value } : {}),
+        },
       }
     } catch (error) {
       console.warn('[AdminQuickBookWidget] Failed to fetch recommended test type value', error)
     }
   }
 
-  return extractedFromReferral
+  return {
+    calLink,
+    recommendation,
+  }
+}
+
+async function fetchQuickBookClients(): Promise<SimpleClient[]> {
+  const { docs } = await sdk.find({
+    collection: 'clients',
+    limit: 1000,
+    sort: 'lastName',
+    depth: 1,
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      middleInitial: true,
+      email: true,
+      dob: true,
+      phone: true,
+      headshot: true,
+      updatedAt: true,
+    },
+  })
+
+  return docs.map((client) => {
+    const headshot =
+      typeof client.headshot === 'object' && client.headshot
+        ? client.headshot.thumbnailURL || client.headshot.url || undefined
+        : undefined
+    const headshotId = typeof client.headshot === 'object' && client.headshot ? client.headshot.id : undefined
+    const fullName = client.middleInitial
+      ? `${client.firstName} ${client.middleInitial} ${client.lastName}`
+      : `${client.firstName} ${client.lastName}`
+
+    return {
+      id: client.id,
+      firstName: client.firstName,
+      middleInitial: client.middleInitial ?? undefined,
+      lastName: client.lastName,
+      fullName,
+      initials: buildClientInitials(client.firstName, client.lastName),
+      email: client.email,
+      dob: client.dob ?? undefined,
+      phone: client.phone ?? undefined,
+      headshot,
+      headshotId,
+      updatedAt: client.updatedAt ?? undefined,
+    }
+  })
 }
 
 async function fetchTestTypes(): Promise<TestTypeOption[]> {
@@ -127,13 +220,21 @@ async function fetchTestTypes(): Promise<TestTypeOption[]> {
 
 function resolveTestLabel(options: TestTypeOption[], recommendation: RecommendedTestType): string {
   return (
-    resolveRecommendedTestLabel(options, recommendation) ??
-    options[0]?.label ??
-    FALLBACK_BOOKING_TEST_TYPES[0].label
+    resolveRecommendedTestLabel(options, recommendation) ?? options[0]?.label ?? FALLBACK_BOOKING_TEST_TYPES[0].label
   )
 }
 
-export function AdminQuickBookWidgetClient() {
+type AdminQuickBookWidgetClientProps = {
+  onBeforeOpenBooking?: () => void | Promise<void>
+  resultsMode?: 'inline' | 'popover'
+  searchInputId?: string
+}
+
+export function AdminQuickBookWidgetClient({
+  onBeforeOpenBooking,
+  resultsMode = 'popover',
+  searchInputId = 'admin-quick-book-search',
+}: AdminQuickBookWidgetClientProps = {}) {
   const [clients, setClients] = useState<SimpleClient[]>([])
   const [testTypes, setTestTypes] = useState<TestTypeOption[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -154,7 +255,7 @@ export function AdminQuickBookWidgetClient() {
 
     const loadData = async () => {
       try {
-        const [clientList, availableTestTypes] = await Promise.all([getClients(), fetchTestTypes()])
+        const [clientList, availableTestTypes] = await Promise.all([fetchQuickBookClients(), fetchTestTypes()])
         if (!mounted) return
         setClients(clientList)
         setTestTypes(availableTestTypes)
@@ -180,11 +281,19 @@ export function AdminQuickBookWidgetClient() {
     return searchClients(clients, searchQuery.trim(), 8)
   }, [clients, searchQuery])
 
-  const openCalBookingModal = async (config: CalModalConfig) => {
+  const openCalBookingModal = async (config: CalModalConfig, calLink = DRUG_TEST_CAL_LINK) => {
     const cal = await getCalApi()
 
+    if (onBeforeOpenBooking) {
+      try {
+        await onBeforeOpenBooking()
+      } catch (error) {
+        console.error('[AdminQuickBookWidget] Failed to run booking pre-open callback', error)
+      }
+    }
+
     cal('modal', {
-      calLink: 'midrugtest/drug-test',
+      calLink,
       config: {
         overlayCalendar: 'true',
         ...config,
@@ -199,9 +308,9 @@ export function AdminQuickBookWidgetClient() {
     setIsOpeningBooking(true)
 
     try {
-      const recommendation = await resolveClientRecommendation(client.id)
+      const quickBookContext = await resolveClientQuickBookContext(client.id)
       const options = testTypes.length > 0 ? testTypes : FALLBACK_BOOKING_TEST_TYPES
-      const selectedTestLabel = resolveTestLabel(options, recommendation)
+      const selectedTestLabel = resolveTestLabel(options, quickBookContext.recommendation)
 
       const config: CalModalConfig = {
         name: client.fullName || `${client.firstName} ${client.lastName}`,
@@ -215,7 +324,7 @@ export function AdminQuickBookWidgetClient() {
         config.smsReminderNumber = formattedPhone
       }
 
-      await openCalBookingModal(config)
+      await openCalBookingModal(config, quickBookContext.calLink)
     } catch (error) {
       console.error('[AdminQuickBookWidget] Failed to open booking', error)
       setBookingError('Could not open booking. Please try again.')
@@ -241,73 +350,94 @@ export function AdminQuickBookWidgetClient() {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <div className="relative flex-1">
-          <label htmlFor="admin-quick-book-search" className="sr-only">
-            Search Existing Client
-          </label>
-          <Search className="text-primary/70 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-          <Input
-            id="admin-quick-book-search"
-            value={searchQuery}
-            onChange={(event) => {
-              setSearchQuery(event.target.value)
-              setIsDropdownOpen(true)
-            }}
-            onFocus={() => setIsDropdownOpen(true)}
-            onBlur={() => {
-              setTimeout(() => setIsDropdownOpen(false), 120)
-            }}
-            placeholder="Search client name, email, phone, or DOB..."
-            className="h-11 rounded-lg border-2 border-primary/50 bg-background pl-10 pr-10 shadow-[0_0_0_1px_hsl(var(--primary)/0.2)] focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/25"
-            disabled={isLoadingClients || isOpeningBooking || !!loadError}
-          />
-          {(isLoadingClients || isOpeningBooking) && (
-            <Loader2 className="text-muted-foreground absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin" />
-          )}
-          {isDropdownOpen && !isLoadingClients && results.length > 0 && (
-            <div className="bg-popover border-border absolute z-[80] mt-1 max-h-80 w-full overflow-y-auto rounded-lg border shadow-lg">
-              {results.map((client) => (
-                <button
-                  key={client.id}
-                  type="button"
-                  className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-3 py-2 text-left"
-                  onMouseDown={(event) => {
-                    event.preventDefault()
-                    void handleSelectClient(client)
-                  }}
-                >
-                  <Avatar className="size-8 shrink-0">
-                    <AvatarImage
-                      src={client.headshot ?? undefined}
-                      alt={client.fullName || `${client.firstName} ${client.lastName}`}
-                    />
-                    <AvatarFallback className="text-xs font-semibold">{client.initials}</AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {client.fullName || `${client.firstName} ${client.lastName}`}
-                    </p>
-                    <p className="text-muted-foreground truncate text-xs">{client.email}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+    <div className="space-y-3">
+      <Tabs defaultValue="existing">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="existing">Existing Client</TabsTrigger>
+          <TabsTrigger value="new">New Client</TabsTrigger>
+        </TabsList>
 
-        <Button
-          type="button"
-          variant="secondary"
-          className="h-11 shrink-0 px-4"
-          onClick={() => void handleBookUnregistered()}
-          disabled={isOpeningBooking}
-        >
-          <Calendar className="mr-2 h-4 w-4" />
-          Book New Client
-        </Button>
-      </div>
+        <TabsContent value="existing" className="mt-2 space-y-2">
+          <div className="relative">
+            <label htmlFor={searchInputId} className="sr-only">
+              Search Existing Client
+            </label>
+            <Search className="text-primary/70 pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+            <Input
+              id={searchInputId}
+              value={searchQuery}
+              onChange={(event) => {
+                setSearchQuery(event.target.value)
+                setIsDropdownOpen(true)
+              }}
+              onFocus={() => setIsDropdownOpen(true)}
+              onBlur={() => {
+                setTimeout(() => setIsDropdownOpen(false), 120)
+              }}
+              placeholder="Search client name, email, phone, or DOB..."
+              className="border-primary/35 bg-background focus-visible:border-primary focus-visible:ring-primary/20 h-11 rounded-md pr-10 pl-10 shadow-sm focus-visible:ring-4"
+              disabled={isOpeningBooking}
+            />
+            {(isLoadingClients || isOpeningBooking) && (
+              <Loader2 className="text-muted-foreground pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin" />
+            )}
+            {isDropdownOpen && !isLoadingClients && results.length > 0 && (
+              <div
+                className={
+                  resultsMode === 'inline'
+                    ? 'bg-popover border-border relative mt-2 max-h-[min(18rem,36vh)] w-full overflow-y-auto rounded-md border shadow-sm'
+                    : 'bg-popover border-border absolute z-[80] mt-1 max-h-80 w-full overflow-y-auto rounded-md border shadow-lg'
+                }
+              >
+                {results.map((client) => (
+                  <button
+                    key={client.id}
+                    type="button"
+                    className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-3 py-2 text-left"
+                    onMouseDown={(event) => {
+                      event.preventDefault()
+                      void handleSelectClient(client)
+                    }}
+                  >
+                    <Avatar className="size-8 shrink-0">
+                      <AvatarImage
+                        src={client.headshot ?? undefined}
+                        alt={client.fullName || `${client.firstName} ${client.lastName}`}
+                      />
+                      <AvatarFallback className="text-xs font-semibold">{client.initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {client.fullName || `${client.firstName} ${client.lastName}`}
+                      </p>
+                      <p className="text-muted-foreground truncate text-xs">{client.email}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <p className="text-muted-foreground text-xs">Selecting a client opens Cal.com with their details.</p>
+        </TabsContent>
+
+        <TabsContent value="new" className="mt-2 space-y-3">
+          <div className="border-border/70 bg-muted/30 rounded-md border px-3 py-3">
+            <p className="text-sm font-medium">Book an appointment before registration.</p>
+            <p className="text-muted-foreground mt-1 text-xs">
+              Use this for walk-ins or clients who are not in Payload yet.
+            </p>
+          </div>
+          <Button
+            type="button"
+            className="h-11 w-full justify-center px-4"
+            onClick={() => void handleBookUnregistered()}
+            disabled={isOpeningBooking}
+          >
+            <Calendar className="h-4 w-4" />
+            Book Appointment
+          </Button>
+        </TabsContent>
+      </Tabs>
 
       {loadError && <p className="text-destructive text-xs">{loadError}</p>}
       {bookingError && <p className="text-destructive text-xs">{bookingError}</p>}

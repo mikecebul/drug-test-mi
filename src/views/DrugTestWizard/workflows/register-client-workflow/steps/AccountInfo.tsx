@@ -5,17 +5,23 @@ import { getRegisterClientFormOpts } from '../shared-form'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Info } from 'lucide-react'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
-import { useStore } from '@tanstack/react-form'
+import { revalidateLogic, useStore } from '@tanstack/react-form'
+import { accountInfoOptionalEmailGroupSchema } from '../validators'
+import { RegisterClientNavigation } from '../components/Navigation'
+import { checkEmailExists } from '@/app/(frontend)/register/actions'
+import z from 'zod'
 
 export const AccountInfoStep = withForm({
-  ...getRegisterClientFormOpts('accountInfo'),
-
-  render: function Render({ form }) {
-    const errors = useStore(form.store, (state) => state.errors)
+  ...getRegisterClientFormOpts(),
+  props: {} as {
+    onBack?: () => void
+    onNext?: () => void
+    onInvalid?: (error: unknown) => void
+  },
+  render: function Render({ form, onBack, onNext, onInvalid }) {
     const noEmail = useStore(form.store, (state) => state.values.accountInfo.noEmail === true)
-
-    return (
-      <div className="space-y-6">
+    const body = (
+      <div className="wizard-content mb-8 flex-1 space-y-6">
         <FieldGroupHeader title="Account Information" description="Email and login credentials" />
 
         <form.AppField name="accountInfo.noEmail">
@@ -46,7 +52,28 @@ export const AccountInfoStep = withForm({
 
         {!noEmail && (
           <>
-            <form.AppField name="accountInfo.email">
+            <form.AppField
+              name="accountInfo.email"
+              validators={{
+                onSubmitAsync: async ({ value }) => {
+                  const normalizedEmail = (value ?? '').trim().toLowerCase()
+                  if (!normalizedEmail || !z.email().safeParse(normalizedEmail).success) {
+                    return undefined
+                  }
+
+                  try {
+                    const emailExists = await checkEmailExists(normalizedEmail)
+                    if (emailExists) {
+                      return 'An account with this email already exists'
+                    }
+                  } catch (error) {
+                    console.warn('Failed to check email existence:', error)
+                  }
+
+                  return undefined
+                },
+              }}
+            >
               {(field) => <field.EmailField label="Email Address" required />}
             </form.AppField>
 
@@ -54,7 +81,19 @@ export const AccountInfoStep = withForm({
               {(field) => <field.PasswordField label="Password" required autoComplete="new-password" />}
             </form.AppField>
 
-            <form.AppField name="accountInfo.confirmPassword">
+            <form.AppField
+              name="accountInfo.confirmPassword"
+              validators={{
+                onChangeListenTo: ['accountInfo.password'],
+                onChange: ({ value, fieldApi }) => {
+                  const password = fieldApi.form.getFieldValue('accountInfo.password')
+                  if (password && value !== password) {
+                    return { message: "Passwords don't match" }
+                  }
+                  return undefined
+                },
+              }}
+            >
               {(field) => <field.PasswordField label="Confirm Password" required autoComplete="new-password" />}
             </form.AppField>
           </>
@@ -69,14 +108,43 @@ export const AccountInfoStep = withForm({
               : 'Password is auto-generated but can be changed if the client requests a specific password.'}
           </AlertDescription>
         </Alert>
-        {!noEmail && errors && errors.length > 0 && (
-          <div className="text-destructive text-sm">
-            {errors.map((error, i) => (
-              <div key={i}>{typeof error === 'string' ? error : null}</div>
-            ))}
-          </div>
-        )}
       </div>
+    )
+
+    if (!onNext) {
+      return body
+    }
+
+    return (
+      <form.FormGroup
+        name="accountInfo"
+        validationLogic={revalidateLogic()}
+        validators={{
+          onDynamic: ({ value }) => {
+            const result = accountInfoOptionalEmailGroupSchema.safeParse(value)
+            if (result.success) {
+              return undefined
+            }
+
+            return {
+              fields: Object.fromEntries(
+                result.error.issues
+                  .map((issue) => [issue.path[0], issue.message])
+                  .filter(([fieldName]) => typeof fieldName === 'string'),
+              ),
+            }
+          },
+        }}
+        onGroupSubmit={() => onNext?.()}
+        onGroupSubmitInvalid={({ groupApi }) => onInvalid?.(groupApi.state.meta.errors)}
+      >
+        {(group) => (
+          <>
+            {body}
+            <RegisterClientNavigation form={form} group={group} onBack={onBack ?? (() => {})} />
+          </>
+        )}
+      </form.FormGroup>
     )
   },
 })

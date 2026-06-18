@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
+import { revalidateLogic } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
@@ -15,8 +17,17 @@ import { ConfirmStep } from './steps/confirm/Step'
 import { EmailsStep } from './steps/Emails'
 import { updateLabConfirmationWithEmailReview } from './actions/updateLabConfirmationWithEmailReview'
 import { TestCompleted } from '../../components/TestCompleted'
-import { steps } from './validators'
+import {
+  emailsGroupSchema,
+  extractSchema,
+  labConfirmationDataSchema,
+  matchCollectionSchema,
+  steps,
+  uploadSchema,
+} from './validators'
 import { extractPdfQueryKey } from '../../queries'
+import type { ExtractedPdfData } from '../../queries'
+import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface LabConfirmationWorkflowProps {
   onBack: () => void
@@ -27,32 +38,24 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
 
   // URL is single source of truth
-  const [currentStepRaw, setCurrentStep] = useQueryState(
+  const [currentStep, setCurrentStep] = useQueryState(
     'step',
-    parseAsStringLiteral(steps as readonly string[]).withDefault('upload'),
+    parseAsStringLiteral(steps).withDefault('upload'),
   )
-  const currentStep = currentStepRaw as (typeof steps)[number]
+  const formRef = useRef<HTMLFormElement | null>(null)
 
-  // Track previous step for navigation direction
-  const prevStepRef = useRef(currentStep)
+  useStepFocus({
+    containerRef: formRef,
+    stepKey: currentStep,
+  })
 
   const form = useAppForm({
-    ...getLabConfirmationFormOpts(currentStep),
+    ...getLabConfirmationFormOpts(),
     onSubmit: async ({ value }) => {
-      const currentStepIndex = steps.indexOf(currentStep)
-      const isLastStep = currentStepIndex === steps.length - 1
-
-      if (!isLastStep) {
-        // Navigate to next step
-        await setCurrentStep(steps[currentStepIndex + 1], { history: 'push' })
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-        return
-      }
-
       // Final submit: Update drug test with confirmation results and send emails
       try {
         const queryKey = extractPdfQueryKey(value.upload.file, 'enter-lab-confirmation')
-        const extractedData = queryClient.getQueryData<any>(queryKey)
+        const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
 
         const result = await updateLabConfirmationWithEmailReview(value, extractedData)
 
@@ -68,58 +71,95 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
     },
   })
 
-  // Handle validation on backward navigation
+  // Guard against skipping into a later step without required base data
   useEffect(() => {
-    const currentIndex = steps.indexOf(currentStep)
-    const prevIndex = steps.indexOf(prevStepRef.current)
-
-    // Validate when going backward
-    if (currentIndex < prevIndex) {
-      form.validate('submit')
-    }
-
-    // Guard: prevent skipping to advanced steps
     if (currentStep !== 'upload' && !form.state.values.upload.file) {
       setCurrentStep('upload', { history: 'replace' })
       toast.info('Please start from the beginning')
     }
-
-    prevStepRef.current = currentStep
   }, [currentStep, form, setCurrentStep])
 
   if (completedTestId) {
     return <TestCompleted testId={completedTestId} onBack={onBack} />
   }
 
+  const currentStepIndex = steps.indexOf(currentStep)
+  const isLastStep = currentStepIndex === steps.length - 1
+
+  const handleGroupSubmit = async () => {
+    if (!isLastStep) {
+      await setCurrentStep(steps[currentStepIndex + 1], { history: 'push' })
+      return
+    }
+
+    await form.handleSubmit()
+  }
+
+  const handleGroupSubmitInvalid = (_error?: unknown) => {
+    const focusedField = focusFirstInvalidField(formRef.current)
+    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
+      id: 'lab-confirmation-step-invalid',
+    })
+  }
+
   const renderStep = () => {
+    const renderGroup = (
+      name: 'upload' | 'extract' | 'matchCollection' | 'labConfirmationData' | 'emails',
+      validators: Parameters<typeof form.FormGroup>[0]['validators'],
+      content: ReactNode,
+    ) => (
+      <form.FormGroup
+        key={currentStep}
+        name={name}
+        validationLogic={revalidateLogic()}
+        validators={validators}
+        onGroupSubmit={handleGroupSubmit}
+        onGroupSubmitInvalid={({ groupApi }) => handleGroupSubmitInvalid(groupApi.state.meta.errors)}
+      >
+        {(group) => (
+          <>
+            <div className="wizard-content mb-8 flex-1">{content}</div>
+            <LabConfirmationNavigation form={form} group={group} onBack={onBack} />
+          </>
+        )}
+      </form.FormGroup>
+    )
+
     switch (currentStep) {
       case 'upload':
-        return <UploadStep form={form} />
+        return renderGroup('upload', { onDynamic: uploadSchema.shape.upload }, <UploadStep form={form} />)
       case 'extract':
-        return <ExtractStep form={form} />
+        return renderGroup('extract', { onDynamic: extractSchema.shape.extract }, <ExtractStep form={form} />)
       case 'matchCollection':
-        return <MatchCollectionStep form={form} />
+        return renderGroup(
+          'matchCollection',
+          { onDynamic: matchCollectionSchema.shape.matchCollection },
+          <MatchCollectionStep form={form} />,
+        )
       case 'labConfirmationData':
-        return <LabConfirmationDataStep form={form} />
+        return renderGroup(
+          'labConfirmationData',
+          { onDynamic: labConfirmationDataSchema.shape.labConfirmationData },
+          <LabConfirmationDataStep form={form} />,
+        )
       case 'confirm':
-        return <ConfirmStep form={form} />
+        return renderGroup('labConfirmationData', undefined, <ConfirmStep form={form} />)
       case 'emails':
-        return <EmailsStep form={form} />
+        return renderGroup('emails', { onDynamic: emailsGroupSchema }, <EmailsStep form={form} />)
       default:
-        return <UploadStep form={form} />
+        return renderGroup('upload', { onDynamic: uploadSchema.shape.upload }, <UploadStep form={form} />)
     }
   }
 
   return (
     <form
+      ref={formRef}
       onSubmit={(e) => {
         e.preventDefault()
-        form.handleSubmit()
       }}
       className="flex flex-1 flex-col"
     >
-      <div className="wizard-content mb-8 flex-1">{renderStep()}</div>
-      <LabConfirmationNavigation form={form} onBack={onBack} />
+      {renderStep()}
     </form>
   )
 }

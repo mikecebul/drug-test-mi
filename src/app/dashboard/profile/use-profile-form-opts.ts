@@ -11,7 +11,7 @@ export type ProfileFormType = {
   confirmEmail?: string
   phone?: string
   gender?: 'male' | 'female' | 'other' | 'prefer-not-to-say'
-  dob?: string
+  dob?: string | Date
   preferredContactMethod: 'email' | 'phone' | 'sms'
   // Note: Client type specific fields (courtInfo, employmentInfo, selfInfo)
   // are read-only in the profile and cannot be edited here.
@@ -20,10 +20,18 @@ export type ProfileFormType = {
 
 export const useProfileFormOpts = ({
   user,
+  onSaved,
 }: {
   user: any
+  onSaved?: () => void
 }) => {
   const router = useRouter()
+
+  const normalizeDateValue = (value?: string | Date) => {
+    if (!value) return ''
+    if (value instanceof Date) return value.toISOString()
+    return value
+  }
 
   return formOptions({
     defaultValues: {
@@ -52,7 +60,7 @@ export const useProfileFormOpts = ({
         }
 
         // Prepare the data to send - only include fields that have values and are different
-        const updateData: Partial<ProfileFormType> = {}
+        const updateData: Partial<Omit<ProfileFormType, 'dob'> & { dob?: string }> = {}
 
         // Include firstName if it's different from current
         if (data.firstName !== undefined && data.firstName.trim() !== (user.firstName || '').trim()) {
@@ -80,8 +88,9 @@ export const useProfileFormOpts = ({
         }
 
         // Include dob if it's different
-        if (data.dob !== user.dob) {
-          updateData.dob = data.dob
+        const normalizedDob = normalizeDateValue(data.dob)
+        if (normalizedDob !== (user.dob || '')) {
+          updateData.dob = normalizedDob
         }
 
         // Include preferredContactMethod if it's different
@@ -114,6 +123,7 @@ export const useProfileFormOpts = ({
         }
 
         // Refresh the page to get fresh data
+        onSaved?.()
         router.refresh()
         toast.success('Successfully updated profile.')
       } catch (err) {

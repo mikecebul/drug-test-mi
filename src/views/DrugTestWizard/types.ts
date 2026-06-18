@@ -1,9 +1,11 @@
 import type { SubstanceValue } from '@/fields/substanceOptions'
 
 export const WIZARD_OPTIONS = [
+  'guided',
   'register-client',
   'collect-lab',
-  '15-panel-instant',
+  'instant-test',
+  '17-panel-instant',
   'enter-lab-screen',
   'enter-lab-confirmation',
 ] as const
@@ -49,8 +51,8 @@ export interface SimpleClient {
 export interface ParsedPDFData {
   donorName: string | null
   collectionDate: string | null // ISO string with timezone offset (or UTC Z)
-  dob?: string | null // Date of birth in MM/DD/YYYY format (15-panel instant only)
-  gender?: string | null // M or F (15-panel instant only)
+  dob?: string | null // Date of birth in MM/DD/YYYY format when present on instant reports
+  gender?: string | null // M or F when present on instant reports
   detectedSubstances: SubstanceValue[]
   isDilute: boolean
   rawText: string
@@ -66,7 +68,13 @@ export interface ParsedPDFData {
   }>
 }
 
-export type TestType = '15-panel-instant' | '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
+export type TestType =
+  | '15-panel-instant'
+  | '17-panel-instant'
+  | '11-panel-lab'
+  | '11-panel-lab-no-etg'
+  | '17-panel-sos-lab'
+  | 'etg-lab'
 
 export interface VerifiedTestData {
   testType: TestType

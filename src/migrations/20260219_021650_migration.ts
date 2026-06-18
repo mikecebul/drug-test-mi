@@ -1,6 +1,6 @@
 import { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-mongodb'
 
-type CanonicalTestType = '11-panel-lab' | '15-panel-instant' | '17-panel-sos-lab' | 'etg-lab'
+type CanonicalTestType = '11-panel-lab' | '15-panel-instant' | '17-panel-instant' | '17-panel-sos-lab' | 'etg-lab'
 
 type Recipient = {
   name: string
@@ -28,30 +28,42 @@ const CANONICAL_TEST_TYPES: Array<{
   label: string
   bookingLabel: string
   category: 'instant' | 'lab'
+  price: number
 }> = [
   {
     value: '11-panel-lab',
     label: '11-Panel Lab',
     bookingLabel: '11 Panel Lab',
     category: 'lab',
+    price: 40,
   },
   {
     value: '15-panel-instant',
     label: '15-Panel Instant',
     bookingLabel: '15 Panel Instant',
     category: 'instant',
+    price: 35,
+  },
+  {
+    value: '17-panel-instant',
+    label: '17-Panel Instant',
+    bookingLabel: '17 Panel Instant',
+    category: 'instant',
+    price: 35,
   },
   {
     value: '17-panel-sos-lab',
     label: '17-Panel SOS Lab',
     bookingLabel: '17 SOS Lab',
     category: 'lab',
+    price: 45,
   },
   {
     value: 'etg-lab',
     label: 'EtG Lab',
     bookingLabel: 'EtG Lab',
     category: 'lab',
+    price: 40,
   },
 ]
 
@@ -62,6 +74,8 @@ const TEST_TYPE_NORMALIZATION_MAP: Record<string, CanonicalTestType> = {
   '15-panel-instant': '15-panel-instant',
   '15-panel': '15-panel-instant',
   '15-panel-test': '15-panel-instant',
+  '17-panel-instant': '17-panel-instant',
+  '17-panel-slim-cup': '17-panel-instant',
   '17-panel-sos-lab': '17-panel-sos-lab',
   '17-panel-sos': '17-panel-sos-lab',
   '17-panel': '17-panel-sos-lab',
@@ -141,6 +155,7 @@ function normalizeTestType(raw: unknown): CanonicalTestType | null {
   if (fromMap) return fromMap
 
   if (slug.includes('etg')) return 'etg-lab'
+  if (slug.includes('17') && slug.includes('panel') && slug.includes('instant')) return '17-panel-instant'
   if (slug.includes('17') && slug.includes('panel')) return '17-panel-sos-lab'
   if (slug.includes('15') && slug.includes('panel')) return '15-panel-instant'
   if (slug.includes('11') && slug.includes('panel')) return '11-panel-lab'
@@ -307,6 +322,7 @@ function ensureAggregate(
           testTypeCounts: {
             '11-panel-lab': 0,
             '15-panel-instant': 0,
+            '17-panel-instant': 0,
             '17-panel-sos-lab': 0,
             'etg-lab': 0,
           },
@@ -378,6 +394,7 @@ export async function up({ payload }: MigrateUpArgs): Promise<void> {
         label: entry.label,
         bookingLabel: entry.bookingLabel,
         category: entry.category,
+        price: entry.price,
         isActive: true,
       },
       overrideAccess: true,

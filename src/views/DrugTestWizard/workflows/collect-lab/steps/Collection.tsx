@@ -12,7 +12,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { HeadshotCaptureCard } from '../../components'
 import { getCollectLabFormOpts } from '../shared-form'
-import { collectionSchema, labTests } from '../validators'
+import { labTests } from '../validators'
 import InputDateTimePicker from '@/components/input-datetime-picker'
 import { invalidateWizardClientDerivedData } from '../../../queries'
 
@@ -24,7 +24,7 @@ const TEST_LABELS: Record<(typeof labTests)[number], string> = {
 }
 
 export const CollectionStep = withForm({
-  ...getCollectLabFormOpts('collection'),
+  ...getCollectLabFormOpts(),
 
   render: function Render({ form }) {
     const queryClient = useQueryClient()
@@ -120,12 +120,13 @@ export const CollectionStep = withForm({
                     <Field orientation="horizontal">
                       <Checkbox
                         id="breathalyzerTaken"
-                        checked={field.state.value}
+                        checked={field.state.value ?? false}
                         onCheckedChange={(checked) => {
-                          field.handleChange(checked as boolean)
+                          const isChecked = checked === true
+                          form.setFieldValue('collection.breathalyzerTaken', isChecked, { dontValidate: true })
                           // Clear result when unchecking - validation errors clear automatically
-                          if (!checked) {
-                            form.setFieldValue('collection.breathalyzerResult', null)
+                          if (!isChecked) {
+                            form.setFieldValue('collection.breathalyzerResult', null, { dontValidate: true })
                           }
                         }}
                       />
@@ -137,12 +138,7 @@ export const CollectionStep = withForm({
                 </form.Field>
               </FieldSet>
               {breathalyzerTaken && (
-                <form.Field
-                  name="collection.breathalyzerResult"
-                  validators={{
-                    onChange: collectionSchema.shape.collection.shape.breathalyzerResult,
-                  }}
-                >
+                <form.Field name="collection.breathalyzerResult">
                   {(field) => (
                     <Field data-invalid={field.state.meta.errors.length > 0}>
                       <FieldLabel htmlFor="breathalyzerResult">BAC Result</FieldLabel>

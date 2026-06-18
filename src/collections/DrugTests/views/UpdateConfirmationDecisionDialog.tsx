@@ -12,14 +12,14 @@ import { ConfirmationSubstanceSelector } from '@/blocks/Form/field-components/co
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer'
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -93,10 +93,7 @@ export function UpdateConfirmationDecisionDialog({
   const router = useRouter()
   const [open, setOpen] = useState(false)
 
-  const normalizedUnexpectedPositives = useMemo(
-    () => normalizeSubstances(unexpectedPositives),
-    [unexpectedPositives],
-  )
+  const normalizedUnexpectedPositives = useMemo(() => normalizeSubstances(unexpectedPositives), [unexpectedPositives])
 
   const normalizedInitialSubstances = useMemo(
     () =>
@@ -127,9 +124,7 @@ export function UpdateConfirmationDecisionDialog({
             body: JSON.stringify({
               confirmationDecision: formValue.confirmationDecision,
               confirmationSubstances:
-                formValue.confirmationDecision === 'request-confirmation'
-                  ? formValue.confirmationSubstances
-                  : [],
+                formValue.confirmationDecision === 'request-confirmation' ? formValue.confirmationSubstances : [],
             }),
           })
 
@@ -184,21 +179,21 @@ export function UpdateConfirmationDecisionDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleDialogChange}>
-      <DialogTrigger asChild>
+    <Drawer direction="right" open={open} onOpenChange={handleDialogChange}>
+      <DrawerTrigger asChild>
         <Button type="button">
           <PencilLine className="h-4 w-4" />
           Update Confirmation Decision
         </Button>
-      </DialogTrigger>
+      </DrawerTrigger>
 
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Update Confirmation Decision</DialogTitle>
-          <DialogDescription>
+      <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(48rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+        <DrawerHeader className="border-border border-b px-6 py-5">
+          <DrawerTitle className="text-2xl tracking-tight">Update Confirmation Decision</DrawerTitle>
+          <DrawerDescription>
             Use the same confirmation workflow options used in the screening wizard.
-          </DialogDescription>
-        </DialogHeader>
+          </DrawerDescription>
+        </DrawerHeader>
 
         <form
           onSubmit={(event) => {
@@ -206,151 +201,153 @@ export function UpdateConfirmationDecisionDialog({
             event.stopPropagation()
             form.handleSubmit()
           }}
-          className="space-y-5"
+          className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="border-warning/50 bg-warning-muted/50 w-full rounded-xl border p-6 shadow-md">
-            <div className="mb-6">
-              <div className="flex items-center gap-2.5">
-                <div className="bg-warning/20 flex h-8 w-8 items-center justify-center rounded-full">
-                  <AlertTriangle className="text-warning h-4 w-4" />
+          <div className="no-scrollbar flex-1 overflow-y-auto px-6 py-5">
+            <div className="border-warning/50 bg-warning-muted/50 w-full rounded-xl border p-6 shadow-md">
+              <div className="mb-6">
+                <div className="flex items-center gap-2.5">
+                  <div className="bg-warning/20 flex h-8 w-8 items-center justify-center rounded-full">
+                    <AlertTriangle className="text-warning h-4 w-4" />
+                  </div>
+                  <h3 className="text-foreground text-xl font-semibold">Confirmation Decision Required</h3>
                 </div>
-                <h3 className="text-foreground text-xl font-semibold">Confirmation Decision Required</h3>
+                <p className="text-warning-foreground mt-2 text-sm">
+                  Unexpected positive substances detected. Choose how to proceed.
+                </p>
               </div>
-              <p className="text-warning-foreground mt-2 text-sm">
-                Unexpected positive substances detected. Choose how to proceed.
-              </p>
-            </div>
 
-            <div className="mb-5">
-              <p className="text-muted-foreground mb-2 text-sm font-medium">Unexpected Positives:</p>
-              <div className="flex flex-wrap gap-2">
-                {normalizedUnexpectedPositives.map((substance) => (
-                  <Badge key={substance} variant="destructive">
-                    {formatSubstance(substance)}
-                  </Badge>
-                ))}
+              <div className="mb-5">
+                <p className="text-muted-foreground mb-2 text-sm font-medium">Unexpected Positives:</p>
+                <div className="flex flex-wrap gap-2">
+                  {normalizedUnexpectedPositives.map((substance) => (
+                    <Badge key={substance} variant="destructive">
+                      {formatSubstance(substance)}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <form.Field
-              name="confirmationDecision"
-              validators={{
-                onSubmit: ({ value }) => {
-                  if (!value) {
-                    return 'Select a confirmation decision.'
-                  }
-                  return undefined
-                },
-              }}
-            >
-              {(field) => {
-                const errors = field.state.meta.errors
-                const hasErrors = errors.length > 0
-
-                return (
-                  <Field data-invalid={hasErrors}>
-                    <FieldLabel>How would you like to proceed?</FieldLabel>
-                    <FieldDescription>This updates the workflow decision on this drug test record.</FieldDescription>
-                    <RadioGroup
-                      value={confirmationDecisionValue || ''}
-                      onValueChange={(value) => handleConfirmationDecisionChange(value as ConfirmationDecision)}
-                      className="space-y-2.5"
-                      aria-invalid={hasErrors || undefined}
-                    >
-                      <Label
-                        htmlFor="summary-decision-accept"
-                        className={cn(
-                          'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
-                          confirmationDecisionValue === 'accept' && 'border-foreground/50 ring-foreground/20 ring-2',
-                        )}
-                      >
-                        <RadioGroupItem value="accept" id="summary-decision-accept" className="mt-0.5" />
-                        <div className="flex-1">
-                          <span className="text-foreground font-medium">Accept Results</span>
-                          <p className="text-muted-foreground mt-0.5 text-sm">
-                            Accept the screening results as final. Sample will be disposed.
-                          </p>
-                        </div>
-                      </Label>
-
-                      <Label
-                        htmlFor="summary-decision-request-confirmation"
-                        className={cn(
-                          'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
-                          confirmationDecisionValue === 'request-confirmation' &&
-                            'border-foreground/50 ring-foreground/20 ring-2',
-                        )}
-                      >
-                        <RadioGroupItem
-                          value="request-confirmation"
-                          id="summary-decision-request-confirmation"
-                          className="mt-0.5"
-                        />
-                        <div className="flex-1">
-                          <span className="text-foreground font-medium">Request Confirmation Testing</span>
-                          <p className="text-muted-foreground mt-0.5 text-sm">
-                            Send sample to lab for LC-MS/MS confirmation testing on selected substances.
-                          </p>
-                        </div>
-                      </Label>
-
-                      <Label
-                        htmlFor="summary-decision-pending"
-                        className={cn(
-                          'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
-                          confirmationDecisionValue === 'pending-decision' &&
-                            'border-foreground/50 ring-foreground/20 ring-2',
-                        )}
-                      >
-                        <RadioGroupItem value="pending-decision" id="summary-decision-pending" className="mt-0.5" />
-                        <div className="flex-1">
-                          <span className="text-foreground font-medium">Pending Decision</span>
-                          <p className="text-muted-foreground mt-0.5 text-sm">
-                            Decision not yet made. Sample will be held for 30 days. $30/substance.
-                          </p>
-                        </div>
-                      </Label>
-                    </RadioGroup>
-                    <FieldError errors={errors} />
-                  </Field>
-                )
-              }}
-            </form.Field>
-
-            {confirmationDecisionValue === 'request-confirmation' && (
               <form.Field
-                name="confirmationSubstances"
+                name="confirmationDecision"
                 validators={{
-                  onSubmit: ({ value, fieldApi }) => {
-                    const decision = fieldApi.form.getFieldValue('confirmationDecision')
-                    const selected = Array.isArray(value) ? value : []
-
-                    if (decision === 'request-confirmation' && selected.length === 0) {
-                      return 'Select at least one substance for confirmation testing.'
+                  onSubmit: ({ value }) => {
+                    if (!value) {
+                      return 'Select a confirmation decision.'
                     }
                     return undefined
                   },
                 }}
               >
-                {(field) => (
-                  <Field className="mt-5" data-invalid={field.state.meta.errors.length > 0}>
-                    <FieldLabel>Confirmation Substances</FieldLabel>
-                    <ConfirmationSubstanceSelector
-                      unexpectedPositives={normalizedUnexpectedPositives}
-                      selectedSubstances={Array.isArray(field.state.value) ? field.state.value : []}
-                      onSelectionChange={(substances) => {
-                        field.handleChange(substances)
-                        form.validate('submit')
-                      }}
-                    />
-                    <FieldError errors={field.state.meta.errors} />
-                  </Field>
-                )}
+                {(field) => {
+                  const errors = field.state.meta.errors
+                  const hasErrors = errors.length > 0
+
+                  return (
+                    <Field data-invalid={hasErrors}>
+                      <FieldLabel>How would you like to proceed?</FieldLabel>
+                      <FieldDescription>This updates the workflow decision on this drug test record.</FieldDescription>
+                      <RadioGroup
+                        value={confirmationDecisionValue || ''}
+                        onValueChange={(value) => handleConfirmationDecisionChange(value as ConfirmationDecision)}
+                        className="space-y-2.5"
+                        aria-invalid={hasErrors || undefined}
+                      >
+                        <Label
+                          htmlFor="summary-decision-accept"
+                          className={cn(
+                            'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
+                            confirmationDecisionValue === 'accept' && 'border-foreground/50 ring-foreground/20 ring-2',
+                          )}
+                        >
+                          <RadioGroupItem value="accept" id="summary-decision-accept" className="mt-0.5" />
+                          <div className="flex-1">
+                            <span className="text-foreground font-medium">Accept Results</span>
+                            <p className="text-muted-foreground mt-0.5 text-sm">
+                              Accept the screening results as final. Sample will be disposed.
+                            </p>
+                          </div>
+                        </Label>
+
+                        <Label
+                          htmlFor="summary-decision-request-confirmation"
+                          className={cn(
+                            'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
+                            confirmationDecisionValue === 'request-confirmation' &&
+                              'border-foreground/50 ring-foreground/20 ring-2',
+                          )}
+                        >
+                          <RadioGroupItem
+                            value="request-confirmation"
+                            id="summary-decision-request-confirmation"
+                            className="mt-0.5"
+                          />
+                          <div className="flex-1">
+                            <span className="text-foreground font-medium">Request Confirmation Testing</span>
+                            <p className="text-muted-foreground mt-0.5 text-sm">
+                              Send sample to lab for LC-MS/MS confirmation testing on selected substances.
+                            </p>
+                          </div>
+                        </Label>
+
+                        <Label
+                          htmlFor="summary-decision-pending"
+                          className={cn(
+                            'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
+                            confirmationDecisionValue === 'pending-decision' &&
+                              'border-foreground/50 ring-foreground/20 ring-2',
+                          )}
+                        >
+                          <RadioGroupItem value="pending-decision" id="summary-decision-pending" className="mt-0.5" />
+                          <div className="flex-1">
+                            <span className="text-foreground font-medium">Pending Decision</span>
+                            <p className="text-muted-foreground mt-0.5 text-sm">
+                              Decision not yet made. Sample will be held for 30 days. $30/substance.
+                            </p>
+                          </div>
+                        </Label>
+                      </RadioGroup>
+                      <FieldError errors={errors} />
+                    </Field>
+                  )
+                }}
               </form.Field>
-            )}
+
+              {confirmationDecisionValue === 'request-confirmation' && (
+                <form.Field
+                  name="confirmationSubstances"
+                  validators={{
+                    onSubmit: ({ value, fieldApi }) => {
+                      const decision = fieldApi.form.getFieldValue('confirmationDecision')
+                      const selected = Array.isArray(value) ? value : []
+
+                      if (decision === 'request-confirmation' && selected.length === 0) {
+                        return 'Select at least one substance for confirmation testing.'
+                      }
+                      return undefined
+                    },
+                  }}
+                >
+                  {(field) => (
+                    <Field className="mt-5" data-invalid={field.state.meta.errors.length > 0}>
+                      <FieldLabel>Confirmation Substances</FieldLabel>
+                      <ConfirmationSubstanceSelector
+                        unexpectedPositives={normalizedUnexpectedPositives}
+                        selectedSubstances={Array.isArray(field.state.value) ? field.state.value : []}
+                        onSelectionChange={(substances) => {
+                          field.handleChange(substances)
+                          form.validate('submit')
+                        }}
+                      />
+                      <FieldError errors={field.state.meta.errors} />
+                    </Field>
+                  )}
+                </form.Field>
+              )}
+            </div>
           </div>
 
-          <DialogFooter className="sm:justify-between">
+          <DrawerFooter className="border-border border-t px-6 py-4 sm:flex-row sm:justify-between">
             <Button type="button" variant="outline" onClick={() => handleDialogChange(false)}>
               Cancel
             </Button>
@@ -358,9 +355,9 @@ export function UpdateConfirmationDecisionDialog({
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
               Save Decision
             </Button>
-          </DialogFooter>
+          </DrawerFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </DrawerContent>
+    </Drawer>
   )
 }
