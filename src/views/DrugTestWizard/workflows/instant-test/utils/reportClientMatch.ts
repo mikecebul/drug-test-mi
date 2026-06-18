@@ -1,4 +1,4 @@
-import { calculateNameSimilarity } from '@/views/DrugTestWizard/utils/calculateSimilarity'
+import { calculateNameSimilarity, calculateSimilarity } from '@/views/DrugTestWizard/utils/calculateSimilarity'
 
 type ClientName = {
   firstName?: string | null
@@ -15,6 +15,12 @@ type ParsedName = {
 export type ReportClientMatch =
   | {
       status: 'match'
+      score: number
+      reportName: string
+      clientName: string
+    }
+  | {
+      status: 'warning'
       score: number
       reportName: string
       clientName: string
@@ -37,6 +43,9 @@ export function getReportClientMismatchKey(match: ReportClientMatch | null | und
 }
 
 const MATCH_THRESHOLD = 0.9
+const CLOSE_NAME_WARNING_THRESHOLD = 0.7
+const CLOSE_FIRST_NAME_THRESHOLD = 0.8
+const CLOSE_LAST_NAME_THRESHOLD = 0.65
 const SUFFIXES = new Set(['jr', 'sr', 'ii', 'iii', 'iv', 'v'])
 
 function normalizeNamePart(value: string) {
@@ -90,9 +99,15 @@ export function getReportClientMatch(donorName: string | null | undefined, clien
     parsedReportName.middleInitial,
     parsedClientName.middleInitial,
   )
+  const firstNameScore = calculateSimilarity(parsedReportName.firstName, parsedClientName.firstName)
+  const lastNameScore = calculateSimilarity(parsedReportName.lastName, parsedClientName.lastName)
+  const isCloseNameTypo =
+    score >= CLOSE_NAME_WARNING_THRESHOLD &&
+    firstNameScore >= CLOSE_FIRST_NAME_THRESHOLD &&
+    lastNameScore >= CLOSE_LAST_NAME_THRESHOLD
 
   return {
-    status: score >= MATCH_THRESHOLD ? 'match' : 'mismatch',
+    status: score >= MATCH_THRESHOLD ? 'match' : isCloseNameTypo ? 'warning' : 'mismatch',
     score,
     reportName: donorName || '',
     clientName,

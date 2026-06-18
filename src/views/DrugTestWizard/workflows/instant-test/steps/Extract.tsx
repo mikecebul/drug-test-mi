@@ -146,6 +146,37 @@ export const ExtractStep = withForm({
     return (
       <div className="space-y-8">
         <FieldGroupHeader title="Extract Data" description="Review the extracted data" />
+        {reportClientMatch?.status === 'warning' && (
+          <Card className="border-amber-300 bg-amber-50/70">
+            <CardContent className="space-y-5 p-6">
+              <div className="flex items-start gap-4">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-full border border-amber-300 bg-amber-100 text-amber-700">
+                  <AlertTriangle className="size-6" />
+                </div>
+                <div className="min-w-0 space-y-2">
+                  <h3 className="text-amber-900 text-2xl font-bold tracking-tight">Name spelling does not match</h3>
+                  <p className="text-amber-950/75 text-lg">
+                    The report name is close to the selected client. Verify the correct spelling, then fix it in
+                    ToxAccess or the Client Collection.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="border-amber-300 bg-card rounded-lg border p-4">
+                  <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">Report</p>
+                  <p className="text-foreground mt-2 text-2xl font-semibold">{reportClientMatch.reportName}</p>
+                </div>
+                <div className="border-amber-300 bg-card rounded-lg border p-4">
+                  <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
+                    Selected client
+                  </p>
+                  <p className="text-foreground mt-2 text-2xl font-semibold">{reportClientMatch.clientName}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         {reportClientMatch?.status === 'mismatch' && (
           <Card className="border-destructive/70 bg-destructive/5">
             <CardContent className="space-y-5 p-6">
@@ -154,9 +185,10 @@ export const ExtractStep = withForm({
                   <AlertTriangle className="size-6" />
                 </div>
                 <div className="min-w-0 space-y-2">
-                  <h3 className="text-destructive text-2xl font-bold tracking-tight">Possible client mismatch</h3>
+                  <h3 className="text-destructive text-2xl font-bold tracking-tight">Possible wrong client report</h3>
                   <p className="text-muted-foreground text-lg">
-                    Review the parsed report below before confirming this is the right client.
+                    The report name is not close enough to the selected client. Confirm this is the correct
+                    client/report before continuing.
                   </p>
                 </div>
               </div>
