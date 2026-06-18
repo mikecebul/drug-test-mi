@@ -100,6 +100,19 @@ type ExistingPayment = {
 
 export type CalcomBookingData = RequiredDataFromCollectionSlug<'bookings'>
 type BookingStatus = CalcomBookingData['status']
+type ExistingBookingData = {
+  title?: string | null
+  type?: string | null
+  description?: string | null
+  additionalNotes?: string | null
+  startTime?: string | null
+  endTime?: string | null
+  attendeeName?: string | null
+  attendeeEmail?: string | null
+  location?: string | null
+  organizer?: CalcomBookingData['organizer'] | null
+  customInputs?: CalcomBookingData['customInputs']
+}
 
 export const handledCalcomBookingEvents = new Set<CalcomWebhookTrigger>([
   'BOOKING_CREATED',
@@ -270,33 +283,38 @@ export function getBookingStatus(triggerEvent: CalcomWebhookTrigger): BookingSta
 export function buildCalcomBookingData(
   webhookData: CalcomWebhookPayload,
   existingPayment?: ExistingPayment,
+  existingBooking?: ExistingBookingData | null,
 ): CalcomBookingData {
   const { triggerEvent, payload } = webhookData
   const attendee = payload.attendees?.[0]
-  const attendeeName = getResponseValue(payload.responses?.name) || attendee?.name || 'Unknown'
-  const attendeeEmail = getResponseValue(payload.responses?.email) || attendee?.email || ''
+  const attendeeName = getResponseValue(payload.responses?.name) || attendee?.name || existingBooking?.attendeeName || 'Unknown'
+  const attendeeEmail = getResponseValue(payload.responses?.email) || attendee?.email || existingBooking?.attendeeEmail || ''
   const locationValue = getResponseValue(payload.responses?.location)
-  const location = locationValue || payload.location || ''
+  const location = locationValue || payload.location || existingBooking?.location || ''
   const uid = getCalcomBookingUid(payload)
   const rescheduleUid = getCalcomRescheduleUid(payload)
   const numericId = getCalcomBookingNumericId(payload)
   const payment = buildCalcomPaymentUpdate(triggerEvent, payload, existingPayment, webhookData.createdAt)
+  const receivedAt = new Date(webhookData.createdAt).toISOString()
+  const startTime = payload.startTime || payload.start || existingBooking?.startTime || receivedAt
+  const endTime = payload.endTime || payload.end || payload.startTime || payload.start || existingBooking?.endTime || startTime
 
   const bookingData: CalcomBookingData = {
-    title: payload.title || 'Drug test appointment',
-    type: payload.type || 'calcom-booking',
-    description: payload.description || null,
-    additionalNotes: payload.additionalNotes || payload.reschedulingReason || payload.cancellationReason || null,
-    startTime: payload.startTime || payload.start || new Date(webhookData.createdAt).toISOString(),
-    endTime: payload.endTime || payload.end || payload.startTime || payload.start || new Date(webhookData.createdAt).toISOString(),
+    title: payload.title || existingBooking?.title || 'Drug test appointment',
+    type: payload.type || existingBooking?.type || 'calcom-booking',
+    description: payload.description || existingBooking?.description || null,
+    additionalNotes:
+      payload.additionalNotes || payload.reschedulingReason || payload.cancellationReason || existingBooking?.additionalNotes || null,
+    startTime,
+    endTime,
     status: getBookingStatus(triggerEvent),
     organizer: {
-      id: payload.organizer?.id || null,
-      name: payload.organizer?.name || 'MI Drug Test',
-      email: payload.organizer?.email || 'booking@midrugtest.com',
-      username: payload.organizer?.username || null,
-      timeZone: payload.organizer?.timeZone || null,
-      timeFormat: payload.organizer?.timeFormat || null,
+      id: payload.organizer?.id || existingBooking?.organizer?.id || null,
+      name: payload.organizer?.name || existingBooking?.organizer?.name || 'MI Drug Test',
+      email: payload.organizer?.email || existingBooking?.organizer?.email || 'booking@midrugtest.com',
+      username: payload.organizer?.username || existingBooking?.organizer?.username || null,
+      timeZone: payload.organizer?.timeZone || existingBooking?.organizer?.timeZone || null,
+      timeFormat: payload.organizer?.timeFormat || existingBooking?.organizer?.timeFormat || null,
     },
     attendeeName,
     attendeeEmail,
@@ -306,7 +324,7 @@ export function buildCalcomBookingData(
     calcomRescheduledFromId: rescheduleUid || null,
     calcomPaymentId: getCalcomPaymentId(payload) || null,
     eventTypeId: payload.eventTypeId || null,
-    customInputs: (payload.customInputs || payload.responses || null) as CalcomBookingData['customInputs'],
+    customInputs: (payload.customInputs || payload.responses || existingBooking?.customInputs || null) as CalcomBookingData['customInputs'],
     webhookData: webhookData as unknown as CalcomBookingData['webhookData'],
     createdViaWebhook: true,
   }

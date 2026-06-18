@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
         req,
       )
 
-      const bookingData = buildCalcomBookingData(webhookData, existingByUid.payment)
+      const bookingData = buildCalcomBookingData(webhookData, existingByUid.payment, existingByUid)
       const updatedBooking = await updateBooking(payloadClient, existingByUid.id, bookingData, req)
 
       console.log(`Merged Cal.com reschedule into existing booking: ${updatedBooking.id}`)
@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
     }
 
     const existingBooking = existingByRescheduleUid || existingByUid || existingByNumericId
-    const bookingData = buildCalcomBookingData(webhookData, existingBooking?.payment)
+    const bookingData = buildCalcomBookingData(webhookData, existingBooking?.payment, existingBooking)
 
     if (triggerEvent === 'BOOKING_CANCELLED' || triggerEvent === 'BOOKING_REJECTED') {
       if (existingBooking) {
