@@ -1,6 +1,7 @@
 import { getAuthenticatedClient } from '@/utilities/auth/getAuthenticatedClient'
 import { CalInline } from '@/components/cal-inline'
-import { buildClientBookingCalConfig, getClientBookingCalLink } from '@/utilities/calcom-config'
+import { getClientBookingCalLink } from '@/utilities/calcom-config'
+import { buildClientBookingCalConfig } from '@/utilities/calcom-config.server'
 
 // Force dynamic rendering for fresh data on every request
 export const dynamic = 'force-dynamic'

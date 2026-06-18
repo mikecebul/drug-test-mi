@@ -1,10 +1,8 @@
 import type { Client } from '@/payload-types'
 import {
-  extractPreferredTestType,
   FALLBACK_BOOKING_TEST_TYPES,
   formatPhoneForCal,
   resolveRecommendedTestLabel,
-  type RecommendedTestType,
 } from '@/lib/quick-book'
 
 export const DEFAULT_BOOKING_CAL_LINK = 'midrugtest'
@@ -64,7 +62,7 @@ function getReferralName(client: Client): string | undefined {
   }
 }
 
-function getReferralPreferredTestType(client: Client): unknown {
+export function getReferralPreferredTestType(client: Client): unknown {
   const referralValue = getReferralValue(client)
   if (!referralValue || typeof referralValue !== 'object' || !('preferredTestType' in referralValue)) {
     return undefined
@@ -100,31 +98,6 @@ function getPopulatedPreferredTestLabel(preferredTestType: unknown): string | un
 function getPreferredTestLabel(client: Client): string | undefined {
   const preferredTestType = getReferralPreferredTestType(client)
   return getPopulatedPreferredTestLabel(preferredTestType)
-}
-
-async function resolvePreferredTestLabel(recommendation: RecommendedTestType): Promise<string | undefined> {
-  if (!recommendation.recommendedTestTypeValue && recommendation.recommendedTestTypeId) {
-    try {
-      const [{ getPayload }, { default: config }] = await Promise.all([import('payload'), import('@payload-config')])
-      const payload = await getPayload({ config })
-      const testType = await payload.findByID({
-        collection: 'test-types',
-        id: recommendation.recommendedTestTypeId,
-        depth: 0,
-        select: {
-          bookingLabel: true,
-          label: true,
-          value: true,
-        },
-      })
-
-      return testType.bookingLabel || testType.label || testType.value || undefined
-    } catch (error) {
-      console.warn('[CalConfig] Failed to resolve preferred test type', error)
-    }
-  }
-
-  return resolveRecommendedTestLabel(FALLBACK_BOOKING_TEST_TYPES, recommendation)
 }
 
 function buildBaseCalConfig(client: Client): CalBookingConfig {
@@ -165,19 +138,6 @@ function buildBaseCalConfig(client: Client): CalBookingConfig {
 export function buildCalConfig(client: Client): CalBookingConfig {
   const calConfig = buildBaseCalConfig(client)
   const preferredTestLabel = getPreferredTestLabel(client)
-
-  if (preferredTestLabel) {
-    calConfig.test = preferredTestLabel
-  }
-
-  return calConfig
-}
-
-export async function buildClientBookingCalConfig(client: Client): Promise<CalBookingConfig> {
-  const calConfig = buildBaseCalConfig(client)
-  const preferredTestType = getReferralPreferredTestType(client)
-  const populatedLabel = getPopulatedPreferredTestLabel(preferredTestType)
-  const preferredTestLabel = populatedLabel || (await resolvePreferredTestLabel(extractPreferredTestType(preferredTestType)))
 
   if (preferredTestLabel) {
     calConfig.test = preferredTestLabel

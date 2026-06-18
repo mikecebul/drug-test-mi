@@ -1,12 +1,22 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
+
+vi.mock('@payload-config', () => ({
+  default: {},
+}))
+
+vi.mock('payload', () => ({
+  getPayload: async () => {
+    throw new Error('Payload lookup is not expected in these tests.')
+  },
+}))
 
 import {
-  buildClientBookingCalConfig,
   DRUG_TEST_CAL_LINK,
   getAdminQuickBookCalLink,
   LCEMS_DRUG_TEST_CAL_LINK,
   UNPAID_BOOKING_CAL_LINK,
 } from '@/utilities/calcom-config'
+import { buildClientBookingCalConfig } from '@/utilities/calcom-config.server'
 import type { Client } from '@/payload-types'
 
 function createClient(overrides: Partial<Client> = {}): Client {
