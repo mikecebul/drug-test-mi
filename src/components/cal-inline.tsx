@@ -1,10 +1,11 @@
 'use client'
 
 import Cal from '@calcom/embed-react'
+import type { CalBookingConfig } from '@/utilities/calcom-config'
 
 interface CalInlineProps {
   calUsername: string
-  config?: Record<string, any>
+  config?: CalBookingConfig
 }
 
 export function CalInline({ calUsername = 'midrugtest', config = {} }: CalInlineProps) {

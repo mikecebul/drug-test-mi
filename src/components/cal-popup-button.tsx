@@ -4,12 +4,11 @@ import { getCalApi } from '@calcom/embed-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Calendar } from 'lucide-react'
-
-type CalModalConfig = Record<string, string | string[] | Record<string, string>>
+import type { CalBookingConfig } from '@/utilities/calcom-config'
 
 interface CalPopupButtonProps extends Omit<React.ComponentProps<typeof Button>, 'onClick'> {
   calUsername?: string
-  config?: CalModalConfig
+  config?: CalBookingConfig
   onModalOpen?: () => void
 }
 

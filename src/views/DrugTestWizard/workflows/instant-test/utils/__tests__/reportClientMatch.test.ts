@@ -32,6 +32,15 @@ describe('getReportClientMatch', () => {
     expect(result.status).toBe('mismatch')
   })
 
+  test('shows a warning for a likely last-name typo', () => {
+    const result = getReportClientMatch('John Mosely', {
+      firstName: 'John',
+      lastName: 'Mosley',
+    })
+
+    expect(result.status).toBe('warning')
+  })
+
   test('flags a different last name as mismatch', () => {
     const result = getReportClientMatch('Michael Smith', {
       firstName: 'Michael',

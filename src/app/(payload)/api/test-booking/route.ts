@@ -1,6 +1,10 @@
 import { getPayload } from 'payload'
 import configPromise from '@payload-config'
 import { NextRequest, NextResponse } from 'next/server'
+import type { RequiredDataFromCollectionSlug } from 'payload'
+
+type Payload = Awaited<ReturnType<typeof getPayload>>
+type BookingData = RequiredDataFromCollectionSlug<'bookings'>
 
 const TEST_TYPES = [
   {
@@ -48,7 +52,47 @@ function todayAt(hour: number, minute = 0) {
   return date
 }
 
-async function ensureTestType(payload: Awaited<ReturnType<typeof getPayload>>, value: string) {
+async function authorizeTestBookingRequest(payload: Payload, request: NextRequest) {
+  if (process.env.NODE_ENV === 'development') return null
+
+  const { user } = await payload.auth({ headers: request.headers })
+
+  if (!user) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Authentication required',
+      },
+      { status: 401 },
+    )
+  }
+
+  if (user.collection !== 'admins') {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Admin account required',
+      },
+      { status: 403 },
+    )
+  }
+
+  return null
+}
+
+function buildMockCalcomFields(uid: string, numericId: number, overrides: Partial<BookingData> = {}): Partial<BookingData> {
+  return {
+    calcomBookingId: uid,
+    calcomBookingNumericId: numericId,
+    calcomRescheduledFromId: null,
+    calcomPaymentId: null,
+    eventTypeId: 456,
+    createdViaWebhook: false,
+    ...overrides,
+  }
+}
+
+async function ensureTestType(payload: Payload, value: string) {
   const testType = TEST_TYPES.find((entry) => entry.value === value)
   if (!testType) throw new Error(`Unknown test type: ${value}`)
 
@@ -87,7 +131,7 @@ async function ensureTestType(payload: Awaited<ReturnType<typeof getPayload>>, v
 }
 
 async function ensureReferral(
-  payload: Awaited<ReturnType<typeof getPayload>>,
+  payload: Payload,
   collection: 'courts' | 'employers',
   name: string,
   preferredTestType: string,
@@ -137,7 +181,7 @@ async function ensureReferral(
 }
 
 async function ensureClient(
-  payload: Awaited<ReturnType<typeof getPayload>>,
+  payload: Payload,
   input: {
     firstName: string
     lastName: string
@@ -196,7 +240,7 @@ async function ensureClient(
   return created.id
 }
 
-async function createTodayMockBookings(payload: Awaited<ReturnType<typeof getPayload>>) {
+async function createTodayMockBookings(payload: Payload) {
   const courtId = await ensureReferral(payload, 'courts', 'Mock 90th District Court', '11-panel-lab')
   const employerId = await ensureReferral(payload, 'employers', 'Mock Harbor Manufacturing', '17-panel-instant')
   const sosEmployerId = await ensureReferral(payload, 'employers', 'Mock SOS Program', '17-panel-sos-lab')
@@ -323,8 +367,7 @@ async function createTodayMockBookings(payload: Awaited<ReturnType<typeof getPay
           timeZone: 'America/Detroit',
           timeFormat: '12',
         },
-        calcomBookingId: `mock-today-${index + 1}`,
-        eventTypeId: 456,
+        ...buildMockCalcomFields(`mock-today-${index + 1}`, 900_001 + index),
         customInputs: {
           phone: row.attendeePhone,
           testingReason: row.relatedClient ? 'Existing client workflow test' : 'First-time client workflow test',
@@ -332,9 +375,19 @@ async function createTodayMockBookings(payload: Awaited<ReturnType<typeof getPay
         webhookData: {
           test: true,
           type: 'today',
+          uid: `mock-today-${index + 1}`,
+          id: 900_001 + index,
           created_at: new Date().toISOString(),
         },
-        createdViaWebhook: false,
+        payment: {
+          amountDue: 35,
+          amountPaid: 0,
+          method: 'not-paid',
+          status: 'unpaid',
+        },
+        sampleCollection: {
+          status: 'pending',
+        },
       },
       overrideAccess: true,
     })
@@ -352,25 +405,16 @@ async function createTodayMockBookings(payload: Awaited<ReturnType<typeof getPay
 }
 
 export async function POST(request: NextRequest) {
-  // Disable in production to prevent abuse
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Test booking API is disabled in production',
-      },
-      { status: 403 },
-    )
-  }
-
   try {
     const payload = await getPayload({ config: configPromise })
+    const unauthorizedResponse = await authorizeTestBookingRequest(payload, request)
+    if (unauthorizedResponse) return unauthorizedResponse
 
     // Get query params for customization
     const { searchParams } = new URL(request.url)
     const testType = searchParams.get('type') || 'new' // 'new', 'existing', 'multiple'
 
-    let mockBookingData
+    let mockBookingData: BookingData
 
     switch (testType) {
       case 'today': {
@@ -404,13 +448,26 @@ export async function POST(request: NextRequest) {
             timeZone: 'America/Detroit',
             timeFormat: '12',
           },
-          calcomBookingId: `test-booking-${Date.now()}`,
-          eventTypeId: 456,
+          ...buildMockCalcomFields(`test-booking-${Date.now()}`, Date.now()),
           customInputs: {
             reason: 'Follow-up testing',
             special_instructions: 'Rush results needed',
           },
-          createdViaWebhook: false, // Mark as test
+          webhookData: {
+            test: true,
+            type: 'existing',
+            created_at: new Date().toISOString(),
+          },
+          payment: {
+            amountDue: 35,
+            amountPaid: 35,
+            method: 'pre-paid',
+            status: 'paid',
+            notes: 'Mock prepaid Cal.com booking',
+          },
+          sampleCollection: {
+            status: 'pending',
+          },
         }
         break
 
@@ -420,6 +477,8 @@ export async function POST(request: NextRequest) {
 
         for (let i = 0; i < 3; i++) {
           const bookingTime = new Date(baseTime + i * 2 * 60 * 60 * 1000) // 2 hours apart
+
+          const uid = `test-multiple-${Date.now()}-${i}`
 
           await payload.create({
             collection: 'bookings',
@@ -441,13 +500,28 @@ export async function POST(request: NextRequest) {
                 timeZone: 'America/Detroit',
                 timeFormat: '12',
               },
-              calcomBookingId: `test-multiple-${Date.now()}-${i}`,
-              eventTypeId: 456,
+              ...buildMockCalcomFields(uid, 910_001 + i),
               customInputs: {
                 reason: `Multiple test ${i + 1}`,
               },
-              createdViaWebhook: false,
+              webhookData: {
+                test: true,
+                type: 'multiple',
+                uid,
+                id: 910_001 + i,
+                created_at: new Date().toISOString(),
+              },
+              payment: {
+                amountDue: 35,
+                amountPaid: 0,
+                method: 'not-paid',
+                status: 'unpaid',
+              },
+              sampleCollection: {
+                status: 'pending',
+              },
             },
+            overrideAccess: true,
           })
         }
 
@@ -476,17 +550,25 @@ export async function POST(request: NextRequest) {
             timeZone: 'America/Detroit',
             timeFormat: '12',
           },
-          calcomBookingId: `test-booking-${Date.now()}`,
-          eventTypeId: 456,
+          ...buildMockCalcomFields(`test-booking-${Date.now()}`, Date.now()),
           customInputs: {
             reason: 'Pre-employment screening',
             company: 'Test Company Inc.',
           },
           webhookData: {
             test: true,
+            type: 'new',
             created_at: new Date().toISOString(),
           },
-          createdViaWebhook: false, // Mark as test so we can identify it
+          payment: {
+            amountDue: 35,
+            amountPaid: 0,
+            method: 'not-paid',
+            status: 'unpaid',
+          },
+          sampleCollection: {
+            status: 'pending',
+          },
         }
     }
 
@@ -494,6 +576,7 @@ export async function POST(request: NextRequest) {
     const booking = await payload.create({
       collection: 'bookings',
       data: mockBookingData,
+      overrideAccess: true,
     })
 
     // Check if client was created/updated
@@ -505,6 +588,7 @@ export async function POST(request: NextRequest) {
         },
       },
       limit: 1,
+      overrideAccess: true,
     })
 
     return NextResponse.json({
@@ -540,20 +624,14 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
-  // Disable in production to prevent abuse
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Test booking API is disabled in production',
-      },
-      { status: 403 },
-    )
-  }
+export async function GET(request: NextRequest) {
+  const payload = await getPayload({ config: configPromise })
+  const unauthorizedResponse = await authorizeTestBookingRequest(payload, request)
+  if (unauthorizedResponse) return unauthorizedResponse
 
   return NextResponse.json({
     message: 'Test Booking API',
+    authorization: 'Development environment or authenticated Payload admin account required',
     usage: {
       'POST /api/test-booking': 'Create a test booking with new client',
       'POST /api/test-booking?type=new': 'Create booking for new client (Jane Doe)',

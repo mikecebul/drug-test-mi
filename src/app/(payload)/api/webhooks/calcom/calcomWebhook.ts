@@ -112,8 +112,12 @@ export const handledCalcomBookingEvents = new Set<CalcomWebhookTrigger>([
   'BOOKING_PAID',
 ])
 
+export function allowsUnsignedCalcomWebhooks() {
+  return process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test'
+}
+
 export function verifyCalcomWebhookSignature(rawBody: string, signatureHeader: string | null, secret?: string) {
-  if (!secret) return true
+  if (!secret) return allowsUnsignedCalcomWebhooks()
   if (!signatureHeader) return false
 
   const signature = signatureHeader.startsWith('sha256=')
