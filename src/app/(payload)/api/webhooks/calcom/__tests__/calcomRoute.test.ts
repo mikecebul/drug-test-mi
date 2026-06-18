@@ -27,6 +27,10 @@ type MockBooking = {
   calcomBookingId?: string | null
   calcomBookingNumericId?: number | null
   payment?: null
+  startTime?: string
+  endTime?: string
+  attendeeName?: string
+  attendeeEmail?: string
 }
 
 function createWebhook(overrides: Partial<CalcomWebhookPayload> = {}): CalcomWebhookPayload {
@@ -259,6 +263,53 @@ describe('Cal.com webhook route', () => {
       expect.objectContaining({
         id: 'existing-after-race',
         data: expect.objectContaining({ calcomBookingId: 'booking-new' }),
+      }),
+    )
+  })
+
+  test('keeps existing appointment times when payment events omit schedule fields', async () => {
+    const existingBooking = {
+      id: 'existing-booking',
+      calcomBookingId: 'booking-new',
+      startTime: '2026-06-18T14:00:00.000Z',
+      endTime: '2026-06-18T14:15:00.000Z',
+      attendeeName: 'Taylor Client',
+      attendeeEmail: 'taylor@example.com',
+      payment: null,
+    }
+    const payload = createPayloadMock({
+      find: findByBookings([existingBooking]),
+      update: vi.fn().mockResolvedValue({ id: 'existing-booking' }),
+    })
+
+    const response = await POST(
+      createRequest(
+        createWebhook({
+          triggerEvent: 'BOOKING_PAID',
+          createdAt: '2026-06-17T12:00:00.000Z',
+          payload: {
+            startTime: undefined,
+            endTime: undefined,
+            price: 3500,
+            currency: 'usd',
+            paymentId: 'pi_123',
+          },
+        }),
+      ),
+    )
+
+    expect(response.status).toBe(200)
+    expect(payload.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'existing-booking',
+        data: expect.objectContaining({
+          startTime: '2026-06-18T14:00:00.000Z',
+          endTime: '2026-06-18T14:15:00.000Z',
+          payment: expect.objectContaining({
+            amountPaid: 35,
+            status: 'paid',
+          }),
+        }),
       }),
     )
   })

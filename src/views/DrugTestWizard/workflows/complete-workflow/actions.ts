@@ -3,8 +3,7 @@
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import type { Client, Court, Employer, TestType } from '@/payload-types'
-import { APP_TIMEZONE } from '@/lib/date-utils'
-import { TZDate } from '@date-fns/tz'
+import { getAppTimezoneDayWindow } from '@/lib/date-utils'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 
 type TestTypeValue = '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-instant' | '17-panel-sos-lab' | 'etg-lab'
@@ -35,17 +34,6 @@ const ACTIVE_GUIDED_TEST_TYPES = new Set<TestTypeValue>([
   '17-panel-sos-lab',
   'etg-lab',
 ])
-
-function startOfToday() {
-  const now = TZDate.tz(APP_TIMEZONE, new Date())
-  return TZDate.tz(APP_TIMEZONE, now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
-}
-
-function startOfTomorrow() {
-  const date = startOfToday()
-  date.setDate(date.getDate() + 1)
-  return date
-}
 
 function getRelationshipId(value: unknown): string | null {
   if (!value) return null
@@ -177,6 +165,7 @@ async function getFirstDrugTestDate(payload: Payload, clientId: string | null | 
 
 export async function getTodaysCollectionBookings() {
   const payload = await getPayload({ config })
+  const todayWindow = getAppTimezoneDayWindow()
 
   const result = await payload.find({
     collection: 'bookings',
@@ -184,12 +173,12 @@ export async function getTodaysCollectionBookings() {
       and: [
         {
           startTime: {
-            greater_than_equal: startOfToday().toISOString(),
+            greater_than_equal: todayWindow.start.toISOString(),
           },
         },
         {
           startTime: {
-            less_than: startOfTomorrow().toISOString(),
+            less_than: todayWindow.end.toISOString(),
           },
         },
         {

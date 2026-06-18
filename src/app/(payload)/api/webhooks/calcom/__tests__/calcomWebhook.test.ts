@@ -113,6 +113,31 @@ describe('Cal.com webhook helpers', () => {
     })
   })
 
+  test('preserves an existing booking schedule when payment payload has no appointment times', () => {
+    const webhook = createWebhook({
+      triggerEvent: 'BOOKING_PAID',
+      payload: {
+        startTime: undefined,
+        endTime: undefined,
+        price: 3500,
+        currency: 'usd',
+        paymentId: 'pi_123',
+      },
+    })
+
+    const bookingData = buildCalcomBookingData(webhook, null, {
+      startTime: '2026-06-18T14:00:00.000Z',
+      endTime: '2026-06-18T14:15:00.000Z',
+      attendeeName: 'Taylor Client',
+      attendeeEmail: 'taylor@example.com',
+    })
+
+    expect(bookingData.startTime).toBe('2026-06-18T14:00:00.000Z')
+    expect(bookingData.endTime).toBe('2026-06-18T14:15:00.000Z')
+    expect(bookingData.attendeeName).toBe('Taylor Client')
+    expect(bookingData.attendeeEmail).toBe('taylor@example.com')
+  })
+
   test('preserves existing payment when reschedule payload has no new payment data', () => {
     const webhook = createWebhook({
       triggerEvent: 'BOOKING_RESCHEDULED',
