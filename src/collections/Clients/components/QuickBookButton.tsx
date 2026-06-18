@@ -4,6 +4,7 @@ import config from '@payload-config'
 import { QuickBookButtonClient } from './QuickBookButton.client'
 import { buildClientName, extractPreferredTestType, extractReferralRelation, RecommendedTestType } from '@/lib/quick-book'
 import type { Client } from '@/payload-types'
+import { getAdminQuickBookCalLink } from '@/utilities/calcom-config'
 
 async function resolveRecommendedTestType(
   payload: Awaited<ReturnType<typeof getPayload>>,
@@ -75,6 +76,49 @@ async function resolveRecommendedTestType(
   return extractedFromReferral
 }
 
+function getReferralNameFromValue(referralValue: unknown): string | undefined {
+  if (referralValue && typeof referralValue === 'object' && 'name' in referralValue) {
+    return typeof referralValue.name === 'string' ? referralValue.name : undefined
+  }
+
+  return undefined
+}
+
+async function resolveReferralName(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  client: Pick<Client, 'referralType' | 'referral'>,
+): Promise<string | undefined> {
+  if (client.referralType !== 'court' && client.referralType !== 'employer') {
+    return undefined
+  }
+
+  if (client.referral && typeof client.referral === 'object' && 'value' in client.referral) {
+    const referralName = getReferralNameFromValue(client.referral.value)
+    if (referralName) return referralName
+  }
+
+  const relationRef = extractReferralRelation(client.referral)
+  if (!relationRef) {
+    return undefined
+  }
+
+  try {
+    const referralDoc = await payload.findByID({
+      collection: relationRef.relationTo,
+      id: relationRef.referralId,
+      depth: 0,
+      select: {
+        name: true,
+      },
+    })
+
+    return getReferralNameFromValue(referralDoc)
+  } catch (error) {
+    console.warn('[QuickBookButton] Failed to load referral name', error)
+    return undefined
+  }
+}
+
 /**
  * Server component that fetches client data and builds Cal.com config
  * for the Quick Book button in the Clients collection edit view.
@@ -114,7 +158,14 @@ export default async function QuickBookButton({ id }: ServerComponentProps) {
     // Build base config
     const name = buildClientName(client.firstName, client.lastName)
     const email = client.email.trim()
-    const recommendation = await resolveRecommendedTestType(payload, client)
+    const [recommendation, referralName] = await Promise.all([
+      resolveRecommendedTestType(payload, client),
+      resolveReferralName(payload, client),
+    ])
+    const calLink = getAdminQuickBookCalLink({
+      referralType: client.referralType,
+      referralName,
+    })
 
     // Render client component with client data
     return (
@@ -124,6 +175,7 @@ export default async function QuickBookButton({ id }: ServerComponentProps) {
         clientPhone={client.phone || undefined}
         recommendedTestTypeId={recommendation.recommendedTestTypeId}
         recommendedTestTypeValue={recommendation.recommendedTestTypeValue}
+        calLink={calLink}
       />
     )
   } catch (error) {

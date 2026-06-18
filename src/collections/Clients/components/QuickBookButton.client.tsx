@@ -9,6 +9,7 @@ interface QuickBookButtonClientProps {
   clientPhone?: string
   recommendedTestTypeId?: string
   recommendedTestTypeValue?: string
+  calLink?: string
 }
 
 /**
@@ -21,6 +22,7 @@ export function QuickBookButtonClient({
   clientPhone,
   recommendedTestTypeId,
   recommendedTestTypeValue,
+  calLink,
 }: QuickBookButtonClientProps) {
   return (
     <ShadcnWrapper className="pb-0">
@@ -30,6 +32,7 @@ export function QuickBookButtonClient({
         clientPhone={clientPhone}
         recommendedTestTypeId={recommendedTestTypeId}
         recommendedTestTypeValue={recommendedTestTypeValue}
+        calLink={calLink}
       />
     </ShadcnWrapper>
   )
