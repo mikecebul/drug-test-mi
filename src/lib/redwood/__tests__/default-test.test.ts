@@ -21,12 +21,30 @@ describe('resolveRedwoodEligibleDefaultTestFromDoc', () => {
     })
   })
 
-  it('skips instant test types because Redwood only supports lab defaults', () => {
+  it('uses the Test Types toxAccessCode field as the Redwood default-test code', () => {
+    expect(
+      resolveRedwoodEligibleDefaultTestFromDoc({
+        id: 'test-1',
+        label: '11 Panel Lab',
+        value: '11-panel-lab',
+        category: 'lab',
+        toxAccessCode: 'B729',
+      }),
+    ).toEqual({
+      kind: 'eligible',
+      redwoodLabTestCode: 'B729',
+      testTypeId: 'test-1',
+      testTypeLabel: '11 Panel Lab',
+      testTypeValue: '11-panel-lab',
+    })
+  })
+
+  it('skips 17-panel instant test types because Redwood only supports lab defaults', () => {
     expect(
       resolveRedwoodEligibleDefaultTestFromDoc({
         id: 'test-2',
-        label: '15 Panel Instant',
-        value: '15-panel-instant',
+        label: '17 Panel Instant',
+        value: '17-panel-instant',
         category: 'instant',
         redwoodLabTestCode: null,
       }),

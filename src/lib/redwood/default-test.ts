@@ -6,6 +6,7 @@ type RedwoodDefaultTestDoc = {
   value?: string | null
   category?: string | null
   redwoodLabTestCode?: string | null
+  toxAccessCode?: string | null
 }
 
 export type RedwoodEligibleDefaultTest =
@@ -41,6 +42,7 @@ function normalizeDefaultTestDoc(value: unknown): RedwoodDefaultTestDoc | null {
     value: normalizeText(record.value) || null,
     category: normalizeText(record.category) || null,
     redwoodLabTestCode: normalizeText(record.redwoodLabTestCode) || null,
+    toxAccessCode: normalizeText(record.toxAccessCode) || null,
   }
 }
 
@@ -59,7 +61,9 @@ export function resolveRedwoodEligibleDefaultTestFromDoc(testType: RedwoodDefaul
     }
   }
 
-  if (!testType.redwoodLabTestCode) {
+  const redwoodLabTestCode = testType.redwoodLabTestCode || testType.toxAccessCode || null
+
+  if (!redwoodLabTestCode) {
     return {
       kind: 'error',
       reason: `Lab test type "${testType.label || testType.value || testType.id || 'unknown'}" is missing Redwood lab test code mapping.`,
@@ -68,7 +72,7 @@ export function resolveRedwoodEligibleDefaultTestFromDoc(testType: RedwoodDefaul
 
   return {
     kind: 'eligible',
-    redwoodLabTestCode: testType.redwoodLabTestCode,
+    redwoodLabTestCode,
     testTypeId: testType.id || undefined,
     testTypeLabel: testType.label || undefined,
     testTypeValue: testType.value || undefined,
@@ -92,7 +96,10 @@ export async function resolveClientRedwoodEligibleDefaultTest(args: {
   const testTypeId =
     typeof defaultTestType === 'string'
       ? defaultTestType.trim()
-      : defaultTestType && typeof defaultTestType === 'object' && 'id' in defaultTestType && typeof defaultTestType.id === 'string'
+      : defaultTestType &&
+          typeof defaultTestType === 'object' &&
+          'id' in defaultTestType &&
+          typeof defaultTestType.id === 'string'
         ? defaultTestType.id.trim()
         : ''
 
@@ -114,6 +121,7 @@ export async function resolveClientRedwoodEligibleDefaultTest(args: {
         value: true,
         category: true,
         redwoodLabTestCode: true,
+        toxAccessCode: true,
       },
     })) as RedwoodDefaultTestDoc
 

@@ -12,6 +12,7 @@ import {
   normalizeReferralContacts,
   parseRecipientEmails,
 } from '@/lib/referrals'
+import { queueRedwoodImportForClient } from '@/lib/redwood/queue'
 
 function normalizeAdditionalRecipients(
   rows: Array<{ name?: string; email?: string }> | undefined,
@@ -214,10 +215,20 @@ export async function registerWebsiteClientAction(formData: CompleteRegistration
       }
     }
 
-    await payload.create({
+    const client = await payload.create({
       collection: 'clients',
       data: clientData as any,
     })
+
+    try {
+      await queueRedwoodImportForClient(String(client.id), 'frontend-registration', payload)
+    } catch (error) {
+      payload.logger.error({
+        msg: '[frontend-registration] Client registered, but Redwood import automation could not be queued',
+        clientId: client.id,
+        err: error,
+      })
+    }
 
     return { success: true }
   } catch (error) {

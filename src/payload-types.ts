@@ -1433,6 +1433,7 @@ export interface Client {
         | 'queued'
         | 'export-checked'
         | 'matched-existing'
+        | 'reactivated-existing'
         | 'ready-to-submit'
         | 'synced'
         | 'failed'

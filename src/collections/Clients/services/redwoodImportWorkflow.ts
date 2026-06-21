@@ -10,6 +10,7 @@ import {
   parseRedwoodExport,
   type RedwoodMatchBy,
 } from '@/lib/redwood/csv'
+import { buildRedwoodDonorEditUrl } from '@/lib/redwood/donor-urls'
 import {
   buildRedwoodDonorCandidates,
   captureRedwoodDiagnostic,
@@ -204,6 +205,227 @@ function isRedwoodSearchNoMatchError(message: string): boolean {
   )
 }
 
+type DirectRedwoodDonorActivityStatus = 'active' | 'inactive'
+
+async function waitForRedwoodDonorEditReady(page: any): Promise<void> {
+  await page.waitForLoadState('domcontentloaded', { timeout: 20000 }).catch(() => undefined)
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => undefined)
+  await page.waitForTimeout(600)
+  await dismissCookieBanner(page)
+}
+
+async function enterRedwoodDonorEditMode(page: any): Promise<void> {
+  const editSelectors = [
+    '#PageContent_Donor_Edit',
+    'input[id*="Edit"]',
+    'input[name*="Edit"]',
+    'input[type="submit"][value*="Edit"]',
+    'input[type="button"][value*="Edit"]',
+    'button:has-text("Edit")',
+    'a:has-text("Edit")',
+  ]
+
+  const alreadyEditing = await page
+    .locator('input, select, textarea')
+    .evaluateAll((elements) =>
+      elements.some((element) => {
+        const htmlElement = element as HTMLElement
+        const input = element as HTMLInputElement
+        const descriptor = `${element.id || ''} ${element.getAttribute('name') || ''}`.toLowerCase()
+        return (
+          descriptor.includes('active') &&
+          !input.disabled &&
+          Boolean(htmlElement.offsetWidth || htmlElement.offsetHeight || htmlElement.getClientRects().length)
+        )
+      }),
+    )
+    .catch(() => false)
+
+  if (alreadyEditing) return
+
+  const clicked = await clickFirstVisible(page, editSelectors)
+  if (!clicked) {
+    throw new Error('Unable to find Redwood donor edit control while reactivating inactive donor.')
+  }
+
+  await waitForRedwoodDonorEditReady(page)
+}
+
+async function saveRedwoodDonorEdit(page: any): Promise<void> {
+  const saveSelectors = [
+    '#PageContent_Donor_Save',
+    'input[id*="Save"]',
+    'input[name*="Save"]',
+    'input[type="submit"][value*="Save"]',
+    'input[type="button"][value*="Save"]',
+    'button:has-text("Save")',
+    'a:has-text("Save")',
+  ]
+
+  const clicked = await clickFirstVisible(page, saveSelectors)
+  if (!clicked) {
+    throw new Error('Unable to find Redwood donor save control after reactivating inactive donor.')
+  }
+
+  await waitForRedwoodDonorEditReady(page)
+}
+
+async function reactivateRedwoodDonorAndClearGroup(args: {
+  clientId: string
+  donorId: string | null
+  donorSearchUrl: string
+  page: any
+}): Promise<{ screenshotPath: string }> {
+  const { clientId, donorId, donorSearchUrl, page } = args
+
+  if (donorId?.trim()) {
+    await page.goto(buildRedwoodDonorEditUrl(donorSearchUrl, donorId.trim()), {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    })
+    await waitForRedwoodDonorEditReady(page)
+  } else {
+    await enterRedwoodDonorEditMode(page)
+  }
+
+  const mutation = await page.evaluate(() => {
+    const dispatch = (element: Element) => {
+      element.dispatchEvent(new Event('input', { bubbles: true }))
+      element.dispatchEvent(new Event('change', { bubbles: true }))
+    }
+
+    const isVisible = (element: Element): boolean => {
+      const htmlElement = element as HTMLElement
+      return Boolean(htmlElement.offsetWidth || htmlElement.offsetHeight || htmlElement.getClientRects().length)
+    }
+
+    const labelText = (element: Element): string => {
+      const id = element.getAttribute('id')
+      const labels = id
+        ? Array.from(document.querySelectorAll(`label[for="${CSS.escape(id)}"]`)).map(
+            (label) => label.textContent || '',
+          )
+        : []
+
+      return labels.join(' ')
+    }
+
+    const haystackFor = (element: Element): string => {
+      const input = element as HTMLInputElement
+      return [
+        element.getAttribute('id'),
+        element.getAttribute('name'),
+        element.getAttribute('aria-label'),
+        input.value,
+        labelText(element),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+    }
+
+    const descriptorFor = (element: Element): string => {
+      return [
+        element.getAttribute('id'),
+        element.getAttribute('name'),
+        element.getAttribute('aria-label'),
+        labelText(element),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+    }
+
+    let activeUpdated = false
+    let groupCleared = false
+
+    for (const element of Array.from(
+      document.querySelectorAll('input[type="checkbox"], input[type="radio"], select'),
+    )) {
+      if (!isVisible(element)) continue
+
+      const descriptor = descriptorFor(element)
+      const haystack = haystackFor(element)
+      if (!descriptor.includes('active') || descriptor.includes('inactive')) continue
+
+      if (element instanceof HTMLInputElement && element.type === 'checkbox') {
+        element.checked = true
+        dispatch(element)
+        activeUpdated = true
+        break
+      }
+
+      if (element instanceof HTMLInputElement && element.type === 'radio') {
+        const value = element.value.toLowerCase()
+        if (value === 'true' || value === 'yes' || value === 'active' || descriptor.includes(' active')) {
+          element.checked = true
+          dispatch(element)
+          activeUpdated = true
+          break
+        }
+      }
+
+      if (element instanceof HTMLSelectElement) {
+        const activeOption = Array.from(element.options).find((option) => {
+          const optionText = `${option.value} ${option.text}`.trim().toLowerCase()
+          return (
+            optionText === 'active' || optionText === 'true' || optionText === 'yes' || optionText.includes(' active')
+          )
+        })
+
+        if (activeOption) {
+          element.value = activeOption.value
+          dispatch(element)
+          activeUpdated = true
+          break
+        }
+      }
+    }
+
+    for (const element of Array.from(document.querySelectorAll('input, select, textarea'))) {
+      if (!isVisible(element)) continue
+
+      const haystack = haystackFor(element)
+      if (!haystack.includes('group')) continue
+
+      if (element instanceof HTMLSelectElement) {
+        const blankOption =
+          Array.from(element.options).find((option) => option.value.trim() === '') ||
+          Array.from(element.options).find((option) => /none|select/i.test(option.text))
+
+        if (blankOption) {
+          element.value = blankOption.value
+          dispatch(element)
+          groupCleared = true
+          break
+        }
+      }
+
+      if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+        element.value = ''
+        dispatch(element)
+        groupCleared = true
+        break
+      }
+    }
+
+    return { activeUpdated, groupCleared }
+  })
+
+  if (!mutation.activeUpdated) {
+    throw new Error('Unable to find Redwood donor Active control while reactivating inactive donor.')
+  }
+
+  if (!mutation.groupCleared) {
+    throw new Error('Unable to find Redwood donor Group control while clearing inactive donor group.')
+  }
+
+  await saveRedwoodDonorEdit(page)
+
+  const screenshotPath = await captureRedwoodDiagnostic(page, `redwood-import-reactivated-donor-${clientId}`)
+  return { screenshotPath }
+}
+
 async function detectDirectRedwoodDonorMatch(args: {
   accountNumber: string
   client: {
@@ -219,6 +441,7 @@ async function detectDirectRedwoodDonorMatch(args: {
 }): Promise<
   | {
       kind: 'matched'
+      activityStatus: DirectRedwoodDonorActivityStatus
       callInCode: string | null
       donorId: string | null
       matchedBy: RedwoodMatchBy
@@ -236,41 +459,68 @@ async function detectDirectRedwoodDonorMatch(args: {
 > {
   const { accountNumber, client, donorSearchUrl, page, uniqueId } = args
 
-  try {
-    await openRedwoodSearchResultsForUniqueId({
-      accountNumber,
-      donorSearchUrl,
-      page,
-      uniqueId,
-    })
+  const tryUniqueIdMatch = async (
+    activityStatus: DirectRedwoodDonorActivityStatus,
+  ): Promise<
+    | {
+        kind: 'matched'
+        activityStatus: DirectRedwoodDonorActivityStatus
+        callInCode: string | null
+        donorId: string | null
+        matchedBy: RedwoodMatchBy
+        matchedDonorName: string
+        screenshotPath: string
+      }
+    | { kind: 'none' }
+    | { kind: 'manual-review'; message: string; screenshotPath: string }
+  > => {
+    try {
+      await openRedwoodSearchResultsForUniqueId({
+        accountNumber,
+        active: activityStatus === 'active',
+        donorSearchUrl,
+        page,
+        uniqueId,
+      })
 
-    const { rows, tableRows } = await readRedwoodDonorResultRows(
-      page,
-      `No Redwood donor rows found for unique ID "${uniqueId}"`,
-    )
-    const candidates = buildRedwoodDonorCandidates(tableRows, accountNumber, client)
-    const exactCandidate = findExactRedwoodUniqueIdCandidate(candidates, uniqueId)
+      const { rows, tableRows } = await readRedwoodDonorResultRows(
+        page,
+        `No Redwood ${activityStatus} donor rows found for unique ID "${uniqueId}"`,
+      )
+      const candidates = buildRedwoodDonorCandidates(tableRows, accountNumber, client)
+      const exactCandidate = findExactRedwoodUniqueIdCandidate(candidates, uniqueId)
 
-    if (exactCandidate) {
-      await openRedwoodCandidateDetail(page, rows, exactCandidate.rowIndex)
+      if (!exactCandidate) {
+        return { kind: 'none' }
+      }
+
+      const donorId = await openRedwoodCandidateDetail(page, rows, exactCandidate.rowIndex)
       const donorMetadata = await readRedwoodDonorMetadata(page)
-      const screenshotPath = await captureRedwoodDiagnostic(page, `redwood-import-direct-unique-id-match-${client.id}`)
+      const screenshotPath = await captureRedwoodDiagnostic(
+        page,
+        `redwood-import-direct-${activityStatus}-unique-id-match-${client.id}`,
+      )
 
       return {
         kind: 'matched',
+        activityStatus,
         callInCode: donorMetadata.callInCode,
-        donorId: donorMetadata.donorId,
+        donorId: donorMetadata.donorId || donorId,
         matchedBy: 'unique-id',
         matchedDonorName: exactCandidate.displayName,
         screenshotPath,
       }
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    if (!isRedwoodSearchNoMatchError(message)) {
-      const screenshotPath = await captureRedwoodDiagnostic(page, `redwood-import-direct-unique-id-review-${client.id}`).catch(
-        () => '',
-      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (isRedwoodSearchNoMatchError(message)) {
+        return { kind: 'none' }
+      }
+
+      const screenshotPath = await captureRedwoodDiagnostic(
+        page,
+        `redwood-import-direct-${activityStatus}-unique-id-review-${client.id}`,
+      ).catch(() => '')
+
       return {
         kind: 'manual-review',
         message,
@@ -279,50 +529,83 @@ async function detectDirectRedwoodDonorMatch(args: {
     }
   }
 
-  try {
-    await openRedwoodSearchResultsForLastName({
-      accountNumber,
-      donorSearchUrl,
-      lastName: client.lastName,
-      page,
-    })
+  const tryNameDobMatch = async (
+    activityStatus: DirectRedwoodDonorActivityStatus,
+  ): Promise<
+    | {
+        kind: 'matched'
+        activityStatus: DirectRedwoodDonorActivityStatus
+        callInCode: string | null
+        donorId: string | null
+        matchedBy: RedwoodMatchBy
+        matchedDonorName: string
+        screenshotPath: string
+      }
+    | { kind: 'none' }
+    | { kind: 'manual-review'; message: string; screenshotPath: string }
+  > => {
+    try {
+      await openRedwoodSearchResultsForLastName({
+        accountNumber,
+        active: activityStatus === 'active',
+        donorSearchUrl,
+        lastName: client.lastName,
+        page,
+      })
 
-    const { rows, tableRows } = await readRedwoodDonorResultRows(
-      page,
-      `No Redwood donor rows found for last name "${client.lastName}"`,
-    )
-    const candidates = buildRedwoodDonorCandidates(tableRows, accountNumber, client)
-    const selectedCandidate = selectBestRedwoodDonorCandidate(candidates, client.dob)
+      const { rows, tableRows } = await readRedwoodDonorResultRows(
+        page,
+        `No Redwood ${activityStatus} donor rows found for last name "${client.lastName}"`,
+      )
+      const candidates = buildRedwoodDonorCandidates(tableRows, accountNumber, client)
+      const selectedCandidate = selectBestRedwoodDonorCandidate(candidates, client.dob)
 
-    await openRedwoodCandidateDetail(page, rows, selectedCandidate.rowIndex)
-    const donorMetadata = await readRedwoodDonorMetadata(page)
-    const screenshotPath = await captureRedwoodDiagnostic(page, `redwood-import-direct-name-match-${client.id}`)
+      const donorId = await openRedwoodCandidateDetail(page, rows, selectedCandidate.rowIndex)
+      const donorMetadata = await readRedwoodDonorMetadata(page)
+      const screenshotPath = await captureRedwoodDiagnostic(
+        page,
+        `redwood-import-direct-${activityStatus}-name-match-${client.id}`,
+      )
 
-    return {
-      kind: 'matched',
-      callInCode: donorMetadata.callInCode,
-      donorId: donorMetadata.donorId,
-      matchedBy: 'name-dob',
-      matchedDonorName: selectedCandidate.displayName,
-      screenshotPath,
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    if (isRedwoodSearchNoMatchError(message)) {
       return {
-        kind: 'none',
+        kind: 'matched',
+        activityStatus,
+        callInCode: donorMetadata.callInCode,
+        donorId: donorMetadata.donorId || donorId,
+        matchedBy: 'name-dob',
+        matchedDonorName: selectedCandidate.displayName,
+        screenshotPath,
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (isRedwoodSearchNoMatchError(message)) {
+        return { kind: 'none' }
+      }
+
+      const screenshotPath = await captureRedwoodDiagnostic(
+        page,
+        `redwood-import-direct-${activityStatus}-search-review-${client.id}`,
+      ).catch(() => '')
+
+      return {
+        kind: 'manual-review',
+        message,
+        screenshotPath,
       }
     }
-
-    const screenshotPath = await captureRedwoodDiagnostic(page, `redwood-import-direct-search-review-${client.id}`).catch(
-      () => '',
-    )
-    return {
-      kind: 'manual-review',
-      message,
-      screenshotPath,
-    }
   }
+
+  for (const activityStatus of ['active', 'inactive'] as const) {
+    const uniqueIdMatch = await tryUniqueIdMatch(activityStatus)
+    if (uniqueIdMatch.kind !== 'none') return uniqueIdMatch
+  }
+
+  for (const activityStatus of ['active', 'inactive'] as const) {
+    const nameDobMatch = await tryNameDobMatch(activityStatus)
+    if (nameDobMatch.kind !== 'none') return nameDobMatch
+  }
+
+  return { kind: 'none' }
 }
 
 function isImportProcessedSummary(summary: string): boolean {
@@ -335,7 +618,10 @@ function isImportProcessedSummary(summary: string): boolean {
   )
 }
 
-function filterDonorsByAccountNumber<T extends { raw: Record<string, string> }>(donors: T[], accountNumber: string): T[] {
+function filterDonorsByAccountNumber<T extends { raw: Record<string, string> }>(
+  donors: T[],
+  accountNumber: string,
+): T[] {
   return donors.filter((donor) => {
     const agencyNumber = donor.raw.agencynumber?.trim() || donor.raw.accountnumber?.trim() || ''
     return agencyNumber === accountNumber
@@ -351,10 +637,7 @@ async function updateClientRedwoodState(payload: Payload, clientId: string, data
   })
 }
 
-async function isDefaultTestSyncRequired(args: {
-  client: any
-  payload: Payload
-}): Promise<boolean> {
+async function isDefaultTestSyncRequired(args: { client: any; payload: Payload }): Promise<boolean> {
   const resolution = await resolveClientRedwoodEligibleDefaultTest({
     client: args.client,
     payload: args.payload,
@@ -397,8 +680,11 @@ async function readImportReviewState(page: any): Promise<{
     .inputValue()
     .catch(async () => {
       return (
-        (await page.locator('textarea').first().textContent().catch(() => null)) ||
-        ''
+        (await page
+          .locator('textarea')
+          .first()
+          .textContent()
+          .catch(() => null)) || ''
       ).trim()
     })
 
@@ -524,10 +810,7 @@ async function triggerRedwoodImportUpload(args: {
   return false
 }
 
-async function triggerRedwoodImportSubmit(args: {
-  page: any
-  submitSelectors: string[]
-}): Promise<boolean> {
+async function triggerRedwoodImportSubmit(args: { page: any; submitSelectors: string[] }): Promise<boolean> {
   const { page, submitSelectors } = args
   const clicked = await clickFirstVisible(page, submitSelectors)
   if (clicked) {
@@ -603,10 +886,7 @@ async function triggerRedwoodImportSubmit(args: {
   return false
 }
 
-async function detectImportReviewState(args: {
-  page: any
-  submitSelectors: string[]
-}): Promise<{
+async function detectImportReviewState(args: { page: any; submitSelectors: string[] }): Promise<{
   hasImportRejection: boolean
   hasImportProcessedSummary: boolean
   reviewState: {
@@ -639,7 +919,7 @@ async function detectImportReviewState(args: {
   )
   const hasImportRejection = Boolean(
     reviewState.importTextareaText.trim() &&
-      (isImportRejectionSummary(reviewState.summary) || isImportRejectionSummary(visibleErrorSummary)),
+    (isImportRejectionSummary(reviewState.summary) || isImportRejectionSummary(visibleErrorSummary)),
   )
 
   return {
@@ -651,11 +931,7 @@ async function detectImportReviewState(args: {
   }
 }
 
-async function waitForImportOutcome(args: {
-  page: any
-  submitSelectors: string[]
-  timeoutMs: number
-}): Promise<void> {
+async function waitForImportOutcome(args: { page: any; submitSelectors: string[]; timeoutMs: number }): Promise<void> {
   const { page, submitSelectors, timeoutMs } = args
   const startedAt = Date.now()
 
@@ -733,8 +1009,10 @@ async function routeImportToManualReview(args: {
   }
 }
 
-async function routeDirectSearchMatchToManualReview(args: {
+async function routeDirectSearchMatchToSynced(args: {
+  activityStatus: DirectRedwoodDonorActivityStatus
   callInCode: string | null
+  client: any
   clientId: string
   donorId: string | null
   matchedBy: RedwoodMatchBy
@@ -742,48 +1020,41 @@ async function routeDirectSearchMatchToManualReview(args: {
   payload: Payload
   screenshotPath: string
   source: string
-}): Promise<{ status: 'manual-review'; matchedBy: RedwoodMatchBy; screenshotPath: string }> {
-  const { callInCode, clientId, donorId, matchedBy, matchedDonorName, payload, screenshotPath, source } = args
-  const message = `Potential existing Redwood donor "${matchedDonorName}" matched by ${matchedBy}. Manual review required before import.`
+}): Promise<{
+  status: 'matched-existing' | 'reactivated-existing' | 'partial-success'
+  matchedBy: RedwoodMatchBy
+  screenshotPath: string
+}> {
+  const {
+    activityStatus,
+    callInCode,
+    client,
+    clientId,
+    donorId,
+    matchedBy,
+    matchedDonorName,
+    payload,
+    screenshotPath,
+    source,
+  } = args
+  const status = activityStatus === 'inactive' ? 'reactivated-existing' : 'matched-existing'
 
   await updateClientRedwoodState(payload, clientId, {
-    redwoodSyncStatus: 'manual-review',
+    redwoodSyncStatus: status,
     redwoodMatchedBy: matchedBy,
     redwoodMatchedDonorName: matchedDonorName,
     redwoodCallInCode: callInCode,
     redwoodDonorId: donorId,
     redwoodImportScreenshotPath: screenshotPath || null,
     redwoodLastAttemptAt: new Date().toISOString(),
-    redwoodLastError: message,
+    redwoodLastError: null,
   })
 
-  await upsertRedwoodIncidentAlert({
-    payload,
-    clientId,
-    jobType: 'import',
-    kind: 'manual-review-required',
-    title: `Potential existing Redwood donor matched for client ${clientId}`,
-    message,
-    context: {
-      clientId,
-      source,
-      queue: 'redwood',
-      matchedBy,
-      matchedDonorName,
-      matchedDonorId: donorId,
-      screenshotPath: screenshotPath || null,
-    },
-    screenshotPath: screenshotPath || null,
-    statusSnapshot: {
-      redwoodSyncStatus: 'manual-review',
-      redwoodMatchedBy: matchedBy,
-    },
-  })
-
-  payload.logger.warn({
-    msg: '[redwood-import] Direct Redwood search matched an existing donor; routing to manual review',
+  payload.logger.info({
+    msg: '[redwood-import] Existing Redwood donor matched for registered client',
     clientId,
     source,
+    activityStatus,
     matchedBy,
     matchedDonorId: donorId,
     matchedDonorName,
@@ -791,8 +1062,62 @@ async function routeDirectSearchMatchToManualReview(args: {
     screenshotPath: screenshotPath || null,
   })
 
+  const defaultTestRequired = await isDefaultTestSyncRequired({
+    client,
+    payload,
+  })
+
+  try {
+    await queueRedwoodDefaultTestSync(clientId, payload)
+  } catch (error) {
+    const queueMessage = error instanceof Error ? error.message : String(error)
+
+    payload.logger.error({
+      msg: '[redwood-import] Existing Redwood donor matched, but default-test sync could not be queued',
+      clientId,
+      source,
+      err: error,
+    })
+
+    if (defaultTestRequired) {
+      await upsertRedwoodIncidentAlert({
+        payload,
+        clientId,
+        jobType: 'import',
+        kind: 'partial-success',
+        title: `Redwood donor matched with follow-up gap for client ${clientId}`,
+        message: `Existing Redwood donor was matched, but required default-test sync could not be queued: ${queueMessage}`,
+        context: {
+          clientId,
+          source,
+          queue: 'redwood',
+          matchedBy,
+          matchedDonorName,
+          matchedDonorId: donorId,
+        },
+        screenshotPath: screenshotPath || null,
+        statusSnapshot: {
+          redwoodSyncStatus: 'manual-review',
+          redwoodMatchedBy: matchedBy,
+        },
+      })
+
+      await updateClientRedwoodState(payload, clientId, {
+        redwoodSyncStatus: 'manual-review',
+        redwoodLastAttemptAt: new Date().toISOString(),
+        redwoodLastError: `Existing Redwood donor matched, but required default-test sync could not be queued: ${queueMessage}`,
+      })
+
+      return {
+        status: 'partial-success',
+        matchedBy,
+        screenshotPath,
+      }
+    }
+  }
+
   return {
-    status: 'manual-review',
+    status,
     matchedBy,
     screenshotPath,
   }
@@ -976,223 +1301,407 @@ export async function runRedwoodImportClientJob(args: {
   }
 
   const clientDob = client.dob
-  const uniqueId = (typeof client.redwoodUniqueId === 'string' && client.redwoodUniqueId.trim()) || buildRedwoodUniqueId(client.id)
+  const uniqueId =
+    (typeof client.redwoodUniqueId === 'string' && client.redwoodUniqueId.trim()) || buildRedwoodUniqueId(client.id)
 
   let diagnosticScreenshotPath: string | null = null
 
   try {
-    return await withRedwoodBrowserSession({
-      acceptDownloads: true,
-      runtimeProfile: playwrightRuntimeProfile ?? 'job',
-      slowMoMs: playwrightSlowMoMs,
-    }, async ({ page }) => {
-      await loginToRedwood(page, { loginUrl, username, password })
+    return await withRedwoodBrowserSession(
+      {
+        acceptDownloads: true,
+        runtimeProfile: playwrightRuntimeProfile ?? 'job',
+        slowMoMs: playwrightSlowMoMs,
+      },
+      async ({ page }) => {
+        await loginToRedwood(page, { loginUrl, username, password })
 
-      const directMatch = await detectDirectRedwoodDonorMatch({
-        accountNumber,
-        client: {
-          dob: clientDob,
-          firstName: client.firstName,
-          id: String(client.id),
-          lastName: client.lastName,
-          middleInitial: client.middleInitial || null,
-        },
-        donorSearchUrl,
-        page,
-        uniqueId,
-      })
-
-      if (directMatch.kind === 'matched') {
-        diagnosticScreenshotPath = directMatch.screenshotPath
-        return routeDirectSearchMatchToManualReview({
-          callInCode: directMatch.callInCode,
-          clientId: client.id,
-          donorId: directMatch.donorId,
-          matchedBy: directMatch.matchedBy,
-          matchedDonorName: directMatch.matchedDonorName,
-          payload,
-          screenshotPath: directMatch.screenshotPath,
-          source,
-        })
-      }
-
-      if (directMatch.kind === 'manual-review') {
-        diagnosticScreenshotPath = directMatch.screenshotPath || null
-        return routeDirectSearchIssueToManualReview({
-          clientId: client.id,
-          message: directMatch.message,
-          payload,
-          screenshotPath: directMatch.screenshotPath,
-          source,
-        })
-      }
-
-      let donorGroup = resolveDonorGroup({
-        clientReferralType: client.referralType,
-        donors: [],
-      })
-      let redwoodServerDate: string | null = null
-
-      if (!donorGroup) {
-        const { csv, csvPath } = await downloadExportCSV({
+        const directMatch = await detectDirectRedwoodDonorMatch({
+          accountNumber,
+          client: {
+            dob: clientDob,
+            firstName: client.firstName,
+            id: String(client.id),
+            lastName: client.lastName,
+            middleInitial: client.middleInitial || null,
+          },
+          donorSearchUrl,
           page,
-          exportUrl,
-          outputDir,
+          uniqueId,
         })
-        redwoodServerDate = await extractRedwoodServerDate(page)
 
-        const donors = parseRedwoodExport(csv)
-        const donorsForAccount = filterDonorsByAccountNumber(donors, accountNumber)
+        if (directMatch.kind === 'matched') {
+          let screenshotPath = directMatch.screenshotPath
+
+          if (directMatch.activityStatus === 'inactive') {
+            const reactivation = await reactivateRedwoodDonorAndClearGroup({
+              clientId: String(client.id),
+              donorId: directMatch.donorId,
+              donorSearchUrl,
+              page,
+            })
+            screenshotPath = reactivation.screenshotPath
+          }
+
+          diagnosticScreenshotPath = screenshotPath
+          return routeDirectSearchMatchToSynced({
+            activityStatus: directMatch.activityStatus,
+            callInCode: directMatch.callInCode,
+            client,
+            clientId: client.id,
+            donorId: directMatch.donorId,
+            matchedBy: directMatch.matchedBy,
+            matchedDonorName: directMatch.matchedDonorName,
+            payload,
+            screenshotPath,
+            source,
+          })
+        }
+
+        if (directMatch.kind === 'manual-review') {
+          diagnosticScreenshotPath = directMatch.screenshotPath || null
+          return routeDirectSearchIssueToManualReview({
+            clientId: client.id,
+            message: directMatch.message,
+            payload,
+            screenshotPath: directMatch.screenshotPath,
+            source,
+          })
+        }
+
+        let donorGroup =
+          source === 'frontend-registration'
+            ? ''
+            : resolveDonorGroup({
+                clientReferralType: client.referralType,
+                donors: [],
+              })
+        let redwoodServerDate: string | null = null
+
+        if (!donorGroup && source !== 'frontend-registration') {
+          const { csv, csvPath } = await downloadExportCSV({
+            page,
+            exportUrl,
+            outputDir,
+          })
+          redwoodServerDate = await extractRedwoodServerDate(page)
+
+          const donors = parseRedwoodExport(csv)
+          const donorsForAccount = filterDonorsByAccountNumber(donors, accountNumber)
+
+          payload.logger.info({
+            msg: '[redwood-import] Export parsed for donor group fallback',
+            clientId,
+            source,
+            csvPath,
+            donorCount: donorsForAccount.length,
+          })
+
+          await updateClientRedwoodState(payload, client.id, {
+            redwoodSyncStatus: 'export-checked',
+            redwoodLastAttemptAt: new Date().toISOString(),
+            redwoodLastError: null,
+          })
+
+          donorGroup = resolveDonorGroup({
+            clientReferralType: client.referralType,
+            donors: donorsForAccount,
+          })
+        }
+
+        const importCsvContent = buildRedwoodImportCSV({
+          accountNumber,
+          firstName: client.firstName,
+          middleInitial: client.middleInitial || '',
+          lastName: client.lastName,
+          uniqueId,
+          dob: clientDob,
+          intakeDate: redwoodServerDate || new Date(),
+          sex: mapGenderToRedwoodSex(client.gender),
+          phoneNumber: normalizePhoneForRedwood(client.phone || ''),
+          group: donorGroup,
+        })
+
+        const importCsvPath = path.join(outputDir, 'imports', `redwood-import-${client.id}-${Date.now()}.csv`)
+        await fs.mkdir(path.dirname(importCsvPath), { recursive: true })
+        await fs.writeFile(importCsvPath, importCsvContent, 'utf8')
+
+        await page.goto(importUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
+        await dismissCookieBanner(page)
+
+        const fileInput = page.locator('input[type="file"], input[id*="File"], input[name*="File"]').first()
+
+        if ((await fileInput.count()) === 0) {
+          throw new Error('Unable to find Redwood import file input on ImportDonors page')
+        }
+
+        await fileInput.setInputFiles(importCsvPath)
+        await dismissCookieBanner(page)
+
+        const submitSelectors = [
+          'input[id*="Submit"]',
+          'input[name*="Submit"]',
+          'input[type="submit"][value*="Submit"]',
+          'button:has-text("Submit")',
+        ]
+
+        let submitVisible = await waitForAnyVisible(page, submitSelectors, 5000)
+        const previewOnly = isRedwoodImportPreviewOnly()
+
+        if (previewOnly) {
+          const screenshotPath = path.join(
+            outputDir,
+            'screenshots',
+            `redwood-import-ready-${client.id}-${Date.now()}.png`,
+          )
+          await fs.mkdir(path.dirname(screenshotPath), { recursive: true })
+          await dismissCookieBanner(page)
+          await page.screenshot({ path: screenshotPath, fullPage: true })
+
+          await updateClientRedwoodState(payload, client.id, {
+            redwoodSyncStatus: 'ready-to-submit',
+            redwoodMatchedBy: null,
+            redwoodMatchedDonorName: null,
+            redwoodCallInCode: null,
+            redwoodImportScreenshotPath: screenshotPath,
+            redwoodLastAttemptAt: new Date().toISOString(),
+            redwoodLastError: null,
+          })
+
+          payload.logger.info({
+            msg: '[redwood-import] Preview-only mode: staged import and stopped before upload',
+            clientId,
+            source,
+            importCsvPath,
+            screenshotPath,
+            queue: 'redwood',
+          })
+
+          return {
+            status: 'ready-to-submit',
+            screenshotPath,
+          }
+        }
+
+        let uploadClicked = false
+        if (!submitVisible) {
+          uploadClicked = await triggerRedwoodImportUpload({
+            fileInput,
+            page,
+            submitSelectors,
+          })
+        }
+
+        if (!submitVisible && uploadClicked) {
+          const uploadStageScreenshotPath = path.join(
+            outputDir,
+            'screenshots',
+            `redwood-import-uploaded-${client.id}-${Date.now()}.png`,
+          )
+          await fs.mkdir(path.dirname(uploadStageScreenshotPath), { recursive: true })
+          await page.screenshot({ path: uploadStageScreenshotPath, fullPage: true }).catch(() => undefined)
+
+          await waitForImportOutcome({
+            page,
+            submitSelectors,
+            timeoutMs: 45000,
+          })
+          submitVisible = await waitForAnyVisible(page, submitSelectors, 1000)
+        }
 
         payload.logger.info({
-          msg: '[redwood-import] Export parsed for donor group fallback',
+          msg: '[redwood-import] Upload stage evaluated',
           clientId,
           source,
-          csvPath,
-          donorCount: donorsForAccount.length,
+          currentUrl: page.url(),
+          previewOnly: isRedwoodImportPreviewOnly(),
+          queue: 'redwood',
+          submitVisible,
+          uploadClicked,
         })
 
-        await updateClientRedwoodState(payload, client.id, {
-          redwoodSyncStatus: 'export-checked',
-          redwoodLastAttemptAt: new Date().toISOString(),
-          redwoodLastError: null,
-        })
+        if (!submitVisible && !uploadClicked) {
+          diagnosticScreenshotPath = path.join(
+            outputDir,
+            'screenshots',
+            `redwood-import-upload-missing-${client.id}-${Date.now()}.png`,
+          )
+          await fs.mkdir(path.dirname(diagnosticScreenshotPath), { recursive: true })
+          await page.screenshot({ path: diagnosticScreenshotPath, fullPage: true }).catch(() => undefined)
+          const controls = await collectActionControls(page, 12)
 
-        donorGroup = resolveDonorGroup({
-          clientReferralType: client.referralType,
-          donors: donorsForAccount,
-        })
-      }
+          throw new Error(
+            `Unable to find Redwood import upload action. currentUrl=${page.url()} controls=${controls.join(' || ')} screenshotPath=${diagnosticScreenshotPath}`,
+          )
+        }
 
-      const importCsvContent = buildRedwoodImportCSV({
-        accountNumber,
-        firstName: client.firstName,
-        middleInitial: client.middleInitial || '',
-        lastName: client.lastName,
-        uniqueId,
-        dob: clientDob,
-        intakeDate: redwoodServerDate || clientDob,
-        sex: mapGenderToRedwoodSex(client.gender),
-        phoneNumber: normalizePhoneForRedwood(client.phone || ''),
-        group: donorGroup,
-      })
+        if (!submitVisible) {
+          const reviewAssessment = await detectImportReviewState({
+            page,
+            submitSelectors,
+          })
 
-      const importCsvPath = path.join(outputDir, 'imports', `redwood-import-${client.id}-${Date.now()}.csv`)
-      await fs.mkdir(path.dirname(importCsvPath), { recursive: true })
-      await fs.writeFile(importCsvPath, importCsvContent, 'utf8')
+          if (reviewAssessment.hasImportRejection) {
+            const manualReview = await routeImportToManualReview({
+              payload,
+              page,
+              clientId: client.id,
+              source,
+              outputDir,
+              importTextareaText: reviewAssessment.reviewState.importTextareaText,
+              warningMessage: '[redwood-import] Import rejected rows; routing to manual review',
+            })
+            diagnosticScreenshotPath = manualReview.screenshotPath
+            return manualReview
+          }
 
-      await page.goto(importUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
-      await dismissCookieBanner(page)
+          if (reviewAssessment.hasImportProcessedSummary) {
+            const screenshotPath = path.join(
+              outputDir,
+              'screenshots',
+              `redwood-import-processed-${client.id}-${Date.now()}.png`,
+            )
+            await fs.mkdir(path.dirname(screenshotPath), { recursive: true })
+            await page.screenshot({ path: screenshotPath, fullPage: true })
 
-      const fileInput = page
-        .locator('input[type="file"], input[id*="File"], input[name*="File"]')
-        .first()
+            let redwoodCallInCode: string | null = null
+            let redwoodDonorId: string | null = null
 
-      if ((await fileInput.count()) === 0) {
-        throw new Error('Unable to find Redwood import file input on ImportDonors page')
-      }
+            try {
+              const donorMetadata = await resolveImportedDonorMetadata({
+                accountNumber,
+                client: {
+                  dob: clientDob,
+                  firstName: client.firstName,
+                  lastName: client.lastName,
+                  middleInitial: client.middleInitial || null,
+                },
+                donorSearchUrl,
+                page,
+                uniqueId,
+              })
+              redwoodCallInCode = donorMetadata.callInCode
+              redwoodDonorId = donorMetadata.donorId
+            } catch (error) {
+              payload.logger.warn({
+                msg: '[redwood-import] Redwood donor imported, but donor metadata lookup failed',
+                clientId,
+                source,
+                error: error instanceof Error ? error.message : String(error),
+                queue: 'redwood',
+              })
+            }
 
-      await fileInput.setInputFiles(importCsvPath)
-      await dismissCookieBanner(page)
+            if (!redwoodDonorId) {
+              return routeImportedClientToPartialSuccess({
+                clientId: client.id,
+                payload,
+                screenshotPath,
+                source,
+                message:
+                  'Redwood import completed, but donor identity metadata could not be resolved. Manual follow-up is required before downstream Redwood syncs can run.',
+                redwoodCallInCode,
+                redwoodDonorId,
+              })
+            }
 
-      const submitSelectors = [
-        'input[id*="Submit"]',
-        'input[name*="Submit"]',
-        'input[type="submit"][value*="Submit"]',
-        'button:has-text("Submit")',
-      ]
+            await updateClientRedwoodState(payload, client.id, {
+              redwoodSyncStatus: 'synced',
+              redwoodMatchedBy: null,
+              redwoodMatchedDonorName: null,
+              redwoodCallInCode,
+              redwoodDonorId,
+              redwoodImportScreenshotPath: screenshotPath,
+              redwoodLastAttemptAt: new Date().toISOString(),
+              redwoodLastError: null,
+            })
 
-      let submitVisible = await waitForAnyVisible(page, submitSelectors, 5000)
-      const previewOnly = isRedwoodImportPreviewOnly()
+            payload.logger.info({
+              msg: '[redwood-import] Redwood import completed during upload processing',
+              clientId,
+              source,
+              importCsvPath,
+              screenshotPath,
+              queue: 'redwood',
+            })
 
-      if (previewOnly) {
+            const defaultTestRequired = await isDefaultTestSyncRequired({
+              client,
+              payload,
+            })
+
+            try {
+              await queueRedwoodDefaultTestSync(String(client.id), payload)
+            } catch (error) {
+              const queueMessage = error instanceof Error ? error.message : String(error)
+
+              payload.logger.error({
+                msg: '[redwood-import] Redwood donor import succeeded, but default-test sync could not be queued',
+                clientId,
+                source,
+                error: queueMessage,
+              })
+
+              if (defaultTestRequired) {
+                return routeImportedClientToPartialSuccess({
+                  clientId: client.id,
+                  payload,
+                  screenshotPath,
+                  source,
+                  message: `Redwood import completed, but required default-test sync could not be queued: ${queueMessage}`,
+                  redwoodCallInCode,
+                  redwoodDonorId,
+                })
+              }
+            }
+
+            return {
+              status: 'synced',
+              screenshotPath,
+            }
+          }
+
+          diagnosticScreenshotPath = path.join(
+            outputDir,
+            'screenshots',
+            `redwood-import-submit-missing-${client.id}-${Date.now()}.png`,
+          )
+          await fs.mkdir(path.dirname(diagnosticScreenshotPath), { recursive: true })
+          await page.screenshot({ path: diagnosticScreenshotPath, fullPage: true }).catch(() => undefined)
+
+          const details = [
+            `currentUrl=${page.url()}`,
+            `visibleErrors=${reviewAssessment.visibleErrors.length > 0 ? reviewAssessment.visibleErrors.join(' | ') : 'none'}`,
+            `screenshotPath=${diagnosticScreenshotPath}`,
+          ].join(' ')
+
+          throw new Error(`Redwood import did not reach submit-ready state. ${details}`)
+        }
+
         const screenshotPath = path.join(
           outputDir,
           'screenshots',
-          `redwood-import-ready-${client.id}-${Date.now()}.png`,
+          `redwood-import-submitted-${client.id}-${Date.now()}.png`,
         )
         await fs.mkdir(path.dirname(screenshotPath), { recursive: true })
         await dismissCookieBanner(page)
-        await page.screenshot({ path: screenshotPath, fullPage: true })
 
-        await updateClientRedwoodState(payload, client.id, {
-          redwoodSyncStatus: 'ready-to-submit',
-          redwoodMatchedBy: null,
-          redwoodMatchedDonorName: null,
-          redwoodCallInCode: null,
-          redwoodImportScreenshotPath: screenshotPath,
-          redwoodLastAttemptAt: new Date().toISOString(),
-          redwoodLastError: null,
+        const submitClicked = await triggerRedwoodImportSubmit({
+          page,
+          submitSelectors,
         })
-
         payload.logger.info({
-          msg: '[redwood-import] Preview-only mode: staged import and stopped before upload',
+          msg: '[redwood-import] Final submit attempted',
           clientId,
           source,
-          importCsvPath,
-          screenshotPath,
+          currentUrl: page.url(),
           queue: 'redwood',
+          submitClicked,
         })
-
-        return {
-          status: 'ready-to-submit',
-          screenshotPath,
+        if (!submitClicked) {
+          throw new Error('Unable to click Redwood import submit control')
         }
-      }
 
-      let uploadClicked = false
-      if (!submitVisible) {
-        uploadClicked = await triggerRedwoodImportUpload({
-          fileInput,
-          page,
-          submitSelectors,
-        })
-      }
-
-      if (!submitVisible && uploadClicked) {
-        const uploadStageScreenshotPath = path.join(
-          outputDir,
-          'screenshots',
-          `redwood-import-uploaded-${client.id}-${Date.now()}.png`,
-        )
-        await fs.mkdir(path.dirname(uploadStageScreenshotPath), { recursive: true })
-        await page.screenshot({ path: uploadStageScreenshotPath, fullPage: true }).catch(() => undefined)
-
-        await waitForImportOutcome({
-          page,
-          submitSelectors,
-          timeoutMs: 45000,
-        })
-        submitVisible = await waitForAnyVisible(page, submitSelectors, 1000)
-      }
-
-      payload.logger.info({
-        msg: '[redwood-import] Upload stage evaluated',
-        clientId,
-        source,
-        currentUrl: page.url(),
-        previewOnly: isRedwoodImportPreviewOnly(),
-        queue: 'redwood',
-        submitVisible,
-        uploadClicked,
-      })
-
-      if (!submitVisible && !uploadClicked) {
-        diagnosticScreenshotPath = path.join(
-          outputDir,
-          'screenshots',
-          `redwood-import-upload-missing-${client.id}-${Date.now()}.png`,
-        )
-        await fs.mkdir(path.dirname(diagnosticScreenshotPath), { recursive: true })
-        await page.screenshot({ path: diagnosticScreenshotPath, fullPage: true }).catch(() => undefined)
-        const controls = await collectActionControls(page, 12)
-
-        throw new Error(
-          `Unable to find Redwood import upload action. currentUrl=${page.url()} controls=${controls.join(' || ')} screenshotPath=${diagnosticScreenshotPath}`,
-        )
-      }
-
-      if (!submitVisible) {
         const reviewAssessment = await detectImportReviewState({
           page,
           submitSelectors,
@@ -1206,301 +1715,138 @@ export async function runRedwoodImportClientJob(args: {
             source,
             outputDir,
             importTextareaText: reviewAssessment.reviewState.importTextareaText,
-            warningMessage: '[redwood-import] Import rejected rows; routing to manual review',
+            warningMessage: '[redwood-import] Import rejected rows after final submit; routing to manual review',
           })
           diagnosticScreenshotPath = manualReview.screenshotPath
           return manualReview
         }
 
-        if (reviewAssessment.hasImportProcessedSummary) {
-          const screenshotPath = path.join(
+        const submitStillVisible = reviewAssessment.submitVisible
+        const successIndicators = [
+          'successfully imported',
+          'import complete',
+          'import completed',
+          'records processed',
+          'processed successfully',
+          'donor imported',
+        ]
+        const hasSuccessIndicator = successIndicators.some((indicator) =>
+          reviewAssessment.reviewState.summary.includes(indicator),
+        )
+
+        if (submitStillVisible && !hasSuccessIndicator) {
+          diagnosticScreenshotPath = path.join(
             outputDir,
             'screenshots',
-            `redwood-import-processed-${client.id}-${Date.now()}.png`,
+            `redwood-import-submit-stalled-${client.id}-${Date.now()}.png`,
           )
-          await fs.mkdir(path.dirname(screenshotPath), { recursive: true })
-          await page.screenshot({ path: screenshotPath, fullPage: true })
+          await fs.mkdir(path.dirname(diagnosticScreenshotPath), { recursive: true })
+          await page.screenshot({ path: diagnosticScreenshotPath, fullPage: true }).catch(() => undefined)
 
-          let redwoodCallInCode: string | null = null
-          let redwoodDonorId: string | null = null
-
-          try {
-            const donorMetadata = await resolveImportedDonorMetadata({
-              accountNumber,
-              client: {
-                dob: clientDob,
-                firstName: client.firstName,
-                lastName: client.lastName,
-                middleInitial: client.middleInitial || null,
-              },
-              donorSearchUrl,
-              page,
-              uniqueId,
-            })
-            redwoodCallInCode = donorMetadata.callInCode
-            redwoodDonorId = donorMetadata.donorId
-          } catch (error) {
-            payload.logger.warn({
-              msg: '[redwood-import] Redwood donor imported, but donor metadata lookup failed',
-              clientId,
-              source,
-              error: error instanceof Error ? error.message : String(error),
-              queue: 'redwood',
-            })
-          }
-
-          if (!redwoodDonorId) {
-            return routeImportedClientToPartialSuccess({
-              clientId: client.id,
-              payload,
-              screenshotPath,
-              source,
-              message: 'Redwood import completed, but donor identity metadata could not be resolved. Manual follow-up is required before downstream Redwood syncs can run.',
-              redwoodCallInCode,
-              redwoodDonorId,
-            })
-          }
-
-          await updateClientRedwoodState(payload, client.id, {
-            redwoodSyncStatus: 'synced',
-            redwoodMatchedBy: null,
-            redwoodMatchedDonorName: null,
-            redwoodCallInCode,
-            redwoodDonorId,
-            redwoodImportScreenshotPath: screenshotPath,
-            redwoodLastAttemptAt: new Date().toISOString(),
-            redwoodLastError: null,
-          })
-
-          payload.logger.info({
-            msg: '[redwood-import] Redwood import completed during upload processing',
-            clientId,
-            source,
-            importCsvPath,
-            screenshotPath,
-            queue: 'redwood',
-          })
-
-          const defaultTestRequired = await isDefaultTestSyncRequired({
-            client,
-            payload,
-          })
-
-          try {
-            await queueRedwoodDefaultTestSync(String(client.id), payload)
-          } catch (error) {
-            const queueMessage = error instanceof Error ? error.message : String(error)
-
-            payload.logger.error({
-              msg: '[redwood-import] Redwood donor import succeeded, but default-test sync could not be queued',
-              clientId,
-              source,
-              error: queueMessage,
-            })
-
-            if (defaultTestRequired) {
-              return routeImportedClientToPartialSuccess({
-                clientId: client.id,
-                payload,
-                screenshotPath,
-                source,
-                message: `Redwood import completed, but required default-test sync could not be queued: ${queueMessage}`,
-                redwoodCallInCode,
-                redwoodDonorId,
-              })
-            }
-          }
-
-          return {
-            status: 'synced',
-            screenshotPath,
-          }
+          throw new Error(
+            `Redwood import submit action did not complete. currentUrl=${page.url()} screenshotPath=${diagnosticScreenshotPath}`,
+          )
         }
 
-        diagnosticScreenshotPath = path.join(
-          outputDir,
-          'screenshots',
-          `redwood-import-submit-missing-${client.id}-${Date.now()}.png`,
-        )
-        await fs.mkdir(path.dirname(diagnosticScreenshotPath), { recursive: true })
-        await page.screenshot({ path: diagnosticScreenshotPath, fullPage: true }).catch(() => undefined)
+        await page.screenshot({ path: screenshotPath, fullPage: true })
 
-        const details = [
-          `currentUrl=${page.url()}`,
-          `visibleErrors=${reviewAssessment.visibleErrors.length > 0 ? reviewAssessment.visibleErrors.join(' | ') : 'none'}`,
-          `screenshotPath=${diagnosticScreenshotPath}`,
-        ].join(' ')
+        let redwoodCallInCode: string | null = null
+        let redwoodDonorId: string | null = null
 
-        throw new Error(`Redwood import did not reach submit-ready state. ${details}`)
-      }
+        try {
+          const donorMetadata = await resolveImportedDonorMetadata({
+            accountNumber,
+            client: {
+              dob: clientDob,
+              firstName: client.firstName,
+              lastName: client.lastName,
+              middleInitial: client.middleInitial || null,
+            },
+            donorSearchUrl,
+            page,
+            uniqueId,
+          })
+          redwoodCallInCode = donorMetadata.callInCode
+          redwoodDonorId = donorMetadata.donorId
+        } catch (error) {
+          payload.logger.warn({
+            msg: '[redwood-import] Redwood donor submitted, but donor metadata lookup failed',
+            clientId,
+            source,
+            error: error instanceof Error ? error.message : String(error),
+            queue: 'redwood',
+          })
+        }
 
-      const screenshotPath = path.join(
-        outputDir,
-        'screenshots',
-        `redwood-import-submitted-${client.id}-${Date.now()}.png`,
-      )
-      await fs.mkdir(path.dirname(screenshotPath), { recursive: true })
-      await dismissCookieBanner(page)
-
-      const submitClicked = await triggerRedwoodImportSubmit({
-        page,
-        submitSelectors,
-      })
-      payload.logger.info({
-        msg: '[redwood-import] Final submit attempted',
-        clientId,
-        source,
-        currentUrl: page.url(),
-        queue: 'redwood',
-        submitClicked,
-      })
-      if (!submitClicked) {
-        throw new Error('Unable to click Redwood import submit control')
-      }
-
-      const reviewAssessment = await detectImportReviewState({
-        page,
-        submitSelectors,
-      })
-
-      if (reviewAssessment.hasImportRejection) {
-        const manualReview = await routeImportToManualReview({
-          payload,
-          page,
-          clientId: client.id,
-          source,
-          outputDir,
-          importTextareaText: reviewAssessment.reviewState.importTextareaText,
-          warningMessage: '[redwood-import] Import rejected rows after final submit; routing to manual review',
-        })
-        diagnosticScreenshotPath = manualReview.screenshotPath
-        return manualReview
-      }
-
-      const submitStillVisible = reviewAssessment.submitVisible
-      const successIndicators = [
-        'successfully imported',
-        'import complete',
-        'import completed',
-        'records processed',
-        'processed successfully',
-        'donor imported',
-      ]
-      const hasSuccessIndicator = successIndicators.some((indicator) =>
-        reviewAssessment.reviewState.summary.includes(indicator),
-      )
-
-      if (submitStillVisible && !hasSuccessIndicator) {
-        diagnosticScreenshotPath = path.join(
-          outputDir,
-          'screenshots',
-          `redwood-import-submit-stalled-${client.id}-${Date.now()}.png`,
-        )
-        await fs.mkdir(path.dirname(diagnosticScreenshotPath), { recursive: true })
-        await page.screenshot({ path: diagnosticScreenshotPath, fullPage: true }).catch(() => undefined)
-
-        throw new Error(
-          `Redwood import submit action did not complete. currentUrl=${page.url()} screenshotPath=${diagnosticScreenshotPath}`,
-        )
-      }
-
-      await page.screenshot({ path: screenshotPath, fullPage: true })
-
-      let redwoodCallInCode: string | null = null
-      let redwoodDonorId: string | null = null
-
-      try {
-        const donorMetadata = await resolveImportedDonorMetadata({
-          accountNumber,
-          client: {
-            dob: clientDob,
-            firstName: client.firstName,
-            lastName: client.lastName,
-            middleInitial: client.middleInitial || null,
-          },
-          donorSearchUrl,
-          page,
-          uniqueId,
-        })
-        redwoodCallInCode = donorMetadata.callInCode
-        redwoodDonorId = donorMetadata.donorId
-      } catch (error) {
-        payload.logger.warn({
-          msg: '[redwood-import] Redwood donor submitted, but donor metadata lookup failed',
-          clientId,
-          source,
-          error: error instanceof Error ? error.message : String(error),
-          queue: 'redwood',
-        })
-      }
-
-      if (!redwoodDonorId) {
-        return routeImportedClientToPartialSuccess({
-          clientId: client.id,
-          payload,
-          screenshotPath,
-          source,
-          message: 'Redwood import completed, but donor identity metadata could not be resolved. Manual follow-up is required before downstream Redwood syncs can run.',
-          redwoodCallInCode,
-          redwoodDonorId,
-        })
-      }
-
-      await updateClientRedwoodState(payload, client.id, {
-        redwoodSyncStatus: 'synced',
-        redwoodMatchedBy: null,
-        redwoodMatchedDonorName: null,
-        redwoodCallInCode,
-        redwoodDonorId,
-        redwoodImportScreenshotPath: screenshotPath,
-        redwoodLastAttemptAt: new Date().toISOString(),
-        redwoodLastError: null,
-      })
-
-      payload.logger.info({
-        msg: '[redwood-import] Submitted Redwood import successfully',
-        clientId,
-        source,
-        importCsvPath,
-        screenshotPath,
-        queue: 'redwood',
-      })
-
-      const defaultTestRequired = await isDefaultTestSyncRequired({
-        client,
-        payload,
-      })
-
-      try {
-        await queueRedwoodDefaultTestSync(String(client.id), payload)
-      } catch (error) {
-        const queueMessage = error instanceof Error ? error.message : String(error)
-
-        payload.logger.error({
-          msg: '[redwood-import] Redwood donor import succeeded, but default-test sync could not be queued',
-          clientId,
-          source,
-          error: queueMessage,
-        })
-
-        if (defaultTestRequired) {
+        if (!redwoodDonorId) {
           return routeImportedClientToPartialSuccess({
             clientId: client.id,
             payload,
             screenshotPath,
             source,
-            message: `Redwood import completed, but required default-test sync could not be queued: ${queueMessage}`,
+            message:
+              'Redwood import completed, but donor identity metadata could not be resolved. Manual follow-up is required before downstream Redwood syncs can run.',
             redwoodCallInCode,
             redwoodDonorId,
           })
         }
-      }
 
-      return {
-        status: 'synced',
-        screenshotPath,
-      }
-    })
+        await updateClientRedwoodState(payload, client.id, {
+          redwoodSyncStatus: 'synced',
+          redwoodMatchedBy: null,
+          redwoodMatchedDonorName: null,
+          redwoodCallInCode,
+          redwoodDonorId,
+          redwoodImportScreenshotPath: screenshotPath,
+          redwoodLastAttemptAt: new Date().toISOString(),
+          redwoodLastError: null,
+        })
+
+        payload.logger.info({
+          msg: '[redwood-import] Submitted Redwood import successfully',
+          clientId,
+          source,
+          importCsvPath,
+          screenshotPath,
+          queue: 'redwood',
+        })
+
+        const defaultTestRequired = await isDefaultTestSyncRequired({
+          client,
+          payload,
+        })
+
+        try {
+          await queueRedwoodDefaultTestSync(String(client.id), payload)
+        } catch (error) {
+          const queueMessage = error instanceof Error ? error.message : String(error)
+
+          payload.logger.error({
+            msg: '[redwood-import] Redwood donor import succeeded, but default-test sync could not be queued',
+            clientId,
+            source,
+            error: queueMessage,
+          })
+
+          if (defaultTestRequired) {
+            return routeImportedClientToPartialSuccess({
+              clientId: client.id,
+              payload,
+              screenshotPath,
+              source,
+              message: `Redwood import completed, but required default-test sync could not be queued: ${queueMessage}`,
+              redwoodCallInCode,
+              redwoodDonorId,
+            })
+          }
+        }
+
+        return {
+          status: 'synced',
+          screenshotPath,
+        }
+      },
+    )
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const classification = classifyRedwoodIncident({

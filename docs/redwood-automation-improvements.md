@@ -5,9 +5,21 @@ Redwood sync logic is intentionally present but disconnected from admin auto-run
 ## Current posture
 
 - Keep Redwood job definitions, queue helpers, services, tests, and tracking collections available.
+- Allow the frontend registration flow to queue the Redwood import job as the first narrow automatic workflow.
+- Use testing agency `(310974) MI Drug Test (PM Testers)` while this automation is being trialed.
 - Do not auto-queue Redwood updates from client save hooks.
 - Do not show admin edit-page buttons that queue Redwood sync, headshot sync, or unique ID backfill.
 - Keep Redwood credentials as runtime-only server environment variables.
+
+## Frontend Registration Automation Follow-Ups
+
+- Add a dedicated feature flag for frontend-registration Redwood automation so the first rollout can be enabled separately from future admin sync buttons.
+- Add a dry-run mode that records whether the job would match active, reactivate inactive, or create a donor without mutating Redwood.
+- Keep instant-test defaults local-only for Redwood for now: Charlevoix County instant testing uses the 17-panel instant test and does not need a ToxAccess/default-test code.
+- Show the latest `job-runs` records and related `admin-alerts` from the client Redwood Sync tab, with retry/cancel controls limited to admins.
+- Add a short operator runbook for inactive donor reactivation failures, ambiguous name+DOB matches, and default-test sync failures.
+- Capture a non-sensitive summary of the Redwood agency name returned by the page so account `310974` can be audited if Redwood renames the agency label.
+- Add an integration smoke test around the frontend registration action that asserts the client is created and a `redwood-import-client` job is queued.
 
 ## Improve Before Re-Enabling
 

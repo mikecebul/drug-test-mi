@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildRedwoodImportCSV, extractRedwoodCallInCode, findRedwoodDonorMatch, parseRedwoodExport } from '@/lib/redwood/csv'
+import {
+  buildRedwoodImportCSV,
+  extractRedwoodCallInCode,
+  findRedwoodDonorMatch,
+  parseCSVRows,
+  parseRedwoodExport,
+} from '@/lib/redwood/csv'
 
 describe('parseRedwoodExport + findRedwoodDonorMatch', () => {
   const csv = [
@@ -68,10 +74,7 @@ describe('parseRedwoodExport + findRedwoodDonorMatch', () => {
 
   it('extracts Redwood call-in code from export rows', () => {
     const donors = parseRedwoodExport(
-      [
-        '"Unique ID","First Name","Last Name","Check-in Code"',
-        '"ABC123","Bob","Testing","1584011"',
-      ].join('\n'),
+      ['"Unique ID","First Name","Last Name","Check-in Code"', '"ABC123","Bob","Testing","1584011"'].join('\n'),
     )
 
     expect(extractRedwoodCallInCode(donors[0])).toBe('1584011')
@@ -97,6 +100,12 @@ describe('buildRedwoodImportCSV', () => {
     expect(csv).toContain('"Intake Date"')
     expect(csv).toContain('"68E51E5A5CB1AA425ABC"')
     expect(csv).toContain('"02/28/1975"')
+
+    const [headers, row] = parseCSVRows(csv)
+    expect(row).toHaveLength(headers.length)
+    expect(row[1]).toBe('Avery')
+    expect(row[2]).toBe('J')
+    expect(row[3]).toBe('Example')
   })
 
   it('preserves ISO datetime DOB strings without timezone shifting', () => {

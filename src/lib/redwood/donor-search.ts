@@ -74,7 +74,11 @@ export function parseRedwoodDateKey(value?: string | null): string | null {
     return trimmed.slice(0, 10)
   }
 
-  const normalized = trimmed.replace(/,\s*/g, ' ').replace(/(\d)(AM|PM)/gi, '$1 $2').replace(/\s+/g, ' ').trim()
+  const normalized = trimmed
+    .replace(/,\s*/g, ' ')
+    .replace(/(\d)(AM|PM)/gi, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
   const parsed = new Date(normalized)
   if (Number.isNaN(parsed.getTime())) return null
 
@@ -84,19 +88,19 @@ export function parseRedwoodDateKey(value?: string | null): string | null {
   return `${year}-${month}-${day}`
 }
 
-export function parseRedwoodDonorName(rawName: string):
-  | {
-      firstName: string
-      lastName: string
-      middleInitial?: string
-    }
-  | null {
+export function parseRedwoodDonorName(rawName: string): {
+  firstName: string
+  lastName: string
+  middleInitial?: string
+} | null {
   const cleaned = normalizeRedwoodNameValue(rawName)
   if (!cleaned) return null
 
   if (cleaned.includes(',')) {
     const [lastRaw, firstRaw] = cleaned.split(',', 2)
-    const firstParts = normalizeRedwoodNameValue(firstRaw || '').split(' ').filter(Boolean)
+    const firstParts = normalizeRedwoodNameValue(firstRaw || '')
+      .split(' ')
+      .filter(Boolean)
     if (!lastRaw || firstParts.length === 0) return null
 
     return {
@@ -197,9 +201,7 @@ export function findExactRedwoodUniqueIdCandidate(
   const normalizedUniqueId = uniqueId?.trim().toUpperCase()
   if (!normalizedUniqueId) return null
 
-  return (
-    candidates.find((candidate) => candidate.uniqueId?.trim().toUpperCase() === normalizedUniqueId) || null
-  )
+  return candidates.find((candidate) => candidate.uniqueId?.trim().toUpperCase() === normalizedUniqueId) || null
 }
 
 export function selectBestRedwoodDonorCandidate(
@@ -213,7 +215,9 @@ export function selectBestRedwoodDonorCandidate(
   const clientDobKey = parseRedwoodDateKey(clientDob)
 
   if (clientDobKey) {
-    const dobMatches = candidates.filter((candidate) => candidate.dobKey === clientDobKey).sort((a, b) => b.score - a.score)
+    const dobMatches = candidates
+      .filter((candidate) => candidate.dobKey === clientDobKey)
+      .sort((a, b) => b.score - a.score)
 
     if (dobMatches.length === 0) {
       throw new Error('No DOB-verified Redwood donor match found in the allowed account')
@@ -246,7 +250,10 @@ export function resolveBestRedwoodDonorCandidate(
   candidates: RedwoodDonorCandidate[],
   client: Pick<RedwoodDonorLookupClient, 'dob' | 'redwoodUniqueId'>,
 ): RedwoodDonorCandidate {
-  return findExactRedwoodUniqueIdCandidate(candidates, client.redwoodUniqueId) || selectBestRedwoodDonorCandidate(candidates, client.dob)
+  return (
+    findExactRedwoodUniqueIdCandidate(candidates, client.redwoodUniqueId) ||
+    selectBestRedwoodDonorCandidate(candidates, client.dob)
+  )
 }
 
 async function waitForRedwoodResultsNavigation(page: any): Promise<boolean> {
@@ -310,7 +317,9 @@ export async function submitRedwoodDonorSearch(page: any): Promise<boolean> {
   }
 
   const formSubmitted = await page.evaluate(() => {
-    const input = document.querySelector('#PageContent_DonorSearchParameterForm1_txtLastName') as HTMLInputElement | null
+    const input = document.querySelector(
+      '#PageContent_DonorSearchParameterForm1_txtLastName',
+    ) as HTMLInputElement | null
     const form = input?.form || (document.querySelector('form') as HTMLFormElement | null)
     if (!form) return false
     if (typeof form.requestSubmit === 'function') {
@@ -332,16 +341,17 @@ async function waitForRedwoodPageReady(page: any): Promise<void> {
 
 export async function openRedwoodSearchResultsForLastName(args: {
   accountNumber?: string
+  active?: boolean
   donorSearchUrl: string
   lastName: string
   page: any
 }): Promise<void> {
-  const { accountNumber, donorSearchUrl, lastName, page } = args
+  const { accountNumber, active = true, donorSearchUrl, lastName, page } = args
   const searchResultsUrl = buildRedwoodDonorSearchResultsUrl({
     donorSearchUrl,
     lastName: normalizeRedwoodNameValue(lastName),
     accountNumber,
-    active: true,
+    active,
   })
 
   await page.goto(searchResultsUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
@@ -350,16 +360,17 @@ export async function openRedwoodSearchResultsForLastName(args: {
 
 export async function openRedwoodSearchResultsForUniqueId(args: {
   accountNumber?: string
+  active?: boolean
   donorSearchUrl: string
   page: any
   uniqueId: string
 }): Promise<void> {
-  const { accountNumber, donorSearchUrl, page, uniqueId } = args
+  const { accountNumber, active = true, donorSearchUrl, page, uniqueId } = args
   const searchResultsUrl = buildRedwoodDonorSearchResultsUrl({
     donorSearchUrl,
     uniqueId,
     accountNumber,
-    active: true,
+    active,
   })
 
   await page.goto(searchResultsUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
@@ -473,8 +484,7 @@ export async function readRedwoodDonorEditPhotoState(page: any): Promise<{
     const removeButton = document.getElementById('PageContent_Donor_RemovePhoto') as HTMLInputElement | null
     const photoFlag = document.getElementById('PageContent_Donor_IsDonorPhotExist') as HTMLInputElement | null
     const canRemovePhoto = Boolean(
-      removeButton &&
-        (removeButton.offsetWidth || removeButton.offsetHeight || removeButton.getClientRects().length),
+      removeButton && (removeButton.offsetWidth || removeButton.offsetHeight || removeButton.getClientRects().length),
     )
 
     return {

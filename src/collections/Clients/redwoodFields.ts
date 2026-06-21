@@ -65,6 +65,7 @@ export const redwoodSyncTab: ClientTab = {
         { label: 'Queued', value: 'queued' },
         { label: 'Export Checked', value: 'export-checked' },
         { label: 'Matched Existing', value: 'matched-existing' },
+        { label: 'Reactivated Existing', value: 'reactivated-existing' },
         { label: 'Ready To Submit', value: 'ready-to-submit' },
         { label: 'Synced', value: 'synced' },
         { label: 'Failed', value: 'failed' },
@@ -119,8 +120,7 @@ export const redwoodSyncTab: ClientTab = {
       })),
       admin: {
         readOnly: true,
-        description:
-          'Redwood-backed fields whose latest saved values have not been confirmed back into Redwood yet.',
+        description: 'Redwood-backed fields whose latest saved values have not been confirmed back into Redwood yet.',
       },
     },
     redwoodTimestampField('redwoodClientUpdateLastAttemptAt', 'Timestamp of the most recent Redwood client update attempt.'),
