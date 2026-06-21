@@ -40,12 +40,6 @@ jobs:
           platforms: linux/amd64
           secrets: |
             DATABASE_URI=${{ secrets.DATABASE_URI }}
-            DOCKERHUB_TOKEN=${{ secrets.DOCKERHUB_TOKEN }}
-            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-            EMAIL_HOST=${{ secrets.EMAIL_HOST }}
-            EMAIL_PORT=${{ secrets.EMAIL_PORT }}
-            EMAIL_USER=${{ secrets.EMAIL_USER }}
-            EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }}
             NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
             NEXT_PUBLIC_IS_LIVE=${{ secrets.NEXT_PUBLIC_IS_LIVE }}
             NEXT_PUBLIC_S3_HOSTNAME=${{ secrets.NEXT_PUBLIC_S3_HOSTNAME }}
@@ -62,8 +56,6 @@ jobs:
             S3_REGION=${{ secrets.S3_REGION }}
             S3_SECRET_ACCESS_KEY=${{ secrets.S3_SECRET_ACCESS_KEY }}
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
-            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
-            STRIPE_WEBHOOKS_ENDPOINT_SECRET=${{ secrets.STRIPE_WEBHOOKS_ENDPOINT_SECRET }}
             UNSPLASH_ACCESS_KEY=${{ secrets.UNSPLASH_ACCESS_KEY }}
             UNSPLASH_URL=${{ secrets.UNSPLASH_URL }}
 
@@ -98,12 +90,6 @@ jobs:
           platforms: linux/amd64
           secrets: |
             DATABASE_URI=${{ secrets.DATABASE_URI }}
-            DOCKERHUB_TOKEN=${{ secrets.DOCKERHUB_TOKEN }}
-            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-            EMAIL_HOST=${{ secrets.EMAIL_HOST }}
-            EMAIL_PORT=${{ secrets.EMAIL_PORT }}
-            EMAIL_USER=${{ secrets.EMAIL_USER }}
-            EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }}
             NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
             NEXT_PUBLIC_IS_LIVE=${{ secrets.NEXT_PUBLIC_IS_LIVE }}
             NEXT_PUBLIC_S3_HOSTNAME=${{ secrets.NEXT_PUBLIC_S3_HOSTNAME }}
@@ -114,20 +100,12 @@ jobs:
             PAYLOAD_SECRET=${{ secrets.PAYLOAD_SECRET }}
             PREVIEW_SECRET=${{ secrets.PREVIEW_SECRET }}
             RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
-            EMAIL_HOST=${{ secrets.EMAIL_HOST }}
-            EMAIL_PORT=${{ secrets.EMAIL_PORT }}
-            EMAIL_USER=${{ secrets.EMAIL_USER }}
-            EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }}
             S3_ACCESS_KEY_ID=${{ secrets.S3_ACCESS_KEY_ID }}
             S3_BUCKET=${{ secrets.S3_BUCKET }}
             S3_ENDPOINT=${{ secrets.S3_ENDPOINT }}
             S3_REGION=${{ secrets.S3_REGION }}
             S3_SECRET_ACCESS_KEY=${{ secrets.S3_SECRET_ACCESS_KEY }}
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
-            SOURCE_API_KEY=${{ secrets.SOURCE_API_KEY }}
-            SOURCE_API_URL=${{ secrets.SOURCE_API_URL }}
-            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
-            STRIPE_WEBHOOKS_ENDPOINT_SECRET=${{ secrets.STRIPE_WEBHOOKS_ENDPOINT_SECRET }}
             UNSPLASH_ACCESS_KEY=${{ secrets.UNSPLASH_ACCESS_KEY }}
             UNSPLASH_URL=${{ secrets.UNSPLASH_URL }}
 
@@ -162,12 +140,6 @@ jobs:
           platforms: linux/amd64
           secrets: |
             DATABASE_URI=${{ secrets.DATABASE_URI }}
-            DOCKERHUB_TOKEN=${{ secrets.DOCKERHUB_TOKEN }}
-            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-            EMAIL_HOST=${{ secrets.EMAIL_HOST }}
-            EMAIL_PORT=${{ secrets.EMAIL_PORT }}
-            EMAIL_USER=${{ secrets.EMAIL_USER }}
-            EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }}
             NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
             NEXT_PUBLIC_IS_LIVE=${{ secrets.NEXT_PUBLIC_IS_LIVE }}
             NEXT_PUBLIC_S3_HOSTNAME=${{ secrets.NEXT_PUBLIC_S3_HOSTNAME }}
@@ -184,7 +156,5 @@ jobs:
             S3_REGION=${{ secrets.S3_REGION }}
             S3_SECRET_ACCESS_KEY=${{ secrets.S3_SECRET_ACCESS_KEY }}
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
-            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
-            STRIPE_WEBHOOKS_ENDPOINT_SECRET=${{ secrets.STRIPE_WEBHOOKS_ENDPOINT_SECRET }}
             UNSPLASH_ACCESS_KEY=${{ secrets.UNSPLASH_ACCESS_KEY }}
             UNSPLASH_URL=${{ secrets.UNSPLASH_URL }}

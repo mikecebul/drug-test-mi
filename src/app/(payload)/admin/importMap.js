@@ -57,6 +57,7 @@ import { default as default_fb357f89b63991d343cdc6c077a34fcf } from '@/views/Dru
 import { default as default_466983afdb665bae58ae3399f538723f } from '@/views/DrugTestWizard'
 import { default as default_0ab2e3caf6e5563593df7626032786d9 } from '@/views/dashboard/widgets/NextCalcomBookingWidget'
 import { default as default_b75193020b6c49f2973630173ab80272 } from '@/views/dashboard/widgets/AdminQuickBookWidget'
+import { default as default_e1352a6ffd779399f924b2f75c0cd14b } from '@/views/dashboard/widgets/ActiveJobsWidget'
 import { default as default_190b527a5d0dc60bde6858927bce505d } from '@/views/dashboard/widgets/PendingDrugTestsWidget'
 import { default as default_161f575868c09df6b79abb3fe82eef6a } from '@/views/dashboard/widgets/AdminAlertsWidget'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
@@ -122,6 +123,7 @@ export const importMap = {
   "@/views/DrugTestWizard#default": default_466983afdb665bae58ae3399f538723f,
   "@/views/dashboard/widgets/NextCalcomBookingWidget#default": default_0ab2e3caf6e5563593df7626032786d9,
   "@/views/dashboard/widgets/AdminQuickBookWidget#default": default_b75193020b6c49f2973630173ab80272,
+  "@/views/dashboard/widgets/ActiveJobsWidget#default": default_e1352a6ffd779399f924b2f75c0cd14b,
   "@/views/dashboard/widgets/PendingDrugTestsWidget#default": default_190b527a5d0dc60bde6858927bce505d,
   "@/views/dashboard/widgets/AdminAlertsWidget#default": default_161f575868c09df6b79abb3fe82eef6a,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1

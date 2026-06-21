@@ -4,6 +4,9 @@ import { baseUrl } from '@/utilities/baseUrl'
 import { anyone } from '@/access/anyone'
 import { notifyNewRegistration } from './hooks/notifyNewRegistration'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
+import { ensureRedwoodUniqueId } from './hooks/ensureRedwoodUniqueId'
+import { syncDefaultTestTypeFromReferral } from './hooks/syncDefaultTestTypeFromReferral'
+import { redwoodDefaultTestTypeField, redwoodSyncTab } from './redwoodFields'
 import type { Court, Employer, TestType } from '@/payload-types'
 
 type ReferralRelation = {
@@ -241,7 +244,8 @@ export const Clients: CollectionConfig = {
     },
   },
   hooks: {
-    afterChange: [notifyNewRegistration],
+    beforeChange: [syncDefaultTestTypeFromReferral],
+    afterChange: [notifyNewRegistration, ensureRedwoodUniqueId],
   },
   admin: {
     defaultColumns: ['headshot', 'lastName', 'email', 'referralType', 'moneyOwed'],
@@ -249,7 +253,9 @@ export const Clients: CollectionConfig = {
     listSearchableFields: ['email', 'firstName', 'lastName'],
     components: {
       edit: {
-        beforeDocumentControls: ['@/collections/Clients/components/QuickBookButton'],
+        beforeDocumentControls: [
+          '@/collections/Clients/components/QuickBookButton',
+        ],
       },
     },
   },
@@ -544,6 +550,7 @@ export const Clients: CollectionConfig = {
                 afterRead: [resolveRequiredTestTypeLabel],
               },
             },
+            redwoodDefaultTestTypeField,
             {
               name: 'referralPresetRecipientsAlert',
               type: 'ui',
@@ -801,7 +808,9 @@ export const Clients: CollectionConfig = {
           ],
         },
 
-        // Tab 6: Notes
+        redwoodSyncTab,
+
+        // Tab 7: Notes
         {
           label: 'Notes',
           description: 'Internal notes and comments',

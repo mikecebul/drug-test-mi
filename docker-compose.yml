@@ -19,6 +19,26 @@ services:
   #     - NODE_ENV=production
   #   env_file: .env.docker
 
+  worker-redwood:
+    profiles:
+      - redwood-worker
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    restart: always
+    volumes:
+      - payload-public:/app/public
+    networks:
+      - app-network
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URI=${DOCKER_DATABASE_URI:-mongodb://mongo:27017/cvx-junior-golf}
+    env_file: .env
+
   # Ensure your DATABASE_URI uses 'mongo' as the hostname ie. mongodb://mongo/my-db-name
   mongo:
     image: mongo:latest
@@ -31,7 +51,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
       timeout: 5s
       retries: 5

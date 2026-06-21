@@ -34,10 +34,6 @@ ENV NEXT_OUTPUT=standalone
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 RUN --mount=type=secret,id=DATABASE_URI,env=DATABASE_URI \
-  --mount=type=secret,id=EMAIL_HOST,env=EMAIL_HOST \
-  --mount=type=secret,id=EMAIL_PASSWORD,env=EMAIL_PASSWORD \
-  --mount=type=secret,id=EMAIL_PORT,env=EMAIL_PORT \
-  --mount=type=secret,id=EMAIL_USER,env=EMAIL_USER \
   --mount=type=secret,id=NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,env=NEXT_PUBLIC_GOOGLE_MAPS_API_KEY \
   --mount=type=secret,id=NEXT_PUBLIC_IS_LIVE,env=NEXT_PUBLIC_IS_LIVE \
   --mount=type=secret,id=NEXT_PUBLIC_S3_HOSTNAME,env=NEXT_PUBLIC_S3_HOSTNAME \
@@ -54,8 +50,6 @@ RUN --mount=type=secret,id=DATABASE_URI,env=DATABASE_URI \
   --mount=type=secret,id=S3_REGION,env=S3_REGION \
   --mount=type=secret,id=S3_SECRET_ACCESS_KEY,env=S3_SECRET_ACCESS_KEY \
   --mount=type=secret,id=SENTRY_AUTH_TOKEN,env=SENTRY_AUTH_TOKEN \
-  --mount=type=secret,id=STRIPE_SECRET_KEY,env=STRIPE_SECRET_KEY \
-  --mount=type=secret,id=STRIPE_WEBHOOKS_ENDPOINT_SECRET,env=STRIPE_WEBHOOKS_ENDPOINT_SECRET \
   --mount=type=secret,id=UNSPLASH_ACCESS_KEY,env=UNSPLASH_ACCESS_KEY \
   --mount=type=secret,id=UNSPLASH_URL,env=UNSPLASH_URL \
   if [ -f pnpm-lock.yaml ]; then \
@@ -63,6 +57,41 @@ RUN --mount=type=secret,id=DATABASE_URI,env=DATABASE_URI \
   else \
   echo "Lockfile not found." && exit 1; \
   fi
+
+FROM node:24.15.0-bookworm-slim AS worker-deps
+
+ENV PNPM_VERSION=11.4.0
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+
+COPY package.json pnpm-workspace.yaml yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+RUN \
+  if [ -f pnpm-lock.yaml ]; then pnpm i --frozen-lockfile; \
+  else echo "Lockfile not found." && exit 1; \
+  fi
+
+RUN pnpm exec playwright install --with-deps chromium
+
+# Sentry's Payload admin integration expects this package to be present.
+RUN node -e "require.resolve('require-in-the-middle')"
+
+FROM worker-deps AS worker
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+COPY . .
+
+CMD ["pnpm", "worker:redwood"]
 
 # Production image, copy all the files and run next
 FROM base AS runner
