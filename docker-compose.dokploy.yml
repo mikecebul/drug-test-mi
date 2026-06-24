@@ -1,6 +1,6 @@
 services:
   web:
-    image: ${WEB_IMAGE:-mikecebul/drug-test-mi:branch-test}
+    image: mikecebul/drug-test-mi:branch-test
     pull_policy: always
     restart: always
     ports:
@@ -11,19 +11,17 @@ services:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
-      DATABASE_URI: ${DATABASE_URI}
     networks:
       - dokploy-network
 
   worker-redwood:
-    image: ${WORKER_IMAGE:-mikecebul/drug-test-mi:branch-test-worker}
+    image: mikecebul/drug-test-mi:branch-test-worker
     pull_policy: always
     restart: always
     env_file:
       - .env
     environment:
       NODE_ENV: production
-      DATABASE_URI: ${DATABASE_URI}
     networks:
       - dokploy-network
 
