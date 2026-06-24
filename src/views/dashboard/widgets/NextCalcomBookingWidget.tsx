@@ -28,6 +28,7 @@ function formatGender(value?: string | null) {
   if (value === 'male') return 'Male'
   if (value === 'female') return 'Female'
   if (value === 'other') return 'Other'
+  if (value === 'prefer-not-to-say') return 'Prefer not to say'
   return 'Unknown'
 }
 

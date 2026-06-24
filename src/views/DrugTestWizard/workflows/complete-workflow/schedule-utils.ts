@@ -23,8 +23,10 @@ export function getGuidedPaymentChoice(
   const amountDue = typeof payment.amountDue === 'number' ? payment.amountDue : 0
   const amountPaid = typeof payment.amountPaid === 'number' ? payment.amountPaid : 0
 
+  if (payment.method === 'pre-paid' && (payment.status === 'paid' || amountDue === 0 || amountPaid >= amountDue)) {
+    return 'pre-paid'
+  }
   if (amountDue > 0 && amountPaid >= amountDue) return 'paid'
-  if (payment.method === 'pre-paid') return 'pre-paid'
   if (payment.status === 'partial') return 'still-owes'
   if (payment.status === 'unpaid') return 'still-owes'
   if (payment.status === 'paid') return 'paid'
