@@ -87,6 +87,12 @@ function formatGender(value?: string | null) {
   return 'Unknown'
 }
 
+function getGenderBadgeClass(value?: string | null) {
+  if (value === 'male') return 'border-blue-400/50 bg-blue-500/20 text-blue-100'
+  if (value === 'female') return 'border-pink-400/50 bg-pink-500/20 text-pink-100'
+  return 'border-border bg-muted text-muted-foreground'
+}
+
 function formatDateOnly(value?: string | null) {
   if (!value) return 'Unknown'
   return new Intl.DateTimeFormat('en-US', {
@@ -136,6 +142,32 @@ function getPersistedPayment(input: ReturnType<typeof getPaymentDefaults>): {
     status: 'paid',
     method: input.method === 'pre-paid' ? 'pre-paid' : input.method === 'card' ? 'card' : 'cash',
     amountPaid: input.amountDue,
+  }
+}
+
+function getPaymentCardCopy(payment: ReturnType<typeof getPaymentDefaults>) {
+  const balanceDue = Math.max(0, payment.amountDue - payment.amountPaid)
+
+  if (payment.choice === 'paid') {
+    return {
+      title: 'Payment Confirmed',
+      description: payment.method === 'pre-paid' ? 'Pre-paid through the booking.' : 'No balance due today.',
+    }
+  }
+
+  if (payment.choice === 'still-owes') {
+    return {
+      title: 'Payment Required',
+      description:
+        balanceDue > 0
+          ? `${currency.format(balanceDue)} balance due today`
+          : `${currency.format(payment.amountDue)} due today`,
+    }
+  }
+
+  return {
+    title: 'Payment Required',
+    description: `${currency.format(payment.amountDue)} due today`,
   }
 }
 
@@ -488,7 +520,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       Boolean(booking.bookingTestType && booking.testType) && booking.bookingTestType?.value !== booking.testType?.value
     const hasBalanceDifference = payment.amountPaid > 0 && payment.amountPaid < payment.amountDue
     const reviewRows = [
-      { label: 'Appointment', value: `${formatTime(booking.startTime)} · ${formatGender(booking.client?.gender)}` },
+      { label: 'Appointment', value: formatTime(booking.startTime) },
       {
         label: 'Amount',
         value: amountDisplay.amount,
@@ -510,9 +542,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     return (
       <Card className={cn('rounded-lg', (hasUnknownPrepaidTest || hasTestMismatch) && 'border-amber-300')}>
         <CardHeader>
-          <div className="min-w-0">
-            <p className="text-2xl font-semibold">{booking.attendeeName}</p>
-            <p className="text-muted-foreground text-base">{getBookingContactEmail(booking)}</p>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold">{booking.attendeeName}</p>
+              <p className="text-muted-foreground text-base">{getBookingContactEmail(booking)}</p>
+            </div>
+            <Badge variant="outline" className={cn('mt-1 shrink-0', getGenderBadgeClass(booking.client?.gender))}>
+              {formatGender(booking.client?.gender)}
+            </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -596,22 +633,29 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   className="border-border bg-card hover:bg-muted/50 focus-visible:ring-ring grid w-full grid-cols-[1fr_auto] gap-4 rounded-lg border p-5 text-left transition focus-visible:ring-2 focus-visible:outline-none"
                 >
                   <span className="min-w-0 space-y-1">
-                    <span className="block text-xl font-semibold">{booking.attendeeName}</span>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="block text-xl font-semibold">{booking.attendeeName}</span>
+                      <Badge variant="outline" className={cn('shrink-0', getGenderBadgeClass(booking.client?.gender))}>
+                        {formatGender(booking.client?.gender)}
+                      </Badge>
+                    </span>
                     <span className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-base">
                       <span className="inline-flex items-center gap-1">
                         <Clock className="size-4" />
                         {formatTime(booking.startTime)}
                       </span>
-                      <span>{formatGender(booking.client?.gender)}</span>
                     </span>
                   </span>
                   <span className="flex flex-col items-end gap-2">
                     <Badge
-                      variant={paymentLabel === 'Unpaid' || paymentLabel === 'Still owes' ? 'outline' : 'default'}
-                      className={cn(
-                        paymentLabel === 'Still owes' && 'border-destructive text-destructive',
-                        paymentLabel === 'Collected' && 'bg-primary text-primary-foreground',
-                      )}
+                      variant={
+                        paymentLabel === 'Paid' || paymentLabel === 'Pre-paid' || paymentLabel === 'Collected'
+                          ? 'success'
+                          : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
+                            ? 'outline'
+                            : 'default'
+                      }
+                      className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
                     >
                       {paymentLabel}
                     </Badge>
@@ -763,6 +807,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     if (isLoading) return renderLoading('Payment')
     if (selectedBooking?.needsRegistration || selectedBooking?.needsTestType) return renderRegistration()
     if (!selectedBooking || !selectedBooking.testType) return renderMissingBooking('Payment')
+    const paymentCardCopy = getPaymentCardCopy(payment)
 
     return (
       <div className="space-y-6">
@@ -773,9 +818,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-3 text-2xl">
               <CreditCard className="size-6" />
-              Payment Required
+              {paymentCardCopy.title}
             </CardTitle>
-            <CardDescription className="text-lg">{currency.format(payment.amountDue)} due today</CardDescription>
+            <CardDescription className="text-lg">{paymentCardCopy.description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-3">

@@ -60,7 +60,15 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(paidLinked).toBeVisible()
     await expect(paidLinked).toContainText(formatScheduleTime(scheduleFixtures.bookings.paidLinked.startTime))
     await expect(paidLinked).toContainText('Male')
+    await expect(paidLinked.getByText('Male')).toHaveClass(/bg-blue-500/)
+    await expect(
+      paidLinked.locator('span').filter({ hasText: scheduleFixtures.bookings.paidLinked.attendeeName }).first(),
+    ).toContainText('Male')
+    await expect(paidLinked.getByText(`${formatScheduleTime(scheduleFixtures.bookings.paidLinked.startTime)} Male`)).toHaveCount(
+      0,
+    )
     await expect(paidLinked).toContainText('Pre-paid')
+    await expect(paidLinked.getByText('Pre-paid')).toHaveClass(/bg-success/)
 
     const unlinked = scheduleCard(page, scheduleFixtures.bookings.unlinked.attendeeName)
     await expect(unlinked).toBeVisible()
@@ -96,8 +104,15 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByRole('heading', { name: "Today's Schedule" })).toBeVisible()
 
     await scheduleCard(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
-    await expect(page.getByText('Appointment Review')).toBeVisible()
-    await expect(page.getByText('Payment Required')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review and Payment' })).toBeVisible()
+    await expect(page.getByText(scheduleFixtures.bookings.paidLinked.attendeeName)).toBeVisible()
+    await expect(page.getByText('Male')).toHaveClass(/bg-blue-500/)
+    await expect(page.getByText(`${formatScheduleTime(scheduleFixtures.bookings.paidLinked.startTime)} · Male`)).toHaveCount(
+      0,
+    )
+    await expect(page.getByText('Payment Confirmed')).toBeVisible()
+    await expect(page.getByText('Pre-paid through the booking.')).toBeVisible()
+    await expect(page.getByText('$35 due today')).toHaveCount(0)
     await expect(page.getByText(fixtures.clients.collectLab.email)).toBeVisible()
     await expect(page.getByText('2485550199@sms.cal.com')).toHaveCount(0)
     await expect(page.getByRole('radio', { name: /^Paid/i })).toBeChecked()
