@@ -5,6 +5,7 @@ import config from '@payload-config'
 import type { Client, Court, Employer, TestType } from '@/payload-types'
 import { getAppTimezoneDayWindow } from '@/lib/date-utils'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
+import { getRecipients } from '@/collections/DrugTests/email/recipients'
 
 type TestTypeValue = '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-instant' | '17-panel-sos-lab' | 'etg-lab'
 
@@ -107,7 +108,7 @@ function mapTestType(testType: TestType | null | undefined) {
   }
 }
 
-async function getBookingTestType(
+async function getEffectiveBookingTestType(
   payload: Payload,
   bookingTestType: string | TestType | null | undefined,
   referral: PopulatedReferral | null | undefined,
@@ -198,7 +199,9 @@ export async function getTodaysCollectionBookings() {
     result.docs.map(async (booking) => {
       const client = typeof booking.relatedClient === 'object' ? (booking.relatedClient as PopulatedClient) : null
       const referral = await resolveReferral(payload, client)
-      const testType = await getBookingTestType(payload, booking.scheduledTestType, referral)
+      const bookingTestType = mapTestType(await resolveTestType(payload, booking.scheduledTestType))
+      const referralTestType = await getPreferredTestType(payload, referral)
+      const testType = bookingTestType ?? referralTestType
       const referralType = client?.referralType as 'court' | 'employer' | 'self' | undefined
       const firstDrugTestDate = await getFirstDrugTestDate(payload, client?.id as string | undefined)
 
@@ -231,7 +234,15 @@ export async function getTodaysCollectionBookings() {
               name: referral.name as string,
               type: client?.referral?.relationTo === 'courts' ? 'Court' : 'Employer',
             }
-          : null,
+          : referralType === 'self'
+            ? {
+                id: client?.id as string,
+                name: 'Self',
+                type: 'Self',
+              }
+            : null,
+        referralTestType,
+        bookingTestType,
         testType,
         payment: booking.payment || null,
         sampleCollection: booking.sampleCollection || null,
@@ -260,6 +271,36 @@ export async function getActiveCollectionTestTypes() {
   return result.docs
     .map((testType) => mapTestType(testType))
     .filter((testType): testType is NonNullable<ReturnType<typeof mapTestType>> => Boolean(testType))
+}
+
+export async function getClientReferralProfile(clientId: string) {
+  if (!clientId) return null
+
+  const payload = await getPayload({ config })
+  const client = await payload.findByID({
+    collection: 'clients',
+    id: clientId,
+    depth: 0,
+    overrideAccess: true,
+  })
+
+  if (!client) return null
+
+  const recipients = await getRecipients(clientId, payload)
+  const referralType =
+    client.referralType === 'court' || client.referralType === 'employer' || client.referralType === 'self'
+      ? client.referralType
+      : 'self'
+
+  return {
+    referralType,
+    referralTitle: recipients.referralTitle || (referralType === 'self' ? 'Self' : ''),
+    referralEmails: recipients.referralEmails,
+    referralPresetId: recipients.referralPresetId,
+    hasExplicitReferralRecipients: recipients.hasExplicitReferralRecipients,
+    referralRecipientsDetailed: recipients.referralRecipientsDetailed,
+    clientAdditionalRecipientsDetailed: recipients.clientAdditionalRecipientsDetailed,
+  }
 }
 
 export async function getBookingRegistrationDefaults(bookingId: string) {
@@ -300,11 +341,40 @@ export async function setBookingScheduledTestType(bookingId: string, testTypeId:
   }
 
   const payload = await getPayload({ config })
+  const [booking, testType] = await Promise.all([
+    payload.findByID({
+      collection: 'bookings',
+      id: bookingId,
+      depth: 0,
+      overrideAccess: true,
+    }),
+    payload.findByID({
+      collection: 'test-types',
+      id: testTypeId,
+      depth: 0,
+      overrideAccess: true,
+    }),
+  ])
+  const mappedTestType = mapTestType(testType)
+  const existingPayment = booking.payment
+  const amountDue = mappedTestType?.price ?? existingPayment?.amountDue
+  const amountPaid = existingPayment?.amountPaid ?? 0
+  const paymentStatus: PaymentStatus = amountPaid >= (amountDue ?? 0) ? 'paid' : amountPaid > 0 ? 'partial' : 'unpaid'
+  const payment =
+    existingPayment && typeof amountDue === 'number'
+      ? {
+          ...existingPayment,
+          amountDue,
+          status: paymentStatus,
+        }
+      : existingPayment || undefined
+
   await payload.update({
     collection: 'bookings',
     id: bookingId,
     data: {
       scheduledTestType: testTypeId,
+      ...(payment ? { payment } : {}),
     },
     overrideAccess: true,
   })
@@ -373,7 +443,7 @@ export async function refreshBookingClientContext(bookingId: string) {
 
   const client = typeof booking.relatedClient === 'object' ? (booking.relatedClient as PopulatedClient) : null
   const referral = await resolveReferral(payload, client)
-  const testType = await getBookingTestType(payload, booking.scheduledTestType, referral)
+  const testType = await getEffectiveBookingTestType(payload, booking.scheduledTestType, referral)
 
   return {
     clientId: getRelationshipId(booking.relatedClient),
