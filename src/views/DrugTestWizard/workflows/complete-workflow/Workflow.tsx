@@ -35,7 +35,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Textarea } from '@/components/ui/textarea'
 import { APP_TIMEZONE } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
 import { ClientSearchDialog } from '../components/client/ClientSearchDialog'
@@ -58,7 +57,7 @@ type TestType = NonNullable<Booking['testType']>
 type PaymentMethod = 'cash' | 'card' | 'not-paid' | 'pre-paid'
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type WorkflowStep = 'schedule' | 'registration' | 'payment' | 'toxaccess'
-type PaymentChoice = 'paid' | 'pre-paid' | 'still-owes'
+type PaymentChoice = 'paid' | 'still-owes'
 
 const workflowSteps = ['schedule', 'registration', 'payment', 'toxaccess'] as const
 
@@ -84,7 +83,14 @@ function formatGender(value?: string | null) {
   if (value === 'male') return 'Male'
   if (value === 'female') return 'Female'
   if (value === 'other') return 'Other'
+  if (value === 'prefer-not-to-say') return 'Prefer not to say'
   return 'Unknown'
+}
+
+function getGenderBadgeClass(value?: string | null) {
+  if (value === 'male') return 'border-blue-400/50 bg-blue-500/20 text-blue-100'
+  if (value === 'female') return 'border-pink-400/50 bg-pink-500/20 text-pink-100'
+  return 'border-border bg-muted text-muted-foreground'
 }
 
 function formatDateOnly(value?: string | null) {
@@ -97,7 +103,10 @@ function formatDateOnly(value?: string | null) {
 }
 
 function getPaymentChoice(payment: Booking['payment'] | undefined): PaymentChoice | null {
-  return getGuidedPaymentChoice(payment)
+  const choice = getGuidedPaymentChoice(payment)
+  if (choice === 'still-owes') return 'still-owes'
+  if (choice === 'paid' || choice === 'pre-paid') return 'paid'
+  return null
 }
 
 function getPaymentDefaults(booking: Booking | null) {
@@ -105,18 +114,14 @@ function getPaymentDefaults(booking: Booking | null) {
   const existing = booking?.payment
   const existingAmountPaid = typeof existing?.amountPaid === 'number' ? existing.amountPaid : 0
   const choice =
-    existing?.status && amountDue > 0 && existingAmountPaid < amountDue
-      ? 'still-owes'
-      : existing?.method === 'pre-paid' && existingAmountPaid >= amountDue
-        ? 'pre-paid'
-        : getPaymentChoice(existing)
-  const defaultAmountPaid = choice === 'paid' || choice === 'pre-paid' ? amountDue : 0
+    existing?.status && amountDue > 0 && existingAmountPaid < amountDue ? 'still-owes' : getPaymentChoice(existing)
+  const defaultAmountPaid = choice === 'paid' ? amountDue : 0
 
   return {
     amountDue,
     amountPaid: typeof existing?.amountPaid === 'number' ? existing.amountPaid : defaultAmountPaid,
     choice,
-    notes: typeof existing?.notes === 'string' ? existing.notes : '',
+    method: existing?.method ?? null,
   }
 }
 
@@ -125,14 +130,6 @@ function getPersistedPayment(input: ReturnType<typeof getPaymentDefaults>): {
   method: PaymentMethod
   amountPaid: number
 } {
-  if (input.choice === 'pre-paid') {
-    return {
-      status: 'paid',
-      method: 'pre-paid',
-      amountPaid: input.amountDue,
-    }
-  }
-
   if (input.choice === 'still-owes') {
     return {
       status: 'partial',
@@ -143,13 +140,43 @@ function getPersistedPayment(input: ReturnType<typeof getPaymentDefaults>): {
 
   return {
     status: 'paid',
-    method: 'cash',
+    method: input.method === 'pre-paid' ? 'pre-paid' : input.method === 'card' ? 'card' : 'cash',
     amountPaid: input.amountDue,
+  }
+}
+
+function getPaymentCardCopy(payment: ReturnType<typeof getPaymentDefaults>) {
+  const balanceDue = Math.max(0, payment.amountDue - payment.amountPaid)
+
+  if (payment.choice === 'paid') {
+    return {
+      title: 'Payment Confirmed',
+      description: payment.method === 'pre-paid' ? 'Pre-paid through the booking.' : 'No balance due today.',
+    }
+  }
+
+  if (payment.choice === 'still-owes') {
+    return {
+      title: 'Payment Required',
+      description:
+        balanceDue > 0
+          ? `${currency.format(balanceDue)} balance due today`
+          : `${currency.format(payment.amountDue)} due today`,
+    }
+  }
+
+  return {
+    title: 'Payment Required',
+    description: `${currency.format(payment.amountDue)} due today`,
   }
 }
 
 function getPaymentLabel(booking: Booking) {
   return getGuidedPaymentLabel(booking)
+}
+
+function getBookingContactEmail(booking: Booking) {
+  return booking.client?.email || booking.attendeeEmail
 }
 
 function getAmountDisplay(booking: Booking) {
@@ -370,7 +397,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         amountPaid: persistedPayment.amountPaid,
         method: persistedPayment.method,
         status: persistedPayment.status,
-        notes: payment.notes,
       })
 
       if (!result.success) {
@@ -440,7 +466,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-2xl font-semibold">{booking.attendeeName}</p>
-              <p className="text-muted-foreground text-base">{booking.attendeeEmail}</p>
+              <p className="text-muted-foreground text-base">{getBookingContactEmail(booking)}</p>
             </div>
             <Badge variant={booking.needsRegistration || booking.needsTestType ? 'secondary' : 'outline'}>
               {booking.sampleCollection?.status === 'collected'
@@ -478,7 +504,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     )
   }
 
-  const renderVerificationPanel = (booking: Booking) => {
+  const renderPaymentReview = (booking: Booking) => {
+    const amountDisplay = getAmountDisplay(booking)
     const prepaidTestLabel = booking.bookingTestType?.label ?? 'Unknown'
     const referralTestLabel = booking.referralTestType?.label ?? 'Not set'
     const todayTestLabel = booking.testType?.label ?? 'Not set'
@@ -489,18 +516,41 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     const hasTestMismatch =
       Boolean(booking.bookingTestType && booking.referralTestType) &&
       booking.bookingTestType?.value !== booking.referralTestType?.value
+    const hasTodayTestDifference =
+      Boolean(booking.bookingTestType && booking.testType) && booking.bookingTestType?.value !== booking.testType?.value
     const hasBalanceDifference = payment.amountPaid > 0 && payment.amountPaid < payment.amountDue
+    const reviewRows = [
+      { label: 'Appointment', value: formatTime(booking.startTime) },
+      {
+        label: 'Amount',
+        value: amountDisplay.amount,
+        badge: amountDisplay.badge,
+        badgeVariant: amountDisplay.badgeVariant,
+      },
+      { label: 'Referral', value: referralLabel, subValue: `Default test: ${referralTestLabel}` },
+      { label: 'Booking test', value: prepaidTestLabel },
+      ...(hasTodayTestDifference
+        ? [
+            {
+              label: "Today's test",
+              value: todayTestLabel,
+            },
+          ]
+        : []),
+    ]
 
     return (
       <Card className={cn('rounded-lg', (hasUnknownPrepaidTest || hasTestMismatch) && 'border-amber-300')}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-3 text-2xl">
-            <UserCheck className="size-6" />
-            Verify Referral and Test
-          </CardTitle>
-          <CardDescription className="text-base">
-            Confirm these details with the client before recording payment.
-          </CardDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold">{booking.attendeeName}</p>
+              <p className="text-muted-foreground text-base">{getBookingContactEmail(booking)}</p>
+            </div>
+            <Badge variant="outline" className={cn('mt-1 shrink-0', getGenderBadgeClass(booking.client?.gender))}>
+              {formatGender(booking.client?.gender)}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent className="space-y-5">
           {(hasUnknownPrepaidTest || hasTestMismatch || hasBalanceDifference) && (
@@ -516,22 +566,18 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             </div>
           )}
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[
-              { label: 'Current Referral', value: referralLabel },
-              { label: 'Referral Test', value: referralTestLabel },
-              { label: 'Booking / Prepaid Test', value: prepaidTestLabel },
-              {
-                label: "Today's Test",
-                value: todayTestLabel,
-                badge: booking.bookingTestType ? 'Appointment' : 'Referral default',
-              },
-            ].map((item) => (
-              <div key={item.label} className="border-border bg-background rounded-lg border p-4">
+          <div className="border-border bg-background/40 divide-border divide-y overflow-hidden rounded-lg border">
+            {reviewRows.map((item) => (
+              <div key={item.label} className="grid gap-1 px-4 py-3 sm:grid-cols-[11rem_1fr_auto] sm:items-center">
                 <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">{item.label}</p>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <p className="text-lg font-semibold">{item.value}</p>
-                  {item.badge && <Badge variant="secondary">{item.badge}</Badge>}
+                <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+                  <div className="min-w-0">
+                    <p className="text-lg font-semibold">{item.value}</p>
+                    {'subValue' in item && item.subValue && (
+                      <p className="text-muted-foreground text-sm">{item.subValue}</p>
+                    )}
+                  </div>
+                  {item.badge && <Badge variant={item.badgeVariant}>{item.badge}</Badge>}
                 </div>
               </div>
             ))}
@@ -587,22 +633,29 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   className="border-border bg-card hover:bg-muted/50 focus-visible:ring-ring grid w-full grid-cols-[1fr_auto] gap-4 rounded-lg border p-5 text-left transition focus-visible:ring-2 focus-visible:outline-none"
                 >
                   <span className="min-w-0 space-y-1">
-                    <span className="block text-xl font-semibold">{booking.attendeeName}</span>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="block text-xl font-semibold">{booking.attendeeName}</span>
+                      <Badge variant="outline" className={cn('shrink-0', getGenderBadgeClass(booking.client?.gender))}>
+                        {formatGender(booking.client?.gender)}
+                      </Badge>
+                    </span>
                     <span className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-base">
                       <span className="inline-flex items-center gap-1">
                         <Clock className="size-4" />
                         {formatTime(booking.startTime)}
                       </span>
-                      <span>{formatGender(booking.client?.gender)}</span>
                     </span>
                   </span>
                   <span className="flex flex-col items-end gap-2">
                     <Badge
-                      variant={paymentLabel === 'Unpaid' || paymentLabel === 'Still owes' ? 'outline' : 'default'}
-                      className={cn(
-                        paymentLabel === 'Still owes' && 'border-destructive text-destructive',
-                        paymentLabel === 'Collected' && 'bg-primary text-primary-foreground',
-                      )}
+                      variant={
+                        paymentLabel === 'Paid' || paymentLabel === 'Pre-paid' || paymentLabel === 'Collected'
+                          ? 'success'
+                          : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
+                            ? 'outline'
+                            : 'default'
+                      }
+                      className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
                     >
                       {paymentLabel}
                     </Badge>
@@ -754,22 +807,20 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     if (isLoading) return renderLoading('Payment')
     if (selectedBooking?.needsRegistration || selectedBooking?.needsTestType) return renderRegistration()
     if (!selectedBooking || !selectedBooking.testType) return renderMissingBooking('Payment')
+    const paymentCardCopy = getPaymentCardCopy(payment)
 
     return (
       <div className="space-y-6">
-        {renderHeader('Payment')}
-        {renderSelectedSummary(selectedBooking)}
-        {renderVerificationPanel(selectedBooking)}
+        {renderHeader('Review & Payment', 'Review and Payment')}
+        {renderPaymentReview(selectedBooking)}
 
         <Card className="rounded-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-3 text-2xl">
               <CreditCard className="size-6" />
-              Payment Required
+              {paymentCardCopy.title}
             </CardTitle>
-            <CardDescription className="text-lg">
-              {selectedBooking.testType.label} · {currency.format(payment.amountDue)} due
-            </CardDescription>
+            <CardDescription className="text-lg">{paymentCardCopy.description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-3">
@@ -792,8 +843,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 className="gap-3"
               >
                 {[
-                  { value: 'paid', label: 'Paid', description: 'Payment collected now.' },
-                  { value: 'pre-paid', label: 'Pre-paid', description: 'Already paid through the booking.' },
+                  {
+                    value: 'paid',
+                    label: 'Paid',
+                    description:
+                      payment.method === 'pre-paid'
+                        ? 'Already paid through the booking.'
+                        : 'Payment collected now or already covered by the booking.',
+                  },
                   { value: 'still-owes', label: 'Still owes', description: 'Partial payment or balance remains.' },
                 ].map((option) => (
                   <Label
@@ -850,21 +907,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 </div>
               </div>
             )}
-
-            <div className="space-y-2">
-              <Label htmlFor="payment-notes">Payment notes</Label>
-              <Textarea
-                id="payment-notes"
-                value={payment.notes}
-                onChange={(event) =>
-                  setPaymentDraft((current) => ({
-                    ...(current ?? payment),
-                    notes: event.target.value,
-                  }))
-                }
-                placeholder="Optional note about payment or balance"
-              />
-            </div>
           </CardContent>
         </Card>
       </div>

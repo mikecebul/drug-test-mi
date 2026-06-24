@@ -408,6 +408,20 @@ export async function recordBookingPayment(input: {
   }
 
   const payload = await getPayload({ config })
+  const existingBooking = await payload.findByID({
+    collection: 'bookings',
+    id: input.bookingId,
+    depth: 0,
+    overrideAccess: true,
+  })
+  const existingPayment = existingBooking.payment
+  const notes =
+    typeof input.notes === 'string'
+      ? input.notes.trim() || null
+      : typeof existingPayment?.notes === 'string'
+        ? existingPayment.notes
+        : null
+
   const booking = await payload.update({
     collection: 'bookings',
     id: input.bookingId,
@@ -417,7 +431,7 @@ export async function recordBookingPayment(input: {
         amountPaid: input.amountPaid,
         method: input.method,
         status: input.status,
-        notes: input.notes || null,
+        notes,
         collectedAt: new Date().toISOString(),
       },
     },

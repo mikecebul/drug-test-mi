@@ -28,7 +28,14 @@ function formatGender(value?: string | null) {
   if (value === 'male') return 'Male'
   if (value === 'female') return 'Female'
   if (value === 'other') return 'Other'
+  if (value === 'prefer-not-to-say') return 'Prefer not to say'
   return 'Unknown'
+}
+
+function getGenderBadgeClass(value?: string | null) {
+  if (value === 'male') return 'border-blue-400/50 bg-blue-500/20 text-blue-100'
+  if (value === 'female') return 'border-pink-400/50 bg-pink-500/20 text-pink-100'
+  return 'border-border bg-muted text-muted-foreground'
 }
 
 function ScheduleRow({ booking }: { booking: Booking }) {
@@ -51,18 +58,25 @@ function ScheduleRow({ booking }: { booking: Booking }) {
           {formatTime(booking.startTime)}
         </span>
         <span className="min-w-0 space-y-2">
-          <span className="block truncate text-base font-semibold">{booking.attendeeName}</span>
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="block truncate text-base font-semibold">{booking.attendeeName}</span>
+            <Badge variant="outline" className={cn('shrink-0', getGenderBadgeClass(booking.client?.gender))}>
+              {formatGender(booking.client?.gender)}
+            </Badge>
+          </span>
           <span className="flex flex-wrap items-center gap-2">
             <Badge
-              variant={paymentLabel === 'Unpaid' || paymentLabel === 'Still owes' ? 'outline' : 'default'}
-              className={cn(
-                paymentLabel === 'Still owes' && 'border-destructive text-destructive',
-                paymentLabel === 'Collected' && 'bg-primary text-primary-foreground',
-              )}
+              variant={
+                paymentLabel === 'Paid' || paymentLabel === 'Pre-paid' || paymentLabel === 'Collected'
+                  ? 'success'
+                  : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
+                    ? 'outline'
+                    : 'default'
+              }
+              className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
             >
               {paymentLabel}
             </Badge>
-            <Badge variant="secondary">{formatGender(booking.client?.gender)}</Badge>
             {needsRegistration && <Badge variant="secondary">Register</Badge>}
             {needsTestType && <Badge variant="secondary">Set test</Badge>}
           </span>

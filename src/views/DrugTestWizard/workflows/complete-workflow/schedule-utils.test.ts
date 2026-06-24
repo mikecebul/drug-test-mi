@@ -37,6 +37,23 @@ describe('guided schedule payment helpers', () => {
     expect(getGuidedPaymentLabel(booking)).toBe('Paid')
   })
 
+  test('labels paid Cal.com bookings as pre-paid when the payment method records that source', () => {
+    const booking = {
+      id: 'booking-1',
+      needsRegistration: false,
+      needsTestType: false,
+      payment: {
+        status: 'paid',
+        method: 'pre-paid',
+        amountDue: 35,
+        amountPaid: 35,
+      },
+    }
+
+    expect(getGuidedPaymentChoice(booking.payment)).toBe('pre-paid')
+    expect(getGuidedPaymentLabel(booking)).toBe('Pre-paid')
+  })
+
   test('keeps bookings without payment data labeled unpaid', () => {
     expect(
       getGuidedPaymentLabel({

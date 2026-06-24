@@ -43,11 +43,43 @@ type FixtureContext = {
   }
   created: {
     adminIds: string[]
+    adminAlertIds?: string[]
+    bookingIds?: string[]
     employerIds: string[]
     courtIds: string[]
     clientIds: string[]
     drugTestIds: string[]
     privateMediaIds: string[]
+  }
+}
+
+type GuidedScheduleFixtures = {
+  bookings: {
+    paidLinked: {
+      id: string
+      attendeeName: string
+      startTime: string
+    }
+    unlinked: {
+      id: string
+      attendeeName: string
+      startTime: string
+    }
+    needsTestType: {
+      id: string
+      attendeeName: string
+      startTime: string
+    }
+    outsideToday: {
+      id: string
+      attendeeName: string
+      startTime: string
+    }
+    cancelledToday: {
+      id: string
+      attendeeName: string
+      startTime: string
+    }
   }
 }
 
@@ -199,12 +231,15 @@ async function createReferralFixtures(payload: any, runId: string) {
   }
 }
 
-async function createClient(payload: any, args: {
-  runId: string
-  fullName: string
-  emailPrefix: string
-  referralEmails: string[]
-}): Promise<SeededPerson> {
+async function createClient(
+  payload: any,
+  args: {
+    runId: string
+    fullName: string
+    emailPrefix: string
+    referralEmails: string[]
+  },
+): Promise<SeededPerson> {
   const parsed = parseFullName(args.fullName)
   const email = `${args.emailPrefix}.${args.runId}@example.com`
 
@@ -301,6 +336,8 @@ async function seedFixtures(): Promise<FixtureContext> {
 
   const created: FixtureContext['created'] = {
     adminIds: [],
+    adminAlertIds: [],
+    bookingIds: [],
     employerIds: [],
     courtIds: [],
     clientIds: [],
@@ -373,6 +410,224 @@ async function seedFixtures(): Promise<FixtureContext> {
   }
 }
 
+async function findOrCreateTestType(
+  payload: any,
+  args: {
+    value: string
+    label: string
+    category: 'instant' | 'lab'
+    price: number
+    toxAccessCode?: string
+  },
+) {
+  const result = await payload.find({
+    collection: 'test-types',
+    where: {
+      value: {
+        equals: args.value,
+      },
+    },
+    limit: 1,
+    depth: 0,
+    overrideAccess: true,
+  })
+
+  if (result.docs[0]) {
+    return result.docs[0]
+  }
+
+  return payload.create({
+    collection: 'test-types',
+    data: {
+      label: args.label,
+      value: args.value,
+      category: args.category,
+      price: args.price,
+      toxAccessCode: args.toxAccessCode,
+      isActive: true,
+    },
+    overrideAccess: true,
+  })
+}
+
+async function findAdminAlertIdsByTitle(payload: any, title: string): Promise<string[]> {
+  const result = await payload.find({
+    collection: 'admin-alerts',
+    where: {
+      title: {
+        equals: title,
+      },
+    },
+    limit: 20,
+    depth: 0,
+    overrideAccess: true,
+  })
+
+  return result.docs.map((doc: { id: string }) => doc.id)
+}
+
+async function seedGuidedScheduleFixtures(ctx: FixtureContext): Promise<GuidedScheduleFixtures> {
+  const payload = await getPayloadClient()
+  const { getAppTimezoneDayWindow } = await import('../../../src/lib/date-utils')
+  const todayWindow = getAppTimezoneDayWindow()
+  const minute = 60 * 1000
+  const hour = 60 * minute
+
+  const atTodayHour = (hourOfDay: number) => new Date(todayWindow.start.getTime() + hourOfDay * hour)
+  const buildEnd = (start: Date) => new Date(start.getTime() + 15 * minute)
+
+  const instantTestType = await findOrCreateTestType(payload, {
+    value: '17-panel-instant',
+    label: '17-Panel Instant',
+    category: 'instant',
+    price: 35,
+  })
+  const labTestType = await findOrCreateTestType(payload, {
+    value: '11-panel-lab',
+    label: '11-Panel Lab',
+    category: 'lab',
+    price: 40,
+    toxAccessCode: 'B729',
+  })
+
+  const createBooking = async (args: {
+    attendeeName: string
+    attendeeEmail: string
+    startTime: Date
+    status?: 'confirmed' | 'cancelled' | 'pending'
+    relatedClient?: string
+    scheduledTestType?: string
+    payment?: {
+      amountDue?: number
+      amountPaid?: number
+      method?: 'cash' | 'card' | 'not-paid' | 'pre-paid'
+      status?: 'paid' | 'partial' | 'unpaid'
+    }
+    sampleCollection?: {
+      status?: 'pending' | 'collected'
+    }
+  }) => {
+    return payload.create({
+      collection: 'bookings',
+      data: {
+        title: `E2E Guided Schedule ${ctx.runId}`,
+        type: 'e2e-guided-schedule',
+        startTime: args.startTime.toISOString(),
+        endTime: buildEnd(args.startTime).toISOString(),
+        status: args.status || 'confirmed',
+        organizer: {
+          name: 'E2E Scheduler',
+          email: `scheduler.${ctx.runId}@example.com`,
+          timeZone: 'America/New_York',
+        },
+        attendeeName: args.attendeeName,
+        attendeeEmail: args.attendeeEmail,
+        relatedClient: args.relatedClient,
+        scheduledTestType: args.scheduledTestType,
+        payment: args.payment,
+        sampleCollection: args.sampleCollection || { status: 'pending' },
+        calcomBookingId: `e2e-${ctx.runId}-${randomUUID()}`,
+        customInputs: {
+          phone: {
+            value: '248-555-0101',
+          },
+        },
+        createdViaWebhook: false,
+      },
+      overrideAccess: true,
+    })
+  }
+
+  const paidLinked = await createBooking({
+    attendeeName: `E2E Paid Schedule ${ctx.runId}`,
+    attendeeEmail: `2485550199@sms.cal.com`,
+    startTime: atTodayHour(9),
+    relatedClient: ctx.clients.collectLab.id,
+    scheduledTestType: instantTestType.id,
+    payment: {
+      amountDue: 35,
+      amountPaid: 35,
+      method: 'pre-paid',
+      status: 'paid',
+    },
+  })
+
+  const unlinked = await createBooking({
+    attendeeName: `E2E Unlinked Schedule ${ctx.runId}`,
+    attendeeEmail: `schedule.unlinked.${ctx.runId}@example.com`,
+    startTime: atTodayHour(10),
+    status: 'pending',
+    scheduledTestType: labTestType.id,
+    payment: {
+      amountDue: 40,
+      amountPaid: 0,
+      method: 'not-paid',
+      status: 'unpaid',
+    },
+  })
+
+  const needsTestType = await createBooking({
+    attendeeName: `E2E Needs Test Schedule ${ctx.runId}`,
+    attendeeEmail: ctx.clients.instant.email,
+    startTime: atTodayHour(11),
+    relatedClient: ctx.clients.instant.id,
+  })
+
+  const outsideToday = await createBooking({
+    attendeeName: `E2E Tomorrow Schedule ${ctx.runId}`,
+    attendeeEmail: `schedule.tomorrow.${ctx.runId}@example.com`,
+    startTime: new Date(todayWindow.end.getTime() + 9 * hour),
+    scheduledTestType: labTestType.id,
+  })
+
+  const cancelledToday = await createBooking({
+    attendeeName: `E2E Cancelled Schedule ${ctx.runId}`,
+    attendeeEmail: `schedule.cancelled.${ctx.runId}@example.com`,
+    startTime: atTodayHour(12),
+    status: 'cancelled',
+    scheduledTestType: labTestType.id,
+  })
+
+  const bookingIds = [paidLinked.id, unlinked.id, needsTestType.id, outsideToday.id, cancelledToday.id]
+  ctx.created.bookingIds = [...(ctx.created.bookingIds || []), ...bookingIds]
+  ctx.created.adminAlertIds = [
+    ...(ctx.created.adminAlertIds || []),
+    ...(await findAdminAlertIdsByTitle(payload, `Booking created without client: ${unlinked.attendeeName}`)),
+    ...(await findAdminAlertIdsByTitle(payload, `Booking created without client: ${outsideToday.attendeeName}`)),
+    ...(await findAdminAlertIdsByTitle(payload, `Booking created without client: ${cancelledToday.attendeeName}`)),
+  ]
+
+  return {
+    bookings: {
+      paidLinked: {
+        id: paidLinked.id,
+        attendeeName: paidLinked.attendeeName,
+        startTime: paidLinked.startTime,
+      },
+      unlinked: {
+        id: unlinked.id,
+        attendeeName: unlinked.attendeeName,
+        startTime: unlinked.startTime,
+      },
+      needsTestType: {
+        id: needsTestType.id,
+        attendeeName: needsTestType.attendeeName,
+        startTime: needsTestType.startTime,
+      },
+      outsideToday: {
+        id: outsideToday.id,
+        attendeeName: outsideToday.attendeeName,
+        startTime: outsideToday.startTime,
+      },
+      cancelledToday: {
+        id: cancelledToday.id,
+        attendeeName: cancelledToday.attendeeName,
+        startTime: cancelledToday.startTime,
+      },
+    },
+  }
+}
+
 function extractRelationId(value: unknown): string | null {
   if (!value) return null
   if (typeof value === 'string') return value
@@ -440,6 +695,14 @@ async function cleanupFixtures(ctx: FixtureContext | undefined): Promise<void> {
 
   for (const testId of ctx.created.drugTestIds) {
     await safeDelete(payload, 'drug-tests', testId)
+  }
+
+  for (const adminAlertId of ctx.created.adminAlertIds || []) {
+    await safeDelete(payload, 'admin-alerts', adminAlertId)
+  }
+
+  for (const bookingId of ctx.created.bookingIds || []) {
+    await safeDelete(payload, 'bookings', bookingId)
   }
 
   for (const mediaId of privateMediaIds) {
@@ -570,7 +833,10 @@ async function assertNotificationSent(args: {
   assert(matching.length > 0, `Expected notificationsSent entry for stage "${args.stage}" on test ${args.testId}`)
 
   const latest = matching[matching.length - 1]
-  assert(latest.status === 'sent', `Expected "sent" notification status for stage "${args.stage}" on test ${args.testId}`)
+  assert(
+    latest.status === 'sent',
+    `Expected "sent" notification status for stage "${args.stage}" on test ${args.testId}`,
+  )
 
   if (args.expectedIntendedEmails && args.expectedIntendedEmails.length > 0) {
     const intended = latest.intendedRecipients || ''
@@ -618,6 +884,9 @@ export async function executeDbOp(command: string, data?: unknown) {
       await cleanupFixtures(data as FixtureContext)
       return { ok: true }
     }
+    case 'seed-guided-schedule-fixtures': {
+      return seedGuidedScheduleFixtures(data as FixtureContext)
+    }
     case 'find-client-by-email': {
       return findClientByEmail(String((data as { email?: string } | undefined)?.email || ''))
     }
@@ -631,11 +900,13 @@ export async function executeDbOp(command: string, data?: unknown) {
       return getDrugTestById(String((data as { testId?: string } | undefined)?.testId || ''))
     }
     case 'assert-notification-sent': {
-      return assertNotificationSent(data as {
-        testId: string
-        stage: 'collected' | 'screened' | 'complete'
-        expectedIntendedEmails?: string[]
-      })
+      return assertNotificationSent(
+        data as {
+          testId: string
+          stage: 'collected' | 'screened' | 'complete'
+          expectedIntendedEmails?: string[]
+        },
+      )
     }
     case 'validate-admin-login': {
       return validateAdminLogin(data as { email: string; password: string })
