@@ -44,18 +44,24 @@ export interface CalcomWebhookPayload {
       }
     }
     responses?: {
-      name?: {
-        label: string
-        value: string
-      } | string
-      email?: {
-        label: string
-        value: string
-      } | string
-      location?: {
-        label: string
-        value: string | { optionValue?: string; value?: string }
-      } | string
+      name?:
+        | {
+            label: string
+            value: string
+          }
+        | string
+      email?:
+        | {
+            label: string
+            value: string
+          }
+        | string
+      location?:
+        | {
+            label: string
+            value: string | { optionValue?: string; value?: string }
+          }
+        | string
       [key: string]: unknown
     }
     uid?: string
@@ -133,9 +139,7 @@ export function verifyCalcomWebhookSignature(rawBody: string, signatureHeader: s
   if (!secret) return allowsUnsignedCalcomWebhooks()
   if (!signatureHeader) return false
 
-  const signature = signatureHeader.startsWith('sha256=')
-    ? signatureHeader.slice('sha256='.length)
-    : signatureHeader
+  const signature = signatureHeader.startsWith('sha256=') ? signatureHeader.slice('sha256='.length) : signatureHeader
 
   if (!/^[a-f0-9]{64}$/i.test(signature)) return false
 
@@ -177,12 +181,69 @@ export function getCalcomBookingUid(payload: CalcomWebhookPayload['payload']) {
 }
 
 export function getCalcomBookingNumericId(payload: CalcomWebhookPayload['payload']) {
-  const id = getNumberLike(payload.id) ?? getNumberLike(payload.metadata?.id) ?? getNumberLike(payload.metadata?.bookingId)
+  const id =
+    getNumberLike(payload.id) ?? getNumberLike(payload.metadata?.id) ?? getNumberLike(payload.metadata?.bookingId)
   return typeof id === 'number' && Number.isInteger(id) ? id : null
 }
 
 export function getCalcomRescheduleUid(payload: CalcomWebhookPayload['payload']) {
   return payload.rescheduleUid || getNestedString(payload.metadata, ['rescheduleUid'])
+}
+
+const scheduledTestResponseKeys = new Set(['test', 'testtype', 'test_type', 'scheduledtesttype', 'scheduled_test_type'])
+
+function normalizeResponseKey(value: string) {
+  return value.replace(/[^a-z0-9_]/gi, '').toLowerCase()
+}
+
+function getResponseText(value: unknown): string | null {
+  if (typeof value === 'string') return value.trim() || null
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const text = getResponseText(item)
+      if (text) return text
+    }
+    return null
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return getResponseText(record.value) || getResponseText(record.optionValue)
+  }
+
+  return null
+}
+
+export function getCalcomScheduledTestAnswer(payload: CalcomWebhookPayload['payload']) {
+  const sources = [payload.responses, payload.customInputs]
+
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') continue
+
+    for (const [key, value] of Object.entries(source)) {
+      if (!scheduledTestResponseKeys.has(normalizeResponseKey(key))) continue
+
+      const answer = getResponseText(value)
+      if (answer) return answer
+    }
+  }
+
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') continue
+
+    for (const value of Object.values(source)) {
+      if (!value || typeof value !== 'object') continue
+
+      const label = getResponseText((value as Record<string, unknown>).label)
+      if (!label || !/\btest\b/i.test(label)) continue
+
+      const answer = getResponseText(value)
+      if (answer) return answer
+    }
+  }
+
+  return null
 }
 
 function getCalcomPaymentId(payload: CalcomWebhookPayload['payload']) {
@@ -253,7 +314,7 @@ export function buildCalcomPaymentUpdate(
 
   const amountDue = existingPayment?.amountDue ?? amount ?? existingPayment?.amountPaid ?? 0
   const previousAmountPaid = existingPayment?.amountPaid ?? 0
-  const amountPaid = isPaid ? amount ?? amountDue : previousAmountPaid
+  const amountPaid = isPaid ? (amount ?? amountDue) : previousAmountPaid
   const currency = payload.currency || getNestedString(payload.payment, ['currency'])
   const notes = [
     existingPayment?.notes,
@@ -268,7 +329,9 @@ export function buildCalcomPaymentUpdate(
     amountPaid,
     method: (isPaid ? 'pre-paid' : existingPayment?.method || 'card') as 'pre-paid' | 'card',
     status: (isPaid ? 'paid' : existingPayment?.status || 'unpaid') as 'paid' | 'partial' | 'unpaid',
-    collectedAt: isPaid ? existingPayment?.collectedAt || receivedAt || new Date().toISOString() : existingPayment?.collectedAt || null,
+    collectedAt: isPaid
+      ? existingPayment?.collectedAt || receivedAt || new Date().toISOString()
+      : existingPayment?.collectedAt || null,
     notes: notes || null,
   }
 }
@@ -287,8 +350,10 @@ export function buildCalcomBookingData(
 ): CalcomBookingData {
   const { triggerEvent, payload } = webhookData
   const attendee = payload.attendees?.[0]
-  const attendeeName = getResponseValue(payload.responses?.name) || attendee?.name || existingBooking?.attendeeName || 'Unknown'
-  const attendeeEmail = getResponseValue(payload.responses?.email) || attendee?.email || existingBooking?.attendeeEmail || ''
+  const attendeeName =
+    getResponseValue(payload.responses?.name) || attendee?.name || existingBooking?.attendeeName || 'Unknown'
+  const attendeeEmail =
+    getResponseValue(payload.responses?.email) || attendee?.email || existingBooking?.attendeeEmail || ''
   const locationValue = getResponseValue(payload.responses?.location)
   const location = locationValue || payload.location || existingBooking?.location || ''
   const uid = getCalcomBookingUid(payload)
@@ -297,14 +362,19 @@ export function buildCalcomBookingData(
   const payment = buildCalcomPaymentUpdate(triggerEvent, payload, existingPayment, webhookData.createdAt)
   const receivedAt = new Date(webhookData.createdAt).toISOString()
   const startTime = payload.startTime || payload.start || existingBooking?.startTime || receivedAt
-  const endTime = payload.endTime || payload.end || payload.startTime || payload.start || existingBooking?.endTime || startTime
+  const endTime =
+    payload.endTime || payload.end || payload.startTime || payload.start || existingBooking?.endTime || startTime
 
   const bookingData: CalcomBookingData = {
     title: payload.title || existingBooking?.title || 'Drug test appointment',
     type: payload.type || existingBooking?.type || 'calcom-booking',
     description: payload.description || existingBooking?.description || null,
     additionalNotes:
-      payload.additionalNotes || payload.reschedulingReason || payload.cancellationReason || existingBooking?.additionalNotes || null,
+      payload.additionalNotes ||
+      payload.reschedulingReason ||
+      payload.cancellationReason ||
+      existingBooking?.additionalNotes ||
+      null,
     startTime,
     endTime,
     status: getBookingStatus(triggerEvent),
@@ -324,7 +394,10 @@ export function buildCalcomBookingData(
     calcomRescheduledFromId: rescheduleUid || null,
     calcomPaymentId: getCalcomPaymentId(payload) || null,
     eventTypeId: payload.eventTypeId || null,
-    customInputs: (payload.customInputs || payload.responses || existingBooking?.customInputs || null) as CalcomBookingData['customInputs'],
+    customInputs: (payload.customInputs ||
+      payload.responses ||
+      existingBooking?.customInputs ||
+      null) as CalcomBookingData['customInputs'],
     webhookData: webhookData as unknown as CalcomBookingData['webhookData'],
     createdViaWebhook: true,
   }
