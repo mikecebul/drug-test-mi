@@ -7,6 +7,7 @@ import {
   getCalcomBookingNumericId,
   getCalcomBookingUid,
   getCalcomRescheduleUid,
+  getCalcomScheduledTestAnswer,
   normalizeCalcomMoney,
   verifyCalcomWebhookSignature,
   type CalcomWebhookPayload,
@@ -156,5 +157,34 @@ describe('Cal.com webhook helpers', () => {
     })
 
     expect(bookingData.payment).toBeUndefined()
+  })
+
+  test('extracts the scheduled test answer from the Cal.com test question', () => {
+    expect(
+      getCalcomScheduledTestAnswer(
+        createWebhook({
+          payload: {
+            responses: {
+              test: {
+                label: 'Test',
+                value: '11 Panel Lab (no EtG)',
+              },
+            },
+          },
+        }).payload,
+      ),
+    ).toBe('11 Panel Lab (no EtG)')
+
+    expect(
+      getCalcomScheduledTestAnswer(
+        createWebhook({
+          payload: {
+            customInputs: {
+              test: '17 SOS Lab',
+            },
+          },
+        }).payload,
+      ),
+    ).toBe('17 SOS Lab')
   })
 })

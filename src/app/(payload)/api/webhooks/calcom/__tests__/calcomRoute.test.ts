@@ -90,11 +90,13 @@ function createRequest(webhook: CalcomWebhookPayload, secret?: string) {
   })
 }
 
-function createPayloadMock(options: {
-  find?: ReturnType<typeof vi.fn>
-  create?: ReturnType<typeof vi.fn>
-  update?: ReturnType<typeof vi.fn>
-} = {}) {
+function createPayloadMock(
+  options: {
+    find?: ReturnType<typeof vi.fn>
+    create?: ReturnType<typeof vi.fn>
+    update?: ReturnType<typeof vi.fn>
+  } = {},
+) {
   const payload = {
     find: options.find || vi.fn().mockResolvedValue({ docs: [] }),
     create: options.create || vi.fn().mockResolvedValue({ id: 'booking-created' }),
@@ -119,6 +121,21 @@ function findByBookings(bookings: MockBooking[]) {
   })
 }
 
+function findByBookingsAndTestTypes(
+  bookings: MockBooking[],
+  testTypes: Array<{ id: string; label: string; value: string; bookingLabel?: string | null; isActive?: boolean }>,
+) {
+  const findBookings = findByBookings(bookings)
+
+  return vi.fn().mockImplementation((args: { collection?: string; where: Record<string, { equals: unknown }> }) => {
+    if (args.collection === 'test-types') {
+      return Promise.resolve({ docs: testTypes })
+    }
+
+    return findBookings(args)
+  })
+}
+
 async function json(response: Response) {
   return response.json() as Promise<Record<string, unknown>>
 }
@@ -139,6 +156,56 @@ describe('Cal.com webhook route', () => {
     expect(await json(response)).toMatchObject({ message: 'Booking created', id: 'booking-created' })
     expect(payload.create).toHaveBeenCalledOnce()
     expect(payload.update).not.toHaveBeenCalled()
+  })
+
+  test('resolves the Cal.com test answer into the booking scheduled test type', async () => {
+    const payload = createPayloadMock({
+      find: findByBookingsAndTestTypes(
+        [],
+        [
+          {
+            id: 'test-type-15-panel-instant',
+            label: '15-Panel Instant',
+            bookingLabel: '15 Panel Instant',
+            value: '15-panel-instant',
+            isActive: false,
+          },
+        ],
+      ),
+    })
+
+    const response = await POST(
+      createRequest(
+        createWebhook({
+          payload: {
+            responses: {
+              name: {
+                label: 'Name',
+                value: 'Taylor Client',
+              },
+              email: {
+                label: 'Email',
+                value: 'taylor@example.com',
+              },
+              test: {
+                label: 'Test',
+                value: '15 Panel Instant',
+              },
+            },
+          },
+        }),
+      ),
+    )
+
+    expect(response.status).toBe(201)
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'bookings',
+        data: expect.objectContaining({
+          scheduledTestType: 'test-type-15-panel-instant',
+        }),
+      }),
+    )
   })
 
   test('updates an existing booking found by Cal.com UID', async () => {
@@ -205,10 +272,7 @@ describe('Cal.com webhook route', () => {
         { id: 'new-booking', calcomBookingId: 'booking-new' },
         { id: 'original-booking', calcomBookingId: 'booking-original' },
       ]),
-      update: vi
-        .fn()
-        .mockResolvedValueOnce({ id: 'original-booking' })
-        .mockResolvedValueOnce({ id: 'new-booking' }),
+      update: vi.fn().mockResolvedValueOnce({ id: 'original-booking' }).mockResolvedValueOnce({ id: 'new-booking' }),
     })
 
     const response = await POST(
