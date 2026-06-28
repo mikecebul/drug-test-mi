@@ -197,9 +197,9 @@ function resolveDonorGroup(args: {
   return sorted[0][0]
 }
 
-function isRedwoodSearchNoMatchError(message: string): boolean {
+export function isRedwoodSearchNoMatchError(message: string): boolean {
   return (
-    /no redwood donor rows found/i.test(message) ||
+    /no redwood(?:\s+(?:active|inactive))?\s+donor rows found/i.test(message) ||
     /no dob-verified redwood donor match found/i.test(message) ||
     /no confident name-only redwood donor match found/i.test(message)
   )

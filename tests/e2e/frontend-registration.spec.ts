@@ -303,8 +303,8 @@ test('submits frontend registration, signs in, and verifies admin emails in Mail
   await findMailpitMessages({
     apiBase: env.mailpitApiBase,
     createdAfter: testStart,
-    to: ['mike@midrugtest.com', 'tom@midrugtest.com'],
-    subject: 'New Client Registration - Alex Taylor',
+    to: 'mike@midrugtest.com',
+    subject: /^(?:\[TEST MODE\] )?New Client Registration - Alex Taylor$/,
     requireAttachment: 'none',
     timeoutMs: 30_000,
   })

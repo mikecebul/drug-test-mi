@@ -1,10 +1,7 @@
 import { CollectionAfterChangeHook } from 'payload'
+import { prefixNonLiveEmailSubject, resolveOutboundNotificationRecipients } from '@/lib/email-safety'
 
-export const notifyNewRegistration: CollectionAfterChangeHook = async ({
-  doc,
-  operation,
-  req,
-}) => {
+export const notifyNewRegistration: CollectionAfterChangeHook = async ({ doc, operation, req }) => {
   if (operation !== 'create') {
     return doc
   }
@@ -40,7 +37,9 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
       name?: string | null
     }
 
-    const normalizeReferralContacts = (referral: ReferralLike | null | undefined): Array<{ name: string; email: string }> => {
+    const normalizeReferralContacts = (
+      referral: ReferralLike | null | undefined,
+    ): Array<{ name: string; email: string }> => {
       const map = new Map<string, { name: string; email: string }>()
       const add = (contact: { name?: string | null; email?: string | null }) => {
         const email = typeof contact.email === 'string' ? contact.email.trim() : ''
@@ -215,16 +214,25 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({
     `
 
     try {
+      const notificationRecipients = resolveOutboundNotificationRecipients([
+        'mike@midrugtest.com',
+        'tom@midrugtest.com',
+      ])
+
       await payload.sendEmail({
-        to: ['mike@midrugtest.com', 'tom@midrugtest.com'],
+        to: notificationRecipients.recipients,
         from: payload.email.defaultFromAddress,
-        subject: `New Client Registration - ${doc.firstName} ${doc.lastName}`,
+        subject: prefixNonLiveEmailSubject(`New Client Registration - ${doc.firstName} ${doc.lastName}`),
         html: emailBody,
       })
 
-      payload.logger.info(
-        `New registration notification sent to mike@midrugtest.com and tom@midrugtest.com for client ${doc.email}`,
-      )
+      payload.logger.info({
+        msg: 'New registration notification sent',
+        clientEmail: doc.email,
+        recipients: notificationRecipients.recipients,
+        originalRecipients: notificationRecipients.originalRecipients,
+        redirected: notificationRecipients.redirected,
+      })
     } catch (error) {
       req.payload.logger.warn({
         msg: 'Failed to send registration notification email (non-blocking)',

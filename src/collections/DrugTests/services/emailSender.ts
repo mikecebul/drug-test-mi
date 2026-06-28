@@ -1,8 +1,11 @@
 import type { Payload } from 'payload'
 import { createAdminAlert } from '@/lib/admin-alerts'
+import {
+  isNonLiveEmailMode,
+  prefixNonLiveEmailSubject,
+  resolveOutboundNotificationRecipients,
+} from '@/lib/email-safety'
 
-const TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
-const TEST_EMAIL = 'mike@midrugtest.com'
 const DRUG_TEST_FROM_EMAIL = 'mike@midrugtest.com'
 
 // Rate limiting: 2 requests per second max, so we use 600ms delay to be safe
@@ -82,6 +85,77 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
 
   const sentTo: string[] = []
   const failedRecipients: string[] = []
+  const nonLiveEmailMode = isNonLiveEmailMode()
+
+  if (nonLiveEmailMode) {
+    const notificationRecipients = resolveOutboundNotificationRecipients(
+      [clientEmail || '', ...referralEmails].filter(Boolean),
+    )
+    const toAddress = notificationRecipients.recipients[0]
+
+    try {
+      payload.logger.info({
+        msg: '[sendEmails] Non-live email mode enabled; sending one test notification',
+        toAddress,
+        originalRecipients: notificationRecipients.originalRecipients,
+        emailStage,
+      })
+
+      await payload.sendEmail({
+        to: toAddress,
+        from: DRUG_TEST_FROM_EMAIL,
+        subject: prefixNonLiveEmailSubject(referralEmailData.subject),
+        html: referralEmailData.html,
+        attachments: attachment
+          ? [
+              {
+                filename: attachment.filename,
+                content: attachment.content,
+                contentType: attachment.contentType,
+              },
+            ]
+          : undefined,
+      })
+
+      sentTo.push(`Test: ${toAddress} (TEST MODE)`)
+      return { sentTo, failedRecipients }
+    } catch (emailError) {
+      const errorMessage = emailError instanceof Error ? emailError.message : String(emailError)
+      const smtpCode = (emailError as any)?.responseCode || (emailError as any)?.code
+
+      payload.logger.error({
+        msg: 'Failed to send non-live test email',
+        recipient: toAddress,
+        emailStage,
+        error: emailError,
+        errorMessage,
+        smtpCode,
+      })
+
+      failedRecipients.push(toAddress)
+
+      await createAdminAlert(payload, {
+        severity: 'high',
+        alertType: 'email-failure',
+        title: `Non-live test email failed - ${clientName}`,
+        message: `Failed to send ${emailStage} test results email${attachment ? ' with attachment' : ''}.\n\nClient: ${clientName}\nTest Email: ${toAddress}\nStage: ${emailStage}\nDrug Test ID: ${drugTestId}${attachment ? `\nDocument: ${attachment.filename}` : ''}${smtpCode ? `\nSMTP Code: ${smtpCode}` : ''}\nError: ${errorMessage}\n\nPlease investigate staging email configuration.`,
+        context: {
+          drugTestId,
+          clientId,
+          clientName,
+          recipientEmail: toAddress,
+          recipientType: 'test',
+          emailStage,
+          documentFilename: attachment?.filename,
+          smtpCode,
+          errorMessage,
+          errorStack: emailError instanceof Error ? emailError.stack : undefined,
+        },
+      })
+
+      return { sentTo, failedRecipients }
+    }
+  }
 
   // Send to client (if applicable)
   // For "collected" stage: skip client (only notify referrals)
@@ -90,14 +164,14 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
     const isClientInReferralList = referralEmails.includes(clientEmail)
 
     if (!isClientInReferralList) {
-      const toAddress = TEST_MODE ? TEST_EMAIL : clientEmail
+      const toAddress = clientEmail
 
       try {
-        payload.logger.info({ msg: '[sendEmails] Sending to client', toAddress, testMode: TEST_MODE })
+        payload.logger.info({ msg: '[sendEmails] Sending to client', toAddress, testMode: false })
         await payload.sendEmail({
           to: toAddress,
           from: DRUG_TEST_FROM_EMAIL,
-          subject: TEST_MODE ? `[TEST MODE] ${clientEmailData.subject}` : clientEmailData.subject,
+          subject: clientEmailData.subject,
           html: clientEmailData.html,
           attachments: attachment
             ? [
@@ -110,7 +184,7 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
             : undefined,
         })
 
-        sentTo.push(`Client: ${toAddress}${TEST_MODE ? ' (TEST MODE)' : ''}`)
+        sentTo.push(`Client: ${toAddress}`)
         payload.logger.info(`Successfully sent ${emailStage} email to client ${toAddress}`)
 
         // Delay before sending referral emails to prevent rate limiting
@@ -161,17 +235,17 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
 
   // Send to referrals
   if (referralEmailData && referralEmails.length > 0) {
-    const recipients = TEST_MODE ? [TEST_EMAIL] : referralEmails
+    const recipients = referralEmails
 
     payload.logger.info(`Sending ${emailStage} email to ${recipients.length} referral(s)`)
 
     for (const email of recipients) {
       try {
-        payload.logger.info({ msg: '[sendEmails] Sending to referral', email, testMode: TEST_MODE })
+        payload.logger.info({ msg: '[sendEmails] Sending to referral', email, testMode: false })
         await payload.sendEmail({
           to: email,
           from: DRUG_TEST_FROM_EMAIL,
-          subject: TEST_MODE ? `[TEST MODE] ${referralEmailData.subject}` : referralEmailData.subject,
+          subject: referralEmailData.subject,
           html: referralEmailData.html,
           attachments: attachment
             ? [
@@ -184,7 +258,7 @@ export async function sendEmails(params: SendEmailsParams): Promise<SendEmailsRe
             : undefined,
         })
 
-        sentTo.push(`Referral: ${email}${TEST_MODE ? ' (TEST MODE)' : ''}`)
+        sentTo.push(`Referral: ${email}`)
         payload.logger.info(`Successfully sent ${emailStage} email to referral ${email}`)
 
         // Delay between each referral email to prevent rate limiting
