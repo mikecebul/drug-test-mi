@@ -4,10 +4,12 @@ import { describe, expect, test, vi } from 'vitest'
 import {
   allowsUnsignedCalcomWebhooks,
   buildCalcomBookingData,
+  findCalcomScheduledTestTypeMatch,
   getCalcomBookingNumericId,
   getCalcomBookingUid,
   getCalcomRescheduleUid,
   getCalcomScheduledTestAnswer,
+  getCalcomScheduledTestAnswerCandidates,
   normalizeCalcomMoney,
   verifyCalcomWebhookSignature,
   type CalcomWebhookPayload,
@@ -186,5 +188,91 @@ describe('Cal.com webhook helpers', () => {
         }).payload,
       ),
     ).toBe('17 SOS Lab')
+  })
+
+  test('includes Cal.com event metadata as scheduled test candidates for self-booking links', () => {
+    const candidates = getCalcomScheduledTestAnswerCandidates(
+      createWebhook({
+        payload: {
+          type: 'Instant 17 Panel',
+          title: '17 Panel Instant Screen',
+          bookerUrl: 'https://cal.com/midrugtest/instant-17-panel',
+        },
+      }).payload,
+    )
+
+    expect(candidates).toEqual(
+      expect.arrayContaining([
+        'Instant 17 Panel',
+        '17 Panel Instant Screen',
+        'https://cal.com/midrugtest/instant-17-panel',
+      ]),
+    )
+  })
+
+  test('matches Cal.com scheduled test answers with supported booking label aliases', () => {
+    const testTypes = [
+      {
+        id: 'test-type-11-panel-lab',
+        label: '11-Panel Lab',
+        bookingLabel: '11 Panel Lab',
+        value: '11-panel-lab',
+      },
+      {
+        id: 'test-type-11-panel-no-etg',
+        label: '11-Panel Lab (no EtG)',
+        bookingLabel: '11 Panel Lab (no EtG)',
+        value: '11-panel-lab-no-etg',
+      },
+      {
+        id: 'test-type-17-sos-lab',
+        label: '17-Panel SOS Lab',
+        bookingLabel: '17 SOS Lab',
+        value: '17-panel-sos-lab',
+      },
+      {
+        id: 'test-type-8-panel-lab',
+        label: '8-Panel Lab',
+        bookingLabel: '8 Panel Lab',
+        value: '8-panel-lab',
+      },
+      {
+        id: 'test-type-etg-lab',
+        label: 'EtG Lab',
+        bookingLabel: 'EtG Lab',
+        value: 'etg-lab',
+      },
+      {
+        id: 'test-type-17-panel-instant',
+        label: '17-Panel Instant',
+        bookingLabel: '17 Panel Instant',
+        value: '17-panel-instant',
+      },
+    ]
+
+    expect(findCalcomScheduledTestTypeMatch(testTypes, '17 Panel Lab')?.id).toBe('test-type-17-sos-lab')
+    expect(findCalcomScheduledTestTypeMatch(testTypes, 'Drug Test - 11 Panel no EtG')?.id).toBe(
+      'test-type-11-panel-no-etg',
+    )
+    expect(findCalcomScheduledTestTypeMatch(testTypes, 'Drug Test - 11 Panel Lab no EtG')?.id).toBe(
+      'test-type-11-panel-no-etg',
+    )
+    expect(findCalcomScheduledTestTypeMatch(testTypes, '11 Panel no EtG')?.id).toBe('test-type-11-panel-no-etg')
+    expect(findCalcomScheduledTestTypeMatch(testTypes, 'EtG')?.id).toBe('test-type-etg-lab')
+    expect(findCalcomScheduledTestTypeMatch(testTypes, 'https://cal.com/midrugtest/harbor-industries-drug-test-booking')?.id).toBe(
+      'test-type-8-panel-lab',
+    )
+    expect(findCalcomScheduledTestTypeMatch(testTypes, 'https://cal.com/midrugtest/11-panel-lab-screen')?.id).toBe(
+      'test-type-11-panel-lab',
+    )
+    expect(findCalcomScheduledTestTypeMatch(testTypes, 'https://cal.com/midrugtest/sos-17-panel-lab-screen')?.id).toBe(
+      'test-type-17-sos-lab',
+    )
+    expect(findCalcomScheduledTestTypeMatch(testTypes, 'https://cal.com/midrugtest/etg-lab-screen')?.id).toBe(
+      'test-type-etg-lab',
+    )
+    expect(findCalcomScheduledTestTypeMatch(testTypes, 'https://cal.com/midrugtest/instant-17-panel')?.id).toBe(
+      'test-type-17-panel-instant',
+    )
   })
 })

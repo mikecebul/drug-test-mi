@@ -76,6 +76,8 @@ export function generateTestFilename({
       ? 'Lab'
       : testType === '11-panel-lab-no-etg'
         ? 'Lab'
+      : testType === '8-panel-lab'
+        ? 'Lab'
       : testType === '17-panel-sos-lab'
         ? 'Lab'
         : testType === 'etg-lab'

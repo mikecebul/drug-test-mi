@@ -58,6 +58,15 @@ export function invalidateGuidedSchedule(queryClient: QueryClient) {
   })
 }
 
+export function resetGuidedScheduleCache(queryClient: QueryClient) {
+  queryClient.removeQueries({
+    queryKey: ['guided', 'today-bookings'],
+  })
+  queryClient.invalidateQueries({
+    queryKey: ['guided'],
+  })
+}
+
 export function invalidateWizardClientDerivedData(
   queryClient: QueryClient,
   options?: {
@@ -139,6 +148,7 @@ export function useComputeTestResultPreviewQuery(
     | '17-panel-instant'
     | '11-panel-lab'
     | '11-panel-lab-no-etg'
+    | '8-panel-lab'
     | '17-panel-sos-lab'
     | 'etg-lab'
     | null
@@ -203,7 +213,7 @@ export function useFetchPendingTestsQuery(filterStatus?: string[]) {
  */
 export function useGetCollectionEmailPreviewQuery(data: {
   clientId: string | null | undefined
-  testType: '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab' | null | undefined
+  testType: '11-panel-lab' | '11-panel-lab-no-etg' | '8-panel-lab' | '17-panel-sos-lab' | 'etg-lab' | null | undefined
   collectionDate: string | null | undefined
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
@@ -304,6 +314,7 @@ export function useGetEmailPreviewQuery(data: {
     | '17-panel-instant'
     | '11-panel-lab'
     | '11-panel-lab-no-etg'
+    | '8-panel-lab'
     | '17-panel-sos-lab'
     | 'etg-lab'
     | null

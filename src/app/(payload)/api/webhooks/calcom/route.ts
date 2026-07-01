@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPayload, type Payload } from 'payload'
 import configPromise from '@payload-config'
-import type { Booking, TestType } from '@/payload-types'
+import type { Booking } from '@/payload-types'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
+import { findConfiguredTestTypeByCalcomAnswer } from '@/config/test-types'
 
 import {
   allowsUnsignedCalcomWebhooks,
@@ -12,7 +13,7 @@ import {
   getCalcomBookingNumericId,
   getCalcomBookingUid,
   getCalcomRescheduleUid,
-  getCalcomScheduledTestAnswer,
+  getCalcomScheduledTestAnswerCandidates,
   handledCalcomBookingEvents,
   verifyCalcomWebhookSignature,
 } from './calcomWebhook'
@@ -93,62 +94,38 @@ async function findBookingByCalcomIdentifiers(payload: Payload, data: CalcomBook
   return existingByUid || (await findBookingByCalcomNumericId(payload, data.calcomBookingNumericId))
 }
 
-function normalizeTestTypeText(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '')
-}
-
-function getTestTypeMatchValues(testType: TestType) {
-  return [testType.bookingLabel, testType.label, testType.value]
-    .filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
-    .map(normalizeTestTypeText)
-}
-
 function getRecord(value: unknown): Record<string, unknown> | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
   return value as Record<string, unknown>
 }
 
-async function resolveScheduledTestTypeId(
-  payload: Payload,
-  calcomPayload: CalcomWebhookPayload['payload'],
-  fallbackInputs?: unknown,
-) {
+function resolveScheduledTestTypeValue(calcomPayload: CalcomWebhookPayload['payload'], fallbackInputs?: unknown) {
   const fallbackRecord = getRecord(fallbackInputs)
-  const scheduledTestAnswer = getCalcomScheduledTestAnswer({
+  const scheduledTestAnswers = getCalcomScheduledTestAnswerCandidates({
     ...calcomPayload,
     customInputs: calcomPayload.customInputs || fallbackRecord,
     responses: calcomPayload.responses || fallbackRecord,
   })
-  if (!scheduledTestAnswer) return null
+  if (scheduledTestAnswers.length === 0) return null
 
-  const expectedValue = normalizeTestTypeText(scheduledTestAnswer)
-  const result = await payload.find({
-    collection: 'test-types',
-    depth: 0,
-    limit: 200,
-    overrideAccess: true,
-  })
-  const matchingTestType = result.docs.find((testType) => getTestTypeMatchValues(testType).includes(expectedValue))
-
-  if (!matchingTestType) {
-    console.warn(`Cal.com scheduled test type did not match Payload test-types: ${scheduledTestAnswer}`)
-    return null
+  for (const scheduledTestAnswer of scheduledTestAnswers) {
+    const matchingTestType = findConfiguredTestTypeByCalcomAnswer(scheduledTestAnswer)
+    if (matchingTestType) {
+      return matchingTestType.value
+    }
   }
 
-  return matchingTestType.id as string
+  console.warn(`Cal.com scheduled test type did not match configured test types: ${scheduledTestAnswers.join(', ')}`)
+  return null
 }
 
-async function buildResolvedCalcomBookingData(
-  payload: Payload,
+function buildResolvedCalcomBookingData(
   webhookData: CalcomWebhookPayload,
   existingPayment?: Booking['payment'],
   existingBooking?: Booking | null,
 ) {
   const bookingData = buildCalcomBookingData(webhookData, existingPayment, existingBooking)
-  const scheduledTestType = await resolveScheduledTestTypeId(payload, webhookData.payload, bookingData.customInputs)
+  const scheduledTestType = resolveScheduledTestTypeValue(webhookData.payload, bookingData.customInputs)
 
   if (scheduledTestType) {
     bookingData.scheduledTestType = scheduledTestType
@@ -229,8 +206,7 @@ export async function POST(req: NextRequest) {
         req,
       )
 
-      const bookingData = await buildResolvedCalcomBookingData(
-        payloadClient,
+      const bookingData = buildResolvedCalcomBookingData(
         webhookData,
         existingByUid.payment,
         existingByUid,
@@ -242,8 +218,7 @@ export async function POST(req: NextRequest) {
     }
 
     const existingBooking = existingByRescheduleUid || existingByUid || existingByNumericId
-    const bookingData = await buildResolvedCalcomBookingData(
-      payloadClient,
+    const bookingData = buildResolvedCalcomBookingData(
       webhookData,
       existingBooking?.payment,
       existingBooking,

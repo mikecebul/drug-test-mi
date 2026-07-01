@@ -121,21 +121,6 @@ function findByBookings(bookings: MockBooking[]) {
   })
 }
 
-function findByBookingsAndTestTypes(
-  bookings: MockBooking[],
-  testTypes: Array<{ id: string; label: string; value: string; bookingLabel?: string | null; isActive?: boolean }>,
-) {
-  const findBookings = findByBookings(bookings)
-
-  return vi.fn().mockImplementation((args: { collection?: string; where: Record<string, { equals: unknown }> }) => {
-    if (args.collection === 'test-types') {
-      return Promise.resolve({ docs: testTypes })
-    }
-
-    return findBookings(args)
-  })
-}
-
 async function json(response: Response) {
   return response.json() as Promise<Record<string, unknown>>
 }
@@ -159,20 +144,7 @@ describe('Cal.com webhook route', () => {
   })
 
   test('resolves the Cal.com test answer into the booking scheduled test type', async () => {
-    const payload = createPayloadMock({
-      find: findByBookingsAndTestTypes(
-        [],
-        [
-          {
-            id: 'test-type-15-panel-instant',
-            label: '15-Panel Instant',
-            bookingLabel: '15 Panel Instant',
-            value: '15-panel-instant',
-            isActive: false,
-          },
-        ],
-      ),
-    })
+    const payload = createPayloadMock()
 
     const response = await POST(
       createRequest(
@@ -202,7 +174,182 @@ describe('Cal.com webhook route', () => {
       expect.objectContaining({
         collection: 'bookings',
         data: expect.objectContaining({
-          scheduledTestType: 'test-type-15-panel-instant',
+          scheduledTestType: '15-panel-instant',
+        }),
+      }),
+    )
+  })
+
+  test('resolves Cal.com test answer aliases into scheduled test types', async () => {
+    const payload = createPayloadMock()
+
+    const response = await POST(
+      createRequest(
+        createWebhook({
+          payload: {
+            responses: {
+              name: {
+                label: 'Name',
+                value: 'Taylor Client',
+              },
+              email: {
+                label: 'Email',
+                value: 'taylor@example.com',
+              },
+              test: {
+                label: 'Test Type',
+                value: '17 Panel Lab',
+              },
+            },
+          },
+        }),
+      ),
+    )
+
+    expect(response.status).toBe(201)
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'bookings',
+        data: expect.objectContaining({
+          scheduledTestType: '17-panel-sos-lab',
+        }),
+      }),
+    )
+  })
+
+  test('resolves self-booked instant event URLs into scheduled test types', async () => {
+    const payload = createPayloadMock()
+
+    const response = await POST(
+      createRequest(
+        createWebhook({
+          payload: {
+            type: 'Instant 17 Panel',
+            title: '17 Panel Instant Screen',
+            bookerUrl: 'https://cal.com/midrugtest/instant-17-panel',
+            responses: {
+              name: {
+                label: 'Name',
+                value: 'Taylor Client',
+              },
+              email: {
+                label: 'Email',
+                value: 'taylor@example.com',
+              },
+            },
+          },
+        }),
+      ),
+    )
+
+    expect(response.status).toBe(201)
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'bookings',
+        data: expect.objectContaining({
+          scheduledTestType: '17-panel-instant',
+        }),
+      }),
+    )
+  })
+
+  test('resolves Harbor Industries event URLs into 8-panel lab scheduled test types', async () => {
+    const payload = createPayloadMock()
+
+    const response = await POST(
+      createRequest(
+        createWebhook({
+          payload: {
+            type: 'Harbor Industries Drug Test Booking',
+            title: 'Harbor Industries Drug Test Booking',
+            bookerUrl: 'https://cal.com/midrugtest/harbor-industries-drug-test-booking',
+            responses: {
+              name: {
+                label: 'Name',
+                value: 'Taylor Client',
+              },
+              email: {
+                label: 'Email',
+                value: 'taylor@example.com',
+              },
+            },
+          },
+        }),
+      ),
+    )
+
+    expect(response.status).toBe(201)
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'bookings',
+        data: expect.objectContaining({
+          scheduledTestType: '8-panel-lab',
+        }),
+      }),
+    )
+  })
+
+  test.each([
+    ['11-panel-lab-screen', '11-panel-lab'],
+    ['sos-17-panel-lab-screen', '17-panel-sos-lab'],
+    ['etg-lab-screen', 'etg-lab'],
+  ])('resolves implied Cal.com event slug %s into %s', async (eventSlug, scheduledTestType) => {
+    const payload = createPayloadMock()
+
+    const response = await POST(
+      createRequest(
+        createWebhook({
+          payload: {
+            type: eventSlug,
+            title: eventSlug,
+            bookerUrl: `https://cal.com/midrugtest/${eventSlug}`,
+            responses: {
+              name: {
+                label: 'Name',
+                value: 'Taylor Client',
+              },
+              email: {
+                label: 'Email',
+                value: 'taylor@example.com',
+              },
+            },
+          },
+        }),
+      ),
+    )
+
+    expect(response.status).toBe(201)
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'bookings',
+        data: expect.objectContaining({
+          scheduledTestType,
+        }),
+      }),
+    )
+  })
+
+  test('does not confuse no-EtG lab bookings with EtG-only lab bookings', async () => {
+    const payload = createPayloadMock()
+
+    const response = await POST(
+      createRequest(
+        createWebhook({
+          payload: {
+            customInputs: {
+              test: '11 Panel no EtG',
+            },
+          },
+        }),
+      ),
+    )
+
+    expect(response.status).toBe(201)
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'bookings',
+        data: expect.objectContaining({
+          scheduledTestType: '11-panel-lab-no-etg',
         }),
       }),
     )

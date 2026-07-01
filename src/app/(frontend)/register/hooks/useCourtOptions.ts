@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { getTestTypeLabel } from '@/config/test-types'
 import type { CourtOption, CourtRecord } from '../types/recipient-types'
 
 function normalizeContacts(court: CourtRecord): Array<{ name?: string; email: string }> {
@@ -33,16 +34,28 @@ function normalizeContacts(court: CourtRecord): Array<{ name?: string; email: st
   return Array.from(deduped.values())
 }
 
+function getPreferredTestTypeLabel(preferredTestType: unknown): string | undefined {
+  if (typeof preferredTestType === 'string') {
+    return getTestTypeLabel(preferredTestType)
+  }
+
+  if (!preferredTestType || typeof preferredTestType !== 'object') {
+    return undefined
+  }
+
+  const record = preferredTestType as Record<string, unknown>
+  if (typeof record.label === 'string') return record.label
+  if (typeof record.value === 'string') return getTestTypeLabel(record.value) || record.value
+  return undefined
+}
+
 function toCourtOption(court: CourtRecord): CourtOption | null {
   const contacts = normalizeContacts(court)
   if (!court.id || !court.name || contacts.length === 0) {
     return null
   }
 
-  const preferredTestTypeLabel =
-    typeof court.preferredTestType === 'object'
-      ? court.preferredTestType?.label || court.preferredTestType?.value
-      : undefined
+  const preferredTestTypeLabel = getPreferredTestTypeLabel(court.preferredTestType)
 
   return {
     id: court.id,

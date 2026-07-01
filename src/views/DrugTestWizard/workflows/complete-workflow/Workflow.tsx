@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs'
 import { toast } from 'sonner'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   CalendarDays,
   CheckCircle2,
@@ -88,8 +88,10 @@ function formatGender(value?: string | null) {
 }
 
 function getGenderBadgeClass(value?: string | null) {
-  if (value === 'male') return 'border-blue-400/50 bg-blue-500/20 text-blue-100'
-  if (value === 'female') return 'border-pink-400/50 bg-pink-500/20 text-pink-100'
+  if (value === 'male')
+    return 'border-blue-600/40 bg-blue-50 text-blue-900 dark:border-blue-400/50 dark:bg-blue-500/20 dark:text-blue-100'
+  if (value === 'female')
+    return 'border-pink-600/40 bg-pink-50 text-pink-900 dark:border-pink-400/50 dark:bg-pink-500/20 dark:text-pink-100'
   return 'border-border bg-muted text-muted-foreground'
 }
 
@@ -258,15 +260,12 @@ function getNextStep(booking: Booking): WorkflowStep {
 
 export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [query, setQuery] = useQueryStates({
     step: parseAsStringLiteral(workflowSteps).withDefault('schedule'),
     bookingId: parseAsString,
   })
-  const {
-    data: bookings = [],
-    isLoading,
-    refetch: refetchBookings,
-  } = useQuery({
+  const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['guided', 'today-bookings'],
     queryFn: getTodaysCollectionBookings,
     refetchOnMount: 'always',
@@ -298,6 +297,11 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const payment = paymentDraft ?? getPaymentDefaults(selectedBooking)
   const balanceDue = Math.max(0, payment.amountDue - payment.amountPaid)
   const paymentRecorded = Boolean(selectedBooking?.payment?.status)
+  const refreshBookings = () =>
+    queryClient.fetchQuery({
+      queryKey: ['guided', 'today-bookings'],
+      queryFn: getTodaysCollectionBookings,
+    })
   const suggestedClients = useMemo(() => {
     if (!selectedBooking) return []
     const queryParts = [
@@ -336,8 +340,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     startTransition(async () => {
       await linkBookingToClient(selectedBooking.id, client.id)
       setPaymentDraft(null)
-      const result = await refetchBookings()
-      const updatedBooking = result.data?.find((booking) => booking.id === selectedBooking.id)
+      const refreshedBookings = await refreshBookings()
+      const updatedBooking = refreshedBookings.find((booking) => booking.id === selectedBooking.id)
 
       if (!updatedBooking?.client) {
         toast.error('Client could not be linked. Try again or search manually.')
@@ -361,8 +365,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         return
       }
 
-      const refreshed = await refetchBookings()
-      const updatedBooking = refreshed.data?.find((booking) => booking.id === selectedBooking.id)
+      const refreshedBookings = await refreshBookings()
+      const updatedBooking = refreshedBookings.find((booking) => booking.id === selectedBooking.id)
       setPaymentDraft(updatedBooking ? getPaymentDefaults(updatedBooking) : null)
       if (options?.closeDrawer) {
         setTestTypeDrawerOpen(false)
@@ -405,7 +409,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       }
 
       setPaymentDraft(null)
-      await refetchBookings()
+      await refreshBookings()
       setQuery({ step: 'toxaccess', bookingId: selectedBooking.id })
     })
   }
@@ -418,14 +422,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
       if (context.needsRegistration || !context.clientId) {
         toast.error('Select or register the client before collection.')
-        await refetchBookings()
+        await refreshBookings()
         setQuery({ step: 'registration', bookingId: selectedBooking.id })
         return
       }
 
       if (context.needsTestType || !context.testType) {
         toast.error('Select the test type for this appointment before collection.')
-        await refetchBookings()
+        await refreshBookings()
         setQuery({ step: 'registration', bookingId: selectedBooking.id })
         return
       }
@@ -583,12 +587,28 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             ))}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Button type="button" variant="outline" size="lg" onClick={() => setReferralDrawerOpen(true)}>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <ClientSearchDialog
+              allClients={allClients}
+              selectedClientId={booking.client?.id ?? ''}
+              onSelect={handleUseExistingClient}
+            >
+              <Button type="button" variant="outline" size="lg" className="w-full">
+                <UserCheck className="mr-2 size-5" />
+                Change Client
+              </Button>
+            </ClientSearchDialog>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="w-full"
+              onClick={() => setReferralDrawerOpen(true)}
+            >
               <FilePenLine className="mr-2 size-5" />
               Change Referral
             </Button>
-            <Button type="button" variant="outline" size="lg" onClick={openTestTypeDrawer}>
+            <Button type="button" variant="outline" size="lg" className="w-full" onClick={openTestTypeDrawer}>
               <FlaskConical className="mr-2 size-5" />
               Change Today&apos;s Test
             </Button>
@@ -1080,7 +1100,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         fallbackReferralEmails={referralProfile?.referralEmails ?? []}
         onSaved={() => {
           setPaymentDraft(null)
-          void refetchBookings()
+          void refreshBookings()
           void refetchReferralProfile()
         }}
       />

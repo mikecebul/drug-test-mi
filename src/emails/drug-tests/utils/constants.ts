@@ -56,6 +56,7 @@ export function getResultLabel(result: string): string {
 export const TEST_TYPE_MAP: Record<string, string> = {
   '11-panel-lab': '11-Panel Lab Test',
   '11-panel-lab-no-etg': '11-Panel Lab Test (no EtG)',
+  '8-panel-lab': '8-Panel Lab Test',
   '15-panel-instant': '15-Panel Instant Test',
   '17-panel-instant': '17-Panel Instant Test',
   '17-panel-sos-lab': '17-Panel SOS Lab Test',

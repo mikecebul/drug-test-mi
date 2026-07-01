@@ -1,5 +1,6 @@
 import type { Payload } from 'payload'
 import { createAdminAlert } from '@/lib/admin-alerts'
+import type { TestTypeValue } from '@/config/test-types'
 
 export type ReferralType = 'court' | 'employer'
 
@@ -126,7 +127,7 @@ export async function createInactiveReferralAndAlert(args: {
   source: 'frontend' | 'admin' | 'referral-editor'
   name: string
   contacts: ReferralContact[]
-  preferredTestTypeId?: string | null
+  preferredTestTypeId?: TestTypeValue | null
 }): Promise<ReferralRelationship> {
   const relationTo = args.type === 'court' ? 'courts' : 'employers'
   const contacts = normalizeReferralContacts(args.contacts)

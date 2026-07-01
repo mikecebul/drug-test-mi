@@ -17,6 +17,10 @@ describe('quick-book helpers', () => {
 
   test('extracts preferred test type from string and populated object', () => {
     expect(extractPreferredTestType('test-type-id')).toEqual({ recommendedTestTypeId: 'test-type-id' })
+    expect(extractPreferredTestType('17-panel-instant')).toEqual({
+      recommendedTestTypeId: '17-panel-instant',
+      recommendedTestTypeValue: '17-panel-instant',
+    })
     expect(
       extractPreferredTestType({
         id: 'abc',

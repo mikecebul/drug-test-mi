@@ -1,6 +1,3 @@
-import config from '@payload-config'
-import { getPayload } from 'payload'
-
 import type { Client } from '@/payload-types'
 import {
   buildCalConfig,
@@ -14,27 +11,7 @@ import {
   type RecommendedTestType,
 } from '@/lib/quick-book'
 
-async function resolvePreferredTestLabel(recommendation: RecommendedTestType): Promise<string | undefined> {
-  if (!recommendation.recommendedTestTypeValue && recommendation.recommendedTestTypeId) {
-    try {
-      const payload = await getPayload({ config })
-      const testType = await payload.findByID({
-        collection: 'test-types',
-        id: recommendation.recommendedTestTypeId,
-        depth: 0,
-        select: {
-          bookingLabel: true,
-          label: true,
-          value: true,
-        },
-      })
-
-      return testType.bookingLabel || testType.label || testType.value || undefined
-    } catch (error) {
-      console.warn('[CalConfig] Failed to resolve preferred test type', error)
-    }
-  }
-
+function resolvePreferredTestLabel(recommendation: RecommendedTestType): string | undefined {
   return resolveRecommendedTestLabel(FALLBACK_BOOKING_TEST_TYPES, recommendation)
 }
 
@@ -45,9 +22,7 @@ export async function buildClientBookingCalConfig(client: Client): Promise<CalBo
     return calConfig
   }
 
-  const preferredTestLabel = await resolvePreferredTestLabel(
-    extractPreferredTestType(getReferralPreferredTestType(client)),
-  )
+  const preferredTestLabel = resolvePreferredTestLabel(extractPreferredTestType(getReferralPreferredTestType(client)))
 
   if (preferredTestLabel) {
     calConfig.test = preferredTestLabel

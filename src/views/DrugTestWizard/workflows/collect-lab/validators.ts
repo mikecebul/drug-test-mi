@@ -4,7 +4,7 @@ import { clientSchema, medicationsSchema, emailsGroupSchema, emailsSchema } from
 export const steps = ['client', 'medications', 'collection', 'confirm', 'reviewEmails'] as const
 export type Steps = typeof steps
 
-export const labTests = ['11-panel-lab', '11-panel-lab-no-etg', '17-panel-sos-lab', 'etg-lab'] as const
+export const labTests = ['11-panel-lab', '11-panel-lab-no-etg', '8-panel-lab', '17-panel-sos-lab', 'etg-lab'] as const
 export type LabTests = typeof labTests
 
 export { clientSchema, medicationsSchema, emailsGroupSchema, emailsSchema }

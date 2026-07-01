@@ -25,6 +25,7 @@ export const ClientSearchDialog = ({
   selectedClientId: string
   onSelect: (client: SimpleClient) => void
 }) => {
+  const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const trimmedQuery = searchQuery.trim()
 
@@ -40,9 +41,20 @@ export const ClientSearchDialog = ({
       : 'No client found.'
 
   const groupLabel = showingRecent ? 'Recent Clients' : 'Search Results'
+  const handleSelect = (client: SimpleClient) => {
+    onSelect(client)
+    setSearchQuery('')
+    setOpen(false)
+  }
 
   return (
-    <CommandDialog title="Search and Select Client" trigger={children} commandProps={{ shouldFilter: false }}>
+    <CommandDialog
+      title="Search and Select Client"
+      trigger={children}
+      commandProps={{ shouldFilter: false }}
+      open={open}
+      onOpenChange={setOpen}
+    >
       <CommandInput
         value={searchQuery}
         onValueChange={setSearchQuery}
@@ -58,7 +70,7 @@ export const ClientSearchDialog = ({
                 key={client.id}
                 value={client.id}
                 className="px-3 py-3 text-lg"
-                onSelect={() => onSelect(client)}
+                onSelect={() => handleSelect(client)}
               >
                 <Check
                   className={`mr-3 size-6 shrink-0 ${selectedClientId === client.id ? 'opacity-100' : 'opacity-0'}`}
@@ -67,7 +79,7 @@ export const ClientSearchDialog = ({
                   <AvatarImage src={client.headshot} alt={client.fullName} />
                   <AvatarFallback className="text-lg">{client.initials}</AvatarFallback>
                 </Avatar>
-                <div className="min-w-0 flex flex-col">
+                <div className="flex min-w-0 flex-col">
                   <span className="text-lg font-medium">{client.fullName}</span>
                   {client.phone ? (
                     <span className="text-muted-foreground text-sm">{client.phone}</span>

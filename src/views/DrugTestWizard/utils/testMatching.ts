@@ -19,6 +19,7 @@ export const TEST_TYPES = [
   '17-panel-instant',
   '11-panel-lab',
   '11-panel-lab-no-etg',
+  '8-panel-lab',
   '17-panel-sos-lab',
   'etg-lab',
 ] as const
@@ -77,6 +78,7 @@ export function filterByTestType(tests: DrugTest[], uploadedTestType?: TestType)
     '17-panel-instant': ['17-panel-instant'],
     '11-panel-lab': ['11-panel-lab'],
     '11-panel-lab-no-etg': ['11-panel-lab-no-etg'],
+    '8-panel-lab': ['8-panel-lab'],
     '17-panel-sos-lab': ['17-panel-sos-lab'],
     'etg-lab': ['etg-lab'],
   }

@@ -111,29 +111,6 @@ async function resolveClientQuickBookContext(clientId: string): Promise<AdminQui
     }
   }
 
-  if (!recommendation.recommendedTestTypeValue && recommendation.recommendedTestTypeId) {
-    try {
-      const testTypeDoc = await sdk.findByID({
-        collection: 'test-types',
-        id: recommendation.recommendedTestTypeId,
-        depth: 0,
-        select: {
-          value: true,
-        },
-      })
-
-      return {
-        calLink,
-        recommendation: {
-          ...recommendation,
-          ...(testTypeDoc.value ? { recommendedTestTypeValue: testTypeDoc.value } : {}),
-        },
-      }
-    } catch (error) {
-      console.warn('[AdminQuickBookWidget] Failed to fetch recommended test type value', error)
-    }
-  }
-
   return {
     calLink,
     recommendation,
@@ -186,38 +163,6 @@ async function fetchQuickBookClients(): Promise<SimpleClient[]> {
   })
 }
 
-async function fetchTestTypes(): Promise<TestTypeOption[]> {
-  try {
-    const response = await fetch('/api/test-types?limit=200&sort=label&where[isActive][equals]=true', {
-      cache: 'no-store',
-    })
-
-    if (!response.ok) {
-      throw new Error(`Failed to load test types: ${response.status}`)
-    }
-
-    const json = (await response.json()) as {
-      docs?: Array<{ id?: string; value?: string; label?: string; bookingLabel?: string }>
-    }
-
-    return (json.docs || [])
-      .map((doc) => {
-        if (!doc.id || !doc.value) return null
-        const label = doc.bookingLabel || doc.label || doc.value
-        if (!label) return null
-        return {
-          id: doc.id,
-          value: doc.value,
-          label,
-        }
-      })
-      .filter((item): item is TestTypeOption => item !== null)
-  } catch (error) {
-    console.error('[AdminQuickBookWidget] Failed to fetch test types', error)
-    return []
-  }
-}
-
 function resolveTestLabel(options: TestTypeOption[], recommendation: RecommendedTestType): string {
   return (
     resolveRecommendedTestLabel(options, recommendation) ?? options[0]?.label ?? FALLBACK_BOOKING_TEST_TYPES[0].label
@@ -236,7 +181,6 @@ export function AdminQuickBookWidgetClient({
   searchInputId = 'admin-quick-book-search',
 }: AdminQuickBookWidgetClientProps = {}) {
   const [clients, setClients] = useState<SimpleClient[]>([])
-  const [testTypes, setTestTypes] = useState<TestTypeOption[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isLoadingClients, setIsLoadingClients] = useState(true)
@@ -255,10 +199,9 @@ export function AdminQuickBookWidgetClient({
 
     const loadData = async () => {
       try {
-        const [clientList, availableTestTypes] = await Promise.all([fetchQuickBookClients(), fetchTestTypes()])
+        const clientList = await fetchQuickBookClients()
         if (!mounted) return
         setClients(clientList)
-        setTestTypes(availableTestTypes)
       } catch (error) {
         console.error('[AdminQuickBookWidget] Failed to load clients', error)
         if (!mounted) return
@@ -309,8 +252,7 @@ export function AdminQuickBookWidgetClient({
 
     try {
       const quickBookContext = await resolveClientQuickBookContext(client.id)
-      const options = testTypes.length > 0 ? testTypes : FALLBACK_BOOKING_TEST_TYPES
-      const selectedTestLabel = resolveTestLabel(options, quickBookContext.recommendation)
+      const selectedTestLabel = resolveTestLabel(FALLBACK_BOOKING_TEST_TYPES, quickBookContext.recommendation)
 
       const config: CalModalConfig = {
         name: client.fullName || `${client.firstName} ${client.lastName}`,

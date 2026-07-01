@@ -121,10 +121,6 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
-    'test-types': {
-      employers: 'employers';
-      courts: 'courts';
-    };
     courts: {
       clients: 'clients';
     };
@@ -1144,7 +1140,17 @@ export interface Booking {
   /**
    * Test type for this scheduled collection when the referral does not provide one.
    */
-  scheduledTestType?: (string | null) | TestType;
+  scheduledTestType?:
+    | (
+        | '17-panel-instant'
+        | '11-panel-lab'
+        | '11-panel-lab-no-etg'
+        | '8-panel-lab'
+        | '17-panel-sos-lab'
+        | 'etg-lab'
+        | '15-panel-instant'
+      )
+    | null;
   /**
    * Payment collected before specimen collection.
    */
@@ -1491,7 +1497,17 @@ export interface Court {
     email: string;
     id?: string | null;
   }[];
-  preferredTestType?: (string | null) | TestType;
+  preferredTestType?:
+    | (
+        | '17-panel-instant'
+        | '11-panel-lab'
+        | '11-panel-lab-no-etg'
+        | '8-panel-lab'
+        | '17-panel-sos-lab'
+        | 'etg-lab'
+        | '15-panel-instant'
+      )
+    | null;
   /**
    * Inactive courts are hidden from quick-select dropdowns, but remain usable for linked clients and email delivery.
    */
@@ -1501,59 +1517,6 @@ export interface Court {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "test-types".
- */
-export interface TestType {
-  id: string;
-  /**
-   * Human-readable name (e.g., 15-Panel Instant).
-   */
-  label: string;
-  /**
-   * Canonical key used in code and workflow logic (e.g., 15-panel-instant).
-   */
-  value: string;
-  /**
-   * Optional display text for external scheduling tools like Cal.com.
-   */
-  bookingLabel?: string | null;
-  /**
-   * Helps filter test types in future workflows.
-   */
-  category?: ('instant' | 'lab') | null;
-  /**
-   * Standard client price in USD.
-   */
-  price: number;
-  /**
-   * Lab test code used when ordering this test in ToxAccess.
-   */
-  toxAccessCode?: string | null;
-  /**
-   * Employers currently mapped to this preferred test type.
-   */
-  employers?: {
-    docs?: (string | Employer)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Courts currently mapped to this preferred test type.
-   */
-  courts?: {
-    docs?: (string | Court)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Inactive test types remain in history but are hidden from new selections.
-   */
-  isActive?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1572,7 +1535,17 @@ export interface Employer {
     email: string;
     id?: string | null;
   }[];
-  preferredTestType?: (string | null) | TestType;
+  preferredTestType?:
+    | (
+        | '17-panel-instant'
+        | '11-panel-lab'
+        | '11-panel-lab-no-etg'
+        | '8-panel-lab'
+        | '17-panel-sos-lab'
+        | 'etg-lab'
+        | '15-panel-instant'
+      )
+    | null;
   /**
    * Inactive employers are hidden from quick-select dropdowns, but remain usable for linked clients and email delivery.
    */
@@ -1652,6 +1625,7 @@ export interface DrugTest {
   testType:
     | '11-panel-lab'
     | '11-panel-lab-no-etg'
+    | '8-panel-lab'
     | '15-panel-instant'
     | '17-panel-instant'
     | '17-panel-sos-lab'
@@ -2103,6 +2077,45 @@ export interface Technician {
   };
   /**
    * Inactive technicians will not appear in scheduling
+   */
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Legacy collection kept for historical migrations only. Canonical test types now live in src/config/test-types.ts.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "test-types".
+ */
+export interface TestType {
+  id: string;
+  /**
+   * Human-readable name (e.g., 15-Panel Instant).
+   */
+  label: string;
+  /**
+   * Canonical key used in code and workflow logic (e.g., 15-panel-instant).
+   */
+  value: string;
+  /**
+   * Optional display text for external scheduling tools like Cal.com.
+   */
+  bookingLabel?: string | null;
+  /**
+   * Helps filter test types in future workflows.
+   */
+  category?: ('instant' | 'lab') | null;
+  /**
+   * Standard client price in USD.
+   */
+  price: number;
+  /**
+   * Lab test code used when ordering this test in ToxAccess.
+   */
+  toxAccessCode?: string | null;
+  /**
+   * Inactive test types remain in history but are hidden from new selections.
    */
   isActive?: boolean | null;
   updatedAt: string;
@@ -3335,8 +3348,6 @@ export interface TestTypesSelect<T extends boolean = true> {
   category?: T;
   price?: T;
   toxAccessCode?: T;
-  employers?: T;
-  courts?: T;
   isActive?: T;
   updatedAt?: T;
   createdAt?: T;
