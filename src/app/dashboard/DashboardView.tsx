@@ -7,9 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   AlertCircle,
   Calendar,
+  CalendarClock,
+  CalendarX,
   CheckCircle,
   Clock,
   Edit,
+  ExternalLink,
   FileText,
   Mail,
   Pill,
@@ -22,6 +25,7 @@ import Link from 'next/link'
 import { CalPopupButton } from '@/components/cal-popup-button'
 import { buildCalConfig, getClientBookingCalLink } from '@/utilities/calcom-config'
 import type { Client } from '@/payload-types'
+import { getCalcomBookingActionLinks, type CalcomBookingActionLinks } from '@/utilities/calcom-booking-action-links'
 
 export type DashboardData = {
   user: {
@@ -45,6 +49,7 @@ export type DashboardData = {
     date: string
     type: string
     calcomBookingId?: string
+    calcomActionLinks?: CalcomBookingActionLinks
   }
   recentTest?: {
     date: string
@@ -183,6 +188,11 @@ function getResultsRecipients(client: Client) {
 export function DashboardView({ data }: { data: DashboardData }) {
   const { user, stats, nextAppointment, recentTest } = data
   const resultsRecipients = getResultsRecipients(data.client)
+  const nextAppointmentActions =
+    nextAppointment?.calcomActionLinks ??
+    (nextAppointment?.calcomBookingId
+      ? getCalcomBookingActionLinks({ calcomBookingId: nextAppointment.calcomBookingId })
+      : undefined)
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
@@ -190,9 +200,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Welcome back, {user.name}</h1>
-            <p className="text-muted-foreground">
-              Here&apos;s an overview of your testing activity and status
-            </p>
+            <p className="text-muted-foreground">Here&apos;s an overview of your testing activity and status</p>
           </div>
         </div>
       </div>
@@ -300,9 +308,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
                 <div className="space-y-3">
                   <div>
                     <p className="font-medium">{nextAppointment.type}</p>
-                    <p className="text-muted-foreground text-sm">
-                      {formatCollectionDate(nextAppointment.date)}
-                    </p>
+                    <p className="text-muted-foreground text-sm">{formatCollectionDate(nextAppointment.date)}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="inline-flex items-center">
@@ -310,17 +316,32 @@ export function DashboardView({ data }: { data: DashboardData }) {
                       In {getDaysUntil(nextAppointment.date)} days
                     </Badge>
                   </div>
-                  {nextAppointment.calcomBookingId && (
-                    <a
-                      href={`https://cal.com/reschedule/${nextAppointment.calcomBookingId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button variant="outline" size="sm" className="w-full">
-                        <Calendar className="mr-2 h-4 w-4" />
-                        Reschedule Appointment
-                      </Button>
-                    </a>
+                  {(nextAppointmentActions?.rescheduleHref || nextAppointmentActions?.cancelHref) && (
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                      {nextAppointmentActions.rescheduleHref && (
+                        <Button asChild variant="outline" size="sm" className="w-full">
+                          <a href={nextAppointmentActions.rescheduleHref} target="_blank" rel="noopener noreferrer">
+                            <CalendarClock className="mr-2 h-4 w-4" />
+                            Reschedule
+                            <ExternalLink className="ml-2 h-3 w-3" />
+                          </a>
+                        </Button>
+                      )}
+                      {nextAppointmentActions.cancelHref && (
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive w-full"
+                        >
+                          <a href={nextAppointmentActions.cancelHref} target="_blank" rel="noopener noreferrer">
+                            <CalendarX className="mr-2 h-4 w-4" />
+                            Cancel
+                            <ExternalLink className="ml-2 h-3 w-3" />
+                          </a>
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
               </CardContent>
@@ -339,16 +360,10 @@ export function DashboardView({ data }: { data: DashboardData }) {
               {recentTest ? (
                 <div className="space-y-3">
                   <div>
-                    <p className="text-muted-foreground text-sm">
-                      {formatCollectionDateShort(recentTest.date)}
-                    </p>
+                    <p className="text-muted-foreground text-sm">{formatCollectionDateShort(recentTest.date)}</p>
                     <div className="mt-1 flex items-center space-x-2">
-                      <Badge variant={getResultBadgeVariant(recentTest.result)}>
-                        {recentTest.result}
-                      </Badge>
-                      <Badge variant={getStatusBadgeVariant(recentTest.status)}>
-                        {recentTest.status}
-                      </Badge>
+                      <Badge variant={getResultBadgeVariant(recentTest.result)}>{recentTest.result}</Badge>
+                      <Badge variant={getStatusBadgeVariant(recentTest.status)}>{recentTest.status}</Badge>
                     </div>
                   </div>
                   <Link href="/dashboard/results">
@@ -400,15 +415,13 @@ export function DashboardView({ data }: { data: DashboardData }) {
                       resultsRecipients.map((recipient) => (
                         <div
                           key={recipient.email}
-                          className="border-border/70 grid gap-3 border-b py-3 last:border-b-0 first:pt-0 last:pb-0 sm:grid-cols-[minmax(120px,0.45fr)_minmax(0,1fr)] sm:items-center"
+                          className="border-border/70 grid gap-3 border-b py-3 first:pt-0 last:border-b-0 last:pb-0 sm:grid-cols-[minmax(120px,0.45fr)_minmax(0,1fr)] sm:items-center"
                         >
                           <div className="flex min-w-0 items-center gap-3">
                             <span className="bg-muted text-muted-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-full">
                               <UserRound className="h-4 w-4" />
                             </span>
-                            <p className="truncate text-sm font-medium">
-                              {recipient.name || 'Recipient'}
-                            </p>
+                            <p className="truncate text-sm font-medium">{recipient.name || 'Recipient'}</p>
                           </div>
                           <p className="text-muted-foreground min-w-0 truncate pl-12 text-sm sm:pl-0">
                             {recipient.email}
@@ -426,11 +439,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
                   {stats.activeMedicationNames.length > 0 ? (
                     <div className="mt-3 flex flex-col items-start gap-2">
                       {stats.activeMedicationNames.map((medicationName) => (
-                        <Badge
-                          key={medicationName}
-                          variant="secondary"
-                          className="gap-1.5 px-3 py-1.5"
-                        >
+                        <Badge key={medicationName} variant="secondary" className="gap-1.5 px-3 py-1.5">
                           <Pill className="h-3.5 w-3.5" />
                           {medicationName}
                         </Badge>
@@ -447,7 +456,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
                     <span className="bg-muted text-muted-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-full">
                       <Mail className="h-4 w-4" />
                     </span>
-                    <p className="min-w-0 break-all text-sm font-medium">{user.email}</p>
+                    <p className="min-w-0 text-sm font-medium break-all">{user.email}</p>
                   </div>
                 </div>
               </div>

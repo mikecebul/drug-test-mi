@@ -16,6 +16,7 @@ import {
   mapTestTypeValue,
   type GuidedTestType,
 } from '@/config/test-types'
+import { getCalcomBookingActionLinks } from './schedule-utils'
 
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type PaymentMethod = 'cash' | 'card' | 'not-paid' | 'pre-paid'
@@ -94,10 +95,7 @@ function getCalcomBookingTestType(booking: {
   return null
 }
 
-function getEffectiveBookingTestType(
-  bookingTestType: unknown,
-  referral: PopulatedReferral | null | undefined,
-) {
+function getEffectiveBookingTestType(bookingTestType: unknown, referral: PopulatedReferral | null | undefined) {
   return mapTestTypeValue(bookingTestType) ?? getPreferredTestType(referral)
 }
 
@@ -225,6 +223,10 @@ export async function getTodaysCollectionBookings() {
         attendeeEmail: booking.attendeeEmail as string,
         attendeePhone: getPhoneFromCustomInputs(booking.customInputs),
         calcomBookingId: booking.calcomBookingId as string | null | undefined,
+        calcomActionLinks: getCalcomBookingActionLinks({
+          calcomBookingId: booking.calcomBookingId as string | null | undefined,
+          webhookData: booking.webhookData,
+        }),
         client: client
           ? {
               id: client.id as string,

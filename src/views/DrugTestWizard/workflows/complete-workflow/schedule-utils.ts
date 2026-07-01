@@ -1,10 +1,14 @@
 export type GuidedScheduleStep = 'registration' | 'payment'
 export type GuidedPaymentChoice = 'paid' | 'pre-paid' | 'still-owes'
+export { getCalcomBookingActionLinks } from '@/utilities/calcom-booking-action-links'
+export type { CalcomBookingActionLinks } from '@/utilities/calcom-booking-action-links'
 
 export type GuidedScheduleBooking = {
   id: string
   needsRegistration: boolean
   needsTestType: boolean
+  calcomBookingId?: string | null
+  webhookData?: unknown
   sampleCollection?: {
     status?: string | null
   } | null
