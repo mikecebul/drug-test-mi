@@ -2,49 +2,10 @@ import { getPayload } from 'payload'
 import configPromise from '@payload-config'
 import { NextRequest, NextResponse } from 'next/server'
 import type { RequiredDataFromCollectionSlug } from 'payload'
+import { getTestTypeByValue } from '@/config/test-types'
 
 type Payload = Awaited<ReturnType<typeof getPayload>>
 type BookingData = RequiredDataFromCollectionSlug<'bookings'>
-
-const TEST_TYPES = [
-  {
-    value: '11-panel-lab',
-    label: '11-Panel Lab',
-    bookingLabel: '11 Panel Lab',
-    category: 'lab' as const,
-    price: 40,
-    toxAccessCode: 'B729',
-  },
-  {
-    value: '11-panel-lab-no-etg',
-    label: '11-Panel Lab (no EtG)',
-    bookingLabel: '11 Panel Lab (no EtG)',
-    category: 'lab' as const,
-    price: 40,
-    toxAccessCode: 'B829',
-  },
-  {
-    value: '17-panel-instant',
-    label: '17-Panel Instant',
-    bookingLabel: '17 Panel Instant',
-    category: 'instant' as const,
-    price: 35,
-  },
-  {
-    value: '17-panel-sos-lab',
-    label: '17-Panel SOS Lab',
-    bookingLabel: '17 SOS Lab',
-    category: 'lab' as const,
-    price: 45,
-  },
-  {
-    value: 'etg-lab',
-    label: 'EtG Lab',
-    bookingLabel: 'EtG Lab',
-    category: 'lab' as const,
-    price: 40,
-  },
-]
 
 function todayAt(hour: number, minute = 0) {
   const date = new Date()
@@ -92,51 +53,15 @@ function buildMockCalcomFields(uid: string, numericId: number, overrides: Partia
   }
 }
 
-async function ensureTestType(payload: Payload, value: string) {
-  const testType = TEST_TYPES.find((entry) => entry.value === value)
-  if (!testType) throw new Error(`Unknown test type: ${value}`)
-
-  const existing = await payload.find({
-    collection: 'test-types',
-    where: {
-      value: {
-        equals: value,
-      },
-    },
-    depth: 0,
-    limit: 1,
-    overrideAccess: true,
-  })
-
-  if (existing.docs[0]) {
-    const updated = await payload.update({
-      collection: 'test-types',
-      id: existing.docs[0].id,
-      data: testType,
-      overrideAccess: true,
-    })
-    return updated.id
-  }
-
-  const created = await payload.create({
-    collection: 'test-types',
-    data: {
-      ...testType,
-      isActive: true,
-    },
-    overrideAccess: true,
-  })
-
-  return created.id
-}
-
 async function ensureReferral(
   payload: Payload,
   collection: 'courts' | 'employers',
   name: string,
   preferredTestType: string,
 ) {
-  const preferredTestTypeId = await ensureTestType(payload, preferredTestType)
+  const configuredTestType = getTestTypeByValue(preferredTestType)
+  if (!configuredTestType?.isActive) throw new Error(`Unknown active test type: ${preferredTestType}`)
+
   const existing = await payload.find({
     collection,
     where: {
@@ -151,7 +76,7 @@ async function ensureReferral(
 
   const data = {
     name,
-    preferredTestType: preferredTestTypeId,
+    preferredTestType: configuredTestType.value,
     contacts: [
       {
         name: 'Mock Referral Contact',

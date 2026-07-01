@@ -366,6 +366,7 @@ export async function up({ payload }: MigrateUpArgs): Promise<void> {
   const database = (payload.db as any).connection.db
 
   const testTypeIdByValue = new Map<CanonicalTestType, string>()
+  const testTypeValueById = new Map<string, CanonicalTestType>()
 
   const existingTestTypes = await payload.find({
     collection: 'test-types',
@@ -379,6 +380,7 @@ export async function up({ payload }: MigrateUpArgs): Promise<void> {
       const canonical = normalizeTestType(testType.value)
       if (canonical) {
         testTypeIdByValue.set(canonical, testType.id)
+        testTypeValueById.set(String(testType.id), canonical)
       }
     }
   })
@@ -401,7 +403,16 @@ export async function up({ payload }: MigrateUpArgs): Promise<void> {
     })
 
     testTypeIdByValue.set(entry.value, created.id)
+    testTypeValueById.set(String(created.id), entry.value)
     createdTestTypes++
+  }
+
+  const normalizeStoredTestType = (value: unknown): CanonicalTestType | undefined => {
+    const canonical = normalizeTestType(value)
+    if (canonical) return canonical
+
+    const id = toId(value)
+    return id ? testTypeValueById.get(id) : undefined
   }
 
   const clients = (await database.collection('clients').find({}).toArray()).map((doc: any) => attachStringId(doc))
@@ -552,7 +563,6 @@ export async function up({ payload }: MigrateUpArgs): Promise<void> {
     aggregate.recipientEmails.delete(aggregate.mainContactEmail)
 
     const preferredTestTypeValue = aggregate.testTypeCounts ? pickPreferredTestType(aggregate.testTypeCounts) : null
-    const preferredTestTypeId = preferredTestTypeValue ? testTypeIdByValue.get(preferredTestTypeValue) : undefined
 
     const existingEmployer = existingEmployerByKey.get(key)
     if (!existingEmployer) {
@@ -561,7 +571,7 @@ export async function up({ payload }: MigrateUpArgs): Promise<void> {
         data: {
           name: aggregate.name,
           contacts: toContactRows(aggregate),
-          preferredTestType: preferredTestTypeId,
+          preferredTestType: preferredTestTypeValue || undefined,
           isActive: true,
         },
         overrideAccess: true,
@@ -578,7 +588,7 @@ export async function up({ payload }: MigrateUpArgs): Promise<void> {
       data: {
         name: aggregate.name,
         contacts: toContactRows(aggregate),
-        preferredTestType: preferredTestTypeId || existingEmployer.preferredTestType,
+        preferredTestType: preferredTestTypeValue || normalizeStoredTestType(existingEmployer.preferredTestType),
         isActive: typeof existingEmployer.isActive === 'boolean' ? existingEmployer.isActive : true,
       },
       overrideAccess: true,
@@ -669,7 +679,7 @@ export async function up({ payload }: MigrateUpArgs): Promise<void> {
       data: {
         name: aggregate.name,
         contacts: toContactRows(aggregate),
-        preferredTestType: existingCourt.preferredTestType || undefined,
+        preferredTestType: normalizeStoredTestType(existingCourt.preferredTestType),
         isActive: typeof existingCourt.isActive === 'boolean' ? existingCourt.isActive : true,
       },
       overrideAccess: true,

@@ -522,6 +522,9 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
             case '11-panel-lab-no-etg':
               label = '11-Panel Lab (no EtG)'
               break
+            case '8-panel-lab':
+              label = '8-Panel Lab'
+              break
             case '15-panel-instant':
               label = '15-Panel Instant'
               break
@@ -789,6 +792,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                         <SelectItem value="all">All Types</SelectItem>
                         <SelectItem value="11-panel-lab">11-Panel Lab</SelectItem>
                         <SelectItem value="11-panel-lab-no-etg">11-Panel Lab (no EtG)</SelectItem>
+                        <SelectItem value="8-panel-lab">8-Panel Lab</SelectItem>
                         <SelectItem value="17-panel-instant">17-Panel Instant</SelectItem>
                         <SelectItem value="17-panel-sos-lab">17-Panel SOS Lab</SelectItem>
                         <SelectItem value="etg-lab">EtG Lab</SelectItem>
@@ -922,6 +926,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                             <SelectItem value="all">All Types</SelectItem>
                             <SelectItem value="11-panel-lab">11-Panel Lab</SelectItem>
                             <SelectItem value="11-panel-lab-no-etg">11-Panel Lab (no EtG)</SelectItem>
+                            <SelectItem value="8-panel-lab">8-Panel Lab</SelectItem>
                             <SelectItem value="17-panel-instant">17-Panel Instant</SelectItem>
                             <SelectItem value="17-panel-sos-lab">17-Panel SOS Lab</SelectItem>
                             <SelectItem value="etg-lab">EtG Lab</SelectItem>

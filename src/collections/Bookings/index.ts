@@ -1,6 +1,7 @@
 import { admins } from '@/access/admins'
 import { CollectionConfig } from 'payload'
 import { syncClient } from './hooks/syncClient'
+import { testTypeSelectOptions } from '@/config/test-types'
 
 export const Bookings: CollectionConfig = {
   slug: 'bookings',
@@ -127,15 +128,10 @@ export const Bookings: CollectionConfig = {
     },
     {
       name: 'scheduledTestType',
-      type: 'relationship',
-      relationTo: 'test-types',
+      type: 'select',
+      options: testTypeSelectOptions,
       admin: {
         description: 'Test type for this scheduled collection when the referral does not provide one.',
-      },
-      filterOptions: {
-        isActive: {
-          equals: true,
-        },
       },
     },
     {

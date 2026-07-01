@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { ensureDotEnvLoaded } from './env'
+import type { TestTypeValue } from '../../../src/config/test-types'
 
 type SeededPerson = {
   id: string
@@ -410,46 +411,6 @@ async function seedFixtures(): Promise<FixtureContext> {
   }
 }
 
-async function findOrCreateTestType(
-  payload: any,
-  args: {
-    value: string
-    label: string
-    category: 'instant' | 'lab'
-    price: number
-    toxAccessCode?: string
-  },
-) {
-  const result = await payload.find({
-    collection: 'test-types',
-    where: {
-      value: {
-        equals: args.value,
-      },
-    },
-    limit: 1,
-    depth: 0,
-    overrideAccess: true,
-  })
-
-  if (result.docs[0]) {
-    return result.docs[0]
-  }
-
-  return payload.create({
-    collection: 'test-types',
-    data: {
-      label: args.label,
-      value: args.value,
-      category: args.category,
-      price: args.price,
-      toxAccessCode: args.toxAccessCode,
-      isActive: true,
-    },
-    overrideAccess: true,
-  })
-}
-
 async function findAdminAlertIdsByTitle(payload: any, title: string): Promise<string[]> {
   const result = await payload.find({
     collection: 'admin-alerts',
@@ -476,27 +437,13 @@ async function seedGuidedScheduleFixtures(ctx: FixtureContext): Promise<GuidedSc
   const atTodayHour = (hourOfDay: number) => new Date(todayWindow.start.getTime() + hourOfDay * hour)
   const buildEnd = (start: Date) => new Date(start.getTime() + 15 * minute)
 
-  const instantTestType = await findOrCreateTestType(payload, {
-    value: '17-panel-instant',
-    label: '17-Panel Instant',
-    category: 'instant',
-    price: 35,
-  })
-  const labTestType = await findOrCreateTestType(payload, {
-    value: '11-panel-lab',
-    label: '11-Panel Lab',
-    category: 'lab',
-    price: 40,
-    toxAccessCode: 'B729',
-  })
-
   const createBooking = async (args: {
     attendeeName: string
     attendeeEmail: string
     startTime: Date
     status?: 'confirmed' | 'cancelled' | 'pending'
     relatedClient?: string
-    scheduledTestType?: string
+    scheduledTestType?: TestTypeValue
     payment?: {
       amountDue?: number
       amountPaid?: number
@@ -543,7 +490,7 @@ async function seedGuidedScheduleFixtures(ctx: FixtureContext): Promise<GuidedSc
     attendeeEmail: `2485550199@sms.cal.com`,
     startTime: atTodayHour(9),
     relatedClient: ctx.clients.collectLab.id,
-    scheduledTestType: instantTestType.id,
+    scheduledTestType: '17-panel-instant',
     payment: {
       amountDue: 35,
       amountPaid: 35,
@@ -557,7 +504,7 @@ async function seedGuidedScheduleFixtures(ctx: FixtureContext): Promise<GuidedSc
     attendeeEmail: `schedule.unlinked.${ctx.runId}@example.com`,
     startTime: atTodayHour(10),
     status: 'pending',
-    scheduledTestType: labTestType.id,
+    scheduledTestType: '11-panel-lab',
     payment: {
       amountDue: 40,
       amountPaid: 0,
@@ -577,7 +524,7 @@ async function seedGuidedScheduleFixtures(ctx: FixtureContext): Promise<GuidedSc
     attendeeName: `E2E Tomorrow Schedule ${ctx.runId}`,
     attendeeEmail: `schedule.tomorrow.${ctx.runId}@example.com`,
     startTime: new Date(todayWindow.end.getTime() + 9 * hour),
-    scheduledTestType: labTestType.id,
+    scheduledTestType: '11-panel-lab',
   })
 
   const cancelledToday = await createBooking({
@@ -585,7 +532,7 @@ async function seedGuidedScheduleFixtures(ctx: FixtureContext): Promise<GuidedSc
     attendeeEmail: `schedule.cancelled.${ctx.runId}@example.com`,
     startTime: atTodayHour(12),
     status: 'cancelled',
-    scheduledTestType: labTestType.id,
+    scheduledTestType: '11-panel-lab',
   })
 
   const bookingIds = [paidLinked.id, unlinked.id, needsTestType.id, outsideToday.id, cancelledToday.id]

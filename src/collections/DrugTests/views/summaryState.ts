@@ -70,6 +70,7 @@ export type DrugTestSummaryState = {
 const LAB_TEST_TYPES = new Set<DrugTest['testType']>([
   '11-panel-lab',
   '11-panel-lab-no-etg',
+  '8-panel-lab',
   '17-panel-sos-lab',
   'etg-lab',
 ])
@@ -94,6 +95,7 @@ const RESULT_META: Record<SummaryResultKey, { label: string; variant: BadgeVaria
 const TEST_TYPE_LABELS: Record<DrugTest['testType'], string> = {
   '11-panel-lab': '11-Panel Lab',
   '11-panel-lab-no-etg': '11-Panel Lab (no EtG)',
+  '8-panel-lab': '8-Panel Lab',
   '15-panel-instant': '15-Panel Instant',
   '17-panel-instant': '17-Panel Instant',
   '17-panel-sos-lab': '17-Panel SOS Lab',

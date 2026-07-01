@@ -22,4 +22,19 @@ describe('getSubstanceOptions', () => {
     expect(values).not.toContain('6-mam')
     expect(values).not.toContain('opiates')
   })
+
+  test('8-panel lab contains its seven drug panels and leaves creatinine to dilute handling', () => {
+    const substances = getSubstanceOptions('8-panel-lab')
+    const values = substances.map((substance) => substance.value)
+
+    expect(values).toEqual([
+      'amphetamines',
+      'benzodiazepines',
+      'buprenorphine',
+      'cocaine',
+      'fentanyl',
+      'mdma',
+      'opiates',
+    ])
+  })
 })

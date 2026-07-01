@@ -4,24 +4,21 @@ import { baseUrl } from '@/utilities/baseUrl'
 import { anyone } from '@/access/anyone'
 import { notifyNewRegistration } from './hooks/notifyNewRegistration'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
-import type { Court, Employer, TestType } from '@/payload-types'
+import type { Court, Employer } from '@/payload-types'
+import { getTestTypeLabel as getConfiguredTestTypeLabel } from '@/config/test-types'
 
 type ReferralRelation = {
   relationTo?: 'courts' | 'employers'
   value?: string | Court | Employer | null
 }
 
-function getRelationshipId(value: unknown): string | null {
-  if (!value) return null
-  if (typeof value === 'string') return value
-  if (typeof value === 'object' && 'id' in value && typeof value.id === 'string') return value.id
-  return null
-}
-
-function getTestTypeLabel(testType: unknown): string | null {
+function getPopulatedTestTypeLabel(testType: unknown): string | null {
   if (!testType) return null
   if (typeof testType === 'object' && 'label' in testType && typeof testType.label === 'string') {
     return testType.label
+  }
+  if (typeof testType === 'object' && 'value' in testType && typeof testType.value === 'string') {
+    return getConfiguredTestTypeLabel(testType.value) || testType.value
   }
   return null
 }
@@ -70,27 +67,15 @@ const resolveRequiredTestTypeLabel: FieldHook = async ({ currentDepth, data, req
     }
   }
 
-  const populatedLabel = getTestTypeLabel(preferredTestType)
+  if (typeof preferredTestType === 'string') {
+    const configuredLabel = getConfiguredTestTypeLabel(preferredTestType)
+    if (configuredLabel) return configuredLabel
+  }
+
+  const populatedLabel = getPopulatedTestTypeLabel(preferredTestType)
   if (populatedLabel) return populatedLabel
 
-  const testTypeId = getRelationshipId(preferredTestType)
-  if (!testTypeId) {
-    return 'No preferred test type set'
-  }
-
-  try {
-    const testType = (await req.payload.findByID({
-      collection: 'test-types',
-      id: testTypeId,
-      depth: 0,
-      req,
-      overrideAccess: false,
-    })) as TestType
-
-    return testType.label || 'No preferred test type set'
-  } catch {
-    return typeof value === 'string' && value ? value : 'Unable to load referral test type'
-  }
+  return typeof value === 'string' && value ? value : 'No preferred test type set'
 }
 
 export const Clients: CollectionConfig = {

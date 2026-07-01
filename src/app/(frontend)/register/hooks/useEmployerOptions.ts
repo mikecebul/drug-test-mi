@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { getTestTypeLabel } from '@/config/test-types'
 import type { EmployerOption, EmployerRecord } from '../types/recipient-types'
 
 function normalizeContacts(employer: EmployerRecord): Array<{ name?: string; email: string }> {
@@ -36,16 +37,28 @@ function normalizeContacts(employer: EmployerRecord): Array<{ name?: string; ema
   return Array.from(deduped.values())
 }
 
+function getPreferredTestTypeLabel(preferredTestType: unknown): string | undefined {
+  if (typeof preferredTestType === 'string') {
+    return getTestTypeLabel(preferredTestType)
+  }
+
+  if (!preferredTestType || typeof preferredTestType !== 'object') {
+    return undefined
+  }
+
+  const record = preferredTestType as Record<string, unknown>
+  if (typeof record.label === 'string') return record.label
+  if (typeof record.value === 'string') return getTestTypeLabel(record.value) || record.value
+  return undefined
+}
+
 function toEmployerOption(employer: EmployerRecord): EmployerOption | null {
   const contacts = normalizeContacts(employer)
   if (!employer.id || !employer.name || contacts.length === 0) {
     return null
   }
 
-  const preferredTestTypeLabel =
-    typeof employer.preferredTestType === 'object'
-      ? employer.preferredTestType?.label || employer.preferredTestType?.value
-      : undefined
+  const preferredTestTypeLabel = getPreferredTestTypeLabel(employer.preferredTestType)
 
   return {
     id: employer.id,

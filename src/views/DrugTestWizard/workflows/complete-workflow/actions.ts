@@ -2,19 +2,20 @@
 
 import { getPayload } from 'payload'
 import config from '@payload-config'
-import type { Client, Court, Employer, TestType } from '@/payload-types'
+import type { Client, Court, Employer } from '@/payload-types'
 import { getAppTimezoneDayWindow } from '@/lib/date-utils'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 import { getRecipients } from '@/collections/DrugTests/email/recipients'
-import { getCalcomScheduledTestAnswer } from '@/app/(payload)/api/webhooks/calcom/calcomWebhook'
-
-type TestTypeValue =
-  | '11-panel-lab'
-  | '11-panel-lab-no-etg'
-  | '15-panel-instant'
-  | '17-panel-instant'
-  | '17-panel-sos-lab'
-  | 'etg-lab'
+import {
+  getCalcomScheduledTestAnswerCandidates,
+  type CalcomWebhookPayload,
+} from '@/app/(payload)/api/webhooks/calcom/calcomWebhook'
+import {
+  findConfiguredTestTypeByCalcomAnswer,
+  getActiveTestTypes,
+  mapTestTypeValue,
+  type GuidedTestType,
+} from '@/config/test-types'
 
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type PaymentMethod = 'cash' | 'card' | 'not-paid' | 'pre-paid'
@@ -27,24 +28,6 @@ type PopulatedClient = Client & {
 }
 type Payload = Awaited<ReturnType<typeof getPayload>>
 
-const FALLBACK_TEST_PRICES: Record<TestTypeValue, number> = {
-  '11-panel-lab': 40,
-  '11-panel-lab-no-etg': 40,
-  '15-panel-instant': 35,
-  '17-panel-instant': 35,
-  '17-panel-sos-lab': 45,
-  'etg-lab': 40,
-}
-
-const ACTIVE_GUIDED_TEST_TYPES = new Set<TestTypeValue>([
-  '11-panel-lab',
-  '11-panel-lab-no-etg',
-  '15-panel-instant',
-  '17-panel-instant',
-  '17-panel-sos-lab',
-  'etg-lab',
-])
-
 function getRelationshipId(value: unknown): string | null {
   if (!value) return null
   if (typeof value === 'string') return value
@@ -52,22 +35,6 @@ function getRelationshipId(value: unknown): string | null {
     return value.id
   }
   return null
-}
-
-async function resolveTestType(payload: Payload, value: string | TestType | null | undefined) {
-  if (!value) return null
-  if (typeof value === 'object') return value
-
-  try {
-    return await payload.findByID({
-      collection: 'test-types',
-      id: value,
-      depth: 0,
-      overrideAccess: true,
-    })
-  } catch {
-    return null
-  }
 }
 
 async function resolveReferral(payload: Payload, client: PopulatedClient | null) {
@@ -89,39 +56,8 @@ async function resolveReferral(payload: Payload, client: PopulatedClient | null)
   }
 }
 
-async function getPreferredTestType(payload: Payload, referral: PopulatedReferral | null | undefined) {
-  const preferredTestType = referral?.preferredTestType
-  const testType = await resolveTestType(payload, preferredTestType)
-  return mapTestType(testType)
-}
-
-function mapTestType(testType: TestType | null | undefined) {
-  if (!testType) return null
-
-  const value = testType.value
-  if (!value || !ACTIVE_GUIDED_TEST_TYPES.has(value as TestTypeValue)) return null
-  const activeValue = value as TestTypeValue
-
-  return {
-    id: testType.id as string,
-    label: testType.label,
-    value: activeValue,
-    category:
-      testType.category === 'instant' || testType.category === 'lab'
-        ? testType.category
-        : activeValue.includes('instant')
-          ? 'instant'
-          : 'lab',
-    price: typeof testType.price === 'number' ? testType.price : FALLBACK_TEST_PRICES[activeValue],
-    toxAccessCode: typeof testType.toxAccessCode === 'string' ? testType.toxAccessCode : null,
-  }
-}
-
-function normalizeTestTypeText(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '')
+function getPreferredTestType(referral: PopulatedReferral | null | undefined) {
+  return mapTestTypeValue(referral?.preferredTestType)
 }
 
 function getRecord(value: unknown): Record<string, unknown> | undefined {
@@ -129,30 +65,40 @@ function getRecord(value: unknown): Record<string, unknown> | undefined {
   return value as Record<string, unknown>
 }
 
-function getCalcomBookingTestType(testTypes: TestType[], customInputs: unknown) {
-  const scheduledTestAnswer = getCalcomScheduledTestAnswer({
-    customInputs: getRecord(customInputs),
-  })
-  if (!scheduledTestAnswer) return null
-
-  const expectedValue = normalizeTestTypeText(scheduledTestAnswer)
-  return (
-    testTypes.find((testType) =>
-      [testType.bookingLabel, testType.label, testType.value]
-        .filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
-        .map(normalizeTestTypeText)
-        .includes(expectedValue),
-    ) || null
-  )
+function getWebhookPayload(webhookData: unknown): Partial<CalcomWebhookPayload['payload']> {
+  const webhookRecord = getRecord(webhookData)
+  const payloadRecord = getRecord(webhookRecord?.payload)
+  return payloadRecord ? (payloadRecord as Partial<CalcomWebhookPayload['payload']>) : {}
 }
 
-async function getEffectiveBookingTestType(
-  payload: Payload,
-  bookingTestType: string | TestType | null | undefined,
+function getCalcomBookingTestType(booking: {
+  customInputs?: unknown
+  webhookData?: unknown
+  title?: string | null
+  type?: string | null
+}) {
+  const webhookPayload = getWebhookPayload(booking.webhookData)
+  const candidates = getCalcomScheduledTestAnswerCandidates({
+    ...webhookPayload,
+    type: webhookPayload.type || booking.type || undefined,
+    title: webhookPayload.title || booking.title || undefined,
+    customInputs: webhookPayload.customInputs || getRecord(booking.customInputs),
+    responses: webhookPayload.responses || getRecord(booking.customInputs),
+  })
+
+  for (const scheduledTestAnswer of candidates) {
+    const testType = mapTestTypeValue(findConfiguredTestTypeByCalcomAnswer(scheduledTestAnswer))
+    if (testType) return testType
+  }
+
+  return null
+}
+
+function getEffectiveBookingTestType(
+  bookingTestType: unknown,
   referral: PopulatedReferral | null | undefined,
 ) {
-  const scheduledTestType = await resolveTestType(payload, bookingTestType)
-  return mapTestType(scheduledTestType) ?? (await getPreferredTestType(payload, referral))
+  return mapTestTypeValue(bookingTestType) ?? getPreferredTestType(referral)
 }
 
 function splitName(name: string) {
@@ -202,6 +148,27 @@ async function getFirstDrugTestDate(payload: Payload, clientId: string | null | 
   return result.docs[0]?.collectionDate || null
 }
 
+async function persistCalcomScheduledTestType(payload: Payload, bookingId: string, testType: GuidedTestType | null) {
+  if (!testType?.value) return
+
+  try {
+    await payload.update({
+      collection: 'bookings',
+      id: bookingId,
+      data: {
+        scheduledTestType: testType.value,
+      },
+      overrideAccess: true,
+    })
+    revalidateBookingViews()
+  } catch (error) {
+    payload.logger.warn({
+      msg: `Failed to save Cal.com scheduled test type on booking ${bookingId}`,
+      err: error,
+    })
+  }
+}
+
 export async function getTodaysCollectionBookings() {
   const payload = await getPayload({ config })
   const todayWindow = getAppTimezoneDayWindow()
@@ -232,21 +199,19 @@ export async function getTodaysCollectionBookings() {
     sort: 'startTime',
     overrideAccess: true,
   })
-  const testTypesResult = await payload.find({
-    collection: 'test-types',
-    depth: 0,
-    limit: 200,
-    overrideAccess: true,
-  })
-
   return Promise.all(
     result.docs.map(async (booking) => {
       const client = typeof booking.relatedClient === 'object' ? (booking.relatedClient as PopulatedClient) : null
       const referral = await resolveReferral(payload, client)
-      const bookingTestType =
-        mapTestType(await resolveTestType(payload, booking.scheduledTestType)) ??
-        mapTestType(getCalcomBookingTestType(testTypesResult.docs, booking.customInputs))
-      const referralTestType = await getPreferredTestType(payload, referral)
+      const scheduledTestType = mapTestTypeValue(booking.scheduledTestType)
+      const calcomTestType = getCalcomBookingTestType(booking)
+      const bookingTestType = scheduledTestType ?? calcomTestType
+
+      if (!scheduledTestType && calcomTestType) {
+        await persistCalcomScheduledTestType(payload, booking.id as string, calcomTestType)
+      }
+
+      const referralTestType = getPreferredTestType(referral)
       const testType = bookingTestType ?? referralTestType
       const referralType = client?.referralType as 'court' | 'employer' | 'self' | undefined
       const firstDrugTestDate = await getFirstDrugTestDate(payload, client?.id as string | undefined)
@@ -300,23 +265,7 @@ export async function getTodaysCollectionBookings() {
 }
 
 export async function getActiveCollectionTestTypes() {
-  const payload = await getPayload({ config })
-  const result = await payload.find({
-    collection: 'test-types',
-    where: {
-      isActive: {
-        equals: true,
-      },
-    },
-    depth: 0,
-    limit: 20,
-    sort: 'label',
-    overrideAccess: true,
-  })
-
-  return result.docs
-    .map((testType) => mapTestType(testType))
-    .filter((testType): testType is NonNullable<ReturnType<typeof mapTestType>> => Boolean(testType))
+  return getActiveTestTypes()
 }
 
 export async function getClientReferralProfile(clientId: string) {
@@ -386,22 +335,18 @@ export async function setBookingScheduledTestType(bookingId: string, testTypeId:
     return { success: false, error: 'Booking and test type are required.' }
   }
 
+  const mappedTestType = mapTestTypeValue(testTypeId)
+  if (!mappedTestType) {
+    return { success: false, error: 'Select a valid test type.' }
+  }
+
   const payload = await getPayload({ config })
-  const [booking, testType] = await Promise.all([
-    payload.findByID({
-      collection: 'bookings',
-      id: bookingId,
-      depth: 0,
-      overrideAccess: true,
-    }),
-    payload.findByID({
-      collection: 'test-types',
-      id: testTypeId,
-      depth: 0,
-      overrideAccess: true,
-    }),
-  ])
-  const mappedTestType = mapTestType(testType)
+  const booking = await payload.findByID({
+    collection: 'bookings',
+    id: bookingId,
+    depth: 0,
+    overrideAccess: true,
+  })
   const existingPayment = booking.payment
   const amountDue = mappedTestType?.price ?? existingPayment?.amountDue
   const amountPaid = existingPayment?.amountPaid ?? 0
@@ -419,7 +364,7 @@ export async function setBookingScheduledTestType(bookingId: string, testTypeId:
     collection: 'bookings',
     id: bookingId,
     data: {
-      scheduledTestType: testTypeId,
+      scheduledTestType: mappedTestType.value,
       ...(payment ? { payment } : {}),
     },
     overrideAccess: true,
@@ -503,7 +448,7 @@ export async function refreshBookingClientContext(bookingId: string) {
 
   const client = typeof booking.relatedClient === 'object' ? (booking.relatedClient as PopulatedClient) : null
   const referral = await resolveReferral(payload, client)
-  const testType = await getEffectiveBookingTestType(payload, booking.scheduledTestType, referral)
+  const testType = getEffectiveBookingTestType(booking.scheduledTestType, referral)
 
   return {
     clientId: getRelationshipId(booking.relatedClient),

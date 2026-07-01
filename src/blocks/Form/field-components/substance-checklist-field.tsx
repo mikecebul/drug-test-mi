@@ -23,6 +23,7 @@ interface SubstanceChecklistFieldProps {
     | '17-panel-instant'
     | '11-panel-lab'
     | '11-panel-lab-no-etg'
+    | '8-panel-lab'
     | '17-panel-sos-lab'
     | 'etg-lab'
 }

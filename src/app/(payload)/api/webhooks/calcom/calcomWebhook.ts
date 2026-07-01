@@ -1,5 +1,10 @@
 import crypto from 'crypto'
 import type { RequiredDataFromCollectionSlug } from 'payload'
+export {
+  findCalcomScheduledTestTypeMatch,
+  matchesCalcomScheduledTestType,
+  normalizeCalcomTestTypeText,
+} from '@/config/test-types'
 
 export type CalcomWebhookTrigger =
   | 'BOOKING_CREATED'
@@ -244,6 +249,28 @@ export function getCalcomScheduledTestAnswer(payload: CalcomWebhookPayload['payl
   }
 
   return null
+}
+
+function getCalcomEventTypeTexts(payload: CalcomWebhookPayload['payload']) {
+  return [
+    payload.type,
+    payload.title,
+    payload.bookerUrl,
+    getNestedString(payload.metadata, ['eventTypeSlug']),
+    getNestedString(payload.metadata, ['eventSlug']),
+    getNestedString(payload.metadata, ['slug']),
+    getNestedString(payload.metadata, ['eventType', 'slug']),
+    getNestedString(payload.metadata, ['eventType', 'title']),
+    getNestedString(payload.metadata, ['eventType', 'name']),
+  ].filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
+}
+
+export function getCalcomScheduledTestAnswerCandidates(payload: CalcomWebhookPayload['payload']) {
+  const candidates = [getCalcomScheduledTestAnswer(payload), ...getCalcomEventTypeTexts(payload)].filter(
+    (value): value is string => typeof value === 'string' && Boolean(value.trim()),
+  )
+
+  return Array.from(new Set(candidates))
 }
 
 function getCalcomPaymentId(payload: CalcomWebhookPayload['payload']) {

@@ -1,3 +1,5 @@
+import { activeTestTypeBookingOptions, isTestTypeValue } from '@/config/test-types'
+
 export type RecommendedTestType = {
   recommendedTestTypeId?: string
   recommendedTestTypeValue?: string
@@ -9,13 +11,7 @@ export type TestTypeBookingOption = {
   label: string
 }
 
-export const FALLBACK_BOOKING_TEST_TYPES: TestTypeBookingOption[] = [
-  { id: '17-panel-instant', value: '17-panel-instant', label: '17 Panel Instant' },
-  { id: '11-panel-lab', value: '11-panel-lab', label: '11 Panel Lab' },
-  { id: '11-panel-lab-no-etg', value: '11-panel-lab-no-etg', label: '11 Panel Lab (no EtG)' },
-  { id: '17-panel-sos-lab', value: '17-panel-sos-lab', label: '17 SOS Lab' },
-  { id: 'etg-lab', value: 'etg-lab', label: 'EtG Lab' },
-]
+export const FALLBACK_BOOKING_TEST_TYPES: TestTypeBookingOption[] = activeTestTypeBookingOptions
 
 type RelationRef = {
   relationTo: 'courts' | 'employers'
@@ -46,6 +42,13 @@ export function extractPreferredTestType(preferredTestType: unknown): Recommende
   if (!preferredTestType) return {}
 
   if (typeof preferredTestType === 'string') {
+    if (isTestTypeValue(preferredTestType)) {
+      return {
+        recommendedTestTypeId: preferredTestType,
+        recommendedTestTypeValue: preferredTestType,
+      }
+    }
+
     return { recommendedTestTypeId: preferredTestType }
   }
 

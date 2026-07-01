@@ -113,6 +113,21 @@ export const panel11LabNoEtgSubstances = [
 ] as const
 
 /**
+ * 8-Panel Lab Test Substances
+ * Drug panels: AMP, BZO, BUP, COC, FEN, MDMA, OPI (7 substances)
+ * Note: CR (Creatinine) is the 8th panel marker and is tracked through the dilute flag, not as a detected substance.
+ */
+export const panel8LabSubstances = [
+  { label: 'Amphetamines (AMP)', value: 'amphetamines' },
+  { label: 'Benzodiazepines (BZO)', value: 'benzodiazepines' },
+  { label: 'Buprenorphine (BUP)', value: 'buprenorphine' },
+  { label: 'Cocaine (COC)', value: 'cocaine' },
+  { label: 'Fentanyl (FEN)', value: 'fentanyl' },
+  { label: 'MDMA (Ecstasy)', value: 'mdma' },
+  { label: 'Opiates (OPI)', value: 'opiates' },
+] as const
+
+/**
  * 17-Panel SOS Lab Test Substances
  * Comprehensive lab test including alcohol, common drugs, and prescription medications
  * B306 - Urine 17 Panel (tests 14 drug substances; panel count includes metabolites/confirmations)
@@ -190,6 +205,8 @@ export function getSubstanceOptions(testType?: string) {
       return panel11LabSubstances
     case '11-panel-lab-no-etg':
       return panel11LabNoEtgSubstances
+    case '8-panel-lab':
+      return panel8LabSubstances
     case '17-panel-sos-lab':
       return panel17SosLabSubstances
     case 'etg-lab':

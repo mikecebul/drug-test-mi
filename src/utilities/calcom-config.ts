@@ -1,4 +1,5 @@
 import type { Client } from '@/payload-types'
+import { getTestTypeBookingLabel } from '@/config/test-types'
 import {
   FALLBACK_BOOKING_TEST_TYPES,
   formatPhoneForCal,
@@ -72,6 +73,10 @@ export function getReferralPreferredTestType(client: Client): unknown {
 }
 
 function getPopulatedPreferredTestLabel(preferredTestType: unknown): string | undefined {
+  if (typeof preferredTestType === 'string') {
+    return getTestTypeBookingLabel(preferredTestType)
+  }
+
   if (!preferredTestType || typeof preferredTestType !== 'object') {
     return undefined
   }
