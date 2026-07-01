@@ -67,9 +67,7 @@ describe('dashboard widgets', () => {
     const totalMarkup = renderMarkup(await TotalClientsWidget(createWidgetProps(totalReq, 'total-clients')))
 
     const quickBookReq = createAdminReq()
-    const quickBookMarkup = renderMarkup(
-      AdminQuickBookWidget(createWidgetProps(quickBookReq, 'admin-quick-book')),
-    )
+    const quickBookMarkup = renderMarkup(AdminQuickBookWidget(createWidgetProps(quickBookReq, 'admin-quick-book')))
 
     const scheduleReq = createAdminReq()
     const scheduleMarkup = renderMarkup(
@@ -153,14 +151,14 @@ describe('dashboard widgets', () => {
     expect(markup).toContain('Collect Test')
     expect(markup).toContain('/admin/drug-test-upload')
     expect(markup).toContain('Jamie Client')
+    expect(markup).toContain('bg-pink-50')
+    expect(markup).toContain('text-pink-900')
+    expect(markup).toContain('bg-blue-50')
+    expect(markup).toContain('text-blue-900')
     expect(markup).toContain('Register')
     expect(markup).toContain('Start Guided Workflow')
-    expect(markup).toContain(
-      '/admin/drug-test-upload?workflow=guided&amp;step=registration&amp;bookingId=booking-1',
-    )
-    expect(markup).toContain(
-      '/admin/drug-test-upload?workflow=guided&amp;step=payment&amp;bookingId=booking-2',
-    )
+    expect(markup).toContain('/admin/drug-test-upload?workflow=guided&amp;step=registration&amp;bookingId=booking-1')
+    expect(markup).toContain('/admin/drug-test-upload?workflow=guided&amp;step=payment&amp;bookingId=booking-2')
   })
 
   test('describes the wizard widget as manual collection and lab result work', () => {
@@ -176,9 +174,7 @@ describe('dashboard widgets', () => {
     ;(req.user as { collection: string }).collection = 'clients'
 
     const totalMarkup = renderMarkup(await TotalClientsWidget(createWidgetProps(req, 'total-clients')))
-    const quickBookMarkup = renderMarkup(
-      AdminQuickBookWidget(createWidgetProps(req, 'admin-quick-book')),
-    )
+    const quickBookMarkup = renderMarkup(AdminQuickBookWidget(createWidgetProps(req, 'admin-quick-book')))
     const alertsMarkup = renderMarkup(await AdminAlertsWidget(createWidgetProps(req, 'admin-alerts')))
 
     expect(totalMarkup).toBe('')

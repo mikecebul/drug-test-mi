@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest'
 
-import { getGuidedPaymentChoice, getGuidedPaymentLabel } from './schedule-utils'
+import {
+  formatGuidedGender,
+  getGuidedGenderBadgeClass,
+  getGuidedPaymentChoice,
+  getGuidedPaymentLabel,
+} from './schedule-utils'
 
 describe('guided schedule payment helpers', () => {
   test('treats unpaid manual bookings as still owing payment', () => {
@@ -63,5 +68,11 @@ describe('guided schedule payment helpers', () => {
         payment: null,
       }),
     ).toBe('Unpaid')
+  })
+
+  test('uses light-mode-safe gender badge classes', () => {
+    expect(formatGuidedGender('male')).toBe('Male')
+    expect(getGuidedGenderBadgeClass('male')).toContain('bg-blue-50 text-blue-900')
+    expect(getGuidedGenderBadgeClass('female')).toContain('bg-pink-50 text-pink-900')
   })
 })
