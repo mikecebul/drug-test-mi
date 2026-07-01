@@ -10,6 +10,8 @@ import { APP_TIMEZONE } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
 import { getTodaysCollectionBookings } from '@/views/DrugTestWizard/workflows/complete-workflow/actions'
 import {
+  formatGuidedGender,
+  getGuidedGenderBadgeClass,
   getGuidedPaymentLabel,
   getGuidedScheduleHref,
 } from '@/views/DrugTestWizard/workflows/complete-workflow/schedule-utils'
@@ -22,20 +24,6 @@ function formatTime(value: string) {
     minute: '2-digit',
     timeZone: APP_TIMEZONE,
   }).format(new Date(value))
-}
-
-function formatGender(value?: string | null) {
-  if (value === 'male') return 'Male'
-  if (value === 'female') return 'Female'
-  if (value === 'other') return 'Other'
-  if (value === 'prefer-not-to-say') return 'Prefer not to say'
-  return 'Unknown'
-}
-
-function getGenderBadgeClass(value?: string | null) {
-  if (value === 'male') return 'border-blue-400/50 bg-blue-500/20 text-blue-100'
-  if (value === 'female') return 'border-pink-400/50 bg-pink-500/20 text-pink-100'
-  return 'border-border bg-muted text-muted-foreground'
 }
 
 function ScheduleRow({ booking }: { booking: Booking }) {
@@ -60,8 +48,8 @@ function ScheduleRow({ booking }: { booking: Booking }) {
         <span className="min-w-0 space-y-2">
           <span className="flex flex-wrap items-center gap-2">
             <span className="block truncate text-base font-semibold">{booking.attendeeName}</span>
-            <Badge variant="outline" className={cn('shrink-0', getGenderBadgeClass(booking.client?.gender))}>
-              {formatGender(booking.client?.gender)}
+            <Badge variant="outline" className={cn('shrink-0', getGuidedGenderBadgeClass(booking.client?.gender))}>
+              {formatGuidedGender(booking.client?.gender)}
             </Badge>
           </span>
           <span className="flex flex-wrap items-center gap-2">

@@ -49,7 +49,13 @@ import {
   refreshBookingClientContext,
   setBookingScheduledTestType,
 } from './actions'
-import { getGuidedBookingNextStep, getGuidedPaymentChoice, getGuidedPaymentLabel } from './schedule-utils'
+import {
+  formatGuidedGender,
+  getGuidedBookingNextStep,
+  getGuidedGenderBadgeClass,
+  getGuidedPaymentChoice,
+  getGuidedPaymentLabel,
+} from './schedule-utils'
 import { ReferralProfileDrawer } from '../components/emails/referrals/ReferralProfileDrawer'
 
 type Booking = Awaited<ReturnType<typeof getTodaysCollectionBookings>>[number]
@@ -77,22 +83,6 @@ function formatTime(value: string) {
     minute: '2-digit',
     timeZone: APP_TIMEZONE,
   }).format(new Date(value))
-}
-
-function formatGender(value?: string | null) {
-  if (value === 'male') return 'Male'
-  if (value === 'female') return 'Female'
-  if (value === 'other') return 'Other'
-  if (value === 'prefer-not-to-say') return 'Prefer not to say'
-  return 'Unknown'
-}
-
-function getGenderBadgeClass(value?: string | null) {
-  if (value === 'male')
-    return 'border-blue-600/40 bg-blue-50 text-blue-900 dark:border-blue-400/50 dark:bg-blue-500/20 dark:text-blue-100'
-  if (value === 'female')
-    return 'border-pink-600/40 bg-pink-50 text-pink-900 dark:border-pink-400/50 dark:bg-pink-500/20 dark:text-pink-100'
-  return 'border-border bg-muted text-muted-foreground'
 }
 
 function formatDateOnly(value?: string | null) {
@@ -489,7 +479,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             </div>
             <div>
               <p className="text-muted-foreground text-sm font-medium uppercase">Gender</p>
-              <p>{formatGender(booking.client?.gender)}</p>
+              <p>{formatGuidedGender(booking.client?.gender)}</p>
             </div>
             <div>
               <p className="text-muted-foreground text-sm font-medium uppercase">Test</p>
@@ -551,8 +541,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               <p className="text-2xl font-semibold">{booking.attendeeName}</p>
               <p className="text-muted-foreground text-base">{getBookingContactEmail(booking)}</p>
             </div>
-            <Badge variant="outline" className={cn('mt-1 shrink-0', getGenderBadgeClass(booking.client?.gender))}>
-              {formatGender(booking.client?.gender)}
+            <Badge variant="outline" className={cn('mt-1 shrink-0', getGuidedGenderBadgeClass(booking.client?.gender))}>
+              {formatGuidedGender(booking.client?.gender)}
             </Badge>
           </div>
         </CardHeader>
@@ -655,8 +645,11 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   <span className="min-w-0 space-y-1">
                     <span className="flex flex-wrap items-center gap-2">
                       <span className="block text-xl font-semibold">{booking.attendeeName}</span>
-                      <Badge variant="outline" className={cn('shrink-0', getGenderBadgeClass(booking.client?.gender))}>
-                        {formatGender(booking.client?.gender)}
+                      <Badge
+                        variant="outline"
+                        className={cn('shrink-0', getGuidedGenderBadgeClass(booking.client?.gender))}
+                      >
+                        {formatGuidedGender(booking.client?.gender)}
                       </Badge>
                     </span>
                     <span className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-base">
@@ -947,7 +940,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       ? [
           ['Name', fullName],
           ['DOB', formatDateOnly(client?.dob)],
-          ['Sex', formatGender(client?.gender)],
+          ['Sex', formatGuidedGender(client?.gender)],
           ['Intake Date', intakeDate],
           ['Active', 'Yes'],
           ['Phone', client?.phone || selectedBooking.attendeePhone || 'Unknown'],
