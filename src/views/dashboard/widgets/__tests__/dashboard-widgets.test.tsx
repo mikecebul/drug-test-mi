@@ -126,6 +126,10 @@ describe('dashboard widgets', () => {
         sampleCollection: null,
         needsRegistration: true,
         needsTestType: false,
+        calcomActionLinks: {
+          cancelHref: null,
+          rescheduleHref: null,
+        },
       },
       {
         id: 'booking-2',
@@ -141,6 +145,10 @@ describe('dashboard widgets', () => {
         sampleCollection: null,
         needsRegistration: false,
         needsTestType: false,
+        calcomActionLinks: {
+          cancelHref: 'https://cal.com/booking/cal-booking-2?cancel=true',
+          rescheduleHref: 'https://cal.com/reschedule/cal-booking-2',
+        },
       },
     ])
 
@@ -148,6 +156,7 @@ describe('dashboard widgets', () => {
 
     expect(markup).toContain('Today&#x27;s Schedule')
     expect(markup).toContain('2 tests scheduled today.')
+    expect(markup).toContain('Menu')
     expect(markup).toContain('Collect Test')
     expect(markup).toContain('/admin/drug-test-upload')
     expect(markup).toContain('Jamie Client')
@@ -156,7 +165,10 @@ describe('dashboard widgets', () => {
     expect(markup).toContain('bg-blue-50')
     expect(markup).toContain('text-blue-900')
     expect(markup).toContain('Register')
-    expect(markup).toContain('Start Guided Workflow')
+    expect(markup).toContain('Review &amp; Start')
+    expect(markup).toContain('Reschedule')
+    expect(markup).toContain('https://cal.com/reschedule/cal-booking-2')
+    expect(markup).toContain('https://cal.com/booking/cal-booking-2?cancel=true')
     expect(markup).toContain('/admin/drug-test-upload?workflow=guided&amp;step=registration&amp;bookingId=booking-1')
     expect(markup).toContain('/admin/drug-test-upload?workflow=guided&amp;step=payment&amp;bookingId=booking-2')
   })
@@ -194,6 +206,10 @@ describe('dashboard widgets', () => {
         sampleCollection: null,
         needsRegistration: true,
         needsTestType: false,
+        calcomActionLinks: {
+          cancelHref: null,
+          rescheduleHref: null,
+        },
       },
     ])
     ;(req.payload.count as ReturnType<typeof vi.fn>).mockResolvedValue({ totalDocs: 2 })
