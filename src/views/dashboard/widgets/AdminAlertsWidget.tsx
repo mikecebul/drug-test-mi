@@ -25,16 +25,14 @@ export default async function AdminAlertsWidget({ req }: WidgetServerProps) {
 
   try {
     const bookings = await getTodaysCollectionBookings()
-    const missingRegistrationCount = bookings.filter(
-      (booking) => booking.needsRegistration || booking.needsTestType,
-    ).length
+    const missingTestTypeCount = bookings.filter((booking) => booking.needsTestType).length
 
-    if (missingRegistrationCount > 0) {
+    if (missingTestTypeCount > 0) {
       alerts.push({
         href: '/admin/drug-test-upload?workflow=guided&step=schedule',
-        label: 'Bookings need registration or test type review',
+        label: 'Bookings need test type review',
         tone: 'attention',
-        value: `${missingRegistrationCount}`,
+        value: `${missingTestTypeCount}`,
       })
     }
   } catch (error) {
@@ -45,33 +43,6 @@ export default async function AdminAlertsWidget({ req }: WidgetServerProps) {
       tone: 'warning',
       value: '!',
     })
-  }
-
-  try {
-    const pendingDecisionCount = await req.payload.count({
-      collection: 'drug-tests',
-      where: {
-        confirmationDecision: {
-          equals: 'pending-decision',
-        },
-        isComplete: {
-          equals: false,
-        },
-      },
-      req,
-      overrideAccess: false,
-    })
-
-    if (pendingDecisionCount.totalDocs > 0) {
-      alerts.push({
-        href: '/admin/drug-test-tracker',
-        label: 'Tests waiting on confirmation decision',
-        tone: 'warning',
-        value: `${pendingDecisionCount.totalDocs}`,
-      })
-    }
-  } catch (error) {
-    req.payload.logger.error({ err: error, msg: 'Failed to load drug test alerts' })
   }
 
   return (

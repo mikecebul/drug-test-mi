@@ -1,11 +1,12 @@
 'use server'
 
-import { getPayload } from 'payload'
+import { getPayload, type RequiredDataFromCollectionSlug } from 'payload'
 import config from '@payload-config'
 import type { Client, Court, Employer, TestType } from '@/payload-types'
 import { APP_TIMEZONE } from '@/lib/date-utils'
 import { TZDate } from '@date-fns/tz'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
+import { applyIncomingPayment } from '@/collections/Payments/services/applyPayment'
 
 type TestTypeValue = '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-instant' | '17-panel-sos-lab' | 'etg-lab'
 
@@ -232,6 +233,8 @@ export async function getTodaysCollectionBookings() {
               dob: typeof client.dob === 'string' ? client.dob : null,
               gender: typeof client.gender === 'string' ? client.gender : null,
               phone: typeof client.phone === 'string' ? client.phone : null,
+              moneyOwed: typeof client.moneyOwed === 'number' ? client.moneyOwed : 0,
+              creditBalance: typeof client.creditBalance === 'number' ? client.creditBalance : 0,
               firstDrugTestDate,
               referralType,
             }
@@ -324,6 +327,74 @@ export async function setBookingScheduledTestType(bookingId: string, testTypeId:
   return { success: true }
 }
 
+export async function createWalkInBooking(input: { clientId: string; testTypeId: string }) {
+  if (!input.clientId || !input.testTypeId) {
+    return { success: false, error: 'Client and test type are required.' }
+  }
+
+  const payload = await getPayload({ config })
+  const [client, testType] = await Promise.all([
+    payload.findByID({
+      collection: 'clients',
+      id: input.clientId,
+      depth: 0,
+      overrideAccess: true,
+    }),
+    payload.findByID({
+      collection: 'test-types',
+      id: input.testTypeId,
+      depth: 0,
+      overrideAccess: true,
+    }),
+  ])
+  const mappedTestType = mapTestType(testType)
+
+  if (!mappedTestType) {
+    return { success: false, error: 'Select an active collection test type.' }
+  }
+
+  const startTime = new Date()
+  const endTime = new Date(startTime.getTime() + 30 * 60 * 1000)
+  const attendeeName = [client.firstName, client.middleInitial, client.lastName].filter(Boolean).join(' ')
+
+  const bookingData: RequiredDataFromCollectionSlug<'bookings'> = {
+    title: 'Walk-in Drug Test',
+    type: 'walk-in',
+    description: 'Internal walk-in collection created from the guided workflow.',
+    additionalNotes: 'Created without a Cal.com booking.',
+    startTime: startTime.toISOString(),
+    endTime: endTime.toISOString(),
+    status: 'confirmed',
+    organizer: {
+      name: 'MI Drug Test',
+      email: 'admin@midrugtest.com',
+      timeZone: APP_TIMEZONE,
+    },
+    attendeeName,
+    attendeeEmail: client.email,
+    relatedClient: input.clientId,
+    scheduledTestType: input.testTypeId,
+    location: 'Walk-in',
+    customInputs: {
+      source: 'guided-walk-in',
+    },
+    createdViaWebhook: false,
+  }
+
+  const booking = await payload.create({
+    collection: 'bookings',
+    data: bookingData,
+    overrideAccess: true,
+  })
+
+  revalidateBookingViews()
+
+  return {
+    success: true,
+    bookingId: booking.id as string,
+  }
+}
+
 export async function recordBookingPayment(input: {
   bookingId: string
   amountDue: number
@@ -349,15 +420,26 @@ export async function recordBookingPayment(input: {
   }
 
   const payload = await getPayload({ config })
+  const existingBooking = await payload.findByID({
+    collection: 'bookings',
+    id: input.bookingId,
+    depth: 0,
+    overrideAccess: true,
+  })
+  const clientId = getRelationshipId(existingBooking.relatedClient)
+  const amountAppliedToBooking = Math.min(input.amountPaid, input.amountDue)
+  const bookingPaymentStatus =
+    amountAppliedToBooking >= input.amountDue ? 'paid' : amountAppliedToBooking > 0 ? 'partial' : input.status
+
   const booking = await payload.update({
     collection: 'bookings',
     id: input.bookingId,
     data: {
       payment: {
         amountDue: input.amountDue,
-        amountPaid: input.amountPaid,
+        amountPaid: amountAppliedToBooking,
         method: input.method,
-        status: input.status,
+        status: bookingPaymentStatus,
         notes: input.notes || null,
         collectedAt: new Date().toISOString(),
       },
@@ -365,6 +447,19 @@ export async function recordBookingPayment(input: {
     depth: 0,
     overrideAccess: true,
   })
+
+  if (clientId && input.amountPaid > 0 && input.method !== 'pre-paid' && input.method !== 'not-paid') {
+    await applyIncomingPayment({
+      payload,
+      clientId,
+      amount: input.amountPaid,
+      method: input.method === 'card' ? 'card' : 'cash',
+      source: 'guided-workflow',
+      relatedBooking: input.bookingId,
+      reservedForBookingAmount: amountAppliedToBooking,
+    })
+  }
+
   revalidateBookingViews()
 
   return {

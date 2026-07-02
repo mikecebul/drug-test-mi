@@ -8,6 +8,7 @@ import { fetchDocument, sendEmails } from '@/collections/DrugTests/services'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 import { createAdminAlert } from '@/lib/admin-alerts'
 import { getDrugTestPaymentSnapshot } from '../../paymentSnapshot'
+import { applyAvailableClientCredit } from '@/collections/Payments/services/applyPayment'
 
 /**
  * Create drug test and send approved emails (instant-test workflow final step)
@@ -141,6 +142,7 @@ export async function createDrugTestWithEmailReview(
     const paymentSnapshot = await getDrugTestPaymentSnapshot({
       payload,
       bookingId: testData.bookingId,
+      testType: testData.testType,
     })
 
     // 3. Prepare drug test data
@@ -194,6 +196,12 @@ export async function createDrugTestWithEmailReview(
       overrideAccess: true,
     })
     payload.logger.info({ msg: '[createDrugTestWithEmailReview] Drug test created', testId: drugTest.id })
+
+    await applyAvailableClientCredit({
+      payload,
+      clientId: testData.clientId,
+      relatedDrugTest: drugTest.id,
+    })
 
     // 3. Fetch client for email generation
     const client = await payload.findByID({

@@ -10,6 +10,7 @@ import { createAdminAlert } from '@/lib/admin-alerts'
 import type { Client } from '@/payload-types'
 import { getDrugTestPaymentSnapshot } from '../../paymentSnapshot'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
+import { applyAvailableClientCredit } from '@/collections/Payments/services/applyPayment'
 
 // Extract medication type from Client payload type
 type MedicationInput = NonNullable<Client['medications']>[number] & {
@@ -84,6 +85,7 @@ export async function createCollectionWithEmailReview(
     const paymentSnapshot = await getDrugTestPaymentSnapshot({
       payload,
       bookingId: testData.bookingId,
+      testType: testData.testType,
     })
 
     // 3. Create drug test
@@ -104,6 +106,12 @@ export async function createCollectionWithEmailReview(
         processNotes: 'Specimen collected - awaiting lab results (email review)',
       },
       overrideAccess: true,
+    })
+
+    await applyAvailableClientCredit({
+      payload,
+      clientId: testData.clientId,
+      relatedDrugTest: drugTest.id,
     })
 
     if (testData.bookingId) {

@@ -286,6 +286,22 @@ export const DrugTests: CollectionConfig = {
                   ],
                 },
                 {
+                  name: 'method',
+                  type: 'select',
+                  defaultValue: 'unknown',
+                  options: [
+                    { label: 'Cash', value: 'cash' },
+                    { label: 'Card', value: 'card' },
+                    { label: 'Stripe', value: 'stripe' },
+                    { label: 'Pre-paid', value: 'pre-paid' },
+                    { label: 'Client Credit', value: 'credit' },
+                    { label: 'Unknown', value: 'unknown' },
+                  ],
+                  admin: {
+                    description: 'Most recent known payment method for this test balance.',
+                  },
+                },
+                {
                   type: 'row',
                   fields: [
                     {
@@ -336,6 +352,61 @@ export const DrugTests: CollectionConfig = {
                   type: 'textarea',
                   admin: {
                     description: 'Payment notes or balance details captured during the workflow.',
+                  },
+                },
+                {
+                  name: 'confirmationFeeDue',
+                  type: 'number',
+                  min: 0,
+                  defaultValue: 0,
+                  admin: {
+                    step: 1,
+                    description: 'Confirmation testing fee added to this test balance.',
+                  },
+                },
+                {
+                  name: 'confirmationPaymentBypassed',
+                  type: 'checkbox',
+                  defaultValue: false,
+                  admin: {
+                    description: 'Allows confirmation workflow to proceed before the confirmation fee is paid.',
+                  },
+                },
+                {
+                  name: 'confirmationPaymentBypassedAt',
+                  type: 'date',
+                  admin: {
+                    date: {
+                      pickerAppearance: 'dayAndTime',
+                    },
+                    condition: (_, siblingData) => siblingData?.confirmationPaymentBypassed === true,
+                  },
+                },
+                {
+                  name: 'lastPaymentAt',
+                  type: 'date',
+                  admin: {
+                    date: {
+                      pickerAppearance: 'dayAndTime',
+                    },
+                    description: 'Last time money was applied to this test balance.',
+                  },
+                },
+                {
+                  name: 'lastPaymentLinkSentAt',
+                  type: 'date',
+                  admin: {
+                    date: {
+                      pickerAppearance: 'dayAndTime',
+                    },
+                    description: 'Most recent Stripe checkout link email sent for this test balance.',
+                  },
+                },
+                {
+                  name: 'lastPaymentLinkUrl',
+                  type: 'text',
+                  admin: {
+                    description: 'Most recent Stripe checkout URL generated for this test balance.',
                   },
                 },
               ],
@@ -426,7 +497,7 @@ export const DrugTests: CollectionConfig = {
                 },
                 {
                   name: 'required',
-                  type: 'checkbox'
+                  type: 'checkbox',
                 },
               ],
               hooks: {

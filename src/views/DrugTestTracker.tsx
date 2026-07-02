@@ -36,6 +36,7 @@ function toTrackerTest(doc: unknown): DrugTest | null {
     initialScreenResult?: unknown
     isComplete?: unknown
     processNotes?: unknown
+    payment?: unknown
     testType?: unknown
     unexpectedPositives?: unknown
   }
@@ -70,19 +71,66 @@ function toTrackerTest(doc: unknown): DrugTest | null {
       : undefined,
     isComplete: test.isComplete === true,
     processNotes: typeof test.processNotes === 'string' ? test.processNotes : undefined,
+    payment:
+      test.payment && typeof test.payment === 'object'
+        ? {
+            status:
+              'status' in test.payment && typeof test.payment.status === 'string' ? test.payment.status : undefined,
+            method:
+              'method' in test.payment && typeof test.payment.method === 'string' ? test.payment.method : undefined,
+            amountDue:
+              'amountDue' in test.payment && typeof test.payment.amountDue === 'number'
+                ? test.payment.amountDue
+                : undefined,
+            amountPaid:
+              'amountPaid' in test.payment && typeof test.payment.amountPaid === 'number'
+                ? test.payment.amountPaid
+                : undefined,
+            balanceDue:
+              'balanceDue' in test.payment && typeof test.payment.balanceDue === 'number'
+                ? test.payment.balanceDue
+                : undefined,
+            lastPaymentAt:
+              'lastPaymentAt' in test.payment && typeof test.payment.lastPaymentAt === 'string'
+                ? test.payment.lastPaymentAt
+                : undefined,
+            lastPaymentLinkSentAt:
+              'lastPaymentLinkSentAt' in test.payment && typeof test.payment.lastPaymentLinkSentAt === 'string'
+                ? test.payment.lastPaymentLinkSentAt
+                : undefined,
+            confirmationFeeDue:
+              'confirmationFeeDue' in test.payment && typeof test.payment.confirmationFeeDue === 'number'
+                ? test.payment.confirmationFeeDue
+                : undefined,
+            confirmationPaymentBypassed:
+              'confirmationPaymentBypassed' in test.payment &&
+              typeof test.payment.confirmationPaymentBypassed === 'boolean'
+                ? test.payment.confirmationPaymentBypassed
+                : undefined,
+          }
+        : undefined,
   }
 }
 
-async function loadIncompleteDrugTests(
+async function loadTrackerDrugTests(
   initPageResult: AdminViewServerProps['initPageResult'],
 ): Promise<TrackerLoadResult> {
   try {
     const result = await initPageResult.req.payload.find({
       collection: 'drug-tests',
       where: {
-        isComplete: {
-          equals: false,
-        },
+        or: [
+          {
+            isComplete: {
+              equals: false,
+            },
+          },
+          {
+            'payment.balanceDue': {
+              greater_than: 0,
+            },
+          },
+        ],
       },
       depth: 1,
       limit: 100,
@@ -96,10 +144,10 @@ async function loadIncompleteDrugTests(
       tests: result.docs.map(toTrackerTest).filter((test): test is DrugTest => Boolean(test)),
     }
   } catch (error) {
-    initPageResult.req.payload.logger.error({ err: error, msg: 'Failed to load incomplete drug tests' })
+    initPageResult.req.payload.logger.error({ err: error, msg: 'Failed to load drug test tracker records' })
 
     return {
-      error: 'Unable to load incomplete drug tests. Please refresh and try again.',
+      error: 'Unable to load drug test tracker records. Please refresh and try again.',
       tests: [],
     }
   }
@@ -118,7 +166,7 @@ export default async function DrugTestTracker({ initPageResult, params, searchPa
     redirect('/admin/login')
   }
 
-  const { error, tests } = await loadIncompleteDrugTests(initPageResult)
+  const { error, tests } = await loadTrackerDrugTests(initPageResult)
 
   return (
     <DefaultTemplate

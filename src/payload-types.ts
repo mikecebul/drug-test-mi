@@ -112,6 +112,7 @@ export interface Config {
     employers: Employer;
     clients: Client;
     'drug-tests': DrugTest;
+    payments: Payment;
     exports: Export;
     imports: Import;
     redirects: Redirect;
@@ -135,6 +136,7 @@ export interface Config {
     clients: {
       drugTests: 'drug-tests';
       drugTestsWithBalance: 'drug-tests';
+      payments: 'payments';
       bookings: 'bookings';
       privateDocuments: 'private-media';
     };
@@ -155,6 +157,7 @@ export interface Config {
     employers: EmployersSelect<false> | EmployersSelect<true>;
     clients: ClientsSelect<false> | ClientsSelect<true>;
     'drug-tests': DrugTestsSelect<false> | DrugTestsSelect<true>;
+    payments: PaymentsSelect<false> | PaymentsSelect<true>;
     exports: ExportsSelect<false> | ExportsSelect<true>;
     imports: ImportsSelect<false> | ImportsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
@@ -1251,6 +1254,10 @@ export interface Client {
    */
   moneyOwed?: number | null;
   /**
+   * Client credit from overpayments that can be applied to future balances.
+   */
+  creditBalance?: number | null;
+  /**
    * Whether this client is active
    */
   isActive?: boolean | null;
@@ -1339,6 +1346,14 @@ export interface Client {
    */
   drugTestsWithBalance?: {
     docs?: (string | DrugTest)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Payment ledger records linked to this client.
+   */
+  payments?: {
+    docs?: (string | Payment)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
@@ -1792,6 +1807,10 @@ export interface DrugTest {
    */
   payment: {
     status: 'paid' | 'unpaid' | 'partial';
+    /**
+     * Most recent known payment method for this test balance.
+     */
+    method?: ('cash' | 'card' | 'stripe' | 'pre-paid' | 'credit' | 'unknown') | null;
     amountDue?: number | null;
     amountPaid?: number | null;
     /**
@@ -1802,6 +1821,27 @@ export interface DrugTest {
      * Payment notes or balance details captured during the workflow.
      */
     notes?: string | null;
+    /**
+     * Confirmation testing fee added to this test balance.
+     */
+    confirmationFeeDue?: number | null;
+    /**
+     * Allows confirmation workflow to proceed before the confirmation fee is paid.
+     */
+    confirmationPaymentBypassed?: boolean | null;
+    confirmationPaymentBypassedAt?: string | null;
+    /**
+     * Last time money was applied to this test balance.
+     */
+    lastPaymentAt?: string | null;
+    /**
+     * Most recent Stripe checkout link email sent for this test balance.
+     */
+    lastPaymentLinkSentAt?: string | null;
+    /**
+     * Most recent Stripe checkout URL generated for this test balance.
+     */
+    lastPaymentLinkUrl?: string | null;
   };
   /**
    * Snapshot of active medications at time of test (auto-populated from client, editable by superAdmin only)
@@ -2097,6 +2137,60 @@ export interface DrugTest {
         id?: string | null;
       }[]
     | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Ledger of collected, linked, and credited client payments.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payments".
+ */
+export interface Payment {
+  id: string;
+  title?: string | null;
+  relatedClient: string | Client;
+  relatedDrugTest?: (string | null) | DrugTest;
+  relatedBooking?: (string | null) | Booking;
+  /**
+   * Total money collected or applied in this payment record.
+   */
+  amount: number;
+  method: 'cash' | 'card' | 'stripe' | 'pre-paid' | 'credit' | 'unknown';
+  source: 'guided-workflow' | 'test-tracker' | 'stripe-checkout' | 'calcom' | 'credit-application' | 'manual';
+  /**
+   * Only posted payments count toward balances. Voided records stay for audit history.
+   */
+  status: 'pending' | 'posted' | 'voided';
+  collectedAt?: string | null;
+  postedAt?: string | null;
+  voidedAt?: string | null;
+  /**
+   * Amount reserved for a scheduled booking before the drug test exists.
+   */
+  reservedForBookingAmount?: number | null;
+  /**
+   * Amount applied to existing drug-test balances.
+   */
+  appliedAmount?: number | null;
+  /**
+   * Unapplied amount retained as client credit.
+   */
+  creditAmount?: number | null;
+  /**
+   * Drug-test balances paid by this record, oldest first.
+   */
+  allocations?:
+    | {
+        drugTest: string | DrugTest;
+        amount: number;
+        id?: string | null;
+      }[]
+    | null;
+  stripeCheckoutSessionId?: string | null;
+  stripePaymentIntentId?: string | null;
+  stripeCheckoutUrl?: string | null;
+  paymentLinkEmailSentAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2628,6 +2722,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'drug-tests';
         value: string | DrugTest;
+      } | null)
+    | ({
+        relationTo: 'payments';
+        value: string | Payment;
       } | null)
     | ({
         relationTo: 'redirects';
@@ -3678,6 +3776,7 @@ export interface ClientsSelect<T extends boolean = true> {
   disableClientEmails?: T;
   allowUnpaidBookings?: T;
   moneyOwed?: T;
+  creditBalance?: T;
   isActive?: T;
   firstName?: T;
   lastName?: T;
@@ -3711,6 +3810,7 @@ export interface ClientsSelect<T extends boolean = true> {
       };
   drugTests?: T;
   drugTestsWithBalance?: T;
+  payments?: T;
   bookings?: T;
   medications?:
     | T
@@ -3791,10 +3891,17 @@ export interface DrugTestsSelect<T extends boolean = true> {
     | T
     | {
         status?: T;
+        method?: T;
         amountDue?: T;
         amountPaid?: T;
         balanceDue?: T;
         notes?: T;
+        confirmationFeeDue?: T;
+        confirmationPaymentBypassed?: T;
+        confirmationPaymentBypassedAt?: T;
+        lastPaymentAt?: T;
+        lastPaymentLinkSentAt?: T;
+        lastPaymentLinkUrl?: T;
       };
   medicationsAtTestTime?: T;
   medicationsArrayAtTestTime?:
@@ -3836,6 +3943,39 @@ export interface DrugTestsSelect<T extends boolean = true> {
         errorMessage?: T;
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payments_select".
+ */
+export interface PaymentsSelect<T extends boolean = true> {
+  title?: T;
+  relatedClient?: T;
+  relatedDrugTest?: T;
+  relatedBooking?: T;
+  amount?: T;
+  method?: T;
+  source?: T;
+  status?: T;
+  collectedAt?: T;
+  postedAt?: T;
+  voidedAt?: T;
+  reservedForBookingAmount?: T;
+  appliedAmount?: T;
+  creditAmount?: T;
+  allocations?:
+    | T
+    | {
+        drugTest?: T;
+        amount?: T;
+        id?: T;
+      };
+  stripeCheckoutSessionId?: T;
+  stripePaymentIntentId?: T;
+  stripeCheckoutUrl?: T;
+  paymentLinkEmailSentAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4331,6 +4471,7 @@ export interface TaskCreateCollectionExport {
       | 'employers'
       | 'clients'
       | 'drug-tests'
+      | 'payments'
       | 'exports'
       | 'imports';
     drafts?: ('yes' | 'no') | null;

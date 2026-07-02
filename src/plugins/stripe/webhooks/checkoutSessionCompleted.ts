@@ -1,21 +1,59 @@
 import type { StripeWebhookHandler } from '@payloadcms/plugin-stripe/types'
 import type Stripe from 'stripe'
 import { APIError } from 'payload'
+import { applyIncomingPayment, readRelationshipId } from '@/collections/Payments/services/applyPayment'
 
 export const checkoutSessionCompleted: StripeWebhookHandler<{
   data: {
     object: Stripe.Checkout.Session
   }
 }> = async ({ event, payload }) => {
-  const {
-    id: sessionId,
-    metadata,
-    amount_total: _amount_total,
-    payment_status: _payment_status,
-  } = event.data.object
+  const { id: sessionId, metadata, amount_total, payment_intent, payment_status } = event.data.object
+  const paymentId = metadata?.paymentId
   const submissionId = metadata?.submissionId
 
   payload.logger.info(`🪝 Processing checkout session completed for session ID: ${sessionId}`)
+
+  if (paymentId) {
+    if (payment_status !== 'paid') {
+      payload.logger.info(`Stripe checkout session ${sessionId} completed without paid status: ${payment_status}`)
+      return
+    }
+
+    const payment = (await payload.findByID({
+      collection: 'payments',
+      id: paymentId,
+      depth: 0,
+      overrideAccess: true,
+    })) as any
+
+    if (payment.status === 'posted') {
+      payload.logger.info(`Stripe payment ${paymentId} is already posted`)
+      return
+    }
+
+    const clientId = readRelationshipId(payment.relatedClient)
+    if (!clientId) {
+      throw new APIError(`No client found for Stripe payment ${paymentId}`)
+    }
+
+    await applyIncomingPayment({
+      payload,
+      existingPaymentId: paymentId,
+      clientId,
+      amount: typeof amount_total === 'number' ? amount_total / 100 : payment.amount,
+      method: 'stripe',
+      source: 'stripe-checkout',
+      relatedDrugTest: readRelationshipId(payment.relatedDrugTest),
+      relatedBooking: readRelationshipId(payment.relatedBooking),
+      stripeCheckoutSessionId: sessionId,
+      stripePaymentIntentId: typeof payment_intent === 'string' ? payment_intent : payment.stripePaymentIntentId,
+      stripeCheckoutUrl: payment.stripeCheckoutUrl,
+      paymentLinkEmailSentAt: payment.paymentLinkEmailSentAt,
+    })
+
+    return
+  }
 
   if (!submissionId) {
     throw new APIError('No submissionId found in checkout session metadata')
