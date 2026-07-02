@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs'
 import { toast } from 'sonner'
@@ -63,6 +63,7 @@ import { ReferralProfileDrawer } from '../components/emails/referrals/ReferralPr
 type Booking = Awaited<ReturnType<typeof getTodaysCollectionBookings>>[number]
 type TestType = NonNullable<Booking['testType']>
 type PaymentMethod = 'cash' | 'card' | 'not-paid' | 'pre-paid'
+type PaymentEntryMethod = Exclude<PaymentMethod, 'not-paid'>
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type WorkflowStep = 'schedule' | 'registration' | 'payment' | 'toxaccess'
 type PaymentChoice = 'paid' | 'still-owes'
@@ -110,7 +111,7 @@ function getPaymentDefaults(booking: Booking | null) {
   const choice =
     existing?.status && amountDue > 0 && existingAmountPaid < amountDue ? 'still-owes' : getPaymentChoice(existing)
   const defaultAmountPaid = choice === 'paid' ? amountDue : 0
-  const method: PaymentMethod =
+  const method: PaymentEntryMethod =
     existing?.method === 'pre-paid' ? 'pre-paid' : existing?.method === 'card' ? 'card' : 'cash'
 
   return {
@@ -308,16 +309,11 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
     return searchClients(allClients, queryParts.join(' '), 3)
   }, [allClients, selectedBooking])
+  const selectedWalkInTestTypeId = walkInTestTypeId || testTypes[0]?.id || ''
   const selectedWalkInTestType = useMemo(
-    () => testTypes.find((testType) => testType.id === walkInTestTypeId) ?? null,
-    [testTypes, walkInTestTypeId],
+    () => testTypes.find((testType) => testType.id === selectedWalkInTestTypeId) ?? null,
+    [testTypes, selectedWalkInTestTypeId],
   )
-
-  useEffect(() => {
-    if (!walkInTestTypeId && testTypes[0]?.id) {
-      setWalkInTestTypeId(testTypes[0].id)
-    }
-  }, [testTypes, walkInTestTypeId])
 
   const handleSelectBooking = (booking: Booking) => {
     setPaymentDraft(getPaymentDefaults(booking))
@@ -388,7 +384,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   }
 
   const handleCreateWalkInBooking = () => {
-    if (!walkInClient || !walkInTestTypeId) {
+    if (!walkInClient || !selectedWalkInTestTypeId) {
       toast.error('Select a client and test type first.')
       return
     }
@@ -396,7 +392,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     startTransition(async () => {
       const result = await createWalkInBooking({
         clientId: walkInClient.id,
-        testTypeId: walkInTestTypeId,
+        testTypeId: selectedWalkInTestTypeId,
       })
 
       if (!result.success || !result.bookingId) {
@@ -757,7 +753,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
             <div className="space-y-2">
               <Label htmlFor="walk-in-test-type">Test type</Label>
-              <Select value={walkInTestTypeId} onValueChange={setWalkInTestTypeId}>
+              <Select value={selectedWalkInTestTypeId} onValueChange={setWalkInTestTypeId}>
                 <SelectTrigger id="walk-in-test-type" className="h-12 text-base">
                   <SelectValue placeholder="Select test type" />
                 </SelectTrigger>
@@ -972,7 +968,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       choice,
                       amountPaid:
                         choice === 'still-owes' ? stillOwesAmountPaid : Math.max(next.amountPaid, next.amountDue),
-                      method: choice === 'paid' && next.method === 'not-paid' ? 'cash' : next.method,
                     }
                   })
                 }}
@@ -1032,7 +1027,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     onValueChange={(method) =>
                       setPaymentDraft((current) => ({
                         ...(current ?? payment),
-                        method: method as PaymentMethod,
+                        method: method as PaymentEntryMethod,
                       }))
                     }
                   >
@@ -1091,7 +1086,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     onValueChange={(method) =>
                       setPaymentDraft((current) => ({
                         ...(current ?? payment),
-                        method: method as PaymentMethod,
+                        method: method as PaymentEntryMethod,
                       }))
                     }
                     disabled={payment.amountPaid <= 0}

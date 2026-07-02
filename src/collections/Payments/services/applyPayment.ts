@@ -1,4 +1,5 @@
 import type { Payload } from 'payload'
+import type { DrugTest } from '@/payload-types'
 
 type RelationshipId = string
 
@@ -56,7 +57,7 @@ function subtractMoney(a: number, b: number) {
 
 async function updateDrugTestPayment(input: {
   payload: Payload
-  drugTest: any
+  drugTest: Pick<DrugTest, 'id' | 'payment'>
   amountApplied: number
   method: PaymentMethod
 }) {

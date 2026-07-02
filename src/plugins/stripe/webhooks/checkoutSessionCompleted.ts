@@ -2,6 +2,7 @@ import type { StripeWebhookHandler } from '@payloadcms/plugin-stripe/types'
 import type Stripe from 'stripe'
 import { APIError } from 'payload'
 import { applyIncomingPayment, readRelationshipId } from '@/collections/Payments/services/applyPayment'
+import type { Payment } from '@/payload-types'
 
 export const checkoutSessionCompleted: StripeWebhookHandler<{
   data: {
@@ -25,7 +26,7 @@ export const checkoutSessionCompleted: StripeWebhookHandler<{
       id: paymentId,
       depth: 0,
       overrideAccess: true,
-    })) as any
+    })) as Payment
 
     if (payment.status === 'posted') {
       payload.logger.info(`Stripe payment ${paymentId} is already posted`)

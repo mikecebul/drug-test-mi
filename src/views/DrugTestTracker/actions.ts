@@ -22,7 +22,31 @@ function getRelationshipId(value: unknown): string | null {
   return null
 }
 
-function readBalanceDue(test: any) {
+type TrackerRelatedClient = {
+  id?: unknown
+  firstName?: unknown
+  lastName?: unknown
+  email?: unknown
+}
+
+type TrackerDoc = {
+  id?: unknown
+  relatedClient?: unknown
+  collectionDate?: unknown
+  testType?: unknown
+  initialScreenResult?: unknown
+  confirmationDecision?: unknown
+  confirmationResults?: unknown
+  confirmationSubstances?: unknown
+  unexpectedPositives?: unknown
+  isComplete?: unknown
+  processNotes?: unknown
+  payment?: {
+    balanceDue?: unknown
+  } | null
+}
+
+function readBalanceDue(test: { payment?: { balanceDue?: unknown } | null }) {
   return typeof test.payment?.balanceDue === 'number' ? Math.max(0, test.payment.balanceDue) : 0
 }
 
@@ -37,28 +61,29 @@ async function getAdminPayload() {
   return payload
 }
 
-function toTrackerTest(doc: any) {
-  const relatedClient = typeof doc.relatedClient === 'object' && doc.relatedClient ? doc.relatedClient : null
+function toTrackerTest(doc: TrackerDoc) {
+  const relatedClient =
+    typeof doc.relatedClient === 'object' && doc.relatedClient ? (doc.relatedClient as TrackerRelatedClient) : null
 
   return {
     id: String(doc.id),
     relatedClient: relatedClient
       ? {
           id: String(relatedClient.id),
-          firstName: relatedClient.firstName || '',
-          lastName: relatedClient.lastName || '',
-          email: relatedClient.email || '',
+          firstName: typeof relatedClient.firstName === 'string' ? relatedClient.firstName : '',
+          lastName: typeof relatedClient.lastName === 'string' ? relatedClient.lastName : '',
+          email: typeof relatedClient.email === 'string' ? relatedClient.email : '',
         }
       : undefined,
-    collectionDate: doc.collectionDate || '',
-    testType: doc.testType || '',
-    initialScreenResult: doc.initialScreenResult || undefined,
-    confirmationDecision: doc.confirmationDecision || undefined,
+    collectionDate: typeof doc.collectionDate === 'string' ? doc.collectionDate : '',
+    testType: typeof doc.testType === 'string' ? doc.testType : '',
+    initialScreenResult: typeof doc.initialScreenResult === 'string' ? doc.initialScreenResult : undefined,
+    confirmationDecision: typeof doc.confirmationDecision === 'string' ? doc.confirmationDecision : undefined,
     confirmationResults: Array.isArray(doc.confirmationResults) ? doc.confirmationResults : undefined,
     confirmationSubstances: Array.isArray(doc.confirmationSubstances) ? doc.confirmationSubstances : undefined,
     unexpectedPositives: Array.isArray(doc.unexpectedPositives) ? doc.unexpectedPositives : undefined,
     isComplete: doc.isComplete === true,
-    processNotes: doc.processNotes || undefined,
+    processNotes: typeof doc.processNotes === 'string' ? doc.processNotes : undefined,
     payment: doc.payment || undefined,
   }
 }
