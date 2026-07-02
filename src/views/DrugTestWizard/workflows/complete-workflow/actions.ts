@@ -1,6 +1,6 @@
 'use server'
 
-import { getPayload, type RequiredDataFromCollectionSlug } from 'payload'
+import { getPayload, type PayloadRequest, type RequiredDataFromCollectionSlug } from 'payload'
 import config from '@payload-config'
 import type { Client, Court, Employer, TestType } from '@/payload-types'
 import { APP_TIMEZONE } from '@/lib/date-utils'
@@ -21,6 +21,7 @@ type PopulatedClient = Client & {
   } | null
 }
 type Payload = Awaited<ReturnType<typeof getPayload>>
+type AdminPayloadRequest = Pick<PayloadRequest, 'payload' | 'user'>
 
 const FALLBACK_TEST_PRICES: Record<TestTypeValue, number> = {
   '11-panel-lab': 40,
@@ -58,7 +59,15 @@ function getRelationshipId(value: unknown): string | null {
   return null
 }
 
-async function getAdminPayload() {
+async function getAdminPayload(req?: AdminPayloadRequest) {
+  if (req) {
+    if (!req.user || req.user.collection !== 'admins') {
+      throw new Error('Unauthorized - admin access required.')
+    }
+
+    return req.payload as Payload
+  }
+
   const payload = await getPayload({ config })
   const { user } = await payload.auth({ headers: await headers() })
 
@@ -188,8 +197,8 @@ async function getFirstDrugTestDate(payload: Payload, clientId: string | null | 
   return result.docs[0]?.collectionDate || null
 }
 
-export async function getTodaysCollectionBookings() {
-  const payload = await getAdminPayload()
+export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
+  const payload = await getAdminPayload(req)
 
   const result = await payload.find({
     collection: 'bookings',

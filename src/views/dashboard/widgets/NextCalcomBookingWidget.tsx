@@ -85,7 +85,7 @@ export default async function NextCalcomBookingWidget({ req }: WidgetServerProps
   let hasLoadError = false
 
   try {
-    bookings = await getTodaysCollectionBookings()
+    bookings = await getTodaysCollectionBookings(req)
   } catch (error) {
     hasLoadError = true
     req.payload.logger.error({ err: error, msg: 'Failed to load schedule dashboard widget' })

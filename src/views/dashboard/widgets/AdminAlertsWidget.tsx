@@ -24,7 +24,7 @@ export default async function AdminAlertsWidget({ req }: WidgetServerProps) {
   const alerts: AlertItem[] = []
 
   try {
-    const bookings = await getTodaysCollectionBookings()
+    const bookings = await getTodaysCollectionBookings(req)
     const missingTestTypeCount = bookings.filter((booking) => booking.needsTestType).length
 
     if (missingTestTypeCount > 0) {

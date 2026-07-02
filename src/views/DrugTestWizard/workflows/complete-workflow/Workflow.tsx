@@ -223,7 +223,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     refetch,
   } = useQuery({
     queryKey: ['guided', 'today-bookings'],
-    queryFn: getTodaysCollectionBookings,
+    queryFn: () => getTodaysCollectionBookings(),
     refetchOnMount: 'always',
   })
   const { data: allClients } = useQuery({
