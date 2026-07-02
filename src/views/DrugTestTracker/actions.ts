@@ -3,6 +3,7 @@
 import Stripe from 'stripe'
 import { getPayload } from 'payload'
 import config from '@payload-config'
+import { headers } from 'next/headers'
 
 import {
   applyAvailableClientCredit,
@@ -23,6 +24,17 @@ function getRelationshipId(value: unknown): string | null {
 
 function readBalanceDue(test: any) {
   return typeof test.payment?.balanceDue === 'number' ? Math.max(0, test.payment.balanceDue) : 0
+}
+
+async function getAdminPayload() {
+  const payload = await getPayload({ config })
+  const { user } = await payload.auth({ headers: await headers() })
+
+  if (!user || user.collection !== 'admins') {
+    throw new Error('Unauthorized - admin access required.')
+  }
+
+  return payload
 }
 
 function toTrackerTest(doc: any) {
@@ -75,7 +87,7 @@ export async function recordDrugTestPayment(input: {
     return { success: false, error: 'Payment amount must be greater than zero.' }
   }
 
-  const payload = await getPayload({ config })
+  const payload = await getAdminPayload()
   const test = await payload.findByID({
     collection: 'drug-tests',
     id: input.testId,
@@ -116,7 +128,7 @@ export async function requestDrugTestConfirmation(input: {
     return { success: false, error: 'Select at least one substance for confirmation.' }
   }
 
-  const payload = await getPayload({ config })
+  const payload = await getAdminPayload()
   const test = await payload.findByID({
     collection: 'drug-tests',
     id: input.testId,
@@ -181,7 +193,7 @@ export async function sendDrugTestStripePaymentLink(testId: string) {
     return { success: false, error: 'Stripe is not configured.' }
   }
 
-  const payload = await getPayload({ config })
+  const payload = await getAdminPayload()
   const test = await payload.findByID({
     collection: 'drug-tests',
     id: testId,

@@ -5,6 +5,7 @@ import config from '@payload-config'
 import type { Client, Court, Employer, TestType } from '@/payload-types'
 import { APP_TIMEZONE } from '@/lib/date-utils'
 import { TZDate } from '@date-fns/tz'
+import { headers } from 'next/headers'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 import { applyIncomingPayment } from '@/collections/Payments/services/applyPayment'
 
@@ -55,6 +56,17 @@ function getRelationshipId(value: unknown): string | null {
     return value.id
   }
   return null
+}
+
+async function getAdminPayload() {
+  const payload = await getPayload({ config })
+  const { user } = await payload.auth({ headers: await headers() })
+
+  if (!user || user.collection !== 'admins') {
+    throw new Error('Unauthorized - admin access required.')
+  }
+
+  return payload
 }
 
 async function resolveTestType(payload: Payload, value: string | TestType | null | undefined) {
@@ -177,7 +189,7 @@ async function getFirstDrugTestDate(payload: Payload, clientId: string | null | 
 }
 
 export async function getTodaysCollectionBookings() {
-  const payload = await getPayload({ config })
+  const payload = await getAdminPayload()
 
   const result = await payload.find({
     collection: 'bookings',
@@ -257,7 +269,7 @@ export async function getTodaysCollectionBookings() {
 }
 
 export async function getActiveCollectionTestTypes() {
-  const payload = await getPayload({ config })
+  const payload = await getAdminPayload()
   const result = await payload.find({
     collection: 'test-types',
     where: {
@@ -277,7 +289,7 @@ export async function getActiveCollectionTestTypes() {
 }
 
 export async function getBookingRegistrationDefaults(bookingId: string) {
-  const payload = await getPayload({ config })
+  const payload = await getAdminPayload()
   const booking = await payload.findByID({
     collection: 'bookings',
     id: bookingId,
@@ -296,7 +308,7 @@ export async function getBookingRegistrationDefaults(bookingId: string) {
 }
 
 export async function linkBookingToClient(bookingId: string, clientId: string) {
-  const payload = await getPayload({ config })
+  const payload = await getAdminPayload()
   await payload.update({
     collection: 'bookings',
     id: bookingId,
@@ -313,7 +325,7 @@ export async function setBookingScheduledTestType(bookingId: string, testTypeId:
     return { success: false, error: 'Booking and test type are required.' }
   }
 
-  const payload = await getPayload({ config })
+  const payload = await getAdminPayload()
   await payload.update({
     collection: 'bookings',
     id: bookingId,
@@ -332,7 +344,7 @@ export async function createWalkInBooking(input: { clientId: string; testTypeId:
     return { success: false, error: 'Client and test type are required.' }
   }
 
-  const payload = await getPayload({ config })
+  const payload = await getAdminPayload()
   const [client, testType] = await Promise.all([
     payload.findByID({
       collection: 'clients',
@@ -419,7 +431,7 @@ export async function recordBookingPayment(input: {
     return { success: false, error: 'Use Paid if the full amount was collected.' }
   }
 
-  const payload = await getPayload({ config })
+  const payload = await getAdminPayload()
   const existingBooking = await payload.findByID({
     collection: 'bookings',
     id: input.bookingId,
@@ -469,7 +481,7 @@ export async function recordBookingPayment(input: {
 }
 
 export async function refreshBookingClientContext(bookingId: string) {
-  const payload = await getPayload({ config })
+  const payload = await getAdminPayload()
   const booking = await payload.findByID({
     collection: 'bookings',
     id: bookingId,
