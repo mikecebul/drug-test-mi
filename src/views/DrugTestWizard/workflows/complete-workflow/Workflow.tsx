@@ -48,6 +48,7 @@ type PaymentMethod = 'cash' | 'card' | 'not-paid' | 'pre-paid'
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type WorkflowStep = 'schedule' | 'registration' | 'payment' | 'toxaccess'
 type PaymentChoice = 'paid' | 'pre-paid' | 'still-owes'
+type CollectedPaymentMethod = 'cash' | 'card'
 
 const workflowSteps = ['schedule', 'registration', 'payment', 'toxaccess'] as const
 
@@ -94,11 +95,13 @@ function getPaymentDefaults(booking: Booking | null) {
   const existing = booking?.payment
   const choice = getPaymentChoice(existing)
   const defaultAmountPaid = choice === 'paid' || choice === 'pre-paid' ? amountDue : 0
+  const method: CollectedPaymentMethod = existing?.method === 'card' ? 'card' : 'cash'
 
   return {
     amountDue,
     amountPaid: typeof existing?.amountPaid === 'number' ? existing.amountPaid : defaultAmountPaid,
     choice,
+    method,
   }
 }
 
@@ -118,14 +121,14 @@ function getPersistedPayment(input: ReturnType<typeof getPaymentDefaults>): {
   if (input.choice === 'still-owes') {
     return {
       status: 'partial',
-      method: input.amountPaid > 0 ? 'cash' : 'not-paid',
+      method: input.amountPaid > 0 ? input.method : 'not-paid',
       amountPaid: Math.max(0, Math.min(input.amountPaid, input.amountDue)),
     }
   }
 
   return {
     status: 'paid',
-    method: 'cash',
+    method: input.method,
     amountPaid: Math.max(input.amountPaid, input.amountDue),
   }
 }
@@ -824,7 +827,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             </div>
 
             {payment.choice === 'paid' && (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="amount-collected">Amount collected</Label>
                   <Input
@@ -842,6 +845,26 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="payment-method">Method</Label>
+                  <Select
+                    value={payment.method}
+                    onValueChange={(method) =>
+                      setPaymentDraft((current) => ({
+                        ...(current ?? payment),
+                        method: method as CollectedPaymentMethod,
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="payment-method">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="card">Card</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="extra-collected">Extra toward balance or credit</Label>
                   <Input id="extra-collected" value={currency.format(extraCollected)} readOnly />
                 </div>
@@ -849,7 +872,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             )}
 
             {payment.choice === 'still-owes' && (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="amount-paid">Amount paid</Label>
                   <Input
@@ -877,6 +900,27 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       })
                     }}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="partial-payment-method">Method</Label>
+                  <Select
+                    value={payment.method}
+                    onValueChange={(method) =>
+                      setPaymentDraft((current) => ({
+                        ...(current ?? payment),
+                        method: method as CollectedPaymentMethod,
+                      }))
+                    }
+                    disabled={payment.amountPaid <= 0}
+                  >
+                    <SelectTrigger id="partial-payment-method">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="card">Card</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="balance-due">Balance due</Label>
