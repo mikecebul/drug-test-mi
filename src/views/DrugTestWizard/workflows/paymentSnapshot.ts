@@ -1,5 +1,6 @@
 'use server'
 
+import { getTestTypeByValue } from '@/config/test-types'
 import type { getPayload } from 'payload'
 
 type Payload = Awaited<ReturnType<typeof getPayload>>
@@ -13,20 +14,9 @@ type BookingPayment = {
 }
 type DrugTestPaymentMethod = 'cash' | 'card' | 'pre-paid' | 'stripe' | 'credit' | 'unknown'
 
-type TestTypeValue = '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-instant' | '17-panel-sos-lab' | 'etg-lab'
-
-const FALLBACK_TEST_PRICES: Record<TestTypeValue, number> = {
-  '11-panel-lab': 40,
-  '11-panel-lab-no-etg': 40,
-  '17-panel-instant': 35,
-  '17-panel-sos-lab': 45,
-  'etg-lab': 40,
-}
-
 function getFallbackAmountDue(testType?: string | null, fallbackAmountDue = 0) {
   if (typeof fallbackAmountDue === 'number' && fallbackAmountDue > 0) return fallbackAmountDue
-  if (testType && testType in FALLBACK_TEST_PRICES) return FALLBACK_TEST_PRICES[testType as TestTypeValue]
-  return 0
+  return getTestTypeByValue(testType)?.price || 0
 }
 
 function normalizePayment(payment?: BookingPayment | null, fallbackAmountDue = 0) {
