@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs'
 import { toast } from 'sonner'
@@ -35,12 +35,14 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { APP_TIMEZONE } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
 import { ClientSearchDialog } from '../components/client/ClientSearchDialog'
 import { getClients, type SimpleClient } from '../components/client/getClients'
 import { searchClients } from '../components/client/clientSearch'
 import {
+  createWalkInBooking,
   getActiveCollectionTestTypes,
   getClientReferralProfile,
   getTodaysCollectionBookings,
@@ -108,12 +110,14 @@ function getPaymentDefaults(booking: Booking | null) {
   const choice =
     existing?.status && amountDue > 0 && existingAmountPaid < amountDue ? 'still-owes' : getPaymentChoice(existing)
   const defaultAmountPaid = choice === 'paid' ? amountDue : 0
+  const method: PaymentMethod =
+    existing?.method === 'pre-paid' ? 'pre-paid' : existing?.method === 'card' ? 'card' : 'cash'
 
   return {
     amountDue,
     amountPaid: typeof existing?.amountPaid === 'number' ? existing.amountPaid : defaultAmountPaid,
     choice,
-    method: existing?.method ?? null,
+    method,
   }
 }
 
@@ -125,7 +129,7 @@ function getPersistedPayment(input: ReturnType<typeof getPaymentDefaults>): {
   if (input.choice === 'still-owes') {
     return {
       status: 'partial',
-      method: 'not-paid',
+      method: input.amountPaid > 0 ? input.method : 'not-paid',
       amountPaid: Math.max(0, Math.min(input.amountPaid, input.amountDue)),
     }
   }
@@ -133,7 +137,7 @@ function getPersistedPayment(input: ReturnType<typeof getPaymentDefaults>): {
   return {
     status: 'paid',
     method: input.method === 'pre-paid' ? 'pre-paid' : input.method === 'card' ? 'card' : 'cash',
-    amountPaid: input.amountDue,
+    amountPaid: Math.max(input.amountPaid, input.amountDue),
   }
 }
 
@@ -257,7 +261,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   })
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['guided', 'today-bookings'],
-    queryFn: getTodaysCollectionBookings,
+    queryFn: () => getTodaysCollectionBookings(),
     refetchOnMount: 'always',
   })
   const { data: allClients } = useQuery({
@@ -269,6 +273,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     queryFn: getActiveCollectionTestTypes,
   })
   const [isPending, startTransition] = useTransition()
+  const [walkInClient, setWalkInClient] = useState<SimpleClient | null>(null)
+  const [walkInTestTypeId, setWalkInTestTypeId] = useState('')
   const selectedBooking = useMemo(
     () => bookings.find((booking) => booking.id === query.bookingId) ?? null,
     [bookings, query.bookingId],
@@ -290,7 +296,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const refreshBookings = () =>
     queryClient.fetchQuery({
       queryKey: ['guided', 'today-bookings'],
-      queryFn: getTodaysCollectionBookings,
+      queryFn: () => getTodaysCollectionBookings(),
     })
   const suggestedClients = useMemo(() => {
     if (!selectedBooking) return []
@@ -302,6 +308,16 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
     return searchClients(allClients, queryParts.join(' '), 3)
   }, [allClients, selectedBooking])
+  const selectedWalkInTestType = useMemo(
+    () => testTypes.find((testType) => testType.id === walkInTestTypeId) ?? null,
+    [testTypes, walkInTestTypeId],
+  )
+
+  useEffect(() => {
+    if (!walkInTestTypeId && testTypes[0]?.id) {
+      setWalkInTestTypeId(testTypes[0].id)
+    }
+  }, [testTypes, walkInTestTypeId])
 
   const handleSelectBooking = (booking: Booking) => {
     setPaymentDraft(getPaymentDefaults(booking))
@@ -369,6 +385,30 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const openTestTypeDrawer = () => {
     setTestTypeDrawerSelection(selectedBooking?.bookingTestType?.id ?? selectedBooking?.testType?.id ?? '')
     setTestTypeDrawerOpen(true)
+  }
+
+  const handleCreateWalkInBooking = () => {
+    if (!walkInClient || !walkInTestTypeId) {
+      toast.error('Select a client and test type first.')
+      return
+    }
+
+    startTransition(async () => {
+      const result = await createWalkInBooking({
+        clientId: walkInClient.id,
+        testTypeId: walkInTestTypeId,
+      })
+
+      if (!result.success || !result.bookingId) {
+        toast.error(result.error || 'Failed to create walk-in collection.')
+        return
+      }
+
+      setPaymentDraft(null)
+      await refreshBookings()
+      toast.success('Walk-in collection created')
+      setQuery({ bookingId: result.bookingId, step: 'payment' })
+    })
   }
 
   const handlePaymentNext = () => {
@@ -681,6 +721,68 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           )}
         </CardContent>
       </Card>
+
+      <Card className="rounded-lg">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-3 text-2xl">
+            <UserCheck className="size-6" />
+            Walk-In Collection
+          </CardTitle>
+          <CardDescription className="text-base">
+            Create an internal booking for an existing client who is testing now.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+            <div className="border-border bg-background min-h-12 rounded-lg border px-4 py-3">
+              <p className="text-muted-foreground text-sm font-medium">Client</p>
+              <p className="text-lg font-semibold">
+                {walkInClient
+                  ? walkInClient.fullName || `${walkInClient.firstName} ${walkInClient.lastName}`
+                  : 'None selected'}
+              </p>
+            </div>
+            <ClientSearchDialog
+              allClients={allClients}
+              selectedClientId={walkInClient?.id ?? ''}
+              onSelect={setWalkInClient}
+            >
+              <Button type="button" variant="outline" size="lg" className="h-full min-h-12">
+                <Search className="mr-2 size-5" />
+                Select Client
+              </Button>
+            </ClientSearchDialog>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+            <div className="space-y-2">
+              <Label htmlFor="walk-in-test-type">Test type</Label>
+              <Select value={walkInTestTypeId} onValueChange={setWalkInTestTypeId}>
+                <SelectTrigger id="walk-in-test-type" className="h-12 text-base">
+                  <SelectValue placeholder="Select test type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {testTypes.map((testType) => (
+                    <SelectItem key={testType.id} value={testType.id}>
+                      {testType.label} · {currency.format(testType.price)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              type="button"
+              onClick={handleCreateWalkInBooking}
+              disabled={!walkInClient || !selectedWalkInTestType || isPending}
+              size="lg"
+              className="h-12"
+            >
+              {isPending ? <Loader2 className="mr-2 size-5 animate-spin" /> : <CalendarDays className="mr-2 size-5" />}
+              Start Guided Test
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 
@@ -821,6 +923,10 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     if (selectedBooking?.needsRegistration || selectedBooking?.needsTestType) return renderRegistration()
     if (!selectedBooking || !selectedBooking.testType) return renderMissingBooking('Payment')
     const paymentCardCopy = getPaymentCardCopy(payment)
+    const clientMoneyOwed = selectedBooking.client?.moneyOwed ?? 0
+    const clientCreditBalance = selectedBooking.client?.creditBalance ?? 0
+    const extraCollected = Math.max(0, payment.amountPaid - payment.amountDue)
+    const canUsePrepaidMethod = payment.method === 'pre-paid' || selectedBooking.payment?.method === 'pre-paid'
 
     return (
       <div className="space-y-6">
@@ -836,6 +942,21 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             <CardDescription className="text-lg">{paymentCardCopy.description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {(clientMoneyOwed > 0 || clientCreditBalance > 0) && (
+              <div className="border-border bg-muted/30 grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-muted-foreground text-sm font-medium">Existing balance</p>
+                  <p className={cn('text-2xl font-semibold', clientMoneyOwed > 0 && 'text-destructive')}>
+                    {currency.format(clientMoneyOwed)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-sm font-medium">Client credit</p>
+                  <p className="text-2xl font-semibold">{currency.format(clientCreditBalance)}</p>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3">
               <Label className="text-base">Payment status</Label>
               <RadioGroup
@@ -849,7 +970,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     return {
                       ...next,
                       choice,
-                      amountPaid: choice === 'still-owes' ? stillOwesAmountPaid : next.amountDue,
+                      amountPaid:
+                        choice === 'still-owes' ? stillOwesAmountPaid : Math.max(next.amountPaid, next.amountDue),
+                      method: choice === 'paid' && next.method === 'not-paid' ? 'cash' : next.method,
                     }
                   })
                 }}
@@ -884,8 +1007,54 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               </RadioGroup>
             </div>
 
+            {payment.choice === 'paid' && (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="amount-collected">Amount collected</Label>
+                  <Input
+                    id="amount-collected"
+                    type="number"
+                    min={payment.amountDue}
+                    value={payment.amountPaid}
+                    onChange={(event) => {
+                      const amountPaid = Number(event.target.value || 0)
+                      setPaymentDraft((current) => ({
+                        ...(current ?? payment),
+                        amountPaid: Math.max(payment.amountDue, amountPaid),
+                      }))
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="payment-method">Method</Label>
+                  <Select
+                    value={payment.method}
+                    onValueChange={(method) =>
+                      setPaymentDraft((current) => ({
+                        ...(current ?? payment),
+                        method: method as PaymentMethod,
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="payment-method">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="card">Card</SelectItem>
+                      {canUsePrepaidMethod && <SelectItem value="pre-paid">Pre-paid</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="extra-collected">Extra toward balance or credit</Label>
+                  <Input id="extra-collected" value={currency.format(extraCollected)} readOnly />
+                </div>
+              </div>
+            )}
+
             {payment.choice === 'still-owes' && (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="amount-paid">Amount paid</Label>
                   <Input
@@ -903,6 +1072,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                             ...next,
                             choice: 'paid',
                             amountPaid: next.amountDue,
+                            method: next.method === 'pre-paid' ? 'cash' : next.method,
                           }
                         }
 
@@ -913,6 +1083,28 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       })
                     }}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="partial-payment-method">Method</Label>
+                  <Select
+                    value={payment.method}
+                    onValueChange={(method) =>
+                      setPaymentDraft((current) => ({
+                        ...(current ?? payment),
+                        method: method as PaymentMethod,
+                      }))
+                    }
+                    disabled={payment.amountPaid <= 0}
+                  >
+                    <SelectTrigger id="partial-payment-method">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="card">Card</SelectItem>
+                      {canUsePrepaidMethod && <SelectItem value="pre-paid">Pre-paid</SelectItem>}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="balance-due">Balance due</Label>

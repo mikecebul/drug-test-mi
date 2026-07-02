@@ -656,7 +656,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
           const needsDecision =
             initialResult &&
             ['unexpected-positive', 'mixed-unexpected'].includes(initialResult) &&
-            !confirmationDecision
+            (!confirmationDecision || confirmationDecision === 'pending-decision')
 
           // Prefer confirmation document if it exists (includes both initial and final results)
           const documentToView =
