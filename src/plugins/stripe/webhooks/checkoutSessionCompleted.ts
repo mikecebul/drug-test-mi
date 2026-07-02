@@ -3,6 +3,7 @@ import type Stripe from 'stripe'
 import { APIError } from 'payload'
 import { applyIncomingPayment, readRelationshipId } from '@/collections/Payments/services/applyPayment'
 import type { Payment } from '@/payload-types'
+import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
 
 export const checkoutSessionCompleted: StripeWebhookHandler<{
   data: {
@@ -21,36 +22,45 @@ export const checkoutSessionCompleted: StripeWebhookHandler<{
       return
     }
 
-    const payment = (await payload.findByID({
-      collection: 'payments',
-      id: paymentId,
-      depth: 0,
-      overrideAccess: true,
-    })) as Payment
+    await withPayloadTransaction(payload, async (req) => {
+      const payment = (await payload.findByID({
+        collection: 'payments',
+        id: paymentId,
+        depth: 0,
+        overrideAccess: true,
+        req,
+      })) as Payment
 
-    if (payment.status === 'posted') {
-      payload.logger.info(`Stripe payment ${paymentId} is already posted`)
-      return
-    }
+      if (payment.status === 'posted') {
+        payload.logger.info(`Stripe payment ${paymentId} is already posted`)
+        return
+      }
 
-    const clientId = readRelationshipId(payment.relatedClient)
-    if (!clientId) {
-      throw new APIError(`No client found for Stripe payment ${paymentId}`)
-    }
+      if (payment.status === 'voided') {
+        payload.logger.info(`Stripe payment ${paymentId} is voided and will not be posted`)
+        return
+      }
 
-    await applyIncomingPayment({
-      payload,
-      existingPaymentId: paymentId,
-      clientId,
-      amount: typeof amount_total === 'number' ? amount_total / 100 : payment.amount,
-      method: 'stripe',
-      source: 'stripe-checkout',
-      relatedDrugTest: readRelationshipId(payment.relatedDrugTest),
-      relatedBooking: readRelationshipId(payment.relatedBooking),
-      stripeCheckoutSessionId: sessionId,
-      stripePaymentIntentId: typeof payment_intent === 'string' ? payment_intent : payment.stripePaymentIntentId,
-      stripeCheckoutUrl: payment.stripeCheckoutUrl,
-      paymentLinkEmailSentAt: payment.paymentLinkEmailSentAt,
+      const clientId = readRelationshipId(payment.relatedClient)
+      if (!clientId) {
+        throw new APIError(`No client found for Stripe payment ${paymentId}`)
+      }
+
+      await applyIncomingPayment({
+        payload,
+        existingPaymentId: paymentId,
+        clientId,
+        amount: typeof amount_total === 'number' ? amount_total / 100 : payment.amount,
+        method: 'stripe',
+        source: 'stripe-checkout',
+        relatedDrugTest: readRelationshipId(payment.relatedDrugTest),
+        relatedBooking: readRelationshipId(payment.relatedBooking),
+        stripeCheckoutSessionId: sessionId,
+        stripePaymentIntentId: typeof payment_intent === 'string' ? payment_intent : payment.stripePaymentIntentId,
+        stripeCheckoutUrl: payment.stripeCheckoutUrl,
+        paymentLinkEmailSentAt: payment.paymentLinkEmailSentAt,
+        req,
+      })
     })
 
     return

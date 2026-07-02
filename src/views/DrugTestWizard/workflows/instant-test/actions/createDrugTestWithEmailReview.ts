@@ -1,6 +1,6 @@
 'use server'
 
-import { getPayload } from 'payload'
+import { getPayload, type RequiredDataFromCollectionSlug } from 'payload'
 import config from '@payload-config'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { computeTestResultPreview } from '@/views/DrugTestWizard/actions'
@@ -9,6 +9,8 @@ import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMed
 import { createAdminAlert } from '@/lib/admin-alerts'
 import { getDrugTestPaymentSnapshot } from '../../paymentSnapshot'
 import { applyAvailableClientCredit } from '@/collections/Payments/services/applyPayment'
+import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
+import type { DrugTest } from '@/payload-types'
 
 /**
  * Create drug test and send approved emails (instant-test workflow final step)
@@ -146,7 +148,7 @@ export async function createDrugTestWithEmailReview(
     })
 
     // 3. Prepare drug test data
-    const drugTestData: any = {
+    const drugTestData: RequiredDataFromCollectionSlug<'drug-tests'> = {
       relatedClient: testData.clientId,
       sourceBooking: paymentSnapshot.sourceBooking,
       payment: paymentSnapshot.payment,
@@ -190,18 +192,25 @@ export async function createDrugTestWithEmailReview(
 
     // 4. Create drug test record with skipNotificationHook context
     payload.logger.info('[createDrugTestWithEmailReview] Creating drug test record...')
-    const drugTest = await payload.create({
-      collection: 'drug-tests',
-      data: drugTestData,
-      overrideAccess: true,
-    })
-    payload.logger.info({ msg: '[createDrugTestWithEmailReview] Drug test created', testId: drugTest.id })
+    const drugTest: DrugTest = await withPayloadTransaction(payload, async (req) => {
+      const createdDrugTest = await payload.create({
+        collection: 'drug-tests',
+        data: drugTestData,
+        overrideAccess: true,
+        req,
+      })
 
-    await applyAvailableClientCredit({
-      payload,
-      clientId: testData.clientId,
-      relatedDrugTest: drugTest.id,
+      await applyAvailableClientCredit({
+        payload,
+        clientId: testData.clientId,
+        relatedDrugTest: createdDrugTest.id,
+        req,
+      })
+
+      return createdDrugTest
     })
+
+    payload.logger.info({ msg: '[createDrugTestWithEmailReview] Drug test created', testId: drugTest.id })
 
     // 3. Fetch client for email generation
     const client = await payload.findByID({

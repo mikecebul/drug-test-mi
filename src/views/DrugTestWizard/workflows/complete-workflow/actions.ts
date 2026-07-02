@@ -19,6 +19,7 @@ import {
 } from '@/config/test-types'
 import { getCalcomBookingActionLinks } from './schedule-utils'
 import { applyIncomingPayment } from '@/collections/Payments/services/applyPayment'
+import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
 
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type PaymentMethod = 'cash' | 'card' | 'not-paid' | 'pre-paid'
@@ -484,63 +485,70 @@ export async function recordBookingPayment(input: {
   }
 
   const payload = await getAdminPayload()
-  const existingBooking = await payload.findByID({
-    collection: 'bookings',
-    id: input.bookingId,
-    depth: 0,
-    overrideAccess: true,
-  })
-  const clientId = getRelationshipId(existingBooking.relatedClient)
-  const existingAmountPaid =
-    typeof existingBooking.payment?.amountPaid === 'number' ? existingBooking.payment.amountPaid : 0
-  const amountAppliedToBooking = Math.min(input.amountPaid, input.amountDue)
-  const existingAmountAppliedToBooking = Math.min(existingAmountPaid, input.amountDue)
-  const newAmountAppliedToBooking = Math.max(0, amountAppliedToBooking - existingAmountAppliedToBooking)
-  const incomingPaymentAmount = Math.max(0, input.amountPaid - existingAmountPaid)
-  const bookingPaymentStatus =
-    amountAppliedToBooking >= input.amountDue ? 'paid' : amountAppliedToBooking > 0 ? 'partial' : input.status
-  const existingPayment = existingBooking.payment
-  const notes =
-    typeof input.notes === 'string'
-      ? input.notes.trim() || null
-      : typeof existingPayment?.notes === 'string'
-        ? existingPayment.notes
-        : null
-
-  const booking = await payload.update({
-    collection: 'bookings',
-    id: input.bookingId,
-    data: {
-      payment: {
-        amountDue: input.amountDue,
-        amountPaid: amountAppliedToBooking,
-        method: input.method,
-        status: bookingPaymentStatus,
-        notes,
-        collectedAt: new Date().toISOString(),
-      },
-    },
-    depth: 0,
-    overrideAccess: true,
-  })
-
-  if (clientId && incomingPaymentAmount > 0 && input.method !== 'pre-paid' && input.method !== 'not-paid') {
-    await applyIncomingPayment({
-      payload,
-      clientId,
-      amount: incomingPaymentAmount,
-      method: input.method === 'card' ? 'card' : 'cash',
-      source: 'guided-workflow',
-      relatedBooking: input.bookingId,
-      reservedForBookingAmount: newAmountAppliedToBooking,
+  const payment = await withPayloadTransaction(payload, async (req) => {
+    const existingBooking = await payload.findByID({
+      collection: 'bookings',
+      id: input.bookingId,
+      depth: 0,
+      overrideAccess: true,
+      req,
     })
-  }
+    const clientId = getRelationshipId(existingBooking.relatedClient)
+    const existingAmountPaid =
+      typeof existingBooking.payment?.amountPaid === 'number' ? existingBooking.payment.amountPaid : 0
+    const amountAppliedToBooking = Math.min(input.amountPaid, input.amountDue)
+    const existingAmountAppliedToBooking = Math.min(existingAmountPaid, input.amountDue)
+    const newAmountAppliedToBooking = Math.max(0, amountAppliedToBooking - existingAmountAppliedToBooking)
+    const incomingPaymentAmount = Math.max(0, input.amountPaid - existingAmountPaid)
+    const bookingPaymentStatus =
+      amountAppliedToBooking >= input.amountDue ? 'paid' : amountAppliedToBooking > 0 ? 'partial' : input.status
+    const existingPayment = existingBooking.payment
+    const notes =
+      typeof input.notes === 'string'
+        ? input.notes.trim() || null
+        : typeof existingPayment?.notes === 'string'
+          ? existingPayment.notes
+          : null
+
+    const booking = await payload.update({
+      collection: 'bookings',
+      id: input.bookingId,
+      data: {
+        payment: {
+          amountDue: input.amountDue,
+          amountPaid: amountAppliedToBooking,
+          method: input.method,
+          status: bookingPaymentStatus,
+          notes,
+          collectedAt: new Date().toISOString(),
+        },
+      },
+      depth: 0,
+      overrideAccess: true,
+      req,
+    })
+
+    if (clientId && incomingPaymentAmount > 0 && input.method !== 'pre-paid' && input.method !== 'not-paid') {
+      await applyIncomingPayment({
+        payload,
+        clientId,
+        amount: incomingPaymentAmount,
+        method: input.method === 'card' ? 'card' : 'cash',
+        source: 'guided-workflow',
+        relatedBooking: input.bookingId,
+        reservedForBookingAmount: newAmountAppliedToBooking,
+        req,
+      })
+    }
+
+    return booking.payment
+  })
 
   revalidateBookingViews()
 
   return {
     success: true,
-    payment: booking.payment,
+    payment,
   }
 }
 

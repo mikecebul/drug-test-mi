@@ -12,6 +12,7 @@ import {
 } from '@/collections/Payments/services/applyPayment'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { baseUrl } from '@/utilities/baseUrl'
+import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
 
 function getRelationshipId(value: unknown): string | null {
   if (typeof value === 'string' || typeof value === 'number') return String(value)
@@ -99,6 +100,34 @@ async function fetchTrackerTest(payload: Awaited<ReturnType<typeof getPayload>>,
   return toTrackerTest(test)
 }
 
+async function voidPendingPayment(payload: Awaited<ReturnType<typeof getPayload>>, paymentId: string | number) {
+  try {
+    await payload.update({
+      collection: 'payments',
+      id: paymentId,
+      data: {
+        status: 'voided',
+        voidedAt: new Date().toISOString(),
+      },
+      overrideAccess: true,
+    })
+  } catch (err) {
+    payload.logger.warn({ msg: `Failed to void pending payment ${paymentId}`, err })
+  }
+}
+
+async function expireCheckoutSession(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  stripe: Stripe,
+  sessionId: string,
+) {
+  try {
+    await stripe.checkout.sessions.expire(sessionId)
+  } catch (err) {
+    payload.logger.warn({ msg: `Failed to expire Stripe checkout session ${sessionId}`, err })
+  }
+}
+
 export async function recordDrugTestPayment(input: {
   testId: string
   amount: number
@@ -113,26 +142,37 @@ export async function recordDrugTestPayment(input: {
   }
 
   const payload = await getAdminPayload()
-  const test = await payload.findByID({
-    collection: 'drug-tests',
-    id: input.testId,
-    depth: 1,
-    overrideAccess: true,
-  })
-  const clientId = getRelationshipId(test.relatedClient)
+  try {
+    await withPayloadTransaction(payload, async (req) => {
+      const test = await payload.findByID({
+        collection: 'drug-tests',
+        id: input.testId,
+        depth: 1,
+        overrideAccess: true,
+        req,
+      })
+      const clientId = getRelationshipId(test.relatedClient)
 
-  if (!clientId) {
-    return { success: false, error: 'Unable to identify the client for this test.' }
+      if (!clientId) {
+        throw new Error('Unable to identify the client for this test.')
+      }
+
+      await applyIncomingPayment({
+        payload,
+        clientId,
+        amount: input.amount,
+        method: input.method,
+        source: 'test-tracker',
+        relatedDrugTest: input.testId,
+        req,
+      })
+    })
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unable to record payment.',
+    }
   }
-
-  await applyIncomingPayment({
-    payload,
-    clientId,
-    amount: input.amount,
-    method: input.method,
-    source: 'test-tracker',
-    relatedDrugTest: input.testId,
-  })
 
   return {
     success: true,
@@ -154,54 +194,66 @@ export async function requestDrugTestConfirmation(input: {
   }
 
   const payload = await getAdminPayload()
-  const test = await payload.findByID({
-    collection: 'drug-tests',
-    id: input.testId,
-    depth: 1,
-    overrideAccess: true,
-  })
-  const clientId = getRelationshipId(test.relatedClient)
+  try {
+    await withPayloadTransaction(payload, async (req) => {
+      const test = await payload.findByID({
+        collection: 'drug-tests',
+        id: input.testId,
+        depth: 1,
+        overrideAccess: true,
+        req,
+      })
+      const clientId = getRelationshipId(test.relatedClient)
 
-  if (!clientId) {
-    return { success: false, error: 'Unable to identify the client for this test.' }
+      if (!clientId) {
+        throw new Error('Unable to identify the client for this test.')
+      }
+
+      const feePerSubstance = test.testType === '17-panel-instant' || test.testType === '15-panel-instant' ? 30 : 45
+      const confirmationFeeDue = feePerSubstance * input.confirmationSubstances.length
+      const currentPayment = test.payment || {}
+      const currentAmountDue = typeof currentPayment.amountDue === 'number' ? currentPayment.amountDue : 0
+      const currentAmountPaid = typeof currentPayment.amountPaid === 'number' ? currentPayment.amountPaid : 0
+      const previousConfirmationFee =
+        typeof currentPayment.confirmationFeeDue === 'number' ? currentPayment.confirmationFeeDue : 0
+      const nextAmountDue = Math.max(0, currentAmountDue - previousConfirmationFee + confirmationFeeDue)
+      const nextBalanceDue = Math.max(0, nextAmountDue - currentAmountPaid)
+      const bypassPaymentRequirement = input.bypassPaymentRequirement === true
+
+      await payload.update({
+        collection: 'drug-tests',
+        id: input.testId,
+        data: {
+          confirmationDecision: 'request-confirmation',
+          confirmationSubstances: input.confirmationSubstances as SubstanceValue[],
+          payment: {
+            ...currentPayment,
+            status: nextBalanceDue <= 0 ? 'paid' : currentAmountPaid > 0 ? 'partial' : 'unpaid',
+            amountDue: nextAmountDue,
+            amountPaid: currentAmountPaid,
+            balanceDue: nextBalanceDue,
+            confirmationFeeDue,
+            confirmationPaymentBypassed: bypassPaymentRequirement,
+            confirmationPaymentBypassedAt: bypassPaymentRequirement ? new Date().toISOString() : null,
+          },
+        },
+        overrideAccess: true,
+        req,
+      })
+
+      await applyAvailableClientCredit({
+        payload,
+        clientId,
+        relatedDrugTest: input.testId,
+        req,
+      })
+    })
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unable to request confirmation.',
+    }
   }
-
-  const feePerSubstance = test.testType === '17-panel-instant' || test.testType === '15-panel-instant' ? 30 : 45
-  const confirmationFeeDue = feePerSubstance * input.confirmationSubstances.length
-  const currentPayment = test.payment || {}
-  const currentAmountDue = typeof currentPayment.amountDue === 'number' ? currentPayment.amountDue : 0
-  const currentAmountPaid = typeof currentPayment.amountPaid === 'number' ? currentPayment.amountPaid : 0
-  const previousConfirmationFee =
-    typeof currentPayment.confirmationFeeDue === 'number' ? currentPayment.confirmationFeeDue : 0
-  const nextAmountDue = Math.max(0, currentAmountDue - previousConfirmationFee + confirmationFeeDue)
-  const nextBalanceDue = Math.max(0, nextAmountDue - currentAmountPaid)
-  const bypassPaymentRequirement = input.bypassPaymentRequirement === true
-
-  await payload.update({
-    collection: 'drug-tests',
-    id: input.testId,
-    data: {
-      confirmationDecision: 'request-confirmation',
-      confirmationSubstances: input.confirmationSubstances as SubstanceValue[],
-      payment: {
-        ...currentPayment,
-        status: nextBalanceDue <= 0 ? 'paid' : currentAmountPaid > 0 ? 'partial' : 'unpaid',
-        amountDue: nextAmountDue,
-        amountPaid: currentAmountPaid,
-        balanceDue: nextBalanceDue,
-        confirmationFeeDue,
-        confirmationPaymentBypassed: bypassPaymentRequirement,
-        confirmationPaymentBypassedAt: bypassPaymentRequirement ? new Date().toISOString() : null,
-      },
-    },
-    overrideAccess: true,
-  })
-
-  await applyAvailableClientCredit({
-    payload,
-    clientId,
-    relatedDrugTest: input.testId,
-  })
 
   return {
     success: true,
@@ -241,90 +293,130 @@ export async function sendDrugTestStripePaymentLink(testId: string) {
     return { success: false, error: 'This test does not have a balance due.' }
   }
 
-  const pendingPayment = await payload.create({
-    collection: 'payments',
-    data: {
-      relatedClient: clientId,
-      relatedDrugTest: testId,
-      amount: balanceDue,
-      method: 'stripe',
-      source: 'stripe-checkout',
-      status: 'pending',
-      reservedForBookingAmount: 0,
-      appliedAmount: 0,
-      creditAmount: 0,
-      paymentLinkEmailSentAt: new Date().toISOString(),
-    },
-    overrideAccess: true,
-  })
-
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {})
-  const session = await stripe.checkout.sessions.create({
-    mode: 'payment',
-    success_url: `${baseUrl}/dashboard/results?payment=success`,
-    cancel_url: `${baseUrl}/dashboard/results?payment=cancelled`,
-    customer_email: client.email,
-    line_items: [
-      {
-        quantity: 1,
-        price_data: {
-          currency: 'usd',
-          unit_amount: Math.round(balanceDue * 100),
-          product_data: {
-            name: 'MI Drug Test Balance',
-            description: `${client.firstName} ${client.lastName} - ${test.testType}`,
+  let pendingPaymentId: string | number | null = null
+  let session: Stripe.Checkout.Session | null = null
+
+  try {
+    const pendingPayment = await payload.create({
+      collection: 'payments',
+      data: {
+        relatedClient: clientId,
+        relatedDrugTest: testId,
+        amount: balanceDue,
+        method: 'stripe',
+        source: 'stripe-checkout',
+        status: 'pending',
+        reservedForBookingAmount: 0,
+        appliedAmount: 0,
+        creditAmount: 0,
+      },
+      overrideAccess: true,
+    })
+    pendingPaymentId = pendingPayment.id
+
+    session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      success_url: `${baseUrl}/dashboard/results?payment=success`,
+      cancel_url: `${baseUrl}/dashboard/results?payment=cancelled`,
+      customer_email: client.email,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: 'usd',
+            unit_amount: Math.round(balanceDue * 100),
+            product_data: {
+              name: 'MI Drug Test Balance',
+              description: `${client.firstName} ${client.lastName} - ${test.testType}`,
+            },
           },
         },
+      ],
+      metadata: {
+        paymentId: String(pendingPayment.id),
+        drugTestId: String(test.id),
+        clientId: String(clientId),
       },
-    ],
-    metadata: {
-      paymentId: String(pendingPayment.id),
-      drugTestId: String(test.id),
-      clientId: String(clientId),
-    },
-  })
+    })
 
-  if (!session.url) {
-    return { success: false, error: 'Stripe did not return a checkout URL.' }
-  }
+    if (!session.url) {
+      throw new Error('Stripe did not return a checkout URL.')
+    }
 
-  await payload.update({
-    collection: 'payments',
-    id: pendingPayment.id,
-    data: {
-      stripeCheckoutSessionId: session.id,
-      stripeCheckoutUrl: session.url,
-    },
-    overrideAccess: true,
-  })
-
-  await payload.update({
-    collection: 'drug-tests',
-    id: test.id,
-    data: {
-      payment: {
-        ...test.payment,
-        lastPaymentLinkSentAt: new Date().toISOString(),
-        lastPaymentLinkUrl: session.url,
+    await payload.update({
+      collection: 'payments',
+      id: pendingPayment.id,
+      data: {
+        stripeCheckoutSessionId: session.id,
+        stripeCheckoutUrl: session.url,
       },
-    },
-    overrideAccess: true,
-  })
+      overrideAccess: true,
+    })
 
-  await payload.sendEmail({
-    to: client.email,
-    subject: 'MI Drug Test payment link',
-    html: `
-      <p>Hello ${client.firstName},</p>
-      <p>You have a balance of <strong>$${balanceDue.toFixed(2)}</strong> for your MI Drug Test account.</p>
-      <p><a href="${session.url}">Pay securely by card</a></p>
-      <p>If you have already paid, please disregard this message.</p>
-    `,
-  })
+    await payload.sendEmail({
+      to: client.email,
+      subject: 'MI Drug Test payment link',
+      html: `
+        <p>Hello ${client.firstName},</p>
+        <p>You have a balance of <strong>$${balanceDue.toFixed(2)}</strong> for your MI Drug Test account.</p>
+        <p><a href="${session.url}">Pay securely by card</a></p>
+        <p>If you have already paid, please disregard this message.</p>
+      `,
+    })
 
-  return {
-    success: true,
-    checkoutUrl: session.url,
-    test: await fetchTrackerTest(payload, testId),
+    const paymentLinkEmailSentAt = new Date().toISOString()
+
+    try {
+      await payload.update({
+        collection: 'payments',
+        id: pendingPayment.id,
+        data: {
+          paymentLinkEmailSentAt,
+        },
+        overrideAccess: true,
+      })
+
+      await payload.update({
+        collection: 'drug-tests',
+        id: test.id,
+        data: {
+          payment: {
+            ...test.payment,
+            lastPaymentLinkSentAt: paymentLinkEmailSentAt,
+            lastPaymentLinkUrl: session.url,
+          },
+        },
+        overrideAccess: true,
+      })
+    } catch (err) {
+      payload.logger.warn({ msg: `Payment link email sent but follow-up metadata update failed for test ${test.id}`, err })
+    }
+
+    let updatedTest: ReturnType<typeof toTrackerTest> | undefined
+    try {
+      updatedTest = await fetchTrackerTest(payload, testId)
+    } catch (err) {
+      payload.logger.warn({ msg: `Payment link email sent but tracker refresh failed for test ${test.id}`, err })
+    }
+
+    return {
+      success: true,
+      checkoutUrl: session.url,
+      test: updatedTest,
+    }
+  } catch (error) {
+    if (session?.id) {
+      await expireCheckoutSession(payload, stripe, session.id)
+    }
+
+    if (pendingPaymentId) {
+      await voidPendingPayment(payload, pendingPaymentId)
+    }
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unable to send payment link.',
+    }
   }
 }

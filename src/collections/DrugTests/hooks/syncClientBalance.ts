@@ -31,6 +31,7 @@ async function calculateMoneyOwed(req: PayloadRequest, clientId: ClientId) {
     depth: 0,
     limit: 1000,
     overrideAccess: true,
+    req,
   })
 
   return tests.docs.reduce((total, test) => {
@@ -54,6 +55,7 @@ async function syncClientMoneyOwed(req: PayloadRequest, clientId: ClientId | nul
     context: {
       skipClientBalanceSync: true,
     },
+    req,
   })
 }
 

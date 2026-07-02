@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import type { Payload } from 'payload'
+import type { Payload, PayloadRequest } from 'payload'
 
 import { applyAvailableClientCredit, applyIncomingPayment } from './applyPayment'
 
@@ -256,5 +256,36 @@ describe('payment allocation service', () => {
         }),
       }),
     )
+  })
+
+  test('threads transaction request through payment allocation operations', async () => {
+    const req = { transactionID: 'txn-1' } as Partial<PayloadRequest>
+    const payload = createMockPayload({
+      unpaidTests: [
+        {
+          id: 'old-test',
+          payment: {
+            amountDue: 40,
+            amountPaid: 0,
+            balanceDue: 40,
+            status: 'unpaid',
+          },
+        },
+      ],
+    })
+
+    await applyIncomingPayment({
+      payload: payload as unknown as Payload,
+      clientId: 'client-1',
+      amount: 40,
+      method: 'cash',
+      source: 'test-tracker',
+      relatedDrugTest: 'old-test',
+      req,
+    })
+
+    expect(payload.find).toHaveBeenCalledWith(expect.objectContaining({ req }))
+    expect(payload.update).toHaveBeenCalledWith(expect.objectContaining({ collection: 'drug-tests', req }))
+    expect(payload.create).toHaveBeenCalledWith(expect.objectContaining({ collection: 'payments', req }))
   })
 })

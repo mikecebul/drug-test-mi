@@ -1,4 +1,4 @@
-import type { Payload } from 'payload'
+import type { Payload, PayloadRequest } from 'payload'
 import type { DrugTest } from '@/payload-types'
 
 type RelationshipId = string
@@ -31,6 +31,7 @@ type ApplyIncomingPaymentInput = {
   stripeCheckoutUrl?: string | null
   paymentLinkEmailSentAt?: string | null
   existingPaymentId?: RelationshipId | null
+  req?: Partial<PayloadRequest>
 }
 
 function getRelationshipId(value: unknown): RelationshipId | null {
@@ -60,6 +61,7 @@ async function updateDrugTestPayment(input: {
   drugTest: Pick<DrugTest, 'id' | 'payment'>
   amountApplied: number
   method: PaymentMethod
+  req?: Partial<PayloadRequest>
 }) {
   const existingPayment = input.drugTest.payment || {}
   const amountDue = normalizeMoney(existingPayment.amountDue)
@@ -84,25 +86,36 @@ async function updateDrugTestPayment(input: {
       },
     },
     overrideAccess: true,
+    req: input.req,
   })
 }
 
-export async function getClientCreditBalance(payload: Payload, clientId: RelationshipId): Promise<number> {
+export async function getClientCreditBalance(
+  payload: Payload,
+  clientId: RelationshipId,
+  req?: Partial<PayloadRequest>,
+): Promise<number> {
   const client = await payload.findByID({
     collection: 'clients',
     id: clientId,
     depth: 0,
     overrideAccess: true,
+    req,
   })
 
   return normalizeMoney((client as { creditBalance?: number | null }).creditBalance)
 }
 
-async function addClientCredit(payload: Payload, clientId: RelationshipId, amount: number) {
+async function addClientCredit(
+  payload: Payload,
+  clientId: RelationshipId,
+  amount: number,
+  req?: Partial<PayloadRequest>,
+) {
   const normalizedAmount = normalizeMoney(amount)
   if (normalizedAmount <= 0) return
 
-  const currentCredit = await getClientCreditBalance(payload, clientId)
+  const currentCredit = await getClientCreditBalance(payload, clientId, req)
 
   await payload.update({
     collection: 'clients',
@@ -114,6 +127,7 @@ async function addClientCredit(payload: Payload, clientId: RelationshipId, amoun
     context: {
       skipClientBalanceSync: true,
     },
+    req,
   })
 }
 
@@ -144,6 +158,7 @@ export async function applyIncomingPayment(input: ApplyIncomingPaymentInput) {
       limit: 1000,
       sort: 'collectionDate',
       overrideAccess: true,
+      req: input.req,
     })
 
     for (const test of unpaidTests.docs) {
@@ -158,6 +173,7 @@ export async function applyIncomingPayment(input: ApplyIncomingPaymentInput) {
         drugTest: test,
         amountApplied,
         method: input.method,
+        req: input.req,
       })
 
       allocations.push({
@@ -172,7 +188,7 @@ export async function applyIncomingPayment(input: ApplyIncomingPaymentInput) {
   const creditAmount = Math.max(0, remaining)
 
   if (creditAmount > 0) {
-    await addClientCredit(input.payload, input.clientId, creditAmount)
+    await addClientCredit(input.payload, input.clientId, creditAmount, input.req)
   }
 
   const paymentData = {
@@ -199,6 +215,7 @@ export async function applyIncomingPayment(input: ApplyIncomingPaymentInput) {
       id: input.existingPaymentId,
       data: paymentData,
       overrideAccess: true,
+      req: input.req,
     })
   }
 
@@ -206,6 +223,7 @@ export async function applyIncomingPayment(input: ApplyIncomingPaymentInput) {
     collection: 'payments',
     data: paymentData,
     overrideAccess: true,
+    req: input.req,
   })
 }
 
@@ -213,8 +231,9 @@ export async function applyAvailableClientCredit(input: {
   payload: Payload
   clientId: RelationshipId
   relatedDrugTest?: RelationshipId | null
+  req?: Partial<PayloadRequest>
 }) {
-  let remainingCredit = await getClientCreditBalance(input.payload, input.clientId)
+  let remainingCredit = await getClientCreditBalance(input.payload, input.clientId, input.req)
   if (remainingCredit <= 0) return null
 
   const allocations: PaymentAllocation[] = []
@@ -238,6 +257,7 @@ export async function applyAvailableClientCredit(input: {
     limit: 1000,
     sort: 'collectionDate',
     overrideAccess: true,
+    req: input.req,
   })
 
   for (const test of unpaidTests.docs) {
@@ -252,6 +272,7 @@ export async function applyAvailableClientCredit(input: {
       drugTest: test,
       amountApplied,
       method: 'credit',
+      req: input.req,
     })
 
     allocations.push({
@@ -275,6 +296,7 @@ export async function applyAvailableClientCredit(input: {
     context: {
       skipClientBalanceSync: true,
     },
+    req: input.req,
   })
 
   const payment = await input.payload.create({
@@ -292,6 +314,7 @@ export async function applyAvailableClientCredit(input: {
       allocations,
     },
     overrideAccess: true,
+    req: input.req,
   })
 
   return {
