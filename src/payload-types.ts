@@ -1996,7 +1996,10 @@ export interface DrugTest {
 export interface Payment {
   id: string;
   title?: string | null;
-  relatedClient: string | Client;
+  /**
+   * Client this payment belongs to. Cal.com prepayments can exist before a new client is linked.
+   */
+  relatedClient?: (string | null) | Client;
   relatedDrugTest?: (string | null) | DrugTest;
   relatedBooking?: (string | null) | Booking;
   /**
@@ -2006,12 +2009,14 @@ export interface Payment {
   method: 'cash' | 'card' | 'stripe' | 'pre-paid' | 'credit' | 'unknown';
   source: 'guided-workflow' | 'test-tracker' | 'stripe-checkout' | 'calcom' | 'credit-application' | 'manual';
   /**
-   * Only posted payments count toward balances. Voided records stay for audit history.
+   * Only posted payments count toward balances. Voided and refunded records stay for audit history.
    */
-  status: 'pending' | 'posted' | 'voided';
+  status: 'pending' | 'posted' | 'voided' | 'refunded';
   collectedAt?: string | null;
   postedAt?: string | null;
   voidedAt?: string | null;
+  refundedAt?: string | null;
+  refundedAmount?: number | null;
   /**
    * Amount reserved for a scheduled booking before the drug test exists.
    */
@@ -2038,6 +2043,7 @@ export interface Payment {
   stripePaymentIntentId?: string | null;
   stripeCheckoutUrl?: string | null;
   paymentLinkEmailSentAt?: string | null;
+  stripeRefundId?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3658,6 +3664,8 @@ export interface PaymentsSelect<T extends boolean = true> {
   collectedAt?: T;
   postedAt?: T;
   voidedAt?: T;
+  refundedAt?: T;
+  refundedAmount?: T;
   reservedForBookingAmount?: T;
   appliedAmount?: T;
   creditAmount?: T;
@@ -3672,6 +3680,7 @@ export interface PaymentsSelect<T extends boolean = true> {
   stripePaymentIntentId?: T;
   stripeCheckoutUrl?: T;
   paymentLinkEmailSentAt?: T;
+  stripeRefundId?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -122,6 +122,10 @@ type ExistingBookingData = {
   attendeeEmail?: string | null
   location?: string | null
   organizer?: CalcomBookingData['organizer'] | null
+  calcomBookingId?: string | null
+  calcomBookingNumericId?: number | null
+  calcomPaymentId?: string | null
+  eventTypeId?: number | null
   customInputs?: CalcomBookingData['customInputs']
 }
 
@@ -386,6 +390,7 @@ export function buildCalcomBookingData(
   const uid = getCalcomBookingUid(payload)
   const rescheduleUid = getCalcomRescheduleUid(payload)
   const numericId = getCalcomBookingNumericId(payload)
+  const paymentId = getCalcomPaymentId(payload)
   const payment = buildCalcomPaymentUpdate(triggerEvent, payload, existingPayment, webhookData.createdAt)
   const receivedAt = new Date(webhookData.createdAt).toISOString()
   const startTime = payload.startTime || payload.start || existingBooking?.startTime || receivedAt
@@ -416,11 +421,11 @@ export function buildCalcomBookingData(
     attendeeName,
     attendeeEmail,
     location: location || null,
-    calcomBookingId: uid || null,
-    calcomBookingNumericId: numericId,
+    calcomBookingId: uid || existingBooking?.calcomBookingId || null,
+    calcomBookingNumericId: numericId ?? existingBooking?.calcomBookingNumericId ?? null,
     calcomRescheduledFromId: rescheduleUid || null,
-    calcomPaymentId: getCalcomPaymentId(payload) || null,
-    eventTypeId: payload.eventTypeId || null,
+    calcomPaymentId: paymentId || existingBooking?.calcomPaymentId || null,
+    eventTypeId: payload.eventTypeId ?? existingBooking?.eventTypeId ?? null,
     customInputs: (payload.customInputs ||
       payload.responses ||
       existingBooking?.customInputs ||

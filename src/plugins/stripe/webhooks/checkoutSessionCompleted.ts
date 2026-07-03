@@ -4,15 +4,33 @@ import { APIError } from 'payload'
 import { applyIncomingPayment, readRelationshipId } from '@/collections/Payments/services/applyPayment'
 import type { Payment } from '@/payload-types'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
+import {
+  findCalcomBookingForStripeSession,
+  recordCalcomStripeCheckoutPayment,
+} from '@/collections/Payments/services/calcomBookingPayment'
 
 export const checkoutSessionCompleted: StripeWebhookHandler<{
   data: {
     object: Stripe.Checkout.Session
   }
 }> = async ({ event, payload }) => {
-  const { id: sessionId, metadata, amount_total, payment_intent, payment_status } = event.data.object
+  const {
+    id: sessionId,
+    metadata,
+    amount_total,
+    client_reference_id,
+    created,
+    payment_intent,
+    payment_status,
+  } = event.data.object
   const paymentId = metadata?.paymentId
   const submissionId = metadata?.submissionId
+  const stripePaymentIntentId =
+    typeof payment_intent === 'string'
+      ? payment_intent
+      : typeof payment_intent?.id === 'string'
+        ? payment_intent.id
+        : null
 
   payload.logger.info(`🪝 Processing checkout session completed for session ID: ${sessionId}`)
 
@@ -36,8 +54,8 @@ export const checkoutSessionCompleted: StripeWebhookHandler<{
         return
       }
 
-      if (payment.status === 'voided') {
-        payload.logger.info(`Stripe payment ${paymentId} is voided and will not be posted`)
+      if (payment.status === 'voided' || payment.status === 'refunded') {
+        payload.logger.info(`Stripe payment ${paymentId} is ${payment.status} and will not be posted`)
         return
       }
 
@@ -56,7 +74,7 @@ export const checkoutSessionCompleted: StripeWebhookHandler<{
         relatedDrugTest: readRelationshipId(payment.relatedDrugTest),
         relatedBooking: readRelationshipId(payment.relatedBooking),
         stripeCheckoutSessionId: sessionId,
-        stripePaymentIntentId: typeof payment_intent === 'string' ? payment_intent : payment.stripePaymentIntentId,
+        stripePaymentIntentId: stripePaymentIntentId || payment.stripePaymentIntentId,
         stripeCheckoutUrl: payment.stripeCheckoutUrl,
         paymentLinkEmailSentAt: payment.paymentLinkEmailSentAt,
         req,
@@ -67,7 +85,37 @@ export const checkoutSessionCompleted: StripeWebhookHandler<{
   }
 
   if (!submissionId) {
-    throw new APIError('No submissionId found in checkout session metadata')
+    if (payment_status !== 'paid') {
+      payload.logger.info(`Stripe checkout session ${sessionId} completed without paid status: ${payment_status}`)
+      return
+    }
+
+    const amount = typeof amount_total === 'number' ? amount_total / 100 : 0
+    const booking = await findCalcomBookingForStripeSession(payload, {
+      metadata,
+      clientReferenceId: client_reference_id,
+      stripeCheckoutSessionId: sessionId,
+      stripePaymentIntentId,
+    })
+
+    if (!booking) {
+      payload.logger.info(`Stripe checkout session ${sessionId} did not match an app payment or Cal.com booking`)
+      return
+    }
+
+    await withPayloadTransaction(payload, async (req) => {
+      await recordCalcomStripeCheckoutPayment({
+        payload,
+        booking,
+        amount,
+        stripeCheckoutSessionId: sessionId,
+        stripePaymentIntentId,
+        collectedAt: typeof created === 'number' ? new Date(created * 1000).toISOString() : new Date().toISOString(),
+        req,
+      })
+    })
+
+    return
   }
 
   // Update this after creating a Registration Form and Collection

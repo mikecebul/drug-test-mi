@@ -145,20 +145,34 @@ describe('Cal.com webhook helpers', () => {
     const webhook = createWebhook({
       triggerEvent: 'BOOKING_RESCHEDULED',
       payload: {
-        uid: 'booking-new',
+        id: undefined,
+        uid: undefined,
         rescheduleUid: 'booking-original',
       },
     })
 
-    const bookingData = buildCalcomBookingData(webhook, {
-      amountDue: 40,
-      amountPaid: 40,
-      method: 'pre-paid',
-      status: 'paid',
-      collectedAt: '2026-06-16T12:00:00.000Z',
-    })
+    const bookingData = buildCalcomBookingData(
+      webhook,
+      {
+        amountDue: 40,
+        amountPaid: 40,
+        method: 'pre-paid',
+        status: 'paid',
+        collectedAt: '2026-06-16T12:00:00.000Z',
+      },
+      {
+        calcomBookingId: 'booking-existing',
+        calcomBookingNumericId: 12345,
+        calcomPaymentId: 'pi_existing',
+        eventTypeId: 456,
+      },
+    )
 
     expect(bookingData.payment).toBeUndefined()
+    expect(bookingData.calcomBookingId).toBe('booking-existing')
+    expect(bookingData.calcomBookingNumericId).toBe(12345)
+    expect(bookingData.calcomPaymentId).toBe('pi_existing')
+    expect(bookingData.eventTypeId).toBe(456)
   })
 
   test('extracts the scheduled test answer from the Cal.com test question', () => {
@@ -259,9 +273,9 @@ describe('Cal.com webhook helpers', () => {
     )
     expect(findCalcomScheduledTestTypeMatch(testTypes, '11 Panel no EtG')?.id).toBe('test-type-11-panel-no-etg')
     expect(findCalcomScheduledTestTypeMatch(testTypes, 'EtG')?.id).toBe('test-type-etg-lab')
-    expect(findCalcomScheduledTestTypeMatch(testTypes, 'https://cal.com/midrugtest/harbor-industries-drug-test-booking')?.id).toBe(
-      'test-type-8-panel-lab',
-    )
+    expect(
+      findCalcomScheduledTestTypeMatch(testTypes, 'https://cal.com/midrugtest/harbor-industries-drug-test-booking')?.id,
+    ).toBe('test-type-8-panel-lab')
     expect(findCalcomScheduledTestTypeMatch(testTypes, 'https://cal.com/midrugtest/11-panel-lab-screen')?.id).toBe(
       'test-type-11-panel-lab',
     )

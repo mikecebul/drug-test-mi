@@ -2,7 +2,8 @@
 
 import { getPayload, type PayloadRequest, type RequiredDataFromCollectionSlug } from 'payload'
 import config from '@payload-config'
-import type { Client, Court, Employer } from '@/payload-types'
+import Stripe from 'stripe'
+import type { Booking as PayloadBooking, Client, Court, Employer, Payment } from '@/payload-types'
 import { APP_TIMEZONE, getAppTimezoneDayWindow } from '@/lib/date-utils'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 import { getRecipients } from '@/collections/DrugTests/email/recipients'
@@ -18,8 +19,13 @@ import {
   type GuidedTestType,
 } from '@/config/test-types'
 import { getCalcomBookingActionLinks } from './schedule-utils'
-import { applyIncomingPayment } from '@/collections/Payments/services/applyPayment'
+import { applyIncomingPayment, normalizeMoney } from '@/collections/Payments/services/applyPayment'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
+import {
+  findRefundableCalcomBookingPayment,
+  syncCalcomPrepaidBookingPayment,
+} from '@/collections/Payments/services/calcomBookingPayment'
+import { cancelCalcomBooking } from '@/utilities/calcom-api'
 
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type PaymentMethod = 'cash' | 'card' | 'not-paid' | 'pre-paid'
@@ -32,6 +38,13 @@ type PopulatedClient = Client & {
 }
 type Payload = Awaited<ReturnType<typeof getPayload>>
 type AdminPayloadRequest = Pick<PayloadRequest, 'payload' | 'user'>
+type ScheduleActionResult = {
+  success: boolean
+  error?: string
+  warning?: string
+  fallbackHref?: string | null
+  refundedAmount?: number
+}
 
 function getRelationshipId(value: unknown): string | null {
   if (!value) return null
@@ -40,6 +53,61 @@ function getRelationshipId(value: unknown): string | null {
     return value.id
   }
   return null
+}
+
+function getCancelHref(booking: Pick<PayloadBooking, 'calcomBookingId' | 'webhookData'>) {
+  return getCalcomBookingActionLinks({
+    calcomBookingId: booking.calcomBookingId as string | null | undefined,
+    webhookData: booking.webhookData,
+  }).cancelHref
+}
+
+async function cancelCalcomBookingIfNeeded(booking: PayloadBooking): Promise<ScheduleActionResult> {
+  if (!booking.calcomBookingId) {
+    return { success: true }
+  }
+
+  const result = await cancelCalcomBooking({
+    bookingUid: booking.calcomBookingId,
+    cancellationReason: 'Cancelled by admin',
+  })
+
+  if (result.success) {
+    return { success: true }
+  }
+
+  return {
+    success: false,
+    error: result.error || 'Cal.com cancellation failed.',
+    fallbackHref: getCancelHref(booking),
+  }
+}
+
+function getBookingPaymentAfterRefund(booking: PayloadBooking) {
+  const existingPayment = booking.payment || {}
+  return {
+    ...existingPayment,
+    amountPaid: 0,
+    method: 'not-paid' as const,
+    status: 'unpaid' as const,
+    collectedAt: null,
+  }
+}
+
+async function getRefundPaymentIntent(input: { stripe: Stripe; payment: Payment; booking: PayloadBooking }) {
+  if (input.payment.stripePaymentIntentId) {
+    return input.payment.stripePaymentIntentId
+  }
+
+  if (typeof input.booking.calcomPaymentId === 'string' && input.booking.calcomPaymentId.startsWith('pi_')) {
+    return input.booking.calcomPaymentId
+  }
+
+  if (!input.payment.stripeCheckoutSessionId) return null
+
+  const session = await input.stripe.checkout.sessions.retrieve(input.payment.stripeCheckoutSessionId)
+  const paymentIntent = session.payment_intent
+  return typeof paymentIntent === 'string' ? paymentIntent : paymentIntent?.id || null
 }
 
 async function getAdminPayload(req?: AdminPayloadRequest) {
@@ -457,6 +525,163 @@ export async function createWalkInBooking(input: { clientId: string; testTypeId:
   return {
     success: true,
     bookingId: booking.id as string,
+  }
+}
+
+export async function cancelGuidedBooking(input: { bookingId: string }): Promise<ScheduleActionResult> {
+  if (!input.bookingId) {
+    return { success: false, error: 'Booking is required.' }
+  }
+
+  const payload = await getAdminPayload()
+  const booking = (await payload.findByID({
+    collection: 'bookings',
+    id: input.bookingId,
+    depth: 0,
+    overrideAccess: true,
+  })) as PayloadBooking
+
+  if (booking.sampleCollection?.status === 'collected') {
+    return { success: false, error: 'This appointment already has a collected sample.' }
+  }
+
+  if (booking.status === 'cancelled') {
+    return { success: true }
+  }
+
+  const cancelResult = await cancelCalcomBookingIfNeeded(booking)
+  if (!cancelResult.success) {
+    return cancelResult
+  }
+
+  await payload.update({
+    collection: 'bookings',
+    id: input.bookingId,
+    data: {
+      status: 'cancelled',
+    },
+    overrideAccess: true,
+  })
+
+  revalidateBookingViews()
+  return { success: true }
+}
+
+export async function cancelAndRefundGuidedBooking(input: { bookingId: string }): Promise<ScheduleActionResult> {
+  if (!input.bookingId) {
+    return { success: false, error: 'Booking is required.' }
+  }
+
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return { success: false, error: 'Stripe secret key is not configured.' }
+  }
+
+  const payload = await getAdminPayload()
+  const booking = (await payload.findByID({
+    collection: 'bookings',
+    id: input.bookingId,
+    depth: 0,
+    overrideAccess: true,
+  })) as PayloadBooking
+
+  if (booking.sampleCollection?.status === 'collected') {
+    return { success: false, error: 'This appointment already has a collected sample.' }
+  }
+
+  const syncedPayment = await syncCalcomPrepaidBookingPayment({
+    payload,
+    booking,
+  })
+  const refundablePayment =
+    syncedPayment?.status === 'posted'
+      ? (syncedPayment as Payment)
+      : await findRefundableCalcomBookingPayment({
+          payload,
+          bookingId: input.bookingId,
+        })
+
+  if (!refundablePayment) {
+    return { success: false, error: 'No posted Stripe prepayment was found for this booking.' }
+  }
+
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {})
+  let paymentIntentId: string | null = null
+
+  try {
+    paymentIntentId = await getRefundPaymentIntent({
+      stripe,
+      payment: refundablePayment,
+      booking,
+    })
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? `Unable to load Stripe payment: ${error.message}` : 'Unable to load Stripe payment.',
+    }
+  }
+
+  if (!paymentIntentId) {
+    return { success: false, error: 'No Stripe payment intent was found for this booking payment.' }
+  }
+
+  const refundedAmount = normalizeMoney(refundablePayment.amount)
+  let refund: Stripe.Refund
+
+  try {
+    refund = await stripe.refunds.create(
+      {
+        payment_intent: paymentIntentId,
+        amount: Math.round(refundedAmount * 100),
+      },
+      {
+        idempotencyKey: `calcom-booking-refund-${input.bookingId}-${refundablePayment.id}`,
+      },
+    )
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? `Stripe refund failed: ${error.message}` : 'Stripe refund failed.',
+    }
+  }
+
+  await payload.update({
+    collection: 'payments',
+    id: refundablePayment.id,
+    data: {
+      status: 'refunded',
+      refundedAt: new Date().toISOString(),
+      refundedAmount,
+      stripeRefundId: refund.id,
+    },
+    overrideAccess: true,
+  })
+
+  const cancelResult = await cancelCalcomBookingIfNeeded(booking)
+  await payload.update({
+    collection: 'bookings',
+    id: input.bookingId,
+    data: {
+      ...(cancelResult.success ? { status: 'cancelled' as const } : {}),
+      payment: getBookingPaymentAfterRefund(booking),
+    },
+    overrideAccess: true,
+  })
+
+  revalidateBookingViews()
+
+  if (!cancelResult.success) {
+    return {
+      success: true,
+      warning: `Refund issued, but Cal.com cancellation still needs attention: ${cancelResult.error}`,
+      fallbackHref: cancelResult.fallbackHref,
+      refundedAmount,
+    }
+  }
+
+  return {
+    success: true,
+    refundedAmount,
   }
 }
 

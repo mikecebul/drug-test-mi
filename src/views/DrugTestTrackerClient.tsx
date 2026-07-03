@@ -56,6 +56,17 @@ export interface DrugTest {
   }
 }
 
+type TrackerActionResult = {
+  test?: Partial<DrugTest>
+  tests?: DrugTest[]
+}
+
+function isTrackerActionResult(
+  value: TrackerActionResult | Partial<DrugTest> | undefined,
+): value is TrackerActionResult {
+  return Boolean(value && ('test' in value || 'tests' in value))
+}
+
 interface DrugTestTrackerClientProps {
   initialError?: string | null
   initialTests: DrugTest[]
@@ -149,9 +160,16 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
 
   function applyUpdatedTest(
     testId: string,
-    updatedTest: Partial<DrugTest> | undefined,
+    result: TrackerActionResult | Partial<DrugTest> | undefined,
     fallbackUpdate?: Partial<DrugTest>,
   ) {
+    if (isTrackerActionResult(result) && Array.isArray(result.tests)) {
+      setTests(result.tests)
+      return
+    }
+
+    const updatedTest = isTrackerActionResult(result) ? result.test : result
+
     if (updatedTest?.id) {
       setTests((prev) => {
         const existingTest = prev.find((test) => test.id === testId)
@@ -245,7 +263,7 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
         throw new Error(result.error || 'Unable to request confirmation.')
       }
 
-      applyUpdatedTest(testId, result.test as Partial<DrugTest>, {
+      applyUpdatedTest(testId, result as TrackerActionResult, {
         confirmationDecision: 'request-confirmation',
         confirmationSubstances,
         isComplete: false,
@@ -273,7 +291,7 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
         throw new Error(result.error || 'Unable to record payment.')
       }
 
-      applyUpdatedTest(testId, result.test as Partial<DrugTest>)
+      applyUpdatedTest(testId, result as TrackerActionResult)
     } catch (error) {
       console.error('Error recording payment:', error)
       setActionError(error instanceof Error ? error.message : 'Unable to record payment. Please try again.')
@@ -297,7 +315,7 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
         throw new Error(result.error || 'Unable to send payment link.')
       }
 
-      applyUpdatedTest(testId, result.test as Partial<DrugTest>)
+      applyUpdatedTest(testId, result as TrackerActionResult)
     } catch (error) {
       console.error('Error sending Stripe payment link:', error)
       setActionError(error instanceof Error ? error.message : 'Unable to send payment link. Please try again.')

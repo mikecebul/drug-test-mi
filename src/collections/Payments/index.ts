@@ -33,8 +33,10 @@ export const Payments: CollectionConfig = {
       name: 'relatedClient',
       type: 'relationship',
       relationTo: 'clients',
-      required: true,
       index: true,
+      admin: {
+        description: 'Client this payment belongs to. Cal.com prepayments can exist before a new client is linked.',
+      },
     },
     {
       name: 'relatedDrugTest',
@@ -95,9 +97,10 @@ export const Payments: CollectionConfig = {
         { label: 'Pending', value: 'pending' },
         { label: 'Posted', value: 'posted' },
         { label: 'Voided', value: 'voided' },
+        { label: 'Refunded', value: 'refunded' },
       ],
       admin: {
-        description: 'Only posted payments count toward balances. Voided records stay for audit history.',
+        description: 'Only posted payments count toward balances. Voided and refunded records stay for audit history.',
       },
     },
     {
@@ -127,6 +130,25 @@ export const Payments: CollectionConfig = {
           pickerAppearance: 'dayAndTime',
         },
         condition: (_, siblingData) => siblingData?.status === 'voided',
+      },
+    },
+    {
+      name: 'refundedAt',
+      type: 'date',
+      admin: {
+        date: {
+          pickerAppearance: 'dayAndTime',
+        },
+        condition: (_, siblingData) => siblingData?.status === 'refunded',
+      },
+    },
+    {
+      name: 'refundedAmount',
+      type: 'number',
+      min: 0,
+      admin: {
+        step: 1,
+        condition: (_, siblingData) => siblingData?.status === 'refunded',
       },
     },
     {
@@ -227,6 +249,11 @@ export const Payments: CollectionConfig = {
             },
           },
         },
+        {
+          name: 'stripeRefundId',
+          type: 'text',
+          index: true,
+        },
       ],
     },
   ],
@@ -245,6 +272,10 @@ export const Payments: CollectionConfig = {
 
         if (data.status === 'voided' && !data.voidedAt) {
           data.voidedAt = now
+        }
+
+        if (data.status === 'refunded' && !data.refundedAt) {
+          data.refundedAt = now
         }
 
         const amount = typeof data.amount === 'number' ? data.amount : 0

@@ -1,4 +1,5 @@
 import { CollectionAfterChangeHook } from 'payload'
+import { syncBookingPaymentClient } from '@/collections/Payments/services/calcomBookingPayment'
 
 function getRelationshipId(value: unknown): string | null {
   if (typeof value === 'string') return value
@@ -9,9 +10,18 @@ function getRelationshipId(value: unknown): string | null {
 }
 
 export const syncClient: CollectionAfterChangeHook = async ({ doc, req }) => {
+  const linkedClientId = getRelationshipId(doc.relatedClient)
+
   // A staff-selected relationship is authoritative. Do not overwrite it just
-  // because the appointment email matches a different client profile.
-  if (getRelationshipId(doc.relatedClient)) {
+  // because the appointment email matches a different client profile, but keep
+  // booking payment records attached to that selected client.
+  if (linkedClientId) {
+    await syncBookingPaymentClient({
+      payload: req.payload,
+      bookingId: String(doc.id),
+      clientId: linkedClientId,
+      req,
+    })
     return doc
   }
 
@@ -51,6 +61,13 @@ export const syncClient: CollectionAfterChangeHook = async ({ doc, req }) => {
           data: {
             relatedClient: clientId,
           },
+          req,
+        })
+        await syncBookingPaymentClient({
+          payload,
+          bookingId: String(doc.id),
+          clientId,
+          req,
         })
         req.payload.logger.info(`Linked booking ${doc.id} to existing client ${clientId}`)
       }

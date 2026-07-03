@@ -100,6 +100,32 @@ async function fetchTrackerTest(payload: Awaited<ReturnType<typeof getPayload>>,
   return toTrackerTest(test)
 }
 
+async function fetchTrackerTests(payload: Awaited<ReturnType<typeof getPayload>>) {
+  const result = await payload.find({
+    collection: 'drug-tests',
+    where: {
+      or: [
+        {
+          isComplete: {
+            equals: false,
+          },
+        },
+        {
+          'payment.balanceDue': {
+            greater_than: 0,
+          },
+        },
+      ],
+    },
+    depth: 1,
+    limit: 100,
+    sort: '-collectionDate',
+    overrideAccess: true,
+  })
+
+  return result.docs.map(toTrackerTest)
+}
+
 async function voidPendingPayment(payload: Awaited<ReturnType<typeof getPayload>>, paymentId: string | number) {
   try {
     await payload.update({
@@ -177,6 +203,7 @@ export async function recordDrugTestPayment(input: {
   return {
     success: true,
     test: await fetchTrackerTest(payload, input.testId),
+    tests: await fetchTrackerTests(payload),
   }
 }
 
@@ -258,6 +285,7 @@ export async function requestDrugTestConfirmation(input: {
   return {
     success: true,
     test: await fetchTrackerTest(payload, input.testId),
+    tests: await fetchTrackerTests(payload),
   }
 }
 
@@ -390,7 +418,10 @@ export async function sendDrugTestStripePaymentLink(testId: string) {
         overrideAccess: true,
       })
     } catch (err) {
-      payload.logger.warn({ msg: `Payment link email sent but follow-up metadata update failed for test ${test.id}`, err })
+      payload.logger.warn({
+        msg: `Payment link email sent but follow-up metadata update failed for test ${test.id}`,
+        err,
+      })
     }
 
     let updatedTest: ReturnType<typeof toTrackerTest> | undefined
