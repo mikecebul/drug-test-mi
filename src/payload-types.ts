@@ -122,10 +122,6 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
-    'test-types': {
-      employers: 'employers';
-      courts: 'courts';
-    };
     courts: {
       clients: 'clients';
     };
@@ -1156,7 +1152,17 @@ export interface Booking {
   /**
    * Test type for this scheduled collection when the referral does not provide one.
    */
-  scheduledTestType?: (string | null) | TestType;
+  scheduledTestType?:
+    | (
+        | '17-panel-instant'
+        | '11-panel-lab'
+        | '11-panel-lab-no-etg'
+        | '8-panel-lab'
+        | '17-panel-sos-lab'
+        | 'etg-lab'
+        | '15-panel-instant'
+      )
+    | null;
   /**
    * Payment collected before specimen collection.
    */
@@ -1635,7 +1641,17 @@ export interface Court {
     email: string;
     id?: string | null;
   }[];
-  preferredTestType?: (string | null) | TestType;
+  preferredTestType?:
+    | (
+        | '17-panel-instant'
+        | '11-panel-lab'
+        | '11-panel-lab-no-etg'
+        | '8-panel-lab'
+        | '17-panel-sos-lab'
+        | 'etg-lab'
+        | '15-panel-instant'
+      )
+    | null;
   /**
    * Inactive courts are hidden from quick-select dropdowns, but remain usable for linked clients and email delivery.
    */
@@ -1649,6 +1665,46 @@ export interface Court {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "employers".
+ */
+export interface Employer {
+  id: string;
+  name: string;
+  /**
+   * Recipient contacts. The first row is treated as the main contact for display purposes.
+   */
+  contacts: {
+    name?: string | null;
+    email: string;
+    id?: string | null;
+  }[];
+  preferredTestType?:
+    | (
+        | '17-panel-instant'
+        | '11-panel-lab'
+        | '11-panel-lab-no-etg'
+        | '8-panel-lab'
+        | '17-panel-sos-lab'
+        | 'etg-lab'
+        | '15-panel-instant'
+      )
+    | null;
+  /**
+   * Inactive employers are hidden from quick-select dropdowns, but remain usable for linked clients and email delivery.
+   */
+  isActive?: boolean | null;
+  clients?: {
+    docs?: (string | Client)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Legacy collection kept for historical migrations only. Canonical test types now live in src/config/test-types.ts.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "test-types".
  */
@@ -1679,53 +1735,9 @@ export interface TestType {
    */
   toxAccessCode?: string | null;
   /**
-   * Employers currently mapped to this preferred test type.
-   */
-  employers?: {
-    docs?: (string | Employer)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Courts currently mapped to this preferred test type.
-   */
-  courts?: {
-    docs?: (string | Court)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
    * Inactive test types remain in history but are hidden from new selections.
    */
   isActive?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "employers".
- */
-export interface Employer {
-  id: string;
-  name: string;
-  /**
-   * Recipient contacts. The first row is treated as the main contact for display purposes.
-   */
-  contacts: {
-    name?: string | null;
-    email: string;
-    id?: string | null;
-  }[];
-  preferredTestType?: (string | null) | TestType;
-  /**
-   * Inactive employers are hidden from quick-select dropdowns, but remain usable for linked clients and email delivery.
-   */
-  isActive?: boolean | null;
-  clients?: {
-    docs?: (string | Client)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
   updatedAt: string;
   createdAt: string;
 }
@@ -1796,6 +1808,7 @@ export interface DrugTest {
   testType:
     | '11-panel-lab'
     | '11-panel-lab-no-etg'
+    | '8-panel-lab'
     | '15-panel-instant'
     | '17-panel-instant'
     | '17-panel-sos-lab'
@@ -3651,8 +3664,6 @@ export interface TestTypesSelect<T extends boolean = true> {
   category?: T;
   price?: T;
   toxAccessCode?: T;
-  employers?: T;
-  courts?: T;
   isActive?: T;
   updatedAt?: T;
   createdAt?: T;

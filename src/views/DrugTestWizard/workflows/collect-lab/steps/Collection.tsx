@@ -19,6 +19,7 @@ import { invalidateWizardClientDerivedData } from '../../../queries'
 const TEST_LABELS: Record<(typeof labTests)[number], string> = {
   '11-panel-lab': '11-Panel',
   '11-panel-lab-no-etg': '11-Panel (no EtG)',
+  '8-panel-lab': '8-Panel',
   '17-panel-sos-lab': '17-Panel SOS',
   'etg-lab': 'EtG',
 }

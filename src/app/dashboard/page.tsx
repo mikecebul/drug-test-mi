@@ -3,6 +3,7 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import type { DrugTest } from '@/payload-types'
 import { getAuthenticatedClient } from '@/utilities/auth/getAuthenticatedClient'
+import { getCalcomBookingActionLinks } from '@/utilities/calcom-booking-action-links'
 
 // Force dynamic rendering for fresh dashboard data on every request
 export const dynamic = 'force-dynamic'
@@ -161,10 +162,7 @@ export default async function DashboardPage() {
     )
   }).length
 
-  const complianceRate =
-    completedTests.length > 0
-      ? Math.round((compliantTests / completedTests.length) * 100)
-      : 0
+  const complianceRate = completedTests.length > 0 ? Math.round((compliantTests / completedTests.length) * 100) : 0
 
   // Get most recent test
   const recentTest = drugScreenResults[0]
@@ -178,10 +176,7 @@ export default async function DashboardPage() {
           drugScreenResults[0].confirmationSubstances,
           drugScreenResults[0].isInconclusive,
         ),
-        status: formatTestStatus(
-          drugScreenResults[0].isComplete || false,
-          !!drugScreenResults[0].initialScreenResult,
-        ),
+        status: formatTestStatus(drugScreenResults[0].isComplete || false, !!drugScreenResults[0].initialScreenResult),
       }
     : undefined
 
@@ -209,6 +204,10 @@ export default async function DashboardPage() {
           date: nextBooking.startTime,
           type: nextBooking.title || 'Drug Test Appointment',
           calcomBookingId: nextBooking.calcomBookingId || undefined,
+          calcomActionLinks: getCalcomBookingActionLinks({
+            calcomBookingId: nextBooking.calcomBookingId,
+            webhookData: nextBooking.webhookData,
+          }),
         }
       : undefined,
     recentTest,

@@ -16,8 +16,11 @@ export const TestTypes: CollectionConfig = {
     update: admins,
   },
   admin: {
+    hidden: true,
     useAsTitle: 'label',
     defaultColumns: ['label', 'value', 'category', 'price', 'toxAccessCode', 'isActive'],
+    description:
+      'Legacy collection kept for historical migrations only. Canonical test types now live in src/config/test-types.ts.',
   },
   fields: [
     {
@@ -73,24 +76,6 @@ export const TestTypes: CollectionConfig = {
       admin: {
         description: 'Lab test code used when ordering this test in ToxAccess.',
         condition: (_, siblingData) => siblingData?.category === 'lab',
-      },
-    },
-    {
-      name: 'employers',
-      type: 'join',
-      collection: 'employers',
-      on: 'preferredTestType',
-      admin: {
-        description: 'Employers currently mapped to this preferred test type.',
-      },
-    },
-    {
-      name: 'courts',
-      type: 'join',
-      collection: 'courts',
-      on: 'preferredTestType',
-      admin: {
-        description: 'Courts currently mapped to this preferred test type.',
       },
     },
     {

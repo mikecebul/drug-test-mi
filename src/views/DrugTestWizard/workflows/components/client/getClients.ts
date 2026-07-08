@@ -2,10 +2,9 @@
 
 import { sdk } from '@/lib/payload-sdk'
 import { extractPreferredTestType } from '@/lib/quick-book'
+import { isLabTestTypeValue, type LabTestTypeValue } from '@/config/test-types'
 
-type LabTestType = '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
-
-const LAB_TEST_TYPES = new Set<string>(['11-panel-lab', '11-panel-lab-no-etg', '17-panel-sos-lab', 'etg-lab'])
+type LabTestType = Exclude<LabTestTypeValue, '15-panel-instant'>
 
 export interface SimpleClient {
   id: string
@@ -40,34 +39,13 @@ function getReferralPreferredTestType(client: { referral?: unknown }): unknown {
 }
 
 function toLabTestType(value: unknown): LabTestType | undefined {
-  return typeof value === 'string' && LAB_TEST_TYPES.has(value) ? (value as LabTestType) : undefined
+  return isLabTestTypeValue(value) ? (value as LabTestType) : undefined
 }
 
-async function resolveRecommendedLabTestType(client: { referral?: unknown }): Promise<LabTestType | undefined> {
+function resolveRecommendedLabTestType(client: { referral?: unknown }): LabTestType | undefined {
   const extracted = extractPreferredTestType(getReferralPreferredTestType(client))
   const valueFromReferral = toLabTestType(extracted.recommendedTestTypeValue)
-  if (valueFromReferral) {
-    return valueFromReferral
-  }
-
-  if (!extracted.recommendedTestTypeId) {
-    return undefined
-  }
-
-  try {
-    const testType = await sdk.findByID({
-      collection: 'test-types',
-      id: extracted.recommendedTestTypeId,
-      depth: 0,
-      select: {
-        value: true,
-      },
-    })
-
-    return toLabTestType(testType?.value)
-  } catch (_err) {
-    return undefined
-  }
+  return valueFromReferral || toLabTestType(extracted.recommendedTestTypeId)
 }
 
 export async function getClients(): Promise<SimpleClient[]> {
@@ -114,7 +92,7 @@ export async function getClients(): Promise<SimpleClient[]> {
         headshot,
         headshotId,
         updatedAt: client.updatedAt ?? undefined,
-        recommendedTestTypeValue: await resolveRecommendedLabTestType(client),
+        recommendedTestTypeValue: resolveRecommendedLabTestType(client),
       }
     }),
   )
@@ -165,7 +143,7 @@ export async function getClientById(id: string): Promise<SimpleClient | null> {
       headshot,
       headshotId,
       updatedAt: client.updatedAt ?? undefined,
-      recommendedTestTypeValue: await resolveRecommendedLabTestType(client),
+      recommendedTestTypeValue: resolveRecommendedLabTestType(client),
     }
   } catch (_err) {
     // Payload throws if not found
@@ -209,7 +187,7 @@ export async function getClientByBookingId(bookingId: string): Promise<SimpleCli
       headshot,
       headshotId,
       updatedAt: client.updatedAt ?? undefined,
-      recommendedTestTypeValue: await resolveRecommendedLabTestType(client),
+      recommendedTestTypeValue: resolveRecommendedLabTestType(client),
     }
   } catch (_err) {
     return null
@@ -275,6 +253,7 @@ export interface DrugTestWithMedications {
     | '17-panel-instant'
     | '11-panel-lab'
     | '11-panel-lab-no-etg'
+    | '8-panel-lab'
     | '17-panel-sos-lab'
     | 'etg-lab'
   collectionDate: string | null | undefined

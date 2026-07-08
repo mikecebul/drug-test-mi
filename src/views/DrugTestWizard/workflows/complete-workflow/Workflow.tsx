@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs'
 import { toast } from 'sonner'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   CalendarDays,
   CheckCircle2,
@@ -12,20 +12,29 @@ import {
   ChevronRight,
   Clock,
   CreditCard,
+  FilePenLine,
   FlaskConical,
   Loader2,
   ClipboardList,
   Search,
+  TriangleAlert,
   UserCheck,
   UserPlus,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Textarea } from '@/components/ui/textarea'
 import { APP_TIMEZONE } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
 import { ClientSearchDialog } from '../components/client/ClientSearchDialog'
@@ -33,6 +42,7 @@ import { getClients, type SimpleClient } from '../components/client/getClients'
 import { searchClients } from '../components/client/clientSearch'
 import {
   getActiveCollectionTestTypes,
+  getClientReferralProfile,
   getTodaysCollectionBookings,
   linkBookingToClient,
   recordBookingPayment,
@@ -40,17 +50,20 @@ import {
   setBookingScheduledTestType,
 } from './actions'
 import {
+  formatGuidedGender,
   getGuidedBookingNextStep,
+  getGuidedGenderBadgeClass,
   getGuidedPaymentChoice,
   getGuidedPaymentLabel,
 } from './schedule-utils'
+import { ReferralProfileDrawer } from '../components/emails/referrals/ReferralProfileDrawer'
 
 type Booking = Awaited<ReturnType<typeof getTodaysCollectionBookings>>[number]
 type TestType = NonNullable<Booking['testType']>
 type PaymentMethod = 'cash' | 'card' | 'not-paid' | 'pre-paid'
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type WorkflowStep = 'schedule' | 'registration' | 'payment' | 'toxaccess'
-type PaymentChoice = 'paid' | 'pre-paid' | 'still-owes'
+type PaymentChoice = 'paid' | 'still-owes'
 
 const workflowSteps = ['schedule', 'registration', 'payment', 'toxaccess'] as const
 
@@ -72,13 +85,6 @@ function formatTime(value: string) {
   }).format(new Date(value))
 }
 
-function formatGender(value?: string | null) {
-  if (value === 'male') return 'Male'
-  if (value === 'female') return 'Female'
-  if (value === 'other') return 'Other'
-  return 'Unknown'
-}
-
 function formatDateOnly(value?: string | null) {
   if (!value) return 'Unknown'
   return new Intl.DateTimeFormat('en-US', {
@@ -89,20 +95,25 @@ function formatDateOnly(value?: string | null) {
 }
 
 function getPaymentChoice(payment: Booking['payment'] | undefined): PaymentChoice | null {
-  return getGuidedPaymentChoice(payment)
+  const choice = getGuidedPaymentChoice(payment)
+  if (choice === 'still-owes') return 'still-owes'
+  if (choice === 'paid' || choice === 'pre-paid') return 'paid'
+  return null
 }
 
 function getPaymentDefaults(booking: Booking | null) {
   const amountDue = booking?.testType?.price ?? 0
   const existing = booking?.payment
-  const choice = getPaymentChoice(existing)
-  const defaultAmountPaid = choice === 'paid' || choice === 'pre-paid' ? amountDue : 0
+  const existingAmountPaid = typeof existing?.amountPaid === 'number' ? existing.amountPaid : 0
+  const choice =
+    existing?.status && amountDue > 0 && existingAmountPaid < amountDue ? 'still-owes' : getPaymentChoice(existing)
+  const defaultAmountPaid = choice === 'paid' ? amountDue : 0
 
   return {
     amountDue,
     amountPaid: typeof existing?.amountPaid === 'number' ? existing.amountPaid : defaultAmountPaid,
     choice,
-    notes: typeof existing?.notes === 'string' ? existing.notes : '',
+    method: existing?.method ?? null,
   }
 }
 
@@ -111,14 +122,6 @@ function getPersistedPayment(input: ReturnType<typeof getPaymentDefaults>): {
   method: PaymentMethod
   amountPaid: number
 } {
-  if (input.choice === 'pre-paid') {
-    return {
-      status: 'paid',
-      method: 'pre-paid',
-      amountPaid: input.amountDue,
-    }
-  }
-
   if (input.choice === 'still-owes') {
     return {
       status: 'partial',
@@ -129,13 +132,43 @@ function getPersistedPayment(input: ReturnType<typeof getPaymentDefaults>): {
 
   return {
     status: 'paid',
-    method: 'cash',
+    method: input.method === 'pre-paid' ? 'pre-paid' : input.method === 'card' ? 'card' : 'cash',
     amountPaid: input.amountDue,
+  }
+}
+
+function getPaymentCardCopy(payment: ReturnType<typeof getPaymentDefaults>) {
+  const balanceDue = Math.max(0, payment.amountDue - payment.amountPaid)
+
+  if (payment.choice === 'paid') {
+    return {
+      title: 'Payment Confirmed',
+      description: payment.method === 'pre-paid' ? 'Pre-paid through the booking.' : 'No balance due today.',
+    }
+  }
+
+  if (payment.choice === 'still-owes') {
+    return {
+      title: 'Payment Required',
+      description:
+        balanceDue > 0
+          ? `${currency.format(balanceDue)} balance due today`
+          : `${currency.format(payment.amountDue)} due today`,
+    }
+  }
+
+  return {
+    title: 'Payment Required',
+    description: `${currency.format(payment.amountDue)} due today`,
   }
 }
 
 function getPaymentLabel(booking: Booking) {
   return getGuidedPaymentLabel(booking)
+}
+
+function getBookingContactEmail(booking: Booking) {
+  return booking.client?.email || booking.attendeeEmail
 }
 
 function getAmountDisplay(booking: Booking) {
@@ -147,7 +180,7 @@ function getAmountDisplay(booking: Booking) {
     }
   }
 
-  const amountDue = booking.payment?.amountDue ?? booking.testType.price
+  const amountDue = booking.testType.price
   const amountPaid = booking.payment?.amountPaid ?? 0
   const balance = Math.max(0, amountDue - amountPaid)
 
@@ -217,15 +250,12 @@ function getNextStep(booking: Booking): WorkflowStep {
 
 export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [query, setQuery] = useQueryStates({
     step: parseAsStringLiteral(workflowSteps).withDefault('schedule'),
     bookingId: parseAsString,
   })
-  const {
-    data: bookings = [],
-    isLoading,
-    refetch,
-  } = useQuery({
+  const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['guided', 'today-bookings'],
     queryFn: getTodaysCollectionBookings,
     refetchOnMount: 'always',
@@ -243,11 +273,25 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     () => bookings.find((booking) => booking.id === query.bookingId) ?? null,
     [bookings, query.bookingId],
   )
+  const selectedClientId = selectedBooking?.client?.id ?? null
+  const { data: referralProfile = null, refetch: refetchReferralProfile } = useQuery({
+    queryKey: ['guided', 'referral-profile', selectedClientId],
+    queryFn: () => getClientReferralProfile(selectedClientId || ''),
+    enabled: Boolean(selectedClientId),
+  })
   const currentStep: WorkflowStep = query.step
   const [paymentDraft, setPaymentDraft] = useState<ReturnType<typeof getPaymentDefaults> | null>(null)
+  const [referralDrawerOpen, setReferralDrawerOpen] = useState(false)
+  const [testTypeDrawerOpen, setTestTypeDrawerOpen] = useState(false)
+  const [testTypeDrawerSelection, setTestTypeDrawerSelection] = useState('')
   const payment = paymentDraft ?? getPaymentDefaults(selectedBooking)
   const balanceDue = Math.max(0, payment.amountDue - payment.amountPaid)
   const paymentRecorded = Boolean(selectedBooking?.payment?.status)
+  const refreshBookings = () =>
+    queryClient.fetchQuery({
+      queryKey: ['guided', 'today-bookings'],
+      queryFn: getTodaysCollectionBookings,
+    })
   const suggestedClients = useMemo(() => {
     if (!selectedBooking) return []
     const queryParts = [
@@ -286,8 +330,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     startTransition(async () => {
       await linkBookingToClient(selectedBooking.id, client.id)
       setPaymentDraft(null)
-      const result = await refetch()
-      const updatedBooking = result.data?.find((booking) => booking.id === selectedBooking.id)
+      const refreshedBookings = await refreshBookings()
+      const updatedBooking = refreshedBookings.find((booking) => booking.id === selectedBooking.id)
 
       if (!updatedBooking?.client) {
         toast.error('Client could not be linked. Try again or search manually.')
@@ -300,7 +344,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     })
   }
 
-  const handleSelectTestType = (testTypeId: string) => {
+  const handleSelectTestType = (testTypeId: string, options?: { closeDrawer?: boolean; nextStep?: WorkflowStep }) => {
     if (!selectedBooking) return
 
     startTransition(async () => {
@@ -311,11 +355,20 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         return
       }
 
-      const refreshed = await refetch()
-      const updatedBooking = refreshed.data?.find((booking) => booking.id === selectedBooking.id)
+      const refreshedBookings = await refreshBookings()
+      const updatedBooking = refreshedBookings.find((booking) => booking.id === selectedBooking.id)
       setPaymentDraft(updatedBooking ? getPaymentDefaults(updatedBooking) : null)
-      setQuery({ step: 'payment', bookingId: selectedBooking.id })
+      if (options?.closeDrawer) {
+        setTestTypeDrawerOpen(false)
+      }
+      toast.success('Appointment test updated')
+      setQuery({ step: options?.nextStep ?? 'payment', bookingId: selectedBooking.id })
     })
+  }
+
+  const openTestTypeDrawer = () => {
+    setTestTypeDrawerSelection(selectedBooking?.bookingTestType?.id ?? selectedBooking?.testType?.id ?? '')
+    setTestTypeDrawerOpen(true)
   }
 
   const handlePaymentNext = () => {
@@ -338,7 +391,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         amountPaid: persistedPayment.amountPaid,
         method: persistedPayment.method,
         status: persistedPayment.status,
-        notes: payment.notes,
       })
 
       if (!result.success) {
@@ -347,7 +399,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       }
 
       setPaymentDraft(null)
-      await refetch()
+      await refreshBookings()
       setQuery({ step: 'toxaccess', bookingId: selectedBooking.id })
     })
   }
@@ -360,14 +412,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
       if (context.needsRegistration || !context.clientId) {
         toast.error('Select or register the client before collection.')
-        await refetch()
+        await refreshBookings()
         setQuery({ step: 'registration', bookingId: selectedBooking.id })
         return
       }
 
       if (context.needsTestType || !context.testType) {
         toast.error('Select the test type for this appointment before collection.')
-        await refetch()
+        await refreshBookings()
         setQuery({ step: 'registration', bookingId: selectedBooking.id })
         return
       }
@@ -408,7 +460,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-2xl font-semibold">{booking.attendeeName}</p>
-              <p className="text-muted-foreground text-base">{booking.attendeeEmail}</p>
+              <p className="text-muted-foreground text-base">{getBookingContactEmail(booking)}</p>
             </div>
             <Badge variant={booking.needsRegistration || booking.needsTestType ? 'secondary' : 'outline'}>
               {booking.sampleCollection?.status === 'collected'
@@ -427,7 +479,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             </div>
             <div>
               <p className="text-muted-foreground text-sm font-medium uppercase">Gender</p>
-              <p>{formatGender(booking.client?.gender)}</p>
+              <p>{formatGuidedGender(booking.client?.gender)}</p>
             </div>
             <div>
               <p className="text-muted-foreground text-sm font-medium uppercase">Test</p>
@@ -437,11 +489,119 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               <p className="text-muted-foreground text-sm font-medium uppercase">Amount</p>
               <div className="flex flex-wrap items-center gap-2">
                 <span>{amountDisplay.amount}</span>
-                {amountDisplay.badge && (
-                  <Badge variant={amountDisplay.badgeVariant}>{amountDisplay.badge}</Badge>
+                {amountDisplay.badge && <Badge variant={amountDisplay.badgeVariant}>{amountDisplay.badge}</Badge>}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const renderPaymentReview = (booking: Booking) => {
+    const amountDisplay = getAmountDisplay(booking)
+    const prepaidTestLabel = booking.bookingTestType?.label ?? 'Unknown'
+    const referralTestLabel = booking.referralTestType?.label ?? 'Not set'
+    const todayTestLabel = booking.testType?.label ?? 'Not set'
+    const referralLabel = booking.referral
+      ? `${booking.referral.name}${booking.referral.type ? ` (${booking.referral.type})` : ''}`
+      : 'Not set'
+    const hasUnknownPrepaidTest = !booking.bookingTestType
+    const hasTestMismatch =
+      Boolean(booking.bookingTestType && booking.referralTestType) &&
+      booking.bookingTestType?.value !== booking.referralTestType?.value
+    const hasTodayTestDifference =
+      Boolean(booking.bookingTestType && booking.testType) && booking.bookingTestType?.value !== booking.testType?.value
+    const hasBalanceDifference = payment.amountPaid > 0 && payment.amountPaid < payment.amountDue
+    const reviewRows = [
+      { label: 'Appointment', value: formatTime(booking.startTime) },
+      {
+        label: 'Amount',
+        value: amountDisplay.amount,
+        badge: amountDisplay.badge,
+        badgeVariant: amountDisplay.badgeVariant,
+      },
+      { label: 'Referral', value: referralLabel, subValue: `Default test: ${referralTestLabel}` },
+      { label: 'Booking test', value: prepaidTestLabel },
+      ...(hasTodayTestDifference
+        ? [
+            {
+              label: "Today's test",
+              value: todayTestLabel,
+            },
+          ]
+        : []),
+    ]
+
+    return (
+      <Card className={cn('rounded-lg', (hasUnknownPrepaidTest || hasTestMismatch) && 'border-amber-300')}>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold">{booking.attendeeName}</p>
+              <p className="text-muted-foreground text-base">{getBookingContactEmail(booking)}</p>
+            </div>
+            <Badge variant="outline" className={cn('mt-1 shrink-0', getGuidedGenderBadgeClass(booking.client?.gender))}>
+              {formatGuidedGender(booking.client?.gender)}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {(hasUnknownPrepaidTest || hasTestMismatch || hasBalanceDifference) && (
+            <div className="flex gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-950">
+              <TriangleAlert className="mt-0.5 size-5 shrink-0" />
+              <div className="space-y-1 text-sm">
+                {hasUnknownPrepaidTest && <p>The prepaid booking test is unknown for this appointment.</p>}
+                {hasTestMismatch && <p>The booking test does not match the current referral test.</p>}
+                {hasBalanceDifference && (
+                  <p>{currency.format(balanceDue)} remains due for today&apos;s selected test.</p>
                 )}
               </div>
             </div>
+          )}
+
+          <div className="border-border bg-background/40 divide-border divide-y overflow-hidden rounded-lg border">
+            {reviewRows.map((item) => (
+              <div key={item.label} className="grid gap-1 px-4 py-3 sm:grid-cols-[11rem_1fr_auto] sm:items-center">
+                <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">{item.label}</p>
+                <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+                  <div className="min-w-0">
+                    <p className="text-lg font-semibold">{item.value}</p>
+                    {'subValue' in item && item.subValue && (
+                      <p className="text-muted-foreground text-sm">{item.subValue}</p>
+                    )}
+                  </div>
+                  {item.badge && <Badge variant={item.badgeVariant}>{item.badge}</Badge>}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <ClientSearchDialog
+              allClients={allClients}
+              selectedClientId={booking.client?.id ?? ''}
+              onSelect={handleUseExistingClient}
+            >
+              <Button type="button" variant="outline" size="lg" className="w-full">
+                <UserCheck className="mr-2 size-5" />
+                Change Client
+              </Button>
+            </ClientSearchDialog>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="w-full"
+              onClick={() => setReferralDrawerOpen(true)}
+            >
+              <FilePenLine className="mr-2 size-5" />
+              Change Referral
+            </Button>
+            <Button type="button" variant="outline" size="lg" className="w-full" onClick={openTestTypeDrawer}>
+              <FlaskConical className="mr-2 size-5" />
+              Change Today&apos;s Test
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -461,7 +621,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             <CalendarDays className="size-6" />
             Today&apos;s Schedule
           </CardTitle>
-          <CardDescription className="text-base">Name, time, gender, payment status, and registration status.</CardDescription>
+          <CardDescription className="text-base">
+            Name, time, gender, payment status, and registration status.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {isLoading ? (
@@ -481,24 +643,32 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   className="border-border bg-card hover:bg-muted/50 focus-visible:ring-ring grid w-full grid-cols-[1fr_auto] gap-4 rounded-lg border p-5 text-left transition focus-visible:ring-2 focus-visible:outline-none"
                 >
                   <span className="min-w-0 space-y-1">
-                    <span className="block text-xl font-semibold">{booking.attendeeName}</span>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="block text-xl font-semibold">{booking.attendeeName}</span>
+                      <Badge
+                        variant="outline"
+                        className={cn('shrink-0', getGuidedGenderBadgeClass(booking.client?.gender))}
+                      >
+                        {formatGuidedGender(booking.client?.gender)}
+                      </Badge>
+                    </span>
                     <span className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-base">
                       <span className="inline-flex items-center gap-1">
                         <Clock className="size-4" />
                         {formatTime(booking.startTime)}
                       </span>
-                      <span>{formatGender(booking.client?.gender)}</span>
                     </span>
                   </span>
                   <span className="flex flex-col items-end gap-2">
                     <Badge
                       variant={
-                        paymentLabel === 'Unpaid' || paymentLabel === 'Still owes' ? 'outline' : 'default'
+                        paymentLabel === 'Paid' || paymentLabel === 'Pre-paid' || paymentLabel === 'Collected'
+                          ? 'success'
+                          : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
+                            ? 'outline'
+                            : 'default'
                       }
-                      className={cn(
-                        paymentLabel === 'Still owes' && 'border-destructive text-destructive',
-                        paymentLabel === 'Collected' && 'bg-primary text-primary-foreground',
-                      )}
+                      className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
                     >
                       {paymentLabel}
                     </Badge>
@@ -546,11 +716,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
     return (
       <div className="space-y-6">
-        {renderHeader(clientLinked ? 'Test Type' : 'Registration', clientLinked ? 'Set Appointment Test' : 'Confirm Client')}
+        {renderHeader(
+          clientLinked ? 'Test Type' : 'Registration',
+          clientLinked ? 'Set Appointment Test' : 'Confirm Client',
+        )}
         {renderSelectedSummary(selectedBooking)}
 
         {clientLinked && selectedBooking.needsTestType && (
-          <Card className="border-amber-300 rounded-lg">
+          <Card className="rounded-lg border-amber-300">
             <CardHeader>
               <CardTitle className="flex items-center gap-3 text-2xl">
                 <FlaskConical className="size-6" />
@@ -599,9 +772,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           <CardContent className="space-y-5">
             {!clientLinked && suggestedClients.length > 0 && (
               <div className="space-y-3">
-                <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
-                  Possible Matches
-                </p>
+                <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">Possible Matches</p>
                 {suggestedClients.map((client) => (
                   <button
                     key={client.id}
@@ -649,21 +820,20 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     if (isLoading) return renderLoading('Payment')
     if (selectedBooking?.needsRegistration || selectedBooking?.needsTestType) return renderRegistration()
     if (!selectedBooking || !selectedBooking.testType) return renderMissingBooking('Payment')
+    const paymentCardCopy = getPaymentCardCopy(payment)
 
     return (
       <div className="space-y-6">
-        {renderHeader('Payment')}
-        {renderSelectedSummary(selectedBooking)}
+        {renderHeader('Review & Payment', 'Review and Payment')}
+        {renderPaymentReview(selectedBooking)}
 
         <Card className="rounded-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-3 text-2xl">
               <CreditCard className="size-6" />
-              Payment Required
+              {paymentCardCopy.title}
             </CardTitle>
-            <CardDescription className="text-lg">
-              {selectedBooking.testType.label} · {currency.format(payment.amountDue)} due
-            </CardDescription>
+            <CardDescription className="text-lg">{paymentCardCopy.description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-3">
@@ -686,8 +856,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 className="gap-3"
               >
                 {[
-                  { value: 'paid', label: 'Paid', description: 'Payment collected now.' },
-                  { value: 'pre-paid', label: 'Pre-paid', description: 'Already paid through the booking.' },
+                  {
+                    value: 'paid',
+                    label: 'Paid',
+                    description:
+                      payment.method === 'pre-paid'
+                        ? 'Already paid through the booking.'
+                        : 'Payment collected now or already covered by the booking.',
+                  },
                   { value: 'still-owes', label: 'Still owes', description: 'Partial payment or balance remains.' },
                 ].map((option) => (
                   <Label
@@ -744,21 +920,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 </div>
               </div>
             )}
-
-            <div className="space-y-2">
-              <Label htmlFor="payment-notes">Payment notes</Label>
-              <Textarea
-                id="payment-notes"
-                value={payment.notes}
-                onChange={(event) =>
-                  setPaymentDraft((current) => ({
-                    ...(current ?? payment),
-                    notes: event.target.value,
-                  }))
-                }
-                placeholder="Optional note about payment or balance"
-              />
-            </div>
           </CardContent>
         </Card>
       </div>
@@ -771,13 +932,15 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     if (!selectedBooking) return renderMissingBooking('ToxAccess')
     const client = selectedBooking.client
     const isFirstTest = !client?.firstDrugTestDate
-    const intakeDate = client?.firstDrugTestDate ? formatDateOnly(client.firstDrugTestDate) : formatDateOnly(new Date().toISOString())
+    const intakeDate = client?.firstDrugTestDate
+      ? formatDateOnly(client.firstDrugTestDate)
+      : formatDateOnly(new Date().toISOString())
     const fullName = getToxAccessName(selectedBooking, isFirstTest)
     const toxAccessRows: Array<{ label: string; value: string }> = isFirstTest
       ? [
           ['Name', fullName],
           ['DOB', formatDateOnly(client?.dob)],
-          ['Sex', formatGender(client?.gender)],
+          ['Sex', formatGuidedGender(client?.gender)],
           ['Intake Date', intakeDate],
           ['Active', 'Yes'],
           ['Phone', client?.phone || selectedBooking.attendeePhone || 'Unknown'],
@@ -786,7 +949,10 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         ].map(([label, value]) => ({ label, value }))
       : [
           { label: 'Name', value: fullName },
-          { label: selectedBooking.testType?.category === 'lab' ? 'Test Code' : 'Test', value: getToxAccessTestValue(selectedBooking.testType) },
+          {
+            label: selectedBooking.testType?.category === 'lab' ? 'Test Code' : 'Test',
+            value: getToxAccessTestValue(selectedBooking.testType),
+          },
         ]
 
     return (
@@ -846,6 +1012,23 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     return renderSchedule()
   }
 
+  const referralPreviewData = referralProfile
+    ? referralProfile
+    : selectedBooking?.client
+      ? {
+          referralType: selectedBooking.client.referralType ?? 'self',
+          referralTitle: selectedBooking.referral?.name ?? 'Self',
+          referralEmails: [],
+          referralRecipientsDetailed: [],
+          clientAdditionalRecipientsDetailed: [],
+          hasExplicitReferralRecipients: false,
+        }
+      : null
+  const selectedDrawerTestType = testTypes.find((testType) => testType.id === testTypeDrawerSelection) ?? null
+  const drawerCurrentPrice = selectedBooking?.testType?.price ?? null
+  const drawerPriceDifference =
+    selectedDrawerTestType && drawerCurrentPrice !== null ? selectedDrawerTestType.price - drawerCurrentPrice : 0
+
   const nextLabel = currentStep === 'toxaccess' ? 'Continue Collection' : 'Next'
   const canGoNext =
     currentStep === 'payment'
@@ -857,48 +1040,127 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const backLabel = currentStep === 'schedule' ? 'Cancel' : 'Back'
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col px-2">
-      {renderCurrentStep()}
+    <>
+      <div className="mx-auto flex w-full max-w-2xl flex-col px-2">
+        {renderCurrentStep()}
 
-      <div className="mt-8 flex items-center justify-between border-t pt-4">
-        <Button
-          type="button"
-          onClick={goBackOneStep}
-          variant="outline"
-          disabled={isPending}
-          size="lg"
-          data-testid="wizard-back-button"
-        >
-          <ChevronLeft className="mr-2 h-5 w-5" />
-          {backLabel}
-        </Button>
-
-        {currentStep !== 'schedule' && (
+        <div className="mt-8 flex items-center justify-between border-t pt-4">
           <Button
             type="button"
-            onClick={currentStep === 'payment' ? handlePaymentNext : handleContinueToCollection}
-            disabled={!canGoNext || isPending}
+            onClick={goBackOneStep}
+            variant="outline"
+            disabled={isPending}
             size="lg"
-            data-testid="wizard-next-button"
+            data-testid="wizard-back-button"
           >
-            {isPending ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                {nextLabel}
-                {currentStep === 'toxaccess' ? (
-                  <CheckCircle2 className="ml-2 h-5 w-5" />
-                ) : (
-                  <ChevronRight className="ml-2 h-5 w-5" />
-                )}
-              </>
-            )}
+            <ChevronLeft className="mr-2 h-5 w-5" />
+            {backLabel}
           </Button>
-        )}
+
+          {currentStep !== 'schedule' && (
+            <Button
+              type="button"
+              onClick={currentStep === 'payment' ? handlePaymentNext : handleContinueToCollection}
+              disabled={!canGoNext || isPending}
+              size="lg"
+              data-testid="wizard-next-button"
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  {nextLabel}
+                  {currentStep === 'toxaccess' ? (
+                    <CheckCircle2 className="ml-2 h-5 w-5" />
+                  ) : (
+                    <ChevronRight className="ml-2 h-5 w-5" />
+                  )}
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </div>
-    </div>
+
+      <ReferralProfileDrawer
+        open={referralDrawerOpen}
+        onOpenChange={setReferralDrawerOpen}
+        clientId={selectedClientId}
+        previewData={referralPreviewData}
+        fallbackReferralEmails={referralProfile?.referralEmails ?? []}
+        onSaved={() => {
+          setPaymentDraft(null)
+          void refreshBookings()
+          void refetchReferralProfile()
+        }}
+      />
+
+      <Drawer direction="right" open={testTypeDrawerOpen} onOpenChange={setTestTypeDrawerOpen}>
+        <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(36rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+          <DrawerHeader className="border-border border-b px-6 py-5">
+            <DrawerTitle className="text-2xl tracking-tight">Change Today&apos;s Test</DrawerTitle>
+            <DrawerDescription>
+              Updates only this appointment so pricing and collection stay aligned for today.
+            </DrawerDescription>
+          </DrawerHeader>
+
+          <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto px-6 py-5">
+            {testTypes.map((testType) => {
+              const isSelected = testTypeDrawerSelection === testType.id
+              const isCurrentBookingTest = selectedBooking?.bookingTestType?.id === testType.id
+              const isReferralDefault =
+                !selectedBooking?.bookingTestType && selectedBooking?.referralTestType?.id === testType.id
+
+              return (
+                <button
+                  key={testType.id}
+                  type="button"
+                  onClick={() => setTestTypeDrawerSelection(testType.id)}
+                  className={cn(
+                    'border-border bg-background hover:bg-muted/40 focus-visible:ring-ring flex w-full items-start justify-between gap-4 rounded-lg border p-4 text-left transition focus-visible:ring-2 focus-visible:outline-none',
+                    isSelected && 'border-foreground bg-muted/50',
+                  )}
+                >
+                  <span className="min-w-0 space-y-1">
+                    <span className="block text-lg font-semibold">{testType.label}</span>
+                    <span className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm capitalize">
+                      <span>{testType.category}</span>
+                      {isCurrentBookingTest && <Badge variant="secondary">Current appointment</Badge>}
+                      {isReferralDefault && <Badge variant="secondary">Referral default</Badge>}
+                    </span>
+                  </span>
+                  <span className="text-lg font-semibold">{currency.format(testType.price)}</span>
+                </button>
+              )
+            })}
+
+            {selectedDrawerTestType && drawerPriceDifference !== 0 && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+                {drawerPriceDifference > 0
+                  ? `${currency.format(drawerPriceDifference)} more will be due for this test.`
+                  : `${currency.format(Math.abs(drawerPriceDifference))} less than the current selected test.`}
+              </div>
+            )}
+          </div>
+
+          <DrawerFooter className="border-border border-t px-6 py-4 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setTestTypeDrawerOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!testTypeDrawerSelection || isPending}
+              onClick={() => handleSelectTestType(testTypeDrawerSelection, { closeDrawer: true, nextStep: 'payment' })}
+            >
+              {isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Save Test
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+    </>
   )
 }

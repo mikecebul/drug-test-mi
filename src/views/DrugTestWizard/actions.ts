@@ -463,6 +463,7 @@ export async function computeTestResultPreview(
     | '17-panel-instant'
     | '11-panel-lab'
     | '11-panel-lab-no-etg'
+    | '8-panel-lab'
     | '17-panel-sos-lab'
     | 'etg-lab',
   breathalyzerTaken?: boolean,
@@ -529,6 +530,7 @@ export async function createDrugTest(data: {
     | '17-panel-instant'
     | '11-panel-lab'
     | '11-panel-lab-no-etg'
+    | '8-panel-lab'
     | '17-panel-sos-lab'
     | 'etg-lab'
   collectionDate: string
@@ -640,6 +642,7 @@ export async function getEmailPreview(data: {
     | '17-panel-instant'
     | '11-panel-lab'
     | '11-panel-lab-no-etg'
+    | '8-panel-lab'
     | '17-panel-sos-lab'
     | 'etg-lab'
   collectionDate: string
@@ -775,7 +778,7 @@ export async function getEmailPreview(data: {
  */
 export async function getCollectionEmailPreview(data: {
   clientId: string
-  testType: '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
+  testType: '11-panel-lab' | '11-panel-lab-no-etg' | '8-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
   collectionDate: string
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
@@ -1044,6 +1047,7 @@ export async function createDrugTestWithEmailReview(
       | '17-panel-instant'
       | '11-panel-lab'
       | '11-panel-lab-no-etg'
+      | '8-panel-lab'
       | '17-panel-sos-lab'
       | 'etg-lab'
     collectionDate: string
@@ -1395,7 +1399,7 @@ export async function createDrugTestWithEmailReview(
  */
 export async function createCollectionOnlyTest(data: {
   clientId: string
-  testType: '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
+  testType: '11-panel-lab' | '11-panel-lab-no-etg' | '8-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
   collectionDate: string
 }): Promise<{
   success: boolean
@@ -1437,7 +1441,7 @@ export async function createCollectionOnlyTest(data: {
 export async function createCollectionWithEmailReview(
   testData: {
     clientId: string
-    testType: '11-panel-lab' | '11-panel-lab-no-etg' | '17-panel-sos-lab' | 'etg-lab'
+    testType: '11-panel-lab' | '11-panel-lab-no-etg' | '8-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
     collectionDate: string
     breathalyzerTaken: boolean
     breathalyzerResult: number | null

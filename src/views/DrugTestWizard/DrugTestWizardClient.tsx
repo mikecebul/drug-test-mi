@@ -18,7 +18,7 @@ import { steps as registerClientSteps } from './workflows/register-client-workfl
 import { steps as instantTestSteps } from './workflows/instant-test/validators'
 import { steps as labScreenSteps } from './workflows/lab-screen/validators'
 import { steps as labConfirmationSteps } from './workflows/lab-confirmation/validators'
-import { clearWizardQueryCache, invalidateGuidedSchedule } from './queries'
+import { clearWizardQueryCache, resetGuidedScheduleCache } from './queries'
 
 const workflowTypes = [
   'guided',
@@ -41,6 +41,8 @@ export function DrugTestWizardClient() {
       step: parseAsString, // Use generic string so it accepts all workflow step types
       clientId: parseAsString,
       bookingId: parseAsString,
+      returnTo: parseAsString,
+      testType: parseAsString,
     },
     {
       history: 'push', // Default all updates to push to history
@@ -61,14 +63,16 @@ export function DrugTestWizardClient() {
   }
 
   // Reset workflow selection and clear step params
-  const handleBack = async () => {
+  const handleBack = () => {
     if (bookingId && (workflow === 'collect-lab' || workflow === 'instant-test' || workflow === '17-panel-instant')) {
-      invalidateGuidedSchedule(queryClient)
+      resetGuidedScheduleCache(queryClient)
       setStates({
         workflow: 'guided',
         step: 'schedule',
         clientId: null,
         bookingId: null,
+        returnTo: null,
+        testType: null,
       })
       return
     }
@@ -78,6 +82,8 @@ export function DrugTestWizardClient() {
       step: null,
       clientId: null,
       bookingId: null,
+      returnTo: null,
+      testType: null,
     })
   }
 
@@ -90,6 +96,8 @@ export function DrugTestWizardClient() {
       step: firstStepMap[wizardType] ?? null,
       clientId: null,
       bookingId: null,
+      returnTo: null,
+      testType: null,
     })
   }
 

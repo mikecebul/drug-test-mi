@@ -26,37 +26,50 @@ async function migrateReferralCollection({
   payload,
   collection,
   fromTestTypeId,
-  toTestTypeId,
+  fromValue,
+  toValue,
 }: {
   payload: MigrateUpArgs['payload']
   collection: ReferralCollection
-  fromTestTypeId: string
-  toTestTypeId: string
+  fromTestTypeId: string | null
+  fromValue: string
+  toValue: string
 }) {
-  const result = await payload.find({
-    collection,
-    where: {
-      preferredTestType: {
-        equals: fromTestTypeId,
-      },
-    },
-    depth: 0,
-    limit: 1000,
-    overrideAccess: true,
-  })
+  const fromValues = Array.from(new Set([fromTestTypeId, fromValue].filter((value): value is string => Boolean(value))))
+  let updatedCount = 0
+  const updatedIds = new Set<string>()
 
-  for (const referral of result.docs) {
-    await payload.update({
+  for (const fromValueCandidate of fromValues) {
+    const result = await payload.find({
       collection,
-      id: referral.id,
-      data: {
-        preferredTestType: toTestTypeId,
+      where: {
+        preferredTestType: {
+          equals: fromValueCandidate,
+        },
       },
+      depth: 0,
+      limit: 1000,
       overrideAccess: true,
     })
+
+    for (const referral of result.docs) {
+      const id = String(referral.id)
+      if (updatedIds.has(id)) continue
+
+      await payload.update({
+        collection,
+        id,
+        data: {
+          preferredTestType: toValue as never,
+        },
+        overrideAccess: true,
+      })
+      updatedIds.add(id)
+      updatedCount++
+    }
   }
 
-  return result.docs.length
+  return updatedCount
 }
 
 async function migrateReferrals({
@@ -69,15 +82,9 @@ async function migrateReferrals({
   toValue: string
 }) {
   const fromTestTypeId = await findTestTypeId(payload, fromValue)
-  const toTestTypeId = await findTestTypeId(payload, toValue)
 
   if (!fromTestTypeId) {
-    payload.logger.info(`Referral preferred test migration skipped: ${fromValue} test type not found`)
-    return
-  }
-
-  if (!toTestTypeId) {
-    throw new Error(`Referral preferred test migration failed: ${toValue} test type not found`)
+    payload.logger.info(`Referral preferred test migration did not find legacy ${fromValue} test type ID`)
   }
 
   let updatedCount = 0
@@ -87,7 +94,8 @@ async function migrateReferrals({
       payload,
       collection,
       fromTestTypeId,
-      toTestTypeId,
+      fromValue,
+      toValue,
     })
   }
 

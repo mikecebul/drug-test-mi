@@ -27,6 +27,10 @@ type MockBooking = {
   calcomBookingId?: string | null
   calcomBookingNumericId?: number | null
   payment?: null
+  startTime?: string
+  endTime?: string
+  attendeeName?: string
+  attendeeEmail?: string
 }
 
 function createWebhook(overrides: Partial<CalcomWebhookPayload> = {}): CalcomWebhookPayload {
@@ -86,11 +90,13 @@ function createRequest(webhook: CalcomWebhookPayload, secret?: string) {
   })
 }
 
-function createPayloadMock(options: {
-  find?: ReturnType<typeof vi.fn>
-  create?: ReturnType<typeof vi.fn>
-  update?: ReturnType<typeof vi.fn>
-} = {}) {
+function createPayloadMock(
+  options: {
+    find?: ReturnType<typeof vi.fn>
+    create?: ReturnType<typeof vi.fn>
+    update?: ReturnType<typeof vi.fn>
+  } = {},
+) {
   const payload = {
     find: options.find || vi.fn().mockResolvedValue({ docs: [] }),
     create: options.create || vi.fn().mockResolvedValue({ id: 'booking-created' }),
@@ -135,6 +141,218 @@ describe('Cal.com webhook route', () => {
     expect(await json(response)).toMatchObject({ message: 'Booking created', id: 'booking-created' })
     expect(payload.create).toHaveBeenCalledOnce()
     expect(payload.update).not.toHaveBeenCalled()
+  })
+
+  test('resolves the Cal.com test answer into the booking scheduled test type', async () => {
+    const payload = createPayloadMock()
+
+    const response = await POST(
+      createRequest(
+        createWebhook({
+          payload: {
+            responses: {
+              name: {
+                label: 'Name',
+                value: 'Taylor Client',
+              },
+              email: {
+                label: 'Email',
+                value: 'taylor@example.com',
+              },
+              test: {
+                label: 'Test',
+                value: '15 Panel Instant',
+              },
+            },
+          },
+        }),
+      ),
+    )
+
+    expect(response.status).toBe(201)
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'bookings',
+        data: expect.objectContaining({
+          scheduledTestType: '15-panel-instant',
+        }),
+      }),
+    )
+  })
+
+  test('resolves Cal.com test answer aliases into scheduled test types', async () => {
+    const payload = createPayloadMock()
+
+    const response = await POST(
+      createRequest(
+        createWebhook({
+          payload: {
+            responses: {
+              name: {
+                label: 'Name',
+                value: 'Taylor Client',
+              },
+              email: {
+                label: 'Email',
+                value: 'taylor@example.com',
+              },
+              test: {
+                label: 'Test Type',
+                value: '17 Panel Lab',
+              },
+            },
+          },
+        }),
+      ),
+    )
+
+    expect(response.status).toBe(201)
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'bookings',
+        data: expect.objectContaining({
+          scheduledTestType: '17-panel-sos-lab',
+        }),
+      }),
+    )
+  })
+
+  test('resolves self-booked instant event URLs into scheduled test types', async () => {
+    const payload = createPayloadMock()
+
+    const response = await POST(
+      createRequest(
+        createWebhook({
+          payload: {
+            type: 'Instant 17 Panel',
+            title: '17 Panel Instant Screen',
+            bookerUrl: 'https://cal.com/midrugtest/instant-17-panel',
+            responses: {
+              name: {
+                label: 'Name',
+                value: 'Taylor Client',
+              },
+              email: {
+                label: 'Email',
+                value: 'taylor@example.com',
+              },
+            },
+          },
+        }),
+      ),
+    )
+
+    expect(response.status).toBe(201)
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'bookings',
+        data: expect.objectContaining({
+          scheduledTestType: '17-panel-instant',
+        }),
+      }),
+    )
+  })
+
+  test('resolves Harbor Industries event URLs into 8-panel lab scheduled test types', async () => {
+    const payload = createPayloadMock()
+
+    const response = await POST(
+      createRequest(
+        createWebhook({
+          payload: {
+            type: 'Harbor Industries Drug Test Booking',
+            title: 'Harbor Industries Drug Test Booking',
+            bookerUrl: 'https://cal.com/midrugtest/harbor-industries-drug-test-booking',
+            responses: {
+              name: {
+                label: 'Name',
+                value: 'Taylor Client',
+              },
+              email: {
+                label: 'Email',
+                value: 'taylor@example.com',
+              },
+            },
+          },
+        }),
+      ),
+    )
+
+    expect(response.status).toBe(201)
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'bookings',
+        data: expect.objectContaining({
+          scheduledTestType: '8-panel-lab',
+        }),
+      }),
+    )
+  })
+
+  test.each([
+    ['11-panel-lab-screen', '11-panel-lab'],
+    ['sos-17-panel-lab-screen', '17-panel-sos-lab'],
+    ['etg-lab-screen', 'etg-lab'],
+  ])('resolves implied Cal.com event slug %s into %s', async (eventSlug, scheduledTestType) => {
+    const payload = createPayloadMock()
+
+    const response = await POST(
+      createRequest(
+        createWebhook({
+          payload: {
+            type: eventSlug,
+            title: eventSlug,
+            bookerUrl: `https://cal.com/midrugtest/${eventSlug}`,
+            responses: {
+              name: {
+                label: 'Name',
+                value: 'Taylor Client',
+              },
+              email: {
+                label: 'Email',
+                value: 'taylor@example.com',
+              },
+            },
+          },
+        }),
+      ),
+    )
+
+    expect(response.status).toBe(201)
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'bookings',
+        data: expect.objectContaining({
+          scheduledTestType,
+        }),
+      }),
+    )
+  })
+
+  test('does not confuse no-EtG lab bookings with EtG-only lab bookings', async () => {
+    const payload = createPayloadMock()
+
+    const response = await POST(
+      createRequest(
+        createWebhook({
+          payload: {
+            customInputs: {
+              test: '11 Panel no EtG',
+            },
+          },
+        }),
+      ),
+    )
+
+    expect(response.status).toBe(201)
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'bookings',
+        data: expect.objectContaining({
+          scheduledTestType: '11-panel-lab-no-etg',
+        }),
+      }),
+    )
   })
 
   test('updates an existing booking found by Cal.com UID', async () => {
@@ -201,10 +419,7 @@ describe('Cal.com webhook route', () => {
         { id: 'new-booking', calcomBookingId: 'booking-new' },
         { id: 'original-booking', calcomBookingId: 'booking-original' },
       ]),
-      update: vi
-        .fn()
-        .mockResolvedValueOnce({ id: 'original-booking' })
-        .mockResolvedValueOnce({ id: 'new-booking' }),
+      update: vi.fn().mockResolvedValueOnce({ id: 'original-booking' }).mockResolvedValueOnce({ id: 'new-booking' }),
     })
 
     const response = await POST(
@@ -259,6 +474,53 @@ describe('Cal.com webhook route', () => {
       expect.objectContaining({
         id: 'existing-after-race',
         data: expect.objectContaining({ calcomBookingId: 'booking-new' }),
+      }),
+    )
+  })
+
+  test('keeps existing appointment times when payment events omit schedule fields', async () => {
+    const existingBooking = {
+      id: 'existing-booking',
+      calcomBookingId: 'booking-new',
+      startTime: '2026-06-18T14:00:00.000Z',
+      endTime: '2026-06-18T14:15:00.000Z',
+      attendeeName: 'Taylor Client',
+      attendeeEmail: 'taylor@example.com',
+      payment: null,
+    }
+    const payload = createPayloadMock({
+      find: findByBookings([existingBooking]),
+      update: vi.fn().mockResolvedValue({ id: 'existing-booking' }),
+    })
+
+    const response = await POST(
+      createRequest(
+        createWebhook({
+          triggerEvent: 'BOOKING_PAID',
+          createdAt: '2026-06-17T12:00:00.000Z',
+          payload: {
+            startTime: undefined,
+            endTime: undefined,
+            price: 3500,
+            currency: 'usd',
+            paymentId: 'pi_123',
+          },
+        }),
+      ),
+    )
+
+    expect(response.status).toBe(200)
+    expect(payload.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'existing-booking',
+        data: expect.objectContaining({
+          startTime: '2026-06-18T14:00:00.000Z',
+          endTime: '2026-06-18T14:15:00.000Z',
+          payment: expect.objectContaining({
+            amountPaid: 35,
+            status: 'paid',
+          }),
+        }),
       }),
     )
   })

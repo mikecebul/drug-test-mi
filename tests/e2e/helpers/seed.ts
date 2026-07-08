@@ -42,6 +42,8 @@ export type FixtureContext = {
   }
   created: {
     adminIds: string[]
+    adminAlertIds?: string[]
+    bookingIds?: string[]
     employerIds: string[]
     courtIds: string[]
     clientIds: string[]
@@ -50,6 +52,40 @@ export type FixtureContext = {
   }
 }
 
+export type GuidedScheduleFixtures = {
+  bookings: {
+    paidLinked: {
+      id: string
+      attendeeName: string
+      startTime: string
+    }
+    unlinked: {
+      id: string
+      attendeeName: string
+      startTime: string
+    }
+    needsTestType: {
+      id: string
+      attendeeName: string
+      startTime: string
+    }
+    outsideToday: {
+      id: string
+      attendeeName: string
+      startTime: string
+    }
+    cancelledToday: {
+      id: string
+      attendeeName: string
+      startTime: string
+    }
+  }
+}
+
 export async function seedFixtures(): Promise<FixtureContext> {
   return runDbOp<FixtureContext>('seed-fixtures')
+}
+
+export async function seedGuidedScheduleFixtures(ctx: FixtureContext): Promise<GuidedScheduleFixtures> {
+  return runDbOp<GuidedScheduleFixtures>('seed-guided-schedule-fixtures', ctx)
 }

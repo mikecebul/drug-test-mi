@@ -15,6 +15,41 @@ import { TZDate } from '@date-fns/tz'
 export const APP_TIMEZONE = 'America/New_York'
 
 /**
+ * Get the UTC instants that bound a calendar day in the app timezone.
+ *
+ * Use this for database range queries against timestamp fields when the product
+ * language says "today" or another local calendar day.
+ */
+export function getAppTimezoneDayWindow(date: Date = new Date()): { start: Date; end: Date } {
+  const appDate = TZDate.tz(APP_TIMEZONE, date)
+  const startInAppTimezone = new TZDate(
+    appDate.getFullYear(),
+    appDate.getMonth(),
+    appDate.getDate(),
+    0,
+    0,
+    0,
+    0,
+    APP_TIMEZONE,
+  )
+  const endInAppTimezone = new TZDate(
+    appDate.getFullYear(),
+    appDate.getMonth(),
+    appDate.getDate() + 1,
+    0,
+    0,
+    0,
+    0,
+    APP_TIMEZONE,
+  )
+
+  return {
+    start: new Date(startInAppTimezone.getTime()),
+    end: new Date(endInAppTimezone.getTime()),
+  }
+}
+
+/**
  * Format a drug test collection date for display
  * Always shows EST/EDT time regardless of where code runs
  *

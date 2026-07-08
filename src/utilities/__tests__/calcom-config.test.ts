@@ -83,7 +83,7 @@ describe('Cal.com config helpers', () => {
             },
           },
         },
-      } as Partial<Client>),
+      } as unknown as Partial<Client>),
     )
 
     expect(config).toMatchObject({
@@ -107,10 +107,28 @@ describe('Cal.com config helpers', () => {
             },
           },
         },
-      } as Partial<Client>),
+      } as unknown as Partial<Client>),
     )
 
     expect(config.test).toBe('17 Panel Instant')
+  })
+
+  test('adds preferred booking label from configured string values', async () => {
+    const config = await buildClientBookingCalConfig(
+      createClient({
+        referralType: 'court',
+        referral: {
+          relationTo: 'courts',
+          value: {
+            id: 'court-id',
+            name: '57th District Court',
+            preferredTestType: '11-panel-lab-no-etg',
+          },
+        },
+      } as unknown as Partial<Client>),
+    )
+
+    expect(config.test).toBe('11 Panel Lab (no EtG)')
   })
 
   test('omits invalid phone numbers from booking config', async () => {

@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload'
 import { admins } from '@/access/admins'
 import { anyone } from '@/access/anyone'
 import { superAdmin } from '@/access/superAdmin'
+import { testTypeSelectOptions } from '@/config/test-types'
 
 export const Courts: CollectionConfig = {
   slug: 'courts',
@@ -74,13 +75,8 @@ export const Courts: CollectionConfig = {
     },
     {
       name: 'preferredTestType',
-      type: 'relationship',
-      relationTo: 'test-types',
-      filterOptions: {
-        isActive: {
-          equals: true,
-        },
-      },
+      type: 'select',
+      options: testTypeSelectOptions,
     },
     {
       name: 'isActive',

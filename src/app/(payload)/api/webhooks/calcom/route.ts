@@ -3,6 +3,7 @@ import { getPayload, type Payload } from 'payload'
 import configPromise from '@payload-config'
 import type { Booking } from '@/payload-types'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
+import { findConfiguredTestTypeByCalcomAnswer } from '@/config/test-types'
 
 import {
   allowsUnsignedCalcomWebhooks,
@@ -12,6 +13,7 @@ import {
   getCalcomBookingNumericId,
   getCalcomBookingUid,
   getCalcomRescheduleUid,
+  getCalcomScheduledTestAnswerCandidates,
   handledCalcomBookingEvents,
   verifyCalcomWebhookSignature,
 } from './calcomWebhook'
@@ -54,12 +56,7 @@ async function findBookingByCalcomNumericId(payload: Payload, numericId?: number
   return result.docs[0] || null
 }
 
-async function updateBooking(
-  payload: Payload,
-  id: string,
-  data: Partial<CalcomBookingData>,
-  req: NextRequest,
-) {
+async function updateBooking(payload: Payload, id: string, data: Partial<CalcomBookingData>, req: NextRequest) {
   const booking = await payload.update({
     collection: 'bookings',
     id,
@@ -71,11 +68,7 @@ async function updateBooking(
   return booking
 }
 
-async function createBooking(
-  payload: Payload,
-  data: CalcomBookingData,
-  req: NextRequest,
-) {
+async function createBooking(payload: Payload, data: CalcomBookingData, req: NextRequest) {
   const booking = await payload.create({
     collection: 'bookings',
     data,
@@ -99,6 +92,46 @@ function isDuplicateKeyError(error: unknown): boolean {
 async function findBookingByCalcomIdentifiers(payload: Payload, data: CalcomBookingData): Promise<Booking | null> {
   const existingByUid = await findBookingByCalcomUid(payload, data.calcomBookingId)
   return existingByUid || (await findBookingByCalcomNumericId(payload, data.calcomBookingNumericId))
+}
+
+function getRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  return value as Record<string, unknown>
+}
+
+function resolveScheduledTestTypeValue(calcomPayload: CalcomWebhookPayload['payload'], fallbackInputs?: unknown) {
+  const fallbackRecord = getRecord(fallbackInputs)
+  const scheduledTestAnswers = getCalcomScheduledTestAnswerCandidates({
+    ...calcomPayload,
+    customInputs: calcomPayload.customInputs || fallbackRecord,
+    responses: calcomPayload.responses || fallbackRecord,
+  })
+  if (scheduledTestAnswers.length === 0) return null
+
+  for (const scheduledTestAnswer of scheduledTestAnswers) {
+    const matchingTestType = findConfiguredTestTypeByCalcomAnswer(scheduledTestAnswer)
+    if (matchingTestType) {
+      return matchingTestType.value
+    }
+  }
+
+  console.warn(`Cal.com scheduled test type did not match configured test types: ${scheduledTestAnswers.join(', ')}`)
+  return null
+}
+
+function buildResolvedCalcomBookingData(
+  webhookData: CalcomWebhookPayload,
+  existingPayment?: Booking['payment'],
+  existingBooking?: Booking | null,
+) {
+  const bookingData = buildCalcomBookingData(webhookData, existingPayment, existingBooking)
+  const scheduledTestType = resolveScheduledTestTypeValue(webhookData.payload, bookingData.customInputs)
+
+  if (scheduledTestType) {
+    bookingData.scheduledTestType = scheduledTestType
+  }
+
+  return bookingData
 }
 
 async function createOrUpdateBooking(
@@ -157,7 +190,12 @@ export async function POST(req: NextRequest) {
     const existingByRescheduleUid =
       triggerEvent === 'BOOKING_RESCHEDULED' ? await findBookingByCalcomUid(payloadClient, rescheduleUid) : null
 
-    if (triggerEvent === 'BOOKING_RESCHEDULED' && existingByUid && existingByRescheduleUid && existingByUid.id !== existingByRescheduleUid.id) {
+    if (
+      triggerEvent === 'BOOKING_RESCHEDULED' &&
+      existingByUid &&
+      existingByRescheduleUid &&
+      existingByUid.id !== existingByRescheduleUid.id
+    ) {
       await updateBooking(
         payloadClient,
         existingByRescheduleUid.id,
@@ -168,7 +206,11 @@ export async function POST(req: NextRequest) {
         req,
       )
 
-      const bookingData = buildCalcomBookingData(webhookData, existingByUid.payment)
+      const bookingData = buildResolvedCalcomBookingData(
+        webhookData,
+        existingByUid.payment,
+        existingByUid,
+      )
       const updatedBooking = await updateBooking(payloadClient, existingByUid.id, bookingData, req)
 
       console.log(`Merged Cal.com reschedule into existing booking: ${updatedBooking.id}`)
@@ -176,7 +218,11 @@ export async function POST(req: NextRequest) {
     }
 
     const existingBooking = existingByRescheduleUid || existingByUid || existingByNumericId
-    const bookingData = buildCalcomBookingData(webhookData, existingBooking?.payment)
+    const bookingData = buildResolvedCalcomBookingData(
+      webhookData,
+      existingBooking?.payment,
+      existingBooking,
+    )
 
     if (triggerEvent === 'BOOKING_CANCELLED' || triggerEvent === 'BOOKING_REJECTED') {
       if (existingBooking) {
@@ -204,7 +250,9 @@ export async function POST(req: NextRequest) {
     }
 
     const { booking, created } = await createOrUpdateBooking(payloadClient, bookingData, req)
-    console.log(created ? `Created Cal.com booking: ${booking.id}` : `Recovered duplicate Cal.com booking: ${booking.id}`)
+    console.log(
+      created ? `Created Cal.com booking: ${booking.id}` : `Recovered duplicate Cal.com booking: ${booking.id}`,
+    )
     return NextResponse.json(
       { message: created ? 'Booking created' : 'Booking updated', id: booking.id },
       { status: created ? 201 : 200 },

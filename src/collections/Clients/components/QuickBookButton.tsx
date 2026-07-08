@@ -2,7 +2,7 @@ import type { ServerComponentProps } from 'payload'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { QuickBookButtonClient } from './QuickBookButton.client'
-import { buildClientName, extractPreferredTestType, extractReferralRelation, RecommendedTestType } from '@/lib/quick-book'
+import { buildClientName, extractPreferredTestType, extractReferralRelation } from '@/lib/quick-book'
 import type { Client } from '@/payload-types'
 import { getAdminQuickBookCalLink } from '@/utilities/calcom-config'
 
@@ -50,27 +50,6 @@ async function resolveRecommendedTestType(
   const extractedFromReferral = extractPreferredTestType(referralDoc?.preferredTestType)
   if (!extractedFromReferral.recommendedTestTypeId && !extractedFromReferral.recommendedTestTypeValue) {
     return {}
-  }
-
-  if (!extractedFromReferral.recommendedTestTypeValue && extractedFromReferral.recommendedTestTypeId) {
-    try {
-      const testTypeDoc = await payload.findByID({
-        collection: 'test-types',
-        id: extractedFromReferral.recommendedTestTypeId,
-        depth: 0,
-        select: {
-          value: true,
-        },
-      })
-
-      return {
-        ...extractedFromReferral,
-        ...(testTypeDoc?.value ? { recommendedTestTypeValue: testTypeDoc.value } : {}),
-      } satisfies RecommendedTestType
-    } catch (error) {
-      console.warn('[QuickBookButton] Failed to resolve test type value for recommendation', error)
-      return extractedFromReferral
-    }
   }
 
   return extractedFromReferral

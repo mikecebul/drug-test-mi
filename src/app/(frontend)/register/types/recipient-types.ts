@@ -17,8 +17,9 @@ export type EmployerOption = ReferralOption
 
 export type CourtOption = ReferralOption
 
-export type EmployerRecord = Pick<Employer, 'id' | 'name' | 'contacts' | 'preferredTestType'>
-  & {
+export type EmployerRecord = Omit<Pick<Employer, 'id' | 'name' | 'contacts' | 'preferredTestType'>, 'preferredTestType'> &
+  {
+    preferredTestType?: unknown
     contactName?: string | null
     contactEmail?: string | null
     contacts?: Array<{ name?: string | null; email?: string | null }> | null
@@ -27,8 +28,9 @@ export type EmployerRecord = Pick<Employer, 'id' | 'name' | 'contacts' | 'prefer
     recipientEmails?: Array<{ email?: string | null }> | null
   }
 
-export type CourtRecord = Pick<Court, 'id' | 'name' | 'contacts' | 'preferredTestType'>
-  & {
+export type CourtRecord = Omit<Pick<Court, 'id' | 'name' | 'contacts' | 'preferredTestType'>, 'preferredTestType'> &
+  {
+    preferredTestType?: unknown
     mainContactName?: string | null
     mainContactEmail?: string | null
     recipientEmails?: Array<{ email?: string | null }> | null

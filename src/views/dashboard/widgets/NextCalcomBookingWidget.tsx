@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { WidgetServerProps } from 'payload'
-import { CalendarDays, Clock, PlayCircle } from 'lucide-react'
+import { CalendarClock, CalendarDays, CalendarX, Clock, ExternalLink, Menu, PlayCircle } from 'lucide-react'
 
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +10,8 @@ import { APP_TIMEZONE } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
 import { getTodaysCollectionBookings } from '@/views/DrugTestWizard/workflows/complete-workflow/actions'
 import {
+  formatGuidedGender,
+  getGuidedGenderBadgeClass,
   getGuidedPaymentLabel,
   getGuidedScheduleHref,
 } from '@/views/DrugTestWizard/workflows/complete-workflow/schedule-utils'
@@ -24,55 +26,87 @@ function formatTime(value: string) {
   }).format(new Date(value))
 }
 
-function formatGender(value?: string | null) {
-  if (value === 'male') return 'Male'
-  if (value === 'female') return 'Female'
-  if (value === 'other') return 'Other'
-  return 'Unknown'
-}
-
 function ScheduleRow({ booking }: { booking: Booking }) {
   const paymentLabel = getGuidedPaymentLabel(booking)
   const needsRegistration = booking.needsRegistration
   const needsTestType = booking.needsTestType
-  const workflowLabel = needsRegistration || needsTestType ? 'Review & Start' : 'Start Guided Workflow'
+  const workflowLabel = needsRegistration || needsTestType ? 'Review & Start' : 'Collect Test'
+  const { cancelHref, rescheduleHref } = booking.calcomActionLinks ?? {
+    cancelHref: null,
+    rescheduleHref: null,
+  }
+
   return (
-    <Link
-      href={getGuidedScheduleHref(booking)}
+    <div
       className={cn(
-        'border-border/70 bg-card hover:bg-muted/50 focus-visible:ring-ring grid w-full gap-4',
-        'rounded-md border p-4 text-left transition focus-visible:ring-2 focus-visible:outline-none',
+        'border-border/70 bg-card grid w-full gap-4 rounded-md border p-4 text-left transition',
         'md:grid-cols-[minmax(0,1fr)_auto]',
       )}
     >
-      <span className="grid min-w-0 gap-3 sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-center">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-center">
         <span className="text-foreground inline-flex items-center gap-2 text-sm font-semibold">
           <Clock className="text-muted-foreground size-3.5" />
           {formatTime(booking.startTime)}
         </span>
         <span className="min-w-0 space-y-2">
-          <span className="block truncate text-base font-semibold">{booking.attendeeName}</span>
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="block truncate text-base font-semibold">{booking.attendeeName}</span>
+            <Badge variant="outline" className={cn('shrink-0', getGuidedGenderBadgeClass(booking.client?.gender))}>
+              {formatGuidedGender(booking.client?.gender)}
+            </Badge>
+          </span>
           <span className="flex flex-wrap items-center gap-2">
             <Badge
-              variant={paymentLabel === 'Unpaid' || paymentLabel === 'Still owes' ? 'outline' : 'default'}
-              className={cn(
-                paymentLabel === 'Still owes' && 'border-destructive text-destructive',
-                paymentLabel === 'Collected' && 'bg-primary text-primary-foreground',
-              )}
+              variant={
+                paymentLabel === 'Paid' || paymentLabel === 'Pre-paid' || paymentLabel === 'Collected'
+                  ? 'success'
+                  : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
+                    ? 'outline'
+                    : 'default'
+              }
+              className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
             >
               {paymentLabel}
             </Badge>
-            <Badge variant="secondary">{formatGender(booking.client?.gender)}</Badge>
             {needsRegistration && <Badge variant="secondary">Register</Badge>}
             {needsTestType && <Badge variant="secondary">Set test</Badge>}
           </span>
         </span>
-      </span>
-      <span className="bg-primary text-primary-foreground inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium md:self-center">
-        <PlayCircle className="size-4" />
-        {workflowLabel}
-      </span>
-    </Link>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 md:justify-end md:self-center">
+        <Link href={getGuidedScheduleHref(booking)} className={cn(buttonVariants({ size: 'sm' }), 'min-w-32 gap-2')}>
+          <PlayCircle className="size-4" />
+          {workflowLabel}
+        </Link>
+        {rescheduleHref && (
+          <a
+            href={rescheduleHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), 'gap-2')}
+          >
+            <CalendarClock className="size-4" />
+            Reschedule
+            <ExternalLink className="size-3" />
+          </a>
+        )}
+        {cancelHref && (
+          <a
+            href={cancelHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              buttonVariants({ size: 'sm', variant: 'outline' }),
+              'border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive gap-2',
+            )}
+          >
+            <CalendarX className="size-4" />
+            Cancel
+            <ExternalLink className="size-3" />
+          </a>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -112,8 +146,8 @@ export default async function NextCalcomBookingWidget({ req }: WidgetServerProps
                 'gap-2',
               )}
             >
-              <PlayCircle className="size-4" />
-              Collect Test
+              <Menu className="size-4" />
+              Menu
             </Link>
           </div>
         </CardHeader>
