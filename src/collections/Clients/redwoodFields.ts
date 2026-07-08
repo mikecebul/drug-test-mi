@@ -178,8 +178,28 @@ export const redwoodSyncTab: ClientTab = {
         description: 'Tracks Redwood donor default-test sync state.',
       },
     },
+    {
+      name: 'redwoodDefaultTestSyncedCode',
+      type: 'text',
+      admin: {
+        readOnly: true,
+        description: 'Last Redwood default-test code managed by the website sync job.',
+      },
+    },
     redwoodTimestampField('redwoodDefaultTestLastAttemptAt', 'Timestamp of the most recent Redwood default-test sync attempt.'),
     redwoodErrorField('redwoodDefaultTestLastError', 'Most recent Redwood default-test sync error message, if any.'),
+    {
+      name: 'redwoodInactivationStatus',
+      type: 'select',
+      defaultValue: 'not-queued',
+      options: redwoodStatusOptions,
+      admin: {
+        readOnly: true,
+        description: 'Tracks website inactive-client sync to Redwood donor inactive status.',
+      },
+    },
+    redwoodTimestampField('redwoodInactivationLastAttemptAt', 'Timestamp of the most recent Redwood inactivation attempt.'),
+    redwoodErrorField('redwoodInactivationLastError', 'Most recent Redwood inactivation error message, if any.'),
     {
       name: 'redwoodMatchedBy',
       type: 'select',

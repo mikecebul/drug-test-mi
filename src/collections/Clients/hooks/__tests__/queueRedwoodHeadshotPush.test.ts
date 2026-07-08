@@ -33,7 +33,12 @@ describe('queueRedwoodHeadshotPush', () => {
       },
     } as any)
 
-    expect(queueRedwoodHeadshotUpload).toHaveBeenCalledWith('client-1', 'admin-1', expect.anything())
+    expect(queueRedwoodHeadshotUpload).toHaveBeenCalledWith(
+      'client-1',
+      'admin-1',
+      expect.anything(),
+      expect.anything(),
+    )
   })
 
   it('skips auto-queueing when the client is not Redwood-ready yet', async () => {

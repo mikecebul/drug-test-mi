@@ -27,6 +27,7 @@ export const ensureRedwoodUniqueId: CollectionAfterChangeHook = async ({ doc, pr
       ...req.context,
       skipEnsureRedwoodUniqueId: true,
     },
+    req,
     overrideAccess: true,
   })
 

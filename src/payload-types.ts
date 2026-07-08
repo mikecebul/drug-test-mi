@@ -192,6 +192,7 @@ export interface Config {
     tasks: {
       'redwood-import-client': TaskRedwoodImportClient;
       'redwood-update-client': TaskRedwoodUpdateClient;
+      'redwood-inactivate-client': TaskRedwoodInactivateClient;
       'redwood-sync-headshot': TaskRedwoodSyncHeadshot;
       'redwood-queue-pending-client-updates-nightly': TaskRedwoodQueuePendingClientUpdatesNightly;
       'redwood-sync-missing-headshots-nightly': TaskRedwoodSyncMissingHeadshotsNightly;
@@ -1509,6 +1510,10 @@ export interface Client {
    */
   redwoodDefaultTestSyncStatus?: ('not-queued' | 'queued' | 'skipped' | 'synced' | 'failed' | 'manual-review') | null;
   /**
+   * Last Redwood default-test code managed by the website sync job.
+   */
+  redwoodDefaultTestSyncedCode?: string | null;
+  /**
    * Timestamp of the most recent Redwood default-test sync attempt.
    */
   redwoodDefaultTestLastAttemptAt?: string | null;
@@ -1516,6 +1521,18 @@ export interface Client {
    * Most recent Redwood default-test sync error message, if any.
    */
   redwoodDefaultTestLastError?: string | null;
+  /**
+   * Tracks website inactive-client sync to Redwood donor inactive status.
+   */
+  redwoodInactivationStatus?: ('not-queued' | 'queued' | 'synced' | 'failed' | 'manual-review') | null;
+  /**
+   * Timestamp of the most recent Redwood inactivation attempt.
+   */
+  redwoodInactivationLastAttemptAt?: string | null;
+  /**
+   * Most recent Redwood inactivation error message, if any.
+   */
+  redwoodInactivationLastError?: string | null;
   /**
    * How this client was matched in Redwood export.
    */
@@ -2196,7 +2213,15 @@ export interface AdminAlert {
    * Workflow or Redwood job type associated with this alert.
    */
   jobType?:
-    | ('import' | 'client-update' | 'headshot-sync' | 'headshot-upload' | 'unique-id-sync' | 'default-test-sync')
+    | (
+        | 'import'
+        | 'client-update'
+        | 'headshot-sync'
+        | 'headshot-upload'
+        | 'unique-id-sync'
+        | 'default-test-sync'
+        | 'client-inactivation'
+      )
     | null;
   /**
    * Stable incident key used to dedupe repeated Redwood failures.
@@ -2497,6 +2522,7 @@ export interface PayloadJob {
           | 'inline'
           | 'redwood-import-client'
           | 'redwood-update-client'
+          | 'redwood-inactivate-client'
           | 'redwood-sync-headshot'
           | 'redwood-queue-pending-client-updates-nightly'
           | 'redwood-sync-missing-headshots-nightly'
@@ -2542,6 +2568,7 @@ export interface PayloadJob {
         | 'inline'
         | 'redwood-import-client'
         | 'redwood-update-client'
+        | 'redwood-inactivate-client'
         | 'redwood-sync-headshot'
         | 'redwood-queue-pending-client-updates-nightly'
         | 'redwood-sync-missing-headshots-nightly'
@@ -3744,8 +3771,12 @@ export interface ClientsSelect<T extends boolean = true> {
   redwoodHeadshotPushLastAttemptAt?: T;
   redwoodHeadshotPushLastError?: T;
   redwoodDefaultTestSyncStatus?: T;
+  redwoodDefaultTestSyncedCode?: T;
   redwoodDefaultTestLastAttemptAt?: T;
   redwoodDefaultTestLastError?: T;
+  redwoodInactivationStatus?: T;
+  redwoodInactivationLastAttemptAt?: T;
+  redwoodInactivationLastError?: T;
   redwoodMatchedBy?: T;
   redwoodMatchedDonorName?: T;
   redwoodImportScreenshotPath?: T;
@@ -4229,6 +4260,20 @@ export interface TaskRedwoodUpdateClient {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-inactivate-client".
+ */
+export interface TaskRedwoodInactivateClient {
+  input: {
+    clientId: string;
+    requestedByAdminId?: string | null;
+  };
+  output: {
+    status: string;
+    screenshotPath?: string | null;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TaskRedwood-sync-headshot".
  */
 export interface TaskRedwoodSyncHeadshot {
@@ -4300,6 +4345,7 @@ export interface TaskRedwoodUploadHeadshot {
 export interface TaskRedwoodSyncDefaultTest {
   input: {
     clientId: string;
+    previousSyncedCode?: string | null;
   };
   output: {
     status: string;

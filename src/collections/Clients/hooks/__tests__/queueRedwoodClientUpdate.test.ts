@@ -71,6 +71,7 @@ describe('queueRedwoodClientUpdateAfterChange', () => {
       ['firstName', 'phone'],
       'admin-1',
       expect.anything(),
+      expect.anything(),
     )
   })
 

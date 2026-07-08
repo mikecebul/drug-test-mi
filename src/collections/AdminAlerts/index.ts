@@ -135,6 +135,7 @@ export const AdminAlerts: CollectionConfig = {
         { label: 'Redwood Headshot Upload', value: 'headshot-upload' },
         { label: 'Redwood Unique ID Sync', value: 'unique-id-sync' },
         { label: 'Redwood Default Test Sync', value: 'default-test-sync' },
+        { label: 'Redwood Client Inactivation', value: 'client-inactivation' },
       ],
       admin: {
         description: 'Workflow or Redwood job type associated with this alert.',

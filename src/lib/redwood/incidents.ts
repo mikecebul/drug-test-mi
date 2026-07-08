@@ -7,6 +7,7 @@ export type RedwoodJobType =
   | 'headshot-upload'
   | 'unique-id-sync'
   | 'default-test-sync'
+  | 'client-inactivation'
 
 export type RedwoodIncidentKind =
   | 'business-critical-failure'
@@ -69,7 +70,11 @@ function deriveRedwoodErrorClass(message: string): string {
     return 'mutation-verification-failed'
   }
 
-  if (normalized.includes('missing a website headshot') || normalized.includes('client id is required')) {
+  if (
+    normalized.includes('missing a website headshot') ||
+    normalized.includes('client id is required') ||
+    normalized.includes('missing redwood identity')
+  ) {
     return 'invalid-input'
   }
 

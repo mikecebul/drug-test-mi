@@ -46,13 +46,13 @@ export const queueRedwoodHeadshotPush: CollectionAfterChangeHook = async ({ doc,
   }
 
   try {
-    await queueRedwoodHeadshotUpload(String(doc.id), String(req.user.id), req.payload)
+    await queueRedwoodHeadshotUpload(String(doc.id), String(req.user.id), req.payload, req)
   } catch (error) {
     req.payload.logger.error({
       msg: '[clients] Failed to queue Redwood headshot upload after client update',
       clientId: String(doc.id),
       headshotId: currentHeadshotId,
-      error: error instanceof Error ? error.message : String(error),
+      err: error,
     })
   }
 

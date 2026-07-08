@@ -8,7 +8,7 @@ import {
   REDWOOD_PENDING_CLIENT_UPDATE_FIELDS,
   removePendingRedwoodClientUpdateFields,
 } from '../redwoodSyncFields'
-import { updateRedwoodClientDetails } from './redwoodMutationAutomation'
+import { updateRedwoodClientDetailsViaHttp } from './redwoodClientHttpUpdate'
 
 function shouldRouteClientUpdateToManualReview(message: string): boolean {
   return (
@@ -65,7 +65,7 @@ export async function runRedwoodClientUpdateJob(
       overrideAccess: true,
     })
 
-    const result = await updateRedwoodClientDetails({
+    const result = await updateRedwoodClientDetailsViaHttp({
       client: {
         id: String(client.id),
         firstName: client.firstName,

@@ -1,4 +1,4 @@
-import { getPayload, type Payload } from 'payload'
+import { getPayload, type Payload, type PayloadRequest } from 'payload'
 
 import { recordQueuedJobRun } from '@/lib/jobs/jobRuns'
 import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
@@ -7,6 +7,9 @@ import { buildRedwoodUniqueId } from '@/lib/redwood/unique-id'
 
 export type RedwoodQueueSource = 'frontend-registration' | 'admin-registration' | 'wizard-registration' | 'manual'
 export type RedwoodClientUpdateField = 'firstName' | 'middleInitial' | 'lastName' | 'dob' | 'gender' | 'phone'
+export type RedwoodDefaultTestSyncQueueOptions = {
+  previousSyncedCode?: string | null
+}
 
 async function resolvePayload(payload?: Payload): Promise<Payload> {
   if (payload) return payload
@@ -16,6 +19,10 @@ async function resolvePayload(payload?: Payload): Promise<Payload> {
 
 function normalizeChangedFields(changedFields: RedwoodClientUpdateField[]): RedwoodClientUpdateField[] {
   return Array.from(new Set(changedFields.map((field) => field.trim()).filter(Boolean))).sort() as RedwoodClientUpdateField[]
+}
+
+function reqOption(reqArg?: PayloadRequest): { req: PayloadRequest } | Record<string, never> {
+  return reqArg ? { req: reqArg } : {}
 }
 
 export async function queueRedwoodImportForClient(
@@ -254,6 +261,7 @@ export async function queueRedwoodHeadshotUpload(
   clientId: string,
   requestedByAdminId?: string,
   payloadArg?: Payload,
+  reqArg?: PayloadRequest,
 ): Promise<{ jobId: string }> {
   const payload = await resolvePayload(payloadArg)
 
@@ -262,6 +270,7 @@ export async function queueRedwoodHeadshotUpload(
       collection: 'clients',
       id: clientId,
       depth: 0,
+      ...reqOption(reqArg),
       overrideAccess: true,
     })
     const uniqueId = typeof client.redwoodUniqueId === 'string' ? client.redwoodUniqueId.trim() : ''
@@ -285,6 +294,7 @@ export async function queueRedwoodHeadshotUpload(
           redwoodHeadshotPushLastAttemptAt: new Date().toISOString(),
           redwoodHeadshotPushLastError: 'Client is missing Redwood identity; headshot upload was not queued.',
         },
+        ...reqOption(reqArg),
         overrideAccess: true,
       })
 
@@ -304,6 +314,7 @@ export async function queueRedwoodHeadshotUpload(
       task: 'redwood-upload-headshot',
       queue: 'redwood',
       input,
+      ...reqOption(reqArg),
       overrideAccess: true,
     })
     await recordQueuedJobRun(payload, {
@@ -321,6 +332,7 @@ export async function queueRedwoodHeadshotUpload(
         redwoodHeadshotPushLastAttemptAt: new Date().toISOString(),
         redwoodHeadshotPushLastError: null,
       },
+      ...reqOption(reqArg),
       overrideAccess: true,
     })
 
@@ -359,6 +371,7 @@ export async function queueRedwoodClientUpdate(
   changedFields: RedwoodClientUpdateField[],
   requestedByAdminId?: string,
   payloadArg?: Payload,
+  reqArg?: PayloadRequest,
 ): Promise<{ jobId: string }> {
   const payload = await resolvePayload(payloadArg)
 
@@ -381,6 +394,7 @@ export async function queueRedwoodClientUpdate(
       task: 'redwood-update-client',
       queue: 'redwood',
       input,
+      ...reqOption(reqArg),
       overrideAccess: true,
     })
     await recordQueuedJobRun(payload, {
@@ -398,6 +412,7 @@ export async function queueRedwoodClientUpdate(
         redwoodClientUpdateLastAttemptAt: new Date().toISOString(),
         redwoodClientUpdateLastError: null,
       },
+      ...reqOption(reqArg),
       overrideAccess: true,
     })
 
@@ -437,20 +452,29 @@ export async function queueRedwoodClientUpdate(
 export async function queueRedwoodDefaultTestSync(
   clientId: string,
   payloadArg?: Payload,
+  reqArg?: PayloadRequest,
+  options?: RedwoodDefaultTestSyncQueueOptions,
 ): Promise<{ jobId: string }> {
   const payload = await resolvePayload(payloadArg)
 
   try {
     const accountNumber = getRedwoodAccountNumber()
     assertRedwoodMutationAllowed(accountNumber, 'default test sync')
-    const input = {
-      clientId,
-    }
+    const previousSyncedCode = options?.previousSyncedCode?.trim()
+    const input = previousSyncedCode
+      ? {
+          clientId,
+          previousSyncedCode,
+        }
+      : {
+          clientId,
+        }
 
     const queued = await payload.jobs.queue({
       task: 'redwood-sync-default-test',
       queue: 'redwood',
       input,
+      ...reqOption(reqArg),
       overrideAccess: true,
     })
     await recordQueuedJobRun(payload, {
@@ -480,6 +504,105 @@ export async function queueRedwoodDefaultTestSync(
       message,
       context: {
         clientId,
+        error: message,
+      },
+    })
+
+    throw error
+  }
+}
+
+export async function queueRedwoodClientInactivation(
+  clientId: string,
+  requestedByAdminId?: string,
+  payloadArg?: Payload,
+  reqArg?: PayloadRequest,
+): Promise<{ jobId: string }> {
+  const payload = await resolvePayload(payloadArg)
+
+  try {
+    const client = await payload.findByID({
+      collection: 'clients',
+      id: clientId,
+      depth: 0,
+      ...reqOption(reqArg),
+      overrideAccess: true,
+    })
+    const uniqueId = typeof client.redwoodUniqueId === 'string' ? client.redwoodUniqueId.trim() : ''
+    const donorId = typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId.trim() : ''
+    const accountNumber = getRedwoodAccountNumber()
+
+    assertRedwoodMutationAllowed(accountNumber, 'client inactivation')
+
+    if (!uniqueId && !donorId) {
+      await payload.update({
+        collection: 'clients',
+        id: client.id,
+        data: {
+          redwoodInactivationStatus: 'failed',
+          redwoodInactivationLastAttemptAt: new Date().toISOString(),
+          redwoodInactivationLastError: 'Client is missing Redwood identity; inactivation was not queued.',
+        },
+        ...reqOption(reqArg),
+        overrideAccess: true,
+      })
+
+      throw new Error('Client is missing Redwood identity; inactivation requires redwoodUniqueId or redwoodDonorId.')
+    }
+
+    const input = {
+      clientId,
+      requestedByAdminId: requestedByAdminId || null,
+    }
+
+    const queued = await payload.jobs.queue({
+      task: 'redwood-inactivate-client',
+      queue: 'redwood',
+      input,
+      ...reqOption(reqArg),
+      overrideAccess: true,
+    })
+    await recordQueuedJobRun(payload, {
+      jobId: queued.id,
+      queue: 'redwood',
+      taskSlug: 'redwood-inactivate-client',
+      input,
+    })
+
+    await payload.update({
+      collection: 'clients',
+      id: client.id,
+      data: {
+        redwoodInactivationStatus: 'queued',
+        redwoodInactivationLastAttemptAt: new Date().toISOString(),
+        redwoodInactivationLastError: null,
+      },
+      ...reqOption(reqArg),
+      overrideAccess: true,
+    })
+
+    payload.logger.info({
+      msg: '[redwood-queue] Queued redwood-inactivate-client',
+      clientId,
+      requestedByAdminId,
+      queue: 'redwood',
+      jobId: queued.id,
+    })
+
+    return { jobId: queued.id }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    await upsertRedwoodIncidentAlert({
+      payload,
+      clientId,
+      jobType: 'client-inactivation',
+      kind: 'business-critical-failure',
+      title: `Failed to queue Redwood inactivation for client ${clientId}`,
+      message,
+      context: {
+        clientId,
+        requestedByAdminId,
         error: message,
       },
     })

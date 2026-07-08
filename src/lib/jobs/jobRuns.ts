@@ -7,6 +7,7 @@ export const JOB_TASK_LABELS = {
   createCollectionImport: 'Collection Import',
   inline: 'Inline Task',
   'redwood-backfill-client-unique-id': 'Redwood ID Backfill',
+  'redwood-inactivate-client': 'Client Inactivation',
   'redwood-import-client': 'Redwood Import',
   'redwood-queue-pending-client-updates-nightly': 'Nightly Client Sync Sweep',
   'redwood-sync-default-test': 'Default Test Sync',

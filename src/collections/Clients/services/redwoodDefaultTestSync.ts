@@ -3,11 +3,14 @@ import type { Payload } from 'payload'
 import { resolveClientRedwoodEligibleDefaultTest } from '@/lib/redwood/default-test'
 import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
 import { classifyRedwoodIncident, upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
-import { syncClientDefaultLabTestInRedwood } from './redwoodMutationAutomation'
+import { syncClientDefaultLabTestInRedwoodViaHttp } from './redwoodDefaultTestHttpSync'
 
 export async function runRedwoodDefaultTestSync(
   payload: Payload,
   clientId: string,
+  options?: {
+    previousSyncedCode?: string | null
+  },
 ): Promise<{
   success: boolean
   status: 'synced' | 'skipped' | 'failed' | 'manual-review'
@@ -59,6 +62,10 @@ export async function runRedwoodDefaultTestSync(
 
     const accountNumber = getRedwoodAccountNumber()
     assertRedwoodMutationAllowed(accountNumber, 'default test sync')
+    const previousSyncedCode =
+      (typeof client.redwoodDefaultTestSyncedCode === 'string' && client.redwoodDefaultTestSyncedCode.trim()) ||
+      options?.previousSyncedCode?.trim() ||
+      undefined
 
     await payload.update({
       collection: 'clients',
@@ -71,7 +78,7 @@ export async function runRedwoodDefaultTestSync(
       overrideAccess: true,
     })
 
-    const result = await syncClientDefaultLabTestInRedwood({
+    const result = await syncClientDefaultLabTestInRedwoodViaHttp({
       client: {
         id: String(client.id),
         firstName: client.firstName,
@@ -81,8 +88,8 @@ export async function runRedwoodDefaultTestSync(
         redwoodUniqueId: uniqueId || undefined,
         redwoodDonorId: donorId || undefined,
       },
-      payload,
       accountNumber,
+      previousSyncedCode,
       redwoodLabTestCode: resolution.redwoodLabTestCode,
     })
 
@@ -92,6 +99,7 @@ export async function runRedwoodDefaultTestSync(
       data: {
         redwoodDonorId: result.donorId || donorId || null,
         redwoodDefaultTestSyncStatus: 'synced',
+        redwoodDefaultTestSyncedCode: result.selectedCode,
         redwoodDefaultTestLastAttemptAt: new Date().toISOString(),
         redwoodDefaultTestLastError: null,
       },
@@ -115,7 +123,7 @@ export async function runRedwoodDefaultTestSync(
     payload.logger.error({
       msg: '[redwood-default-test] Failed to sync Redwood donor default test',
       clientId,
-      error: message,
+      err: error,
     })
 
     await payload.update({

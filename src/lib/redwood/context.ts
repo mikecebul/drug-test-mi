@@ -1,3 +1,4 @@
 export const REDWOOD_SKIP_HEADSHOT_PUSH_CONTEXT_KEY = 'skipRedwoodHeadshotPush'
 export const REDWOOD_SKIP_CLIENT_UPDATE_QUEUE_CONTEXT_KEY = 'skipRedwoodClientUpdateQueue'
+export const REDWOOD_SKIP_INACTIVATION_QUEUE_CONTEXT_KEY = 'skipRedwoodInactivationQueue'
 export const REDWOOD_APPROVED_CLIENT_UPDATE_FIELDS_CONTEXT_KEY = 'approvedRedwoodClientUpdateFields'

@@ -2,7 +2,7 @@ import type { Payload } from 'payload'
 
 import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
 import { classifyRedwoodIncident, upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
-import { uploadClientHeadshotToRedwood } from './redwoodMutationAutomation'
+import { uploadClientHeadshotToRedwoodViaHttp } from './redwoodHeadshotHttpUpload'
 
 export async function runRedwoodHeadshotUploadJob(
   payload: Payload,
@@ -57,7 +57,7 @@ export async function runRedwoodHeadshotUploadJob(
       overrideAccess: true,
     })
 
-    const result = await uploadClientHeadshotToRedwood({
+    const result = await uploadClientHeadshotToRedwoodViaHttp({
       client: {
         id: client.id,
         firstName: client.firstName,

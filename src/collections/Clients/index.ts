@@ -5,6 +5,11 @@ import { anyone } from '@/access/anyone'
 import { notifyNewRegistration } from './hooks/notifyNewRegistration'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
 import { ensureRedwoodUniqueId } from './hooks/ensureRedwoodUniqueId'
+import { queueRedwoodClientInactivationAfterChange } from './hooks/queueRedwoodClientInactivation'
+import { queueRedwoodClientUpdateAfterChange } from './hooks/queueRedwoodClientUpdate'
+import { queueRedwoodDefaultTestSyncAfterChange } from './hooks/queueRedwoodDefaultTestSync'
+import { queueRedwoodHeadshotPush } from './hooks/queueRedwoodHeadshotPush'
+import { requireRedwoodClientUpdateApproval } from './hooks/requireRedwoodClientUpdateApproval'
 import { syncDefaultTestTypeFromReferral } from './hooks/syncDefaultTestTypeFromReferral'
 import { redwoodDefaultTestTypeField, redwoodSyncTab } from './redwoodFields'
 import type { Court, Employer, TestType } from '@/payload-types'
@@ -244,8 +249,15 @@ export const Clients: CollectionConfig = {
     },
   },
   hooks: {
-    beforeChange: [syncDefaultTestTypeFromReferral],
-    afterChange: [notifyNewRegistration, ensureRedwoodUniqueId],
+    beforeChange: [syncDefaultTestTypeFromReferral, requireRedwoodClientUpdateApproval],
+    afterChange: [
+      notifyNewRegistration,
+      ensureRedwoodUniqueId,
+      queueRedwoodClientUpdateAfterChange,
+      queueRedwoodHeadshotPush,
+      queueRedwoodDefaultTestSyncAfterChange,
+      queueRedwoodClientInactivationAfterChange,
+    ],
   },
   admin: {
     defaultColumns: ['headshot', 'lastName', 'email', 'referralType', 'moneyOwed'],

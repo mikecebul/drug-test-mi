@@ -41,6 +41,10 @@ import {
 import { mapReferralTypeToRedwoodGroup } from '@/lib/redwood/groups'
 import { queueRedwoodDefaultTestSync } from '@/lib/redwood/queue'
 import { buildRedwoodUniqueId } from '@/lib/redwood/unique-id'
+import {
+  createRedwoodClientViaHttp,
+  type RedwoodHttpImportedDonor,
+} from './redwoodClientHttpImport'
 
 const DEFAULT_REDWOOD_EXPORT_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/ExportDonors.aspx'
 const DEFAULT_REDWOOD_IMPORT_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/ImportDonors.aspx'
@@ -48,6 +52,24 @@ const DEFAULT_REDWOOD_DONOR_SEARCH_URL = 'https://toxaccess.redwoodtoxicology.co
 
 function isRedwoodImportPreviewOnly(): boolean {
   return process.env.REDWOOD_IMPORT_PREVIEW_ONLY === 'true'
+}
+
+function isRedwoodHttpImportDisabled(): boolean {
+  return process.env.REDWOOD_HTTP_IMPORT_DISABLED === 'true'
+}
+
+function getRedwoodHttpImportSkipReason(args: {
+  donorGroup: string
+  playwrightRuntimeProfile?: RedwoodBrowserRuntimeProfile
+  previewOnly: boolean
+  source: string
+}): string | null {
+  if (isRedwoodHttpImportDisabled()) return 'disabled-by-env'
+  if (args.previewOnly) return 'preview-only-mode'
+  if (args.playwrightRuntimeProfile === 'dev-debug') return 'dev-debug-browser-mode'
+  if (args.source !== 'frontend-registration' && !args.donorGroup) return 'donor-group-requires-export-fallback'
+
+  return null
 }
 
 async function collectActionControls(page: any, limit = 12): Promise<string[]> {
@@ -1192,7 +1214,7 @@ async function routeImportedClientToPartialSuccess(args: {
     redwoodMatchedDonorName: null,
     redwoodCallInCode: redwoodCallInCode || null,
     redwoodDonorId: redwoodDonorId || null,
-    redwoodImportScreenshotPath: screenshotPath,
+    redwoodImportScreenshotPath: screenshotPath || null,
     redwoodLastAttemptAt: new Date().toISOString(),
     redwoodLastError: message,
   })
@@ -1267,6 +1289,90 @@ async function resolveImportedDonorMetadata(args: {
   }
 }
 
+async function routeHttpImportResult(args: {
+  client: any
+  clientId: string
+  payload: Payload
+  result: RedwoodHttpImportedDonor
+  source: string
+}): Promise<{
+  status: 'matched-existing' | 'partial-success' | 'reactivated-existing' | 'synced'
+  matchedBy?: RedwoodMatchBy
+  screenshotPath: string
+}> {
+  const { client, clientId, payload, result, source } = args
+
+  if (result.status === 'matched-existing') {
+    return routeDirectSearchMatchToSynced({
+      activityStatus: 'active',
+      callInCode: result.callInCode,
+      client,
+      clientId,
+      donorId: result.donorId,
+      matchedBy: result.matchedBy || 'unique-id',
+      matchedDonorName: result.matchedDonorName || `${client.lastName}, ${client.firstName}`,
+      payload,
+      screenshotPath: '',
+      source,
+    })
+  }
+
+  await updateClientRedwoodState(payload, clientId, {
+    redwoodSyncStatus: 'synced',
+    redwoodMatchedBy: null,
+    redwoodMatchedDonorName: null,
+    redwoodCallInCode: result.callInCode,
+    redwoodDonorId: result.donorId,
+    redwoodImportScreenshotPath: null,
+    redwoodLastAttemptAt: new Date().toISOString(),
+    redwoodLastError: null,
+  })
+
+  payload.logger.info({
+    msg: '[redwood-import] Submitted Redwood import successfully via direct HTTP',
+    clientId,
+    source,
+    donorId: result.donorId,
+    callInCode: result.callInCode,
+    queue: 'redwood',
+  })
+
+  const defaultTestRequired = await isDefaultTestSyncRequired({
+    client,
+    payload,
+  })
+
+  try {
+    await queueRedwoodDefaultTestSync(String(clientId), payload)
+  } catch (error) {
+    const queueMessage = error instanceof Error ? error.message : String(error)
+
+    payload.logger.error({
+      msg: '[redwood-import] Redwood donor import succeeded via direct HTTP, but default-test sync could not be queued',
+      clientId,
+      source,
+      error: queueMessage,
+    })
+
+    if (defaultTestRequired) {
+      return routeImportedClientToPartialSuccess({
+        clientId,
+        payload,
+        screenshotPath: '',
+        source,
+        message: `Redwood import completed, but required default-test sync could not be queued: ${queueMessage}`,
+        redwoodCallInCode: result.callInCode,
+        redwoodDonorId: result.donorId,
+      })
+    }
+  }
+
+  return {
+    status: 'synced',
+    screenshotPath: '',
+  }
+}
+
 export async function runRedwoodImportClientJob(args: {
   payload: Payload
   clientId: string
@@ -1303,8 +1409,66 @@ export async function runRedwoodImportClientJob(args: {
   const clientDob = client.dob
   const uniqueId =
     (typeof client.redwoodUniqueId === 'string' && client.redwoodUniqueId.trim()) || buildRedwoodUniqueId(client.id)
+  const initialDonorGroup =
+    source === 'frontend-registration'
+      ? ''
+      : resolveDonorGroup({
+          clientReferralType: client.referralType,
+          donors: [],
+        })
 
   let diagnosticScreenshotPath: string | null = null
+  let httpImportFallbackErrorMessage: string | null = null
+
+  const httpImportSkipReason = getRedwoodHttpImportSkipReason({
+    donorGroup: initialDonorGroup,
+    playwrightRuntimeProfile,
+    previewOnly: isRedwoodImportPreviewOnly(),
+    source,
+  })
+
+  if (!httpImportSkipReason) {
+    try {
+      const httpResult = await createRedwoodClientViaHttp({
+        accountNumber,
+        firstName: client.firstName,
+        middleInitial: client.middleInitial || '',
+        lastName: client.lastName,
+        uniqueId,
+        dob: clientDob,
+        intakeDate: new Date(),
+        sex: mapGenderToRedwoodSex(client.gender),
+        phoneNumber: normalizePhoneForRedwood(client.phone || ''),
+        group: initialDonorGroup,
+      })
+
+      return routeHttpImportResult({
+        client,
+        clientId: String(client.id),
+        payload,
+        result: httpResult,
+        source,
+      })
+    } catch (error) {
+      httpImportFallbackErrorMessage = error instanceof Error ? error.message : String(error)
+
+      payload.logger.warn({
+        msg: '[redwood-import] Direct HTTP import failed; falling back to browser workflow',
+        clientId,
+        source,
+        error: httpImportFallbackErrorMessage,
+        queue: 'redwood',
+      })
+    }
+  } else {
+    payload.logger.info({
+      msg: '[redwood-import] Direct HTTP import skipped; using browser workflow',
+      clientId,
+      source,
+      reason: httpImportSkipReason,
+      queue: 'redwood',
+    })
+  }
 
   try {
     return await withRedwoodBrowserSession(
@@ -1369,13 +1533,7 @@ export async function runRedwoodImportClientJob(args: {
           })
         }
 
-        let donorGroup =
-          source === 'frontend-registration'
-            ? ''
-            : resolveDonorGroup({
-                clientReferralType: client.referralType,
-                donors: [],
-              })
+        let donorGroup = initialDonorGroup
         let redwoodServerDate: string | null = null
 
         if (!donorGroup && source !== 'frontend-registration') {
@@ -1849,8 +2007,11 @@ export async function runRedwoodImportClientJob(args: {
     )
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
+    const reportedErrorMessage = httpImportFallbackErrorMessage
+      ? `${errorMessage} Direct HTTP import fallback error: ${httpImportFallbackErrorMessage}`
+      : errorMessage
     const classification = classifyRedwoodIncident({
-      message: errorMessage,
+      message: reportedErrorMessage,
       jobType: 'import',
       phase: 'runtime',
     })
@@ -1862,7 +2023,7 @@ export async function runRedwoodImportClientJob(args: {
     const failedState: Record<string, unknown> = {
       redwoodSyncStatus: terminalClientStatus,
       redwoodLastAttemptAt: new Date().toISOString(),
-      redwoodLastError: errorMessage,
+      redwoodLastError: reportedErrorMessage,
     }
 
     if (diagnosticScreenshotPath) {
@@ -1881,9 +2042,10 @@ export async function runRedwoodImportClientJob(args: {
           terminalClientStatus === 'manual-review'
             ? `Redwood import needs manual review for client ${client.id}`
             : `Redwood import job failed for client ${client.id}`,
-        message: errorMessage,
+        message: reportedErrorMessage,
         context: {
           clientId: client.id,
+          directHttpError: httpImportFallbackErrorMessage,
           source,
           queue: 'redwood',
           screenshotPath: diagnosticScreenshotPath,

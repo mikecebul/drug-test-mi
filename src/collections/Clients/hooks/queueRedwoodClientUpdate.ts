@@ -76,13 +76,14 @@ export const queueRedwoodClientUpdateAfterChange: CollectionAfterChangeHook = as
       changedFields,
       req.user?.collection === 'admins' ? String(req.user.id) : undefined,
       req.payload,
+      req,
     )
   } catch (error) {
     req.payload.logger.error({
       msg: '[clients] Failed to queue Redwood client update after client edit',
       clientId: String(doc.id),
       changedFields,
-      error: error instanceof Error ? error.message : String(error),
+      err: error,
     })
   }
 

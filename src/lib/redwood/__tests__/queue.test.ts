@@ -10,6 +10,7 @@ vi.mock('@/lib/jobs/jobRuns', () => ({
 
 import { recordQueuedJobRun } from '@/lib/jobs/jobRuns'
 import {
+  queueRedwoodClientInactivation,
   queueRedwoodClientUpdate,
   queueRedwoodDefaultTestSync,
   queueRedwoodHeadshotSync,
@@ -275,6 +276,46 @@ describe('redwood queue helpers', () => {
         input: {
           clientId: 'client-7',
         },
+      }),
+    )
+  })
+
+  it('queues Redwood inactivation jobs in the redwood queue', async () => {
+    const payloadMock: any = {
+      findByID: vi.fn().mockResolvedValue({
+        id: 'client-8',
+        redwoodDonorId: '2714034',
+        redwoodUniqueId: '',
+      }),
+      update: vi.fn().mockResolvedValue({ id: 'client-8' }),
+      jobs: {
+        queue: vi.fn().mockResolvedValue({ id: 'job-inactivate-1' }),
+      },
+      logger: {
+        info: vi.fn(),
+      },
+    }
+
+    const result = await queueRedwoodClientInactivation('client-8', 'admin-1', payloadMock)
+
+    expect(result.jobId).toBe('job-inactivate-1')
+    expect(payloadMock.jobs.queue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        task: 'redwood-inactivate-client',
+        queue: 'redwood',
+        input: {
+          clientId: 'client-8',
+          requestedByAdminId: 'admin-1',
+        },
+      }),
+    )
+    expect(payloadMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'clients',
+        id: 'client-8',
+        data: expect.objectContaining({
+          redwoodInactivationStatus: 'queued',
+        }),
       }),
     )
   })
