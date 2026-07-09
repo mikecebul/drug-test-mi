@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPayload, type Payload } from 'payload'
+import { getPayload, type Payload, type PayloadRequest } from 'payload'
 import configPromise from '@payload-config'
 import type { Booking } from '@/payload-types'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 import { findConfiguredTestTypeByCalcomAnswer } from '@/config/test-types'
+import { syncCalcomPrepaidBookingPayment } from '@/collections/Payments/services/calcomBookingPayment'
 
 import {
   allowsUnsignedCalcomWebhooks,
@@ -77,6 +78,14 @@ async function createBooking(payload: Payload, data: CalcomBookingData, req: Nex
   })
   revalidateBookingViews()
   return booking
+}
+
+async function syncPrepaidBookingPayment(payload: Payload, booking: Booking, req: NextRequest) {
+  await syncCalcomPrepaidBookingPayment({
+    payload,
+    booking,
+    req: req as unknown as PayloadRequest,
+  })
 }
 
 function isDuplicateKeyError(error: unknown): boolean {
@@ -206,32 +215,27 @@ export async function POST(req: NextRequest) {
         req,
       )
 
-      const bookingData = buildResolvedCalcomBookingData(
-        webhookData,
-        existingByUid.payment,
-        existingByUid,
-      )
+      const bookingData = buildResolvedCalcomBookingData(webhookData, existingByUid.payment, existingByUid)
       const updatedBooking = await updateBooking(payloadClient, existingByUid.id, bookingData, req)
+      await syncPrepaidBookingPayment(payloadClient, updatedBooking, req)
 
       console.log(`Merged Cal.com reschedule into existing booking: ${updatedBooking.id}`)
       return NextResponse.json({ message: 'Booking rescheduled', id: updatedBooking.id }, { status: 200 })
     }
 
     const existingBooking = existingByRescheduleUid || existingByUid || existingByNumericId
-    const bookingData = buildResolvedCalcomBookingData(
-      webhookData,
-      existingBooking?.payment,
-      existingBooking,
-    )
+    const bookingData = buildResolvedCalcomBookingData(webhookData, existingBooking?.payment, existingBooking)
 
     if (triggerEvent === 'BOOKING_CANCELLED' || triggerEvent === 'BOOKING_REJECTED') {
       if (existingBooking) {
         const updatedBooking = await updateBooking(payloadClient, existingBooking.id, bookingData, req)
+        await syncPrepaidBookingPayment(payloadClient, updatedBooking, req)
         console.log(`Updated Cal.com booking status: ${updatedBooking.id}`)
         return NextResponse.json({ message: 'Booking status updated', id: updatedBooking.id }, { status: 200 })
       }
 
       const { booking, created } = await createOrUpdateBooking(payloadClient, bookingData, req)
+      await syncPrepaidBookingPayment(payloadClient, booking, req)
       console.log(
         created
           ? `Created historical ${triggerEvent.toLowerCase()} booking: ${booking.id}`
@@ -245,11 +249,13 @@ export async function POST(req: NextRequest) {
 
     if (existingBooking) {
       const updatedBooking = await updateBooking(payloadClient, existingBooking.id, bookingData, req)
+      await syncPrepaidBookingPayment(payloadClient, updatedBooking, req)
       console.log(`Upserted Cal.com booking: ${updatedBooking.id}`)
       return NextResponse.json({ message: 'Booking updated', id: updatedBooking.id }, { status: 200 })
     }
 
     const { booking, created } = await createOrUpdateBooking(payloadClient, bookingData, req)
+    await syncPrepaidBookingPayment(payloadClient, booking, req)
     console.log(
       created ? `Created Cal.com booking: ${booking.id}` : `Recovered duplicate Cal.com booking: ${booking.id}`,
     )

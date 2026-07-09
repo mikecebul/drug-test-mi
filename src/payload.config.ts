@@ -50,6 +50,7 @@ import { FormSubmissions } from './collections/FormSubmissions'
 import { Technicians } from './collections/Technicians'
 import { Clients } from './collections/Clients'
 import { DrugTests } from './collections/DrugTests'
+import { Payments } from './collections/Payments'
 import Admins from './collections/Admins'
 import { AdminAlerts } from './collections/AdminAlerts'
 import { Employers } from './collections/Employers'
@@ -273,6 +274,7 @@ export default buildConfig({
     Employers,
     Clients,
     DrugTests,
+    Payments,
   ],
   cors: allowedLoopbackOrigins,
   csrf: allowedLoopbackOrigins,

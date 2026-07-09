@@ -194,7 +194,55 @@ describe('dashboard widgets', () => {
     expect(alertsMarkup).toBe('')
   })
 
-  test('renders admin alerts for missing schedule setup and pending decisions', async () => {
+  test('renders pending test breakdown including confirmation decisions', async () => {
+    const req = createAdminReq()
+    ;(req.payload.count as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ totalDocs: 5 })
+      .mockResolvedValueOnce({ totalDocs: 1 })
+      .mockResolvedValueOnce({ totalDocs: 2 })
+      .mockResolvedValueOnce({ totalDocs: 1 })
+      .mockResolvedValueOnce({ totalDocs: 2 })
+
+    const markup = renderMarkup(await PendingDrugTestsWidget(createWidgetProps(req, 'pending-drug-tests')))
+
+    expect(markup).toContain('Pending Tests')
+    expect(markup).toContain('5 tests need follow-up')
+    expect(markup).toContain('Awaiting screening')
+    expect(markup).toContain('Awaiting decision')
+    expect(markup).toContain('Awaiting payment')
+    expect(markup).toContain('Pending confirmation')
+    expect(req.payload.count).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: {
+          or: [
+            {
+              isComplete: {
+                equals: false,
+              },
+            },
+            {
+              'payment.balanceDue': {
+                greater_than: 0,
+              },
+            },
+          ],
+        },
+      }),
+    )
+    expect(req.payload.count).toHaveBeenNthCalledWith(
+      4,
+      expect.objectContaining({
+        where: {
+          'payment.balanceDue': {
+            greater_than: 0,
+          },
+        },
+      }),
+    )
+  })
+
+  test('admin alerts ignore normal new-client registration and pending decisions', async () => {
     const req = createAdminReq()
     mockGetTodaysCollectionBookings.mockResolvedValue([
       {
@@ -212,12 +260,39 @@ describe('dashboard widgets', () => {
         },
       },
     ])
-    ;(req.payload.count as ReturnType<typeof vi.fn>).mockResolvedValue({ totalDocs: 2 })
 
     const markup = renderMarkup(await AdminAlertsWidget(createWidgetProps(req, 'admin-alerts')))
 
     expect(markup).toContain('Admin Alerts')
-    expect(markup).toContain('Bookings need registration or test type review')
-    expect(markup).toContain('Tests waiting on confirmation decision')
+    expect(markup).toContain('No admin alerts right now.')
+    expect(markup).not.toContain('Bookings need registration')
+    expect(markup).not.toContain('Tests waiting on confirmation decision')
+    expect(req.payload.count).not.toHaveBeenCalled()
+  })
+
+  test('admin alerts show bookings that need test type review', async () => {
+    const req = createAdminReq()
+    mockGetTodaysCollectionBookings.mockResolvedValue([
+      {
+        id: 'booking-1',
+        attendeeName: 'Jamie Client',
+        startTime: '2026-05-24T14:30:00.000Z',
+        client: {
+          gender: 'female',
+        },
+        payment: null,
+        sampleCollection: null,
+        needsRegistration: false,
+        needsTestType: true,
+        calcomActionLinks: {
+          cancelHref: null,
+          rescheduleHref: null,
+        },
+      },
+    ])
+
+    const markup = renderMarkup(await AdminAlertsWidget(createWidgetProps(req, 'admin-alerts')))
+
+    expect(markup).toContain('Bookings need test type review')
   })
 })

@@ -2,6 +2,10 @@ import type { CollectionBeforeChangeHook } from 'payload'
 import { isConfirmationComplete } from '../helpers/confirmationStatus'
 import { computeTestResults as computeTestResultsService, computeFinalStatus } from '../services'
 
+function readPositiveNumber(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+}
+
 /**
  * Business Logic Hook: Computes test result classification
  *
@@ -47,8 +51,7 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
   }
 
   // Auto-upgrade existing records without screeningStatus
-  const currentStatus =
-    data.screeningStatus || (data.initialScreenResult ? 'screened' : 'collected')
+  const currentStatus = data.screeningStatus || (data.initialScreenResult ? 'screened' : 'collected')
 
   // For collected tests (not yet screened), set isComplete = false so they appear in tracker
   // Collected tests need to be tracked for screening
@@ -123,11 +126,16 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
     // 3. Confirmation requested and ALL results received
     const isComplete = autoAccept || data.confirmationDecision === 'accept' || confirmationComplete
     data.isComplete = isComplete
+    const confirmationPaymentBlocking =
+      data.confirmationDecision === 'request-confirmation' &&
+      readPositiveNumber(data.payment?.confirmationFeeDue) > 0 &&
+      readPositiveNumber(data.payment?.balanceDue) > 0 &&
+      data.payment?.confirmationPaymentBypassed !== true
 
     // Keep screeningStatus aligned with completion state so status is the single workflow source.
     if (isComplete) {
       data.screeningStatus = 'complete'
-    } else if (data.confirmationDecision === 'request-confirmation') {
+    } else if (data.confirmationDecision === 'request-confirmation' && !confirmationPaymentBlocking) {
       data.screeningStatus = 'confirmation-pending'
     } else {
       data.screeningStatus = 'screened'
@@ -143,8 +151,7 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
     // Set safe fallback values
     data.initialScreenResult = 'inconclusive'
     data.processNotes =
-      (data.processNotes || '') +
-      `\n\n[ERROR] Automated test result computation failed. Manual review required.`
+      (data.processNotes || '') + `\n\n[ERROR] Automated test result computation failed. Manual review required.`
 
     return data
   }

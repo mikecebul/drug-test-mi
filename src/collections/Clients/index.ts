@@ -315,6 +315,19 @@ export const Clients: CollectionConfig = {
       },
     },
     {
+      name: 'creditBalance',
+      type: 'number',
+      label: 'Credit Balance',
+      defaultValue: 0,
+      min: 0,
+      admin: {
+        description: 'Client credit from overpayments that can be applied to future balances.',
+        position: 'sidebar',
+        readOnly: true,
+        step: 1,
+      },
+    },
+    {
       name: 'isActive',
       type: 'checkbox',
       defaultValue: true,
@@ -649,6 +662,16 @@ export const Clients: CollectionConfig = {
               admin: {
                 defaultColumns: ['collectionDate', 'testType', 'payment.status', 'payment.balanceDue'],
                 description: 'Drug tests where this client still has a balance due.',
+              },
+            },
+            {
+              name: 'payments',
+              type: 'join',
+              collection: 'payments',
+              on: 'relatedClient',
+              admin: {
+                defaultColumns: ['collectedAt', 'amount', 'method', 'status', 'relatedDrugTest'],
+                description: 'Payment ledger records linked to this client.',
               },
             },
             // Bookings (auto-populated via join)
