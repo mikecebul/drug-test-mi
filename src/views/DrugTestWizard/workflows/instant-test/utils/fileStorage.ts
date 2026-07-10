@@ -1,9 +1,9 @@
 /**
- * Utilities for persisting uploaded files to localStorage
- * Used to maintain file state when navigating away (e.g., to register a new client)
+ * Utilities for persisting an uploaded file while the user detours to register a client.
  */
 
 const STORAGE_KEY = 'instant-test-uploaded-file'
+const LEGACY_EXTRACTED_DATA_STORAGE_KEY = 'instant-test-extracted-data'
 
 interface StoredFile {
   name: string
@@ -72,6 +72,7 @@ export async function getFileFromStorage(): Promise<File | null> {
 export function clearFileStorage(): void {
   try {
     localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(LEGACY_EXTRACTED_DATA_STORAGE_KEY)
   } catch (error) {
     console.error('Failed to clear file storage:', error)
   }

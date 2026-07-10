@@ -152,16 +152,16 @@ export default function InputDateTimePicker({
           onBlur={handleInputBlur}
         />
         <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button
+          <PopoverTrigger
+            render={<Button
               type="button"
               variant="ghost"
               size="icon"
               className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
-            >
-              <CalendarIcon className="size-4" />
-              <span className="sr-only">Select date and time</span>
-            </Button>
+            />}
+          >
+            <CalendarIcon className="size-4" />
+            <span className="sr-only">Select date and time</span>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="end" sideOffset={10}>
             <Card className="gap-0 border-0 p-0 shadow-none">

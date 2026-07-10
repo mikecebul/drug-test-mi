@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
@@ -44,12 +45,13 @@ export function NavUser({ user }: NavUserProps) {
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
+          <DropdownMenuTrigger
+            render={<SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            >
-              <Avatar className="h-8 w-8 rounded-lg">
+              className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground"
+            />}
+          >
+              <Avatar className="size-8 rounded-lg">
                 {avatarImageUrl && (
                   <AvatarImage
                     src={avatarImageUrl}
@@ -63,15 +65,15 @@ export function NavUser({ user }: NavUserProps) {
                 <span className="text-muted-foreground truncate text-xs">{user.email}</span>
               </div>
               <MoreVerticalIcon className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
-            </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+            className="w-(--anchor-width) min-w-56 rounded-lg"
             side={isMobile ? 'bottom' : 'right'}
             align="end"
             sideOffset={4}
           >
-            <DropdownMenuLabel className="p-0 font-normal">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   {avatarImageUrl && (
@@ -87,7 +89,7 @@ export function NavUser({ user }: NavUserProps) {
                   <span className="text-muted-foreground truncate text-xs">{user.email}</span>
                 </div>
               </div>
-            </DropdownMenuLabel>
+              </DropdownMenuLabel>
             {/* TODO: Implement dropdown menu items when functionality is ready */}
             {/* <DropdownMenuSeparator />
             <DropdownMenuGroup>
@@ -105,12 +107,13 @@ export function NavUser({ user }: NavUserProps) {
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator /> */}
-            <ClientLogoutButton>
-              <DropdownMenuItem>
-                <LogOutIcon />
-                Sign Out
-              </DropdownMenuItem>
-            </ClientLogoutButton>
+              <ClientLogoutButton>
+                <DropdownMenuItem>
+                  <LogOutIcon />
+                  Sign Out
+                </DropdownMenuItem>
+              </ClientLogoutButton>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

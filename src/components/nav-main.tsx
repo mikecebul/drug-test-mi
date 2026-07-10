@@ -47,8 +47,8 @@ export function NavMain({
         <SidebarMenu>
           <SidebarMenuItem className="flex items-center gap-2">
             <Tooltip>
-              <TooltipTrigger asChild>
-                <CalPopupButton
+              <TooltipTrigger
+                render={<CalPopupButton
                   calUsername={getClientBookingCalLink(client)}
                   config={buildCalConfig(client)}
                   className="w-full justify-start bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!"
@@ -57,10 +57,10 @@ export function NavMain({
                       setOpenMobile(false)
                     }
                   }}
-                >
-                  <PlusCircleIcon />
-                  <span className="group-data-[collapsible=icon]:hidden">Quick Booking</span>
-                </CalPopupButton>
+                />}
+              >
+                <PlusCircleIcon />
+                <span className="group-data-[collapsible=icon]:hidden">Quick Booking</span>
               </TooltipTrigger>
               <TooltipContent side="right" align="center" hidden={state !== 'collapsed' || isMobile}>
                 Quick Booking
@@ -73,11 +73,13 @@ export function NavMain({
             const isActive = isActiveRoute(pathname, item.url)
             return (
               <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton tooltip={item.title} asChild isActive={isActive}>
-                  <Link href={item.url} onClick={handleLinkClick}>
-                    {item.icon && <item.icon />}
-                    <span>{item.title}</span>
-                  </Link>
+                <SidebarMenuButton
+                  tooltip={item.title}
+                  render={<Link href={item.url} onClick={handleLinkClick} />}
+                  isActive={isActive}
+                >
+                  {item.icon && <item.icon />}
+                  <span>{item.title}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             )

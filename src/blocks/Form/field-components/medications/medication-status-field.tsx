@@ -3,7 +3,7 @@
 import { useFieldContext } from '../../hooks/form-context'
 import { useStore } from '@tanstack/react-form'
 import { Field, FieldContent, FieldError, FieldLabel } from '@/components/ui/field'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/utilities/cn'
 
 interface MedicationStatusFieldProps {
@@ -20,6 +20,10 @@ export default function MedicationStatusField({ isLocked = false }: MedicationSt
       <FieldContent>
         <FieldLabel>Status *</FieldLabel>
         <Select
+          items={[
+            { value: 'active', label: 'Active' },
+            { value: 'discontinued', label: 'Discontinued' },
+          ]}
           value={field.state.value ?? 'active'}
           onValueChange={(value) => field.handleChange(value as 'active' | 'discontinued')}
           disabled={isLocked}
@@ -28,8 +32,10 @@ export default function MedicationStatusField({ isLocked = false }: MedicationSt
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="discontinued">Discontinued</SelectItem>
+            <SelectGroup>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="discontinued">Discontinued</SelectItem>
+            </SelectGroup>
           </SelectContent>
         </Select>
         <FieldError errors={errors} />

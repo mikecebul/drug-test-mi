@@ -5,7 +5,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Clock, User, Calendar, Filter, MapPin } from "lucide-react"
 import type { Technician } from "@/payload-types"
 import { TechnicianGenderBadge } from "./TechnicianGenderBadge"
@@ -13,6 +13,22 @@ import { TechnicianGenderBadge } from "./TechnicianGenderBadge"
 type GenderPreference = "any" | "male" | "female"
 type TimePreference = "any" | "morning" | "evening"
 type DayPreference = "any" | "weekday" | "weekend"
+
+const genderOptions = [
+  { value: "any", label: "Any Gender" },
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+]
+const timeOptions = [
+  { value: "any", label: "Any Time" },
+  { value: "morning", label: "Morning (AM)" },
+  { value: "evening", label: "Evening (PM)" },
+]
+const dayOptions = [
+  { value: "any", label: "Any Day" },
+  { value: "weekday", label: "Weekdays" },
+  { value: "weekend", label: "Weekends" },
+]
 
 interface TechnicianSelectionProps {
   onTechnicianSelect: (technician: Technician) => void
@@ -105,6 +121,13 @@ export function TechnicianSelection({ onTechnicianSelect, technicians }: Technic
     const locations = [...new Set(technicians.map(t => t.location))]
     return locations
   }, [technicians])
+  const locationOptions = useMemo(
+    () => [
+      { value: "any", label: "Any Location" },
+      ...availableLocations.map((location) => ({ value: location, label: location })),
+    ],
+    [availableLocations],
+  )
 
   const MobileFilters = () => (
     <Card className="md:hidden">
@@ -117,59 +140,66 @@ export function TechnicianSelection({ onTechnicianSelect, technicians }: Technic
       <CardContent className="space-y-3 pt-0">
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Gender Preference</label>
-          <Select value={genderPreference} onValueChange={(value: GenderPreference) => setGenderPreference(value)}>
+          <Select items={genderOptions} value={genderPreference} onValueChange={(value) => setGenderPreference((value ?? "any") as GenderPreference)}>
             <SelectTrigger className="h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="any">Any Gender</SelectItem>
-              <SelectItem value="male">Male</SelectItem>
-              <SelectItem value="female">Female</SelectItem>
+              <SelectGroup>
+                {genderOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Time Preference</label>
-          <Select value={timePreference} onValueChange={(value: TimePreference) => setTimePreference(value)}>
+          <Select items={timeOptions} value={timePreference} onValueChange={(value) => setTimePreference((value ?? "any") as TimePreference)}>
             <SelectTrigger className="h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="any">Any Time</SelectItem>
-              <SelectItem value="morning">Morning (AM)</SelectItem>
-              <SelectItem value="evening">Evening (PM)</SelectItem>
+              <SelectGroup>
+                {timeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Day Preference</label>
-          <Select value={dayPreference} onValueChange={(value: DayPreference) => setDayPreference(value)}>
+          <Select items={dayOptions} value={dayPreference} onValueChange={(value) => setDayPreference((value ?? "any") as DayPreference)}>
             <SelectTrigger className="h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="any">Any Day</SelectItem>
-              <SelectItem value="weekday">Weekdays</SelectItem>
-              <SelectItem value="weekend">Weekends</SelectItem>
+              <SelectGroup>
+                {dayOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Location</label>
-          <Select value={locationPreference} onValueChange={setLocationPreference}>
+          <Select items={locationOptions} value={locationPreference} onValueChange={(value) => setLocationPreference(value ?? "any")}>
             <SelectTrigger className="h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="any">Any Location</SelectItem>
-              {availableLocations.map((location) => (
-                <SelectItem key={location} value={location} className="capitalize">
-                  {location}
-                </SelectItem>
-              ))}
+              <SelectGroup>
+                {locationOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value} className="capitalize">
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </div>

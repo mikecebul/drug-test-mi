@@ -46,6 +46,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -53,7 +54,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { APP_TIMEZONE } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
 import { ClientSearchDialog } from '../components/client/ClientSearchDialog'
@@ -383,14 +384,32 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           : await cancelGuidedBooking({ bookingId: booking.id })
 
       if (!result.success) {
-        toast.error(result.error || 'Appointment action failed.')
-        openExternalLink(result.fallbackHref)
+        toast.error(
+          result.error || 'Appointment action failed.',
+          result.fallbackHref
+            ? {
+                action: {
+                  label: 'Open Cal.com',
+                  onClick: () => openExternalLink(result.fallbackHref),
+                },
+              }
+            : undefined,
+        )
         return
       }
 
       if (result.warning) {
-        toast.warning(result.warning)
-        openExternalLink(result.fallbackHref)
+        toast.warning(
+          result.warning,
+          result.fallbackHref
+            ? {
+                action: {
+                  label: 'Open Cal.com',
+                  onClick: () => openExternalLink(result.fallbackHref),
+                },
+              }
+            : undefined,
+        )
       } else {
         toast.success(action === 'cancel-refund' ? 'Appointment cancelled and refunded' : 'Appointment cancelled')
       }
@@ -802,52 +821,50 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                         {needsTestType && <Badge variant="secondary">Set test</Badge>}
                       </div>
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
+                        <DropdownMenuTrigger
+                          render={<Button
                             type="button"
                             variant="ghost"
                             size="icon"
                             className="-mt-2 -mr-2"
                             aria-label={`${booking.attendeeName} appointment options`}
-                          >
-                            <Ellipsis className="size-5" />
-                          </Button>
+                          />}
+                        >
+                          <Ellipsis className="size-5" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-52">
-                          <DropdownMenuItem
-                            disabled={!booking.calcomActionLinks?.rescheduleHref}
-                            onSelect={(event) => {
-                              event.preventDefault()
-                              openExternalLink(booking.calcomActionLinks?.rescheduleHref)
-                            }}
-                          >
-                            <CalendarClock className="size-4" />
-                            Reschedule
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onSelect={(event) => {
-                              event.preventDefault()
-                              setScheduleAction({ action: 'cancel', booking })
-                            }}
-                          >
-                            <Ban className="size-4" />
-                            Cancel
-                          </DropdownMenuItem>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              disabled={!booking.calcomActionLinks?.rescheduleHref}
+                              closeOnClick={false}
+                              onClick={() => openExternalLink(booking.calcomActionLinks?.rescheduleHref)}
+                            >
+                              <CalendarClock className="size-4" />
+                              Reschedule
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              closeOnClick={false}
+                              onClick={() => setScheduleAction({ action: 'cancel', booking })}
+                            >
+                              <Ban className="size-4" />
+                              Cancel
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            disabled={!canRefund}
-                            variant="destructive"
-                            onSelect={(event) => {
-                              event.preventDefault()
-                              if (canRefund) {
-                                setScheduleAction({ action: 'cancel-refund', booking })
-                              }
-                            }}
-                          >
-                            <CreditCard className="size-4" />
-                            Cancel and refund
-                          </DropdownMenuItem>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              disabled={!canRefund}
+                              variant="destructive"
+                              closeOnClick={false}
+                              onClick={() => {
+                                if (canRefund) setScheduleAction({ action: 'cancel-refund', booking })
+                              }}
+                            >
+                              <CreditCard className="size-4" />
+                              Cancel and refund
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -893,16 +910,31 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
               <div className="space-y-2">
                 <Label htmlFor="walk-in-test-type">Test type</Label>
-                <Select value={selectedWalkInTestTypeId} onValueChange={setWalkInTestTypeId}>
+                <Select
+                  items={testTypes.map((testType) => ({
+                    value: testType.id,
+                    label: `${testType.label} · ${currency.format(testType.price)}`,
+                  }))}
+                  value={selectedWalkInTestTypeId}
+                  onValueChange={(value) => setWalkInTestTypeId(value ?? '')}
+                >
                   <SelectTrigger id="walk-in-test-type" className="h-12 text-base">
                     <SelectValue placeholder="Select test type" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {testTypes.map((testType) => (
-                      <SelectItem key={testType.id} value={testType.id}>
-                        {testType.label} · {currency.format(testType.price)}
-                      </SelectItem>
-                    ))}
+                  <SelectContent
+                    side="bottom"
+                    align="start"
+                    alignItemWithTrigger={false}
+                    sideOffset={4}
+                    collisionAvoidance={{ side: 'none', align: 'none', fallbackAxisSide: 'none' }}
+                  >
+                    <SelectGroup>
+                      {testTypes.map((testType) => (
+                        <SelectItem key={testType.id} value={testType.id}>
+                          {testType.label} · {currency.format(testType.price)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
@@ -1185,11 +1217,16 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 <div className="space-y-2">
                   <Label htmlFor="payment-method">Method</Label>
                   <Select
+                    items={[
+                      { value: 'cash', label: 'Cash' },
+                      { value: 'card', label: 'Card' },
+                      ...(canUsePrepaidMethod ? [{ value: 'pre-paid', label: 'Pre-paid' }] : []),
+                    ]}
                     value={payment.method}
                     onValueChange={(method) =>
                       setPaymentDraft((current) => ({
                         ...(current ?? payment),
-                        method: method as PaymentEntryMethod,
+                        method: (method ?? 'cash') as PaymentEntryMethod,
                       }))
                     }
                   >
@@ -1197,14 +1234,16 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="card">Card</SelectItem>
-                      {canUsePrepaidMethod && <SelectItem value="pre-paid">Pre-paid</SelectItem>}
+                      <SelectGroup>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="card">Card</SelectItem>
+                        {canUsePrepaidMethod && <SelectItem value="pre-paid">Pre-paid</SelectItem>}
+                      </SelectGroup>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="extra-collected">Extra toward balance or credit</Label>
+                  <Label htmlFor="extra-collected">Extra collected</Label>
                   <Input id="extra-collected" value={currency.format(extraCollected)} readOnly />
                 </div>
               </div>
@@ -1244,11 +1283,16 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 <div className="space-y-2">
                   <Label htmlFor="partial-payment-method">Method</Label>
                   <Select
+                    items={[
+                      { value: 'cash', label: 'Cash' },
+                      { value: 'card', label: 'Card' },
+                      ...(canUsePrepaidMethod ? [{ value: 'pre-paid', label: 'Pre-paid' }] : []),
+                    ]}
                     value={payment.method}
                     onValueChange={(method) =>
                       setPaymentDraft((current) => ({
                         ...(current ?? payment),
-                        method: method as PaymentEntryMethod,
+                        method: (method ?? 'cash') as PaymentEntryMethod,
                       }))
                     }
                     disabled={payment.amountPaid <= 0}
@@ -1257,9 +1301,11 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="card">Card</SelectItem>
-                      {canUsePrepaidMethod && <SelectItem value="pre-paid">Pre-paid</SelectItem>}
+                      <SelectGroup>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="card">Card</SelectItem>
+                        {canUsePrepaidMethod && <SelectItem value="pre-paid">Pre-paid</SelectItem>}
+                      </SelectGroup>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1447,8 +1493,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         }}
       />
 
-      <Drawer direction="right" open={testTypeDrawerOpen} onOpenChange={setTestTypeDrawerOpen}>
-        <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(36rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+      <Drawer swipeDirection="right" open={testTypeDrawerOpen} onOpenChange={setTestTypeDrawerOpen}>
+        <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(36rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
           <DrawerHeader className="border-border border-b px-6 py-5">
             <DrawerTitle className="text-2xl tracking-tight">Change Today&apos;s Test</DrawerTitle>
             <DrawerDescription>

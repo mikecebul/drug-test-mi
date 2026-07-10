@@ -179,15 +179,13 @@ export function UpdateConfirmationDecisionDialog({
   }
 
   return (
-    <Drawer direction="right" open={open} onOpenChange={handleDialogChange}>
-      <DrawerTrigger asChild>
-        <Button type="button">
-          <PencilLine className="h-4 w-4" />
-          Update Confirmation Decision
-        </Button>
+    <Drawer swipeDirection="right" open={open} onOpenChange={handleDialogChange}>
+      <DrawerTrigger render={<Button type="button" />}>
+        <PencilLine className="h-4 w-4" />
+        Update Confirmation Decision
       </DrawerTrigger>
 
-      <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(48rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(48rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
         <DrawerHeader className="border-border border-b px-6 py-5">
           <DrawerTitle className="text-2xl tracking-tight">Update Confirmation Decision</DrawerTitle>
           <DrawerDescription>

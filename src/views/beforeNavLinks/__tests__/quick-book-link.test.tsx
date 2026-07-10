@@ -11,11 +11,11 @@ vi.mock('@/views/dashboard/widgets/AdminQuickBookWidget.client', () => ({
 }))
 
 describe('QuickBookLink', () => {
-  test('opens quick book from a dialog instead of linking to the dashboard hash', () => {
+  test('opens quick book from a drawer instead of linking to the dashboard hash', () => {
     const markup = renderToStaticMarkup(<QuickBookLink />)
 
     expect(markup).toContain('Quick Book')
-    expect(markup).toContain('aria-haspopup="dialog"')
+    expect(markup).toContain('data-slot="drawer-trigger"')
     expect(markup).not.toContain('/admin#admin-quick-book-search')
   })
 

@@ -41,7 +41,13 @@ export default function SelectField({ label, colSpan, options, required }: Selec
           {label}
           {required ? <span className="text-destructive">*</span> : null}
         </FieldLabel>
-        <Select onValueChange={(e) => field.handleChange(e)} value={field.state.value || ''}>
+        <Select
+          items={(options ?? []).flatMap((option) =>
+            isGroup(option) ? option.options : [option],
+          )}
+          onValueChange={(value) => field.handleChange(value ?? '')}
+          value={field.state.value || ''}
+        >
           <SelectTrigger id={field.name} aria-invalid={hasErrors || undefined}>
             <SelectValue placeholder={`Select a ${label || 'option'}`} />
           </SelectTrigger>
@@ -57,9 +63,9 @@ export default function SelectField({ label, colSpan, options, required }: Selec
                   ))}
                 </SelectGroup>
               ) : (
-                <SelectItem key={optionOrGroup.value} value={optionOrGroup.value}>
-                  {optionOrGroup.label}
-                </SelectItem>
+                <SelectGroup key={optionOrGroup.value}>
+                  <SelectItem value={optionOrGroup.value}>{optionOrGroup.label}</SelectItem>
+                </SelectGroup>
               ),
             )}
           </SelectContent>

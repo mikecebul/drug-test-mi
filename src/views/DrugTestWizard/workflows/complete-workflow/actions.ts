@@ -18,7 +18,7 @@ import {
   mapTestTypeValue,
   type GuidedTestType,
 } from '@/config/test-types'
-import { getCalcomBookingActionLinks } from './schedule-utils'
+import { getCalcomBookingActionLinks, isPastScheduledBookingTime } from './schedule-utils'
 import { applyIncomingPayment, normalizeMoney } from '@/collections/Payments/services/applyPayment'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
 import {
@@ -62,9 +62,26 @@ function getCancelHref(booking: Pick<PayloadBooking, 'calcomBookingId' | 'webhoo
   }).cancelHref
 }
 
+function isPastScheduledCalcomCancelError(error?: string) {
+  if (!error) return false
+  const normalized = error.toLowerCase()
+  return (
+    normalized.includes('cancel') &&
+    (normalized.includes('past') || normalized.includes('passed')) &&
+    (normalized.includes('scheduled') || normalized.includes('start') || normalized.includes('time'))
+  )
+}
+
 async function cancelCalcomBookingIfNeeded(booking: PayloadBooking): Promise<ScheduleActionResult> {
   if (!booking.calcomBookingId) {
     return { success: true }
+  }
+
+  if (isPastScheduledBookingTime(booking.startTime)) {
+    return {
+      success: true,
+      warning: "This booking is past its scheduled time, so it was removed from today's schedule locally.",
+    }
   }
 
   const result = await cancelCalcomBooking({
@@ -74,6 +91,14 @@ async function cancelCalcomBookingIfNeeded(booking: PayloadBooking): Promise<Sch
 
   if (result.success) {
     return { success: true }
+  }
+
+  if (isPastScheduledCalcomCancelError(result.error)) {
+    return {
+      success: true,
+      warning:
+        "Cal.com says this booking is past its scheduled time, so it was removed from today's schedule locally.",
+    }
   }
 
   return {
@@ -564,7 +589,7 @@ export async function cancelGuidedBooking(input: { bookingId: string }): Promise
   })
 
   revalidateBookingViews()
-  return { success: true }
+  return { success: true, warning: cancelResult.warning }
 }
 
 export async function cancelAndRefundGuidedBooking(input: { bookingId: string }): Promise<ScheduleActionResult> {
@@ -669,6 +694,14 @@ export async function cancelAndRefundGuidedBooking(input: { bookingId: string })
   })
 
   revalidateBookingViews()
+
+  if (cancelResult.success && cancelResult.warning) {
+    return {
+      success: true,
+      warning: `Refund issued. ${cancelResult.warning}`,
+      refundedAmount,
+    }
+  }
 
   if (!cancelResult.success) {
     return {

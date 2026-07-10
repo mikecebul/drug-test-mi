@@ -54,6 +54,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -63,6 +64,7 @@ import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -103,6 +105,17 @@ export const schema = z.object({
   reviewer: z.string(),
 })
 
+const reviewerOptions = ["Eddie Lake", "Jamik Tashpulatov", "Emily Whalen"].map((value) => ({ value, label: value }))
+const viewOptions = [
+  { value: "outline", label: "Outline" },
+  { value: "past-performance", label: "Past Performance" },
+  { value: "key-personnel", label: "Key Personnel" },
+  { value: "focus-documents", label: "Focus Documents" },
+]
+const typeOptions = ["Table of Contents", "Executive Summary", "Technical Approach", "Design", "Capabilities", "Focus Documents", "Narrative", "Cover Page"].map((value) => ({ value, label: value }))
+const statusOptions = ["Done", "In Progress", "Not Started"].map((value) => ({ value, label: value }))
+const pageSizeOptions = [10, 20, 30, 40, 50].map((value) => ({ value: `${value}`, label: `${value}` }))
+
 // Create a separate component for the drag handle
 function DragHandle({ id }: { id: number }) {
   const { attributes, listeners } = useSortable({
@@ -134,10 +147,8 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     header: ({ table }) => (
       <div className="flex items-center justify-center">
         <Checkbox
-          checked={
-            table.getIsAllPageRowsSelected() ||
-            (table.getIsSomePageRowsSelected() && "indeterminate")
-          }
+          checked={table.getIsAllPageRowsSelected()}
+          indeterminate={table.getIsSomePageRowsSelected()}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label="Select all"
         />
@@ -256,7 +267,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
           <Label htmlFor={`${row.original.id}-reviewer`} className="sr-only">
             Reviewer
           </Label>
-          <Select>
+          <Select items={reviewerOptions}>
             <SelectTrigger
               className="h-8 w-40"
               id={`${row.original.id}-reviewer`}
@@ -264,10 +275,11 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
               <SelectValue placeholder="Assign reviewer" />
             </SelectTrigger>
             <SelectContent align="end">
-              <SelectItem value="Eddie Lake">Eddie Lake</SelectItem>
-              <SelectItem value="Jamik Tashpulatov">
-                Jamik Tashpulatov
-              </SelectItem>
+              <SelectGroup>
+                {reviewerOptions.slice(0, 2).map((option) => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </>
@@ -278,22 +290,26 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     id: "actions",
     cell: () => (
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
+        <DropdownMenuTrigger
+          render={<Button
             variant="ghost"
-            className="flex size-8 text-muted-foreground data-[state=open]:bg-muted"
+            className="flex size-8 text-muted-foreground data-popup-open:bg-muted"
             size="icon"
-          >
-            <MoreVerticalIcon />
-            <span className="sr-only">Open menu</span>
-          </Button>
+          />}
+        >
+          <MoreVerticalIcon />
+          <span className="sr-only">Open menu</span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-32">
-          <DropdownMenuItem>Edit</DropdownMenuItem>
-          <DropdownMenuItem>Make a copy</DropdownMenuItem>
-          <DropdownMenuItem>Favorite</DropdownMenuItem>
+          <DropdownMenuGroup>
+            <DropdownMenuItem>Edit</DropdownMenuItem>
+            <DropdownMenuItem>Make a copy</DropdownMenuItem>
+            <DropdownMenuItem>Favorite</DropdownMenuItem>
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>Delete</DropdownMenuItem>
+          <DropdownMenuGroup>
+            <DropdownMenuItem>Delete</DropdownMenuItem>
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
     ),
@@ -399,7 +415,7 @@ export function DataTable({
         <Label htmlFor="view-selector" className="sr-only">
           View
         </Label>
-        <Select defaultValue="outline">
+        <Select items={viewOptions} defaultValue="outline">
           <SelectTrigger
             className="@4xl/main:hidden flex w-fit"
             id="view-selector"
@@ -407,10 +423,11 @@ export function DataTable({
             <SelectValue placeholder="Select a view" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="outline">Outline</SelectItem>
-            <SelectItem value="past-performance">Past Performance</SelectItem>
-            <SelectItem value="key-personnel">Key Personnel</SelectItem>
-            <SelectItem value="focus-documents">Focus Documents</SelectItem>
+            <SelectGroup>
+              {viewOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
         <TabsList className="@4xl/main:flex hidden">
@@ -437,16 +454,15 @@ export function DataTable({
         </TabsList>
         <div className="flex items-center gap-2">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+            <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
                 <ColumnsIcon />
                 <span className="hidden lg:inline">Customize Columns</span>
                 <span className="lg:hidden">Columns</span>
                 <ChevronDownIcon />
-              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              {table
+              <DropdownMenuGroup>
+                {table
                 .getAllColumns()
                 .filter(
                   (column) =>
@@ -467,6 +483,7 @@ export function DataTable({
                     </DropdownMenuCheckboxItem>
                   )
                 })}
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
           <Button variant="outline" size="sm">
@@ -541,9 +558,10 @@ export function DataTable({
                 Rows per page
               </Label>
               <Select
+                items={pageSizeOptions}
                 value={`${table.getState().pagination.pageSize}`}
                 onValueChange={(value) => {
-                  table.setPageSize(Number(value))
+                  if (value !== null) table.setPageSize(Number(value))
                 }}
               >
                 <SelectTrigger className="w-20" id="rows-per-page">
@@ -552,11 +570,11 @@ export function DataTable({
                   />
                 </SelectTrigger>
                 <SelectContent side="top">
-                  {[10, 20, 30, 40, 50].map((pageSize) => (
-                    <SelectItem key={pageSize} value={`${pageSize}`}>
-                      {pageSize}
-                    </SelectItem>
-                  ))}
+                  <SelectGroup>
+                    {pageSizeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
@@ -652,10 +670,8 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
 
   return (
     <Sheet>
-      <SheetTrigger asChild>
-        <Button variant="link" className="w-fit px-0 text-left text-foreground">
-          {item.header}
-        </Button>
+      <SheetTrigger render={<Button variant="link" className="w-fit px-0 text-left text-foreground" />}>
+        {item.header}
       </SheetTrigger>
       <SheetContent side="right" className="flex flex-col">
         <SheetHeader className="gap-1">
@@ -730,40 +746,31 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-3">
                 <Label htmlFor="type">Type</Label>
-                <Select defaultValue={item.type}>
+                <Select items={typeOptions} defaultValue={item.type}>
                   <SelectTrigger id="type" className="w-full">
                     <SelectValue placeholder="Select a type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Table of Contents">
-                      Table of Contents
-                    </SelectItem>
-                    <SelectItem value="Executive Summary">
-                      Executive Summary
-                    </SelectItem>
-                    <SelectItem value="Technical Approach">
-                      Technical Approach
-                    </SelectItem>
-                    <SelectItem value="Design">Design</SelectItem>
-                    <SelectItem value="Capabilities">Capabilities</SelectItem>
-                    <SelectItem value="Focus Documents">
-                      Focus Documents
-                    </SelectItem>
-                    <SelectItem value="Narrative">Narrative</SelectItem>
-                    <SelectItem value="Cover Page">Cover Page</SelectItem>
+                    <SelectGroup>
+                      {typeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex flex-col gap-3">
                 <Label htmlFor="status">Status</Label>
-                <Select defaultValue={item.status}>
+                <Select items={statusOptions} defaultValue={item.status}>
                   <SelectTrigger id="status" className="w-full">
                     <SelectValue placeholder="Select a status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Done">Done</SelectItem>
-                    <SelectItem value="In Progress">In Progress</SelectItem>
-                    <SelectItem value="Not Started">Not Started</SelectItem>
+                    <SelectGroup>
+                      {statusOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
@@ -780,16 +787,16 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
             </div>
             <div className="flex flex-col gap-3">
               <Label htmlFor="reviewer">Reviewer</Label>
-              <Select defaultValue={item.reviewer}>
+              <Select items={reviewerOptions} defaultValue={item.reviewer}>
                 <SelectTrigger id="reviewer" className="w-full">
                   <SelectValue placeholder="Select a reviewer" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Eddie Lake">Eddie Lake</SelectItem>
-                  <SelectItem value="Jamik Tashpulatov">
-                    Jamik Tashpulatov
-                  </SelectItem>
-                  <SelectItem value="Emily Whalen">Emily Whalen</SelectItem>
+                  <SelectGroup>
+                    {reviewerOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
@@ -797,10 +804,8 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
         </div>
         <SheetFooter className="mt-auto flex gap-2 sm:flex-col sm:space-x-0">
           <Button className="w-full">Submit</Button>
-          <SheetClose asChild>
-            <Button variant="outline" className="w-full">
-              Done
-            </Button>
+          <SheetClose render={<Button variant="outline" className="w-full" />}>
+            Done
           </SheetClose>
         </SheetFooter>
       </SheetContent>

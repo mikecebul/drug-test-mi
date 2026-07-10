@@ -1,6 +1,13 @@
 export type GuidedScheduleStep = 'registration' | 'payment'
 export type GuidedPaymentChoice = 'paid' | 'pre-paid' | 'still-owes'
 export { getCalcomBookingActionLinks } from '@/utilities/calcom-booking-action-links'
+
+export function isPastScheduledBookingTime(startTime: string | null | undefined, now = Date.now()) {
+  if (!startTime) return false
+
+  const scheduledTime = new Date(startTime).getTime()
+  return Number.isFinite(scheduledTime) && scheduledTime <= now
+}
 export type { CalcomBookingActionLinks } from '@/utilities/calcom-booking-action-links'
 
 export type GuidedScheduleBooking = {

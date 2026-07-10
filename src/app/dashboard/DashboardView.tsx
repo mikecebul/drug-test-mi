@@ -319,26 +319,41 @@ export function DashboardView({ data }: { data: DashboardData }) {
                   {(nextAppointmentActions?.rescheduleHref || nextAppointmentActions?.cancelHref) && (
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                       {nextAppointmentActions.rescheduleHref && (
-                        <Button asChild variant="outline" size="sm" className="w-full">
-                          <a href={nextAppointmentActions.rescheduleHref} target="_blank" rel="noopener noreferrer">
-                            <CalendarClock className="mr-2 h-4 w-4" />
-                            Reschedule
-                            <ExternalLink className="ml-2 h-3 w-3" />
-                          </a>
+                        <Button
+                          render={
+                            <a
+                              href={nextAppointmentActions.rescheduleHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            />
+                          }
+                          nativeButton={false}
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                        >
+                          <CalendarClock className="mr-2 h-4 w-4" />
+                          Reschedule
+                          <ExternalLink className="ml-2 h-3 w-3" />
                         </Button>
                       )}
                       {nextAppointmentActions.cancelHref && (
                         <Button
-                          asChild
+                          render={
+                            <a
+                              href={nextAppointmentActions.cancelHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            />
+                          }
+                          nativeButton={false}
                           variant="outline"
                           size="sm"
                           className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive w-full"
                         >
-                          <a href={nextAppointmentActions.cancelHref} target="_blank" rel="noopener noreferrer">
-                            <CalendarX className="mr-2 h-4 w-4" />
-                            Cancel
-                            <ExternalLink className="ml-2 h-3 w-3" />
-                          </a>
+                          <CalendarX className="mr-2 h-4 w-4" />
+                          Cancel
+                          <ExternalLink className="ml-2 h-3 w-3" />
                         </Button>
                       )}
                     </div>

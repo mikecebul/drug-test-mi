@@ -67,17 +67,20 @@ export function MobileNav({
   return (
     <div className="flex items-center lg:hidden">
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <Button
-            className="bg-accent text-accent-foreground hover:bg-muted-foreground/20 h-8 w-8 p-0"
-            onClick={() => setOpen(!open)}
-          >
-            {open ? (
-              <Icons.closeMenu className="h-8 w-8" />
-            ) : (
-              <Icons.openMenu className="h-8 w-8" />
-            )}
-          </Button>
+        <SheetTrigger
+          render={
+            <Button
+              aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
+              className="bg-accent text-accent-foreground hover:bg-muted-foreground/20 h-8 w-8 p-0"
+              onClick={() => setOpen(!open)}
+            />
+          }
+        >
+          {open ? (
+            <Icons.closeMenu className="h-8 w-8" />
+          ) : (
+            <Icons.openMenu className="h-8 w-8" />
+          )}
         </SheetTrigger>
         <SheetContent
           side="right"

@@ -65,7 +65,7 @@ export const TEST_TYPES = [
     bookingLabel: '17 SOS Lab',
     category: 'lab',
     price: 45,
-    toxAccessCode: null,
+    toxAccessCode: 'B306',
     isActive: true,
     calcomAliases: ['17 SOS Lab', '17-Panel SOS Lab', '17 Panel SOS Lab', '17 Panel Lab'],
     calcomEventSlugs: ['sos-17-panel-lab-screen'],

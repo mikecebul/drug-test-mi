@@ -98,9 +98,67 @@ test.describe('Wizard Instant Workflow', () => {
     await expect(page.getByText('Verify Medications')).toBeVisible()
     await clickNext(page)
     await expect(page.getByText('Verify Test Data')).toBeVisible()
+    await expect(page.getByLabel(/^PCP$/i)).toBeChecked()
+    await expect(page.getByLabel(/Fentanyl/i)).toBeChecked()
   })
 
-  test('submits instant workflow, creates test, and verifies screened-stage emails with attachment', async ({ page }) => {
+  test('returns to report upload after a browser refresh', async ({ page }) => {
+    const env = getE2EEnv()
+
+    await uploadSinglePdf(page, env.pdfInstantPath)
+    await clickNext(page)
+    await waitForExtractStepReady(page, {
+      readyHeadings: [/Extract Data/i],
+    })
+    await clickNext(page)
+
+    const selectedClientHeading = page.getByRole('heading', { name: /Selected Client/i })
+    if (!(await selectedClientHeading.isVisible().catch(() => false))) {
+      await selectClientFromSearchDialog(page, fixtures.clients.instant.fullName)
+    }
+
+    await clickNext(page)
+    await clickNext(page)
+    await expect(page.getByText('Verify Test Data')).toBeVisible()
+
+    await page.reload({ waitUntil: 'domcontentloaded' })
+
+    await expect(page.getByRole('heading', { name: /Upload Instant Drug Test Report/i })).toBeVisible({
+      timeout: 30_000,
+    })
+    expect(new URL(page.url()).searchParams.get('step')).toBeNull()
+    await clickNext(page)
+    await expect(page.getByText('Please upload a PDF file')).toBeVisible()
+  })
+
+  test('restores the instant report after the client-registration detour', async ({ page }) => {
+    const env = getE2EEnv()
+
+    await uploadSinglePdf(page, env.pdfInstantPath)
+    await clickNext(page)
+    await waitForExtractStepReady(page, {
+      readyHeadings: [/Extract Data/i],
+    })
+    await clickNext(page)
+
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('instant-test-uploaded-file') !== null)).toBe(true)
+
+    await page.getByRole('link', { name: /Register New Client/i }).click()
+    await expect(page.getByRole('heading', { name: /Personal Information/i })).toBeVisible()
+
+    await page.goto(`/admin/drug-test-upload?workflow=instant-test&step=client&clientId=${fixtures.clients.instant.id}`)
+
+    await expect(page.getByRole('heading', { name: /Selected Client/i })).toBeVisible({ timeout: 30_000 })
+    await clickNext(page)
+    await expect(page.getByText('Verify Medications')).toBeVisible()
+    await clickNext(page)
+    await expect(page.getByText('Verify Test Data')).toBeVisible()
+    await expect(page.getByRole('textbox', { name: /Test Type/i })).toHaveValue('17-Panel Instant')
+  })
+
+  test('submits instant workflow, creates test, and verifies screened-stage emails with attachment', async ({
+    page,
+  }) => {
     const env = getE2EEnv()
     const testStart = new Date()
 
@@ -108,7 +166,9 @@ test.describe('Wizard Instant Workflow', () => {
 
     await page.getByRole('button', { name: /^Create Drug Test$/i }).click()
 
-    await expect(page.getByRole('heading', { name: 'Drug Test Created Successfully!' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('heading', { name: 'Drug Test Created Successfully!' })).toBeVisible({
+      timeout: 30_000,
+    })
 
     const testId = await extractTestIdFromSuccess(page)
     fixtures.created.drugTestIds.push(testId)

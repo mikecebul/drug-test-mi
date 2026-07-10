@@ -210,11 +210,13 @@ export default async function DrugTestSummaryView({ doc, payload }: DocumentView
             <CardDescription>Latest result metadata and report access.</CardDescription>
           </div>
           {reportHref ? (
-            <Button asChild className="w-full sm:w-auto">
-              <a href={reportHref} target="_blank" rel="noopener noreferrer">
-                <FileText className="h-4 w-4" />
-                View PDF Report
-              </a>
+            <Button
+              render={<a href={reportHref} target="_blank" rel="noopener noreferrer" />}
+              nativeButton={false}
+              className="w-full sm:w-auto"
+            >
+              <FileText className="h-4 w-4" />
+              View PDF Report
             </Button>
           ) : (
             <p className="text-muted-foreground text-sm sm:self-center">No report available.</p>
