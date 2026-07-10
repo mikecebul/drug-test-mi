@@ -76,15 +76,13 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="MI Drug Test"
-              asChild
+              render={<Link href="/dashboard" />}
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <Link href="/dashboard">
-                <FlaskConical className="h-5 w-5" />
-                <span className="text-base font-semibold group-data-[collapsible=icon]:hidden">
-                  MI Drug Test
-                </span>
-              </Link>
+              <FlaskConical className="h-5 w-5" />
+              <span className="text-base font-semibold group-data-[collapsible=icon]:hidden">
+                MI Drug Test
+              </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
