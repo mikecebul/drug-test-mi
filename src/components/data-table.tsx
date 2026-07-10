@@ -650,10 +650,8 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
 
   return (
     <Sheet>
-      <SheetTrigger asChild>
-        <Button variant="link" className="w-fit px-0 text-left text-foreground">
-          {item.header}
-        </Button>
+      <SheetTrigger render={<Button variant="link" className="w-fit px-0 text-left text-foreground" />}>
+        {item.header}
       </SheetTrigger>
       <SheetContent side="right" className="flex flex-col">
         <SheetHeader className="gap-1">
@@ -795,10 +793,8 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
         </div>
         <SheetFooter className="mt-auto flex gap-2 sm:flex-col sm:space-x-0">
           <Button className="w-full">Submit</Button>
-          <SheetClose asChild>
-            <Button variant="outline" className="w-full">
-              Done
-            </Button>
+          <SheetClose render={<Button variant="outline" className="w-full" />}>
+            Done
           </SheetClose>
         </SheetFooter>
       </SheetContent>
