@@ -46,6 +46,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -820,52 +821,50 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                         {needsTestType && <Badge variant="secondary">Set test</Badge>}
                       </div>
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
+                        <DropdownMenuTrigger
+                          render={<Button
                             type="button"
                             variant="ghost"
                             size="icon"
                             className="-mt-2 -mr-2"
                             aria-label={`${booking.attendeeName} appointment options`}
-                          >
-                            <Ellipsis className="size-5" />
-                          </Button>
+                          />}
+                        >
+                          <Ellipsis className="size-5" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-52">
-                          <DropdownMenuItem
-                            disabled={!booking.calcomActionLinks?.rescheduleHref}
-                            onSelect={(event) => {
-                              event.preventDefault()
-                              openExternalLink(booking.calcomActionLinks?.rescheduleHref)
-                            }}
-                          >
-                            <CalendarClock className="size-4" />
-                            Reschedule
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onSelect={(event) => {
-                              event.preventDefault()
-                              setScheduleAction({ action: 'cancel', booking })
-                            }}
-                          >
-                            <Ban className="size-4" />
-                            Cancel
-                          </DropdownMenuItem>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              disabled={!booking.calcomActionLinks?.rescheduleHref}
+                              closeOnClick={false}
+                              onClick={() => openExternalLink(booking.calcomActionLinks?.rescheduleHref)}
+                            >
+                              <CalendarClock className="size-4" />
+                              Reschedule
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              closeOnClick={false}
+                              onClick={() => setScheduleAction({ action: 'cancel', booking })}
+                            >
+                              <Ban className="size-4" />
+                              Cancel
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            disabled={!canRefund}
-                            variant="destructive"
-                            onSelect={(event) => {
-                              event.preventDefault()
-                              if (canRefund) {
-                                setScheduleAction({ action: 'cancel-refund', booking })
-                              }
-                            }}
-                          >
-                            <CreditCard className="size-4" />
-                            Cancel and refund
-                          </DropdownMenuItem>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              disabled={!canRefund}
+                              variant="destructive"
+                              closeOnClick={false}
+                              onClick={() => {
+                                if (canRefund) setScheduleAction({ action: 'cancel-refund', booking })
+                              }}
+                            >
+                              <CreditCard className="size-4" />
+                              Cancel and refund
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
