@@ -1,12 +1,9 @@
 /**
- * Utilities for persisting uploaded files to localStorage
- * Used to maintain file state when navigating away (e.g., to register a new client)
+ * Utilities for persisting an uploaded file while the user detours to register a client.
  */
 
-import type { ParsedPDFData } from '@/views/DrugTestWizard/types'
-
 const STORAGE_KEY = 'instant-test-uploaded-file'
-const EXTRACTED_DATA_STORAGE_KEY = 'instant-test-extracted-data'
+const LEGACY_EXTRACTED_DATA_STORAGE_KEY = 'instant-test-extracted-data'
 
 interface StoredFile {
   name: string
@@ -14,32 +11,6 @@ interface StoredFile {
   size: number
   lastModified: number
   dataUrl: string // base64 encoded file data
-}
-
-type StoredFileFingerprint = Pick<StoredFile, 'name' | 'type' | 'size' | 'lastModified'>
-
-interface StoredExtractedData {
-  file: StoredFileFingerprint
-  data: ParsedPDFData
-}
-
-function getFileFingerprint(file: File): StoredFileFingerprint {
-  return {
-    name: file.name,
-    type: file.type,
-    size: file.size,
-    lastModified: file.lastModified,
-  }
-}
-
-function isSameStoredFile(file: File, storedFile: StoredFileFingerprint) {
-  const fingerprint = getFileFingerprint(file)
-  return (
-    fingerprint.name === storedFile.name &&
-    fingerprint.type === storedFile.type &&
-    fingerprint.size === storedFile.size &&
-    fingerprint.lastModified === storedFile.lastModified
-  )
 }
 
 /**
@@ -101,7 +72,7 @@ export async function getFileFromStorage(): Promise<File | null> {
 export function clearFileStorage(): void {
   try {
     localStorage.removeItem(STORAGE_KEY)
-    localStorage.removeItem(EXTRACTED_DATA_STORAGE_KEY)
+    localStorage.removeItem(LEGACY_EXTRACTED_DATA_STORAGE_KEY)
   } catch (error) {
     console.error('Failed to clear file storage:', error)
   }
@@ -115,33 +86,5 @@ export function hasStoredFile(): boolean {
     return localStorage.getItem(STORAGE_KEY) !== null
   } catch (_error) {
     return false
-  }
-}
-
-export function saveExtractedDataToStorage(file: File, data: ParsedPDFData): void {
-  try {
-    const storedData: StoredExtractedData = {
-      file: getFileFingerprint(file),
-      data,
-    }
-
-    localStorage.setItem(EXTRACTED_DATA_STORAGE_KEY, JSON.stringify(storedData))
-  } catch (error) {
-    console.error('Failed to save extracted data to storage:', error)
-  }
-}
-
-export function getExtractedDataFromStorage(file: File): ParsedPDFData | null {
-  try {
-    const stored = localStorage.getItem(EXTRACTED_DATA_STORAGE_KEY)
-    if (!stored) return null
-
-    const storedData: StoredExtractedData = JSON.parse(stored)
-    if (!storedData?.file || !isSameStoredFile(file, storedData.file)) return null
-
-    return storedData.data
-  } catch (error) {
-    console.error('Failed to retrieve extracted data from storage:', error)
-    return null
   }
 }
