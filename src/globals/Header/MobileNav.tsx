@@ -70,8 +70,9 @@ export function MobileNav({
         <SheetTrigger
           render={
             <Button
-            className="bg-accent text-accent-foreground hover:bg-muted-foreground/20 h-8 w-8 p-0"
-            onClick={() => setOpen(!open)}
+              aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
+              className="bg-accent text-accent-foreground hover:bg-muted-foreground/20 h-8 w-8 p-0"
+              onClick={() => setOpen(!open)}
             />
           }
         >

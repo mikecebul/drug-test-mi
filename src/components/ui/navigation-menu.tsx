@@ -5,19 +5,46 @@ import { ChevronDown } from 'lucide-react'
 
 import { cn } from '@/utilities/cn'
 
+type NavigationMenuRootElement = React.ComponentRef<typeof NavigationMenuPrimitive.Root>
+
+const NavigationMenuRootRefContext = React.createContext<React.RefObject<NavigationMenuRootElement | null> | null>(
+  null,
+)
+
+function setForwardedRef<T>(ref: React.ForwardedRef<T>, value: T | null) {
+  if (typeof ref === 'function') {
+    ref(value)
+  } else if (ref) {
+    ref.current = value
+  }
+}
+
 const NavigationMenu = React.forwardRef<
-  React.ComponentRef<typeof NavigationMenuPrimitive.Root>,
+  NavigationMenuRootElement,
   NavigationMenuPrimitive.Root.Props
->(({ className, children, ...props }, ref) => (
-  <NavigationMenuPrimitive.Root
-    ref={ref}
-    className={cn('relative z-10 flex max-w-max flex-1 items-center justify-center', className)}
-    {...props}
-  >
-    {children}
-    <NavigationMenuViewport />
-  </NavigationMenuPrimitive.Root>
-))
+>(({ className, children, ...props }, ref) => {
+  const rootRef = React.useRef<NavigationMenuRootElement | null>(null)
+  const mergedRef = React.useCallback(
+    (node: NavigationMenuRootElement | null) => {
+      rootRef.current = node
+      setForwardedRef(ref, node)
+    },
+    [ref],
+  )
+
+  return (
+    <NavigationMenuRootRefContext.Provider value={rootRef}>
+      <NavigationMenuPrimitive.Root
+        ref={mergedRef}
+        className={cn('relative z-10 flex max-w-max flex-1 items-center justify-center', className)}
+        {...props}
+      >
+        {children}
+        <NavigationMenuViewport />
+      </NavigationMenuPrimitive.Root>
+    </NavigationMenuRootRefContext.Provider>
+  )
+})
 NavigationMenu.displayName = 'NavigationMenu'
 
 const NavigationMenuList = React.forwardRef<
@@ -67,7 +94,7 @@ const NavigationMenuContent = React.forwardRef<
   <NavigationMenuPrimitive.Content
     ref={ref}
     className={cn(
-      'top-0 left-0 w-full transition-[opacity,translate] duration-200 data-starting-style:opacity-0 data-ending-style:opacity-0 data-[activation-direction=right]:data-starting-style:translate-x-52 data-[activation-direction=left]:data-starting-style:-translate-x-52 md:absolute md:w-auto',
+      'transition-[opacity,translate] duration-200 data-starting-style:opacity-0 data-ending-style:opacity-0 data-[activation-direction=right]:data-starting-style:translate-x-52 data-[activation-direction=left]:data-starting-style:-translate-x-52',
       className,
     )}
     {...props}
@@ -75,7 +102,45 @@ const NavigationMenuContent = React.forwardRef<
 ))
 NavigationMenuContent.displayName = 'NavigationMenuContent'
 
-const NavigationMenuLink = NavigationMenuPrimitive.Link
+const NavigationMenuLink = React.forwardRef<
+  React.ComponentRef<typeof NavigationMenuPrimitive.Link>,
+  NavigationMenuPrimitive.Link.Props
+>(({ closeOnClick = true, onClick, ...props }, ref) => {
+  const rootRef = React.useContext(NavigationMenuRootRefContext)
+
+  return (
+    <NavigationMenuPrimitive.Link
+      ref={ref}
+      closeOnClick={false}
+      onClick={(event) => {
+        onClick?.(event)
+        if (event.defaultPrevented) return
+
+        const href = event.currentTarget.getAttribute('href')
+        if (!href) return
+
+        const destination = new URL(event.currentTarget.href)
+        const isSameDocument =
+          destination.origin === window.location.origin &&
+          destination.pathname === window.location.pathname &&
+          destination.search === window.location.search
+
+        if (!isSameDocument || !destination.hash) return
+
+        event.preventDefault()
+        window.history.pushState(null, '', destination)
+        document.getElementById(decodeURIComponent(destination.hash.slice(1)))?.scrollIntoView()
+
+        if (!closeOnClick) return
+
+        const openTrigger = rootRef?.current?.querySelector<HTMLButtonElement>('[data-popup-open]')
+        if (openTrigger?.isConnected) openTrigger.click()
+      }}
+      {...props}
+    />
+  )
+})
+NavigationMenuLink.displayName = 'NavigationMenuLink'
 
 type NavigationMenuViewportProps = NavigationMenuPrimitive.Viewport.Props &
   Pick<NavigationMenuPrimitive.Positioner.Props, 'align' | 'alignOffset' | 'side' | 'sideOffset'>

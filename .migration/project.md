@@ -30,6 +30,8 @@ Vaul drawer, cmdk command, Sonner, react-day-picker calendar, Recharts chart, an
 - `pnpm lint`: passed with 316 existing warnings and no errors. Targeted migrated-wrapper lint has only the pre-existing file-upload input mutation and sidebar skeleton randomness warnings.
 - `pnpm build`: migrations completed, Next.js production compilation succeeded, TypeScript completed, and `.next/BUILD_ID` was produced.
 - Final source scan: 0 wrappers remain on Radix.
+- In-app Browser QA exercised all 24 migrated wrappers on desktop and mobile, including keyboard/focus behavior, overlays, scrolling, navigation, and production admin workflows. Two migration regressions were fixed and re-tested; the full matrix is in `.migration/browser-qa.md`.
+- The production mobile header sheet was verified at 390×844, and its icon-only trigger now has an accessible name.
 
 ## shadcn configuration note
 

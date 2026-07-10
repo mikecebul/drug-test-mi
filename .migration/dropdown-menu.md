@@ -12,7 +12,11 @@ Commented-out future account menu items and unrelated sidebar structure were int
 
 ## Behavior changes
 
-Base UI checkbox and radio menu items do not close on click by default, unlike Radix. The current checkbox menu only toggles table columns, so it now remains open while multiple columns are changed. Submenu positioning follows Base UI's logical positioning model.
+Base UI checkbox and radio menu items do not close on click by default, unlike Radix. The wrappers now default `closeOnClick` to `true` for Radix parity. The data-table column picker explicitly sets `closeOnClick={false}` so users can still toggle several columns without reopening the menu. Submenu positioning follows Base UI's logical positioning model.
+
+## Browser QA
+
+Production-browser testing verified trigger focus, pointer and keyboard opening, checkbox/radio selection, submenu positioning, action invocation, Escape, and focus return. The close-on-click parity fix above was discovered and re-tested during this pass. See `.migration/browser-qa.md` for the complete matrix.
 
 ## Verify by hand
 

@@ -4,7 +4,7 @@
 
 ## Changed
 
-`src/components/ui/navigation-menu.tsx` now uses Base UI NavigationMenu parts, renders trigger chevrons through Icon, and replaces the Radix Viewport with Portal, Positioner, Popup, and Viewport anatomy. Radix state/motion hooks and size variables became Base UI attributes and `--popup-*` variables; list spacing now follows shadcn's `gap-1` rule. The public NavigationMenuIndicator remains as an inert visual passthrough because Base UI has no active-trigger tracking indicator. `grep -n "radix-ui\|@radix-ui" src/components/ui/navigation-menu.tsx` is clean.
+`src/components/ui/navigation-menu.tsx` now uses Base UI NavigationMenu parts, renders trigger chevrons through Icon, and replaces the Radix Viewport with Portal, Positioner, Popup, and Viewport anatomy. Radix state/motion hooks and size variables became Base UI attributes and `--popup-*` variables; list spacing now follows shadcn's `gap-1` rule. The public NavigationMenuIndicator remains as an inert visual passthrough because Base UI has no active-trigger tracking indicator. Browser QA also removed Radix-era absolute positioning that collapsed the Base UI popup and added a link adapter that preserves route navigation plus same-document hash navigation and popup closing. `grep -n "radix-ui\|@radix-ui" src/components/ui/navigation-menu.tsx` is clean.
 
 ## Left alone
 
@@ -12,7 +12,11 @@ No application source currently consumes NavigationMenu, so no call-site props r
 
 ## Behavior changes
 
-Base UI's navigation-menu hover delay defaults to 50ms rather than Radix's 200ms, with no skip-delay window. The exported indicator no longer tracks the active trigger; it is retained only for source compatibility and is currently unused.
+Base UI's navigation-menu hover delay defaults to 50ms rather than Radix's 200ms, with no skip-delay window. The exported indicator no longer tracks the active trigger; it is retained only for source compatibility and is currently unused. `NavigationMenuLink` defaults to closing the open popup while retaining normal browser navigation semantics.
+
+## Browser QA
+
+Production-browser testing verified the popup's visible size and hit targets, hover and keyboard opening, route links, same-document hash links, popup closing, and focus behavior. The collapsed-popup positioning regression and hash-link close behavior were fixed and re-tested during this pass. See `.migration/browser-qa.md` for the complete matrix.
 
 ## Verify by hand
 
