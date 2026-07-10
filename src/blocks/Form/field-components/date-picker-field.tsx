@@ -79,8 +79,8 @@ export default function DatePickerField({
         </FieldLabel>
 
         <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button
+          <PopoverTrigger
+            render={<Button
               id={field.name}
               variant="outline"
               disabled={disabled}
@@ -90,10 +90,10 @@ export default function DatePickerField({
                 !dateValue && 'text-muted-foreground',
               )}
               type="button"
-            >
-              <CalendarIcon className="mr-2 size-4" />
-              {displayText}
-            </Button>
+            />}
+          >
+            <CalendarIcon className="mr-2 size-4" />
+            {displayText}
           </PopoverTrigger>
           <PopoverContent className="w-auto overflow-hidden p-0" align="start" sideOffset={10}>
             <Calendar

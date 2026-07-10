@@ -29,26 +29,26 @@ export function DateRangePicker({
 }: DateRangePickerProps) {
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
+      <PopoverTrigger
+        render={<Button
           variant="outline"
           className={cn(
             "w-[240px] justify-start text-left font-normal",
             !value?.from && "text-muted-foreground",
             className
           )}
-        >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {value?.from ? (
-            value.to ? (
-              `${format(value.from, 'LLL dd, y')} - ${format(value.to, 'LLL dd, y')}`
-            ) : (
-              format(value.from, 'LLL dd, y')
-            )
+        />}
+      >
+        <CalendarIcon className="mr-2 h-4 w-4" />
+        {value?.from ? (
+          value.to ? (
+            `${format(value.from, 'LLL dd, y')} - ${format(value.to, 'LLL dd, y')}`
           ) : (
-            placeholder
-          )}
-        </Button>
+            format(value.from, 'LLL dd, y')
+          )
+        ) : (
+          placeholder
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-auto overflow-hidden p-0" align="start">
         <Calendar

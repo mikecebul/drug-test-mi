@@ -123,16 +123,16 @@ export default function DateField({
           />
 
           <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <Button
+            <PopoverTrigger
+              render={<Button
                 variant="ghost"
                 disabled={disabled}
                 className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
                 type="button"
-              >
-                <CalendarIcon className="size-3.5" />
-                <span className="sr-only">Open calendar</span>
-              </Button>
+              />}
+            >
+              <CalendarIcon className="size-3.5" />
+              <span className="sr-only">Open calendar</span>
             </PopoverTrigger>
             <PopoverContent
               className="w-auto overflow-hidden p-0"

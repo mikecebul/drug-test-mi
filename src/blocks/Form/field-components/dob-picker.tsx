@@ -189,17 +189,17 @@ export default function DobPicker({ label, colSpan, required }: DobFieldUIProps)
             aria-invalid={hasErrors || undefined}
           />
           <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <Button
+            <PopoverTrigger
+              render={<Button
                 id="date-picker"
                 variant="ghost"
                 size="icon"
                 type="button"
                 className="absolute top-1/2 right-2 h-6 w-6 -translate-y-1/2"
-              >
-                <CalendarIcon className="size-3" />
-                <span className="sr-only">Select date</span>
-              </Button>
+              />}
+            >
+              <CalendarIcon className="size-3" />
+              <span className="sr-only">Select date</span>
             </PopoverTrigger>
             <PopoverContent className="w-auto overflow-hidden p-0" align="end" alignOffset={-8} sideOffset={10}>
               <Calendar
