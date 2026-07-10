@@ -3,6 +3,7 @@ import { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-mongodb'
 const TOXACCESS_TEST_CODES: Record<string, string> = {
   '11-panel-lab': 'B729',
   '11-panel-lab-no-etg': 'B829',
+  '17-panel-sos-lab': 'B306',
 }
 
 export async function up({ payload, req }: MigrateUpArgs): Promise<void> {

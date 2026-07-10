@@ -19,8 +19,12 @@ function formatScheduleTime(value: string) {
   }).format(new Date(value))
 }
 
-function scheduleCard(page: Page, attendeeName: string) {
+function scheduleCardButton(page: Page, attendeeName: string) {
   return page.getByRole('button').filter({ hasText: attendeeName }).first()
+}
+
+function scheduleCard(page: Page, attendeeName: string) {
+  return scheduleCardButton(page, attendeeName).locator('xpath=..')
 }
 
 async function openGuidedSchedule(page: Page) {
@@ -91,19 +95,19 @@ test.describe("Wizard Today's Schedule", () => {
   })
 
   test('opens the correct next step from each schedule card', async ({ page }) => {
-    await scheduleCard(page, scheduleFixtures.bookings.unlinked.attendeeName).click()
+    await scheduleCardButton(page, scheduleFixtures.bookings.unlinked.attendeeName).click()
     await expect(page.getByRole('heading', { name: 'Confirm Client' })).toBeVisible()
     await expect(page.getByRole('button', { name: /Register New Client/i })).toBeVisible()
     await page.getByRole('button', { name: /^Back$/i }).click()
     await expect(page.getByRole('heading', { name: "Today's Schedule" })).toBeVisible()
 
-    await scheduleCard(page, scheduleFixtures.bookings.needsTestType.attendeeName).click()
+    await scheduleCardButton(page, scheduleFixtures.bookings.needsTestType.attendeeName).click()
     await expect(page.getByRole('heading', { name: 'Set Appointment Test' })).toBeVisible()
     await expect(page.getByText('What test is needed today?')).toBeVisible()
     await page.getByRole('button', { name: /^Back$/i }).click()
     await expect(page.getByRole('heading', { name: "Today's Schedule" })).toBeVisible()
 
-    await scheduleCard(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
+    await scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
     await expect(page.getByRole('heading', { name: 'Review and Payment' })).toBeVisible()
     await expect(page.getByText(scheduleFixtures.bookings.paidLinked.attendeeName)).toBeVisible()
     await expect(page.getByText('Male')).toHaveClass(/text-blue-900/)

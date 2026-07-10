@@ -14,6 +14,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer'
+import { cleanupStaleInteractionLocks } from '@/lib/stale-interaction-locks'
 
 const AdminQuickBookWidgetClient = dynamic(
   () =>
@@ -39,6 +40,7 @@ export default function QuickBookLink() {
   const closeDrawerBeforeBooking = useCallback(async () => {
     setOpen(false)
     await new Promise((resolve) => setTimeout(resolve, DRAWER_CLOSE_BEFORE_BOOKING_MS))
+    cleanupStaleInteractionLocks()
   }, [])
 
   return (

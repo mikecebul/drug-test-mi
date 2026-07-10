@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useCallback, useState, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { revalidateLogic, useStore } from '@tanstack/react-form'
@@ -29,11 +29,18 @@ import {
   uploadSchema,
   verifyDataSchema,
 } from './validators'
-import { extractPdfQueryKey } from '../../queries'
+import { extractPdfQueryKey, prefetchExtractPdf } from '../../queries'
 import type { ExtractedPdfData } from '../../queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { getClientByBookingId, getClientById } from '../components/client/getClients'
-import { getFileFromStorage, clearFileStorage, hasStoredFile, saveFileToStorage } from './utils/fileStorage'
+import {
+  getExtractedDataFromStorage,
+  getFileFromStorage,
+  clearFileStorage,
+  hasStoredFile,
+  saveExtractedDataToStorage,
+  saveFileToStorage,
+} from './utils/fileStorage'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 import { getReportClientMatch, getReportClientMismatchKey } from './utils/reportClientMatch'
 
@@ -159,6 +166,24 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       }
     },
   })
+  const hydrateExtractedData = useCallback(
+    (extractedData: ExtractedPdfData) => {
+      form.setFieldValue('extract.extracted', true)
+      if (extractedData.testType === '17-panel-instant') {
+        form.setFieldValue('verifyData.testType', extractedData.testType)
+      }
+      if (extractedData.collectionDate) {
+        form.setFieldValue('verifyData.collectionDate', extractedData.collectionDate)
+      }
+      if (extractedData.detectedSubstances) {
+        form.setFieldValue('verifyData.detectedSubstances', extractedData.detectedSubstances)
+      }
+      if (extractedData.isDilute !== undefined) {
+        form.setFieldValue('verifyData.isDilute', extractedData.isDilute)
+      }
+    },
+    [form],
+  )
   const uploadedFile = useStore(form.store, (state) => state.values.upload.file)
 
   // Restore file from localStorage only after the upload step. Starting or reloading
@@ -171,12 +196,32 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
           return
         }
 
-        if (hasStoredFile() && !form.state.values.upload.file) {
-          const file = await getFileFromStorage()
-          if (file) {
-            form.setFieldValue('upload.file', file)
-            toast.success('Uploaded file restored')
-          }
+        const currentFile = form.state.values.upload.file
+        const file = currentFile || (hasStoredFile() ? await getFileFromStorage() : null)
+
+        if (!file) {
+          return
+        }
+
+        if (!currentFile) {
+          form.setFieldValue('upload.file', file)
+          toast.success('Uploaded file restored')
+        }
+
+        const queryKey = extractPdfQueryKey(file, 'instant-test')
+        const storedExtractedData = getExtractedDataFromStorage(file)
+
+        if (storedExtractedData) {
+          queryClient.setQueryData(queryKey, storedExtractedData)
+          hydrateExtractedData(storedExtractedData)
+          return
+        }
+
+        await prefetchExtractPdf(queryClient, file, 'instant-test')
+        const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
+        if (extractedData) {
+          saveExtractedDataToStorage(file, extractedData)
+          hydrateExtractedData(extractedData)
         }
       } finally {
         setIsRestoringFile(false)
@@ -185,8 +230,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
 
     restoreFile()
     // Only run on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [currentStep, form, hydrateExtractedData, queryClient])
 
   // Keep the uploaded PDF available across refreshes and workflow detours once
   // the workflow has moved beyond the fresh upload step.

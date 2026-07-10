@@ -15,6 +15,7 @@ import { useExtractPdfQuery } from '@/views/DrugTestWizard/queries'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { getInstantTestFormOpts } from '../shared-form'
 import { getReportClientMatch, getReportClientMismatchKey } from '../utils/reportClientMatch'
+import { saveExtractedDataToStorage } from '../utils/fileStorage'
 import { AlertTriangle, Calendar, CheckCircle2, ChevronDown, FileCheck2, FileX2, Loader2, User } from 'lucide-react'
 import { formatSubstance } from '@/lib/substances'
 
@@ -61,6 +62,9 @@ export const ExtractStep = withForm({
     // Auto-sync extracted data to form when available
     useEffect(() => {
       if (extractedData) {
+        if (uploadedFile) {
+          saveExtractedDataToStorage(uploadedFile, extractedData)
+        }
         form.setFieldValue('extract.extracted', true)
         if (extractedData.testType === '17-panel-instant') {
           form.setFieldValue('verifyData.testType', extractedData.testType)
@@ -76,7 +80,7 @@ export const ExtractStep = withForm({
           form.setFieldValue('verifyData.isDilute', extractedData.isDilute)
         }
       }
-    }, [extractedData, form])
+    }, [extractedData, form, uploadedFile])
 
     // Loading state
     if (isLoading) {

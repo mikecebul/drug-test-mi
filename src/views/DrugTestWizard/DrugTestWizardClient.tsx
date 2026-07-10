@@ -1,6 +1,6 @@
 'use client'
 
-import React, { Suspense } from 'react'
+import React, { Suspense, useEffect } from 'react'
 import { parseAsStringLiteral, parseAsString, useQueryStates } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
 import { WizardTypeSelector } from './components/main-wizard/WizardTypeSelector'
@@ -19,6 +19,7 @@ import { steps as instantTestSteps } from './workflows/instant-test/validators'
 import { steps as labScreenSteps } from './workflows/lab-screen/validators'
 import { steps as labConfirmationSteps } from './workflows/lab-confirmation/validators'
 import { clearWizardQueryCache, resetGuidedScheduleCache } from './queries'
+import { scheduleStaleInteractionLockCleanup } from '@/lib/stale-interaction-locks'
 
 const workflowTypes = [
   'guided',
@@ -50,6 +51,10 @@ export function DrugTestWizardClient() {
   )
 
   const { bookingId, workflow } = states
+
+  useEffect(() => {
+    return scheduleStaleInteractionLockCleanup()
+  }, [states.workflow, states.step, states.clientId, states.bookingId])
 
   const firstStepMap: Record<Workflows[number], string> = {
     guided: 'schedule',

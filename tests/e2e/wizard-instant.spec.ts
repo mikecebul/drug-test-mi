@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import { expect, test } from '@playwright/test'
 import { cleanupFixtures } from './helpers/cleanup'
 import { assertNotificationSent } from './helpers/db-assert'
@@ -19,6 +20,7 @@ import {
 } from './helpers/wizard'
 
 let fixtures: FixtureContext
+const DEFAULT_POSITIVE_INSTANT_PDF = '/Users/mikecebul/Documents/MI Drug Test/tests/17-panel-instant-pos-kratom-morphine.pdf'
 
 function subjectForClient(prefix: string, person: FixtureContext['clients']['instant']) {
   return `${prefix} - ${person.firstName} ${person.lastName}`
@@ -98,6 +100,35 @@ test.describe('Wizard Instant Workflow', () => {
     await expect(page.getByText('Verify Medications')).toBeVisible()
     await clickNext(page)
     await expect(page.getByText('Verify Test Data')).toBeVisible()
+  })
+
+  test('restores extracted positive panels after a browser refresh', async ({ page }) => {
+    const positiveInstantPdf = process.env.E2E_PDF_INSTANT_POSITIVE_PATH || DEFAULT_POSITIVE_INSTANT_PDF
+    test.skip(!fs.existsSync(positiveInstantPdf), `Missing positive instant PDF fixture: ${positiveInstantPdf}`)
+
+    await uploadSinglePdf(page, positiveInstantPdf)
+    await clickNext(page)
+    await waitForExtractStepReady(page, {
+      readyHeadings: [/Extract Data/i],
+    })
+    await clickNext(page)
+
+    const selectedClientHeading = page.getByRole('heading', { name: /Selected Client/i })
+    if (!(await selectedClientHeading.isVisible().catch(() => false))) {
+      await selectClientFromSearchDialog(page, fixtures.clients.instant.fullName)
+    }
+
+    await clickNext(page)
+    await clickNext(page)
+    await expect(page.getByText('Verify Test Data')).toBeVisible()
+    await expect(page.getByLabel(/Kratom/i)).toBeChecked()
+    await expect(page.getByLabel(/^Morphine$/i)).toBeChecked()
+
+    await page.reload({ waitUntil: 'domcontentloaded' })
+
+    await expect(page.getByText('Verify Test Data')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByLabel(/Kratom/i)).toBeChecked({ timeout: 30_000 })
+    await expect(page.getByLabel(/^Morphine$/i)).toBeChecked()
   })
 
   test('submits instant workflow, creates test, and verifies screened-stage emails with attachment', async ({ page }) => {

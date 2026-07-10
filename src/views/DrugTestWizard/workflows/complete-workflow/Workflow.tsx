@@ -383,14 +383,32 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           : await cancelGuidedBooking({ bookingId: booking.id })
 
       if (!result.success) {
-        toast.error(result.error || 'Appointment action failed.')
-        openExternalLink(result.fallbackHref)
+        toast.error(
+          result.error || 'Appointment action failed.',
+          result.fallbackHref
+            ? {
+                action: {
+                  label: 'Open Cal.com',
+                  onClick: () => openExternalLink(result.fallbackHref),
+                },
+              }
+            : undefined,
+        )
         return
       }
 
       if (result.warning) {
-        toast.warning(result.warning)
-        openExternalLink(result.fallbackHref)
+        toast.warning(
+          result.warning,
+          result.fallbackHref
+            ? {
+                action: {
+                  label: 'Open Cal.com',
+                  onClick: () => openExternalLink(result.fallbackHref),
+                },
+              }
+            : undefined,
+        )
       } else {
         toast.success(action === 'cancel-refund' ? 'Appointment cancelled and refunded' : 'Appointment cancelled')
       }
@@ -897,7 +915,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   <SelectTrigger id="walk-in-test-type" className="h-12 text-base">
                     <SelectValue placeholder="Select test type" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent side="bottom" align="start" sideOffset={4} avoidCollisions={false}>
                     {testTypes.map((testType) => (
                       <SelectItem key={testType.id} value={testType.id}>
                         {testType.label} · {currency.format(testType.price)}
@@ -1204,7 +1222,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="extra-collected">Extra toward balance or credit</Label>
+                  <Label htmlFor="extra-collected">Extra collected</Label>
                   <Input id="extra-collected" value={currency.format(extraCollected)} readOnly />
                 </div>
               </div>

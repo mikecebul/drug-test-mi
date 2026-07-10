@@ -3,7 +3,8 @@
 import React from 'react'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Badge } from '@/components/ui/badge'
-import { Mail } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Mail, X } from 'lucide-react'
 
 type EmailPreviewModalProps = {
   isOpen: boolean
@@ -23,13 +24,18 @@ export function EmailPreviewModal({
   emailType,
 }: EmailPreviewModalProps) {
   return (
-    <Drawer direction="right" open={isOpen} onOpenChange={onClose}>
-      <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(64rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
-        <DrawerHeader className="border-border border-b px-6 py-5">
-          <DrawerTitle className="flex items-center gap-2 text-2xl tracking-tight">
-            <Mail className="h-5 w-5" />
-            Email Preview
-          </DrawerTitle>
+    <Drawer direction="right" open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DrawerContent className="bg-background max-h-dvh overflow-hidden shadow-2xl data-[vaul-drawer-direction=right]:w-[min(56rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+        <DrawerHeader className="border-border shrink-0 border-b px-5 py-4 sm:px-6 sm:py-5">
+          <div className="flex items-start justify-between gap-4">
+            <DrawerTitle className="flex items-center gap-2 text-2xl tracking-tight">
+              <Mail className="h-5 w-5" />
+              Email Preview
+            </DrawerTitle>
+            <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close email preview">
+              <X className="size-5" />
+            </Button>
+          </div>
           <DrawerDescription asChild className="space-y-2">
             <div>
               <div className="flex items-center gap-2">
@@ -41,18 +47,18 @@ export function EmailPreviewModal({
               <div>
                 <strong>Subject:</strong> {subject}
               </div>
-              <div>
+              <div className="break-words">
                 <strong>To:</strong> {recipients.join(', ')}
               </div>
             </div>
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="mx-6 my-5 flex-1 overflow-auto rounded-md border">
+        <div className="mx-4 my-4 min-h-0 flex-1 overflow-hidden rounded-md border sm:mx-6 sm:my-5">
           <iframe
             srcDoc={emailHtml}
             sandbox="allow-same-origin"
-            className="h-full min-h-150 w-full"
+            className="h-full min-h-0 w-full"
             title="Email Preview"
           />
         </div>

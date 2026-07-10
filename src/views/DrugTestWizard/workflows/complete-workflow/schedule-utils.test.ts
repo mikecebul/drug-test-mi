@@ -79,10 +79,26 @@ describe('guided schedule payment helpers', () => {
 })
 
 describe('Cal.com booking action links', () => {
-  test('prefers action URLs stored in the raw Cal.com webhook payload', () => {
+  test('uses UID routes when the Cal.com booking id is known', () => {
     expect(
       getCalcomBookingActionLinks({
         calcomBookingId: 'booking-uid',
+        webhookData: {
+          payload: {
+            cancelUrl: 'https://cal.com/booking/stale-booking?cancel=true',
+            rescheduleUrl: 'https://cal.com/midrugtest/instant-17-panel?rescheduleUid=stale-booking',
+          },
+        },
+      }),
+    ).toEqual({
+      cancelHref: 'https://cal.com/booking/booking-uid?cancel=true',
+      rescheduleHref: 'https://cal.com/reschedule/booking-uid',
+    })
+  })
+
+  test('falls back to action URLs stored in the raw Cal.com webhook payload without a booking id', () => {
+    expect(
+      getCalcomBookingActionLinks({
         webhookData: {
           payload: {
             cancelUrl: 'https://cal.com/booking/booking-uid?cancel=true',
