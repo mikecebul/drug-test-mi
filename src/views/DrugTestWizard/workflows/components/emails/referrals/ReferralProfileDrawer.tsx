@@ -226,8 +226,8 @@ export function ReferralProfileDrawer({
   }
 
   return (
-    <Drawer direction="right" open={open} onOpenChange={handleDrawerOpenChange}>
-      <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(48rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+    <Drawer swipeDirection="right" open={open} onOpenChange={handleDrawerOpenChange}>
+      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(48rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
         <DrawerHeader className="px-6 pt-6 pb-2">
           <DrawerTitle className="text-2xl tracking-tight">Edit Referral Profile</DrawerTitle>
         </DrawerHeader>

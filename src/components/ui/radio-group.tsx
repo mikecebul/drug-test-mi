@@ -19,13 +19,16 @@ function RadioGroup({ className, ...props }: RadioGroupPrimitive.Props) {
 function RadioGroupItem({ className, ...props }: RadioPrimitive.Root.Props) {
   return (
     <RadioPrimitive.Root
+      data-slot="radio-group-item"
+      nativeButton
+      render={<button type="button" />}
       className={cn(
         "aspect-square size-4 rounded-full border border-primary text-primary ring-offset-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 data-disabled:cursor-not-allowed data-disabled:opacity-50",
         className
       )}
       {...props}
     >
-      <RadioPrimitive.Indicator className="flex items-center justify-center">
+      <RadioPrimitive.Indicator data-slot="radio-group-indicator" className="flex items-center justify-center">
         <Circle className="h-2.5 w-2.5 fill-current text-current" />
       </RadioPrimitive.Indicator>
     </RadioPrimitive.Root>

@@ -123,4 +123,36 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByText('Already paid through the booking.')).toBeVisible()
     await expect(page.getByRole('radio', { name: /^Pre-paid/i })).toHaveCount(0)
   })
+
+  test('keeps controls interactive after repeatedly closing Quick Book', async ({ page }) => {
+    const openMenuButton = page.getByRole('button', { name: 'Open menu' }).last()
+    if (await openMenuButton.isVisible()) {
+      await openMenuButton.click()
+      await expect(page.getByRole('button', { name: 'Close menu' }).last()).toBeVisible()
+    }
+
+    const quickBookTrigger = page.getByRole('button', { name: 'Quick Book', exact: true })
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await quickBookTrigger.click()
+
+      const quickBookDrawer = page.getByRole('dialog', { name: 'Quick Book' })
+      await expect(quickBookDrawer).toBeVisible()
+
+      await quickBookDrawer.getByRole('tab', { name: 'New Client' }).click()
+      await expect(quickBookDrawer.getByRole('button', { name: 'Book Appointment' })).toBeVisible()
+      await quickBookDrawer.getByRole('tab', { name: 'Existing Client' }).click()
+      await expect(quickBookDrawer.getByLabel('Search Existing Client')).toBeVisible()
+
+      await page.keyboard.press('Escape')
+      await expect(quickBookDrawer).toBeHidden()
+      await expect(quickBookTrigger).toBeFocused()
+      await expect
+        .poll(() => page.evaluate(() => window.getComputedStyle(document.body).pointerEvents))
+        .not.toBe('none')
+    }
+
+    await scheduleCardButton(page, scheduleFixtures.bookings.needsTestType.attendeeName).click()
+    await expect(page.getByRole('heading', { name: 'Set Appointment Test' })).toBeVisible()
+  })
 })

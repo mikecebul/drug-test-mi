@@ -49,11 +49,11 @@ type SelectContentProps = SelectPrimitive.Popup.Props &
 function SelectContent({
   className,
   children,
-  align,
+  align = 'center',
   alignItemWithTrigger = true,
-  alignOffset,
+  alignOffset = 0,
   collisionAvoidance,
-  side,
+  side = 'bottom',
   sideOffset = 4,
   ...props
 }: SelectContentProps) {
@@ -66,11 +66,13 @@ function SelectContent({
         collisionAvoidance={collisionAvoidance}
         side={side}
         sideOffset={sideOffset}
+        className="isolate z-[1400]"
       >
         <SelectPrimitive.Popup
           data-slot="select-content"
+          data-align-trigger={alignItemWithTrigger}
           className={cn(
-            'bg-popover text-popover-foreground border-border relative isolate z-[1400] max-h-(--available-height) min-w-[8rem] origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-md p-1 shadow-md transition-[opacity,scale,translate] duration-200 data-starting-style:scale-95 data-starting-style:opacity-0 data-ending-style:scale-95 data-ending-style:opacity-0 data-[side=bottom]:data-starting-style:-translate-y-1 data-[side=left]:data-starting-style:translate-x-1 data-[side=right]:data-starting-style:-translate-x-1 data-[side=top]:data-starting-style:translate-y-1',
+            'bg-popover text-popover-foreground border-border relative isolate max-h-(--available-height) min-w-[8rem] origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-md p-1 shadow-md transition-[opacity,scale,translate] duration-200 data-[align-trigger=true]:transition-none data-starting-style:scale-95 data-starting-style:opacity-0 data-ending-style:scale-95 data-ending-style:opacity-0 data-[side=bottom]:data-starting-style:-translate-y-1 data-[side=left]:data-starting-style:translate-x-1 data-[side=right]:data-starting-style:-translate-x-1 data-[side=top]:data-starting-style:translate-y-1',
             className,
           )}
           {...props}

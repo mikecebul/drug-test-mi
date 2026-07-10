@@ -924,6 +924,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   <SelectContent
                     side="bottom"
                     align="start"
+                    alignItemWithTrigger={false}
                     sideOffset={4}
                     collisionAvoidance={{ side: 'none', align: 'none', fallbackAxisSide: 'none' }}
                   >
@@ -1492,8 +1493,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         }}
       />
 
-      <Drawer direction="right" open={testTypeDrawerOpen} onOpenChange={setTestTypeDrawerOpen}>
-        <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(36rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+      <Drawer swipeDirection="right" open={testTypeDrawerOpen} onOpenChange={setTestTypeDrawerOpen}>
+        <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(36rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
           <DrawerHeader className="border-border border-b px-6 py-5">
             <DrawerTitle className="text-2xl tracking-tight">Change Today&apos;s Test</DrawerTitle>
             <DrawerDescription>

@@ -5,14 +5,9 @@ import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 import { XIcon } from 'lucide-react'
 
 import { cn } from '@/utilities/cn'
-import { scheduleStaleInteractionLockCleanup } from '@/lib/stale-interaction-locks'
 
-function Dialog({ open, ...props }: DialogPrimitive.Root.Props) {
-  React.useEffect(() => {
-    if (open === false) return scheduleStaleInteractionLockCleanup()
-  }, [open])
-
-  return <DialogPrimitive.Root data-slot="dialog" open={open} {...props} />
+function Dialog({ ...props }: DialogPrimitive.Root.Props) {
+  return <DialogPrimitive.Root data-slot="dialog" {...props} />
 }
 
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {

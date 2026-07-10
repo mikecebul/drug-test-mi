@@ -24,8 +24,8 @@ export function EmailPreviewModal({
   emailType,
 }: EmailPreviewModalProps) {
   return (
-    <Drawer direction="right" open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DrawerContent className="bg-background max-h-dvh overflow-hidden shadow-2xl data-[vaul-drawer-direction=right]:w-[min(56rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+    <Drawer swipeDirection="right" open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DrawerContent className="bg-background max-h-dvh overflow-hidden shadow-2xl data-[swipe-direction=right]:w-[min(56rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
         <DrawerHeader className="border-border shrink-0 border-b px-5 py-4 sm:px-6 sm:py-5">
           <div className="flex items-start justify-between gap-4">
             <DrawerTitle className="flex items-center gap-2 text-2xl tracking-tight">
@@ -36,7 +36,7 @@ export function EmailPreviewModal({
               <X className="size-5" />
             </Button>
           </div>
-          <DrawerDescription asChild className="space-y-2">
+          <DrawerDescription render={<div />} className="space-y-2">
             <div>
               <div className="flex items-center gap-2">
                 <Badge variant={emailType === 'client' ? 'default' : 'secondary'}>

@@ -850,17 +850,15 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
 
               {/* Mobile Filter Drawer */}
               <div className="md:hidden">
-                <Drawer open={isFilterDrawerOpen} onOpenChange={setIsFilterDrawerOpen}>
-                  <DrawerTrigger asChild>
-                    <Button variant="outline" className="w-full">
-                      <Filter className="mr-2 h-4 w-4" />
-                      Filters
-                      {(dateRange?.from || dateRange?.to || resultFilter || testTypeFilter) && (
-                        <span className="bg-primary text-primary-foreground ml-2 rounded-full px-2 py-0.5 text-xs">
-                          Active
-                        </span>
-                      )}
-                    </Button>
+                <Drawer showSwipeHandle open={isFilterDrawerOpen} onOpenChange={setIsFilterDrawerOpen}>
+                  <DrawerTrigger render={<Button variant="outline" className="w-full" />}>
+                    <Filter className="mr-2 h-4 w-4" />
+                    Filters
+                    {(dateRange?.from || dateRange?.to || resultFilter || testTypeFilter) && (
+                      <span className="bg-primary text-primary-foreground ml-2 rounded-full px-2 py-0.5 text-xs">
+                        Active
+                      </span>
+                    )}
                   </DrawerTrigger>
                   <DrawerContent>
                     <DrawerHeader>
@@ -869,7 +867,7 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                         Refine your test results by date, result type, or test type.
                       </DrawerDescription>
                     </DrawerHeader>
-                    <div className="space-y-6 px-4 pb-4">
+                    <div className="flex-1 space-y-6 overflow-y-auto px-4 pb-4">
                       {/* Date Range Filter */}
                       <div className="space-y-2">
                         <span className="text-sm font-medium">Date Range</span>

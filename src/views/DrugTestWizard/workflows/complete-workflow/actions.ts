@@ -18,7 +18,7 @@ import {
   mapTestTypeValue,
   type GuidedTestType,
 } from '@/config/test-types'
-import { getCalcomBookingActionLinks } from './schedule-utils'
+import { getCalcomBookingActionLinks, isPastScheduledBookingTime } from './schedule-utils'
 import { applyIncomingPayment, normalizeMoney } from '@/collections/Payments/services/applyPayment'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
 import {
@@ -75,6 +75,13 @@ function isPastScheduledCalcomCancelError(error?: string) {
 async function cancelCalcomBookingIfNeeded(booking: PayloadBooking): Promise<ScheduleActionResult> {
   if (!booking.calcomBookingId) {
     return { success: true }
+  }
+
+  if (isPastScheduledBookingTime(booking.startTime)) {
+    return {
+      success: true,
+      warning: "This booking is past its scheduled time, so it was removed from today's schedule locally.",
+    }
   }
 
   const result = await cancelCalcomBooking({

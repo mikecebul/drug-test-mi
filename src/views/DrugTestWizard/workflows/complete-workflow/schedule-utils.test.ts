@@ -6,6 +6,7 @@ import {
   getGuidedGenderBadgeClass,
   getGuidedPaymentChoice,
   getGuidedPaymentLabel,
+  isPastScheduledBookingTime,
 } from './schedule-utils'
 
 describe('guided schedule payment helpers', () => {
@@ -117,5 +118,20 @@ describe('Cal.com booking action links', () => {
       cancelHref: 'https://cal.com/booking/booking%20uid?cancel=true',
       rescheduleHref: 'https://cal.com/reschedule/booking%20uid',
     })
+  })
+})
+
+describe('scheduled booking time checks', () => {
+  const now = new Date('2026-07-10T14:00:00.000Z').getTime()
+
+  test('treats a booking at or before the current time as past', () => {
+    expect(isPastScheduledBookingTime('2026-07-10T13:59:59.000Z', now)).toBe(true)
+    expect(isPastScheduledBookingTime('2026-07-10T14:00:00.000Z', now)).toBe(true)
+  })
+
+  test('keeps future and invalid booking times eligible for the Cal.com action', () => {
+    expect(isPastScheduledBookingTime('2026-07-10T14:00:01.000Z', now)).toBe(false)
+    expect(isPastScheduledBookingTime('not-a-date', now)).toBe(false)
+    expect(isPastScheduledBookingTime(null, now)).toBe(false)
   })
 })

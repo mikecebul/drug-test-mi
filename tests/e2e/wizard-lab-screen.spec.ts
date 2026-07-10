@@ -38,13 +38,12 @@ function hasDecisionSection(page: Page) {
 
 async function resolveConfirmationDecision(page: Page) {
   const nextButton = page.getByTestId('wizard-next-button')
-  const acceptResults = page.locator('label[for="accept"]').first()
-  const acceptRadio = page.locator('#accept').first()
+  const acceptRadio = page.getByRole('radio', { name: /Accept Results/i })
   const missingDecisionError = page.getByText('Must select an option')
   const missingSubstancesError = page.getByText('Please select at least one substance for confirmation testing')
 
-  await acceptResults.click()
-  await expect(acceptRadio).toHaveAttribute('data-state', 'checked')
+  await acceptRadio.check()
+  await expect(acceptRadio).toBeChecked()
   if (await nextButton.isDisabled().catch(() => false)) {
     const hasVisibleValidationError =
       (await missingDecisionError.isVisible().catch(() => false)) ||
@@ -54,8 +53,8 @@ async function resolveConfirmationDecision(page: Page) {
       await triggerNextValidation(page)
     }
 
-    await acceptResults.click()
-    await expect(acceptRadio).toHaveAttribute('data-state', 'checked')
+    await acceptRadio.check()
+    await expect(acceptRadio).toBeChecked()
   }
 
   await expect(nextButton).toBeEnabled({ timeout: 7_500 })

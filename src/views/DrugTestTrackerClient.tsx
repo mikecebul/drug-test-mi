@@ -562,13 +562,15 @@ function RequestConfirmationDialog({
   }
 
   return (
-    <Drawer direction="right" open={open} onOpenChange={handleOpenChange}>
-      <DrawerTrigger asChild>
-        <Button size="sm" variant="secondary" disabled={disabled || unexpectedPositives.length === 0}>
-          Request Confirmation
-        </Button>
+    <Drawer swipeDirection="right" open={open} onOpenChange={handleOpenChange}>
+      <DrawerTrigger
+        render={
+          <Button size="sm" variant="secondary" disabled={disabled || unexpectedPositives.length === 0} />
+        }
+      >
+        Request Confirmation
       </DrawerTrigger>
-      <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(44rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(44rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
         <DrawerHeader className="border-border border-b px-6 py-5">
           <DrawerTitle className="text-2xl tracking-tight">Request Confirmation</DrawerTitle>
           <DrawerDescription>
@@ -665,13 +667,11 @@ function RecordPaymentDialog({
   }
 
   return (
-    <Drawer direction="right" open={open} onOpenChange={handleOpenChange}>
-      <DrawerTrigger asChild>
-        <Button size="sm" disabled={disabled}>
-          Record Payment
-        </Button>
+    <Drawer swipeDirection="right" open={open} onOpenChange={handleOpenChange}>
+      <DrawerTrigger render={<Button size="sm" disabled={disabled} />}>
+        Record Payment
       </DrawerTrigger>
-      <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(34rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(34rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
         <DrawerHeader className="border-border border-b px-6 py-5">
           <DrawerTitle className="text-2xl tracking-tight">Record Payment</DrawerTitle>
           <DrawerDescription>
