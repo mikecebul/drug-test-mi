@@ -36,7 +36,8 @@ function CommandDialog({
   showCloseButton = true,
   trigger,
   ...props
-}: React.ComponentProps<typeof Dialog> & {
+}: Omit<React.ComponentProps<typeof Dialog>, 'children'> & {
+  children?: React.ReactNode
   title?: string
   description?: string
   className?: string
@@ -46,7 +47,11 @@ function CommandDialog({
 }) {
   return (
     <Dialog {...props}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {React.isValidElement(trigger) ? (
+        <DialogTrigger render={trigger} />
+      ) : (
+        <DialogTrigger>{trigger}</DialogTrigger>
+      )}
       <DialogHeader className="sr-only">
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
