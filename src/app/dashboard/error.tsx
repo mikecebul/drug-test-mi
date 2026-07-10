@@ -54,11 +54,9 @@ export default function DashboardError({
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Try Again
                 </Button>
-                <Button asChild variant="outline">
-                  <Link href="/">
-                    <Home className="w-4 h-4 mr-2" />
-                    Go Home
-                  </Link>
+                <Button render={<Link href="/" />} nativeButton={false} variant="outline">
+                  <Home className="w-4 h-4 mr-2" />
+                  Go Home
                 </Button>
               </div>
             </div>

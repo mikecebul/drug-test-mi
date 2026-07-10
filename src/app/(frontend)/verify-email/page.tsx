@@ -116,8 +116,8 @@ function VerifyEmailContent() {
               appointment.
             </p>
             <div className="space-y-3">
-              <Button asChild className="w-full">
-                <Link href="/sign-in">Sign In to Your Account</Link>
+              <Button render={<Link href="/sign-in" />} nativeButton={false} className="w-full">
+                Sign In to Your Account
               </Button>
             </div>
           </div>
@@ -136,8 +136,13 @@ function VerifyEmailContent() {
               <Button onClick={() => setState('resend')} className="w-full">
                 Resend Verification Email
               </Button>
-              <Button asChild variant="outline" className="w-full">
-                <Link href="/register">Back to Registration</Link>
+              <Button
+                render={<Link href="/register" />}
+                nativeButton={false}
+                variant="outline"
+                className="w-full"
+              >
+                Back to Registration
               </Button>
             </div>
           </div>
@@ -152,8 +157,8 @@ function VerifyEmailContent() {
               Your email has already been verified. You can sign in to your account.
             </p>
             <div className="space-y-3">
-              <Button asChild className="w-full">
-                <Link href="/sign-in">Sign In to Your Account</Link>
+              <Button render={<Link href="/sign-in" />} nativeButton={false} className="w-full">
+                Sign In to Your Account
               </Button>
             </div>
           </div>
@@ -172,8 +177,8 @@ function VerifyEmailContent() {
               If you&apos;ve already verified your email, you can sign in directly. Otherwise, request a new verification link.
             </p>
             <div className="space-y-3">
-              <Button asChild className="w-full">
-                <Link href="/sign-in">Sign In to Your Account</Link>
+              <Button render={<Link href="/sign-in" />} nativeButton={false} className="w-full">
+                Sign In to Your Account
               </Button>
               <Button onClick={() => setState('resend')} variant="outline" className="w-full">
                 Resend Verification Email
