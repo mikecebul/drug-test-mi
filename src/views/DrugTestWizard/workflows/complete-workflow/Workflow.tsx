@@ -53,7 +53,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { APP_TIMEZONE } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
 import { ClientSearchDialog } from '../components/client/ClientSearchDialog'
@@ -911,16 +911,30 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
               <div className="space-y-2">
                 <Label htmlFor="walk-in-test-type">Test type</Label>
-                <Select value={selectedWalkInTestTypeId} onValueChange={setWalkInTestTypeId}>
+                <Select
+                  items={testTypes.map((testType) => ({
+                    value: testType.id,
+                    label: `${testType.label} · ${currency.format(testType.price)}`,
+                  }))}
+                  value={selectedWalkInTestTypeId}
+                  onValueChange={(value) => setWalkInTestTypeId(value ?? '')}
+                >
                   <SelectTrigger id="walk-in-test-type" className="h-12 text-base">
                     <SelectValue placeholder="Select test type" />
                   </SelectTrigger>
-                  <SelectContent side="bottom" align="start" sideOffset={4} avoidCollisions={false}>
-                    {testTypes.map((testType) => (
-                      <SelectItem key={testType.id} value={testType.id}>
-                        {testType.label} · {currency.format(testType.price)}
-                      </SelectItem>
-                    ))}
+                  <SelectContent
+                    side="bottom"
+                    align="start"
+                    sideOffset={4}
+                    collisionAvoidance={{ side: 'none', align: 'none', fallbackAxisSide: 'none' }}
+                  >
+                    <SelectGroup>
+                      {testTypes.map((testType) => (
+                        <SelectItem key={testType.id} value={testType.id}>
+                          {testType.label} · {currency.format(testType.price)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
@@ -1203,11 +1217,16 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 <div className="space-y-2">
                   <Label htmlFor="payment-method">Method</Label>
                   <Select
+                    items={[
+                      { value: 'cash', label: 'Cash' },
+                      { value: 'card', label: 'Card' },
+                      ...(canUsePrepaidMethod ? [{ value: 'pre-paid', label: 'Pre-paid' }] : []),
+                    ]}
                     value={payment.method}
                     onValueChange={(method) =>
                       setPaymentDraft((current) => ({
                         ...(current ?? payment),
-                        method: method as PaymentEntryMethod,
+                        method: (method ?? 'cash') as PaymentEntryMethod,
                       }))
                     }
                   >
@@ -1215,9 +1234,11 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="card">Card</SelectItem>
-                      {canUsePrepaidMethod && <SelectItem value="pre-paid">Pre-paid</SelectItem>}
+                      <SelectGroup>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="card">Card</SelectItem>
+                        {canUsePrepaidMethod && <SelectItem value="pre-paid">Pre-paid</SelectItem>}
+                      </SelectGroup>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1262,11 +1283,16 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 <div className="space-y-2">
                   <Label htmlFor="partial-payment-method">Method</Label>
                   <Select
+                    items={[
+                      { value: 'cash', label: 'Cash' },
+                      { value: 'card', label: 'Card' },
+                      ...(canUsePrepaidMethod ? [{ value: 'pre-paid', label: 'Pre-paid' }] : []),
+                    ]}
                     value={payment.method}
                     onValueChange={(method) =>
                       setPaymentDraft((current) => ({
                         ...(current ?? payment),
-                        method: method as PaymentEntryMethod,
+                        method: (method ?? 'cash') as PaymentEntryMethod,
                       }))
                     }
                     disabled={payment.amountPaid <= 0}
@@ -1275,9 +1301,11 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="card">Card</SelectItem>
-                      {canUsePrepaidMethod && <SelectItem value="pre-paid">Pre-paid</SelectItem>}
+                      <SelectGroup>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="card">Card</SelectItem>
+                        {canUsePrepaidMethod && <SelectItem value="pre-paid">Pre-paid</SelectItem>}
+                      </SelectGroup>
                     </SelectContent>
                   </Select>
                 </div>

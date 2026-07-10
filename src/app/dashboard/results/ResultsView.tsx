@@ -20,7 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { FileText, X, Filter } from 'lucide-react'
 import { DrugTest } from '@/payload-types'
 import { CheckCircle, Circle, Clock, Truck, FlaskConical, FileCheck } from 'lucide-react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DateRangePicker } from '@/components/date-range-picker'
 import {
   Drawer,
@@ -35,6 +35,24 @@ import { SUBSTANCE_MAP, formatSubstances } from '@/lib/substances'
 import { getLastNDays, getLastNMonths } from '@/lib/date-presets'
 
 type DrugTestResult = DrugTest
+
+const resultFilterOptions = [
+  { value: 'all', label: 'All Results' },
+  { value: 'negative', label: 'Negative' },
+  { value: 'positive-expected', label: 'Positive (Expected)' },
+  { value: 'positive-unexpected', label: 'Positive (Unexpected)' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'inconclusive', label: 'Inconclusive' },
+]
+const testTypeFilterOptions = [
+  { value: 'all', label: 'All Types' },
+  { value: '11-panel-lab', label: '11-Panel Lab' },
+  { value: '11-panel-lab-no-etg', label: '11-Panel Lab (no EtG)' },
+  { value: '8-panel-lab', label: '8-Panel Lab' },
+  { value: '17-panel-instant', label: '17-Panel Instant' },
+  { value: '17-panel-sos-lab', label: '17-Panel SOS Lab' },
+  { value: 'etg-lab', label: 'EtG Lab' },
+]
 
 // Chain of custody step interface
 interface CustodyStep {
@@ -766,17 +784,16 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                   {/* Result Status Filter */}
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">Result:</span>
-                    <Select value={resultFilter} onValueChange={setResultFilter}>
+                    <Select items={resultFilterOptions} value={resultFilter} onValueChange={(value) => setResultFilter(value ?? 'all')}>
                       <SelectTrigger className="w-45">
                         <SelectValue placeholder="All results" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Results</SelectItem>
-                        <SelectItem value="negative">Negative</SelectItem>
-                        <SelectItem value="positive-expected">Positive (Expected)</SelectItem>
-                        <SelectItem value="positive-unexpected">Positive (Unexpected)</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="inconclusive">Inconclusive</SelectItem>
+                        <SelectGroup>
+                          {resultFilterOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                          ))}
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                   </div>
@@ -784,18 +801,16 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                   {/* Test Type Filter */}
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">Test Type:</span>
-                    <Select value={testTypeFilter} onValueChange={setTestTypeFilter}>
+                    <Select items={testTypeFilterOptions} value={testTypeFilter} onValueChange={(value) => setTestTypeFilter(value ?? 'all')}>
                       <SelectTrigger className="w-45">
                         <SelectValue placeholder="All types" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="11-panel-lab">11-Panel Lab</SelectItem>
-                        <SelectItem value="11-panel-lab-no-etg">11-Panel Lab (no EtG)</SelectItem>
-                        <SelectItem value="8-panel-lab">8-Panel Lab</SelectItem>
-                        <SelectItem value="17-panel-instant">17-Panel Instant</SelectItem>
-                        <SelectItem value="17-panel-sos-lab">17-Panel SOS Lab</SelectItem>
-                        <SelectItem value="etg-lab">EtG Lab</SelectItem>
+                        <SelectGroup>
+                          {testTypeFilterOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                          ))}
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                   </div>
@@ -900,17 +915,16 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                       {/* Result Status Filter */}
                       <div className="space-y-2">
                         <span className="text-sm font-medium">Result Status</span>
-                        <Select value={resultFilter} onValueChange={setResultFilter}>
+                        <Select items={resultFilterOptions} value={resultFilter} onValueChange={(value) => setResultFilter(value ?? 'all')}>
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder="All results" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="all">All Results</SelectItem>
-                            <SelectItem value="negative">Negative</SelectItem>
-                            <SelectItem value="positive-expected">Positive (Expected)</SelectItem>
-                            <SelectItem value="positive-unexpected">Positive (Unexpected)</SelectItem>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="inconclusive">Inconclusive</SelectItem>
+                            <SelectGroup>
+                              {resultFilterOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                              ))}
+                            </SelectGroup>
                           </SelectContent>
                         </Select>
                       </div>
@@ -918,18 +932,16 @@ export function ResultsView({ testResults, contactPhone }: ResultsViewProps) {
                       {/* Test Type Filter */}
                       <div className="space-y-2">
                         <span className="text-sm font-medium">Test Type</span>
-                        <Select value={testTypeFilter} onValueChange={setTestTypeFilter}>
+                        <Select items={testTypeFilterOptions} value={testTypeFilter} onValueChange={(value) => setTestTypeFilter(value ?? 'all')}>
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder="All types" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="all">All Types</SelectItem>
-                            <SelectItem value="11-panel-lab">11-Panel Lab</SelectItem>
-                            <SelectItem value="11-panel-lab-no-etg">11-Panel Lab (no EtG)</SelectItem>
-                            <SelectItem value="8-panel-lab">8-Panel Lab</SelectItem>
-                            <SelectItem value="17-panel-instant">17-Panel Instant</SelectItem>
-                            <SelectItem value="17-panel-sos-lab">17-Panel SOS Lab</SelectItem>
-                            <SelectItem value="etg-lab">EtG Lab</SelectItem>
+                            <SelectGroup>
+                              {testTypeFilterOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                              ))}
+                            </SelectGroup>
                           </SelectContent>
                         </Select>
                       </div>

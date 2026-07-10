@@ -20,6 +20,7 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -136,6 +137,12 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
+const timeRangeOptions = [
+  { value: "90d", label: "Last 3 months" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "7d", label: "Last 7 days" },
+]
+
 export function ChartAreaInteractive() {
   const isMobile = useIsMobile()
   const [timeRange, setTimeRange] = React.useState("30d")
@@ -187,7 +194,7 @@ export function ChartAreaInteractive() {
               Last 7 days
             </ToggleGroupItem>
           </ToggleGroup>
-          <Select value={timeRange} onValueChange={setTimeRange}>
+          <Select items={timeRangeOptions} value={timeRange} onValueChange={(value) => setTimeRange(value ?? '30d')}>
             <SelectTrigger
               className="@[767px]/card:hidden flex w-40"
               aria-label="Select a value"
@@ -195,15 +202,13 @@ export function ChartAreaInteractive() {
               <SelectValue placeholder="Last 3 months" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="90d" className="rounded-lg">
-                Last 3 months
-              </SelectItem>
-              <SelectItem value="30d" className="rounded-lg">
-                Last 30 days
-              </SelectItem>
-              <SelectItem value="7d" className="rounded-lg">
-                Last 7 days
-              </SelectItem>
+              <SelectGroup>
+                {timeRangeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value} className="rounded-lg">
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </div>

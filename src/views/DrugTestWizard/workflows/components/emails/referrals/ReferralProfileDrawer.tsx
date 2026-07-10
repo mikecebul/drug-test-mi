@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Drawer, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Field, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 import {
   buildInitialReferralProfileValues,
@@ -246,18 +246,25 @@ export function ReferralProfileDrawer({
                 <Field>
                   <FieldLabel htmlFor="referral-type">Referral Type</FieldLabel>
                   <Select
+                    items={[
+                      { value: 'court', label: 'Court' },
+                      { value: 'employer', label: 'Employer' },
+                      { value: 'self', label: 'Self' },
+                    ]}
                     value={field.state.value}
                     onValueChange={(value) => {
-                      void applyReferralTypeChange(value as ReferralTypeUi)
+                      void applyReferralTypeChange((value ?? 'self') as ReferralTypeUi)
                     }}
                   >
                     <SelectTrigger id="referral-type">
                       <SelectValue placeholder="Select referral type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="court">Court</SelectItem>
-                      <SelectItem value="employer">Employer</SelectItem>
-                      <SelectItem value="self">Self</SelectItem>
+                      <SelectGroup>
+                        <SelectItem value="court">Court</SelectItem>
+                        <SelectItem value="employer">Employer</SelectItem>
+                        <SelectItem value="self">Self</SelectItem>
+                      </SelectGroup>
                     </SelectContent>
                   </Select>
                 </Field>
@@ -272,21 +279,30 @@ export function ReferralProfileDrawer({
                       {referralTypeUi === 'court' ? 'Court Preset' : 'Employer Preset'}
                     </FieldLabel>
                     <Select
+                      items={[
+                        { value: 'custom', label: 'Custom' },
+                        ...Object.entries(presetConfigs).map(([value, config]) => ({
+                          value,
+                          label: config.label,
+                        })),
+                      ]}
                       value={field.state.value}
                       onValueChange={(value) => {
-                        void applyPresetChange(value)
+                        void applyPresetChange(value ?? 'custom')
                       }}
                     >
                       <SelectTrigger id="referral-preset">
                         <SelectValue placeholder="Choose preset or keep custom" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="custom">Custom</SelectItem>
-                        {Object.entries(presetConfigs).map(([key, config]) => (
-                          <SelectItem key={key} value={key}>
-                            {config.label}
-                          </SelectItem>
-                        ))}
+                        <SelectGroup>
+                          <SelectItem value="custom">Custom</SelectItem>
+                          {Object.entries(presetConfigs).map(([key, config]) => (
+                            <SelectItem key={key} value={key}>
+                              {config.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                   </Field>

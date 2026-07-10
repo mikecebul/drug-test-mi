@@ -309,8 +309,20 @@ export const RecipientsStep = withForm({
                     Select Court <span className="text-destructive">*</span>
                   </FieldLabel>
                   <Select
+                    items={
+                      isLoadingCourts
+                        ? [{ value: CLEAR_SELECTION_VALUE, label: 'Loading courts...' }]
+                        : [
+                            { value: CLEAR_SELECTION_VALUE, label: '-- Select a court --' },
+                            ...groupedCourtOptions.flatMap((option) =>
+                              'groupLabel' in option ? option.options : [option],
+                            ),
+                          ]
+                    }
                     value={field.state.value || ''}
-                    onValueChange={(value) => field.handleChange(value === CLEAR_SELECTION_VALUE ? '' : value)}
+                    onValueChange={(value) =>
+                      field.handleChange(value === CLEAR_SELECTION_VALUE || value === null ? '' : value)
+                    }
                     disabled={isLoadingCourts}
                   >
                     <SelectTrigger id="court-select" className="w-full" aria-invalid={hasErrors || undefined}>
@@ -318,12 +330,16 @@ export const RecipientsStep = withForm({
                     </SelectTrigger>
                     <SelectContent>
                       {isLoadingCourts ? (
-                        <SelectItem value={CLEAR_SELECTION_VALUE} disabled>
-                          Loading courts...
-                        </SelectItem>
+                        <SelectGroup>
+                          <SelectItem value={CLEAR_SELECTION_VALUE} disabled>
+                            Loading courts...
+                          </SelectItem>
+                        </SelectGroup>
                       ) : (
                         <>
-                          <SelectItem value={CLEAR_SELECTION_VALUE}>-- Select a court --</SelectItem>
+                          <SelectGroup>
+                            <SelectItem value={CLEAR_SELECTION_VALUE}>-- Select a court --</SelectItem>
+                          </SelectGroup>
                           {groupedCourtOptions.map((optionOrGroup) =>
                             'groupLabel' in optionOrGroup ? (
                               <SelectGroup key={optionOrGroup.groupLabel}>
@@ -335,9 +351,9 @@ export const RecipientsStep = withForm({
                                 ))}
                               </SelectGroup>
                             ) : (
-                              <SelectItem key={optionOrGroup.value} value={optionOrGroup.value}>
-                                {optionOrGroup.label}
-                              </SelectItem>
+                              <SelectGroup key={optionOrGroup.value}>
+                                <SelectItem value={optionOrGroup.value}>{optionOrGroup.label}</SelectItem>
+                              </SelectGroup>
                             ),
                           )}
                         </>

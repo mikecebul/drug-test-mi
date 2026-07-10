@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { UserCheck, Mail } from 'lucide-react'
 import type { ClientMatch } from '@/views/DrugTestWizard/types'
 
@@ -109,23 +109,36 @@ export default function ClientSelectorField({
               <FieldLabel htmlFor="client-select" className="flex items-center gap-2">
                 Select Client from All Clients
               </FieldLabel>
-              <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+              <Select
+                items={
+                  allClients.length === 0
+                    ? [{ value: 'loading', label: 'Loading clients...' }]
+                    : allClients.map((client) => ({
+                        value: client.id,
+                        label: `${client.firstName} ${client.middleInitial ? `${client.middleInitial}. ` : ''}${client.lastName} - ${client.email}`,
+                      }))
+                }
+                value={selectedClientId}
+                onValueChange={(value) => setSelectedClientId(value ?? '')}
+              >
                 <SelectTrigger id="client-select">
                   <SelectValue placeholder="Choose a client..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {allClients.length === 0 ? (
-                    <SelectItem value="loading" disabled>
-                      Loading clients...
-                    </SelectItem>
-                  ) : (
-                    allClients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.firstName} {client.middleInitial ? `${client.middleInitial}. ` : ''}
-                        {client.lastName} - {client.email}
+                  <SelectGroup>
+                    {allClients.length === 0 ? (
+                      <SelectItem value="loading" disabled>
+                        Loading clients...
                       </SelectItem>
-                    ))
-                  )}
+                    ) : (
+                      allClients.map((client) => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.firstName} {client.middleInitial ? `${client.middleInitial}. ` : ''}
+                          {client.lastName} - {client.email}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
