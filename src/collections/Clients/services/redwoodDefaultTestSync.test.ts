@@ -48,7 +48,6 @@ describe('runRedwoodDefaultTestSync', () => {
     })
     syncClientDefaultLabTestInRedwoodViaHttpMock.mockResolvedValue({
       donorId: '2714034',
-      screenshotPath: '',
       selectedCode: 'B829',
       status: 'synced',
     })
@@ -73,7 +72,6 @@ describe('runRedwoodDefaultTestSync', () => {
     const result = await runRedwoodDefaultTestSync(payloadMock, 'client-1')
 
     expect(result).toEqual({
-      screenshotPath: '',
       status: 'synced',
       success: true,
     })

@@ -60,14 +60,16 @@ import { TestTypes } from './collections/TestTypes'
 import { runRedwoodImportClientJob } from './collections/Clients/services/redwoodImportWorkflow'
 import { runRedwoodClientInactivationJob } from './collections/Clients/services/redwoodClientInactivation'
 import { runRedwoodClientUpdateJob } from './collections/Clients/services/redwoodClientUpdate'
-import { runRedwoodHeadshotSyncJob } from './collections/Clients/services/redwoodHeadshotSync'
 import { runRedwoodHeadshotUploadJob } from './collections/Clients/services/redwoodHeadshotUpload'
-import { queueNightlyMissingHeadshotSyncs } from './collections/Clients/services/queueNightlyMissingHeadshotSyncs'
 import { queueNightlyPendingClientUpdates } from './collections/Clients/services/queueNightlyPendingClientUpdates'
-import { runRedwoodUniqueIdSyncJob } from './collections/Clients/services/redwoodUniqueIdSync'
 import { runRedwoodDefaultTestSync } from './collections/Clients/services/redwoodDefaultTestSync'
 import { recordCompletedJobRun, recordRunningJobRun, type JobRunStatus } from './lib/jobs/jobRuns'
 import type { RedwoodClientUpdateField } from './lib/redwood/queue'
+import { hasExhaustedRedwoodRetries, REDWOOD_TASK_RETRIES } from './lib/redwood/config'
+import {
+  upsertRedwoodIncidentAlert,
+  type RedwoodJobType,
+} from './lib/redwood/incidents'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -124,6 +126,36 @@ function getTrackedJobCompletionState(resultStatus: null | string | undefined): 
 
 const redwoodSessionConcurrency = {
   key: ({ queue }: { queue: string }) => `${queue}:redwood-session`,
+}
+
+async function recordExhaustedRedwoodJobAlert(args: {
+  clientId: string
+  error: unknown
+  job: { totalTried?: null | number }
+  jobType: RedwoodJobType
+  payload: Parameters<typeof upsertRedwoodIncidentAlert>[0]['payload']
+  taskLabel: string
+}): Promise<void> {
+  if (!hasExhaustedRedwoodRetries(args.job.totalTried)) {
+    return
+  }
+
+  const message = getErrorMessage(args.error)
+  await upsertRedwoodIncidentAlert({
+    payload: args.payload,
+    clientId: args.clientId,
+    jobType: args.jobType,
+    kind: 'business-critical-failure',
+    title: `${args.taskLabel} exhausted retries for client ${args.clientId}`,
+    message,
+    context: {
+      attempt: (args.job.totalTried ?? 0) + 1,
+      clientId: args.clientId,
+      error: message,
+      queue: 'redwood',
+      retries: REDWOOD_TASK_RETRIES,
+    },
+  })
 }
 
 export default buildConfig({
@@ -350,7 +382,7 @@ export default buildConfig({
       {
         slug: 'redwood-import-client',
         concurrency: redwoodSessionConcurrency,
-        retries: 3,
+        retries: REDWOOD_TASK_RETRIES,
         inputSchema: [
           { name: 'clientId', type: 'text', required: true },
           { name: 'source', type: 'text', required: true },
@@ -358,7 +390,6 @@ export default buildConfig({
         outputSchema: [
           { name: 'status', type: 'text', required: true },
           { name: 'matchedBy', type: 'text', required: false },
-          { name: 'screenshotPath', type: 'text', required: false },
         ],
         handler: async ({ input, job, req }) => {
           await recordRunningJobRun(req.payload, job)
@@ -373,14 +404,12 @@ export default buildConfig({
             const output = {
               status: result.status,
               matchedBy: result.matchedBy,
-              screenshotPath: result.screenshotPath,
             }
 
             await recordCompletedJobRun(req.payload, {
               job,
               output,
               resultStatus: result.status,
-              screenshotPath: result.screenshotPath,
               status: getTrackedJobCompletionState(result.status),
             })
 
@@ -394,6 +423,14 @@ export default buildConfig({
               resultStatus: 'failed',
               status: 'failed',
             })
+            await recordExhaustedRedwoodJobAlert({
+              clientId: input.clientId,
+              error,
+              job,
+              jobType: 'import',
+              payload: req.payload,
+              taskLabel: 'Redwood donor import',
+            })
 
             throw error
           }
@@ -402,7 +439,7 @@ export default buildConfig({
       {
         slug: 'redwood-update-client',
         concurrency: redwoodSessionConcurrency,
-        retries: 3,
+        retries: REDWOOD_TASK_RETRIES,
         inputSchema: [
           { name: 'clientId', type: 'text', required: true },
           { name: 'changedFieldsCsv', type: 'text', required: true },
@@ -410,7 +447,6 @@ export default buildConfig({
         ],
         outputSchema: [
           { name: 'status', type: 'text', required: true },
-          { name: 'screenshotPath', type: 'text', required: false },
           { name: 'updatedFieldsCsv', type: 'text', required: false },
         ],
         handler: async ({ input, job, req }) => {
@@ -425,7 +461,6 @@ export default buildConfig({
             const result = await runRedwoodClientUpdateJob(req.payload, input.clientId, changedFields)
             const output = {
               status: result.status,
-              screenshotPath: result.screenshotPath,
               updatedFieldsCsv: result.updatedFields?.join(','),
             }
 
@@ -438,7 +473,6 @@ export default buildConfig({
               errorMessage: result.error,
               output,
               resultStatus: result.status,
-              screenshotPath: result.screenshotPath,
               status: getTrackedJobCompletionState(result.status),
             })
 
@@ -452,6 +486,14 @@ export default buildConfig({
               resultStatus: 'failed',
               status: 'failed',
             })
+            await recordExhaustedRedwoodJobAlert({
+              clientId: input.clientId,
+              error,
+              job,
+              jobType: 'client-update',
+              payload: req.payload,
+              taskLabel: 'Redwood client update',
+            })
 
             throw error
           }
@@ -460,14 +502,13 @@ export default buildConfig({
       {
         slug: 'redwood-inactivate-client',
         concurrency: redwoodSessionConcurrency,
-        retries: 3,
+        retries: REDWOOD_TASK_RETRIES,
         inputSchema: [
           { name: 'clientId', type: 'text', required: true },
           { name: 'requestedByAdminId', type: 'text', required: false },
         ],
         outputSchema: [
           { name: 'status', type: 'text', required: true },
-          { name: 'screenshotPath', type: 'text', required: false },
         ],
         handler: async ({ input, job, req }) => {
           await recordRunningJobRun(req.payload, job)
@@ -476,7 +517,6 @@ export default buildConfig({
             const result = await runRedwoodClientInactivationJob(req.payload, input.clientId)
             const output = {
               status: result.status,
-              screenshotPath: result.screenshotPath,
             }
 
             if (result.status === 'failed' && result.retryable !== false) {
@@ -488,7 +528,6 @@ export default buildConfig({
               errorMessage: result.error,
               output,
               resultStatus: result.status,
-              screenshotPath: result.screenshotPath,
               status: getTrackedJobCompletionState(result.status),
             })
 
@@ -502,54 +541,13 @@ export default buildConfig({
               resultStatus: 'failed',
               status: 'failed',
             })
-
-            throw error
-          }
-        },
-      },
-      {
-        slug: 'redwood-sync-headshot',
-        concurrency: redwoodSessionConcurrency,
-        retries: 3,
-        inputSchema: [
-          { name: 'clientId', type: 'text', required: true },
-          { name: 'requestedByAdminId', type: 'text', required: false },
-        ],
-        outputSchema: [
-          { name: 'status', type: 'text', required: true },
-          { name: 'headshotId', type: 'text', required: false },
-        ],
-        handler: async ({ input, job, req }) => {
-          await recordRunningJobRun(req.payload, job)
-
-          try {
-            const result = await runRedwoodHeadshotSyncJob(req.payload, input.clientId)
-            const output = {
-              status: result.status || 'failed',
-              headshotId: result.headshotId,
-            }
-
-            if (!result.success && result.retryable !== false) {
-              throw new Error(result.error || 'Unknown Redwood headshot sync error')
-            }
-
-            await recordCompletedJobRun(req.payload, {
+            await recordExhaustedRedwoodJobAlert({
+              clientId: input.clientId,
+              error,
               job,
-              errorMessage: result.error,
-              output,
-              resultStatus: result.status || 'failed',
-              status: getTrackedJobCompletionState(result.status),
-            })
-
-            return {
-              output,
-            }
-          } catch (error) {
-            await recordCompletedJobRun(req.payload, {
-              job,
-              errorMessage: getErrorMessage(error),
-              resultStatus: 'failed',
-              status: 'failed',
+              jobType: 'client-inactivation',
+              payload: req.payload,
+              taskLabel: 'Redwood client inactivation',
             })
 
             throw error
@@ -596,102 +594,6 @@ export default buildConfig({
               resultStatus: 'failed',
               status: 'failed',
             })
-
-            throw error
-          }
-        },
-      },
-      {
-        slug: 'redwood-sync-missing-headshots-nightly',
-        concurrency: {
-          key: ({ queue }) => `${queue}:redwood-sync-missing-headshots-nightly`,
-        },
-        retries: 1,
-        outputSchema: [
-          { name: 'status', type: 'text', required: true },
-          { name: 'queuedCount', type: 'text', required: true },
-          { name: 'failedCount', type: 'text', required: true },
-        ],
-        handler: async ({ job, req }) => {
-          await recordRunningJobRun(req.payload, job)
-
-          try {
-            const result = await queueNightlyMissingHeadshotSyncs(req.payload)
-            const output = {
-              status: 'completed',
-              queuedCount: String(result.queuedClientIds.length),
-              failedCount: String(result.failedClientIds.length),
-            }
-
-            await recordCompletedJobRun(req.payload, {
-              job,
-              output,
-              resultStatus: 'completed',
-              status: 'succeeded',
-              summary: `Queued ${result.queuedClientIds.length} headshot sync jobs and skipped ${result.skippedClientIds.length}.`,
-            })
-
-            return {
-              output,
-            }
-          } catch (error) {
-            await recordCompletedJobRun(req.payload, {
-              job,
-              errorMessage: getErrorMessage(error),
-              resultStatus: 'failed',
-              status: 'failed',
-            })
-
-            throw error
-          }
-        },
-      },
-      {
-        slug: 'redwood-backfill-client-unique-id',
-        concurrency: redwoodSessionConcurrency,
-        retries: 3,
-        inputSchema: [
-          { name: 'clientId', type: 'text', required: true },
-          { name: 'requestedByAdminId', type: 'text', required: false },
-        ],
-        outputSchema: [
-          { name: 'status', type: 'text', required: true },
-          { name: 'screenshotPath', type: 'text', required: false },
-        ],
-        handler: async ({ input, job, req }) => {
-          await recordRunningJobRun(req.payload, job)
-
-          try {
-            const result = await runRedwoodUniqueIdSyncJob(req.payload, input.clientId)
-            const output = {
-              status: result.status || 'synced',
-              screenshotPath: result.screenshotPath,
-            }
-
-            if (!result.success && result.retryable !== false) {
-              throw new Error(result.error || 'Unknown Redwood unique ID sync error')
-            }
-
-            await recordCompletedJobRun(req.payload, {
-              job,
-              errorMessage: result.error,
-              output,
-              resultStatus: result.status || 'synced',
-              screenshotPath: result.screenshotPath,
-              status: getTrackedJobCompletionState(result.status),
-            })
-
-            return {
-              output,
-            }
-          } catch (error) {
-            await recordCompletedJobRun(req.payload, {
-              job,
-              errorMessage: getErrorMessage(error),
-              resultStatus: 'failed',
-              status: 'failed',
-            })
-
             throw error
           }
         },
@@ -699,14 +601,13 @@ export default buildConfig({
       {
         slug: 'redwood-upload-headshot',
         concurrency: redwoodSessionConcurrency,
-        retries: 3,
+        retries: REDWOOD_TASK_RETRIES,
         inputSchema: [
           { name: 'clientId', type: 'text', required: true },
           { name: 'requestedByAdminId', type: 'text', required: false },
         ],
         outputSchema: [
           { name: 'status', type: 'text', required: true },
-          { name: 'screenshotPath', type: 'text', required: false },
         ],
         handler: async ({ input, job, req }) => {
           await recordRunningJobRun(req.payload, job)
@@ -715,7 +616,6 @@ export default buildConfig({
             const result = await runRedwoodHeadshotUploadJob(req.payload, input.clientId)
             const output = {
               status: result.status || 'synced',
-              screenshotPath: result.screenshotPath,
             }
 
             if (!result.success && result.retryable !== false) {
@@ -727,7 +627,6 @@ export default buildConfig({
               errorMessage: result.error,
               output,
               resultStatus: result.status || 'failed',
-              screenshotPath: result.screenshotPath,
               status: getTrackedJobCompletionState(result.status),
             })
 
@@ -741,6 +640,14 @@ export default buildConfig({
               resultStatus: 'failed',
               status: 'failed',
             })
+            await recordExhaustedRedwoodJobAlert({
+              clientId: input.clientId,
+              error,
+              job,
+              jobType: 'headshot-upload',
+              payload: req.payload,
+              taskLabel: 'Redwood headshot upload',
+            })
 
             throw error
           }
@@ -749,14 +656,13 @@ export default buildConfig({
       {
         slug: 'redwood-sync-default-test',
         concurrency: redwoodSessionConcurrency,
-        retries: 3,
+        retries: REDWOOD_TASK_RETRIES,
         inputSchema: [
           { name: 'clientId', type: 'text', required: true },
           { name: 'previousSyncedCode', type: 'text', required: false },
         ],
         outputSchema: [
           { name: 'status', type: 'text', required: true },
-          { name: 'screenshotPath', type: 'text', required: false },
         ],
         handler: async ({ input, job, req }) => {
           await recordRunningJobRun(req.payload, job)
@@ -767,7 +673,6 @@ export default buildConfig({
             })
             const output = {
               status: result.status,
-              screenshotPath: result.screenshotPath,
             }
 
             if (!result.success && result.retryable !== false) {
@@ -779,7 +684,6 @@ export default buildConfig({
               errorMessage: result.error,
               output,
               resultStatus: result.status,
-              screenshotPath: result.screenshotPath,
               status: getTrackedJobCompletionState(result.status),
             })
 
@@ -792,6 +696,14 @@ export default buildConfig({
               errorMessage: getErrorMessage(error),
               resultStatus: 'failed',
               status: 'failed',
+            })
+            await recordExhaustedRedwoodJobAlert({
+              clientId: input.clientId,
+              error,
+              job,
+              jobType: 'default-test-sync',
+              payload: req.payload,
+              taskLabel: 'Redwood default-test sync',
             })
 
             throw error

@@ -9,7 +9,7 @@ import {
   stripRedwoodHtml,
 } from '@/lib/redwood/http'
 import { resolveRedwoodDonorIdViaHttp } from '@/lib/redwood/http-donor-search'
-import { resolveRedwoodAuthEnv } from '@/lib/redwood/playwright'
+import { resolveRedwoodAuthEnv } from '@/lib/redwood/auth'
 import type { RedwoodDonorLookupClient } from '@/lib/redwood/donor-search'
 
 const DEFAULT_REDWOOD_DONOR_SEARCH_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/DonorSearch.aspx'
@@ -204,7 +204,6 @@ export async function syncClientDefaultLabTestInRedwoodViaHttp(args: {
   redwoodLabTestCode: string
 }): Promise<{
   donorId: string | null
-  screenshotPath: string
   selectedCode: string
   status: 'synced'
 }> {
@@ -232,7 +231,6 @@ export async function syncClientDefaultLabTestInRedwoodViaHttp(args: {
 
     return {
       donorId,
-      screenshotPath: '',
       selectedCode: plan.targetCode,
       status: 'synced',
     }
@@ -258,7 +256,6 @@ export async function syncClientDefaultLabTestInRedwoodViaHttp(args: {
 
   return {
     donorId,
-    screenshotPath: '',
     selectedCode: plan.targetCode,
     status: 'synced',
   }

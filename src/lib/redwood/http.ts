@@ -1,4 +1,5 @@
-import { REDWOOD_BROWSER_USER_AGENT } from './playwright'
+const REDWOOD_HTTP_USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
 type RedwoodFormEntry = [name: string, value: string]
 
@@ -207,7 +208,7 @@ async function redwoodRequest(
   init?: RequestInit & { referer?: string },
 ): Promise<Response> {
   const headers = new Headers(init?.headers)
-  headers.set('user-agent', REDWOOD_BROWSER_USER_AGENT)
+  headers.set('user-agent', REDWOOD_HTTP_USER_AGENT)
 
   const cookieHeader = jar.toHeader()
   if (cookieHeader) {

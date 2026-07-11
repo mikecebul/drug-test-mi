@@ -192,10 +192,7 @@ export interface Config {
       'redwood-import-client': TaskRedwoodImportClient;
       'redwood-update-client': TaskRedwoodUpdateClient;
       'redwood-inactivate-client': TaskRedwoodInactivateClient;
-      'redwood-sync-headshot': TaskRedwoodSyncHeadshot;
       'redwood-queue-pending-client-updates-nightly': TaskRedwoodQueuePendingClientUpdatesNightly;
-      'redwood-sync-missing-headshots-nightly': TaskRedwoodSyncMissingHeadshotsNightly;
-      'redwood-backfill-client-unique-id': TaskRedwoodBackfillClientUniqueId;
       'redwood-upload-headshot': TaskRedwoodUploadHeadshot;
       'redwood-sync-default-test': TaskRedwoodSyncDefaultTest;
       createCollectionExport: TaskCreateCollectionExport;
@@ -1268,6 +1265,8 @@ export interface Client {
    * Whether this client is active
    */
   isActive?: boolean | null;
+  approveRedwoodSync?: boolean | null;
+  skipRedwoodSync?: boolean | null;
   firstName: string;
   lastName: string;
   /**
@@ -1450,17 +1449,7 @@ export interface Client {
    * Current Redwood sync state managed by the background worker.
    */
   redwoodSyncStatus?:
-    | (
-        | 'not-queued'
-        | 'queued'
-        | 'export-checked'
-        | 'matched-existing'
-        | 'reactivated-existing'
-        | 'ready-to-submit'
-        | 'synced'
-        | 'failed'
-        | 'manual-review'
-      )
+    | ('not-queued' | 'queued' | 'matched-existing' | 'reactivated-existing' | 'synced' | 'failed' | 'manual-review')
     | null;
   /**
    * Deterministic Redwood Unique ID (20 chars max).
@@ -1490,30 +1479,6 @@ export interface Client {
    * Most recent Redwood client update error message, if any.
    */
   redwoodClientUpdateLastError?: string | null;
-  /**
-   * Tracks Redwood donor unique ID backfill state.
-   */
-  redwoodUniqueIdSyncStatus?: ('not-queued' | 'queued' | 'synced' | 'failed' | 'manual-review') | null;
-  /**
-   * Timestamp of the most recent Redwood unique ID backfill attempt.
-   */
-  redwoodUniqueIdLastAttemptAt?: string | null;
-  /**
-   * Most recent Redwood unique ID backfill error message, if any.
-   */
-  redwoodUniqueIdLastError?: string | null;
-  /**
-   * Tracks Redwood-to-website headshot sync state.
-   */
-  redwoodHeadshotSyncStatus?: ('not-queued' | 'queued' | 'synced' | 'failed' | 'manual-review') | null;
-  /**
-   * Timestamp of the most recent Redwood headshot sync attempt.
-   */
-  redwoodHeadshotSyncLastAttemptAt?: string | null;
-  /**
-   * Most recent Redwood headshot sync error message, if any.
-   */
-  redwoodHeadshotSyncLastError?: string | null;
   /**
    * Tracks website-to-Redwood headshot upload state.
    */
@@ -1557,15 +1522,11 @@ export interface Client {
   /**
    * How this client was matched in Redwood export.
    */
-  redwoodMatchedBy?: ('unique-id' | 'email' | 'name-dob' | 'name-dob-fuzzy') | null;
+  redwoodMatchedBy?: ('unique-id' | 'name-dob') | null;
   /**
    * Matched donor identifier from Redwood export.
    */
   redwoodMatchedDonorName?: string | null;
-  /**
-   * Local screenshot path captured at Redwood pre-submit state.
-   */
-  redwoodImportScreenshotPath?: string | null;
   /**
    * Timestamp of most recent Redwood worker attempt.
    */
@@ -2325,17 +2286,7 @@ export interface AdminAlert {
   /**
    * Workflow or Redwood job type associated with this alert.
    */
-  jobType?:
-    | (
-        | 'import'
-        | 'client-update'
-        | 'headshot-sync'
-        | 'headshot-upload'
-        | 'unique-id-sync'
-        | 'default-test-sync'
-        | 'client-inactivation'
-      )
-    | null;
+  jobType?: ('import' | 'client-update' | 'headshot-upload' | 'default-test-sync' | 'client-inactivation') | null;
   /**
    * Stable incident key used to dedupe repeated Redwood failures.
    */
@@ -2352,10 +2303,6 @@ export interface AdminAlert {
     | number
     | boolean
     | null;
-  /**
-   * Latest local screenshot path captured for this alert, if any.
-   */
-  screenshotPath?: string | null;
   /**
    * How many times this same incident has been observed.
    */
@@ -2415,7 +2362,6 @@ export interface JobRun {
   attemptCount?: number | null;
   summary?: string | null;
   errorMessage?: string | null;
-  screenshotPath?: string | null;
   inputSnapshot?:
     | {
         [k: string]: unknown;
@@ -2636,10 +2582,7 @@ export interface PayloadJob {
           | 'redwood-import-client'
           | 'redwood-update-client'
           | 'redwood-inactivate-client'
-          | 'redwood-sync-headshot'
           | 'redwood-queue-pending-client-updates-nightly'
-          | 'redwood-sync-missing-headshots-nightly'
-          | 'redwood-backfill-client-unique-id'
           | 'redwood-upload-headshot'
           | 'redwood-sync-default-test'
           | 'createCollectionExport'
@@ -2682,10 +2625,7 @@ export interface PayloadJob {
         | 'redwood-import-client'
         | 'redwood-update-client'
         | 'redwood-inactivate-client'
-        | 'redwood-sync-headshot'
         | 'redwood-queue-pending-client-updates-nightly'
-        | 'redwood-sync-missing-headshots-nightly'
-        | 'redwood-backfill-client-unique-id'
         | 'redwood-upload-headshot'
         | 'redwood-sync-default-test'
         | 'createCollectionExport'
@@ -3696,7 +3636,6 @@ export interface AdminAlertsSelect<T extends boolean = true> {
   jobType?: T;
   dedupeKey?: T;
   statusSnapshot?: T;
-  screenshotPath?: T;
   attemptCount?: T;
   lastSeenAt?: T;
   recommendedAction?: T;
@@ -3726,7 +3665,6 @@ export interface JobRunsSelect<T extends boolean = true> {
   attemptCount?: T;
   summary?: T;
   errorMessage?: T;
-  screenshotPath?: T;
   inputSnapshot?: T;
   outputSnapshot?: T;
   startedAt?: T;
@@ -3822,6 +3760,8 @@ export interface ClientsSelect<T extends boolean = true> {
   moneyOwed?: T;
   creditBalance?: T;
   isActive?: T;
+  approveRedwoodSync?: T;
+  skipRedwoodSync?: T;
   firstName?: T;
   lastName?: T;
   middleInitial?: T;
@@ -3878,12 +3818,6 @@ export interface ClientsSelect<T extends boolean = true> {
   redwoodPendingSyncFields?: T;
   redwoodClientUpdateLastAttemptAt?: T;
   redwoodClientUpdateLastError?: T;
-  redwoodUniqueIdSyncStatus?: T;
-  redwoodUniqueIdLastAttemptAt?: T;
-  redwoodUniqueIdLastError?: T;
-  redwoodHeadshotSyncStatus?: T;
-  redwoodHeadshotSyncLastAttemptAt?: T;
-  redwoodHeadshotSyncLastError?: T;
   redwoodHeadshotPushStatus?: T;
   redwoodHeadshotPushLastAttemptAt?: T;
   redwoodHeadshotPushLastError?: T;
@@ -3896,7 +3830,6 @@ export interface ClientsSelect<T extends boolean = true> {
   redwoodInactivationLastError?: T;
   redwoodMatchedBy?: T;
   redwoodMatchedDonorName?: T;
-  redwoodImportScreenshotPath?: T;
   redwoodLastAttemptAt?: T;
   redwoodLastError?: T;
   notes?: T;
@@ -4399,7 +4332,6 @@ export interface TaskRedwoodImportClient {
   output: {
     status: string;
     matchedBy?: string | null;
-    screenshotPath?: string | null;
   };
 }
 /**
@@ -4414,7 +4346,6 @@ export interface TaskRedwoodUpdateClient {
   };
   output: {
     status: string;
-    screenshotPath?: string | null;
     updatedFieldsCsv?: string | null;
   };
 }
@@ -4429,21 +4360,6 @@ export interface TaskRedwoodInactivateClient {
   };
   output: {
     status: string;
-    screenshotPath?: string | null;
-  };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TaskRedwood-sync-headshot".
- */
-export interface TaskRedwoodSyncHeadshot {
-  input: {
-    clientId: string;
-    requestedByAdminId?: string | null;
-  };
-  output: {
-    status: string;
-    headshotId?: string | null;
   };
 }
 /**
@@ -4460,32 +4376,6 @@ export interface TaskRedwoodQueuePendingClientUpdatesNightly {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TaskRedwood-sync-missing-headshots-nightly".
- */
-export interface TaskRedwoodSyncMissingHeadshotsNightly {
-  input?: unknown;
-  output: {
-    status: string;
-    queuedCount: string;
-    failedCount: string;
-  };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TaskRedwood-backfill-client-unique-id".
- */
-export interface TaskRedwoodBackfillClientUniqueId {
-  input: {
-    clientId: string;
-    requestedByAdminId?: string | null;
-  };
-  output: {
-    status: string;
-    screenshotPath?: string | null;
-  };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TaskRedwood-upload-headshot".
  */
 export interface TaskRedwoodUploadHeadshot {
@@ -4495,7 +4385,6 @@ export interface TaskRedwoodUploadHeadshot {
   };
   output: {
     status: string;
-    screenshotPath?: string | null;
   };
 }
 /**
@@ -4509,7 +4398,6 @@ export interface TaskRedwoodSyncDefaultTest {
   };
   output: {
     status: string;
-    screenshotPath?: string | null;
   };
 }
 /**

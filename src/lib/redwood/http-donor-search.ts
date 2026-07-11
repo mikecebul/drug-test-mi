@@ -164,7 +164,8 @@ export async function findRedwoodDonorByNameDobViaHttp(args: {
   }
 }
 
-export async function findExistingActiveRedwoodDonorViaHttp(args: {
+export async function findExistingRedwoodDonorViaHttp(args: {
+  active: boolean
   accountNumber: string
   client: RedwoodDonorLookupClient
   donorSearchUrl: string
@@ -175,7 +176,7 @@ export async function findExistingActiveRedwoodDonorViaHttp(args: {
   if (uniqueId) {
     const uniqueIdMatch = await findRedwoodDonorByUniqueIdViaHttp({
       accountNumber: args.accountNumber,
-      active: true,
+      active: args.active,
       donorSearchUrl: args.donorSearchUrl,
       session: args.session,
       uniqueId,
@@ -185,11 +186,23 @@ export async function findExistingActiveRedwoodDonorViaHttp(args: {
 
   return findRedwoodDonorByNameDobViaHttp({
     accountNumber: args.accountNumber,
-    active: true,
+    active: args.active,
     client: args.client,
     donorSearchUrl: args.donorSearchUrl,
     session: args.session,
   })
+}
+
+export async function findExistingActiveRedwoodDonorViaHttp(
+  args: Omit<Parameters<typeof findExistingRedwoodDonorViaHttp>[0], 'active'>,
+): Promise<RedwoodHttpResolvedDonor | null> {
+  return findExistingRedwoodDonorViaHttp({ ...args, active: true })
+}
+
+export async function findExistingInactiveRedwoodDonorViaHttp(
+  args: Omit<Parameters<typeof findExistingRedwoodDonorViaHttp>[0], 'active'>,
+): Promise<RedwoodHttpResolvedDonor | null> {
+  return findExistingRedwoodDonorViaHttp({ ...args, active: false })
 }
 
 export async function resolveRedwoodDonorIdViaHttp(args: {

@@ -131,9 +131,7 @@ export const AdminAlerts: CollectionConfig = {
       options: [
         { label: 'Redwood Import', value: 'import' },
         { label: 'Redwood Client Update', value: 'client-update' },
-        { label: 'Redwood Headshot Sync', value: 'headshot-sync' },
         { label: 'Redwood Headshot Upload', value: 'headshot-upload' },
-        { label: 'Redwood Unique ID Sync', value: 'unique-id-sync' },
         { label: 'Redwood Default Test Sync', value: 'default-test-sync' },
         { label: 'Redwood Client Inactivation', value: 'client-inactivation' },
       ],
@@ -155,13 +153,6 @@ export const AdminAlerts: CollectionConfig = {
       type: 'json',
       admin: {
         description: 'Latest Redwood status snapshot captured when the alert was last seen.',
-      },
-    },
-    {
-      name: 'screenshotPath',
-      type: 'text',
-      admin: {
-        description: 'Latest local screenshot path captured for this alert, if any.',
       },
     },
     {

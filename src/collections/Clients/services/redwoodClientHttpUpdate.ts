@@ -7,7 +7,7 @@ import {
 } from '@/lib/redwood/http'
 import { readRedwoodCallInCodeViaHttp, resolveRedwoodDonorIdViaHttp } from '@/lib/redwood/http-donor-search'
 import { formatDateForRedwood, mapGenderToRedwoodSex, normalizePhoneForRedwood } from '@/lib/redwood/client-fields'
-import { resolveRedwoodAuthEnv } from '@/lib/redwood/playwright'
+import { resolveRedwoodAuthEnv } from '@/lib/redwood/auth'
 import type { RedwoodClientUpdateField } from '@/lib/redwood/queue'
 import type { RedwoodDonorLookupClient } from '@/lib/redwood/donor-search'
 
@@ -124,7 +124,6 @@ export async function updateRedwoodClientDetailsViaHttp(args: {
 }): Promise<{
   callInCode: string | null
   donorId: string | null
-  screenshotPath: string
   updatedFields: RedwoodClientUpdateField[]
 }> {
   const { changedFields, client } = args
@@ -166,7 +165,6 @@ export async function updateRedwoodClientDetailsViaHttp(args: {
     return {
       callInCode: await readRedwoodCallInCodeViaHttp({ donorId, donorSearchUrl, session }),
       donorId,
-      screenshotPath: '',
       updatedFields: plan.map((entry) => entry.field),
     }
   }
@@ -201,7 +199,6 @@ export async function updateRedwoodClientDetailsViaHttp(args: {
   return {
     callInCode: await readRedwoodCallInCodeViaHttp({ donorId, donorSearchUrl, session }),
     donorId,
-    screenshotPath: '',
     updatedFields: plan.map((entry) => entry.field),
   }
 }

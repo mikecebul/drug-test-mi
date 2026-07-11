@@ -4,7 +4,9 @@ import {
   assertRedwoodMutationAllowed,
   getAllowedRedwoodAccountNumbers,
   getRedwoodAccountNumber,
+  hasExhaustedRedwoodRetries,
   isRedwoodAccountAllowed,
+  isRedwoodAutomationEnabled,
 } from '@/lib/redwood/config'
 
 describe('redwood config', () => {
@@ -22,5 +24,20 @@ describe('redwood config', () => {
     vi.stubEnv('REDWOOD_ALLOWED_ACCOUNT_NUMBERS', '310974')
 
     expect(() => assertRedwoodMutationAllowed('310872', 'headshot upload')).toThrow('blocked for account 310872')
+  })
+
+  it('honors the explicit automation feature flag', () => {
+    vi.stubEnv('REDWOOD_AUTOMATION_ENABLED', 'false')
+    expect(isRedwoodAutomationEnabled()).toBe(false)
+    expect(() => assertRedwoodMutationAllowed('310974', 'import')).toThrow('Redwood import is disabled')
+
+    vi.stubEnv('REDWOOD_AUTOMATION_ENABLED', 'true')
+    expect(isRedwoodAutomationEnabled()).toBe(true)
+  })
+
+  it('recognizes the final retry attempt', () => {
+    expect(hasExhaustedRedwoodRetries(2)).toBe(false)
+    expect(hasExhaustedRedwoodRetries(3)).toBe(true)
+    expect(hasExhaustedRedwoodRetries(4)).toBe(true)
   })
 })

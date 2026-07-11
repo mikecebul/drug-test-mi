@@ -11,7 +11,6 @@ export async function runRedwoodClientInactivationJob(
 ): Promise<{
   error?: string
   retryable?: boolean
-  screenshotPath?: string
   status: 'failed' | 'manual-review' | 'synced'
 }> {
   try {
@@ -82,12 +81,10 @@ export async function runRedwoodClientInactivationJob(
       msg: '[redwood-inactivation] Redwood donor inactivation completed',
       clientId: client.id,
       donorId: result.donorId,
-      screenshotPath: result.screenshotPath,
       status: result.status,
     })
 
     return {
-      screenshotPath: result.screenshotPath,
       status: 'synced',
     }
   } catch (error) {

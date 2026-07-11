@@ -98,7 +98,7 @@ describe('requireRedwoodClientUpdateApproval', () => {
     })
   })
 
-  it('marks client-originated Redwood field edits as pending without queuing approval context', async () => {
+  it('marks client-originated Redwood field edits pending and approves automatic queueing', async () => {
     const req = {
       context: {},
       t: vi.fn(),
@@ -125,7 +125,9 @@ describe('requireRedwoodClientUpdateApproval', () => {
       phone: '248-555-1111',
       [REDWOOD_PENDING_CLIENT_UPDATE_FIELDS]: ['phone'],
     })
-    expect(req.context).toEqual({})
+    expect(req.context).toEqual({
+      [REDWOOD_APPROVED_CLIENT_UPDATE_FIELDS_CONTEXT_KEY]: ['phone'],
+    })
   })
 
   it('allows a super-admin to save Redwood edits without queueing sync while keeping fields pending', async () => {

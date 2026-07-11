@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs'
 import { toast } from 'sonner'
@@ -64,12 +64,15 @@ import {
   cancelAndRefundGuidedBooking,
   cancelGuidedBooking,
   createWalkInBooking,
+  ensureClientRedwoodProvisioning,
   getActiveCollectionTestTypes,
   getClientReferralProfile,
+  getClientRedwoodProvisioningStatus,
   getTodaysCollectionBookings,
   linkBookingToClient,
   recordBookingPayment,
   refreshBookingClientContext,
+  retryClientRedwoodProvisioning,
   setBookingScheduledTestType,
 } from './actions'
 import {
@@ -80,6 +83,7 @@ import {
   getGuidedPaymentLabel,
 } from './schedule-utils'
 import { ReferralProfileDrawer } from '../components/emails/referrals/ReferralProfileDrawer'
+import { RedwoodProvisioningCard } from './RedwoodProvisioningCard'
 
 type Booking = Awaited<ReturnType<typeof getTodaysCollectionBookings>>[number]
 type TestType = NonNullable<Booking['testType']>
@@ -318,6 +322,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     queryFn: getActiveCollectionTestTypes,
   })
   const [isPending, startTransition] = useTransition()
+  const [isRedwoodRetrying, setIsRedwoodRetrying] = useState(false)
+  const redwoodProvisioningStartedForClient = useRef<string | null>(null)
   const [walkInClient, setWalkInClient] = useState<SimpleClient | null>(null)
   const [walkInTestTypeId, setWalkInTestTypeId] = useState('')
   const selectedBooking = useMemo(
@@ -331,6 +337,17 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     enabled: Boolean(selectedClientId),
   })
   const currentStep: WorkflowStep = query.step
+  const { data: redwoodProvisioning, isLoading: isRedwoodProvisioningLoading, refetch: refetchRedwoodProvisioning } =
+    useQuery({
+      queryKey: ['guided', 'redwood-provisioning', selectedClientId],
+      queryFn: () => getClientRedwoodProvisioningStatus(selectedClientId || ''),
+      enabled: currentStep === 'toxaccess' && Boolean(selectedClientId),
+      refetchInterval: (query) => {
+        const status = query.state.data
+        if (!status || status.overallStatus === 'working') return 1500
+        return false
+      },
+    })
   const [paymentDraft, setPaymentDraft] = useState<ReturnType<typeof getPaymentDefaults> | null>(null)
   const [referralDrawerOpen, setReferralDrawerOpen] = useState(false)
   const [testTypeDrawerOpen, setTestTypeDrawerOpen] = useState(false)
@@ -359,6 +376,19 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     () => testTypes.find((testType) => testType.id === selectedWalkInTestTypeId) ?? null,
     [testTypes, selectedWalkInTestTypeId],
   )
+
+  useEffect(() => {
+    if (currentStep !== 'toxaccess' || !selectedClientId) return
+    if (redwoodProvisioningStartedForClient.current === selectedClientId) return
+
+    redwoodProvisioningStartedForClient.current = selectedClientId
+    void ensureClientRedwoodProvisioning(selectedClientId).then((result) => {
+      if (!result.success && result.error) {
+        toast.error(result.error)
+      }
+      void refetchRedwoodProvisioning()
+    })
+  }, [currentStep, refetchRedwoodProvisioning, selectedClientId])
 
   const handleSelectBooking = (booking: Booking) => {
     setPaymentDraft(getPaymentDefaults(booking))
@@ -510,6 +540,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
   const handlePaymentNext = () => {
     if (!selectedBooking?.testType) return
+    const selectedTestType = selectedBooking.testType
     if (!payment.choice) {
       toast.error('Select a payment status before continuing.')
       return
@@ -535,6 +566,17 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         return
       }
 
+      if (selectedBooking.client?.id) {
+        const provisioningResult = await ensureClientRedwoodProvisioning(
+          selectedBooking.client.id,
+          selectedTestType.value,
+        )
+        redwoodProvisioningStartedForClient.current = selectedBooking.client.id
+        if (!provisioningResult.success && provisioningResult.error) {
+          toast.warning(provisioningResult.error)
+        }
+      }
+
       setPaymentDraft(null)
       await refreshBookings()
       setQuery({ step: 'toxaccess', bookingId: selectedBooking.id })
@@ -545,6 +587,13 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     if (!selectedBooking?.testType || !selectedBooking.client?.id) return
 
     startTransition(async () => {
+      const provisioning = await getClientRedwoodProvisioningStatus(selectedBooking.client!.id)
+      if (!provisioning.canContinue) {
+        toast.error('Wait for the ToxAccess donor to be verified, or complete the manual fallback and retry verification.')
+        await refetchRedwoodProvisioning()
+        return
+      }
+
       const context = await refreshBookingClientContext(selectedBooking.id)
 
       if (context.needsRegistration || !context.clientId) {
@@ -563,6 +612,24 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
       router.push(getCollectionRoute(context.testType, context.clientId, selectedBooking.id))
     })
+  }
+
+  const handleRetryRedwoodProvisioning = async () => {
+    if (!selectedClientId) return
+
+    setIsRedwoodRetrying(true)
+    try {
+      const result = await retryClientRedwoodProvisioning(selectedClientId)
+      if (!result.success) {
+        toast.error(result.error || 'Failed to retry ToxAccess donor setup.')
+        return
+      }
+
+      toast.success('ToxAccess verification queued')
+      await refetchRedwoodProvisioning()
+    } finally {
+      setIsRedwoodRetrying(false)
+    }
   }
 
   const goBackOneStep = () => {
@@ -1355,15 +1422,22 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         {renderHeader('ToxAccess', 'Collect Sample in ToxAccess')}
         {renderSelectedSummary(selectedBooking)}
 
+        <RedwoodProvisioningCard
+          status={redwoodProvisioning}
+          isLoading={isRedwoodProvisioningLoading}
+          isRetrying={isRedwoodRetrying}
+          onRetry={handleRetryRedwoodProvisioning}
+        />
+
         <Card className="rounded-lg">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-3 text-2xl">
               <ClipboardList className="size-6" />
-              {isFirstTest ? 'First-Test ToxAccess Setup' : 'ToxAccess Reference'}
+              {isFirstTest ? 'Manual Fallback Reference' : 'ToxAccess Reference'}
             </CardTitle>
             <CardDescription className="text-base">
               {isFirstTest
-                ? 'Use these values when creating this client in ToxAccess.'
+                ? 'Use these values only if automatic donor setup needs manual help.'
                 : 'Use these values to find the client and select the test.'}
             </CardDescription>
           </CardHeader>
@@ -1429,7 +1503,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     currentStep === 'payment'
       ? Boolean(selectedBooking?.testType && payment.choice)
       : currentStep === 'toxaccess'
-        ? Boolean(paymentRecorded && selectedBooking?.testType && selectedBooking.client?.id)
+        ? Boolean(
+            paymentRecorded &&
+              selectedBooking?.testType &&
+              selectedBooking.client?.id &&
+              redwoodProvisioning?.canContinue,
+          )
         : false
 
   const backLabel = currentStep === 'schedule' ? 'Cancel' : 'Back'

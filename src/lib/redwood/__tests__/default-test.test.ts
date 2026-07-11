@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { resolveRedwoodEligibleDefaultTestFromDoc } from '@/lib/redwood/default-test'
+import {
+  resolveClientRedwoodEligibleDefaultTest,
+  resolveRedwoodEligibleDefaultTestFromDoc,
+} from '@/lib/redwood/default-test'
 
 describe('resolveRedwoodEligibleDefaultTestFromDoc', () => {
   it('returns an eligible Redwood mapping for lab test types with a Redwood code', () => {
@@ -67,5 +70,27 @@ describe('resolveRedwoodEligibleDefaultTestFromDoc', () => {
       kind: 'error',
       reason: 'Lab test type "EtG Lab" is missing Redwood lab test code mapping.',
     })
+  })
+})
+
+describe('resolveClientRedwoodEligibleDefaultTest', () => {
+  it('resolves canonical config values without querying the legacy Test Types collection', async () => {
+    const findByID = vi.fn()
+
+    const result = await resolveClientRedwoodEligibleDefaultTest({
+      client: {
+        defaultTestType: '11-panel-lab',
+      },
+      payload: { findByID } as any,
+    })
+
+    expect(result).toEqual({
+      kind: 'eligible',
+      redwoodLabTestCode: 'B729',
+      testTypeId: '11-panel-lab',
+      testTypeLabel: '11-Panel Lab',
+      testTypeValue: '11-panel-lab',
+    })
+    expect(findByID).not.toHaveBeenCalled()
   })
 })

@@ -10,7 +10,6 @@ export async function runRedwoodHeadshotUploadJob(
 ): Promise<{
   success: boolean
   status?: 'synced' | 'manual-review' | 'failed'
-  screenshotPath?: string
   error?: string
   retryable?: boolean
 }> {
@@ -88,14 +87,12 @@ export async function runRedwoodHeadshotUploadJob(
       clientId: client.id,
       donorId: result.donorId || (typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId : null),
       callInCode: result.callInCode || (typeof client.redwoodCallInCode === 'string' ? client.redwoodCallInCode : null),
-      screenshotPath: result.screenshotPath,
       status: result.status,
     })
 
     return {
       success: true,
       status: result.status,
-      screenshotPath: result.screenshotPath,
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)

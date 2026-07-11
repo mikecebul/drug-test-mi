@@ -2,84 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildRedwoodImportCSV,
-  extractRedwoodCallInCode,
-  findRedwoodDonorMatch,
   parseCSVRows,
-  parseRedwoodExport,
 } from '@/lib/redwood/csv'
-
-describe('parseRedwoodExport + findRedwoodDonorMatch', () => {
-  const csv = [
-    '"Unique ID","Email Address","First Name","Middle Initial","Last Name","Date of Birth"',
-    '"ABC123","jane@example.com","Jane","Q","Doe","1988-04-03"',
-    '"XYZ789","sam@example.com","Sam","","Stone","04/21/1990"',
-  ].join('\n')
-
-  it('matches by unique ID first', () => {
-    const donors = parseRedwoodExport(csv)
-    const match = findRedwoodDonorMatch(donors, {
-      uniqueId: 'ABC123',
-      firstName: 'Jane',
-      lastName: 'Doe',
-      dob: '1988-04-03',
-    })
-
-    expect(match?.matchedBy).toBe('unique-id')
-    expect(match?.donor.email).toBe('jane@example.com')
-  })
-
-  it('matches by name + DOB when unique ID misses', () => {
-    const donors = parseRedwoodExport(csv)
-    const match = findRedwoodDonorMatch(donors, {
-      uniqueId: 'MISSING',
-      firstName: 'Sam',
-      lastName: 'Stone',
-      dob: '1990-04-21',
-    })
-
-    expect(match?.matchedBy).toBe('name-dob')
-  })
-
-  it('returns null when no donor matches', () => {
-    const donors = parseRedwoodExport(csv)
-    const match = findRedwoodDonorMatch(donors, {
-      uniqueId: 'NOPE',
-      firstName: 'Nobody',
-      lastName: 'Else',
-      dob: '2000-01-01',
-    })
-
-    expect(match).toBeNull()
-  })
-
-  it('matches by fuzzy name + DOB when no exact name match exists', () => {
-    const donors = parseRedwoodExport(
-      [
-        '"Unique ID","Email Address","First Name","Middle Initial","Last Name","Date of Birth"',
-        '"FZY123","michael@example.com","Micheal","A","Cebulski","1990-01-01"',
-      ].join('\n'),
-    )
-
-    const match = findRedwoodDonorMatch(donors, {
-      uniqueId: 'MISSING',
-      firstName: 'Michael',
-      middleInitial: 'A',
-      lastName: 'Cebulski',
-      dob: '1990-01-01',
-    })
-
-    expect(match?.matchedBy).toBe('name-dob-fuzzy')
-    expect(match?.donor.email).toBe('michael@example.com')
-  })
-
-  it('extracts Redwood call-in code from export rows', () => {
-    const donors = parseRedwoodExport(
-      ['"Unique ID","First Name","Last Name","Check-in Code"', '"ABC123","Bob","Testing","1584011"'].join('\n'),
-    )
-
-    expect(extractRedwoodCallInCode(donors[0])).toBe('1584011')
-  })
-})
 
 describe('buildRedwoodImportCSV', () => {
   it('builds a CSV row with expected columns and escaped values', () => {

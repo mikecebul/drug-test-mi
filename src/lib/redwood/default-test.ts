@@ -1,5 +1,7 @@
 import type { Payload } from 'payload'
 
+import { getTestTypeByValue } from '@/config/test-types'
+
 type RedwoodDefaultTestDoc = {
   id?: string
   label?: string | null
@@ -108,6 +110,17 @@ export async function resolveClientRedwoodEligibleDefaultTest(args: {
       kind: 'skip',
       reason: 'Client does not have a default test type.',
     }
+  }
+
+  const configuredTestType = getTestTypeByValue(testTypeId)
+  if (configuredTestType) {
+    return resolveRedwoodEligibleDefaultTestFromDoc({
+      id: configuredTestType.value,
+      label: configuredTestType.label,
+      value: configuredTestType.value,
+      category: configuredTestType.category,
+      toxAccessCode: configuredTestType.toxAccessCode,
+    })
   }
 
   try {

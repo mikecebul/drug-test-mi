@@ -3,7 +3,12 @@ import type { CollectionAfterChangeHook } from 'payload'
 import { queueRedwoodHeadshotUpload } from '@/lib/redwood/queue'
 import { REDWOOD_SKIP_HEADSHOT_PUSH_CONTEXT_KEY } from '@/lib/redwood/context'
 
-const ELIGIBLE_REDWOOD_SYNC_STATUSES = new Set(['matched-existing', 'synced'])
+const ELIGIBLE_REDWOOD_SYNC_STATUSES = new Set([
+  'matched-existing',
+  'queued',
+  'reactivated-existing',
+  'synced',
+])
 
 function extractRelationshipId(value: unknown): string | null {
   if (typeof value === 'string' && value.trim()) {

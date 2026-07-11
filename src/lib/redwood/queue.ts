@@ -2,10 +2,16 @@ import { getPayload, type Payload, type PayloadRequest } from 'payload'
 
 import { recordQueuedJobRun } from '@/lib/jobs/jobRuns'
 import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
+import { REDWOOD_SKIP_PROVISIONING_QUEUE_CONTEXT_KEY } from '@/lib/redwood/context'
 import { upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
 import { buildRedwoodUniqueId } from '@/lib/redwood/unique-id'
 
-export type RedwoodQueueSource = 'frontend-registration' | 'admin-registration' | 'wizard-registration' | 'manual'
+export type RedwoodQueueSource =
+  | 'frontend-registration'
+  | 'admin-registration'
+  | 'wizard-registration'
+  | 'client-reactivation'
+  | 'manual'
 export type RedwoodClientUpdateField = 'firstName' | 'middleInitial' | 'lastName' | 'dob' | 'gender' | 'phone'
 export type RedwoodDefaultTestSyncQueueOptions = {
   previousSyncedCode?: string | null
@@ -25,11 +31,77 @@ function reqOption(reqArg?: PayloadRequest): { req: PayloadRequest } | Record<st
   return reqArg ? { req: reqArg } : {}
 }
 
+async function findActiveRedwoodJobId(args: {
+  clientId: string
+  payload: Payload
+  req?: PayloadRequest
+  taskSlug: string
+}): Promise<string | null> {
+  const queuedJobs = await args.payload.find({
+    collection: 'payload-jobs',
+    where: {
+      and: [
+        {
+          'input.clientId': {
+            equals: args.clientId,
+          },
+        },
+        {
+          taskSlug: {
+            equals: args.taskSlug,
+          },
+        },
+      ],
+    },
+    sort: '-createdAt',
+    limit: 5,
+    depth: 0,
+    ...reqOption(args.req),
+    overrideAccess: true,
+  })
+  const activeQueuedJob = queuedJobs.docs.find((job) => !job.completedAt && job.hasError !== true)
+  if (activeQueuedJob?.id) {
+    return String(activeQueuedJob.id)
+  }
+
+  // Durable job history is a fallback for deployments created before payload-jobs was queryable here.
+  const result = await args.payload.find({
+    collection: 'job-runs',
+    where: {
+      and: [
+        {
+          client: {
+            equals: args.clientId,
+          },
+        },
+        {
+          taskSlug: {
+            equals: args.taskSlug,
+          },
+        },
+        {
+          status: {
+            in: ['queued', 'running'],
+          },
+        },
+      ],
+    },
+    sort: '-createdAt',
+    limit: 1,
+    depth: 0,
+    ...reqOption(args.req),
+    overrideAccess: true,
+  })
+  const jobId = result.docs[0]?.jobId
+  return typeof jobId === 'string' && jobId.trim() ? jobId : null
+}
+
 export async function queueRedwoodImportForClient(
   clientId: string,
   source: RedwoodQueueSource,
   payloadArg?: Payload,
-): Promise<{ jobId: string }> {
+  reqArg?: PayloadRequest,
+): Promise<{ jobId: string; deduplicated?: boolean }> {
   const payload = await resolvePayload(payloadArg)
 
   try {
@@ -37,6 +109,7 @@ export async function queueRedwoodImportForClient(
       collection: 'clients',
       id: clientId,
       depth: 0,
+      ...reqOption(reqArg),
       overrideAccess: true,
     })
 
@@ -50,10 +123,29 @@ export async function queueRedwoodImportForClient(
 
     assertRedwoodMutationAllowed(accountNumber, 'import')
 
+    const activeJobId = await findActiveRedwoodJobId({
+      clientId,
+      payload,
+      req: reqArg,
+      taskSlug: 'redwood-import-client',
+    })
+    if (activeJobId) {
+      payload.logger.info({
+        msg: '[redwood-queue] Reused active redwood-import-client job',
+        clientId,
+        source,
+        queue: 'redwood',
+        jobId: activeJobId,
+      })
+
+      return { jobId: activeJobId, deduplicated: true }
+    }
+
     const queued = await payload.jobs.queue({
       task: 'redwood-import-client',
       queue: 'redwood',
       input,
+      ...reqOption(reqArg),
       overrideAccess: true,
     })
     await recordQueuedJobRun(payload, {
@@ -71,6 +163,11 @@ export async function queueRedwoodImportForClient(
         redwoodSyncStatus: 'queued',
         redwoodLastError: null,
       },
+      context: {
+        ...(reqArg?.context || {}),
+        [REDWOOD_SKIP_PROVISIONING_QUEUE_CONTEXT_KEY]: true,
+      },
+      ...reqOption(reqArg),
       overrideAccess: true,
     })
 
@@ -104,165 +201,12 @@ export async function queueRedwoodImportForClient(
   }
 }
 
-export async function queueRedwoodHeadshotSync(
-  clientId: string,
-  requestedByAdminId?: string,
-  payloadArg?: Payload,
-): Promise<{ jobId: string }> {
-  const payload = await resolvePayload(payloadArg)
-
-  try {
-    const client = await payload.findByID({
-      collection: 'clients',
-      id: clientId,
-      depth: 0,
-      overrideAccess: true,
-    })
-    const input = {
-      clientId,
-      requestedByAdminId: requestedByAdminId || null,
-    }
-
-    const queued = await payload.jobs.queue({
-      task: 'redwood-sync-headshot',
-      queue: 'redwood',
-      input,
-      overrideAccess: true,
-    })
-    await recordQueuedJobRun(payload, {
-      jobId: queued.id,
-      queue: 'redwood',
-      taskSlug: 'redwood-sync-headshot',
-      input,
-    })
-
-    await payload.update({
-      collection: 'clients',
-      id: client.id,
-      data: {
-        redwoodHeadshotSyncStatus: 'queued',
-        redwoodHeadshotSyncLastAttemptAt: new Date().toISOString(),
-        redwoodHeadshotSyncLastError: null,
-      },
-      overrideAccess: true,
-    })
-
-    payload.logger.info({
-      msg: '[redwood-queue] Queued redwood-sync-headshot',
-      clientId,
-      requestedByAdminId,
-      queue: 'redwood',
-      jobId: queued.id,
-    })
-
-    return { jobId: queued.id }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-
-    await upsertRedwoodIncidentAlert({
-      payload,
-      clientId,
-      jobType: 'headshot-sync',
-      kind: 'business-critical-failure',
-      title: `Failed to queue Redwood headshot sync for client ${clientId}`,
-      message,
-      context: {
-        clientId,
-        requestedByAdminId,
-        error: message,
-      },
-    })
-
-    throw error
-  }
-}
-
-export async function queueRedwoodUniqueIdBackfill(
-  clientId: string,
-  requestedByAdminId?: string,
-  payloadArg?: Payload,
-): Promise<{ jobId: string }> {
-  const payload = await resolvePayload(payloadArg)
-
-  try {
-    const client = await payload.findByID({
-      collection: 'clients',
-      id: clientId,
-      depth: 0,
-      overrideAccess: true,
-    })
-    const accountNumber = getRedwoodAccountNumber()
-    const uniqueId = typeof client.redwoodUniqueId === 'string' && client.redwoodUniqueId.trim()
-      ? client.redwoodUniqueId.trim()
-      : buildRedwoodUniqueId(client.id)
-    const input = {
-      clientId,
-      requestedByAdminId: requestedByAdminId || null,
-    }
-
-    assertRedwoodMutationAllowed(accountNumber, 'unique ID backfill')
-
-    const queued = await payload.jobs.queue({
-      task: 'redwood-backfill-client-unique-id',
-      queue: 'redwood',
-      input,
-      overrideAccess: true,
-    })
-    await recordQueuedJobRun(payload, {
-      jobId: queued.id,
-      queue: 'redwood',
-      taskSlug: 'redwood-backfill-client-unique-id',
-      input,
-    })
-
-    await payload.update({
-      collection: 'clients',
-      id: client.id,
-      data: {
-        redwoodUniqueId: uniqueId,
-        redwoodUniqueIdSyncStatus: 'queued',
-        redwoodUniqueIdLastAttemptAt: new Date().toISOString(),
-        redwoodUniqueIdLastError: null,
-      },
-      overrideAccess: true,
-    })
-
-    payload.logger.info({
-      msg: '[redwood-queue] Queued redwood-backfill-client-unique-id',
-      clientId,
-      requestedByAdminId,
-      queue: 'redwood',
-      jobId: queued.id,
-    })
-
-    return { jobId: queued.id }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-
-    await upsertRedwoodIncidentAlert({
-      payload,
-      clientId,
-      jobType: 'unique-id-sync',
-      kind: 'business-critical-failure',
-      title: `Failed to queue Redwood unique ID backfill for client ${clientId}`,
-      message,
-      context: {
-        clientId,
-        requestedByAdminId,
-        error: message,
-      },
-    })
-
-    throw error
-  }
-}
-
 export async function queueRedwoodHeadshotUpload(
   clientId: string,
   requestedByAdminId?: string,
   payloadArg?: Payload,
   reqArg?: PayloadRequest,
-): Promise<{ jobId: string }> {
+): Promise<{ jobId: string; deduplicated?: boolean }> {
   const payload = await resolvePayload(payloadArg)
 
   try {
@@ -282,10 +226,13 @@ export async function queueRedwoodHeadshotUpload(
           ? String(client.headshot.id)
           : ''
     const accountNumber = getRedwoodAccountNumber()
+    const provisioningPending = new Set(['queued']).has(
+      typeof client.redwoodSyncStatus === 'string' ? client.redwoodSyncStatus : '',
+    )
 
     assertRedwoodMutationAllowed(accountNumber, 'headshot upload')
 
-    if (!uniqueId && !donorId) {
+    if (!uniqueId && !donorId && !provisioningPending) {
       await payload.update({
         collection: 'clients',
         id: client.id,
@@ -298,7 +245,9 @@ export async function queueRedwoodHeadshotUpload(
         overrideAccess: true,
       })
 
-      throw new Error('Client is missing Redwood identity; headshot upload requires redwoodUniqueId or redwoodDonorId.')
+      throw new Error(
+        'Client is missing Redwood identity; headshot upload requires Redwood donor provisioning to be queued or complete.',
+      )
     }
 
     if (!headshotId) {
@@ -308,6 +257,16 @@ export async function queueRedwoodHeadshotUpload(
     const input = {
       clientId,
       requestedByAdminId: requestedByAdminId || null,
+    }
+
+    const activeJobId = await findActiveRedwoodJobId({
+      clientId,
+      payload,
+      req: reqArg,
+      taskSlug: 'redwood-upload-headshot',
+    })
+    if (activeJobId) {
+      return { jobId: activeJobId, deduplicated: true }
     }
 
     const queued = await payload.jobs.queue({
@@ -454,7 +413,7 @@ export async function queueRedwoodDefaultTestSync(
   payloadArg?: Payload,
   reqArg?: PayloadRequest,
   options?: RedwoodDefaultTestSyncQueueOptions,
-): Promise<{ jobId: string }> {
+): Promise<{ jobId: string; deduplicated?: boolean }> {
   const payload = await resolvePayload(payloadArg)
 
   try {
@@ -469,6 +428,16 @@ export async function queueRedwoodDefaultTestSync(
       : {
           clientId,
         }
+
+    const activeJobId = await findActiveRedwoodJobId({
+      clientId,
+      payload,
+      req: reqArg,
+      taskSlug: 'redwood-sync-default-test',
+    })
+    if (activeJobId) {
+      return { jobId: activeJobId, deduplicated: true }
+    }
 
     const queued = await payload.jobs.queue({
       task: 'redwood-sync-default-test',

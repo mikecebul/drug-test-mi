@@ -41,7 +41,7 @@ describe('queueRedwoodHeadshotPush', () => {
     )
   })
 
-  it('skips auto-queueing when the client is not Redwood-ready yet', async () => {
+  it('queues behind donor provisioning when the client import is still running', async () => {
     await queueRedwoodHeadshotPush({
       doc: {
         id: 'client-2',
@@ -66,7 +66,7 @@ describe('queueRedwoodHeadshotPush', () => {
       },
     } as any)
 
-    expect(queueRedwoodHeadshotUpload).toHaveBeenCalledTimes(1)
+    expect(queueRedwoodHeadshotUpload).toHaveBeenCalledTimes(2)
   })
 
   it('skips queueing when the update originated from Redwood pull sync', async () => {
@@ -94,6 +94,6 @@ describe('queueRedwoodHeadshotPush', () => {
       },
     } as any)
 
-    expect(queueRedwoodHeadshotUpload).toHaveBeenCalledTimes(1)
+    expect(queueRedwoodHeadshotUpload).toHaveBeenCalledTimes(2)
   })
 })

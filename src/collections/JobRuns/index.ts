@@ -163,13 +163,6 @@ export const JobRuns: CollectionConfig = {
       },
     },
     {
-      name: 'screenshotPath',
-      type: 'text',
-      admin: {
-        readOnly: true,
-      },
-    },
-    {
       name: 'inputSnapshot',
       type: 'json',
       admin: {

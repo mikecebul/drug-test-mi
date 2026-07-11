@@ -12,7 +12,7 @@ import {
   type RedwoodMultipartFile,
 } from '@/lib/redwood/http'
 import { readRedwoodCallInCodeViaHttp, resolveRedwoodDonorIdViaHttp } from '@/lib/redwood/http-donor-search'
-import { resolveRedwoodAuthEnv } from '@/lib/redwood/playwright'
+import { resolveRedwoodAuthEnv } from '@/lib/redwood/auth'
 
 const DEFAULT_REDWOOD_DONOR_SEARCH_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/DonorSearch.aspx'
 const REDWOOD_PHOTO_FIELD_NAME = 'ctl00$PageContent$Donor$Photo'
@@ -84,7 +84,6 @@ export async function uploadClientHeadshotToRedwoodViaHttp(args: {
 }): Promise<{
   callInCode: string | null
   donorId: string | null
-  screenshotPath: string
   status: 'synced'
 }> {
   const { client, payload } = args
@@ -125,7 +124,6 @@ export async function uploadClientHeadshotToRedwoodViaHttp(args: {
   return {
     callInCode: await readRedwoodCallInCodeViaHttp({ donorId, donorSearchUrl, session }),
     donorId,
-    screenshotPath: '',
     status: 'synced',
   }
 }

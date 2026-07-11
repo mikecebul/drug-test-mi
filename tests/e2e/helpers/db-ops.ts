@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { ensureDotEnvLoaded } from './env'
 import type { TestTypeValue } from '../../../src/config/test-types'
+import { REDWOOD_SKIP_PROVISIONING_QUEUE_CONTEXT_KEY } from '../../../src/lib/redwood/context'
 
 type SeededPerson = {
   id: string
@@ -263,6 +264,9 @@ async function createClient(
       preferredContactMethod: 'email',
       disableClientEmails: false,
       _verified: true,
+      redwoodSyncStatus: 'synced',
+      redwoodDonorId: `e2e-${args.emailPrefix}-${args.runId}`,
+      redwoodCallInCode: 'E2E-READY',
       medications: [
         {
           medicationName: 'Suboxone',
@@ -279,6 +283,9 @@ async function createClient(
         id: 'e2e-seed',
         collection: 'admins',
       },
+    },
+    context: {
+      [REDWOOD_SKIP_PROVISIONING_QUEUE_CONTEXT_KEY]: true,
     },
     overrideAccess: true,
   })

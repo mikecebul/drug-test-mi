@@ -3,9 +3,7 @@ import type { Payload } from 'payload'
 export type RedwoodJobType =
   | 'import'
   | 'client-update'
-  | 'headshot-sync'
   | 'headshot-upload'
-  | 'unique-id-sync'
   | 'default-test-sync'
   | 'client-inactivation'
 
@@ -29,7 +27,6 @@ export type RedwoodIncidentRecordParams = {
   message: string
   kind: Exclude<RedwoodIncidentKind, 'monitor-only'>
   context?: Record<string, unknown>
-  screenshotPath?: string | null
   statusSnapshot?: Record<string, unknown>
 }
 
@@ -208,18 +205,18 @@ function getRecommendedAction(args: {
   }
 
   if (errorClass === 'mutation-verification-failed') {
-    return 'Verify Redwood page controls/selectors, inspect the screenshot, and rerun the affected Redwood workflow.'
+    return 'Verify the reconstructed Redwood form fields and rerun the affected workflow.'
   }
 
   if (jobType === 'default-test-sync') {
     return 'Verify the client default test mapping and rerun Redwood default-test sync if it is required for this client.'
   }
 
-  return 'Review the client Redwood Sync panel, inspect the latest screenshot, and rerun the blocked Redwood workflow after correcting the issue.'
+  return 'Review the client Redwood Sync panel and rerun the blocked workflow after correcting the issue.'
 }
 
 export async function upsertRedwoodIncidentAlert(params: RedwoodIncidentRecordParams): Promise<void> {
-  const { clientId, context, jobType, kind, message, payload, screenshotPath, statusSnapshot, title } = params
+  const { clientId, context, jobType, kind, message, payload, statusSnapshot, title } = params
   const classification = classifyRedwoodIncident({
     message,
     jobType,
@@ -266,7 +263,6 @@ export async function upsertRedwoodIncidentAlert(params: RedwoodIncidentRecordPa
       jobType,
       dedupeKey,
       statusSnapshot: statusSnapshot || null,
-      screenshotPath: screenshotPath || null,
       lastSeenAt: now,
       recommendedAction,
       resolved: false,

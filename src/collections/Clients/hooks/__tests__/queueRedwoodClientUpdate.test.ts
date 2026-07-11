@@ -104,7 +104,7 @@ describe('queueRedwoodClientUpdateAfterChange', () => {
     expect(queueRedwoodClientUpdate).not.toHaveBeenCalled()
   })
 
-  it('skips queueing when a client changes a Redwood-backed field', async () => {
+  it('queues when a client changes a Redwood-backed field approved by the before-change hook', async () => {
     await queueRedwoodClientUpdateAfterChange({
       doc: {
         id: 'client-9',
@@ -117,7 +117,9 @@ describe('queueRedwoodClientUpdateAfterChange', () => {
         redwoodSyncStatus: 'synced',
       },
       req: {
-        context: {},
+        context: {
+          [REDWOOD_APPROVED_CLIENT_UPDATE_FIELDS_CONTEXT_KEY]: ['phone'],
+        },
         payload: {
           logger: {
             error: vi.fn(),
@@ -130,7 +132,13 @@ describe('queueRedwoodClientUpdateAfterChange', () => {
       },
     } as unknown as QueueHookArgs)
 
-    expect(queueRedwoodClientUpdate).not.toHaveBeenCalled()
+    expect(queueRedwoodClientUpdate).toHaveBeenCalledWith(
+      'client-9',
+      ['phone'],
+      undefined,
+      expect.anything(),
+      expect.anything(),
+    )
   })
 
   it('skips queueing when the update only changes Redwood bookkeeping', async () => {

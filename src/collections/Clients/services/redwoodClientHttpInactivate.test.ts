@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import { getRedwoodFormEntry } from '@/lib/redwood/http'
 import {
+  buildRedwoodDonorActiveStatusPlan,
   buildRedwoodDonorInactivationPlan,
+  clearRedwoodDonorGroup,
   readRedwoodDonorActiveStatus,
 } from './redwoodClientHttpInactivate'
 
@@ -32,6 +34,27 @@ describe('redwood HTTP donor inactivation helpers', () => {
 
     expect(plan.alreadyInactive).toBe(false)
     expect(getRedwoodFormEntry(plan.entries, 'ctl00$PageContent$Donor$Active')).toBe('rdbInActive')
+  })
+
+  it('sets an inactive donor back to active for reactivation', () => {
+    const plan = buildRedwoodDonorActiveStatusPlan(
+      `<input id="PageContent_Donor_rdbInActive" type="radio"
+        name="ctl00$PageContent$Donor$Active" value="rdbInActive" checked="checked" />`,
+      true,
+    )
+
+    expect(plan.alreadySynced).toBe(false)
+    expect(getRedwoodFormEntry(plan.entries, 'ctl00$PageContent$Donor$Active')).toBe('rdbActive')
+  })
+
+  it('clears the donor group during reactivation', () => {
+    const entries: [string, string][] = [
+      ['ctl00$PageContent$Donor$ddlDonorGroup', 'Inactive'],
+      ['__VIEWSTATE', 'state'],
+    ]
+
+    expect(clearRedwoodDonorGroup(entries)).toBe(true)
+    expect(getRedwoodFormEntry(entries, 'ctl00$PageContent$Donor$ddlDonorGroup')).toBe('')
   })
 
   it('throws when the donor edit page does not expose active controls', () => {

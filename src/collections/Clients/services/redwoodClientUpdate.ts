@@ -26,7 +26,6 @@ export async function runRedwoodClientUpdateJob(
 ): Promise<{
   error?: string
   retryable?: boolean
-  screenshotPath?: string
   status: 'failed' | 'manual-review' | 'synced'
   updatedFields?: RedwoodClientUpdateField[]
 }> {
@@ -102,7 +101,6 @@ export async function runRedwoodClientUpdateJob(
     })
 
     return {
-      screenshotPath: result.screenshotPath,
       status: 'synced',
       updatedFields: result.updatedFields,
     }

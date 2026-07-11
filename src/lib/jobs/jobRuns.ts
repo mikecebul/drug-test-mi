@@ -6,13 +6,10 @@ export const JOB_TASK_LABELS = {
   createCollectionExport: 'Collection Export',
   createCollectionImport: 'Collection Import',
   inline: 'Inline Task',
-  'redwood-backfill-client-unique-id': 'Redwood ID Backfill',
   'redwood-inactivate-client': 'Client Inactivation',
   'redwood-import-client': 'Redwood Import',
   'redwood-queue-pending-client-updates-nightly': 'Nightly Client Sync Sweep',
   'redwood-sync-default-test': 'Default Test Sync',
-  'redwood-sync-headshot': 'Headshot Pull',
-  'redwood-sync-missing-headshots-nightly': 'Nightly Headshot Sweep',
   'redwood-update-client': 'Client Sync',
   'redwood-upload-headshot': 'Headshot Push',
 } as const
@@ -51,7 +48,6 @@ export type JobRunRecord = {
   queue: string
   requestedByAdmin?: null | string | { id: string }
   resultStatus?: null | string
-  screenshotPath?: null | string
   source?: null | string
   startedAt?: null | string
   status: JobRunStatus
@@ -73,7 +69,6 @@ type PersistJobRunArgs = {
   queue?: string
   requestedByAdmin?: null | string
   resultStatus?: null | string
-  screenshotPath?: null | string
   source?: null | string
   startedAt?: null | string
   status?: JobRunStatus
@@ -166,8 +161,6 @@ function buildQueuedSummary(taskSlug: string, metadata: JobInputMetadata): strin
         : 'Queued Redwood client sync.'
     case 'redwood-queue-pending-client-updates-nightly':
       return 'Nightly pending client sync sweep started.'
-    case 'redwood-sync-missing-headshots-nightly':
-      return 'Nightly missing headshot sweep started.'
     default:
       return `Queued ${getJobTaskLabel(taskSlug)}.`
   }
@@ -242,7 +235,6 @@ async function persistJobRun(payload: Payload, jobId: string, data: PersistJobRu
       queue: data.queue || 'default',
       requestedByAdmin: data.requestedByAdmin ?? null,
       resultStatus: data.resultStatus ?? null,
-      screenshotPath: data.screenshotPath ?? null,
       source: data.source ?? null,
       startedAt: data.startedAt ?? null,
       status: data.status || 'queued',
@@ -330,7 +322,6 @@ export async function recordCompletedJobRun(
     job: JobLike
     output?: unknown
     resultStatus?: null | string
-    screenshotPath?: null | string
     status: JobRunStatus
     summary?: null | string
   },
@@ -352,7 +343,6 @@ export async function recordCompletedJobRun(
     queue: readString(args.job.queue) || 'default',
     requestedByAdmin: metadata.requestedByAdminId,
     resultStatus: args.resultStatus ?? null,
-    screenshotPath: args.screenshotPath ?? null,
     source: metadata.source,
     status: args.status,
     summary: args.summary || buildCompletedSummary(args.status, args.resultStatus ?? null),

@@ -13,15 +13,14 @@ import {
   queueRedwoodClientInactivation,
   queueRedwoodClientUpdate,
   queueRedwoodDefaultTestSync,
-  queueRedwoodHeadshotSync,
   queueRedwoodHeadshotUpload,
   queueRedwoodImportForClient,
-  queueRedwoodUniqueIdBackfill,
 } from '@/lib/redwood/queue'
 
 describe('redwood queue helpers', () => {
   it('queues import jobs in the redwood queue and marks client queued after queueing succeeds', async () => {
     const payloadMock: any = {
+      find: vi.fn().mockResolvedValue({ docs: [] }),
       findByID: vi.fn().mockResolvedValue({
         id: 'client-1',
         redwoodUniqueId: '',
@@ -68,6 +67,7 @@ describe('redwood queue helpers', () => {
 
   it('does not mark client queued if queueing fails', async () => {
     const payloadMock: any = {
+      find: vi.fn().mockResolvedValue({ docs: [] }),
       findByID: vi.fn().mockResolvedValue({
         id: 'client-1',
         redwoodUniqueId: '',
@@ -87,42 +87,27 @@ describe('redwood queue helpers', () => {
     expect(payloadMock.update).not.toHaveBeenCalled()
   })
 
-  it('queues headshot jobs in the redwood queue', async () => {
+  it('reuses an active import job instead of queueing a duplicate', async () => {
     const payloadMock: any = {
+      find: vi.fn().mockResolvedValue({ docs: [{ jobId: 'job-existing' }] }),
       findByID: vi.fn().mockResolvedValue({
-        id: 'client-2',
+        id: 'client-1',
+        redwoodUniqueId: 'MDTCLIENT1',
       }),
-      update: vi.fn().mockResolvedValue({ id: 'client-2' }),
+      update: vi.fn(),
       jobs: {
-        queue: vi.fn().mockResolvedValue({ id: 'job-2' }),
+        queue: vi.fn(),
       },
       logger: {
         info: vi.fn(),
       },
     }
 
-    const result = await queueRedwoodHeadshotSync('client-2', 'admin-1', payloadMock)
+    const result = await queueRedwoodImportForClient('client-1', 'wizard-registration', payloadMock)
 
-    expect(result.jobId).toBe('job-2')
-    expect(payloadMock.jobs.queue).toHaveBeenCalledWith(
-      expect.objectContaining({
-        task: 'redwood-sync-headshot',
-        queue: 'redwood',
-        input: {
-          clientId: 'client-2',
-          requestedByAdminId: 'admin-1',
-        },
-      }),
-    )
-    expect(payloadMock.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        collection: 'clients',
-        id: 'client-2',
-        data: expect.objectContaining({
-          redwoodHeadshotSyncStatus: 'queued',
-        }),
-      }),
-    )
+    expect(result).toEqual({ jobId: 'job-existing', deduplicated: true })
+    expect(payloadMock.jobs.queue).not.toHaveBeenCalled()
+    expect(payloadMock.update).not.toHaveBeenCalled()
   })
 
   it('queues batched client update jobs in the redwood queue', async () => {
@@ -161,39 +146,6 @@ describe('redwood queue helpers', () => {
     )
   })
 
-  it('queues unique ID backfill jobs in the redwood queue', async () => {
-    const payloadMock: any = {
-      findByID: vi.fn().mockResolvedValue({
-        id: 'client-3',
-        redwoodUniqueId: '',
-      }),
-      update: vi.fn().mockResolvedValue({ id: 'client-3' }),
-      jobs: {
-        queue: vi.fn().mockResolvedValue({ id: 'job-3' }),
-      },
-      logger: {
-        info: vi.fn(),
-      },
-    }
-
-    const result = await queueRedwoodUniqueIdBackfill('client-3', 'admin-2', payloadMock)
-
-    expect(result.jobId).toBe('job-3')
-    expect(payloadMock.jobs.queue).toHaveBeenCalledWith(
-      expect.objectContaining({
-        task: 'redwood-backfill-client-unique-id',
-        queue: 'redwood',
-      }),
-    )
-    expect(payloadMock.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          redwoodUniqueIdSyncStatus: 'queued',
-        }),
-      }),
-    )
-  })
-
   it('does not queue website-to-Redwood headshot upload without Redwood identity', async () => {
     const payloadMock: any = {
       findByID: vi.fn().mockResolvedValue({
@@ -226,6 +178,7 @@ describe('redwood queue helpers', () => {
 
   it('queues website-to-Redwood headshot upload when donorId exists without unique ID', async () => {
     const payloadMock: any = {
+      find: vi.fn().mockResolvedValue({ docs: [] }),
       findByID: vi.fn().mockResolvedValue({
         id: 'client-5',
         redwoodUniqueId: '',
@@ -258,6 +211,7 @@ describe('redwood queue helpers', () => {
 
   it('queues Redwood default-test sync jobs in the redwood queue', async () => {
     const payloadMock: any = {
+      find: vi.fn().mockResolvedValue({ docs: [] }),
       jobs: {
         queue: vi.fn().mockResolvedValue({ id: 'job-default-test-1' }),
       },

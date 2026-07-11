@@ -8,12 +8,20 @@ import {
   stripRedwoodHtml,
 } from '@/lib/redwood/http'
 import { resolveRedwoodDonorIdViaHttp } from '@/lib/redwood/http-donor-search'
-import { resolveRedwoodAuthEnv } from '@/lib/redwood/playwright'
+import { resolveRedwoodAuthEnv } from '@/lib/redwood/auth'
 
 const DEFAULT_REDWOOD_DONOR_SEARCH_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/DonorSearch.aspx'
 
 const REDWOOD_ACTIVE_FIELD = 'ctl00$PageContent$Donor$Active'
 const REDWOOD_DONOR_SAVE_BUTTON = 'ctl00$PageContent$Donor$btnsave'
+
+export function clearRedwoodDonorGroup(entries: [string, string][]): boolean {
+  const groupEntries = entries.filter(([name]) => /PageContent\$Donor[^$]*\$.*group|PageContent\$Donor\$.*group/i.test(name))
+  for (const entry of groupEntries) {
+    entry[1] = ''
+  }
+  return groupEntries.length > 0
+}
 
 export type RedwoodDonorActiveStatus = 'active' | 'inactive' | 'unknown'
 
@@ -26,8 +34,8 @@ export function readRedwoodDonorActiveStatus(html: string): RedwoodDonorActiveSt
   return 'unknown'
 }
 
-export function buildRedwoodDonorInactivationPlan(html: string): {
-  alreadyInactive: boolean
+export function buildRedwoodDonorActiveStatusPlan(html: string, active: boolean): {
+  alreadySynced: boolean
   entries: [string, string][]
 } {
   const entries = parseRedwoodFormEntries(html)
@@ -37,11 +45,23 @@ export function buildRedwoodDonorInactivationPlan(html: string): {
     throw new Error('Redwood donor edit page did not expose the active/inactive field.')
   }
 
-  setRedwoodFormEntry(entries, REDWOOD_ACTIVE_FIELD, 'rdbInActive')
+  const expectedStatus = active ? 'active' : 'inactive'
+  setRedwoodFormEntry(entries, REDWOOD_ACTIVE_FIELD, active ? 'rdbActive' : 'rdbInActive')
 
   return {
-    alreadyInactive: activeStatus === 'inactive',
+    alreadySynced: activeStatus === expectedStatus,
     entries,
+  }
+}
+
+export function buildRedwoodDonorInactivationPlan(html: string): {
+  alreadyInactive: boolean
+  entries: [string, string][]
+} {
+  const plan = buildRedwoodDonorActiveStatusPlan(html, false)
+  return {
+    alreadyInactive: plan.alreadySynced,
+    entries: plan.entries,
   }
 }
 
@@ -54,17 +74,17 @@ function assertDonorEditPage(html: string, donorId: string): void {
     throw new Error('Redwood HTTP inactivation was redirected to login while opening donor edit page.')
   }
 
-  throw new Error(`Redwood donor edit page did not expose inactive controls for donor ${donorId}.`)
+  throw new Error(`Redwood donor edit page did not expose active-status controls for donor ${donorId}.`)
 }
 
-export async function inactivateRedwoodClientViaHttp(args: {
+export async function setRedwoodClientActiveStatusViaHttp(args: {
+  active: boolean
   accountNumber: string
   client: RedwoodDonorLookupClient & {
     id: string
   }
 }): Promise<{
   donorId: string
-  screenshotPath: string
   status: 'synced'
 }> {
   const auth = resolveRedwoodAuthEnv()
@@ -80,12 +100,15 @@ export async function inactivateRedwoodClientViaHttp(args: {
 
   const editPage = await session.getText(editUrl)
   assertDonorEditPage(editPage.text, donorId)
-  const plan = buildRedwoodDonorInactivationPlan(editPage.text)
+  const plan = buildRedwoodDonorActiveStatusPlan(editPage.text, args.active)
 
-  if (plan.alreadyInactive) {
+  if (args.active && !clearRedwoodDonorGroup(plan.entries)) {
+    throw new Error('Redwood donor edit page did not expose the donor group field required for reactivation.')
+  }
+
+  if (plan.alreadySynced) {
     return {
       donorId,
-      screenshotPath: '',
       status: 'synced',
     }
   }
@@ -95,21 +118,25 @@ export async function inactivateRedwoodClientViaHttp(args: {
   const saveLocation = saveResponse.headers.get('location')
   if (saveResponse.status !== 302 || !saveLocation || !/Donor\.aspx/i.test(saveLocation)) {
     const body = await saveResponse.text().catch(() => '')
-    throw new Error(
-      `Redwood donor direct HTTP inactivation save failed with status ${saveResponse.status}: ${stripRedwoodHtml(body).slice(0, 500)}`,
-    )
+    throw new Error(`Redwood donor direct HTTP active-status save failed with status ${saveResponse.status}: ${stripRedwoodHtml(body).slice(0, 500)}`)
   }
 
   const verificationPage = await session.getText(editUrl)
   assertDonorEditPage(verificationPage.text, donorId)
 
-  if (readRedwoodDonorActiveStatus(verificationPage.text) !== 'inactive') {
-    throw new Error('Redwood donor direct HTTP inactivation could not be verified on the donor edit page.')
+  const expectedStatus = args.active ? 'active' : 'inactive'
+  if (readRedwoodDonorActiveStatus(verificationPage.text) !== expectedStatus) {
+    throw new Error(`Redwood donor direct HTTP ${expectedStatus} status could not be verified on the donor edit page.`)
   }
 
   return {
     donorId,
-    screenshotPath: '',
     status: 'synced',
   }
+}
+
+export async function inactivateRedwoodClientViaHttp(
+  args: Omit<Parameters<typeof setRedwoodClientActiveStatusViaHttp>[0], 'active'>,
+) {
+  return setRedwoodClientActiveStatusViaHttp({ ...args, active: false })
 }

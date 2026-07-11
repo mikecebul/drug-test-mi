@@ -87,10 +87,10 @@ export function SyncPendingRedwoodClientChangesButtonClient({ clientId }: SyncPe
         </Button>
 
         <Popover>
-          <PopoverTrigger asChild>
-            <Button type="button" variant="outline" size="icon" aria-label="View pending Redwood changes">
-              <ChevronDown className="h-4 w-4" />
-            </Button>
+          <PopoverTrigger
+            render={<Button type="button" variant="outline" size="icon" aria-label="View pending Redwood changes" />}
+          >
+            <ChevronDown />
           </PopoverTrigger>
           <PopoverContent align="end" className="w-80 rounded-xl p-0">
             <div className="space-y-4 p-4">

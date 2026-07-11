@@ -8,10 +8,12 @@ import {
 } from '@/lib/redwood/http'
 import {
   findExistingActiveRedwoodDonorViaHttp,
+  findExistingInactiveRedwoodDonorViaHttp,
   findRedwoodDonorByUniqueIdViaHttp,
   readRedwoodCallInCodeViaHttp,
 } from '@/lib/redwood/http-donor-search'
-import { resolveRedwoodAuthEnv } from '@/lib/redwood/playwright'
+import { resolveRedwoodAuthEnv } from '@/lib/redwood/auth'
+import { setRedwoodClientActiveStatusViaHttp } from './redwoodClientHttpInactivate'
 
 export { readRedwoodDonorSearchResults } from '@/lib/redwood/http-donor-search'
 
@@ -21,7 +23,7 @@ const DEFAULT_REDWOOD_IMPORT_URL = 'https://toxaccess.redwoodtoxicology.com/Page
 const REDWOOD_IMPORT_FILE_FIELD = 'ctl00$PageContent$ImportDonor1$FileUpload1'
 const REDWOOD_IMPORT_UPLOAD_BUTTON = 'ctl00$PageContent$ImportDonor1$btnImport'
 
-type RedwoodHttpImportStatus = 'imported' | 'matched-existing'
+type RedwoodHttpImportStatus = 'imported' | 'matched-existing' | 'reactivated-existing'
 
 export type RedwoodHttpImportedDonor = {
   callInCode: string | null
@@ -153,6 +155,42 @@ export async function createRedwoodClientViaHttp(input: RedwoodImportCSVInput): 
       matchedBy: existing.matchedBy,
       matchedDonorName: existing.matchedDonorName,
       status: 'matched-existing',
+    }
+  }
+
+  const inactive = await findExistingInactiveRedwoodDonorViaHttp({
+    accountNumber: input.accountNumber,
+    client: {
+      dob: typeof input.dob === 'string' ? input.dob : input.dob.toISOString(),
+      firstName: input.firstName,
+      lastName: input.lastName,
+      middleInitial: input.middleInitial,
+      redwoodUniqueId: input.uniqueId,
+    },
+    donorSearchUrl,
+    session,
+  })
+  if (inactive) {
+    await setRedwoodClientActiveStatusViaHttp({
+      accountNumber: input.accountNumber,
+      active: true,
+      client: {
+        dob: typeof input.dob === 'string' ? input.dob : input.dob.toISOString(),
+        firstName: input.firstName,
+        id: input.uniqueId,
+        lastName: input.lastName,
+        middleInitial: input.middleInitial,
+        redwoodDonorId: inactive.donorId,
+        redwoodUniqueId: input.uniqueId,
+      },
+    })
+
+    return {
+      callInCode: await readRedwoodCallInCodeViaHttp({ donorId: inactive.donorId, donorSearchUrl, session }),
+      donorId: inactive.donorId,
+      matchedBy: inactive.matchedBy,
+      matchedDonorName: inactive.matchedDonorName,
+      status: 'reactivated-existing',
     }
   }
 

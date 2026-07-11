@@ -49,6 +49,10 @@ export const requireRedwoodClientUpdateApproval: CollectionBeforeChangeHook = ({
   }
 
   if (req.user?.collection !== 'admins') {
+    if (changedFields.length > 0 && isEligible) {
+      req.context[REDWOOD_APPROVED_CLIENT_UPDATE_FIELDS_CONTEXT_KEY] = changedFields
+    }
+
     dataRecord[REDWOOD_CLIENT_UPDATE_APPROVAL_FIELD] = false
     dataRecord[REDWOOD_CLIENT_UPDATE_SKIP_SYNC_FIELD] = false
     return data

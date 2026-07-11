@@ -14,7 +14,6 @@ export async function runRedwoodDefaultTestSync(
 ): Promise<{
   success: boolean
   status: 'synced' | 'skipped' | 'failed' | 'manual-review'
-  screenshotPath?: string
   error?: string
   retryable?: boolean
 }> {
@@ -109,7 +108,6 @@ export async function runRedwoodDefaultTestSync(
     return {
       success: true,
       status: 'synced',
-      screenshotPath: result.screenshotPath,
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
