@@ -106,10 +106,10 @@ export default function FileUploadField({
             <FileUploadItem key={file.name} value={file}>
               <FileUploadItemPreview />
               <FileUploadItemMetadata />
-              <FileUploadItemDelete asChild>
-                <Button type="button" variant="ghost" size="default">
-                  <XCircle className="stroke-destructive size-5" />
-                </Button>
+              <FileUploadItemDelete
+                render={<Button type="button" variant="ghost" size="default" />}
+              >
+                <XCircle className="stroke-destructive size-5" />
               </FileUploadItemDelete>
             </FileUploadItem>
           ))}

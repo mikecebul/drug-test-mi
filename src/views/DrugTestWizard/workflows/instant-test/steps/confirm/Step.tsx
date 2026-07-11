@@ -10,6 +10,38 @@ import { cn } from '@/utilities/cn'
 import { useConfirmLogic, ClassificationAlert, BreathalyzerDisplay } from './components'
 import { useStore } from '@tanstack/react-form'
 import { ClientInfoContent } from '../../../components/client/ClientDisplayCard'
+import { formatSubstance } from '@/lib/substances'
+
+type ConfirmationDecision = 'accept' | 'request-confirmation' | 'pending-decision'
+
+function getConfirmationDecisionMeta(decision: ConfirmationDecision | undefined) {
+  switch (decision) {
+    case 'accept':
+      return {
+        label: 'Accept Results',
+        description: 'Results will be accepted without confirmation testing.',
+        variant: 'secondary' as const,
+      }
+    case 'request-confirmation':
+      return {
+        label: 'Request Confirmation Testing',
+        description: 'Selected substances will be sent for LC-MS/MS confirmation testing.',
+        variant: 'warning' as const,
+      }
+    case 'pending-decision':
+      return {
+        label: 'Pending Decision',
+        description: 'The sample will be held while the confirmation decision is unresolved.',
+        variant: 'outline' as const,
+      }
+    default:
+      return {
+        label: 'No decision selected',
+        description: 'Go back and choose how to proceed before creating the test.',
+        variant: 'destructive' as const,
+      }
+  }
+}
 
 export const ConfirmStep = withForm({
   ...getInstantTestFormOpts(),
@@ -17,6 +49,8 @@ export const ConfirmStep = withForm({
   render: function Render({ form }) {
     const formValues = useStore(form.store, (state) => state.values)
     const { client, verifyData, medications, preview, filenames } = useConfirmLogic(formValues)
+    const confirmationDecisionMeta = getConfirmationDecisionMeta(verifyData?.confirmationDecision)
+    const confirmationSubstances = verifyData?.confirmationSubstances ?? []
 
     return (
       <div>
@@ -61,6 +95,26 @@ export const ConfirmStep = withForm({
             <SummarySection icon={FileText} title="Classification">
               <ClassificationAlert preview={preview} />
             </SummarySection>
+
+            {verifyData?.confirmationDecisionRequired && (
+              <SummarySection icon={AlertTriangle} title="Confirmation Decision">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={confirmationDecisionMeta.variant}>{confirmationDecisionMeta.label}</Badge>
+                    <span className="text-muted-foreground text-sm">{confirmationDecisionMeta.description}</span>
+                  </div>
+                  {verifyData.confirmationDecision === 'request-confirmation' && confirmationSubstances.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {confirmationSubstances.map((substance) => (
+                        <Badge key={substance} variant="outline">
+                          {formatSubstance(substance)}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </SummarySection>
+            )}
 
             {/* 6. Breathalyzer */}
             {verifyData?.breathalyzerTaken && (

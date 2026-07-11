@@ -1,11 +1,13 @@
 'use server'
 
-import { getPayload } from 'payload'
+import { getPayload, type PayloadRequest, type RequiredDataFromCollectionSlug } from 'payload'
 import config from '@payload-config'
-import type { Client, Court, Employer } from '@/payload-types'
-import { getAppTimezoneDayWindow } from '@/lib/date-utils'
+import Stripe from 'stripe'
+import type { Booking as PayloadBooking, Client, Court, Employer, Payment } from '@/payload-types'
+import { APP_TIMEZONE, getAppTimezoneDayWindow } from '@/lib/date-utils'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 import { getRecipients } from '@/collections/DrugTests/email/recipients'
+import { headers } from 'next/headers'
 import {
   getCalcomScheduledTestAnswerCandidates,
   type CalcomWebhookPayload,
@@ -16,7 +18,14 @@ import {
   mapTestTypeValue,
   type GuidedTestType,
 } from '@/config/test-types'
-import { getCalcomBookingActionLinks } from './schedule-utils'
+import { getCalcomBookingActionLinks, isPastScheduledBookingTime } from './schedule-utils'
+import { applyIncomingPayment, normalizeMoney } from '@/collections/Payments/services/applyPayment'
+import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
+import {
+  findRefundableCalcomBookingPayment,
+  syncCalcomPrepaidBookingPayment,
+} from '@/collections/Payments/services/calcomBookingPayment'
+import { cancelCalcomBooking } from '@/utilities/calcom-api'
 
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type PaymentMethod = 'cash' | 'card' | 'not-paid' | 'pre-paid'
@@ -28,6 +37,14 @@ type PopulatedClient = Client & {
   } | null
 }
 type Payload = Awaited<ReturnType<typeof getPayload>>
+type AdminPayloadRequest = Pick<PayloadRequest, 'payload' | 'user'>
+type ScheduleActionResult = {
+  success: boolean
+  error?: string
+  warning?: string
+  fallbackHref?: string | null
+  refundedAmount?: number
+}
 
 function getRelationshipId(value: unknown): string | null {
   if (!value) return null
@@ -36,6 +53,105 @@ function getRelationshipId(value: unknown): string | null {
     return value.id
   }
   return null
+}
+
+function getCancelHref(booking: Pick<PayloadBooking, 'calcomBookingId' | 'webhookData'>) {
+  return getCalcomBookingActionLinks({
+    calcomBookingId: booking.calcomBookingId as string | null | undefined,
+    webhookData: booking.webhookData,
+  }).cancelHref
+}
+
+function isPastScheduledCalcomCancelError(error?: string) {
+  if (!error) return false
+  const normalized = error.toLowerCase()
+  return (
+    normalized.includes('cancel') &&
+    (normalized.includes('past') || normalized.includes('passed')) &&
+    (normalized.includes('scheduled') || normalized.includes('start') || normalized.includes('time'))
+  )
+}
+
+async function cancelCalcomBookingIfNeeded(booking: PayloadBooking): Promise<ScheduleActionResult> {
+  if (!booking.calcomBookingId) {
+    return { success: true }
+  }
+
+  if (isPastScheduledBookingTime(booking.startTime)) {
+    return {
+      success: true,
+      warning: "This booking is past its scheduled time, so it was removed from today's schedule locally.",
+    }
+  }
+
+  const result = await cancelCalcomBooking({
+    bookingUid: booking.calcomBookingId,
+    cancellationReason: 'Cancelled by admin',
+  })
+
+  if (result.success) {
+    return { success: true }
+  }
+
+  if (isPastScheduledCalcomCancelError(result.error)) {
+    return {
+      success: true,
+      warning:
+        "Cal.com says this booking is past its scheduled time, so it was removed from today's schedule locally.",
+    }
+  }
+
+  return {
+    success: false,
+    error: result.error || 'Cal.com cancellation failed.',
+    fallbackHref: getCancelHref(booking),
+  }
+}
+
+function getBookingPaymentAfterRefund(booking: PayloadBooking) {
+  const existingPayment = booking.payment || {}
+  return {
+    ...existingPayment,
+    amountPaid: 0,
+    method: 'not-paid' as const,
+    status: 'unpaid' as const,
+    collectedAt: null,
+  }
+}
+
+async function getRefundPaymentIntent(input: { stripe: Stripe; payment: Payment; booking: PayloadBooking }) {
+  if (input.payment.stripePaymentIntentId) {
+    return input.payment.stripePaymentIntentId
+  }
+
+  if (typeof input.booking.calcomPaymentId === 'string' && input.booking.calcomPaymentId.startsWith('pi_')) {
+    return input.booking.calcomPaymentId
+  }
+
+  if (!input.payment.stripeCheckoutSessionId) return null
+
+  const session = await input.stripe.checkout.sessions.retrieve(input.payment.stripeCheckoutSessionId)
+  const paymentIntent = session.payment_intent
+  return typeof paymentIntent === 'string' ? paymentIntent : paymentIntent?.id || null
+}
+
+async function getAdminPayload(req?: AdminPayloadRequest) {
+  if (req) {
+    if (!req.user || req.user.collection !== 'admins') {
+      throw new Error('Unauthorized - admin access required.')
+    }
+
+    return req.payload as Payload
+  }
+
+  const payload = await getPayload({ config })
+  const { user } = await payload.auth({ headers: await headers() })
+
+  if (!user || user.collection !== 'admins') {
+    throw new Error('Unauthorized - admin access required.')
+  }
+
+  return payload
 }
 
 async function resolveReferral(payload: Payload, client: PopulatedClient | null) {
@@ -167,8 +283,8 @@ async function persistCalcomScheduledTestType(payload: Payload, bookingId: strin
   }
 }
 
-export async function getTodaysCollectionBookings() {
-  const payload = await getPayload({ config })
+export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
+  const payload = await getAdminPayload(req)
   const todayWindow = getAppTimezoneDayWindow()
 
   const result = await payload.find({
@@ -237,6 +353,8 @@ export async function getTodaysCollectionBookings() {
               dob: typeof client.dob === 'string' ? client.dob : null,
               gender: typeof client.gender === 'string' ? client.gender : null,
               phone: typeof client.phone === 'string' ? client.phone : null,
+              moneyOwed: typeof client.moneyOwed === 'number' ? client.moneyOwed : 0,
+              creditBalance: typeof client.creditBalance === 'number' ? client.creditBalance : 0,
               firstDrugTestDate,
               referralType,
             }
@@ -273,7 +391,7 @@ export async function getActiveCollectionTestTypes() {
 export async function getClientReferralProfile(clientId: string) {
   if (!clientId) return null
 
-  const payload = await getPayload({ config })
+  const payload = await getAdminPayload()
   const client = await payload.findByID({
     collection: 'clients',
     id: clientId,
@@ -301,7 +419,7 @@ export async function getClientReferralProfile(clientId: string) {
 }
 
 export async function getBookingRegistrationDefaults(bookingId: string) {
-  const payload = await getPayload({ config })
+  const payload = await getAdminPayload()
   const booking = await payload.findByID({
     collection: 'bookings',
     id: bookingId,
@@ -320,7 +438,7 @@ export async function getBookingRegistrationDefaults(bookingId: string) {
 }
 
 export async function linkBookingToClient(bookingId: string, clientId: string) {
-  const payload = await getPayload({ config })
+  const payload = await getAdminPayload()
   await payload.update({
     collection: 'bookings',
     id: bookingId,
@@ -342,7 +460,7 @@ export async function setBookingScheduledTestType(bookingId: string, testTypeId:
     return { success: false, error: 'Select a valid test type.' }
   }
 
-  const payload = await getPayload({ config })
+  const payload = await getAdminPayload()
   const booking = await payload.findByID({
     collection: 'bookings',
     id: bookingId,
@@ -376,6 +494,230 @@ export async function setBookingScheduledTestType(bookingId: string, testTypeId:
   return { success: true }
 }
 
+export async function createWalkInBooking(input: { clientId: string; testTypeId: string }) {
+  if (!input.clientId || !input.testTypeId) {
+    return { success: false, error: 'Client and test type are required.' }
+  }
+
+  const mappedTestType = getActiveTestTypes().find((testType) => testType.value === input.testTypeId)
+  if (!mappedTestType) {
+    return { success: false, error: 'Select an active collection test type.' }
+  }
+
+  const payload = await getAdminPayload()
+  const client = await payload.findByID({
+    collection: 'clients',
+    id: input.clientId,
+    depth: 0,
+    overrideAccess: true,
+  })
+  const startTime = new Date()
+  const endTime = new Date(startTime.getTime() + 30 * 60 * 1000)
+  const attendeeName = [client.firstName, client.middleInitial, client.lastName].filter(Boolean).join(' ')
+
+  const bookingData: RequiredDataFromCollectionSlug<'bookings'> = {
+    title: 'Walk-in Drug Test',
+    type: 'walk-in',
+    description: 'Internal walk-in collection created from the guided workflow.',
+    additionalNotes: 'Created without a Cal.com booking.',
+    startTime: startTime.toISOString(),
+    endTime: endTime.toISOString(),
+    status: 'confirmed',
+    organizer: {
+      name: 'MI Drug Test',
+      email: 'admin@midrugtest.com',
+      timeZone: APP_TIMEZONE,
+    },
+    attendeeName,
+    attendeeEmail: client.email,
+    relatedClient: input.clientId,
+    scheduledTestType: mappedTestType.value,
+    location: 'Walk-in',
+    customInputs: {
+      source: 'guided-walk-in',
+    },
+    createdViaWebhook: false,
+  }
+
+  const booking = await payload.create({
+    collection: 'bookings',
+    data: bookingData,
+    overrideAccess: true,
+  })
+
+  revalidateBookingViews()
+
+  return {
+    success: true,
+    bookingId: booking.id as string,
+  }
+}
+
+export async function cancelGuidedBooking(input: { bookingId: string }): Promise<ScheduleActionResult> {
+  if (!input.bookingId) {
+    return { success: false, error: 'Booking is required.' }
+  }
+
+  const payload = await getAdminPayload()
+  const booking = (await payload.findByID({
+    collection: 'bookings',
+    id: input.bookingId,
+    depth: 0,
+    overrideAccess: true,
+  })) as PayloadBooking
+
+  if (booking.sampleCollection?.status === 'collected') {
+    return { success: false, error: 'This appointment already has a collected sample.' }
+  }
+
+  if (booking.status === 'cancelled') {
+    return { success: true }
+  }
+
+  const cancelResult = await cancelCalcomBookingIfNeeded(booking)
+  if (!cancelResult.success) {
+    return cancelResult
+  }
+
+  await payload.update({
+    collection: 'bookings',
+    id: input.bookingId,
+    data: {
+      status: 'cancelled',
+    },
+    overrideAccess: true,
+  })
+
+  revalidateBookingViews()
+  return { success: true, warning: cancelResult.warning }
+}
+
+export async function cancelAndRefundGuidedBooking(input: { bookingId: string }): Promise<ScheduleActionResult> {
+  if (!input.bookingId) {
+    return { success: false, error: 'Booking is required.' }
+  }
+
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return { success: false, error: 'Stripe secret key is not configured.' }
+  }
+
+  const payload = await getAdminPayload()
+  const booking = (await payload.findByID({
+    collection: 'bookings',
+    id: input.bookingId,
+    depth: 0,
+    overrideAccess: true,
+  })) as PayloadBooking
+
+  if (booking.sampleCollection?.status === 'collected') {
+    return { success: false, error: 'This appointment already has a collected sample.' }
+  }
+
+  const syncedPayment = await syncCalcomPrepaidBookingPayment({
+    payload,
+    booking,
+  })
+  const refundablePayment =
+    syncedPayment?.status === 'posted'
+      ? (syncedPayment as Payment)
+      : await findRefundableCalcomBookingPayment({
+          payload,
+          bookingId: input.bookingId,
+        })
+
+  if (!refundablePayment) {
+    return { success: false, error: 'No posted Stripe prepayment was found for this booking.' }
+  }
+
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {})
+  let paymentIntentId: string | null = null
+
+  try {
+    paymentIntentId = await getRefundPaymentIntent({
+      stripe,
+      payment: refundablePayment,
+      booking,
+    })
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? `Unable to load Stripe payment: ${error.message}` : 'Unable to load Stripe payment.',
+    }
+  }
+
+  if (!paymentIntentId) {
+    return { success: false, error: 'No Stripe payment intent was found for this booking payment.' }
+  }
+
+  const refundedAmount = normalizeMoney(refundablePayment.amount)
+  let refund: Stripe.Refund
+
+  try {
+    refund = await stripe.refunds.create(
+      {
+        payment_intent: paymentIntentId,
+        amount: Math.round(refundedAmount * 100),
+      },
+      {
+        idempotencyKey: `calcom-booking-refund-${input.bookingId}-${refundablePayment.id}`,
+      },
+    )
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? `Stripe refund failed: ${error.message}` : 'Stripe refund failed.',
+    }
+  }
+
+  await payload.update({
+    collection: 'payments',
+    id: refundablePayment.id,
+    data: {
+      status: 'refunded',
+      refundedAt: new Date().toISOString(),
+      refundedAmount,
+      stripeRefundId: refund.id,
+    },
+    overrideAccess: true,
+  })
+
+  const cancelResult = await cancelCalcomBookingIfNeeded(booking)
+  await payload.update({
+    collection: 'bookings',
+    id: input.bookingId,
+    data: {
+      ...(cancelResult.success ? { status: 'cancelled' as const } : {}),
+      payment: getBookingPaymentAfterRefund(booking),
+    },
+    overrideAccess: true,
+  })
+
+  revalidateBookingViews()
+
+  if (cancelResult.success && cancelResult.warning) {
+    return {
+      success: true,
+      warning: `Refund issued. ${cancelResult.warning}`,
+      refundedAmount,
+    }
+  }
+
+  if (!cancelResult.success) {
+    return {
+      success: true,
+      warning: `Refund issued, but Cal.com cancellation still needs attention: ${cancelResult.error}`,
+      fallbackHref: cancelResult.fallbackHref,
+      refundedAmount,
+    }
+  }
+
+  return {
+    success: true,
+    refundedAmount,
+  }
+}
+
 export async function recordBookingPayment(input: {
   bookingId: string
   amountDue: number
@@ -400,47 +742,76 @@ export async function recordBookingPayment(input: {
     return { success: false, error: 'Use Paid if the full amount was collected.' }
   }
 
-  const payload = await getPayload({ config })
-  const existingBooking = await payload.findByID({
-    collection: 'bookings',
-    id: input.bookingId,
-    depth: 0,
-    overrideAccess: true,
-  })
-  const existingPayment = existingBooking.payment
-  const notes =
-    typeof input.notes === 'string'
-      ? input.notes.trim() || null
-      : typeof existingPayment?.notes === 'string'
-        ? existingPayment.notes
-        : null
+  const payload = await getAdminPayload()
+  const payment = await withPayloadTransaction(payload, async (req) => {
+    const existingBooking = await payload.findByID({
+      collection: 'bookings',
+      id: input.bookingId,
+      depth: 0,
+      overrideAccess: true,
+      req,
+    })
+    const clientId = getRelationshipId(existingBooking.relatedClient)
+    const existingAmountPaid =
+      typeof existingBooking.payment?.amountPaid === 'number' ? existingBooking.payment.amountPaid : 0
+    const amountAppliedToBooking = Math.min(input.amountPaid, input.amountDue)
+    const existingAmountAppliedToBooking = Math.min(existingAmountPaid, input.amountDue)
+    const newAmountAppliedToBooking = Math.max(0, amountAppliedToBooking - existingAmountAppliedToBooking)
+    const incomingPaymentAmount = Math.max(0, input.amountPaid - existingAmountPaid)
+    const bookingPaymentStatus =
+      amountAppliedToBooking >= input.amountDue ? 'paid' : amountAppliedToBooking > 0 ? 'partial' : input.status
+    const existingPayment = existingBooking.payment
+    const notes =
+      typeof input.notes === 'string'
+        ? input.notes.trim() || null
+        : typeof existingPayment?.notes === 'string'
+          ? existingPayment.notes
+          : null
 
-  const booking = await payload.update({
-    collection: 'bookings',
-    id: input.bookingId,
-    data: {
-      payment: {
-        amountDue: input.amountDue,
-        amountPaid: input.amountPaid,
-        method: input.method,
-        status: input.status,
-        notes,
-        collectedAt: new Date().toISOString(),
+    const booking = await payload.update({
+      collection: 'bookings',
+      id: input.bookingId,
+      data: {
+        payment: {
+          amountDue: input.amountDue,
+          amountPaid: amountAppliedToBooking,
+          method: input.method,
+          status: bookingPaymentStatus,
+          notes,
+          collectedAt: new Date().toISOString(),
+        },
       },
-    },
-    depth: 0,
-    overrideAccess: true,
+      depth: 0,
+      overrideAccess: true,
+      req,
+    })
+
+    if (clientId && incomingPaymentAmount > 0 && input.method !== 'pre-paid' && input.method !== 'not-paid') {
+      await applyIncomingPayment({
+        payload,
+        clientId,
+        amount: incomingPaymentAmount,
+        method: input.method === 'card' ? 'card' : 'cash',
+        source: 'guided-workflow',
+        relatedBooking: input.bookingId,
+        reservedForBookingAmount: newAmountAppliedToBooking,
+        req,
+      })
+    }
+
+    return booking.payment
   })
+
   revalidateBookingViews()
 
   return {
     success: true,
-    payment: booking.payment,
+    payment,
   }
 }
 
 export async function refreshBookingClientContext(bookingId: string) {
-  const payload = await getPayload({ config })
+  const payload = await getAdminPayload()
   const booking = await payload.findByID({
     collection: 'bookings',
     id: bookingId,

@@ -7,6 +7,7 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -31,16 +32,18 @@ export default function CountryField({ label, colSpan, required }: CountryFieldU
           {label}
           {required && <span className="text-destructive">*</span>}
         </FieldLabel>
-        <Select onValueChange={(e) => field.handleChange(e)} value={field.state.value || ''} required={!!required}>
+        <Select items={countryOptions} onValueChange={(value) => field.handleChange(value ?? '')} value={field.state.value || ''} required={!!required}>
           <SelectTrigger id={field.name} aria-invalid={hasErrors || undefined}>
             <SelectValue placeholder="Pick a country" />
           </SelectTrigger>
           <SelectContent>
-            {countryOptions.map(({ label, value }) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
+            <SelectGroup>
+              {countryOptions.map(({ label, value }) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
         <FieldError errors={errors} />

@@ -1,5 +1,5 @@
 import { CollectionAfterChangeHook } from 'payload'
-import { createAdminAlert } from '@/lib/admin-alerts'
+import { syncBookingPaymentClient } from '@/collections/Payments/services/calcomBookingPayment'
 
 function getRelationshipId(value: unknown): string | null {
   if (typeof value === 'string') return value
@@ -10,9 +10,18 @@ function getRelationshipId(value: unknown): string | null {
 }
 
 export const syncClient: CollectionAfterChangeHook = async ({ doc, req }) => {
+  const linkedClientId = getRelationshipId(doc.relatedClient)
+
   // A staff-selected relationship is authoritative. Do not overwrite it just
-  // because the appointment email matches a different client profile.
-  if (getRelationshipId(doc.relatedClient)) {
+  // because the appointment email matches a different client profile, but keep
+  // booking payment records attached to that selected client.
+  if (linkedClientId) {
+    await syncBookingPaymentClient({
+      payload: req.payload,
+      bookingId: String(doc.id),
+      clientId: linkedClientId,
+      req,
+    })
     return doc
   }
 
@@ -52,26 +61,18 @@ export const syncClient: CollectionAfterChangeHook = async ({ doc, req }) => {
           data: {
             relatedClient: clientId,
           },
+          req,
+        })
+        await syncBookingPaymentClient({
+          payload,
+          bookingId: String(doc.id),
+          clientId,
+          req,
         })
         req.payload.logger.info(`Linked booking ${doc.id} to existing client ${clientId}`)
       }
     } else {
       req.payload.logger.info(`No existing client found for booking ${doc.id} with email ${doc.attendeeEmail}`)
-
-      // Create admin alert for unlinked booking
-      await createAdminAlert(payload, {
-        severity: 'medium',
-        alertType: 'data-integrity',
-        title: `Booking created without client: ${doc.attendeeName}`,
-        message: `A booking was created for ${doc.attendeeName} (${doc.attendeeEmail}) but no matching client exists in the system. Please create a client profile to link this booking.`,
-        context: {
-          bookingId: doc.id,
-          attendeeName: doc.attendeeName,
-          attendeeEmail: doc.attendeeEmail,
-          startTime: doc.startTime,
-          calcomBookingId: doc.calcomBookingId,
-        },
-      })
     }
   } catch (error) {
     // Log error but don't fail the booking creation

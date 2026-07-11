@@ -6,6 +6,7 @@ import {
   getGuidedGenderBadgeClass,
   getGuidedPaymentChoice,
   getGuidedPaymentLabel,
+  isPastScheduledBookingTime,
 } from './schedule-utils'
 
 describe('guided schedule payment helpers', () => {
@@ -79,10 +80,26 @@ describe('guided schedule payment helpers', () => {
 })
 
 describe('Cal.com booking action links', () => {
-  test('prefers action URLs stored in the raw Cal.com webhook payload', () => {
+  test('uses UID routes when the Cal.com booking id is known', () => {
     expect(
       getCalcomBookingActionLinks({
         calcomBookingId: 'booking-uid',
+        webhookData: {
+          payload: {
+            cancelUrl: 'https://cal.com/booking/stale-booking?cancel=true',
+            rescheduleUrl: 'https://cal.com/midrugtest/instant-17-panel?rescheduleUid=stale-booking',
+          },
+        },
+      }),
+    ).toEqual({
+      cancelHref: 'https://cal.com/booking/booking-uid?cancel=true',
+      rescheduleHref: 'https://cal.com/reschedule/booking-uid',
+    })
+  })
+
+  test('falls back to action URLs stored in the raw Cal.com webhook payload without a booking id', () => {
+    expect(
+      getCalcomBookingActionLinks({
         webhookData: {
           payload: {
             cancelUrl: 'https://cal.com/booking/booking-uid?cancel=true',
@@ -101,5 +118,20 @@ describe('Cal.com booking action links', () => {
       cancelHref: 'https://cal.com/booking/booking%20uid?cancel=true',
       rescheduleHref: 'https://cal.com/reschedule/booking%20uid',
     })
+  })
+})
+
+describe('scheduled booking time checks', () => {
+  const now = new Date('2026-07-10T14:00:00.000Z').getTime()
+
+  test('treats a booking at or before the current time as past', () => {
+    expect(isPastScheduledBookingTime('2026-07-10T13:59:59.000Z', now)).toBe(true)
+    expect(isPastScheduledBookingTime('2026-07-10T14:00:00.000Z', now)).toBe(true)
+  })
+
+  test('keeps future and invalid booking times eligible for the Cal.com action', () => {
+    expect(isPastScheduledBookingTime('2026-07-10T14:00:01.000Z', now)).toBe(false)
+    expect(isPastScheduledBookingTime('not-a-date', now)).toBe(false)
+    expect(isPastScheduledBookingTime(null, now)).toBe(false)
   })
 })

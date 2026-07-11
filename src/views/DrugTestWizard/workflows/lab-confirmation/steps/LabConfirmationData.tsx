@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { FieldError } from '@/components/ui/field'
 import { HeadshotCaptureCard, MedicationDisplayField, FieldGroupHeader } from '../../components'
@@ -243,18 +243,21 @@ export const LabConfirmationDataStep = withForm({
                       <div className="space-y-2">
                         <Label htmlFor={`substance-${index}`}>Substance</Label>
                         <Select
+                          items={substanceOptions}
                           value={result.substance}
-                          onValueChange={(value) => handleResultChange(index, 'substance', value)}
+                          onValueChange={(value) => handleResultChange(index, 'substance', value ?? '')}
                         >
                           <SelectTrigger id={`substance-${index}`}>
                             <SelectValue placeholder="Select substance..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {substanceOptions.map((option: { value: string; label: string }) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
+                            <SelectGroup>
+                              {substanceOptions.map((option: { value: string; label: string }) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
                           </SelectContent>
                         </Select>
                       </div>
@@ -263,16 +266,23 @@ export const LabConfirmationDataStep = withForm({
                       <div className="space-y-2">
                         <Label htmlFor={`result-${index}`}>Confirmation Result</Label>
                         <Select
+                          items={[
+                            { value: 'confirmed-negative', label: 'Confirmed Negative' },
+                            { value: 'confirmed-positive', label: 'Confirmed Positive' },
+                            { value: 'inconclusive', label: 'Inconclusive' },
+                          ]}
                           value={result.result}
-                          onValueChange={(value) => handleResultChange(index, 'result', value)}
+                          onValueChange={(value) => handleResultChange(index, 'result', value ?? '')}
                         >
                           <SelectTrigger id={`result-${index}`}>
                             <SelectValue placeholder="Select result..." />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="confirmed-negative">Confirmed Negative</SelectItem>
-                            <SelectItem value="confirmed-positive">Confirmed Positive</SelectItem>
-                            <SelectItem value="inconclusive">Inconclusive</SelectItem>
+                            <SelectGroup>
+                              <SelectItem value="confirmed-negative">Confirmed Negative</SelectItem>
+                              <SelectItem value="confirmed-positive">Confirmed Positive</SelectItem>
+                              <SelectItem value="inconclusive">Inconclusive</SelectItem>
+                            </SelectGroup>
                           </SelectContent>
                         </Select>
                       </div>

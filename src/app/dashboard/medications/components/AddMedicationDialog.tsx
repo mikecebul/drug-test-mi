@@ -28,14 +28,12 @@ export function AddMedicationDialog({ buttonText = 'Add Medication' }: AddMedica
   const form = useAppForm(formOpts)
 
   return (
-    <Drawer direction="right" open={showDialog} onOpenChange={setShowDialog}>
-      <DrawerTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          {buttonText}
-        </Button>
+    <Drawer swipeDirection="right" open={showDialog} onOpenChange={setShowDialog}>
+      <DrawerTrigger render={<Button />}>
+        <Plus className="mr-2 h-4 w-4" />
+        {buttonText}
       </DrawerTrigger>
-      <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(36rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(36rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
         <DrawerHeader className="border-border border-b px-6 py-5">
           <DrawerTitle className="text-2xl tracking-tight">Add New Medication</DrawerTitle>
           <DrawerDescription>

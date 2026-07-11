@@ -11,6 +11,7 @@ import * as migration_20260524_000000_add_toxaccess_test_codes from './20260524_
 import * as migration_20260525_000000_deactivate_15_panel_instant_test_type from './20260525_000000_deactivate_15_panel_instant_test_type'
 import * as migration_20260526_000000_migrate_referrals_to_17_panel_instant from './20260526_000000_migrate_referrals_to_17_panel_instant'
 import * as migration_20260701_000000_migrate_test_type_relationships_to_config_values from './20260701_000000_migrate_test_type_relationships_to_config_values'
+import * as migration_20260709_000000_add_17_panel_sos_toxaccess_code from './20260709_000000_add_17_panel_sos_toxaccess_code'
 
 export const migrations = [
   {
@@ -77,5 +78,10 @@ export const migrations = [
     up: migration_20260701_000000_migrate_test_type_relationships_to_config_values.up,
     down: migration_20260701_000000_migrate_test_type_relationships_to_config_values.down,
     name: '20260701_000000_migrate_test_type_relationships_to_config_values',
+  },
+  {
+    up: migration_20260709_000000_add_17_panel_sos_toxaccess_code.up,
+    down: migration_20260709_000000_add_17_panel_sos_toxaccess_code.down,
+    name: '20260709_000000_add_17_panel_sos_toxaccess_code',
   },
 ]

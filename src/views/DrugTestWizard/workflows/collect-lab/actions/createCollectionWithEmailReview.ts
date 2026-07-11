@@ -7,9 +7,11 @@ import { getActiveMedications } from '@/collections/DrugTests/helpers/getActiveM
 import { buildCollectedEmail } from '@/collections/DrugTests/email/render'
 import { fetchClientHeadshot } from '@/collections/DrugTests/email/fetch-headshot'
 import { createAdminAlert } from '@/lib/admin-alerts'
-import type { Client } from '@/payload-types'
+import type { Client, DrugTest } from '@/payload-types'
 import { getDrugTestPaymentSnapshot } from '../../paymentSnapshot'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
+import { applyAvailableClientCredit } from '@/collections/Payments/services/applyPayment'
+import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
 
 // Extract medication type from Client payload type
 type MedicationInput = NonNullable<Client['medications']>[number] & {
@@ -84,26 +86,39 @@ export async function createCollectionWithEmailReview(
     const paymentSnapshot = await getDrugTestPaymentSnapshot({
       payload,
       bookingId: testData.bookingId,
+      testType: testData.testType,
     })
 
     // 3. Create drug test
-    const drugTest = await payload.create({
-      collection: 'drug-tests',
-      data: {
-        relatedClient: testData.clientId,
-        sourceBooking: paymentSnapshot.sourceBooking,
-        payment: paymentSnapshot.payment,
-        testType: testData.testType,
-        collectionDate: testData.collectionDate,
-        screeningStatus: 'collected',
-        detectedSubstances: [],
-        isDilute: false,
-        breathalyzerTaken: testData.breathalyzerTaken,
-        breathalyzerResult: testData.breathalyzerResult,
-        medicationsArrayAtTestTime: activeMedications,
-        processNotes: 'Specimen collected - awaiting lab results (email review)',
-      },
-      overrideAccess: true,
+    const drugTest: DrugTest = await withPayloadTransaction(payload, async (req) => {
+      const createdDrugTest = await payload.create({
+        collection: 'drug-tests',
+        data: {
+          relatedClient: testData.clientId,
+          sourceBooking: paymentSnapshot.sourceBooking,
+          payment: paymentSnapshot.payment,
+          testType: testData.testType,
+          collectionDate: testData.collectionDate,
+          screeningStatus: 'collected',
+          detectedSubstances: [],
+          isDilute: false,
+          breathalyzerTaken: testData.breathalyzerTaken,
+          breathalyzerResult: testData.breathalyzerResult,
+          medicationsArrayAtTestTime: activeMedications,
+          processNotes: 'Specimen collected - awaiting lab results (email review)',
+        },
+        overrideAccess: true,
+        req,
+      })
+
+      await applyAvailableClientCredit({
+        payload,
+        clientId: testData.clientId,
+        relatedDrugTest: createdDrugTest.id,
+        req,
+      })
+
+      return createdDrugTest
     })
 
     if (testData.bookingId) {

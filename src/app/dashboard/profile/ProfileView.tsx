@@ -241,26 +241,38 @@ ${clientName}`,
 
     return (
       <ButtonGroup>
-        <Button asChild variant="outline" size="sm" className="shadow-none">
-          <a href={mailHref}>
-            <MailPlus className="h-4 w-4" />
-            Email
-          </a>
+        <Button
+          render={<a href={mailHref} />}
+          nativeButton={false}
+          variant="outline"
+          size="sm"
+          className="shadow-none"
+        >
+          <MailPlus className="h-4 w-4" />
+          Email
         </Button>
         {smsHref ? (
-          <Button asChild variant="outline" size="sm" className="shadow-none">
-            <a href={smsHref}>
-              <MessageSquare className="h-4 w-4" />
-              Text
-            </a>
+          <Button
+            render={<a href={smsHref} />}
+            nativeButton={false}
+            variant="outline"
+            size="sm"
+            className="shadow-none"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Text
           </Button>
         ) : null}
         {callHref ? (
-          <Button asChild variant="outline" size="sm" className="shadow-none">
-            <a href={callHref}>
-              <Phone className="h-4 w-4" />
-              Call
-            </a>
+          <Button
+            render={<a href={callHref} />}
+            nativeButton={false}
+            variant="outline"
+            size="sm"
+            className="shadow-none"
+          >
+            <Phone className="h-4 w-4" />
+            Call
           </Button>
         ) : null}
       </ButtonGroup>

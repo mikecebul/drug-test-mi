@@ -146,6 +146,29 @@ describe('Drug Test Business Logic', () => {
       expect(data.initialScreenResult).toBe('unexpected-positive')
       expect(data.confirmationDecision).toBeUndefined() // Should NOT auto-accept
       expect(data.isComplete).toBe(false) // Should NOT be complete
+      expect(data.screeningStatus).toBe('screened')
+    })
+
+    test('Scenario 1b: Unexpected Positive with pending decision stays screened, not confirmation pending', async () => {
+      const data: any = {
+        detectedSubstances: ['thc'],
+        relatedClient: 'client-1',
+        screeningStatus: 'screened',
+        confirmationDecision: 'pending-decision',
+      }
+
+      const req = createMockReq([])
+
+      await computeTestResults({
+        data,
+        req: req as any,
+        operation: 'create',
+      } as any)
+
+      expect(data.initialScreenResult).toBe('unexpected-positive')
+      expect(data.confirmationDecision).toBe('pending-decision')
+      expect(data.isComplete).toBe(false)
+      expect(data.screeningStatus).toBe('screened')
     })
 
     test('Scenario 2a: Critical Unexpected Negative - Client on MAT medication (requireConfirmation=true) but NOT detected', async () => {

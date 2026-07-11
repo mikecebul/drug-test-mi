@@ -89,10 +89,10 @@ export function DashboardBreadcrumb() {
                   {item.label}
                 </BreadcrumbPage>
               ) : (
-                <BreadcrumbLink asChild>
-                  <Link href={item.href} className="text-base font-medium">
-                    {item.label}
-                  </Link>
+                <BreadcrumbLink
+                  render={<Link href={item.href} className="text-base font-medium" />}
+                >
+                  {item.label}
                 </BreadcrumbLink>
               )}
             </BreadcrumbItem>

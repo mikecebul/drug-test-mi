@@ -4,6 +4,8 @@ import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { ConfirmationSubstanceSelector } from '@/blocks/Form/field-components/confirmation-substance-selector'
 import {
@@ -15,6 +17,11 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer'
+import {
+  recordDrugTestPayment,
+  requestDrugTestConfirmation,
+  sendDrugTestStripePaymentLink,
+} from './DrugTestTracker/actions'
 
 export interface DrugTest {
   id: string
@@ -36,6 +43,28 @@ export interface DrugTest {
   unexpectedPositives?: string[]
   isComplete: boolean
   processNotes?: string
+  payment?: {
+    status?: string | null
+    method?: string | null
+    amountDue?: number | null
+    amountPaid?: number | null
+    balanceDue?: number | null
+    lastPaymentAt?: string | null
+    lastPaymentLinkSentAt?: string | null
+    confirmationFeeDue?: number | null
+    confirmationPaymentBypassed?: boolean | null
+  }
+}
+
+type TrackerActionResult = {
+  test?: Partial<DrugTest>
+  tests?: DrugTest[]
+}
+
+function isTrackerActionResult(
+  value: TrackerActionResult | Partial<DrugTest> | undefined,
+): value is TrackerActionResult {
+  return Boolean(value && ('test' in value || 'tests' in value))
 }
 
 interface DrugTestTrackerClientProps {
@@ -44,8 +73,12 @@ interface DrugTestTrackerClientProps {
 }
 
 const getTestStage = (test: DrugTest) => {
+  if (test.isComplete && getBalanceDue(test) > 0) {
+    return { stage: 'Payment Due', color: 'bg-red-500', priority: 1 }
+  }
+
   if (!test.initialScreenResult) {
-    return { stage: 'Awaiting Results', color: 'bg-gray-500', priority: 1 }
+    return { stage: 'Awaiting Results', color: 'bg-gray-500', priority: 2 }
   }
 
   if (['negative', 'inconclusive'].includes(test.initialScreenResult)) {
@@ -64,7 +97,7 @@ const getTestStage = (test: DrugTest) => {
     ].includes(test.initialScreenResult)
   ) {
     if (!test.confirmationDecision || test.confirmationDecision === 'pending-decision') {
-      return { stage: 'Awaiting Client Decision', color: 'bg-orange-500', priority: 2 }
+      return { stage: 'Awaiting Client Decision', color: 'bg-orange-500', priority: 3 }
     }
 
     if (test.confirmationDecision === 'accept') {
@@ -74,6 +107,10 @@ const getTestStage = (test: DrugTest) => {
     }
 
     if (test.confirmationDecision === 'request-confirmation') {
+      if (getBalanceDue(test) > 0 && test.payment?.confirmationFeeDue && !test.payment.confirmationPaymentBypassed) {
+        return { stage: 'Awaiting Confirmation Payment', color: 'bg-red-500', priority: 3 }
+      }
+
       // Check if all confirmation results are in
       const hasAllResults =
         test.confirmationResults &&
@@ -82,7 +119,7 @@ const getTestStage = (test: DrugTest) => {
         test.confirmationResults.every((r) => r.result)
 
       if (!hasAllResults) {
-        return { stage: 'Pending Confirmation', color: 'bg-yellow-500', priority: 3 }
+        return { stage: 'Pending Confirmation', color: 'bg-yellow-500', priority: 4 }
       }
 
       // All results are in
@@ -95,6 +132,27 @@ const getTestStage = (test: DrugTest) => {
   return { stage: 'Unknown', color: 'bg-gray-500', priority: 0 }
 }
 
+const currency = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+})
+
+function getBalanceDue(test: DrugTest) {
+  return typeof test.payment?.balanceDue === 'number' ? Math.max(0, test.payment.balanceDue) : 0
+}
+
+function getPaymentStatusLabel(test: DrugTest) {
+  const balanceDue = getBalanceDue(test)
+  if (balanceDue <= 0) return 'Paid'
+  if (test.payment?.status === 'partial') return 'Partial'
+  return 'Unpaid'
+}
+
+function shouldStayInTracker(test: DrugTest) {
+  return !test.isComplete || getBalanceDue(test) > 0
+}
+
 export function DrugTestTrackerClient({ initialError = null, initialTests }: DrugTestTrackerClientProps) {
   const [tests, setTests] = useState<DrugTest[]>(initialTests)
   const [updatingTests, setUpdatingTests] = useState<Record<string, boolean>>({})
@@ -102,26 +160,37 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
 
   function applyUpdatedTest(
     testId: string,
-    updatedTest: Partial<DrugTest> | undefined,
+    result: TrackerActionResult | Partial<DrugTest> | undefined,
     fallbackUpdate?: Partial<DrugTest>,
   ) {
+    if (isTrackerActionResult(result) && Array.isArray(result.tests)) {
+      setTests(result.tests)
+      return
+    }
+
+    const updatedTest = isTrackerActionResult(result) ? result.test : result
+
     if (updatedTest?.id) {
       setTests((prev) => {
-        if (updatedTest.isComplete) {
+        const existingTest = prev.find((test) => test.id === testId)
+        if (!existingTest) return prev
+
+        const mergedTest: DrugTest = {
+          ...existingTest,
+          ...updatedTest,
+          relatedClient:
+            updatedTest.relatedClient && typeof updatedTest.relatedClient === 'object'
+              ? updatedTest.relatedClient
+              : existingTest.relatedClient,
+        }
+
+        if (!shouldStayInTracker(mergedTest)) {
           return prev.filter((test) => test.id !== testId)
         }
 
         return prev.map((test) => {
           if (test.id !== testId) return test
-
-          return {
-            ...test,
-            ...updatedTest,
-            relatedClient:
-              updatedTest.relatedClient && typeof updatedTest.relatedClient === 'object'
-                ? updatedTest.relatedClient
-                : test.relatedClient,
-          }
+          return mergedTest
         })
       })
       return
@@ -170,7 +239,11 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
     }
   }
 
-  async function requestConfirmation(testId: string, confirmationSubstances: string[]) {
+  async function requestConfirmation(
+    testId: string,
+    confirmationSubstances: string[],
+    bypassPaymentRequirement: boolean,
+  ) {
     if (confirmationSubstances.length === 0) {
       setActionError('Select at least one substance to request confirmation.')
       return
@@ -180,25 +253,17 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
     setUpdatingTests((prev) => ({ ...prev, [testId]: true }))
 
     try {
-      const response = await fetch(`/api/drug-tests/${testId}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          confirmationDecision: 'request-confirmation',
-          confirmationSubstances,
-        }),
+      const result = await requestDrugTestConfirmation({
+        testId,
+        confirmationSubstances,
+        bypassPaymentRequirement,
       })
 
-      if (!response.ok) {
-        throw new Error(`Failed to update test (${response.status})`)
+      if (!result.success) {
+        throw new Error(result.error || 'Unable to request confirmation.')
       }
 
-      const data = await response.json()
-      const updatedTest = (data?.doc ?? data) as Partial<DrugTest> | undefined
-      applyUpdatedTest(testId, updatedTest, {
+      applyUpdatedTest(testId, result as TrackerActionResult, {
         confirmationDecision: 'request-confirmation',
         confirmationSubstances,
         isComplete: false,
@@ -206,6 +271,54 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
     } catch (error) {
       console.error('Error requesting confirmation:', error)
       setActionError('Unable to request confirmation. Please try again.')
+    } finally {
+      setUpdatingTests((prev) => {
+        const next = { ...prev }
+        delete next[testId]
+        return next
+      })
+    }
+  }
+
+  async function recordPayment(testId: string, amount: number, method: 'cash' | 'card' | 'unknown') {
+    setActionError(null)
+    setUpdatingTests((prev) => ({ ...prev, [testId]: true }))
+
+    try {
+      const result = await recordDrugTestPayment({ testId, amount, method })
+
+      if (!result.success) {
+        throw new Error(result.error || 'Unable to record payment.')
+      }
+
+      applyUpdatedTest(testId, result as TrackerActionResult)
+    } catch (error) {
+      console.error('Error recording payment:', error)
+      setActionError(error instanceof Error ? error.message : 'Unable to record payment. Please try again.')
+    } finally {
+      setUpdatingTests((prev) => {
+        const next = { ...prev }
+        delete next[testId]
+        return next
+      })
+    }
+  }
+
+  async function sendStripeLink(testId: string) {
+    setActionError(null)
+    setUpdatingTests((prev) => ({ ...prev, [testId]: true }))
+
+    try {
+      const result = await sendDrugTestStripePaymentLink(testId)
+
+      if (!result.success) {
+        throw new Error(result.error || 'Unable to send payment link.')
+      }
+
+      applyUpdatedTest(testId, result as TrackerActionResult)
+    } catch (error) {
+      console.error('Error sending Stripe payment link:', error)
+      setActionError(error instanceof Error ? error.message : 'Unable to send payment link. Please try again.')
     } finally {
       setUpdatingTests((prev) => {
         const next = { ...prev }
@@ -309,6 +422,27 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
                         </div>
                       )}
 
+                      {test.payment && (
+                        <div>
+                          <span className="text-muted-foreground text-xs font-medium md:text-sm">Payment:</span>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <Badge variant={getBalanceDue(test) > 0 ? 'destructive' : 'secondary'}>
+                              {getPaymentStatusLabel(test)}
+                            </Badge>
+                            <span className="text-sm md:text-base">
+                              {getBalanceDue(test) > 0
+                                ? `${currency.format(getBalanceDue(test))} due`
+                                : 'No balance due'}
+                            </span>
+                          </div>
+                          {test.payment.lastPaymentLinkSentAt && getBalanceDue(test) > 0 && (
+                            <p className="text-muted-foreground mt-1 text-xs">
+                              Stripe link sent {new Date(test.payment.lastPaymentLinkSentAt).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
                       {test.processNotes && (
                         <div>
                           <span className="text-muted-foreground text-xs font-medium md:text-sm">Notes:</span>
@@ -331,8 +465,28 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
                             disabled={Boolean(updatingTests[test.id])}
                             isSubmitting={Boolean(updatingTests[test.id])}
                             test={test}
-                            onConfirm={(substances) => requestConfirmation(test.id, substances)}
+                            onConfirm={(substances, bypassPaymentRequirement) =>
+                              requestConfirmation(test.id, substances, bypassPaymentRequirement)
+                            }
                           />
+                        </>
+                      )}
+                      {getBalanceDue(test) > 0 && (
+                        <>
+                          <RecordPaymentDialog
+                            disabled={Boolean(updatingTests[test.id])}
+                            isSubmitting={Boolean(updatingTests[test.id])}
+                            test={test}
+                            onSubmit={(amount, method) => recordPayment(test.id, amount, method)}
+                          />
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => void sendStripeLink(test.id)}
+                            disabled={Boolean(updatingTests[test.id]) || !test.relatedClient.email}
+                          >
+                            {updatingTests[test.id] ? 'Sending...' : 'Send Stripe Link'}
+                          </Button>
                         </>
                       )}
                       <Button
@@ -360,8 +514,8 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
         {tests.length === 0 && (
           <Card>
             <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground">No incomplete drug tests found.</p>
-              <p className="text-muted-foreground mt-2 text-sm">All tests have been completed!</p>
+              <p className="text-muted-foreground">No drug tests need follow-up.</p>
+              <p className="text-muted-foreground mt-2 text-sm">All tests are complete and paid.</p>
             </CardContent>
           </Card>
         )}
@@ -378,12 +532,13 @@ function RequestConfirmationDialog({
 }: {
   disabled: boolean
   isSubmitting: boolean
-  onConfirm: (substances: string[]) => Promise<void>
+  onConfirm: (substances: string[], bypassPaymentRequirement: boolean) => Promise<void>
   test: DrugTest
 }) {
   const unexpectedPositives = test.unexpectedPositives ?? []
   const [open, setOpen] = useState(false)
   const [selectedSubstances, setSelectedSubstances] = useState<string[]>(unexpectedPositives)
+  const [bypassPaymentRequirement, setBypassPaymentRequirement] = useState(false)
   const [error, setError] = useState<string | undefined>()
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -392,6 +547,7 @@ function RequestConfirmationDialog({
 
     if (nextOpen) {
       setSelectedSubstances(unexpectedPositives)
+      setBypassPaymentRequirement(false)
     }
   }
 
@@ -401,18 +557,20 @@ function RequestConfirmationDialog({
       return
     }
 
-    await onConfirm(selectedSubstances)
+    await onConfirm(selectedSubstances, bypassPaymentRequirement)
     setOpen(false)
   }
 
   return (
-    <Drawer direction="right" open={open} onOpenChange={handleOpenChange}>
-      <DrawerTrigger asChild>
-        <Button size="sm" variant="secondary" disabled={disabled || unexpectedPositives.length === 0}>
-          Request Confirmation
-        </Button>
+    <Drawer swipeDirection="right" open={open} onOpenChange={handleOpenChange}>
+      <DrawerTrigger
+        render={
+          <Button size="sm" variant="secondary" disabled={disabled || unexpectedPositives.length === 0} />
+        }
+      >
+        Request Confirmation
       </DrawerTrigger>
-      <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(44rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(44rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
         <DrawerHeader className="border-border border-b px-6 py-5">
           <DrawerTitle className="text-2xl tracking-tight">Request Confirmation</DrawerTitle>
           <DrawerDescription>
@@ -437,6 +595,21 @@ function RequestConfirmationDialog({
               error={error}
             />
           )}
+
+          <label className="border-border bg-muted/30 mt-5 flex items-start gap-3 rounded-lg border p-4">
+            <input
+              type="checkbox"
+              checked={bypassPaymentRequirement}
+              onChange={(event) => setBypassPaymentRequirement(event.target.checked)}
+              className="mt-1"
+            />
+            <span>
+              <span className="block text-sm font-medium">Bypass payment requirement</span>
+              <span className="text-muted-foreground block text-sm">
+                Rare exception: allow confirmation to proceed before the confirmation fee is paid.
+              </span>
+            </span>
+          </label>
         </div>
 
         <DrawerFooter className="border-border border-t px-6 py-4 sm:flex-row sm:justify-end">
@@ -449,6 +622,107 @@ function RequestConfirmationDialog({
             disabled={isSubmitting || selectedSubstances.length === 0}
           >
             {isSubmitting ? 'Requesting...' : 'Request Confirmation'}
+          </Button>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  )
+}
+
+function RecordPaymentDialog({
+  disabled,
+  isSubmitting,
+  onSubmit,
+  test,
+}: {
+  disabled: boolean
+  isSubmitting: boolean
+  onSubmit: (amount: number, method: 'cash' | 'card' | 'unknown') => Promise<void>
+  test: DrugTest
+}) {
+  const balanceDue = getBalanceDue(test)
+  const [open, setOpen] = useState(false)
+  const [amount, setAmount] = useState(balanceDue)
+  const [method, setMethod] = useState<'cash' | 'card' | 'unknown'>('cash')
+  const [error, setError] = useState<string | undefined>()
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen)
+    setError(undefined)
+
+    if (nextOpen) {
+      setAmount(balanceDue)
+      setMethod('cash')
+    }
+  }
+
+  const handleSubmit = async () => {
+    if (amount <= 0) {
+      setError('Enter an amount greater than zero.')
+      return
+    }
+
+    await onSubmit(amount, method)
+    setOpen(false)
+  }
+
+  return (
+    <Drawer swipeDirection="right" open={open} onOpenChange={handleOpenChange}>
+      <DrawerTrigger render={<Button size="sm" disabled={disabled} />}>
+        Record Payment
+      </DrawerTrigger>
+      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(34rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
+        <DrawerHeader className="border-border border-b px-6 py-5">
+          <DrawerTitle className="text-2xl tracking-tight">Record Payment</DrawerTitle>
+          <DrawerDescription>
+            Payment applies to the oldest unpaid balance first. Any extra becomes client credit.
+          </DrawerDescription>
+        </DrawerHeader>
+
+        <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+          <div className="border-border bg-muted/30 rounded-lg border p-4">
+            <p className="text-muted-foreground text-sm font-medium">Current balance</p>
+            <p className="text-2xl font-semibold">{currency.format(balanceDue)}</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor={`payment-amount-${test.id}`}>Amount received</Label>
+            <Input
+              id={`payment-amount-${test.id}`}
+              type="number"
+              min={0}
+              step={1}
+              value={amount}
+              onChange={(event) => {
+                setAmount(Number(event.target.value || 0))
+                setError(undefined)
+              }}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor={`payment-method-${test.id}`}>Method</Label>
+            <select
+              id={`payment-method-${test.id}`}
+              value={method}
+              onChange={(event) => setMethod(event.target.value as 'cash' | 'card' | 'unknown')}
+              className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="cash">Cash</option>
+              <option value="card">Card</option>
+              <option value="unknown">Unknown</option>
+            </select>
+          </div>
+
+          {error && <p className="text-destructive text-sm font-medium">{error}</p>}
+        </div>
+
+        <DrawerFooter className="border-border border-t px-6 py-4 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={() => void handleSubmit()} disabled={isSubmitting || amount <= 0}>
+            {isSubmitting ? 'Recording...' : 'Record Payment'}
           </Button>
         </DrawerFooter>
       </DrawerContent>

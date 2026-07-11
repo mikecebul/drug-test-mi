@@ -1,6 +1,7 @@
 'use client'
 
-import { Slot } from '@radix-ui/react-slot'
+import { mergeProps } from '@base-ui/react/merge-props'
+import { useRender } from '@base-ui/react/use-render'
 import {
   FileArchiveIcon,
   FileAudioIcon,
@@ -12,6 +13,18 @@ import {
 } from 'lucide-react'
 import * as React from 'react'
 import { cn } from '@/utilities/cn'
+
+function FileUploadPrimitive({
+  defaultTagName,
+  render,
+  props,
+}: {
+  defaultTagName: 'button' | 'div'
+  render?: useRender.RenderProp
+  props: Record<string, unknown>
+}) {
+  return useRender({ defaultTagName, render, props })
+}
 
 const ROOT_NAME = 'FileUpload'
 const DROPZONE_NAME = 'FileUploadDropzone'
@@ -276,7 +289,7 @@ function useFileUploadContext(consumerName: string) {
 }
 
 interface FileUploadRootProps extends Omit<
-  React.ComponentProps<'div'>,
+  useRender.ComponentProps<'div'>,
   'defaultValue' | 'onChange'
 > {
   value?: File[]
@@ -300,7 +313,6 @@ interface FileUploadRootProps extends Omit<
   dir?: Direction
   label?: string
   name?: string
-  asChild?: boolean
   disabled?: boolean
   invalid?: boolean
   multiple?: boolean
@@ -323,7 +335,7 @@ function FileUploadRoot(props: FileUploadRootProps) {
     dir: dirProp,
     label,
     name,
-    asChild,
+    render,
     disabled = false,
     invalid = false,
     multiple = false,
@@ -579,50 +591,55 @@ function FileUploadRoot(props: FileUploadRootProps) {
     [dropzoneId, inputId, listId, labelId, dir, disabled, urlCache],
   )
 
-  const RootPrimitive = asChild ? Slot : 'div'
-
   return (
     <StoreContext.Provider value={store}>
       <FileUploadContext.Provider value={contextValue}>
-        <RootPrimitive
-          data-disabled={disabled ? '' : undefined}
-          data-slot="file-upload"
-          dir={dir}
-          {...rootProps}
-          className={cn('relative flex flex-col gap-2', className)}
-        >
-          {children}
-          <input
-            type="file"
-            id={inputId}
-            aria-labelledby={labelId}
-            aria-describedby={dropzoneId}
-            ref={inputRef}
-            tabIndex={-1}
-            accept={accept}
-            name={name}
-            className="sr-only"
-            disabled={disabled}
-            multiple={multiple}
-            required={required}
-            onChange={onInputChange}
-          />
-          <span id={labelId} className="sr-only">
-            {label ?? 'File upload'}
-          </span>
-        </RootPrimitive>
+        <FileUploadPrimitive
+          defaultTagName="div"
+          render={render}
+          props={mergeProps<'div'>(
+            {
+              'data-disabled': disabled ? '' : undefined,
+              'data-slot': 'file-upload',
+              dir,
+              className: cn('relative flex flex-col gap-2', className),
+              children: (
+                <>
+                  {children}
+                  <input
+                    type="file"
+                    id={inputId}
+                    aria-labelledby={labelId}
+                    aria-describedby={dropzoneId}
+                    ref={inputRef}
+                    tabIndex={-1}
+                    accept={accept}
+                    name={name}
+                    className="sr-only"
+                    disabled={disabled}
+                    multiple={multiple}
+                    required={required}
+                    onChange={onInputChange}
+                  />
+                  <span id={labelId} className="sr-only">
+                    {label ?? 'File upload'}
+                  </span>
+                </>
+              ),
+            } as React.ComponentProps<'div'>,
+            rootProps,
+          )}
+        />
       </FileUploadContext.Provider>
     </StoreContext.Provider>
   )
 }
 
-interface FileUploadDropzoneProps extends React.ComponentProps<'div'> {
-  asChild?: boolean
-}
+type FileUploadDropzoneProps = useRender.ComponentProps<'div'>
 
 function FileUploadDropzone(props: FileUploadDropzoneProps) {
   const {
-    asChild,
+    render,
     className,
     onClick: onClickProp,
     onDragOver: onDragOverProp,
@@ -777,42 +794,44 @@ function FileUploadDropzone(props: FileUploadDropzoneProps) {
     [context.inputRef, onKeyDownProp],
   )
 
-  const DropzonePrimitive = asChild ? Slot : 'div'
-
   return (
-    <DropzonePrimitive
-      id={context.dropzoneId}
-      aria-controls={`${context.inputId} ${context.listId}`}
-      aria-disabled={context.disabled}
-      aria-invalid={invalid}
-      data-disabled={context.disabled ? '' : undefined}
-      data-dragging={dragOver ? '' : undefined}
-      data-invalid={invalid ? '' : undefined}
-      data-slot="file-upload-dropzone"
-      dir={context.dir}
-      tabIndex={context.disabled ? undefined : 0}
-      {...dropzoneProps}
-      className={cn(
-        'hover:bg-accent/30 focus-visible:border-ring/50 data-[dragging]:border-primary/30 data-[invalid]:border-destructive data-[dragging]:bg-accent/30 data-[invalid]:ring-destructive/20 relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 transition-colors outline-none select-none data-[disabled]:pointer-events-none',
-        className,
+    <FileUploadPrimitive
+      defaultTagName="div"
+      render={render}
+      props={mergeProps<'div'>(
+        {
+          id: context.dropzoneId,
+          'aria-controls': `${context.inputId} ${context.listId}`,
+          'aria-disabled': context.disabled,
+          'aria-invalid': invalid,
+          'data-disabled': context.disabled ? '' : undefined,
+          'data-dragging': dragOver ? '' : undefined,
+          'data-invalid': invalid ? '' : undefined,
+          'data-slot': 'file-upload-dropzone',
+          dir: context.dir,
+          tabIndex: context.disabled ? undefined : 0,
+          className: cn(
+            'hover:bg-accent/30 focus-visible:border-ring/50 data-[dragging]:border-primary/30 data-[invalid]:border-destructive data-[dragging]:bg-accent/30 data-[invalid]:ring-destructive/20 relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 transition-colors outline-none select-none data-[disabled]:pointer-events-none',
+            className,
+          ),
+          onClick,
+          onDragEnter,
+          onDragLeave,
+          onDragOver,
+          onDrop,
+          onKeyDown,
+          onPaste,
+        } as React.ComponentProps<'div'>,
+        dropzoneProps,
       )}
-      onClick={onClick}
-      onDragEnter={onDragEnter}
-      onDragLeave={onDragLeave}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      onKeyDown={onKeyDown}
-      onPaste={onPaste}
     />
   )
 }
 
-interface FileUploadTriggerProps extends React.ComponentProps<'button'> {
-  asChild?: boolean
-}
+type FileUploadTriggerProps = useRender.ComponentProps<'button'>
 
 function FileUploadTrigger(props: FileUploadTriggerProps) {
-  const { asChild, onClick: onClickProp, ...triggerProps } = props
+  const { render, onClick: onClickProp, ...triggerProps } = props
   const context = useFileUploadContext(TRIGGER_NAME)
 
   const onClick = React.useCallback(
@@ -826,29 +845,32 @@ function FileUploadTrigger(props: FileUploadTriggerProps) {
     [context.inputRef, onClickProp],
   )
 
-  const TriggerPrimitive = asChild ? Slot : 'button'
-
   return (
-    <TriggerPrimitive
-      type="button"
-      aria-controls={context.inputId}
-      data-disabled={context.disabled ? '' : undefined}
-      data-slot="file-upload-trigger"
-      {...triggerProps}
-      disabled={context.disabled}
-      onClick={onClick}
+    <FileUploadPrimitive
+      defaultTagName="button"
+      render={render}
+      props={mergeProps<'button'>(
+        {
+          type: 'button',
+          'aria-controls': context.inputId,
+          'data-disabled': context.disabled ? '' : undefined,
+          'data-slot': 'file-upload-trigger',
+          disabled: context.disabled,
+          onClick,
+        } as React.ComponentProps<'button'>,
+        triggerProps,
+      )}
     />
   )
 }
 
-interface FileUploadListProps extends React.ComponentProps<'div'> {
+interface FileUploadListProps extends useRender.ComponentProps<'div'> {
   orientation?: 'horizontal' | 'vertical'
-  asChild?: boolean
   forceMount?: boolean
 }
 
 function FileUploadList(props: FileUploadListProps) {
-  const { className, orientation = 'vertical', asChild, forceMount, ...listProps } = props
+  const { className, orientation = 'vertical', render, forceMount, ...listProps } = props
 
   const context = useFileUploadContext(LIST_NAME)
   const fileCount = useStore((state) => state.files.size)
@@ -856,21 +878,25 @@ function FileUploadList(props: FileUploadListProps) {
 
   if (!shouldRender) return null
 
-  const ListPrimitive = asChild ? Slot : 'div'
-
   return (
-    <ListPrimitive
-      role="list"
-      id={context.listId}
-      data-orientation={orientation}
-      data-slot="file-upload-list"
-      data-state={shouldRender ? 'active' : 'inactive'}
-      dir={context.dir}
-      {...listProps}
-      className={cn(
-        'data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:slide-out-to-top-2 data-[state=active]:slide-in-from-top-2 data-[state=active]:animate-in data-[state=inactive]:animate-out flex flex-col gap-2',
-        orientation === 'horizontal' && 'flex-row overflow-x-auto p-1.5',
-        className,
+    <FileUploadPrimitive
+      defaultTagName="div"
+      render={render}
+      props={mergeProps<'div'>(
+        {
+          role: 'list',
+          id: context.listId,
+          'data-orientation': orientation,
+          'data-slot': 'file-upload-list',
+          'data-state': shouldRender ? 'active' : 'inactive',
+          dir: context.dir,
+          className: cn(
+            'data-[state=inactive]:fade-out-0 data-[state=active]:fade-in-0 data-[state=inactive]:slide-out-to-top-2 data-[state=active]:slide-in-from-top-2 data-[state=active]:animate-in data-[state=inactive]:animate-out flex flex-col gap-2',
+            orientation === 'horizontal' && 'flex-row overflow-x-auto p-1.5',
+            className,
+          ),
+        } as React.ComponentProps<'div'>,
+        listProps,
       )}
     />
   )
@@ -895,13 +921,12 @@ function useFileUploadItemContext(consumerName: string) {
   return context
 }
 
-interface FileUploadItemProps extends React.ComponentProps<'div'> {
+interface FileUploadItemProps extends useRender.ComponentProps<'div'> {
   value: File
-  asChild?: boolean
 }
 
 function FileUploadItem(props: FileUploadItemProps) {
-  const { value, asChild, className, ...itemProps } = props
+  const { value, render, children, className, ...itemProps } = props
 
   const id = React.useId()
   const statusId = `${id}-status`
@@ -939,27 +964,34 @@ function FileUploadItem(props: FileUploadItemProps) {
         ? 'Upload complete'
         : 'Ready to upload'
 
-  const ItemPrimitive = asChild ? Slot : 'div'
-
   return (
     <FileUploadItemContext.Provider value={itemContext}>
-      <ItemPrimitive
-        role="listitem"
-        id={id}
-        aria-setsize={fileCount}
-        aria-posinset={fileIndex}
-        aria-describedby={`${nameId} ${sizeId} ${statusId} ${fileState.error ? messageId : ''}`}
-        aria-labelledby={nameId}
-        data-slot="file-upload-item"
-        dir={context.dir}
-        {...itemProps}
-        className={cn('relative flex items-center gap-2.5 rounded-md border p-3', className)}
-      >
-        {props.children}
-        <span id={statusId} className="sr-only">
-          {statusText}
-        </span>
-      </ItemPrimitive>
+      <FileUploadPrimitive
+        defaultTagName="div"
+        render={render}
+        props={mergeProps<'div'>(
+          {
+            role: 'listitem',
+            id,
+            'aria-setsize': fileCount,
+            'aria-posinset': fileIndex,
+            'aria-describedby': `${nameId} ${sizeId} ${statusId} ${fileState.error ? messageId : ''}`,
+            'aria-labelledby': nameId,
+            'data-slot': 'file-upload-item',
+            dir: context.dir,
+            className: cn('relative flex items-center gap-2.5 rounded-md border p-3', className),
+            children: (
+              <>
+                {children}
+                <span id={statusId} className="sr-only">
+                  {statusText}
+                </span>
+              </>
+            ),
+          } as React.ComponentProps<'div'>,
+          itemProps,
+        )}
+      />
     </FileUploadItemContext.Provider>
   )
 }
@@ -1023,13 +1055,12 @@ function getFileIcon(file: File) {
   return <FileIcon />
 }
 
-interface FileUploadItemPreviewProps extends React.ComponentProps<'div'> {
-  render?: (file: File, fallback: () => React.ReactNode) => React.ReactNode
-  asChild?: boolean
+interface FileUploadItemPreviewProps extends useRender.ComponentProps<'div'> {
+  renderPreview?: (file: File, fallback: () => React.ReactNode) => React.ReactNode
 }
 
 function FileUploadItemPreview(props: FileUploadItemPreviewProps) {
-  const { render, asChild, children, className, ...previewProps } = props
+  const { render, renderPreview, children, className, ...previewProps } = props
 
   const itemContext = useFileUploadItemContext(ITEM_PREVIEW_NAME)
   const context = useFileUploadContext(ITEM_PREVIEW_NAME)
@@ -1056,96 +1087,104 @@ function FileUploadItemPreview(props: FileUploadItemPreviewProps) {
 
   const onPreviewRender = React.useCallback(
     (file: File) => {
-      if (render) {
-        return render(file, () => getDefaultRender(file))
+      if (renderPreview) {
+        return renderPreview(file, () => getDefaultRender(file))
       }
 
       return getDefaultRender(file)
     },
-    [render, getDefaultRender],
+    [renderPreview, getDefaultRender],
   )
 
   if (!itemContext.fileState) return null
 
-  const ItemPreviewPrimitive = asChild ? Slot : 'div'
-
   return (
-    <ItemPreviewPrimitive
-      aria-labelledby={itemContext.nameId}
-      data-slot="file-upload-preview"
-      {...previewProps}
-      className={cn(
-        'relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded [&>svg]:size-10',
-        className,
+    <FileUploadPrimitive
+      defaultTagName="div"
+      render={render}
+      props={mergeProps<'div'>(
+        {
+          'aria-labelledby': itemContext.nameId,
+          'data-slot': 'file-upload-preview',
+          className: cn(
+            'relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded [&>svg]:size-10',
+            className,
+          ),
+          children: (
+            <>
+              {onPreviewRender(itemContext.fileState.file)}
+              {children}
+            </>
+          ),
+        } as React.ComponentProps<'div'>,
+        previewProps,
       )}
-    >
-      {onPreviewRender(itemContext.fileState.file)}
-      {children}
-    </ItemPreviewPrimitive>
+    />
   )
 }
 
-interface FileUploadItemMetadataProps extends React.ComponentProps<'div'> {
-  asChild?: boolean
+interface FileUploadItemMetadataProps extends useRender.ComponentProps<'div'> {
   size?: 'default' | 'sm'
 }
 
 function FileUploadItemMetadata(props: FileUploadItemMetadataProps) {
-  const { asChild, size = 'default', children, className, ...metadataProps } = props
+  const { render, size = 'default', children, className, ...metadataProps } = props
 
   const context = useFileUploadContext(ITEM_METADATA_NAME)
   const itemContext = useFileUploadItemContext(ITEM_METADATA_NAME)
 
   if (!itemContext.fileState) return null
 
-  const ItemMetadataPrimitive = asChild ? Slot : 'div'
-
   return (
-    <ItemMetadataPrimitive
-      data-slot="file-upload-metadata"
-      dir={context.dir}
-      {...metadataProps}
-      className={cn('flex min-w-0 flex-1 flex-col', className)}
-    >
-      {children ?? (
-        <>
-          <span
-            id={itemContext.nameId}
-            className={cn(
-              'truncate text-sm font-medium',
-              size === 'sm' && 'text-[13px] leading-snug font-normal',
-            )}
-          >
-            {itemContext.fileState.file.name}
-          </span>
-          <span
-            id={itemContext.sizeId}
-            className={cn(
-              'text-muted-foreground truncate text-xs',
-              size === 'sm' && 'text-[11px] leading-snug',
-            )}
-          >
-            {formatBytes(itemContext.fileState.file.size)}
-          </span>
-          {itemContext.fileState.error && (
-            <span id={itemContext.messageId} className="text-destructive text-xs">
-              {itemContext.fileState.error}
-            </span>
-          )}
-        </>
+    <FileUploadPrimitive
+      defaultTagName="div"
+      render={render}
+      props={mergeProps<'div'>(
+        {
+          'data-slot': 'file-upload-metadata',
+          dir: context.dir,
+          className: cn('flex min-w-0 flex-1 flex-col', className),
+          children: children ?? (
+            <>
+              <span
+                id={itemContext.nameId}
+                className={cn(
+                  'truncate text-sm font-medium',
+                  size === 'sm' && 'text-[13px] leading-snug font-normal',
+                )}
+              >
+                {itemContext.fileState.file.name}
+              </span>
+              <span
+                id={itemContext.sizeId}
+                className={cn(
+                  'text-muted-foreground truncate text-xs',
+                  size === 'sm' && 'text-[11px] leading-snug',
+                )}
+              >
+                {formatBytes(itemContext.fileState.file.size)}
+              </span>
+              {itemContext.fileState.error && (
+                <span id={itemContext.messageId} className="text-destructive text-xs">
+                  {itemContext.fileState.error}
+                </span>
+              )}
+            </>
+          ),
+        } as React.ComponentProps<'div'>,
+        metadataProps,
       )}
-    </ItemMetadataPrimitive>
+    />
   )
 }
-interface FileUploadItemProgressProps extends React.ComponentProps<'div'> {
+interface FileUploadItemProgressProps extends useRender.ComponentProps<'div'> {
   variant?: 'linear' | 'circular' | 'fill'
   size?: number
-  asChild?: boolean
   forceMount?: boolean
 }
 
 function FileUploadItemProgress(props: FileUploadItemProgressProps) {
-  const { variant = 'linear', size = 40, asChild, forceMount, className, ...progressProps } = props
+  const { variant = 'linear', size = 40, render, forceMount, className, ...progressProps } = props
 
   const itemContext = useFileUploadItemContext(ITEM_PROGRESS_NAME)
 
@@ -1155,8 +1194,6 @@ function FileUploadItemProgress(props: FileUploadItemProgressProps) {
 
   if (!shouldRender) return null
 
-  const ItemProgressPrimitive = asChild ? Slot : 'div'
-
   switch (variant) {
     case 'circular': {
       const circumference = 2 * Math.PI * ((size - 4) / 2)
@@ -1164,44 +1201,51 @@ function FileUploadItemProgress(props: FileUploadItemProgressProps) {
         circumference - (itemContext.fileState.progress / 100) * circumference
 
       return (
-        <ItemProgressPrimitive
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={itemContext.fileState.progress}
-          aria-valuetext={`${itemContext.fileState.progress}%`}
-          aria-labelledby={itemContext.nameId}
-          data-slot="file-upload-progress"
-          {...progressProps}
-          className={cn('absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2', className)}
-        >
-          <svg
-            className="-rotate-90 transform"
-            width={size}
-            height={size}
-            viewBox={`0 0 ${size} ${size}`}
-            fill="none"
-            stroke="currentColor"
-          >
-            <circle
-              className="text-primary/20"
-              strokeWidth="2"
-              cx={size / 2}
-              cy={size / 2}
-              r={(size - 4) / 2}
-            />
-            <circle
-              className="text-primary transition-[stroke-dashoffset] duration-300 ease-linear"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              cx={size / 2}
-              cy={size / 2}
-              r={(size - 4) / 2}
-            />
-          </svg>
-        </ItemProgressPrimitive>
+        <FileUploadPrimitive
+          defaultTagName="div"
+          render={render}
+          props={mergeProps<'div'>(
+            {
+              role: 'progressbar',
+              'aria-valuemin': 0,
+              'aria-valuemax': 100,
+              'aria-valuenow': itemContext.fileState.progress,
+              'aria-valuetext': `${itemContext.fileState.progress}%`,
+              'aria-labelledby': itemContext.nameId,
+              'data-slot': 'file-upload-progress',
+              className: cn('absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2', className),
+              children: (
+                <svg
+                  className="-rotate-90 transform"
+                  width={size}
+                  height={size}
+                  viewBox={`0 0 ${size} ${size}`}
+                  fill="none"
+                  stroke="currentColor"
+                >
+                  <circle
+                    className="text-primary/20"
+                    strokeWidth="2"
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={(size - 4) / 2}
+                  />
+                  <circle
+                    className="text-primary transition-[stroke-dashoffset] duration-300 ease-linear"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeDashoffset}
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={(size - 4) / 2}
+                  />
+                </svg>
+              ),
+            } as React.ComponentProps<'div'>,
+            progressProps,
+          )}
+        />
       )
     }
 
@@ -1210,59 +1254,66 @@ function FileUploadItemProgress(props: FileUploadItemProgressProps) {
       const topInset = 100 - progressPercentage
 
       return (
-        <ItemProgressPrimitive
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={progressPercentage}
-          aria-valuetext={`${progressPercentage}%`}
-          aria-labelledby={itemContext.nameId}
-          data-slot="file-upload-progress"
-          {...progressProps}
-          className={cn(
-            'bg-primary/50 absolute inset-0 transition-[clip-path] duration-300 ease-linear',
-            className,
+        <FileUploadPrimitive
+          defaultTagName="div"
+          render={render}
+          props={mergeProps<'div'>(
+            {
+              role: 'progressbar',
+              'aria-valuemin': 0,
+              'aria-valuemax': 100,
+              'aria-valuenow': progressPercentage,
+              'aria-valuetext': `${progressPercentage}%`,
+              'aria-labelledby': itemContext.nameId,
+              'data-slot': 'file-upload-progress',
+              className: cn(
+                'bg-primary/50 absolute inset-0 transition-[clip-path] duration-300 ease-linear',
+                className,
+              ),
+              style: { clipPath: `inset(${topInset}% 0% 0% 0%)` },
+            } as React.ComponentProps<'div'>,
+            progressProps,
           )}
-          style={{
-            clipPath: `inset(${topInset}% 0% 0% 0%)`,
-          }}
         />
       )
     }
 
     default:
       return (
-        <ItemProgressPrimitive
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={itemContext.fileState.progress}
-          aria-valuetext={`${itemContext.fileState.progress}%`}
-          aria-labelledby={itemContext.nameId}
-          data-slot="file-upload-progress"
-          {...progressProps}
-          className={cn(
-            'bg-primary/20 relative h-1.5 w-full overflow-hidden rounded-full',
-            className,
+        <FileUploadPrimitive
+          defaultTagName="div"
+          render={render}
+          props={mergeProps<'div'>(
+            {
+              role: 'progressbar',
+              'aria-valuemin': 0,
+              'aria-valuemax': 100,
+              'aria-valuenow': itemContext.fileState.progress,
+              'aria-valuetext': `${itemContext.fileState.progress}%`,
+              'aria-labelledby': itemContext.nameId,
+              'data-slot': 'file-upload-progress',
+              className: cn(
+                'bg-primary/20 relative h-1.5 w-full overflow-hidden rounded-full',
+                className,
+              ),
+              children: (
+                <div
+                  className="bg-primary h-full w-full flex-1 transition-transform duration-300 ease-linear"
+                  style={{ transform: `translateX(-${100 - itemContext.fileState.progress}%)` }}
+                />
+              ),
+            } as React.ComponentProps<'div'>,
+            progressProps,
           )}
-        >
-          <div
-            className="bg-primary h-full w-full flex-1 transition-transform duration-300 ease-linear"
-            style={{
-              transform: `translateX(-${100 - itemContext.fileState.progress}%)`,
-            }}
-          />
-        </ItemProgressPrimitive>
+        />
       )
   }
 }
 
-interface FileUploadItemDeleteProps extends React.ComponentProps<'button'> {
-  asChild?: boolean
-}
+type FileUploadItemDeleteProps = useRender.ComponentProps<'button'>
 
 function FileUploadItemDelete(props: FileUploadItemDeleteProps) {
-  const { asChild, onClick: onClickProp, ...deleteProps } = props
+  const { render, onClick: onClickProp, ...deleteProps } = props
 
   const store = useStoreContext(ITEM_DELETE_NAME)
   const itemContext = useFileUploadItemContext(ITEM_DELETE_NAME)
@@ -1283,27 +1334,30 @@ function FileUploadItemDelete(props: FileUploadItemDeleteProps) {
 
   if (!itemContext.fileState) return null
 
-  const ItemDeletePrimitive = asChild ? Slot : 'button'
-
   return (
-    <ItemDeletePrimitive
-      type="button"
-      aria-controls={itemContext.id}
-      aria-describedby={itemContext.nameId}
-      data-slot="file-upload-item-delete"
-      {...deleteProps}
-      onClick={onClick}
+    <FileUploadPrimitive
+      defaultTagName="button"
+      render={render}
+      props={mergeProps<'button'>(
+        {
+          type: 'button',
+          'aria-controls': itemContext.id,
+          'aria-describedby': itemContext.nameId,
+          'data-slot': 'file-upload-item-delete',
+          onClick,
+        } as React.ComponentProps<'button'>,
+        deleteProps,
+      )}
     />
   )
 }
 
-interface FileUploadClearProps extends React.ComponentProps<'button'> {
+interface FileUploadClearProps extends useRender.ComponentProps<'button'> {
   forceMount?: boolean
-  asChild?: boolean
 }
 
 function FileUploadClear(props: FileUploadClearProps) {
-  const { asChild, forceMount, disabled, onClick: onClickProp, ...clearProps } = props
+  const { render, forceMount, disabled, onClick: onClickProp, ...clearProps } = props
 
   const context = useFileUploadContext(CLEAR_NAME)
   const store = useStoreContext(CLEAR_NAME)
@@ -1326,17 +1380,21 @@ function FileUploadClear(props: FileUploadClearProps) {
 
   if (!shouldRender) return null
 
-  const ClearPrimitive = asChild ? Slot : 'button'
-
   return (
-    <ClearPrimitive
-      type="button"
-      aria-controls={context.listId}
-      data-slot="file-upload-clear"
-      data-disabled={isDisabled ? '' : undefined}
-      {...clearProps}
-      disabled={isDisabled}
-      onClick={onClick}
+    <FileUploadPrimitive
+      defaultTagName="button"
+      render={render}
+      props={mergeProps<'button'>(
+        {
+          type: 'button',
+          'aria-controls': context.listId,
+          'data-slot': 'file-upload-clear',
+          'data-disabled': isDisabled ? '' : undefined,
+          disabled: isDisabled,
+          onClick,
+        } as React.ComponentProps<'button'>,
+        clearProps,
+      )}
     />
   )
 }

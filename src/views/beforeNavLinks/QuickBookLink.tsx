@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Loader2, Search } from 'lucide-react'
 
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
@@ -31,26 +31,49 @@ const AdminQuickBookWidgetClient = dynamic(
   },
 )
 
-const DRAWER_CLOSE_BEFORE_BOOKING_MS = 250
-
 export default function QuickBookLink() {
   const [open, setOpen] = useState(false)
+  const closeResolverRef = useRef<(() => void) | null>(null)
 
   const closeDrawerBeforeBooking = useCallback(async () => {
-    setOpen(false)
-    await new Promise((resolve) => setTimeout(resolve, DRAWER_CLOSE_BEFORE_BOOKING_MS))
+    if (!open) return
+
+    await new Promise<void>((resolve) => {
+      closeResolverRef.current = resolve
+      setOpen(false)
+    })
+  }, [open])
+
+  const handleOpenChangeComplete = useCallback((isOpen: boolean) => {
+    if (isOpen) return
+
+    const resolve = closeResolverRef.current
+    closeResolverRef.current = null
+    resolve?.()
+  }, [])
+
+  const handleOpenChange = useCallback((isOpen: boolean) => {
+    setOpen(isOpen)
+    if (isOpen) {
+      closeResolverRef.current = null
+    }
   }, [])
 
   return (
     <ShadcnWrapper className="py-1.5">
-      <Drawer direction="right" open={open} onOpenChange={setOpen}>
-        <DrawerTrigger asChild>
-          <Button type="button" size="lg" variant="secondary" className="w-full min-w-2xs gap-2">
-            <Search className="size-[18px]" />
-            Quick Book
-          </Button>
+      <Drawer
+        swipeDirection="right"
+        open={open}
+        onOpenChange={handleOpenChange}
+        onOpenChangeComplete={handleOpenChangeComplete}
+      >
+        <DrawerTrigger
+          render={<Button type="button" size="lg" variant="secondary" className="w-full min-w-2xs gap-2" />}
+        >
+          <Search className="size-[18px]" />
+          Quick Book
         </DrawerTrigger>
-        <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(44rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+        <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(44rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
           <DrawerHeader className="border-border border-b px-6 py-5">
             <DrawerTitle className="text-2xl tracking-tight">Quick Book</DrawerTitle>
             <DrawerDescription>

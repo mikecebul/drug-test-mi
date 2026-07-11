@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useCallback, useState, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { revalidateLogic, useStore } from '@tanstack/react-form'
@@ -29,7 +29,7 @@ import {
   uploadSchema,
   verifyDataSchema,
 } from './validators'
-import { extractPdfQueryKey } from '../../queries'
+import { extractPdfQueryKey, prefetchExtractPdf } from '../../queries'
 import type { ExtractedPdfData } from '../../queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { getClientByBookingId, getClientById } from '../components/client/getClients'
@@ -60,6 +60,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)
   const [bookingId] = useQueryState('bookingId', parseAsString)
   const hydratedClientIdRef = useRef<string | null>(null)
+  const hasRunInitialRestoreRef = useRef(false)
   const initialTestType: InstantTestType = '17-panel-instant'
   const formRef = useRef<HTMLFormElement | null>(null)
 
@@ -159,39 +160,93 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       }
     },
   })
+  const hydrateExtractedData = useCallback(
+    (extractedData: ExtractedPdfData) => {
+      form.setFieldValue('extract.extracted', true)
+      if (extractedData.testType === '17-panel-instant') {
+        form.setFieldValue('verifyData.testType', extractedData.testType)
+      }
+      if (extractedData.collectionDate) {
+        form.setFieldValue('verifyData.collectionDate', extractedData.collectionDate)
+      }
+      if (extractedData.detectedSubstances) {
+        form.setFieldValue('verifyData.detectedSubstances', extractedData.detectedSubstances)
+      }
+      if (extractedData.isDilute !== undefined) {
+        form.setFieldValue('verifyData.isDilute', extractedData.isDilute)
+      }
+    },
+    [form],
+  )
   const uploadedFile = useStore(form.store, (state) => state.values.upload.file)
 
-  // Restore file from localStorage only after the upload step. Starting or reloading
-  // the upload step is treated as a fresh test and clears any previous PDF.
+  // The stored PDF only bridges the register-client detour. A browser refresh
+  // resets the workflow because the rest of the form cannot be restored safely.
   useEffect(() => {
+    if (hasRunInitialRestoreRef.current) return
+    hasRunInitialRestoreRef.current = true
+
     const restoreFile = async () => {
       try {
-        if (currentStep === 'upload') {
+        const navigationEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+        const loadedUrl = navigationEntry ? new URL(navigationEntry.name) : null
+        const currentUrl = new URL(window.location.href)
+        const isBrowserReload = Boolean(
+          navigationEntry?.type === 'reload' &&
+          loadedUrl?.pathname === currentUrl.pathname &&
+          loadedUrl.search === currentUrl.search,
+        )
+        const isRegistrationReturn = currentStep === 'client' && Boolean(clientId)
+
+        if (currentStep === 'upload' || isBrowserReload || !isRegistrationReturn) {
           clearFileStorage()
+
+          if (currentStep !== 'upload') {
+            await setCurrentStep('upload', { history: 'replace' })
+            toast.info('Please upload the report and verify each step again.', {
+              id: 'instant-test-refresh-reset',
+            })
+          }
+
           return
         }
 
-        if (hasStoredFile() && !form.state.values.upload.file) {
-          const file = await getFileFromStorage()
-          if (file) {
-            form.setFieldValue('upload.file', file)
-            toast.success('Uploaded file restored')
-          }
+        const currentFile = form.state.values.upload.file
+        const file = currentFile || (hasStoredFile() ? await getFileFromStorage() : null)
+
+        if (!file) {
+          return
         }
+
+        if (!currentFile) {
+          form.setFieldValue('upload.file', file)
+          toast.success('Uploaded file restored')
+        }
+
+        const queryKey = extractPdfQueryKey(file, 'instant-test')
+        await prefetchExtractPdf(queryClient, file, 'instant-test')
+        const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
+        if (extractedData) {
+          hydrateExtractedData(extractedData)
+        }
+      } catch (error) {
+        console.error('Failed to restore the uploaded instant-test report:', error)
+        clearFileStorage()
+        await setCurrentStep('upload', { history: 'replace' })
+        toast.error('The report could not be restored. Please upload it again.', {
+          id: 'instant-test-restore-failed',
+        })
       } finally {
         setIsRestoringFile(false)
       }
     }
 
     restoreFile()
-    // Only run on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [clientId, currentStep, form, hydrateExtractedData, queryClient, setCurrentStep])
 
-  // Keep the uploaded PDF available across refreshes and workflow detours once
-  // the workflow has moved beyond the fresh upload step.
+  // Keep the uploaded PDF available if the user detours to client registration.
   useEffect(() => {
-    if (uploadedFile && currentStep !== 'upload') {
+    if (uploadedFile && currentStep === 'client') {
       void saveFileToStorage(uploadedFile)
     }
   }, [currentStep, uploadedFile])

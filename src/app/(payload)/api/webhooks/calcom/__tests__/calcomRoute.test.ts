@@ -525,6 +525,59 @@ describe('Cal.com webhook route', () => {
     )
   })
 
+  test('creates a payment ledger record when a Cal.com paid event marks a booking prepaid', async () => {
+    const existingBooking = {
+      id: 'existing-booking',
+      calcomBookingId: 'booking-new',
+      startTime: '2026-06-18T14:00:00.000Z',
+      endTime: '2026-06-18T14:15:00.000Z',
+      attendeeName: 'Taylor Client',
+      attendeeEmail: 'taylor@example.com',
+      payment: null,
+    }
+    const payload = createPayloadMock({
+      find: findByBookings([existingBooking]),
+      update: vi.fn().mockImplementation(async ({ data }) => ({
+        ...existingBooking,
+        ...data,
+      })),
+      create: vi.fn().mockImplementation(async ({ collection, data }) => ({
+        id: collection === 'payments' ? 'payment-created' : 'booking-created',
+        ...data,
+      })),
+    })
+
+    const response = await POST(
+      createRequest(
+        createWebhook({
+          triggerEvent: 'BOOKING_PAID',
+          createdAt: '2026-06-17T12:00:00.000Z',
+          payload: {
+            price: 3500,
+            currency: 'usd',
+            paymentId: 'pi_123',
+          },
+        }),
+      ),
+    )
+
+    expect(response.status).toBe(200)
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'payments',
+        data: expect.objectContaining({
+          amount: 35,
+          method: 'stripe',
+          source: 'calcom',
+          status: 'posted',
+          relatedBooking: 'existing-booking',
+          reservedForBookingAmount: 35,
+          stripePaymentIntentId: 'pi_123',
+        }),
+      }),
+    )
+  })
+
   test('keeps generic error behavior when duplicate recovery cannot find a row', async () => {
     const payload = createPayloadMock({
       create: vi.fn().mockRejectedValue({ code: 11000, message: 'duplicate key' }),

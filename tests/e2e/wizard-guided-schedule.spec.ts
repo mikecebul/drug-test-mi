@@ -1,6 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import { cleanupFixtures } from './helpers/cleanup'
 import { loginAdmin } from './helpers/auth'
+import { getE2EEnv } from './helpers/env'
+import { clickNext, selectClientFromSearchDialog, uploadSinglePdf, waitForExtractStepReady } from './helpers/wizard'
 import {
   seedFixtures,
   seedGuidedScheduleFixtures,
@@ -19,8 +21,12 @@ function formatScheduleTime(value: string) {
   }).format(new Date(value))
 }
 
-function scheduleCard(page: Page, attendeeName: string) {
+function scheduleCardButton(page: Page, attendeeName: string) {
   return page.getByRole('button').filter({ hasText: attendeeName }).first()
+}
+
+function scheduleCard(page: Page, attendeeName: string) {
+  return scheduleCardButton(page, attendeeName).locator('xpath=..')
 }
 
 async function openGuidedSchedule(page: Page) {
@@ -91,19 +97,19 @@ test.describe("Wizard Today's Schedule", () => {
   })
 
   test('opens the correct next step from each schedule card', async ({ page }) => {
-    await scheduleCard(page, scheduleFixtures.bookings.unlinked.attendeeName).click()
+    await scheduleCardButton(page, scheduleFixtures.bookings.unlinked.attendeeName).click()
     await expect(page.getByRole('heading', { name: 'Confirm Client' })).toBeVisible()
     await expect(page.getByRole('button', { name: /Register New Client/i })).toBeVisible()
     await page.getByRole('button', { name: /^Back$/i }).click()
     await expect(page.getByRole('heading', { name: "Today's Schedule" })).toBeVisible()
 
-    await scheduleCard(page, scheduleFixtures.bookings.needsTestType.attendeeName).click()
+    await scheduleCardButton(page, scheduleFixtures.bookings.needsTestType.attendeeName).click()
     await expect(page.getByRole('heading', { name: 'Set Appointment Test' })).toBeVisible()
     await expect(page.getByText('What test is needed today?')).toBeVisible()
     await page.getByRole('button', { name: /^Back$/i }).click()
     await expect(page.getByRole('heading', { name: "Today's Schedule" })).toBeVisible()
 
-    await scheduleCard(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
+    await scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
     await expect(page.getByRole('heading', { name: 'Review and Payment' })).toBeVisible()
     await expect(page.getByText(scheduleFixtures.bookings.paidLinked.attendeeName)).toBeVisible()
     await expect(page.getByText('Male')).toHaveClass(/text-blue-900/)
@@ -113,10 +119,112 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByText('Payment Confirmed')).toBeVisible()
     await expect(page.getByText('Pre-paid through the booking.')).toBeVisible()
     await expect(page.getByText('$35 due today')).toHaveCount(0)
-    await expect(page.getByText(fixtures.clients.collectLab.email)).toBeVisible()
+    await expect(page.getByText(fixtures.clients.instant.email)).toBeVisible()
     await expect(page.getByText('2485550199@sms.cal.com')).toHaveCount(0)
     await expect(page.getByRole('radio', { name: /^Paid/i })).toBeChecked()
     await expect(page.getByText('Already paid through the booking.')).toBeVisible()
     await expect(page.getByRole('radio', { name: /^Pre-paid/i })).toHaveCount(0)
+  })
+
+  test('keeps controls interactive after repeatedly closing Quick Book', async ({ page }) => {
+    const openMenuButton = page.getByRole('button', { name: 'Open menu' }).last()
+    if (await openMenuButton.isVisible()) {
+      await openMenuButton.click()
+      await expect(page.getByRole('button', { name: 'Close menu' }).last()).toBeVisible()
+    }
+
+    const quickBookTrigger = page.getByRole('button', { name: 'Quick Book', exact: true })
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await quickBookTrigger.click()
+
+      const quickBookDrawer = page.getByRole('dialog', { name: 'Quick Book' })
+      await expect(quickBookDrawer).toBeVisible()
+
+      await quickBookDrawer.getByRole('tab', { name: 'New Client' }).click()
+      await expect(quickBookDrawer.getByRole('button', { name: 'Book Appointment' })).toBeVisible()
+      await quickBookDrawer.getByRole('tab', { name: 'Existing Client' }).click()
+      await expect(quickBookDrawer.getByLabel('Search Existing Client')).toBeVisible()
+
+      await page.keyboard.press('Escape')
+      await expect(quickBookDrawer).toBeHidden()
+      await expect(quickBookTrigger).toBeFocused()
+      await expect
+        .poll(() => page.evaluate(() => window.getComputedStyle(document.body).pointerEvents))
+        .not.toBe('none')
+    }
+
+    await scheduleCardButton(page, scheduleFixtures.bookings.needsTestType.attendeeName).click()
+    await expect(page.getByRole('heading', { name: 'Set Appointment Test' })).toBeVisible()
+  })
+
+  test('carries a guided instant booking into the instant workflow', async ({ page }) => {
+    const env = getE2EEnv()
+    const booking = scheduleFixtures.bookings.paidLinked
+
+    await scheduleCardButton(page, booking.attendeeName).click()
+    await expect(page.getByRole('heading', { name: 'Review and Payment' })).toBeVisible()
+    await clickNext(page)
+    await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()
+    await expect(page.getByText('17-Panel Instant', { exact: true }).last()).toBeVisible()
+
+    await page.getByRole('button', { name: /Continue Collection/i }).click()
+    await expect(page.getByRole('heading', { name: /Upload Instant Drug Test Report/i })).toBeVisible({
+      timeout: 30_000,
+    })
+
+    const instantUrl = new URL(page.url())
+    expect(instantUrl.searchParams.get('workflow')).toBe('instant-test')
+    expect(instantUrl.searchParams.get('bookingId')).toBe(booking.id)
+    expect(instantUrl.searchParams.get('clientId')).toBe(fixtures.clients.instant.id)
+    expect(instantUrl.searchParams.get('testType')).toBe('17-panel-instant')
+    expect(instantUrl.searchParams.get('returnTo')).toBe('guided')
+
+    await uploadSinglePdf(page, env.pdfInstantPath)
+    await clickNext(page)
+    await waitForExtractStepReady(page, { readyHeadings: [/Extract Data/i] })
+
+    const mismatchConfirmation = page.getByRole('checkbox', {
+      name: /confirm this is the correct client\/report/i,
+    })
+    if (await mismatchConfirmation.isVisible().catch(() => false)) {
+      await mismatchConfirmation.check()
+    }
+
+    await clickNext(page)
+    await expect(page.getByText('Verify Medications')).toBeVisible()
+    await clickNext(page)
+    await expect(page.getByText('Verify Test Data')).toBeVisible()
+    await expect(page.getByRole('textbox', { name: /Test Type/i })).toHaveValue('17-Panel Instant')
+  })
+
+  test('carries an unpaid guided lab booking into lab collection', async ({ page }) => {
+    const booking = scheduleFixtures.bookings.unlinked
+
+    await scheduleCardButton(page, booking.attendeeName).click()
+    await expect(page.getByRole('heading', { name: 'Confirm Client' })).toBeVisible()
+    await selectClientFromSearchDialog(page, fixtures.clients.collectLab.fullName)
+
+    await expect(page.getByRole('heading', { name: 'Review and Payment' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('radio', { name: /^Still owes/i })).toBeChecked()
+    await clickNext(page)
+    await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()
+    await expect(page.getByText(/11-Panel Lab/i).last()).toBeVisible()
+
+    await page.getByRole('button', { name: /Continue Collection/i }).click()
+    await expect(page.getByText('Verify Medications')).toBeVisible({ timeout: 30_000 })
+
+    const labUrl = new URL(page.url())
+    expect(labUrl.searchParams.get('workflow')).toBe('collect-lab')
+    expect(labUrl.searchParams.get('step')).toBe('medications')
+    expect(labUrl.searchParams.get('bookingId')).toBe(booking.id)
+    expect(labUrl.searchParams.get('clientId')).toBe(fixtures.clients.collectLab.id)
+    expect(labUrl.searchParams.get('testType')).toBe('11-panel-lab')
+    expect(labUrl.searchParams.get('returnTo')).toBe('guided')
+
+    await expect(page.getByText(fixtures.clients.collectLab.fullName)).toBeVisible()
+    await clickNext(page)
+    await expect(page.getByRole('heading', { name: 'Collection Details' })).toBeVisible()
+    await expect(page.getByRole('radio', { name: /^11-Panel$/i })).toBeChecked()
   })
 })

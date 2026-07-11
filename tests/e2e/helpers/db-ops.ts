@@ -489,7 +489,7 @@ async function seedGuidedScheduleFixtures(ctx: FixtureContext): Promise<GuidedSc
     attendeeName: `E2E Paid Schedule ${ctx.runId}`,
     attendeeEmail: `2485550199@sms.cal.com`,
     startTime: atTodayHour(9),
-    relatedClient: ctx.clients.collectLab.id,
+    relatedClient: ctx.clients.instant.id,
     scheduledTestType: '17-panel-instant',
     payment: {
       amountDue: 35,

@@ -6,12 +6,15 @@ import { parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs'
 import { toast } from 'sonner'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  Ban,
+  CalendarClock,
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
   CreditCard,
+  Ellipsis,
   FilePenLine,
   FlaskConical,
   Loader2,
@@ -32,15 +35,35 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { APP_TIMEZONE } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
 import { ClientSearchDialog } from '../components/client/ClientSearchDialog'
 import { getClients, type SimpleClient } from '../components/client/getClients'
 import { searchClients } from '../components/client/clientSearch'
 import {
+  cancelAndRefundGuidedBooking,
+  cancelGuidedBooking,
+  createWalkInBooking,
   getActiveCollectionTestTypes,
   getClientReferralProfile,
   getTodaysCollectionBookings,
@@ -61,9 +84,11 @@ import { ReferralProfileDrawer } from '../components/emails/referrals/ReferralPr
 type Booking = Awaited<ReturnType<typeof getTodaysCollectionBookings>>[number]
 type TestType = NonNullable<Booking['testType']>
 type PaymentMethod = 'cash' | 'card' | 'not-paid' | 'pre-paid'
+type PaymentEntryMethod = Exclude<PaymentMethod, 'not-paid'>
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type WorkflowStep = 'schedule' | 'registration' | 'payment' | 'toxaccess'
 type PaymentChoice = 'paid' | 'still-owes'
+type ScheduleAction = 'cancel' | 'cancel-refund'
 
 const workflowSteps = ['schedule', 'registration', 'payment', 'toxaccess'] as const
 
@@ -108,12 +133,14 @@ function getPaymentDefaults(booking: Booking | null) {
   const choice =
     existing?.status && amountDue > 0 && existingAmountPaid < amountDue ? 'still-owes' : getPaymentChoice(existing)
   const defaultAmountPaid = choice === 'paid' ? amountDue : 0
+  const method: PaymentEntryMethod =
+    existing?.method === 'pre-paid' ? 'pre-paid' : existing?.method === 'card' ? 'card' : 'cash'
 
   return {
     amountDue,
     amountPaid: typeof existing?.amountPaid === 'number' ? existing.amountPaid : defaultAmountPaid,
     choice,
-    method: existing?.method ?? null,
+    method,
   }
 }
 
@@ -125,7 +152,7 @@ function getPersistedPayment(input: ReturnType<typeof getPaymentDefaults>): {
   if (input.choice === 'still-owes') {
     return {
       status: 'partial',
-      method: 'not-paid',
+      method: input.amountPaid > 0 ? input.method : 'not-paid',
       amountPaid: Math.max(0, Math.min(input.amountPaid, input.amountDue)),
     }
   }
@@ -133,7 +160,7 @@ function getPersistedPayment(input: ReturnType<typeof getPaymentDefaults>): {
   return {
     status: 'paid',
     method: input.method === 'pre-paid' ? 'pre-paid' : input.method === 'card' ? 'card' : 'cash',
-    amountPaid: input.amountDue,
+    amountPaid: Math.max(input.amountPaid, input.amountDue),
   }
 }
 
@@ -207,6 +234,28 @@ function getAmountDisplay(booking: Booking) {
   }
 }
 
+function canRefundPrepaidBooking(booking: Booking) {
+  return (
+    booking.payment?.method === 'pre-paid' && booking.payment.status === 'paid' && (booking.payment.amountPaid ?? 0) > 0
+  )
+}
+
+function getScheduleActionCopy(action: ScheduleAction, booking: Booking) {
+  if (action === 'cancel-refund') {
+    return {
+      title: 'Cancel and refund appointment',
+      description: `${booking.attendeeName}'s appointment will be cancelled and the full Stripe prepayment will be refunded.`,
+      confirmLabel: 'Cancel and refund',
+    }
+  }
+
+  return {
+    title: 'Cancel appointment',
+    description: `${booking.attendeeName}'s appointment will be cancelled.`,
+    confirmLabel: 'Cancel appointment',
+  }
+}
+
 function getToxAccessName(booking: Booking, includeMiddlePlaceholder = false) {
   const client = booking.client
   if (!client) return booking.attendeeName
@@ -257,7 +306,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   })
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['guided', 'today-bookings'],
-    queryFn: getTodaysCollectionBookings,
+    queryFn: () => getTodaysCollectionBookings(),
     refetchOnMount: 'always',
   })
   const { data: allClients } = useQuery({
@@ -269,6 +318,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     queryFn: getActiveCollectionTestTypes,
   })
   const [isPending, startTransition] = useTransition()
+  const [walkInClient, setWalkInClient] = useState<SimpleClient | null>(null)
+  const [walkInTestTypeId, setWalkInTestTypeId] = useState('')
   const selectedBooking = useMemo(
     () => bookings.find((booking) => booking.id === query.bookingId) ?? null,
     [bookings, query.bookingId],
@@ -284,13 +335,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const [referralDrawerOpen, setReferralDrawerOpen] = useState(false)
   const [testTypeDrawerOpen, setTestTypeDrawerOpen] = useState(false)
   const [testTypeDrawerSelection, setTestTypeDrawerSelection] = useState('')
+  const [scheduleAction, setScheduleAction] = useState<{ action: ScheduleAction; booking: Booking } | null>(null)
   const payment = paymentDraft ?? getPaymentDefaults(selectedBooking)
   const balanceDue = Math.max(0, payment.amountDue - payment.amountPaid)
   const paymentRecorded = Boolean(selectedBooking?.payment?.status)
   const refreshBookings = () =>
     queryClient.fetchQuery({
       queryKey: ['guided', 'today-bookings'],
-      queryFn: getTodaysCollectionBookings,
+      queryFn: () => getTodaysCollectionBookings(),
     })
   const suggestedClients = useMemo(() => {
     if (!selectedBooking) return []
@@ -302,12 +354,73 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
     return searchClients(allClients, queryParts.join(' '), 3)
   }, [allClients, selectedBooking])
+  const selectedWalkInTestTypeId = walkInTestTypeId || testTypes[0]?.id || ''
+  const selectedWalkInTestType = useMemo(
+    () => testTypes.find((testType) => testType.id === selectedWalkInTestTypeId) ?? null,
+    [testTypes, selectedWalkInTestTypeId],
+  )
 
   const handleSelectBooking = (booking: Booking) => {
     setPaymentDraft(getPaymentDefaults(booking))
     setQuery({
       bookingId: booking.id,
       step: getNextStep(booking),
+    })
+  }
+
+  const openExternalLink = (href: string | null | undefined) => {
+    if (!href) return
+    window.open(href, '_blank', 'noopener,noreferrer')
+  }
+
+  const handleConfirmScheduleAction = () => {
+    if (!scheduleAction) return
+
+    const { action, booking } = scheduleAction
+    startTransition(async () => {
+      const result =
+        action === 'cancel-refund'
+          ? await cancelAndRefundGuidedBooking({ bookingId: booking.id })
+          : await cancelGuidedBooking({ bookingId: booking.id })
+
+      if (!result.success) {
+        toast.error(
+          result.error || 'Appointment action failed.',
+          result.fallbackHref
+            ? {
+                action: {
+                  label: 'Open Cal.com',
+                  onClick: () => openExternalLink(result.fallbackHref),
+                },
+              }
+            : undefined,
+        )
+        return
+      }
+
+      if (result.warning) {
+        toast.warning(
+          result.warning,
+          result.fallbackHref
+            ? {
+                action: {
+                  label: 'Open Cal.com',
+                  onClick: () => openExternalLink(result.fallbackHref),
+                },
+              }
+            : undefined,
+        )
+      } else {
+        toast.success(action === 'cancel-refund' ? 'Appointment cancelled and refunded' : 'Appointment cancelled')
+      }
+
+      setScheduleAction(null)
+      setPaymentDraft(null)
+      await refreshBookings()
+
+      if (query.bookingId === booking.id) {
+        setQuery({ step: 'schedule', bookingId: null })
+      }
     })
   }
 
@@ -369,6 +482,30 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const openTestTypeDrawer = () => {
     setTestTypeDrawerSelection(selectedBooking?.bookingTestType?.id ?? selectedBooking?.testType?.id ?? '')
     setTestTypeDrawerOpen(true)
+  }
+
+  const handleCreateWalkInBooking = () => {
+    if (!walkInClient || !selectedWalkInTestTypeId) {
+      toast.error('Select a client and test type first.')
+      return
+    }
+
+    startTransition(async () => {
+      const result = await createWalkInBooking({
+        clientId: walkInClient.id,
+        testTypeId: selectedWalkInTestTypeId,
+      })
+
+      if (!result.success || !result.bookingId) {
+        toast.error(result.error || 'Failed to create walk-in collection.')
+        return
+      }
+
+      setPaymentDraft(null)
+      await refreshBookings()
+      toast.success('Walk-in collection created')
+      setQuery({ bookingId: result.bookingId, step: 'payment' })
+    })
   }
 
   const handlePaymentNext = () => {
@@ -608,81 +745,236 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     )
   }
 
-  const renderSchedule = () => (
-    <div className="space-y-6">
-      {renderHeader('Today')}
-      <p className="text-muted-foreground max-w-2xl text-xl">
-        Select the scheduled client who is ready for collection. Registration and payment happen before the sample step.
-      </p>
+  const renderSchedule = () => {
+    const actionCopy = scheduleAction ? getScheduleActionCopy(scheduleAction.action, scheduleAction.booking) : null
 
-      <Card className="rounded-lg">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-3 text-2xl">
-            <CalendarDays className="size-6" />
-            Today&apos;s Schedule
-          </CardTitle>
-          <CardDescription className="text-base">
-            Name, time, gender, payment status, and registration status.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {isLoading ? (
-            <p className="text-muted-foreground text-sm">Loading appointments...</p>
-          ) : bookings.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No Cal.com appointments scheduled for today.</p>
-          ) : (
-            bookings.map((booking) => {
-              const paymentLabel = getPaymentLabel(booking)
-              const needsRegistration = booking.needsRegistration
-              const needsTestType = booking.needsTestType
-              return (
-                <button
-                  key={booking.id}
-                  type="button"
-                  onClick={() => handleSelectBooking(booking)}
-                  className="border-border bg-card hover:bg-muted/50 focus-visible:ring-ring grid w-full grid-cols-[1fr_auto] gap-4 rounded-lg border p-5 text-left transition focus-visible:ring-2 focus-visible:outline-none"
-                >
-                  <span className="min-w-0 space-y-1">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="block text-xl font-semibold">{booking.attendeeName}</span>
-                      <Badge
-                        variant="outline"
-                        className={cn('shrink-0', getGuidedGenderBadgeClass(booking.client?.gender))}
-                      >
-                        {formatGuidedGender(booking.client?.gender)}
-                      </Badge>
-                    </span>
-                    <span className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-base">
-                      <span className="inline-flex items-center gap-1">
-                        <Clock className="size-4" />
-                        {formatTime(booking.startTime)}
-                      </span>
-                    </span>
-                  </span>
-                  <span className="flex flex-col items-end gap-2">
-                    <Badge
-                      variant={
-                        paymentLabel === 'Paid' || paymentLabel === 'Pre-paid' || paymentLabel === 'Collected'
-                          ? 'success'
-                          : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
-                            ? 'outline'
-                            : 'default'
-                      }
-                      className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
+    return (
+      <div className="space-y-6">
+        {renderHeader('Today')}
+        <p className="text-muted-foreground max-w-2xl text-xl">
+          Select the scheduled client who is ready for collection. Registration and payment happen before the sample
+          step.
+        </p>
+
+        <Card className="rounded-lg">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-3 text-2xl">
+              <CalendarDays className="size-6" />
+              Today&apos;s Schedule
+            </CardTitle>
+            <CardDescription className="text-base">
+              Name, time, gender, payment status, and registration status.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {isLoading ? (
+              <p className="text-muted-foreground text-sm">Loading appointments...</p>
+            ) : bookings.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No Cal.com appointments scheduled for today.</p>
+            ) : (
+              bookings.map((booking) => {
+                const paymentLabel = getPaymentLabel(booking)
+                const needsRegistration = booking.needsRegistration
+                const needsTestType = booking.needsTestType
+                const canRefund = canRefundPrepaidBooking(booking)
+                return (
+                  <div
+                    key={booking.id}
+                    className="border-border bg-card hover:bg-muted/50 grid w-full grid-cols-[minmax(0,1fr)_auto] gap-4 rounded-lg border p-5 transition"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleSelectBooking(booking)}
+                      className="hover:text-foreground focus-visible:ring-ring min-w-0 space-y-1 rounded-md text-left transition focus-visible:ring-2 focus-visible:outline-none"
                     >
-                      {paymentLabel}
-                    </Badge>
-                    {needsRegistration && <Badge variant="secondary">Register</Badge>}
-                    {needsTestType && <Badge variant="secondary">Set test</Badge>}
-                  </span>
-                </button>
-              )
-            })
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  )
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="block text-xl font-semibold">{booking.attendeeName}</span>
+                        <Badge
+                          variant="outline"
+                          className={cn('shrink-0', getGuidedGenderBadgeClass(booking.client?.gender))}
+                        >
+                          {formatGuidedGender(booking.client?.gender)}
+                        </Badge>
+                      </span>
+                      <span className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-base">
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="size-4" />
+                          {formatTime(booking.startTime)}
+                        </span>
+                      </span>
+                    </button>
+                    <div className="flex items-start gap-3">
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge
+                          variant={
+                            paymentLabel === 'Paid' || paymentLabel === 'Pre-paid' || paymentLabel === 'Collected'
+                              ? 'success'
+                              : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
+                                ? 'outline'
+                                : 'default'
+                          }
+                          className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
+                        >
+                          {paymentLabel}
+                        </Badge>
+                        {needsRegistration && <Badge variant="secondary">Register</Badge>}
+                        {needsTestType && <Badge variant="secondary">Set test</Badge>}
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={<Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="-mt-2 -mr-2"
+                            aria-label={`${booking.attendeeName} appointment options`}
+                          />}
+                        >
+                          <Ellipsis className="size-5" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-52">
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              disabled={!booking.calcomActionLinks?.rescheduleHref}
+                              closeOnClick={false}
+                              onClick={() => openExternalLink(booking.calcomActionLinks?.rescheduleHref)}
+                            >
+                              <CalendarClock className="size-4" />
+                              Reschedule
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              closeOnClick={false}
+                              onClick={() => setScheduleAction({ action: 'cancel', booking })}
+                            >
+                              <Ban className="size-4" />
+                              Cancel
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              disabled={!canRefund}
+                              variant="destructive"
+                              closeOnClick={false}
+                              onClick={() => {
+                                if (canRefund) setScheduleAction({ action: 'cancel-refund', booking })
+                              }}
+                            >
+                              <CreditCard className="size-4" />
+                              Cancel and refund
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-lg">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-3 text-2xl">
+              <UserCheck className="size-6" />
+              Walk-In Collection
+            </CardTitle>
+            <CardDescription className="text-base">
+              Create an internal booking for an existing client who is testing now.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <div className="border-border bg-background min-h-12 rounded-lg border px-4 py-3">
+                <p className="text-muted-foreground text-sm font-medium">Client</p>
+                <p className="text-lg font-semibold">
+                  {walkInClient
+                    ? walkInClient.fullName || `${walkInClient.firstName} ${walkInClient.lastName}`
+                    : 'None selected'}
+                </p>
+              </div>
+              <ClientSearchDialog
+                allClients={allClients}
+                selectedClientId={walkInClient?.id ?? ''}
+                onSelect={setWalkInClient}
+              >
+                <Button type="button" variant="outline" size="lg" className="h-full min-h-12">
+                  <Search className="mr-2 size-5" />
+                  Select Client
+                </Button>
+              </ClientSearchDialog>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+              <div className="space-y-2">
+                <Label htmlFor="walk-in-test-type">Test type</Label>
+                <Select
+                  items={testTypes.map((testType) => ({
+                    value: testType.id,
+                    label: `${testType.label} · ${currency.format(testType.price)}`,
+                  }))}
+                  value={selectedWalkInTestTypeId}
+                  onValueChange={(value) => setWalkInTestTypeId(value ?? '')}
+                >
+                  <SelectTrigger id="walk-in-test-type" className="h-12 text-base">
+                    <SelectValue placeholder="Select test type" />
+                  </SelectTrigger>
+                  <SelectContent
+                    side="bottom"
+                    align="start"
+                    alignItemWithTrigger={false}
+                    sideOffset={4}
+                    collisionAvoidance={{ side: 'none', align: 'none', fallbackAxisSide: 'none' }}
+                  >
+                    <SelectGroup>
+                      {testTypes.map((testType) => (
+                        <SelectItem key={testType.id} value={testType.id}>
+                          {testType.label} · {currency.format(testType.price)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                type="button"
+                onClick={handleCreateWalkInBooking}
+                disabled={!walkInClient || !selectedWalkInTestType || isPending}
+                size="lg"
+                className="h-12"
+              >
+                {isPending ? (
+                  <Loader2 className="mr-2 size-5 animate-spin" />
+                ) : (
+                  <CalendarDays className="mr-2 size-5" />
+                )}
+                Start Guided Test
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        <Dialog open={Boolean(scheduleAction)} onOpenChange={(open) => !open && setScheduleAction(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{actionCopy?.title}</DialogTitle>
+              <DialogDescription>{actionCopy?.description}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setScheduleAction(null)} disabled={isPending}>
+                Keep appointment
+              </Button>
+              <Button type="button" variant="destructive" onClick={handleConfirmScheduleAction} disabled={isPending}>
+                {isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
+                {actionCopy?.confirmLabel}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    )
+  }
 
   const renderLoading = (eyebrow: string) => (
     <div className="space-y-6">
@@ -821,6 +1113,10 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     if (selectedBooking?.needsRegistration || selectedBooking?.needsTestType) return renderRegistration()
     if (!selectedBooking || !selectedBooking.testType) return renderMissingBooking('Payment')
     const paymentCardCopy = getPaymentCardCopy(payment)
+    const clientMoneyOwed = selectedBooking.client?.moneyOwed ?? 0
+    const clientCreditBalance = selectedBooking.client?.creditBalance ?? 0
+    const extraCollected = Math.max(0, payment.amountPaid - payment.amountDue)
+    const canUsePrepaidMethod = payment.method === 'pre-paid' || selectedBooking.payment?.method === 'pre-paid'
 
     return (
       <div className="space-y-6">
@@ -836,6 +1132,21 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             <CardDescription className="text-lg">{paymentCardCopy.description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {(clientMoneyOwed > 0 || clientCreditBalance > 0) && (
+              <div className="border-border bg-muted/30 grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-muted-foreground text-sm font-medium">Existing balance</p>
+                  <p className={cn('text-2xl font-semibold', clientMoneyOwed > 0 && 'text-destructive')}>
+                    {currency.format(clientMoneyOwed)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-sm font-medium">Client credit</p>
+                  <p className="text-2xl font-semibold">{currency.format(clientCreditBalance)}</p>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3">
               <Label className="text-base">Payment status</Label>
               <RadioGroup
@@ -849,7 +1160,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     return {
                       ...next,
                       choice,
-                      amountPaid: choice === 'still-owes' ? stillOwesAmountPaid : next.amountDue,
+                      amountPaid:
+                        choice === 'still-owes' ? stillOwesAmountPaid : Math.max(next.amountPaid, next.amountDue),
                     }
                   })
                 }}
@@ -884,8 +1196,61 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               </RadioGroup>
             </div>
 
+            {payment.choice === 'paid' && (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="amount-collected">Amount collected</Label>
+                  <Input
+                    id="amount-collected"
+                    type="number"
+                    min={payment.amountDue}
+                    value={payment.amountPaid}
+                    onChange={(event) => {
+                      const amountPaid = Number(event.target.value || 0)
+                      setPaymentDraft((current) => ({
+                        ...(current ?? payment),
+                        amountPaid: Math.max(payment.amountDue, amountPaid),
+                      }))
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="payment-method">Method</Label>
+                  <Select
+                    items={[
+                      { value: 'cash', label: 'Cash' },
+                      { value: 'card', label: 'Card' },
+                      ...(canUsePrepaidMethod ? [{ value: 'pre-paid', label: 'Pre-paid' }] : []),
+                    ]}
+                    value={payment.method}
+                    onValueChange={(method) =>
+                      setPaymentDraft((current) => ({
+                        ...(current ?? payment),
+                        method: (method ?? 'cash') as PaymentEntryMethod,
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="payment-method">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="card">Card</SelectItem>
+                        {canUsePrepaidMethod && <SelectItem value="pre-paid">Pre-paid</SelectItem>}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="extra-collected">Extra collected</Label>
+                  <Input id="extra-collected" value={currency.format(extraCollected)} readOnly />
+                </div>
+              </div>
+            )}
+
             {payment.choice === 'still-owes' && (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="amount-paid">Amount paid</Label>
                   <Input
@@ -903,6 +1268,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                             ...next,
                             choice: 'paid',
                             amountPaid: next.amountDue,
+                            method: next.method === 'pre-paid' ? 'cash' : next.method,
                           }
                         }
 
@@ -913,6 +1279,35 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       })
                     }}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="partial-payment-method">Method</Label>
+                  <Select
+                    items={[
+                      { value: 'cash', label: 'Cash' },
+                      { value: 'card', label: 'Card' },
+                      ...(canUsePrepaidMethod ? [{ value: 'pre-paid', label: 'Pre-paid' }] : []),
+                    ]}
+                    value={payment.method}
+                    onValueChange={(method) =>
+                      setPaymentDraft((current) => ({
+                        ...(current ?? payment),
+                        method: (method ?? 'cash') as PaymentEntryMethod,
+                      }))
+                    }
+                    disabled={payment.amountPaid <= 0}
+                  >
+                    <SelectTrigger id="partial-payment-method">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="card">Card</SelectItem>
+                        {canUsePrepaidMethod && <SelectItem value="pre-paid">Pre-paid</SelectItem>}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="balance-due">Balance due</Label>
@@ -1098,8 +1493,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         }}
       />
 
-      <Drawer direction="right" open={testTypeDrawerOpen} onOpenChange={setTestTypeDrawerOpen}>
-        <DrawerContent className="bg-background shadow-2xl data-[vaul-drawer-direction=right]:w-[min(36rem,calc(100vw-1rem))] data-[vaul-drawer-direction=right]:border-l-2 data-[vaul-drawer-direction=right]:sm:max-w-none">
+      <Drawer swipeDirection="right" open={testTypeDrawerOpen} onOpenChange={setTestTypeDrawerOpen}>
+        <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(36rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
           <DrawerHeader className="border-border border-b px-6 py-5">
             <DrawerTitle className="text-2xl tracking-tight">Change Today&apos;s Test</DrawerTitle>
             <DrawerDescription>

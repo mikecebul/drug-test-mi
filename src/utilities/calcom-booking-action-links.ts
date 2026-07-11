@@ -35,15 +35,21 @@ export function getCalcomBookingActionLinks(input: {
   calcomBookingId?: string | null
   webhookData?: unknown
 }): CalcomBookingActionLinks {
+  const encodedBookingUid = input.calcomBookingId ? encodeURIComponent(input.calcomBookingId) : null
+
+  if (encodedBookingUid) {
+    return {
+      cancelHref: `${CALCOM_BASE_URL}/booking/${encodedBookingUid}?cancel=true`,
+      rescheduleHref: `${CALCOM_BASE_URL}/reschedule/${encodedBookingUid}`,
+    }
+  }
+
   const webhookData = asRecord(input.webhookData)
   const payload = asRecord(webhookData?.payload)
   const sources = [payload, webhookData]
-  const encodedBookingUid = input.calcomBookingId ? encodeURIComponent(input.calcomBookingId) : null
 
   return {
-    cancelHref:
-      getFirstUrl(sources, ['cancelUrl', 'cancelURL', 'cancelLink', 'cancellationUrl', 'cancellationLink']) ??
-      (encodedBookingUid ? `${CALCOM_BASE_URL}/booking/${encodedBookingUid}?cancel=true` : null),
+    cancelHref: getFirstUrl(sources, ['cancelUrl', 'cancelURL', 'cancelLink', 'cancellationUrl', 'cancellationLink']),
     rescheduleHref:
       getFirstUrl(sources, [
         'rescheduleUrl',
@@ -51,6 +57,6 @@ export function getCalcomBookingActionLinks(input: {
         'rescheduleLink',
         'reschedulingUrl',
         'reschedulingLink',
-      ]) ?? (encodedBookingUid ? `${CALCOM_BASE_URL}/reschedule/${encodedBookingUid}` : null),
+      ]),
   }
 }
