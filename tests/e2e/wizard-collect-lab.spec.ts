@@ -95,6 +95,66 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await expect(page.getByRole('button', { name: /^Submit$/i })).toBeEnabled()
   })
 
+  test('keeps the full headshot cropper visible in iPad viewports', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await selectClientFromSearchDialog(page, fixtures.clients.collectLab.fullName)
+    await clickNext(page)
+
+    const portraitSvg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2400" viewBox="0 0 1600 2400">
+        <rect width="1600" height="2400" fill="#dbeafe" />
+        <circle cx="800" cy="760" r="360" fill="#2563eb" />
+        <rect x="360" y="1160" width="880" height="980" rx="440" fill="#1e40af" />
+      </svg>
+    `
+
+    await page.getByLabel('Choose headshot image').setInputFiles({
+      name: 'portrait-headshot.svg',
+      mimeType: 'image/svg+xml',
+      buffer: Buffer.from(portraitSvg),
+    })
+
+    const dialog = page.getByRole('dialog', { name: 'Crop Headshot' })
+    const cropImage = dialog.locator('img[alt="Crop headshot"]')
+    const applyButton = dialog.getByRole('button', { name: 'Apply Crop' })
+
+    await expect(dialog).toBeVisible()
+    await expect(cropImage).toBeVisible()
+    await expect(applyButton).toBeVisible()
+
+    const expectCropperToFit = async () => {
+      const layout = await dialog.evaluate((element) => {
+        const dialogRect = element.getBoundingClientRect()
+        const imageRect = element.querySelector('img')?.getBoundingClientRect()
+        const applyRect = Array.from(element.querySelectorAll('button'))
+          .find((button) => button.textContent?.includes('Apply Crop'))
+          ?.getBoundingClientRect()
+
+        return {
+          dialog: { top: dialogRect.top, bottom: dialogRect.bottom },
+          image: imageRect ? { top: imageRect.top, bottom: imageRect.bottom } : null,
+          apply: applyRect ? { top: applyRect.top, bottom: applyRect.bottom } : null,
+          viewportHeight: window.innerHeight,
+        }
+      })
+
+      expect(layout.dialog.top).toBeGreaterThanOrEqual(0)
+      expect(layout.dialog.bottom).toBeLessThanOrEqual(layout.viewportHeight)
+      expect(layout.image).not.toBeNull()
+      expect(layout.apply).not.toBeNull()
+      expect(layout.image!.top).toBeGreaterThanOrEqual(layout.dialog.top)
+      expect(layout.image!.bottom).toBeLessThanOrEqual(layout.apply!.top)
+      expect(layout.apply!.bottom).toBeLessThanOrEqual(layout.dialog.bottom)
+    }
+
+    await expectCropperToFit()
+
+    await page.setViewportSize({ width: 768, height: 1024 })
+    await expect(cropImage).toBeVisible()
+    await expect(applyButton).toBeVisible()
+    await expectCropperToFit()
+  })
+
   test('submits collect-lab workflow, creates test, and verifies collected-stage email in Mailpit', async ({
     page,
   }) => {
