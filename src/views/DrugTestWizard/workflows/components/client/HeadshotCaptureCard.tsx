@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState, type SyntheticEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react'
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -52,8 +52,11 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
   const [originalFileName, setOriginalFileName] = useState('headshot.jpg')
   const [isUploading, setIsUploading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [sourceImageSize, setSourceImageSize] = useState<{ width: number; height: number } | null>(null)
+  const [cropViewportSize, setCropViewportSize] = useState<{ width: number; height: number } | null>(null)
 
   const imageRef = useRef<HTMLImageElement | null>(null)
+  const cropViewportObserverRef = useRef<ResizeObserver | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
@@ -66,7 +69,49 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
     setTempImage(null)
     setCrop(undefined)
     setCompletedCrop(null)
+    setSourceImageSize(null)
+    setCropViewportSize(null)
   }, [])
+
+  const observeCropViewport = useCallback((viewport: HTMLDivElement | null) => {
+    cropViewportObserverRef.current?.disconnect()
+    if (!viewport) return
+
+    const updateViewportSize = (width: number, height: number) => {
+      setCropViewportSize({
+        width: Math.max(0, width),
+        height: Math.max(0, height),
+      })
+    }
+
+    const initialRect = viewport.getBoundingClientRect()
+    updateViewportSize(initialRect.width, initialRect.height)
+
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) updateViewportSize(entry.contentRect.width, entry.contentRect.height)
+    })
+    observer.observe(viewport)
+    cropViewportObserverRef.current = observer
+  }, [])
+
+  useEffect(() => () => cropViewportObserverRef.current?.disconnect(), [])
+
+  const displayedImageSize = useMemo(() => {
+    if (!sourceImageSize || !cropViewportSize || !cropViewportSize.width || !cropViewportSize.height) {
+      return null
+    }
+
+    const scale = Math.min(
+      cropViewportSize.width / sourceImageSize.width,
+      cropViewportSize.height / sourceImageSize.height,
+      1,
+    )
+
+    return {
+      width: Math.max(1, Math.floor(sourceImageSize.width * scale)),
+      height: Math.max(1, Math.floor(sourceImageSize.height * scale)),
+    }
+  }, [cropViewportSize, sourceImageSize])
 
   const handleFileSelect = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -92,6 +137,7 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
 
   const onImageLoad = useCallback((event: SyntheticEvent<HTMLImageElement>) => {
     const { naturalWidth, naturalHeight } = event.currentTarget
+    setSourceImageSize({ width: naturalWidth, height: naturalHeight })
     setCrop(createCenteredAspectCrop(naturalWidth, naturalHeight, 1))
   }, [])
 
@@ -257,6 +303,7 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
           type="file"
           accept="image/*"
           capture="environment"
+          aria-label="Take headshot photo"
           className="hidden"
           onChange={(event) => {
             const file = event.target.files?.[0]
@@ -268,6 +315,7 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
           ref={fileInputRef}
           type="file"
           accept="image/*"
+          aria-label="Choose headshot image"
           className="hidden"
           onChange={(event) => {
             const file = event.target.files?.[0]
@@ -277,11 +325,8 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
         />
       </div>
 
-      <Dialog
-        open={showCropper}
-        onOpenChange={(open) => (!open ? resetCropState() : setShowCropper(true))}
-      >
-        <DialogContent className="flex max-h-[min(92vh,54rem)] w-[min(56rem,calc(100vw-1rem))] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
+      <Dialog open={showCropper} onOpenChange={(open) => (!open ? resetCropState() : setShowCropper(true))}>
+        <DialogContent className="grid h-[calc(100dvh-1rem)] max-h-[54rem] w-[min(56rem,calc(100vw-1rem))] max-w-none grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-none">
           <DialogHeader className="border-border border-b px-6 py-5 pr-14">
             <DialogTitle className="flex items-center gap-2 text-2xl tracking-tight">
               <CropIcon className="size-5" />
@@ -289,28 +334,38 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
             </DialogTitle>
           </DialogHeader>
 
-          <div className="no-scrollbar flex-1 space-y-4 overflow-y-auto px-6 py-5">
-            <div className="bg-muted max-h-[65vh] overflow-auto rounded-lg p-2">
-              {tempImage && (
-                <ReactCrop
-                  crop={crop}
-                  onChange={(_, percentCrop) => setCrop(percentCrop)}
-                  onComplete={(pixelCrop) =>
-                    setCompletedCrop(pixelCrop.width > 0 && pixelCrop.height > 0 ? pixelCrop : null)
-                  }
-                  aspect={1}
-                  keepSelection={true}
-                  className="mx-auto w-fit"
-                >
-                  <img
-                    ref={imageRef}
-                    src={tempImage}
-                    alt="Crop headshot"
-                    onLoad={onImageLoad}
-                    className="max-h-[60vh] w-auto max-w-full object-contain"
-                  />
-                </ReactCrop>
-              )}
+          <div className="min-h-0 overflow-hidden px-6 py-5">
+            <div className="bg-muted h-full min-h-0 overflow-hidden rounded-lg p-2">
+              <div
+                ref={observeCropViewport}
+                className="flex h-full min-h-0 items-center justify-center overflow-hidden"
+              >
+                {tempImage && (
+                  <ReactCrop
+                    crop={crop}
+                    onChange={(_, percentCrop) => setCrop(percentCrop)}
+                    onComplete={(pixelCrop) =>
+                      setCompletedCrop(pixelCrop.width > 0 && pixelCrop.height > 0 ? pixelCrop : null)
+                    }
+                    aspect={1}
+                    keepSelection={true}
+                    className="mx-auto max-w-full"
+                  >
+                    <img
+                      ref={imageRef}
+                      src={tempImage}
+                      alt="Crop headshot"
+                      onLoad={onImageLoad}
+                      className="block max-w-none object-contain"
+                      style={
+                        displayedImageSize
+                          ? { width: displayedImageSize.width, height: displayedImageSize.height }
+                          : { width: 1, height: 1, visibility: 'hidden' }
+                      }
+                    />
+                  </ReactCrop>
+                )}
+              </div>
             </div>
           </div>
 
