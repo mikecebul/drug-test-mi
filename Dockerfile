@@ -58,26 +58,19 @@ RUN --mount=type=secret,id=DATABASE_URI,env=DATABASE_URI \
   echo "Lockfile not found." && exit 1; \
   fi
 
-FROM node:24.15.0-bookworm-slim AS worker-deps
-
-ENV PNPM_VERSION=11.4.0
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+FROM base AS worker-deps
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-  ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache ca-certificates libc6-compat
 
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 COPY package.json pnpm-workspace.yaml yarn.lock* package-lock.json* pnpm-lock.yaml* ./
 RUN \
-  if [ -f pnpm-lock.yaml ]; then pnpm i --frozen-lockfile; \
+  if [ -f pnpm-lock.yaml ]; then pnpm i --prod --frozen-lockfile; \
   else echo "Lockfile not found." && exit 1; \
   fi
-
-RUN pnpm exec playwright install --with-deps chromium
 
 # Sentry's Payload admin integration expects this package to be present.
 RUN node -e "require.resolve('require-in-the-middle')"
@@ -87,7 +80,6 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 COPY . .
 

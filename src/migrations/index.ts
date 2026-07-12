@@ -12,6 +12,7 @@ import * as migration_20260525_000000_deactivate_15_panel_instant_test_type from
 import * as migration_20260526_000000_migrate_referrals_to_17_panel_instant from './20260526_000000_migrate_referrals_to_17_panel_instant'
 import * as migration_20260701_000000_migrate_test_type_relationships_to_config_values from './20260701_000000_migrate_test_type_relationships_to_config_values'
 import * as migration_20260709_000000_add_17_panel_sos_toxaccess_code from './20260709_000000_add_17_panel_sos_toxaccess_code'
+import * as migration_20260711_000000_deduplicate_job_runs from './20260711_000000_deduplicate_job_runs'
 
 export const migrations = [
   {
@@ -83,5 +84,10 @@ export const migrations = [
     up: migration_20260709_000000_add_17_panel_sos_toxaccess_code.up,
     down: migration_20260709_000000_add_17_panel_sos_toxaccess_code.down,
     name: '20260709_000000_add_17_panel_sos_toxaccess_code',
+  },
+  {
+    up: migration_20260711_000000_deduplicate_job_runs.up,
+    down: migration_20260711_000000_deduplicate_job_runs.down,
+    name: '20260711_000000_deduplicate_job_runs',
   },
 ]

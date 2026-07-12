@@ -94,7 +94,6 @@
     "payload": "3.84.1",
     "pdf-parse": "^2.4.5",
     "plaiceholder": "^3.0.0",
-    "playwright": "^1.60.0",
     "react": "19.2.6",
     "react-day-picker": "9.11.1",
     "react-dom": "19.2.6",

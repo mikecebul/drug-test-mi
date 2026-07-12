@@ -45,6 +45,7 @@ const nextConfig = {
 // Sentry Configuration
 const sentryConfig = {
   org: 'mikecebul',
+  // MERGE BLOCKER: restore the production project before merging; see MERGE_BLOCKERS.md.
   // project: 'drug-test-mi',
   project: 'drug-test-branch-test',
   sentryUrl: 'https://monitor.mikecebul.com/',

@@ -1,4 +1,4 @@
-import type { Job, Payload } from 'payload'
+import { ValidationError, type Job, type Payload } from 'payload'
 
 export const JOB_RUNS_COLLECTION_SLUG = 'job-runs'
 
@@ -78,11 +78,6 @@ type PersistJobRunArgs = {
 }
 
 type JobRunPayloadOps = {
-  create: (args: {
-    collection: string
-    data: Record<string, unknown>
-    overrideAccess: boolean
-  }) => Promise<unknown>
   find: (args: {
     collection: string
     depth: number
@@ -91,16 +86,29 @@ type JobRunPayloadOps = {
     sort?: string
     where: Record<string, unknown>
   }) => Promise<{ docs: unknown[] }>
-  update: (args: {
+}
+
+type JobRunDatabaseOps = {
+  updateOne: (args: {
     collection: string
     data: Record<string, unknown>
-    id: string
-    overrideAccess: boolean
+    returning: boolean
+    where: Record<string, unknown>
+  }) => Promise<unknown>
+  upsert: (args: {
+    collection: string
+    data: Record<string, unknown>
+    returning: boolean
+    where: Record<string, unknown>
   }) => Promise<unknown>
 }
 
 function getJobRunPayloadOps(payload: Payload): JobRunPayloadOps {
   return payload as unknown as JobRunPayloadOps
+}
+
+function getJobRunDatabaseOps(payload: Payload): JobRunDatabaseOps {
+  return (payload as unknown as { db: JobRunDatabaseOps }).db
 }
 
 export function getJobTaskLabel(taskSlug: string): string {
@@ -204,46 +212,65 @@ async function findJobRunByJobId(payload: Payload, jobId: string): Promise<JobRu
 }
 
 async function persistJobRun(payload: Payload, jobId: string, data: PersistJobRunArgs): Promise<void> {
-  const existing = await findJobRunByJobId(payload, jobId)
-  const jobRunPayload = getJobRunPayloadOps(payload)
-
-  if (existing) {
-    await jobRunPayload.update({
-      collection: JOB_RUNS_COLLECTION_SLUG,
-      id: existing.id,
-      data: compactData(data) as Record<string, unknown>,
-      overrideAccess: true,
-    })
-
-    return
-  }
-
   const taskSlug = data.taskSlug || 'unknown'
+  const status = data.status || 'queued'
+  const allowedPreviousStatuses: Record<JobRunStatus, JobRunStatus[]> = {
+    cancelled: ['cancelled', 'failed', 'manual-review', 'queued', 'running', 'succeeded'],
+    failed: ['failed', 'queued', 'running'],
+    'manual-review': ['failed', 'manual-review', 'queued', 'running'],
+    queued: ['queued'],
+    running: ['failed', 'queued', 'running'],
+    succeeded: ['failed', 'queued', 'running', 'succeeded'],
+  }
+  const where = {
+    and: [
+      {
+        jobId: {
+          equals: jobId,
+        },
+      },
+      {
+        status: {
+          in: allowedPreviousStatuses[status],
+        },
+      },
+    ],
+  }
+  const persistedData = compactData({
+    ...data,
+    jobId,
+    queue: data.queue || 'default',
+    status,
+    taskLabel: data.taskLabel || getJobTaskLabel(taskSlug),
+    taskSlug,
+  }) as Record<string, unknown>
+  const database = getJobRunDatabaseOps(payload)
 
-  await jobRunPayload.create({
-    collection: JOB_RUNS_COLLECTION_SLUG,
-    data: compactData({
-      attemptCount: data.attemptCount ?? null,
-      cancelledByAdmin: data.cancelledByAdmin ?? null,
-      changedFieldsCsv: data.changedFieldsCsv ?? null,
-      client: data.client ?? null,
-      completedAt: data.completedAt ?? null,
-      errorMessage: data.errorMessage ?? null,
-      inputSnapshot: data.inputSnapshot ?? null,
-      jobId,
-      outputSnapshot: data.outputSnapshot ?? null,
-      queue: data.queue || 'default',
-      requestedByAdmin: data.requestedByAdmin ?? null,
-      resultStatus: data.resultStatus ?? null,
-      source: data.source ?? null,
-      startedAt: data.startedAt ?? null,
-      status: data.status || 'queued',
-      summary: data.summary ?? null,
-      taskLabel: data.taskLabel || getJobTaskLabel(taskSlug),
-      taskSlug,
-    }) as Record<string, unknown>,
-    overrideAccess: true,
-  })
+  try {
+    await database.upsert({
+      collection: JOB_RUNS_COLLECTION_SLUG,
+      data: persistedData,
+      returning: false,
+      where,
+    })
+  } catch (error) {
+    const isConcurrentJobRunInsert =
+      error instanceof ValidationError &&
+      error.data.errors.some((fieldError) => fieldError.path === 'jobId' && /unique/i.test(fieldError.message))
+
+    if (!isConcurrentJobRunInsert) {
+      throw error
+    }
+
+    // A competing lifecycle write inserted this jobId first. Update it only
+    // when its current status is still allowed to transition to this state.
+    await database.updateOne({
+      collection: JOB_RUNS_COLLECTION_SLUG,
+      data: persistedData,
+      returning: false,
+      where,
+    })
+  }
 }
 
 async function safelyPersistJobRun(payload: Payload, jobId: string, data: PersistJobRunArgs): Promise<void> {

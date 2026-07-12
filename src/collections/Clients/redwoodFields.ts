@@ -1,4 +1,4 @@
-import type { Field } from 'payload'
+import type { Field, FieldAccess } from 'payload'
 
 import {
   getRedwoodClientUpdateFieldLabel,
@@ -12,6 +12,19 @@ type ClientTab = {
   fields: Field[]
 }
 
+const denyRedwoodManagedFieldWrite: FieldAccess = () => false
+const allowAdminRedwoodFieldRead: FieldAccess = ({ req }) => req.user?.collection === 'admins'
+
+/**
+ * Redwood integration state is visible to admins but may only be written by
+ * trusted Local API calls using `overrideAccess: true`.
+ */
+export const redwoodSystemFieldAccess = {
+  create: denyRedwoodManagedFieldWrite,
+  read: allowAdminRedwoodFieldRead,
+  update: denyRedwoodManagedFieldWrite,
+}
+
 const redwoodStatusOptions = [
   { label: 'Not Queued', value: 'not-queued' },
   { label: 'Queued', value: 'queued' },
@@ -23,6 +36,7 @@ const redwoodStatusOptions = [
 const redwoodTimestampField = (name: string, description: string): Field => ({
   name,
   type: 'date',
+  access: redwoodSystemFieldAccess,
   admin: {
     readOnly: true,
     date: {
@@ -36,6 +50,7 @@ const redwoodTimestampField = (name: string, description: string): Field => ({
 const redwoodErrorField = (name: string, description: string): Field => ({
   name,
   type: 'textarea',
+  access: redwoodSystemFieldAccess,
   admin: {
     readOnly: true,
     description,
@@ -46,6 +61,7 @@ export const redwoodDefaultTestTypeField: Field = {
   name: 'defaultTestType',
   type: 'relationship',
   relationTo: 'test-types',
+  access: redwoodSystemFieldAccess,
   admin: {
     readOnly: true,
     description: 'Stored recommended test type used by Redwood default-test jobs.',
@@ -59,6 +75,7 @@ export const redwoodSyncTab: ClientTab = {
     {
       name: 'redwoodSyncStatus',
       type: 'select',
+      access: redwoodSystemFieldAccess,
       defaultValue: 'not-queued',
       options: [
         { label: 'Not Queued', value: 'not-queued' },
@@ -77,14 +94,17 @@ export const redwoodSyncTab: ClientTab = {
     {
       name: 'redwoodUniqueId',
       type: 'text',
+      access: redwoodSystemFieldAccess,
       maxLength: 20,
       admin: {
+        readOnly: true,
         description: 'Deterministic Redwood Unique ID (20 chars max).',
       },
     },
     {
       name: 'redwoodCallInCode',
       type: 'text',
+      access: redwoodSystemFieldAccess,
       admin: {
         readOnly: true,
         description: 'Redwood call-in / check-in code synced back from the donor record.',
@@ -93,6 +113,7 @@ export const redwoodSyncTab: ClientTab = {
     {
       name: 'redwoodDonorId',
       type: 'text',
+      access: redwoodSystemFieldAccess,
       admin: {
         readOnly: true,
         description: 'Redwood donor ID captured from the donor detail URL for direct follow-up lookups.',
@@ -101,6 +122,7 @@ export const redwoodSyncTab: ClientTab = {
     {
       name: 'redwoodClientUpdateStatus',
       type: 'select',
+      access: redwoodSystemFieldAccess,
       defaultValue: 'not-queued',
       options: redwoodStatusOptions,
       admin: {
@@ -111,6 +133,7 @@ export const redwoodSyncTab: ClientTab = {
     {
       name: REDWOOD_PENDING_CLIENT_UPDATE_FIELDS,
       type: 'select',
+      access: redwoodSystemFieldAccess,
       hasMany: true,
       options: REDWOOD_CLIENT_UPDATE_FIELDS.map((field) => ({
         label: getRedwoodClientUpdateFieldLabel(field),
@@ -126,6 +149,7 @@ export const redwoodSyncTab: ClientTab = {
     {
       name: 'redwoodHeadshotPushStatus',
       type: 'select',
+      access: redwoodSystemFieldAccess,
       defaultValue: 'not-queued',
       options: redwoodStatusOptions,
       admin: {
@@ -138,6 +162,7 @@ export const redwoodSyncTab: ClientTab = {
     {
       name: 'redwoodDefaultTestSyncStatus',
       type: 'select',
+      access: redwoodSystemFieldAccess,
       defaultValue: 'not-queued',
       options: [
         { label: 'Not Queued', value: 'not-queued' },
@@ -155,6 +180,7 @@ export const redwoodSyncTab: ClientTab = {
     {
       name: 'redwoodDefaultTestSyncedCode',
       type: 'text',
+      access: redwoodSystemFieldAccess,
       admin: {
         readOnly: true,
         description: 'Last Redwood default-test code managed by the website sync job.',
@@ -165,6 +191,7 @@ export const redwoodSyncTab: ClientTab = {
     {
       name: 'redwoodInactivationStatus',
       type: 'select',
+      access: redwoodSystemFieldAccess,
       defaultValue: 'not-queued',
       options: redwoodStatusOptions,
       admin: {
@@ -177,6 +204,7 @@ export const redwoodSyncTab: ClientTab = {
     {
       name: 'redwoodMatchedBy',
       type: 'select',
+      access: redwoodSystemFieldAccess,
       options: [
         { label: 'Unique ID', value: 'unique-id' },
         { label: 'Name + DOB', value: 'name-dob' },
@@ -189,6 +217,7 @@ export const redwoodSyncTab: ClientTab = {
     {
       name: 'redwoodMatchedDonorName',
       type: 'text',
+      access: redwoodSystemFieldAccess,
       admin: {
         readOnly: true,
         description: 'Matched donor identifier from Redwood export.',

@@ -35,6 +35,7 @@ export const JobRuns: CollectionConfig = {
       type: 'text',
       required: true,
       index: true,
+      unique: true,
       admin: {
         readOnly: true,
         description: 'Payload job id used to correlate queue state with this history row.',
