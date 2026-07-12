@@ -1,5 +1,7 @@
 import type { Field, FieldAccess } from 'payload'
 
+import { testTypeSelectOptions } from '@/config/test-types'
+
 import {
   getRedwoodClientUpdateFieldLabel,
   REDWOOD_CLIENT_UPDATE_FIELDS,
@@ -59,12 +61,12 @@ const redwoodErrorField = (name: string, description: string): Field => ({
 
 export const redwoodDefaultTestTypeField: Field = {
   name: 'defaultTestType',
-  type: 'relationship',
-  relationTo: 'test-types',
+  type: 'select',
+  options: testTypeSelectOptions,
   access: redwoodSystemFieldAccess,
   admin: {
     readOnly: true,
-    description: 'Stored recommended test type used by Redwood default-test jobs.',
+    description: 'Stored configured test type used by Redwood default-test jobs.',
   },
 }
 
@@ -144,7 +146,10 @@ export const redwoodSyncTab: ClientTab = {
         description: 'Redwood-backed fields whose latest saved values have not been confirmed back into Redwood yet.',
       },
     },
-    redwoodTimestampField('redwoodClientUpdateLastAttemptAt', 'Timestamp of the most recent Redwood client update attempt.'),
+    redwoodTimestampField(
+      'redwoodClientUpdateLastAttemptAt',
+      'Timestamp of the most recent Redwood client update attempt.',
+    ),
     redwoodErrorField('redwoodClientUpdateLastError', 'Most recent Redwood client update error message, if any.'),
     {
       name: 'redwoodHeadshotPushStatus',
@@ -157,7 +162,10 @@ export const redwoodSyncTab: ClientTab = {
         description: 'Tracks website-to-Redwood headshot upload state.',
       },
     },
-    redwoodTimestampField('redwoodHeadshotPushLastAttemptAt', 'Timestamp of the most recent Redwood headshot upload attempt.'),
+    redwoodTimestampField(
+      'redwoodHeadshotPushLastAttemptAt',
+      'Timestamp of the most recent Redwood headshot upload attempt.',
+    ),
     redwoodErrorField('redwoodHeadshotPushLastError', 'Most recent Redwood headshot upload error message, if any.'),
     {
       name: 'redwoodDefaultTestSyncStatus',
@@ -186,7 +194,10 @@ export const redwoodSyncTab: ClientTab = {
         description: 'Last Redwood default-test code managed by the website sync job.',
       },
     },
-    redwoodTimestampField('redwoodDefaultTestLastAttemptAt', 'Timestamp of the most recent Redwood default-test sync attempt.'),
+    redwoodTimestampField(
+      'redwoodDefaultTestLastAttemptAt',
+      'Timestamp of the most recent Redwood default-test sync attempt.',
+    ),
     redwoodErrorField('redwoodDefaultTestLastError', 'Most recent Redwood default-test sync error message, if any.'),
     {
       name: 'redwoodInactivationStatus',
@@ -199,7 +210,10 @@ export const redwoodSyncTab: ClientTab = {
         description: 'Tracks website inactive-client sync to Redwood donor inactive status.',
       },
     },
-    redwoodTimestampField('redwoodInactivationLastAttemptAt', 'Timestamp of the most recent Redwood inactivation attempt.'),
+    redwoodTimestampField(
+      'redwoodInactivationLastAttemptAt',
+      'Timestamp of the most recent Redwood inactivation attempt.',
+    ),
     redwoodErrorField('redwoodInactivationLastError', 'Most recent Redwood inactivation error message, if any.'),
     {
       name: 'redwoodMatchedBy',

@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/quick-book', () => ({
-  resolveRecommendedTestType: vi.fn().mockResolvedValue({ recommendedTestTypeId: 'test-type-1' }),
+  resolveRecommendedTestType: vi.fn().mockResolvedValue({
+    recommendedTestTypeId: 'legacy-test-type-id',
+    recommendedTestTypeValue: '11-panel-lab',
+  }),
 }))
 
 import { resolveRecommendedTestType } from '@/lib/quick-book'
@@ -12,7 +15,10 @@ type HookArgs = Parameters<typeof syncDefaultTestTypeFromReferral>[0]
 describe('syncDefaultTestTypeFromReferral', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(resolveRecommendedTestType).mockResolvedValue({ recommendedTestTypeId: 'test-type-1' })
+    vi.mocked(resolveRecommendedTestType).mockResolvedValue({
+      recommendedTestTypeId: 'legacy-test-type-id',
+      recommendedTestTypeValue: '11-panel-lab',
+    })
   })
 
   it('leaves defaultTestType untouched on unrelated partial updates', async () => {
@@ -71,7 +77,30 @@ describe('syncDefaultTestTypeFromReferral', () => {
       'syncDefaultTestTypeFromReferral',
     )
     expect(result).toMatchObject({
-      defaultTestType: 'test-type-1',
+      defaultTestType: '11-panel-lab',
     })
+  })
+
+  it('clears the default when a legacy recommendation cannot resolve to a configured value', async () => {
+    vi.mocked(resolveRecommendedTestType).mockResolvedValue({ recommendedTestTypeId: 'legacy-test-type-id' })
+
+    const result = await syncDefaultTestTypeFromReferral({
+      data: {
+        referralType: 'court',
+        referral: {
+          relationTo: 'courts',
+          value: 'court-1',
+        },
+      },
+      operation: 'update',
+      originalDoc: {},
+      req: {
+        payload: {
+          findByID: vi.fn(),
+        },
+      },
+    } as unknown as HookArgs)
+
+    expect(result).toMatchObject({ defaultTestType: null })
   })
 })

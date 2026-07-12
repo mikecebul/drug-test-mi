@@ -13,6 +13,7 @@ import * as migration_20260526_000000_migrate_referrals_to_17_panel_instant from
 import * as migration_20260701_000000_migrate_test_type_relationships_to_config_values from './20260701_000000_migrate_test_type_relationships_to_config_values'
 import * as migration_20260709_000000_add_17_panel_sos_toxaccess_code from './20260709_000000_add_17_panel_sos_toxaccess_code'
 import * as migration_20260711_000000_deduplicate_job_runs from './20260711_000000_deduplicate_job_runs'
+import * as migration_20260712_000000_migrate_client_default_test_to_config_value from './20260712_000000_migrate_client_default_test_to_config_value'
 
 export const migrations = [
   {
@@ -89,5 +90,10 @@ export const migrations = [
     up: migration_20260711_000000_deduplicate_job_runs.up,
     down: migration_20260711_000000_deduplicate_job_runs.down,
     name: '20260711_000000_deduplicate_job_runs',
+  },
+  {
+    up: migration_20260712_000000_migrate_client_default_test_to_config_value.up,
+    down: migration_20260712_000000_migrate_client_default_test_to_config_value.down,
+    name: '20260712_000000_migrate_client_default_test_to_config_value',
   },
 ]

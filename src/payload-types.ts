@@ -1309,9 +1309,19 @@ export interface Client {
    */
   requiredTestType?: string | null;
   /**
-   * Stored recommended test type used by Redwood default-test jobs.
+   * Stored configured test type used by Redwood default-test jobs.
    */
-  defaultTestType?: (string | null) | TestType;
+  defaultTestType?:
+    | (
+        | '17-panel-instant'
+        | '11-panel-lab'
+        | '11-panel-lab-no-etg'
+        | '8-panel-lab'
+        | '17-panel-sos-lab'
+        | 'etg-lab'
+        | '15-panel-instant'
+      )
+    | null;
   /**
    * Additional recipients for this client only. These do not modify the linked referral profile.
    */
@@ -1677,45 +1687,6 @@ export interface Employer {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Legacy collection kept for historical migrations only. Canonical test types now live in src/config/test-types.ts.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "test-types".
- */
-export interface TestType {
-  id: string;
-  /**
-   * Human-readable name (e.g., 15-Panel Instant).
-   */
-  label: string;
-  /**
-   * Canonical key used in code and workflow logic (e.g., 15-panel-instant).
-   */
-  value: string;
-  /**
-   * Optional display text for external scheduling tools like Cal.com.
-   */
-  bookingLabel?: string | null;
-  /**
-   * Helps filter test types in future workflows.
-   */
-  category?: ('instant' | 'lab') | null;
-  /**
-   * Standard client price in USD.
-   */
-  price: number;
-  /**
-   * Lab test code used when ordering this test in ToxAccess.
-   */
-  toxAccessCode?: string | null;
-  /**
-   * Inactive test types remain in history but are hidden from new selections.
-   */
-  isActive?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2410,6 +2381,45 @@ export interface Technician {
   };
   /**
    * Inactive technicians will not appear in scheduling
+   */
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Legacy collection kept for historical migrations only. Canonical test types now live in src/config/test-types.ts.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "test-types".
+ */
+export interface TestType {
+  id: string;
+  /**
+   * Human-readable name (e.g., 15-Panel Instant).
+   */
+  label: string;
+  /**
+   * Canonical key used in code and workflow logic (e.g., 15-panel-instant).
+   */
+  value: string;
+  /**
+   * Optional display text for external scheduling tools like Cal.com.
+   */
+  bookingLabel?: string | null;
+  /**
+   * Helps filter test types in future workflows.
+   */
+  category?: ('instant' | 'lab') | null;
+  /**
+   * Standard client price in USD.
+   */
+  price: number;
+  /**
+   * Lab test code used when ordering this test in ToxAccess.
+   */
+  toxAccessCode?: string | null;
+  /**
+   * Inactive test types remain in history but are hidden from new selections.
    */
   isActive?: boolean | null;
   updatedAt: string;

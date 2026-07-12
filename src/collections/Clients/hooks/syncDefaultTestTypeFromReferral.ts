@@ -42,6 +42,6 @@ export const syncDefaultTestTypeFromReferral: CollectionBeforeChangeHook = async
     'syncDefaultTestTypeFromReferral',
   )
 
-  dataRecord.defaultTestType = recommendation.recommendedTestTypeId || null
+  dataRecord.defaultTestType = recommendation.recommendedTestTypeValue || null
   return data
 }

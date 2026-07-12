@@ -1,17 +1,24 @@
 import type { Field } from 'payload'
 import { describe, expect, it } from 'vitest'
 
-import {
-  redwoodDefaultTestTypeField,
-  redwoodSyncTab,
-  redwoodSystemFieldAccess,
-} from './redwoodFields'
+import { testTypeSelectOptions } from '@/config/test-types'
+
+import { redwoodDefaultTestTypeField, redwoodSyncTab, redwoodSystemFieldAccess } from './redwoodFields'
 
 function getNamedFields(fields: Field[]): Array<Field & { name: string }> {
   return fields.filter((field): field is Field & { name: string } => 'name' in field && typeof field.name === 'string')
 }
 
 describe('Redwood field access', () => {
+  it('stores the default test as a configured value instead of a legacy relationship', () => {
+    expect(redwoodDefaultTestTypeField).toMatchObject({
+      name: 'defaultTestType',
+      type: 'select',
+      options: testTypeSelectOptions,
+    })
+    expect('relationTo' in redwoodDefaultTestTypeField).toBe(false)
+  })
+
   it('applies system-managed access to every Redwood integration field', () => {
     const fields = getNamedFields([redwoodDefaultTestTypeField, ...redwoodSyncTab.fields])
 
