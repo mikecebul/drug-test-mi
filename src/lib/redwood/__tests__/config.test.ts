@@ -4,6 +4,7 @@ import {
   assertRedwoodMutationAllowed,
   getAllowedRedwoodAccountNumbers,
   getRedwoodAccountNumber,
+  getRedwoodAutomationRuntimeState,
   hasExhaustedRedwoodRetries,
   isRedwoodAccountAllowed,
   isRedwoodAutomationEnabled,
@@ -29,10 +30,24 @@ describe('redwood config', () => {
   it('honors the explicit automation feature flag', () => {
     vi.stubEnv('REDWOOD_AUTOMATION_ENABLED', 'false')
     expect(isRedwoodAutomationEnabled()).toBe(false)
+    expect(getRedwoodAutomationRuntimeState()).toEqual(
+      expect.objectContaining({
+        configured: true,
+        configuredValue: 'false',
+        enabled: false,
+      }),
+    )
     expect(() => assertRedwoodMutationAllowed('310974', 'import')).toThrow('Redwood import is disabled')
 
-    vi.stubEnv('REDWOOD_AUTOMATION_ENABLED', 'true')
+    vi.stubEnv('REDWOOD_AUTOMATION_ENABLED', ' TRUE ')
     expect(isRedwoodAutomationEnabled()).toBe(true)
+    expect(getRedwoodAutomationRuntimeState()).toEqual(
+      expect.objectContaining({
+        configured: true,
+        configuredValue: 'true',
+        enabled: true,
+      }),
+    )
   })
 
   it('recognizes the final retry attempt', () => {

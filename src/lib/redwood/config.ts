@@ -1,19 +1,39 @@
 const DEFAULT_REDWOOD_ACCOUNT_NUMBER = '310974'
 export const REDWOOD_TASK_RETRIES = 3
 
+export type RedwoodAutomationRuntimeState = {
+  configured: boolean
+  configuredValue: string | null
+  enabled: boolean
+  nodeEnv: string | null
+}
+
+function readRuntimeEnv(name: string): string | undefined {
+  const value = Reflect.get(process.env, name)
+  return typeof value === 'string' ? value : undefined
+}
+
 export function hasExhaustedRedwoodRetries(totalTried: unknown): boolean {
   return typeof totalTried === 'number' && totalTried >= REDWOOD_TASK_RETRIES
 }
 
-export function isRedwoodAutomationEnabled(): boolean {
-  const configured = process.env.REDWOOD_AUTOMATION_ENABLED?.trim().toLowerCase()
+export function getRedwoodAutomationRuntimeState(): RedwoodAutomationRuntimeState {
+  const configuredValue = readRuntimeEnv('REDWOOD_AUTOMATION_ENABLED')?.trim().toLowerCase() || null
+  const nodeEnv = readRuntimeEnv('NODE_ENV')?.trim() || null
+  const enabled = configuredValue
+    ? configuredValue === 'true' || configuredValue === '1' || configuredValue === 'yes'
+    : nodeEnv !== 'production'
 
-  if (configured) {
-    return configured === 'true' || configured === '1' || configured === 'yes'
+  return {
+    configured: configuredValue !== null,
+    configuredValue,
+    enabled,
+    nodeEnv,
   }
+}
 
-  // Require an explicit production opt-in while keeping local development and tests usable.
-  return process.env.NODE_ENV !== 'production'
+export function isRedwoodAutomationEnabled(): boolean {
+  return getRedwoodAutomationRuntimeState().enabled
 }
 
 export function assertRedwoodAutomationEnabled(action: string): void {
@@ -32,11 +52,11 @@ function parseAccountList(rawValue: string | undefined): string[] {
 }
 
 export function getRedwoodAccountNumber(): string {
-  return process.env.REDWOOD_ACCOUNT_NUMBER?.trim() || DEFAULT_REDWOOD_ACCOUNT_NUMBER
+  return readRuntimeEnv('REDWOOD_ACCOUNT_NUMBER')?.trim() || DEFAULT_REDWOOD_ACCOUNT_NUMBER
 }
 
 export function getAllowedRedwoodAccountNumbers(): string[] {
-  return parseAccountList(process.env.REDWOOD_ALLOWED_ACCOUNT_NUMBERS)
+  return parseAccountList(readRuntimeEnv('REDWOOD_ALLOWED_ACCOUNT_NUMBERS'))
 }
 
 export function isRedwoodAccountAllowed(accountNumber: string): boolean {

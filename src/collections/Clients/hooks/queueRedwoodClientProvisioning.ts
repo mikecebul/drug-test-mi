@@ -4,7 +4,11 @@ import {
   REDWOOD_PROVISIONING_SOURCE_CONTEXT_KEY,
   REDWOOD_SKIP_PROVISIONING_QUEUE_CONTEXT_KEY,
 } from '@/lib/redwood/context'
-import { isRedwoodAutomationEnabled } from '@/lib/redwood/config'
+import {
+  getAllowedRedwoodAccountNumbers,
+  getRedwoodAccountNumber,
+  getRedwoodAutomationRuntimeState,
+} from '@/lib/redwood/config'
 import {
   queueRedwoodImportForClient,
   type RedwoodQueueSource,
@@ -36,15 +40,13 @@ export const queueRedwoodClientProvisioningAfterChange: CollectionAfterChangeHoo
   previousDoc,
   req,
 }) => {
-  if (!isRedwoodAutomationEnabled() || req.context?.[REDWOOD_SKIP_PROVISIONING_QUEUE_CONTEXT_KEY]) {
-    return doc
-  }
-
   const isCreate = operation === 'create'
   const isReactivation =
     operation === 'update' && !isInactive(doc?.isActive) && isInactive(previousDoc?.isActive)
+  const isClientInactive = isInactive(doc?.isActive)
+  const contextSkipRequested = Boolean(req.context?.[REDWOOD_SKIP_PROVISIONING_QUEUE_CONTEXT_KEY])
 
-  if ((!isCreate && !isReactivation) || isInactive(doc?.isActive)) {
+  if (!isCreate && !isReactivation) {
     return doc
   }
 
@@ -54,6 +56,54 @@ export const queueRedwoodClientProvisioningAfterChange: CollectionAfterChangeHoo
         req.context?.[REDWOOD_PROVISIONING_SOURCE_CONTEXT_KEY],
         req.user?.collection === 'admins',
       )
+  const runtimeState = getRedwoodAutomationRuntimeState()
+  const diagnostics = {
+    clientId: String(doc.id),
+    operation,
+    source,
+    isCreate,
+    isReactivation,
+    isClientInactive,
+    contextSkipRequested,
+    automationConfigured: runtimeState.configured,
+    automationConfiguredValue: runtimeState.configuredValue,
+    automationEnabled: runtimeState.enabled,
+    nodeEnv: runtimeState.nodeEnv,
+    redwoodAccountNumber: getRedwoodAccountNumber(),
+    redwoodAllowedAccountNumbers: getAllowedRedwoodAccountNumbers(),
+  }
+
+  if (isClientInactive) {
+    req.payload.logger.info({
+      msg: '[clients] Skipped Redwood donor provisioning for an inactive client',
+      ...diagnostics,
+      skipReason: 'inactive-client',
+    })
+    return doc
+  }
+
+  if (contextSkipRequested) {
+    req.payload.logger.info({
+      msg: '[clients] Skipped Redwood donor provisioning because request context disabled it',
+      ...diagnostics,
+      skipReason: 'request-context',
+    })
+    return doc
+  }
+
+  if (!runtimeState.enabled) {
+    req.payload.logger.warn({
+      msg: '[clients] Skipped Redwood donor provisioning because automation is disabled',
+      ...diagnostics,
+      skipReason: 'automation-disabled',
+    })
+    return doc
+  }
+
+  req.payload.logger.info({
+    msg: '[clients] Attempting to queue Redwood donor provisioning',
+    ...diagnostics,
+  })
 
   try {
     await queueRedwoodImportForClient(String(doc.id), source, req.payload, req)
