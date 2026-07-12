@@ -168,7 +168,11 @@ describe('Redwood dashboard queue probe', () => {
     const result = await getRedwoodQueueProbeStatus('job-1')
 
     expect(result).toEqual({
+      automationConfigured: true,
+      automationConfiguredValue: 'true',
+      automationEnabled: true,
       jobId: 'job-1',
+      nodeEnv: 'production',
       phase: 'succeeded',
       probeId: 'probe-uuid',
       processedAt: '2026-07-12T12:00:00.000Z',
@@ -191,7 +195,11 @@ describe('Redwood dashboard queue probe', () => {
     const result = await getRedwoodQueueProbeStatus('job-1')
 
     expect(result).toEqual({
+      automationConfigured: true,
+      automationConfiguredValue: 'true',
+      automationEnabled: true,
       jobId: 'job-1',
+      nodeEnv: 'production',
       phase: 'running',
       success: true,
       summary: 'Payload job exists, but no durable Job History row was found.',

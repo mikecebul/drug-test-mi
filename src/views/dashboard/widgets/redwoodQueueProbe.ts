@@ -127,6 +127,13 @@ export async function getRedwoodQueueProbeStatus(jobId: string): Promise<Redwood
     }
 
     const { payload } = await getAdminPayload()
+    const runtimeState = getRedwoodAutomationRuntimeState()
+    const runtimeDetails = {
+      automationConfigured: runtimeState.configured,
+      automationConfiguredValue: runtimeState.configuredValue,
+      automationEnabled: runtimeState.enabled,
+      nodeEnv: runtimeState.nodeEnv,
+    }
     const [historyResult, payloadJob] = await Promise.all([
       payload.find({
         collection: JOB_RUNS_COLLECTION_SLUG,
@@ -151,6 +158,7 @@ export async function getRedwoodQueueProbeStatus(jobId: string): Promise<Redwood
       const output = readProbeSnapshot(history.outputSnapshot)
       const input = readProbeSnapshot(history.inputSnapshot)
       return {
+        ...runtimeDetails,
         success: true,
         phase: history.status as RedwoodQueueProbePhase,
         jobId,
@@ -164,6 +172,7 @@ export async function getRedwoodQueueProbeStatus(jobId: string): Promise<Redwood
 
     if (payloadJob) {
       return {
+        ...runtimeDetails,
         success: true,
         phase: payloadJob.hasError ? 'failed' : payloadJob.completedAt ? 'succeeded' : payloadJob.processing ? 'running' : 'queued',
         jobId,
@@ -172,6 +181,7 @@ export async function getRedwoodQueueProbeStatus(jobId: string): Promise<Redwood
     }
 
     return {
+      ...runtimeDetails,
       success: true,
       phase: 'missing',
       jobId,
