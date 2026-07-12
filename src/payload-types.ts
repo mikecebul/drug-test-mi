@@ -182,6 +182,7 @@ export interface Config {
     'next-calcom-booking': NextCalcomBookingWidget;
     'admin-quick-book': AdminQuickBookWidget;
     'active-jobs': ActiveJobsWidget;
+    'redwood-queue-probe': RedwoodQueueProbeWidget;
     'pending-drug-tests': PendingDrugTestsWidget;
     'admin-alerts': AdminAlertsWidget;
     collections: CollectionsWidget;
@@ -189,6 +190,7 @@ export interface Config {
   user: Admin | Client;
   jobs: {
     tasks: {
+      'redwood-diagnostics-probe': TaskRedwoodDiagnosticsProbe;
       'redwood-import-client': TaskRedwoodImportClient;
       'redwood-update-client': TaskRedwoodUpdateClient;
       'redwood-inactivate-client': TaskRedwoodInactivateClient;
@@ -2579,6 +2581,7 @@ export interface PayloadJob {
         completedAt: string;
         taskSlug:
           | 'inline'
+          | 'redwood-diagnostics-probe'
           | 'redwood-import-client'
           | 'redwood-update-client'
           | 'redwood-inactivate-client'
@@ -2622,6 +2625,7 @@ export interface PayloadJob {
   taskSlug?:
     | (
         | 'inline'
+        | 'redwood-diagnostics-probe'
         | 'redwood-import-client'
         | 'redwood-update-client'
         | 'redwood-inactivate-client'
@@ -4292,6 +4296,16 @@ export interface ActiveJobsWidget {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "redwood-queue-probe_widget".
+ */
+export interface RedwoodQueueProbeWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'medium' | 'large' | 'x-large' | 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "pending-drug-tests_widget".
  */
 export interface PendingDrugTestsWidget {
@@ -4319,6 +4333,23 @@ export interface CollectionsWidget {
     [k: string]: unknown;
   };
   width: 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-diagnostics-probe".
+ */
+export interface TaskRedwoodDiagnosticsProbe {
+  input: {
+    probeId: string;
+    requestedByAdminId: string;
+    webHostname: string;
+  };
+  output: {
+    status: string;
+    probeId: string;
+    workerHostname: string;
+    processedAt: string;
+  };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

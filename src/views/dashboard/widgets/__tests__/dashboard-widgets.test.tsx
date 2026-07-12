@@ -7,6 +7,7 @@ import AdminQuickBookWidget from '@/views/dashboard/widgets/AdminQuickBookWidget
 import AdminAlertsWidget from '@/views/dashboard/widgets/AdminAlertsWidget'
 import NextCalcomBookingWidget from '@/views/dashboard/widgets/NextCalcomBookingWidget'
 import PendingDrugTestsWidget from '@/views/dashboard/widgets/PendingDrugTestsWidget'
+import RedwoodQueueProbeWidget from '@/views/dashboard/widgets/RedwoodQueueProbeWidget'
 import TotalClientsWidget from '@/views/dashboard/widgets/TotalClientsWidget'
 import WizardEntryWidget from '@/views/dashboard/widgets/WizardEntryWidget'
 
@@ -23,6 +24,10 @@ vi.mock('next/link', () => ({
 
 vi.mock('@/views/dashboard/widgets/AdminQuickBookWidget.client', () => ({
   AdminQuickBookWidgetClient: () => <div>Quick Book Client</div>,
+}))
+
+vi.mock('@/views/dashboard/widgets/RedwoodQueueProbeWidget.client', () => ({
+  RedwoodQueueProbeWidgetClient: () => <div>Redwood Queue Probe Client</div>,
 }))
 
 vi.mock('@/views/DrugTestWizard/workflows/complete-workflow/actions', () => ({
@@ -69,6 +74,11 @@ describe('dashboard widgets', () => {
     const quickBookReq = createAdminReq()
     const quickBookMarkup = renderMarkup(AdminQuickBookWidget(createWidgetProps(quickBookReq, 'admin-quick-book')))
 
+    const probeReq = createAdminReq()
+    const probeMarkup = renderMarkup(
+      RedwoodQueueProbeWidget(createWidgetProps(probeReq, 'redwood-queue-probe')),
+    )
+
     const scheduleReq = createAdminReq()
     const scheduleMarkup = renderMarkup(
       await NextCalcomBookingWidget(createWidgetProps(scheduleReq, 'next-calcom-booking')),
@@ -88,9 +98,19 @@ describe('dashboard widgets', () => {
     expect(wizardMarkup).toContain('bg-gradient-to-b')
     expect(totalMarkup).toContain('bg-gradient-to-b')
     expect(quickBookMarkup).toContain('bg-gradient-to-b')
+    expect(probeMarkup).toContain('bg-gradient-to-b')
     expect(scheduleMarkup).toContain('bg-gradient-to-b')
     expect(pendingMarkup).toContain('bg-gradient-to-b')
     expect(alertsMarkup).toContain('bg-gradient-to-b')
+  })
+
+  test('renders the Redwood queue probe diagnostic widget for admins', () => {
+    const req = createAdminReq()
+    const markup = renderMarkup(RedwoodQueueProbeWidget(createWidgetProps(req, 'redwood-queue-probe')))
+
+    expect(markup).toContain('Redwood Queue Probe')
+    expect(markup).toContain('website can enqueue work')
+    expect(markup).toContain('Redwood Queue Probe Client')
   })
 
   test('renders dashboard register link in total clients widget', async () => {

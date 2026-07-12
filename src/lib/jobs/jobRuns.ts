@@ -6,6 +6,7 @@ export const JOB_TASK_LABELS = {
   createCollectionExport: 'Collection Export',
   createCollectionImport: 'Collection Import',
   inline: 'Inline Task',
+  'redwood-diagnostics-probe': 'Redwood Queue Probe',
   'redwood-inactivate-client': 'Client Inactivation',
   'redwood-import-client': 'Redwood Import',
   'redwood-queue-pending-client-updates-nightly': 'Nightly Client Sync Sweep',

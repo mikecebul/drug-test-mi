@@ -28,6 +28,7 @@ import {
 import sharp from 'sharp' // editor-import
 import { UnderlineFeature } from '@payloadcms/richtext-lexical'
 import path from 'path'
+import { hostname } from 'node:os'
 import { buildConfig, TextFieldSingleValidation } from 'payload'
 import { fileURLToPath } from 'url'
 
@@ -215,6 +216,13 @@ export default buildConfig({
           maxWidth: 'full',
         },
         {
+          slug: 'redwood-queue-probe',
+          label: 'Redwood Queue Probe',
+          Component: '@/views/dashboard/widgets/RedwoodQueueProbeWidget',
+          minWidth: 'medium',
+          maxWidth: 'full',
+        },
+        {
           slug: 'pending-drug-tests',
           label: 'Pending Drug Tests',
           Component: '@/views/dashboard/widgets/PendingDrugTestsWidget',
@@ -240,6 +248,10 @@ export default buildConfig({
         },
         {
           widgetSlug: 'active-jobs',
+          width: 'full',
+        },
+        {
+          widgetSlug: 'redwood-queue-probe',
           width: 'full',
         },
         {
@@ -379,6 +391,50 @@ export default buildConfig({
   jobs: {
     enableConcurrencyControl: true,
     tasks: [
+      {
+        slug: 'redwood-diagnostics-probe',
+        retries: 0,
+        inputSchema: [
+          { name: 'probeId', type: 'text', required: true },
+          { name: 'requestedByAdminId', type: 'text', required: true },
+          { name: 'webHostname', type: 'text', required: true },
+        ],
+        outputSchema: [
+          { name: 'status', type: 'text', required: true },
+          { name: 'probeId', type: 'text', required: true },
+          { name: 'workerHostname', type: 'text', required: true },
+          { name: 'processedAt', type: 'text', required: true },
+        ],
+        handler: async ({ input, job, req }) => {
+          await recordRunningJobRun(req.payload, job)
+
+          const output = {
+            status: 'succeeded',
+            probeId: input.probeId,
+            workerHostname: hostname(),
+            processedAt: new Date().toISOString(),
+          }
+
+          req.payload.logger.info({
+            msg: '[redwood-diagnostics] Queue probe processed by worker',
+            jobId: String(job.id),
+            probeId: input.probeId,
+            requestedByAdminId: input.requestedByAdminId,
+            webHostname: input.webHostname,
+            workerHostname: output.workerHostname,
+          })
+
+          await recordCompletedJobRun(req.payload, {
+            job,
+            output,
+            resultStatus: output.status,
+            status: 'succeeded',
+            summary: `Queue probe ${input.probeId} completed on worker ${output.workerHostname}.`,
+          })
+
+          return { output }
+        },
+      },
       {
         slug: 'redwood-import-client',
         concurrency: redwoodSessionConcurrency,
