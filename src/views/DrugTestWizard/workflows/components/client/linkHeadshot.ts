@@ -4,6 +4,8 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import { headers } from 'next/headers'
 import { createAdminAlert } from '@/lib/admin-alerts'
+import { REDWOOD_SKIP_HEADSHOT_PUSH_CONTEXT_KEY } from '@/lib/redwood/context'
+import { queueRedwoodHeadshotUpload } from '@/lib/redwood/queue'
 
 /**
  * Links an existing private-media document to a client's headshot field.
@@ -78,8 +80,24 @@ export async function linkHeadshot(
       collection: 'clients',
       id: clientId,
       data: { headshot: headshotId },
+      context: {
+        [REDWOOD_SKIP_HEADSHOT_PUSH_CONTEXT_KEY]: true,
+      },
       overrideAccess: true,
+      user,
     })
+
+    try {
+      await queueRedwoodHeadshotUpload(clientId, String(user.id), payload)
+    } catch (queueError) {
+      payload.logger.error({
+        msg: '[linkHeadshot] Headshot linked, but Redwood upload could not be queued',
+        clientId,
+        headshotId,
+        adminId: String(user.id),
+        err: queueError,
+      })
+    }
 
     // 4. Fetch the created doc to get the processed URL (thumbnail may have just been generated)
     const headshot = await payload.findByID({

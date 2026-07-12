@@ -29,6 +29,9 @@ services:
     restart: always
     volumes:
       - payload-public:/app/public
+      # The Next.js dev server runs on the host and writes private uploads here.
+      # Share that directory so background jobs can read newly uploaded files.
+      - ./private-media:/app/private-media
     networks:
       - app-network
     depends_on:
