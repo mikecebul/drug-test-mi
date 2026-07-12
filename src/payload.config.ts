@@ -66,11 +66,12 @@ import { queueNightlyPendingClientUpdates } from './collections/Clients/services
 import { runRedwoodDefaultTestSync } from './collections/Clients/services/redwoodDefaultTestSync'
 import { recordCompletedJobRun, recordRunningJobRun, type JobRunStatus } from './lib/jobs/jobRuns'
 import type { RedwoodClientUpdateField } from './lib/redwood/queue'
-import { hasExhaustedRedwoodRetries, REDWOOD_TASK_RETRIES } from './lib/redwood/config'
 import {
-  upsertRedwoodIncidentAlert,
-  type RedwoodJobType,
-} from './lib/redwood/incidents'
+  getRedwoodAutomationRuntimeState,
+  hasExhaustedRedwoodRetries,
+  REDWOOD_TASK_RETRIES,
+} from './lib/redwood/config'
+import { upsertRedwoodIncidentAlert, type RedwoodJobType } from './lib/redwood/incidents'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -161,6 +162,28 @@ async function recordExhaustedRedwoodJobAlert(args: {
 
 export default buildConfig({
   serverURL: baseUrl,
+  onInit: (payload) => {
+    const runtimeState = getRedwoodAutomationRuntimeState()
+    const details = {
+      msg: runtimeState.ready
+        ? '[redwood-runtime] Redwood runtime is ready'
+        : '[redwood-runtime] Redwood runtime is not ready',
+      accountAllowed: runtimeState.accountAllowed,
+      automationConfigured: runtimeState.configured,
+      automationConfiguredValue: runtimeState.configuredValue,
+      automationEnabled: runtimeState.enabled,
+      credentialsConfigured: runtimeState.credentialsConfigured,
+      missingEnvironmentVariables: runtimeState.missingEnvironmentVariables,
+      nodeEnv: runtimeState.nodeEnv,
+      runtimeReady: runtimeState.ready,
+    }
+
+    if (runtimeState.ready) {
+      payload.logger.info(details)
+    } else {
+      payload.logger.error(details)
+    }
+  },
   admin: {
     autoLogin: adminAutoLogin,
     autoRefresh: true,
@@ -404,15 +427,24 @@ export default buildConfig({
           { name: 'probeId', type: 'text', required: true },
           { name: 'workerHostname', type: 'text', required: true },
           { name: 'processedAt', type: 'text', required: true },
+          { name: 'automationEnabled', type: 'checkbox', required: true },
+          { name: 'automationConfiguredValue', type: 'text', required: false },
+          { name: 'runtimeReady', type: 'checkbox', required: true },
+          { name: 'missingEnvironmentVariables', type: 'text', required: false },
         ],
         handler: async ({ input, job, req }) => {
           await recordRunningJobRun(req.payload, job)
+          const runtimeState = getRedwoodAutomationRuntimeState()
 
           const output = {
             status: 'succeeded',
             probeId: input.probeId,
             workerHostname: hostname(),
             processedAt: new Date().toISOString(),
+            automationEnabled: runtimeState.enabled,
+            automationConfiguredValue: runtimeState.configuredValue || undefined,
+            runtimeReady: runtimeState.ready,
+            missingEnvironmentVariables: runtimeState.missingEnvironmentVariables.join(',') || undefined,
           }
 
           req.payload.logger.info({
@@ -422,6 +454,11 @@ export default buildConfig({
             requestedByAdminId: input.requestedByAdminId,
             webHostname: input.webHostname,
             workerHostname: output.workerHostname,
+            automationConfiguredValue: runtimeState.configuredValue,
+            automationEnabled: runtimeState.enabled,
+            credentialsConfigured: runtimeState.credentialsConfigured,
+            missingEnvironmentVariables: runtimeState.missingEnvironmentVariables,
+            runtimeReady: runtimeState.ready,
           })
 
           await recordCompletedJobRun(req.payload, {
@@ -563,9 +600,7 @@ export default buildConfig({
           { name: 'clientId', type: 'text', required: true },
           { name: 'requestedByAdminId', type: 'text', required: false },
         ],
-        outputSchema: [
-          { name: 'status', type: 'text', required: true },
-        ],
+        outputSchema: [{ name: 'status', type: 'text', required: true }],
         handler: async ({ input, job, req }) => {
           await recordRunningJobRun(req.payload, job)
 
@@ -662,9 +697,7 @@ export default buildConfig({
           { name: 'clientId', type: 'text', required: true },
           { name: 'requestedByAdminId', type: 'text', required: false },
         ],
-        outputSchema: [
-          { name: 'status', type: 'text', required: true },
-        ],
+        outputSchema: [{ name: 'status', type: 'text', required: true }],
         handler: async ({ input, job, req }) => {
           await recordRunningJobRun(req.payload, job)
 
@@ -717,9 +750,7 @@ export default buildConfig({
           { name: 'clientId', type: 'text', required: true },
           { name: 'previousSyncedCode', type: 'text', required: false },
         ],
-        outputSchema: [
-          { name: 'status', type: 'text', required: true },
-        ],
+        outputSchema: [{ name: 'status', type: 'text', required: true }],
         handler: async ({ input, job, req }) => {
           await recordRunningJobRun(req.payload, job)
 

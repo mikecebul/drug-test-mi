@@ -72,10 +72,14 @@ describe('Redwood dashboard queue probe', () => {
     vi.mocked(getPayload).mockResolvedValue(payloadMock as unknown as Awaited<ReturnType<typeof getPayload>>)
     vi.mocked(headers).mockResolvedValue(new Headers() as unknown as Awaited<ReturnType<typeof headers>>)
     vi.mocked(getRedwoodAutomationRuntimeState).mockReturnValue({
+      accountAllowed: true,
       configured: true,
       configuredValue: 'true',
+      credentialsConfigured: true,
       enabled: true,
+      missingEnvironmentVariables: [],
       nodeEnv: 'production',
+      ready: true,
     })
   })
 
@@ -92,6 +96,8 @@ describe('Redwood dashboard queue probe', () => {
       probeId: 'probe-uuid',
       success: true,
       webHostname: 'website-container',
+      webMissingEnvironmentVariables: [],
+      webRuntimeReady: true,
     })
     expect(payloadMock.jobs.queue).toHaveBeenCalledWith({
       input: {
@@ -155,7 +161,11 @@ describe('Redwood dashboard queue probe', () => {
             webHostname: 'website-container',
           },
           outputSnapshot: {
+            automationConfiguredValue: 'true',
+            automationEnabled: true,
+            missingEnvironmentVariables: '',
             processedAt: '2026-07-12T12:00:00.000Z',
+            runtimeReady: true,
             workerHostname: 'worker-container',
           },
           status: 'succeeded',
@@ -179,7 +189,13 @@ describe('Redwood dashboard queue probe', () => {
       success: true,
       summary: 'Probe completed.',
       webHostname: 'website-container',
+      webMissingEnvironmentVariables: [],
+      webRuntimeReady: true,
+      workerAutomationConfiguredValue: 'true',
+      workerAutomationEnabled: true,
       workerHostname: 'worker-container',
+      workerMissingEnvironmentVariables: [],
+      workerRuntimeReady: true,
     })
   })
 
@@ -203,6 +219,8 @@ describe('Redwood dashboard queue probe', () => {
       phase: 'running',
       success: true,
       summary: 'Payload job exists, but no durable Job History row was found.',
+      webMissingEnvironmentVariables: [],
+      webRuntimeReady: true,
     })
   })
 })

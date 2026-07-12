@@ -5,11 +5,7 @@ import { Activity, CheckCircle2, CircleAlert, Loader2, Play, RefreshCw } from 'l
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import {
-  getRedwoodQueueProbeStatus,
-  queueRedwoodQueueProbe,
-  type RedwoodQueueProbeResult,
-} from './redwoodQueueProbe'
+import { getRedwoodQueueProbeStatus, queueRedwoodQueueProbe, type RedwoodQueueProbeResult } from './redwoodQueueProbe'
 
 const TERMINAL_PHASES = new Set(['cancelled', 'failed', 'missing', 'succeeded'])
 
@@ -71,13 +67,7 @@ export function RedwoodQueueProbeWidgetClient() {
 
       {result && (
         <Alert variant={getStatusVariant(result)}>
-          {result.phase === 'succeeded' ? (
-            <CheckCircle2 />
-          ) : result.success ? (
-            <Activity />
-          ) : (
-            <CircleAlert />
-          )}
+          {result.phase === 'succeeded' ? <CheckCircle2 /> : result.success ? <Activity /> : <CircleAlert />}
           <AlertTitle>{result.success ? `Probe ${result.phase || 'status'}` : 'Probe failed to queue'}</AlertTitle>
           <AlertDescription>
             {result.error && <p>{result.error}</p>}
@@ -89,9 +79,29 @@ export function RedwoodQueueProbeWidgetClient() {
             {result.processedAt && <p>Processed: {new Date(result.processedAt).toLocaleString()}</p>}
             {typeof result.automationEnabled === 'boolean' && (
               <p>
-                Redwood runtime flag: {result.automationEnabled ? 'enabled' : 'disabled'}
+                Website runtime flag: {result.automationEnabled ? 'enabled' : 'disabled'}
                 {result.automationConfiguredValue ? ` (${result.automationConfiguredValue})` : ' (not configured)'}
               </p>
+            )}
+            {typeof result.webRuntimeReady === 'boolean' && (
+              <p>Website runtime readiness: {result.webRuntimeReady ? 'ready' : 'not ready'}</p>
+            )}
+            {result.webMissingEnvironmentVariables && result.webMissingEnvironmentVariables.length > 0 && (
+              <p>Website missing environment variables: {result.webMissingEnvironmentVariables.join(', ')}</p>
+            )}
+            {typeof result.workerAutomationEnabled === 'boolean' && (
+              <p>
+                Worker runtime flag: {result.workerAutomationEnabled ? 'enabled' : 'disabled'}
+                {result.workerAutomationConfiguredValue
+                  ? ` (${result.workerAutomationConfiguredValue})`
+                  : ' (not configured)'}
+              </p>
+            )}
+            {typeof result.workerRuntimeReady === 'boolean' && (
+              <p>Worker runtime readiness: {result.workerRuntimeReady ? 'ready' : 'not ready'}</p>
+            )}
+            {result.workerMissingEnvironmentVariables && result.workerMissingEnvironmentVariables.length > 0 && (
+              <p>Worker missing environment variables: {result.workerMissingEnvironmentVariables.join(', ')}</p>
             )}
           </AlertDescription>
         </Alert>

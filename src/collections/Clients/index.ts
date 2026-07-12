@@ -12,11 +12,9 @@ import { queueRedwoodDefaultTestSyncAfterChange } from './hooks/queueRedwoodDefa
 import { queueRedwoodHeadshotPush } from './hooks/queueRedwoodHeadshotPush'
 import { requireRedwoodClientUpdateApproval } from './hooks/requireRedwoodClientUpdateApproval'
 import { syncDefaultTestTypeFromReferral } from './hooks/syncDefaultTestTypeFromReferral'
+import { logClientOperationError } from './hooks/logClientOperationError'
 import { redwoodDefaultTestTypeField, redwoodSyncTab } from './redwoodFields'
-import {
-  REDWOOD_CLIENT_UPDATE_APPROVAL_FIELD,
-  REDWOOD_CLIENT_UPDATE_SKIP_SYNC_FIELD,
-} from './redwoodSyncFields'
+import { REDWOOD_CLIENT_UPDATE_APPROVAL_FIELD, REDWOOD_CLIENT_UPDATE_SKIP_SYNC_FIELD } from './redwoodSyncFields'
 import type { Court, Employer } from '@/payload-types'
 import { getTestTypeLabel as getConfiguredTestTypeLabel } from '@/config/test-types'
 
@@ -239,6 +237,7 @@ export const Clients: CollectionConfig = {
     },
   },
   hooks: {
+    afterError: [logClientOperationError],
     beforeChange: [syncDefaultTestTypeFromReferral, requireRedwoodClientUpdateApproval],
     afterChange: [
       ensureRedwoodUniqueId,

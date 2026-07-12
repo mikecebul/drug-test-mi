@@ -11,7 +11,13 @@ services:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
-      REDWOOD_AUTOMATION_ENABLED: "${REDWOOD_AUTOMATION_ENABLED:?REDWOOD_AUTOMATION_ENABLED must be configured in Dokploy}"
+      # Branch-test is the Redwood integration environment. Do not allow a
+      # stale .env value to silently disable automation after a redeploy.
+      REDWOOD_AUTOMATION_ENABLED: 'true'
+      REDWOOD_USERNAME: '${REDWOOD_USERNAME:?REDWOOD_USERNAME must be configured in Dokploy}'
+      REDWOOD_PASSWORD: '${REDWOOD_PASSWORD:?REDWOOD_PASSWORD must be configured in Dokploy}'
+      REDWOOD_ACCOUNT_NUMBER: '310974'
+      REDWOOD_ALLOWED_ACCOUNT_NUMBERS: '310974'
     networks:
       - dokploy-network
 
@@ -23,7 +29,11 @@ services:
       - .env
     environment:
       NODE_ENV: production
-      REDWOOD_AUTOMATION_ENABLED: "${REDWOOD_AUTOMATION_ENABLED:?REDWOOD_AUTOMATION_ENABLED must be configured in Dokploy}"
+      REDWOOD_AUTOMATION_ENABLED: 'true'
+      REDWOOD_USERNAME: '${REDWOOD_USERNAME:?REDWOOD_USERNAME must be configured in Dokploy}'
+      REDWOOD_PASSWORD: '${REDWOOD_PASSWORD:?REDWOOD_PASSWORD must be configured in Dokploy}'
+      REDWOOD_ACCOUNT_NUMBER: '310974'
+      REDWOOD_ALLOWED_ACCOUNT_NUMBERS: '310974'
     networks:
       - dokploy-network
 

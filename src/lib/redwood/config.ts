@@ -2,10 +2,14 @@ const DEFAULT_REDWOOD_ACCOUNT_NUMBER = '310974'
 export const REDWOOD_TASK_RETRIES = 3
 
 export type RedwoodAutomationRuntimeState = {
+  accountAllowed: boolean
   configured: boolean
   configuredValue: string | null
+  credentialsConfigured: boolean
   enabled: boolean
+  missingEnvironmentVariables: string[]
   nodeEnv: string | null
+  ready: boolean
 }
 
 function readRuntimeEnv(name: string): string | undefined {
@@ -23,12 +27,25 @@ export function getRedwoodAutomationRuntimeState(): RedwoodAutomationRuntimeStat
   const enabled = configuredValue
     ? configuredValue === 'true' || configuredValue === '1' || configuredValue === 'yes'
     : nodeEnv !== 'production'
+  const usernameConfigured = Boolean(readRuntimeEnv('REDWOOD_USERNAME')?.trim())
+  const passwordConfigured = Boolean(readRuntimeEnv('REDWOOD_PASSWORD')?.trim())
+  const credentialsConfigured = usernameConfigured && passwordConfigured
+  const accountNumber = getRedwoodAccountNumber()
+  const accountAllowed = isRedwoodAccountAllowed(accountNumber)
+  const missingEnvironmentVariables = [
+    ...(!usernameConfigured ? ['REDWOOD_USERNAME'] : []),
+    ...(!passwordConfigured ? ['REDWOOD_PASSWORD'] : []),
+  ]
 
   return {
+    accountAllowed,
     configured: configuredValue !== null,
     configuredValue,
+    credentialsConfigured,
     enabled,
+    missingEnvironmentVariables,
     nodeEnv,
+    ready: enabled && credentialsConfigured && accountAllowed,
   }
 }
 
