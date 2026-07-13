@@ -79,29 +79,9 @@ export function RedwoodQueueProbeWidgetClient() {
             {result.processedAt && <p>Processed: {new Date(result.processedAt).toLocaleString()}</p>}
             {typeof result.automationEnabled === 'boolean' && (
               <p>
-                Website runtime flag: {result.automationEnabled ? 'enabled' : 'disabled'}
+                Redwood runtime flag: {result.automationEnabled ? 'enabled' : 'disabled'}
                 {result.automationConfiguredValue ? ` (${result.automationConfiguredValue})` : ' (not configured)'}
               </p>
-            )}
-            {typeof result.webRuntimeReady === 'boolean' && (
-              <p>Website runtime readiness: {result.webRuntimeReady ? 'ready' : 'not ready'}</p>
-            )}
-            {result.webMissingEnvironmentVariables && result.webMissingEnvironmentVariables.length > 0 && (
-              <p>Website missing environment variables: {result.webMissingEnvironmentVariables.join(', ')}</p>
-            )}
-            {typeof result.workerAutomationEnabled === 'boolean' && (
-              <p>
-                Worker runtime flag: {result.workerAutomationEnabled ? 'enabled' : 'disabled'}
-                {result.workerAutomationConfiguredValue
-                  ? ` (${result.workerAutomationConfiguredValue})`
-                  : ' (not configured)'}
-              </p>
-            )}
-            {typeof result.workerRuntimeReady === 'boolean' && (
-              <p>Worker runtime readiness: {result.workerRuntimeReady ? 'ready' : 'not ready'}</p>
-            )}
-            {result.workerMissingEnvironmentVariables && result.workerMissingEnvironmentVariables.length > 0 && (
-              <p>Worker missing environment variables: {result.workerMissingEnvironmentVariables.join(', ')}</p>
             )}
           </AlertDescription>
         </Alert>

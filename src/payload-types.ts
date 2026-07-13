@@ -4359,10 +4359,6 @@ export interface TaskRedwoodDiagnosticsProbe {
     probeId: string;
     workerHostname: string;
     processedAt: string;
-    automationEnabled: boolean;
-    automationConfiguredValue?: string | null;
-    runtimeReady: boolean;
-    missingEnvironmentVariables?: string | null;
   };
 }
 /**

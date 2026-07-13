@@ -24,22 +24,12 @@ export type RedwoodQueueProbeResult = {
   success: boolean
   summary?: string
   webHostname?: string
-  webRuntimeReady?: boolean
-  webMissingEnvironmentVariables?: string[]
-  workerAutomationConfiguredValue?: string | null
-  workerAutomationEnabled?: boolean
   workerHostname?: string
-  workerMissingEnvironmentVariables?: string[]
-  workerRuntimeReady?: boolean
 }
 
 type ProbeSnapshot = {
-  automationConfiguredValue?: unknown
-  automationEnabled?: unknown
-  missingEnvironmentVariables?: unknown
   processedAt?: unknown
   probeId?: unknown
-  runtimeReady?: unknown
   webHostname?: unknown
   workerHostname?: unknown
 }
@@ -50,19 +40,6 @@ function readString(value: unknown): string | undefined {
 
 function readProbeSnapshot(value: unknown): ProbeSnapshot {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as ProbeSnapshot) : {}
-}
-
-function readBoolean(value: unknown): boolean | undefined {
-  return typeof value === 'boolean' ? value : undefined
-}
-
-function readEnvironmentVariableList(value: unknown): string[] {
-  return typeof value === 'string'
-    ? value
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean)
-    : []
 }
 
 async function getAdminPayload() {
@@ -115,8 +92,6 @@ export async function queueRedwoodQueueProbe(): Promise<RedwoodQueueProbeResult>
       automationConfiguredValue: runtimeState.configuredValue,
       automationEnabled: runtimeState.enabled,
       nodeEnv: runtimeState.nodeEnv,
-      webRuntimeReady: runtimeState.ready,
-      webMissingEnvironmentVariables: runtimeState.missingEnvironmentVariables,
     })
 
     return {
@@ -129,8 +104,6 @@ export async function queueRedwoodQueueProbe(): Promise<RedwoodQueueProbeResult>
       automationConfiguredValue: runtimeState.configuredValue,
       automationEnabled: runtimeState.enabled,
       nodeEnv: runtimeState.nodeEnv,
-      webRuntimeReady: runtimeState.ready,
-      webMissingEnvironmentVariables: runtimeState.missingEnvironmentVariables,
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to queue Redwood diagnostic probe.'
@@ -160,8 +133,6 @@ export async function getRedwoodQueueProbeStatus(jobId: string): Promise<Redwood
       automationConfiguredValue: runtimeState.configuredValue,
       automationEnabled: runtimeState.enabled,
       nodeEnv: runtimeState.nodeEnv,
-      webRuntimeReady: runtimeState.ready,
-      webMissingEnvironmentVariables: runtimeState.missingEnvironmentVariables,
     }
     const [historyResult, payloadJob] = await Promise.all([
       payload.find({
@@ -195,11 +166,7 @@ export async function getRedwoodQueueProbeStatus(jobId: string): Promise<Redwood
         processedAt: readString(output.processedAt),
         summary: readString(history.summary),
         webHostname: readString(input.webHostname),
-        workerAutomationConfiguredValue: readString(output.automationConfiguredValue) || null,
-        workerAutomationEnabled: readBoolean(output.automationEnabled),
         workerHostname: readString(output.workerHostname),
-        workerMissingEnvironmentVariables: readEnvironmentVariableList(output.missingEnvironmentVariables),
-        workerRuntimeReady: readBoolean(output.runtimeReady),
       }
     }
 

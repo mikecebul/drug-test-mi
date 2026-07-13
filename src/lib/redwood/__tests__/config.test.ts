@@ -50,34 +50,6 @@ describe('redwood config', () => {
     )
   })
 
-  it('reports whether the complete Redwood runtime is ready', () => {
-    vi.stubEnv('REDWOOD_AUTOMATION_ENABLED', 'true')
-    vi.stubEnv('REDWOOD_USERNAME', 'runtime-user')
-    vi.stubEnv('REDWOOD_PASSWORD', 'runtime-password')
-    vi.stubEnv('REDWOOD_ACCOUNT_NUMBER', '310974')
-    vi.stubEnv('REDWOOD_ALLOWED_ACCOUNT_NUMBERS', '310974')
-
-    expect(getRedwoodAutomationRuntimeState()).toEqual(
-      expect.objectContaining({
-        accountAllowed: true,
-        credentialsConfigured: true,
-        enabled: true,
-        missingEnvironmentVariables: [],
-        ready: true,
-      }),
-    )
-
-    vi.stubEnv('REDWOOD_PASSWORD', '')
-
-    expect(getRedwoodAutomationRuntimeState()).toEqual(
-      expect.objectContaining({
-        credentialsConfigured: false,
-        missingEnvironmentVariables: ['REDWOOD_PASSWORD'],
-        ready: false,
-      }),
-    )
-  })
-
   it('recognizes the final retry attempt', () => {
     expect(hasExhaustedRedwoodRetries(2)).toBe(false)
     expect(hasExhaustedRedwoodRetries(3)).toBe(true)
