@@ -21,6 +21,51 @@ export interface ExtractedLabData {
   }>
 }
 
+const NAME_PART_PATTERN = String.raw`[A-Z][a-zA-Z]*(?:[-'’][A-Z][a-zA-Z]*)*`
+const FULL_NAME_PATTERN = String.raw`${NAME_PART_PATTERN}(?:\s+[A-Z]\.?)?\s+${NAME_PART_PATTERN}`
+const ALL_CAPS_NAME_PART_PATTERN = String.raw`[A-Z]{2,}(?:[-'’][A-Z]{2,})*`
+const ALL_CAPS_FULL_NAME_PATTERN = String.raw`${ALL_CAPS_NAME_PART_PATTERN}(?:\s+[A-Z]\.?)?\s+${ALL_CAPS_NAME_PART_PATTERN}`
+
+const LAB_NAME_FALSE_POSITIVES = [
+  'MI Drug Test',
+  'Drug Test',
+  'Collected by',
+  'Tom Brooks',
+  'SPECIMEN TYPE',
+  'DRUG TEST',
+  'MI DRUG',
+  'SANTA ROSA',
+  'DRUG CLASS',
+  'EIA',
+  'THC',
+]
+
+function isUsableLabDonorName(name: string): boolean {
+  return (
+    !LAB_NAME_FALSE_POSITIVES.some((falsePositive) => name.includes(falsePositive)) && name.split(/\s+/).length >= 2
+  )
+}
+
+export function extractLabDonorName(text: string): string | null {
+  const accessionMatch = text.match(new RegExp(String.raw`Accession #:[^]*?(${FULL_NAME_PATTERN})`, 'i'))
+  if (accessionMatch?.[1]) {
+    const name = accessionMatch[1].trim().replace(/\s+/g, ' ')
+    if (isUsableLabDonorName(name)) {
+      return name
+    }
+  }
+
+  const allCapsMatch = text.match(new RegExp(String.raw`\b(${ALL_CAPS_FULL_NAME_PATTERN})\b`))
+  if (allCapsMatch?.[1]) {
+    const name = allCapsMatch[1].trim().replace(/\s+/g, ' ')
+    if (isUsableLabDonorName(name)) {
+      return name
+    }
+  }
+
+  return null
+}
+
 /**
  * Extract data from lab test PDF using pdf-parse
  *
@@ -82,31 +127,9 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
     }
 
     // Extract donor name
-    // Strategy 1: Look for name between "Accession #:" and date pattern
-    // Pattern: "Accession #:\nTom V Vachon\n11/19/2025" or "ALEX WAHA\n11/21/2025"
-    const accessionMatch = text.match(/Accession #:[^]*?([A-Z][a-zA-Z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-zA-Z]+)/i)
-    if (accessionMatch) {
-      const name = accessionMatch[1].trim().replace(/\s+/g, ' ')
-      // Filter out false positives
-      const falsePositives = ['MI Drug Test', 'Drug Test', 'Collected by', 'Tom Brooks']
-      if (!falsePositives.some(fp => name.includes(fp)) && name.split(/\s+/).length >= 2) {
-        result.donorName = name
-        result.extractedFields.push('donorName')
-      }
-    }
-
-    // Strategy 2: Look for all-caps name pattern (fallback)
-    if (!result.donorName) {
-      const nameMatch = text.match(/\b([A-Z]{2,}(?:\s+[A-Z]\.?)?\s+[A-Z]{2,})\b/)
-      if (nameMatch) {
-        const name = nameMatch[1].trim().replace(/\s+/g, ' ')
-        // Filter out false positives
-        const falsePositives = ['SPECIMEN TYPE', 'DRUG TEST', 'MI DRUG', 'SANTA ROSA', 'DRUG CLASS', 'EIA', 'THC']
-        if (!falsePositives.some(fp => name.includes(fp)) && name.split(/\s+/).length >= 2) {
-          result.donorName = name
-          result.extractedFields.push('donorName')
-        }
-      }
+    result.donorName = extractLabDonorName(text)
+    if (result.donorName) {
+      result.extractedFields.push('donorName')
     }
 
     // Extract collection date

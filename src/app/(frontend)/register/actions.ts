@@ -116,6 +116,7 @@ export async function registerWebsiteClientAction(formData: CompleteRegistration
     const formattedLastName = formatPersonName(personalInfo.lastName)
     const formattedMiddleInitial = formatMiddleInitial(personalInfo.middleInitial)
     const formattedPhone = formatPhoneNumber(personalInfo.phone)
+    const formattedDob = formatDateOnlyISO(personalInfo.dob)
 
     const clientData: Record<string, unknown> = {
       firstName: formattedFirstName,
@@ -124,7 +125,7 @@ export async function registerWebsiteClientAction(formData: CompleteRegistration
       email: accountInfo.email.trim().toLowerCase(),
       password: accountInfo.password,
       gender: personalInfo.gender,
-      dob: formatDateOnlyISO(personalInfo.dob),
+      dob: formattedDob,
       phone: formattedPhone,
       referralType: screeningType.requestedBy,
       preferredContactMethod: 'email',

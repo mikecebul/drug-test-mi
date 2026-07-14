@@ -72,9 +72,9 @@ async function fillPersonalInfo(page: Page) {
   await page.getByLabel('Last Name').fill('Taylor')
   await page.locator('[id="personalInfo.gender"]').click()
   await page.getByRole('option', { name: 'Male', exact: true }).click()
-  await page.getByLabel('Date of Birth').fill('01/15/1990')
-  await page.getByLabel('Date of Birth').press('Tab')
   await page.getByLabel('Phone Number').fill('2485551212')
+  await page.getByLabel('Date of Birth').fill('01/15/1990')
+  await expect(page.getByLabel('Date of Birth')).toHaveValue('01/15/1990')
 }
 
 async function fillAccountInfo(page: Page, emailPrefix: string) {
@@ -298,6 +298,7 @@ test('submits frontend registration, signs in, and verifies admin emails in Mail
 
   const createdClient = await findClientByEmail(registrationEmail)
   expect(createdClient).not.toBeNull()
+  expect(createdClient?.dob).toContain('1990-01-15')
   expect(createdClient?._verified).toBe(true)
 
   await findMailpitMessages({
