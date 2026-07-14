@@ -4,6 +4,7 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import type { CompleteRegistrationValues } from '../validators'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
+import { formatDateOnlyISO } from '@/lib/date-utils'
 import {
   assertReferralHasContacts,
   buildContactsFromLegacyInput,
@@ -111,6 +112,7 @@ export async function registerClientAction(formData: CompleteRegistrationValues)
     const formattedLastName = formatPersonName(personalInfo.lastName)
     const formattedMiddleInitial = formatMiddleInitial(personalInfo.middleInitial)
     const formattedPhone = formatPhoneNumber(personalInfo.phone)
+    const formattedDob = formatDateOnlyISO(personalInfo.dob)
     const noEmail = accountInfo.noEmail === true
     const submittedEmail = (accountInfo.email ?? '').trim().toLowerCase()
     const submittedPassword = accountInfo.password
@@ -161,7 +163,7 @@ export async function registerClientAction(formData: CompleteRegistrationValues)
               },
               {
                 dob: {
-                  equals: personalInfo.dob,
+                  equals: formattedDob,
                 },
               },
             ],
@@ -192,7 +194,7 @@ export async function registerClientAction(formData: CompleteRegistrationValues)
       email: clientEmail,
       password: submittedPassword,
       gender: personalInfo.gender,
-      dob: personalInfo.dob,
+      dob: formattedDob,
       phone: formattedPhone,
       referralType: screeningType.requestedBy,
       preferredContactMethod: noEmail ? 'phone' : 'email',

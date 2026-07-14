@@ -48,9 +48,9 @@ async function fillPersonalInfo(
     await page.waitForTimeout(500)
   } while (Date.now() < genderDeadline)
   await maleOption.click()
-  await page.getByLabel('Date of Birth').fill(dob)
-  await page.getByLabel('Date of Birth').press('Tab')
   await page.getByLabel('Phone Number').fill(phone)
+  await page.getByLabel('Date of Birth').fill(dob)
+  await expect(page.getByLabel('Date of Birth')).toHaveValue(dob)
   await expect(page.getByRole('button', { name: /^Next$/i })).toBeEnabled()
 }
 
@@ -150,6 +150,7 @@ test.describe('Wizard Register Client', () => {
 
     const client = await findClientByEmail(email)
     expect(client).not.toBeNull()
+    expect(client?.dob).toContain('1990-01-15')
     expect(client?.referralType).toBe('employer')
 
     const referral = client?.referral as { relationTo?: string; value?: string } | undefined

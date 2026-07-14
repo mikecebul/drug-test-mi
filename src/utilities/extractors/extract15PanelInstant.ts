@@ -17,6 +17,27 @@ export interface Extracted15PanelData {
   extractedFields: string[]
 }
 
+const NAME_PART_PATTERN = String.raw`[A-Z][a-zA-Z]*(?:[-'’][A-Z][a-zA-Z]*)*`
+const FULL_NAME_PATTERN = String.raw`${NAME_PART_PATTERN}(?:\s+[A-Z]\.?)?\s+${NAME_PART_PATTERN}`
+
+export function extractInstantDonorName(text: string): string | null {
+  const strategies = [
+    new RegExp(String.raw`Phone:\s*\(\d{3}\)\d{3}-\d{4}\s*\n\s*(${FULL_NAME_PATTERN})`, 'i'),
+    new RegExp(String.raw`(${FULL_NAME_PATTERN})\s*\n\s*iCup\s+Urine`, 'i'),
+    new RegExp(String.raw`(${FULL_NAME_PATTERN})\s*\n\s*FFUO\s+-\s+17\s+Panel\s+Slim\s+Cup`, 'i'),
+    new RegExp(String.raw`Donor Signature\s*\n\s*(${FULL_NAME_PATTERN})`, 'i'),
+  ]
+
+  for (const strategy of strategies) {
+    const match = text.match(strategy)
+    if (match?.[1]) {
+      return match[1].trim().replace(/\s+/g, ' ')
+    }
+  }
+
+  return null
+}
+
 /**
  * Extract data from 15-panel instant test PDF using pdf-parse
  *
@@ -61,34 +82,8 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
     // pdf-parse preserves layout: donor name appears after phone number or before "iCup" test description
     // Pattern: "Phone: (231)373-6341\nDennis D Erfourth"
 
-    // Strategy 1: Look for name after phone number (most reliable)
-    let donorNameMatch = text.match(
-      /Phone:\s*\(\d{3}\)\d{3}-\d{4}\s*\n\s*([A-Z][a-zA-Z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-zA-Z]+)/i,
-    )
-
-    // Strategy 2: Look for name before "iCup" test description
-    if (!donorNameMatch) {
-      donorNameMatch = text.match(
-        /([A-Z][a-zA-Z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-zA-Z]+)\s*\n\s*iCup\s+Urine/i,
-      )
-    }
-
-    // Strategy 3: Look for name before the 17-panel Slim Cup description
-    if (!donorNameMatch) {
-      donorNameMatch = text.match(
-        /([A-Z][a-zA-Z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-zA-Z]+)\s*\n\s*FFUO\s+-\s+17\s+Panel\s+Slim\s+Cup/i,
-      )
-    }
-
-    // Strategy 4: Look for donor signature at bottom (before "Page X of Y")
-    if (!donorNameMatch) {
-      donorNameMatch = text.match(
-        /Donor Signature\s*\n\s*([A-Z][a-zA-Z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-zA-Z]+)/i,
-      )
-    }
-
-    if (donorNameMatch) {
-      result.donorName = donorNameMatch[1].trim().replace(/\s+/g, ' ')
+    result.donorName = extractInstantDonorName(text)
+    if (result.donorName) {
       result.extractedFields.push('donorName')
     }
 

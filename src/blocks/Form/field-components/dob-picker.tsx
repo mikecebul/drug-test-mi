@@ -49,19 +49,35 @@ function expandTwoDigitYear(year: number): number {
  * Parses a date string, expanding 2-digit years appropriately for DOB.
  */
 function parseDateWithYearExpansion(value: string): Date {
-  // Match MM/DD/YY or MM-DD-YY (2-digit year)
-  const twoDigitYearMatch = value.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/)
-
-  if (twoDigitYearMatch) {
-    const [, monthStr, dayStr, yearStr] = twoDigitYearMatch
-    const month = parseInt(monthStr, 10)
-    const day = parseInt(dayStr, 10)
-    const year = expandTwoDigitYear(parseInt(yearStr, 10))
-    return new Date(year, month - 1, day)
+  const isoDateMatch = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:T.*)?$/)
+  if (isoDateMatch) {
+    const [, yearStr, monthStr, dayStr] = isoDateMatch
+    return createLocalDate(parseInt(yearStr, 10), parseInt(monthStr, 10), parseInt(dayStr, 10))
   }
 
-  // For 4-digit years or other formats, let Date parse normally
-  return new Date(value)
+  // Match MM/DD/YY or MM-DD-YY (2-digit year)
+  const displayDateMatch = value.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2}|\d{4})$/)
+
+  if (displayDateMatch) {
+    const [, monthStr, dayStr, yearStr] = displayDateMatch
+    const month = parseInt(monthStr, 10)
+    const day = parseInt(dayStr, 10)
+    const parsedYear = parseInt(yearStr, 10)
+    const year = yearStr.length === 2 ? expandTwoDigitYear(parsedYear) : parsedYear
+    return createLocalDate(year, month, day)
+  }
+
+  return new Date(Number.NaN)
+}
+
+function createLocalDate(year: number, month: number, day: number): Date {
+  const date = new Date(year, month - 1, day)
+
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return new Date(Number.NaN)
+  }
+
+  return date
 }
 
 function isValidDate(date: Date | undefined) {
@@ -88,35 +104,30 @@ export default function DobPicker({ label, colSpan, required }: DobFieldUIProps)
     if (!field.state.value) return undefined
     if (field.state.value instanceof Date) return field.state.value
     if (typeof field.state.value === 'string' && field.state.value !== '') {
-      try {
-        return new Date(field.state.value)
-      } catch {
-        return undefined
-      }
+      const parsed = parseDateWithYearExpansion(field.state.value)
+      return isValidDate(parsed) ? parsed : undefined
     }
     return undefined
   }, [field.state.value])
 
   const [month, setMonth] = React.useState<Date | undefined>(dateValue)
-  const [inputValue, setInputValue] = React.useState(formatDate(dateValue))
-  const debounceRef = React.useRef<NodeJS.Timeout | null>(null)
+  const inputValue = React.useMemo(() => {
+    if (field.state.value instanceof Date) {
+      return formatDate(field.state.value)
+    }
+
+    if (typeof field.state.value === 'string') {
+      if (/^\d{4}-\d{1,2}-\d{1,2}(?:T.*)?$/.test(field.state.value) && dateValue) {
+        return formatDate(dateValue)
+      }
+      return field.state.value
+    }
+
+    return ''
+  }, [dateValue, field.state.value])
 
   // Match MM/DD/YY, MM/DD/YYYY, or YYYY-MM-DD (exactly 2 or 4 digit years)
   const datePattern = /^(?:\d{1,2}[\/\-]\d{1,2}[\/\-](?:\d{2}|\d{4})|\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})$/
-
-  // Sync input value when date changes externally
-  React.useEffect(() => {
-    setInputValue(formatDate(dateValue))
-  }, [dateValue])
-
-  // Cleanup debounce on unmount
-  React.useEffect(() => {
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current)
-      }
-    }
-  }, [])
 
   return (
     <div className={cn('col-span-2 flex w-full flex-col gap-2', { '@lg:col-span-1': colSpan === '1' })}>
@@ -134,51 +145,31 @@ export default function DobPicker({ label, colSpan, required }: DobFieldUIProps)
             className="pr-10"
             onChange={(e) => {
               const value = e.target.value
-              setInputValue(value)
+              field.handleChange(value || undefined)
 
-              // Clear previous debounce
-              if (debounceRef.current) {
-                clearTimeout(debounceRef.current)
-              }
-
-              if (value === '') {
-                field.handleChange(undefined)
-                return
-              }
-
-              // Debounce the field update for complete date patterns
-              debounceRef.current = setTimeout(() => {
-                if (datePattern.test(value)) {
-                  const date = parseDateWithYearExpansion(value)
-                  if (isValidDate(date)) {
-                    const formatted = formatDate(date)
-                    field.handleChange(formatted)
-                    setMonth(date)
-                    setInputValue(formatted)
-                  }
+              if (datePattern.test(value)) {
+                const date = parseDateWithYearExpansion(value)
+                if (isValidDate(date)) {
+                  setMonth(date)
                 }
-              }, 1200)
+              }
             }}
-            onBlur={() => {
+            onBlur={(event) => {
+              const value = event.currentTarget.value
+
               // Only parse if input matches valid date pattern
-              if (!datePattern.test(inputValue)) {
-                // Invalid format - trigger validation with current input
-                if (inputValue !== '') {
-                  field.handleChange(inputValue)
-                }
+              if (!datePattern.test(value)) {
+                field.handleBlur()
                 return
               }
 
-              const date = parseDateWithYearExpansion(inputValue)
+              const date = parseDateWithYearExpansion(value)
               if (isValidDate(date)) {
                 const formatted = formatDate(date)
                 field.handleChange(formatted)
                 setMonth(date)
-                setInputValue(formatted)
-              } else {
-                // Pattern matched but date invalid (e.g., 02/31/2020)
-                field.handleChange(inputValue)
               }
+              field.handleBlur()
             }}
             onKeyDown={(e) => {
               if (e.key === 'ArrowDown') {
@@ -211,7 +202,7 @@ export default function DobPicker({ label, colSpan, required }: DobFieldUIProps)
                 onSelect={(date) => {
                   const formatted = formatDate(date)
                   field.handleChange(formatted)
-                  setInputValue(formatted)
+                  field.handleBlur()
                   setOpen(false)
                 }}
               />
