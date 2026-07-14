@@ -1,5 +1,6 @@
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { TZDate } from '@date-fns/tz'
+import { FULL_NAME_PATTERN, normalizeExtractedDonorName } from './donorName'
 
 /**
  * Extracted data from 15-panel instant test PDF
@@ -17,21 +18,18 @@ export interface Extracted15PanelData {
   extractedFields: string[]
 }
 
-const NAME_PART_PATTERN = String.raw`[A-Z][a-zA-Z]*(?:[-'’][A-Z][a-zA-Z]*)*`
-const FULL_NAME_PATTERN = String.raw`${NAME_PART_PATTERN}(?:\s+[A-Z]\.?)?\s+${NAME_PART_PATTERN}`
-
 export function extractInstantDonorName(text: string): string | null {
   const strategies = [
-    new RegExp(String.raw`Phone:\s*\(\d{3}\)\d{3}-\d{4}\s*\n\s*(${FULL_NAME_PATTERN})`, 'i'),
-    new RegExp(String.raw`(${FULL_NAME_PATTERN})\s*\n\s*iCup\s+Urine`, 'i'),
-    new RegExp(String.raw`(${FULL_NAME_PATTERN})\s*\n\s*FFUO\s+-\s+17\s+Panel\s+Slim\s+Cup`, 'i'),
-    new RegExp(String.raw`Donor Signature\s*\n\s*(${FULL_NAME_PATTERN})`, 'i'),
+    new RegExp(String.raw`Phone:\s*\(\d{3}\)\d{3}-\d{4}\s*\n\s*(${FULL_NAME_PATTERN})`, 'iu'),
+    new RegExp(String.raw`(${FULL_NAME_PATTERN})\s*\n\s*iCup\s+Urine`, 'iu'),
+    new RegExp(String.raw`(${FULL_NAME_PATTERN})\s*\n\s*FFUO\s+-\s+17\s+Panel\s+Slim\s+Cup`, 'iu'),
+    new RegExp(String.raw`Donor Signature\s*\n\s*(${FULL_NAME_PATTERN})`, 'iu'),
   ]
 
   for (const strategy of strategies) {
     const match = text.match(strategy)
     if (match?.[1]) {
-      return match[1].trim().replace(/\s+/g, ' ')
+      return normalizeExtractedDonorName(match[1])
     }
   }
 

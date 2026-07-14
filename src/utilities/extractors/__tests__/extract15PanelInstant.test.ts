@@ -43,10 +43,19 @@ function assertCollectionDateString(dateString: string): Date {
 }
 
 describe('extract15PanelInstant', () => {
-  test('preserves a hyphenated donor last name', () => {
-    const text = 'Phone: (248)555-1212\nJordan Q Smith-Owens\niCup Urine'
+  test.each([
+    ['ASCII hyphen', '-'],
+    ['Unicode hyphen', '\u2010'],
+    ['non-breaking hyphen', '\u2011'],
+    ['en dash', '\u2013'],
+    ['minus sign', '\u2212'],
+    ['soft hyphen', '\u00AD'],
+    ['spaced hyphen', ' - '],
+    ['wrapped hyphen', '-\n'],
+  ])('preserves a Cole-Hess donor last name with a %s', (_description, separator) => {
+    const text = `Phone: (248)555-1212\nJordan Q Cole${separator}Hess\niCup Urine`
 
-    expect(extractInstantDonorName(text)).toBe('Jordan Q Smith-Owens')
+    expect(extractInstantDonorName(text)).toBe('Jordan Q Cole-Hess')
   })
 
   test('extracts all-negative 17-panel instant results', async () => {

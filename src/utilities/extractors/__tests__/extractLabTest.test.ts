@@ -43,10 +43,10 @@ function assertCollectionDateString(dateString: string): Date {
 }
 
 describe('extractLabTest', () => {
-  test('preserves a hyphenated donor last name', () => {
-    const text = 'Accession #:\nJordan Q Smith-Owens\n07/14/2026'
+  test('preserves a donor last name containing a non-breaking hyphen', () => {
+    const text = 'Accession #:\nJordan Q Cole\u2011Hess\n07/14/2026'
 
-    expect(extractLabDonorName(text)).toBe('Jordan Q Smith-Owens')
+    expect(extractLabDonorName(text)).toBe('Jordan Q Cole-Hess')
   })
 
   describe('11-panel-lab tests', () => {
