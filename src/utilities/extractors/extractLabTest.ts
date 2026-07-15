@@ -1,5 +1,10 @@
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { TZDate } from '@date-fns/tz'
+import {
+  ALL_CAPS_FULL_NAME_PATTERN,
+  FULL_NAME_PATTERN,
+  normalizeExtractedDonorName,
+} from './donorName'
 
 /**
  * Extracted data from lab test PDF (11-panel, 11-panel no EtG, 8-panel, 17-panel SOS, or EtG)
@@ -20,11 +25,6 @@ export interface ExtractedLabData {
     notes?: string
   }>
 }
-
-const NAME_PART_PATTERN = String.raw`[A-Z][a-zA-Z]*(?:[-'’][A-Z][a-zA-Z]*)*`
-const FULL_NAME_PATTERN = String.raw`${NAME_PART_PATTERN}(?:\s+[A-Z]\.?)?\s+${NAME_PART_PATTERN}`
-const ALL_CAPS_NAME_PART_PATTERN = String.raw`[A-Z]{2,}(?:[-'’][A-Z]{2,})*`
-const ALL_CAPS_FULL_NAME_PATTERN = String.raw`${ALL_CAPS_NAME_PART_PATTERN}(?:\s+[A-Z]\.?)?\s+${ALL_CAPS_NAME_PART_PATTERN}`
 
 const LAB_NAME_FALSE_POSITIVES = [
   'MI Drug Test',
@@ -47,9 +47,9 @@ function isUsableLabDonorName(name: string): boolean {
 }
 
 export function extractLabDonorName(text: string): string | null {
-  const accessionMatch = text.match(new RegExp(String.raw`Accession #:[^]*?(${FULL_NAME_PATTERN})`, 'i'))
+  const accessionMatch = text.match(new RegExp(String.raw`Accession #:[^]*?(${FULL_NAME_PATTERN})`, 'iu'))
   if (accessionMatch?.[1]) {
-    const name = accessionMatch[1].trim().replace(/\s+/g, ' ')
+    const name = normalizeExtractedDonorName(accessionMatch[1])
     if (isUsableLabDonorName(name)) {
       return name
     }
@@ -57,7 +57,7 @@ export function extractLabDonorName(text: string): string | null {
 
   const allCapsMatch = text.match(new RegExp(String.raw`\b(${ALL_CAPS_FULL_NAME_PATTERN})\b`))
   if (allCapsMatch?.[1]) {
-    const name = allCapsMatch[1].trim().replace(/\s+/g, ' ')
+    const name = normalizeExtractedDonorName(allCapsMatch[1])
     if (isUsableLabDonorName(name)) {
       return name
     }
