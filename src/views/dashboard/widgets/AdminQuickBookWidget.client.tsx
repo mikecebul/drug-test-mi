@@ -19,6 +19,7 @@ import {
 } from '@/lib/quick-book'
 import { sdk } from '@/lib/payload-sdk'
 import { DRUG_TEST_CAL_LINK, getAdminQuickBookCalLink } from '@/utilities/calcom-config'
+import { installCalModalStabilityPatch } from '@/utilities/calcom-modal-stability'
 import { searchClients } from '@/views/DrugTestWizard/workflows/components/client/clientSearch'
 import type { SimpleClient } from '@/views/DrugTestWizard/workflows/components/client/getClients'
 
@@ -29,6 +30,8 @@ type AdminQuickBookClientContext = {
   calLink: string
   recommendation: RecommendedTestType
 }
+
+const ADMIN_QUICK_BOOK_CAL_NAMESPACE = 'admin-quick-book'
 
 function buildClientInitials(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
@@ -189,7 +192,7 @@ export function AdminQuickBookWidgetClient({
   const [bookingError, setBookingError] = useState<string | null>(null)
 
   useEffect(() => {
-    getCalApi().then((cal) => {
+    getCalApi({ namespace: ADMIN_QUICK_BOOK_CAL_NAMESPACE }).then((cal) => {
       cal('ui', { theme: 'light' })
     })
   }, [])
@@ -225,7 +228,7 @@ export function AdminQuickBookWidgetClient({
   }, [clients, searchQuery])
 
   const openCalBookingModal = async (config: CalModalConfig, calLink = DRUG_TEST_CAL_LINK) => {
-    const cal = await getCalApi()
+    const cal = await getCalApi({ namespace: ADMIN_QUICK_BOOK_CAL_NAMESPACE })
 
     if (onBeforeOpenBooking) {
       try {
@@ -234,6 +237,8 @@ export function AdminQuickBookWidgetClient({
         console.error('[AdminQuickBookWidget] Failed to run booking pre-open callback', error)
       }
     }
+
+    installCalModalStabilityPatch()
 
     cal('modal', {
       calLink,
