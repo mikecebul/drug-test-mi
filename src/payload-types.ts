@@ -94,6 +94,7 @@ export interface Config {
   auth: {
     admins: AdminAuthOperations;
     clients: ClientAuthOperations;
+    'payload-mcp-api-keys': PayloadMcpApiKeyAuthOperations;
   };
   blocks: {};
   collections: {
@@ -115,6 +116,7 @@ export interface Config {
     exports: Export;
     imports: Import;
     redirects: Redirect;
+    'payload-mcp-api-keys': PayloadMcpApiKey;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -155,6 +157,7 @@ export interface Config {
     exports: ExportsSelect<false> | ExportsSelect<true>;
     imports: ImportsSelect<false> | ImportsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
+    'payload-mcp-api-keys': PayloadMcpApiKeysSelect<false> | PayloadMcpApiKeysSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -183,7 +186,7 @@ export interface Config {
     'admin-alerts': AdminAlertsWidget;
     collections: CollectionsWidget;
   };
-  user: Admin | Client;
+  user: Admin | Client | PayloadMcpApiKey;
   jobs: {
     tasks: {
       createCollectionExport: TaskCreateCollectionExport;
@@ -215,6 +218,24 @@ export interface AdminAuthOperations {
   };
 }
 export interface ClientAuthOperations {
+  forgotPassword: {
+    email: string;
+    password: string;
+  };
+  login: {
+    email: string;
+    password: string;
+  };
+  registerFirstUser: {
+    email: string;
+    password: string;
+  };
+  unlock: {
+    email: string;
+    password: string;
+  };
+}
+export interface PayloadMcpApiKeyAuthOperations {
   forgotPassword: {
     email: string;
     password: string;
@@ -2324,6 +2345,129 @@ export interface Redirect {
   createdAt: string;
 }
 /**
+ * API keys control which collections, resources, tools, and prompts MCP clients can access
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-mcp-api-keys".
+ */
+export interface PayloadMcpApiKey {
+  id: string;
+  /**
+   * The user that the API key is associated with.
+   */
+  user: string | Admin;
+  /**
+   * A useful label for the API key.
+   */
+  label?: string | null;
+  /**
+   * The purpose of the API key.
+   */
+  description?: string | null;
+  bookings?: {
+    /**
+     * Allow clients to find bookings.
+     */
+    find?: boolean | null;
+  };
+  clients?: {
+    /**
+     * Allow clients to find clients.
+     */
+    find?: boolean | null;
+  };
+  drugTests?: {
+    /**
+     * Allow clients to find drug-tests.
+     */
+    find?: boolean | null;
+  };
+  payments?: {
+    /**
+     * Allow clients to find payments.
+     */
+    find?: boolean | null;
+  };
+  testTypes?: {
+    /**
+     * Allow clients to find test-types.
+     */
+    find?: boolean | null;
+  };
+  courts?: {
+    /**
+     * Allow clients to find courts.
+     */
+    find?: boolean | null;
+  };
+  employers?: {
+    /**
+     * Allow clients to find employers.
+     */
+    find?: boolean | null;
+  };
+  technicians?: {
+    /**
+     * Allow clients to find technicians.
+     */
+    find?: boolean | null;
+  };
+  adminAlerts?: {
+    /**
+     * Allow clients to find admin-alerts.
+     */
+    find?: boolean | null;
+  };
+  pages?: {
+    /**
+     * Allow clients to find pages.
+     */
+    find?: boolean | null;
+  };
+  forms?: {
+    /**
+     * Allow clients to find forms.
+     */
+    find?: boolean | null;
+  };
+  formSubmissions?: {
+    /**
+     * Allow clients to find form-submissions.
+     */
+    find?: boolean | null;
+  };
+  media?: {
+    /**
+     * Allow clients to find media.
+     */
+    find?: boolean | null;
+  };
+  header?: {
+    /**
+     * Allow clients to find header global.
+     */
+    find?: boolean | null;
+  };
+  footer?: {
+    /**
+     * Allow clients to find footer global.
+     */
+    find?: boolean | null;
+  };
+  companyInfo?: {
+    /**
+     * Allow clients to find company-info global.
+     */
+    find?: boolean | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+  enableAPIKey?: boolean | null;
+  apiKey?: string | null;
+  apiKeyIndex?: string | null;
+  collection: 'payload-mcp-api-keys';
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -2502,6 +2646,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'redirects';
         value: string | Redirect;
+      } | null)
+    | ({
+        relationTo: 'payload-mcp-api-keys';
+        value: string | PayloadMcpApiKey;
       } | null);
   globalSlug?: string | null;
   user:
@@ -2512,6 +2660,10 @@ export interface PayloadLockedDocument {
     | {
         relationTo: 'clients';
         value: string | Client;
+      }
+    | {
+        relationTo: 'payload-mcp-api-keys';
+        value: string | PayloadMcpApiKey;
       };
   updatedAt: string;
   createdAt: string;
@@ -2530,6 +2682,10 @@ export interface PayloadPreference {
     | {
         relationTo: 'clients';
         value: string | Client;
+      }
+    | {
+        relationTo: 'payload-mcp-api-keys';
+        value: string | PayloadMcpApiKey;
       };
   key?: string | null;
   value?:
@@ -3771,6 +3927,100 @@ export interface RedirectsSelect<T extends boolean = true> {
       };
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-mcp-api-keys_select".
+ */
+export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
+  user?: T;
+  label?: T;
+  description?: T;
+  bookings?:
+    | T
+    | {
+        find?: T;
+      };
+  clients?:
+    | T
+    | {
+        find?: T;
+      };
+  drugTests?:
+    | T
+    | {
+        find?: T;
+      };
+  payments?:
+    | T
+    | {
+        find?: T;
+      };
+  testTypes?:
+    | T
+    | {
+        find?: T;
+      };
+  courts?:
+    | T
+    | {
+        find?: T;
+      };
+  employers?:
+    | T
+    | {
+        find?: T;
+      };
+  technicians?:
+    | T
+    | {
+        find?: T;
+      };
+  adminAlerts?:
+    | T
+    | {
+        find?: T;
+      };
+  pages?:
+    | T
+    | {
+        find?: T;
+      };
+  forms?:
+    | T
+    | {
+        find?: T;
+      };
+  formSubmissions?:
+    | T
+    | {
+        find?: T;
+      };
+  media?:
+    | T
+    | {
+        find?: T;
+      };
+  header?:
+    | T
+    | {
+        find?: T;
+      };
+  footer?:
+    | T
+    | {
+        find?: T;
+      };
+  companyInfo?:
+    | T
+    | {
+        find?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  enableAPIKey?: T;
+  apiKey?: T;
+  apiKeyIndex?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
