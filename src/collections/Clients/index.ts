@@ -1,4 +1,4 @@
-import type { CollectionConfig, FieldHook } from 'payload'
+import type { CollectionBeforeValidateHook, CollectionConfig, FieldHook } from 'payload'
 import { superAdmin } from '@/access/superAdmin'
 import { baseUrl } from '@/utilities/baseUrl'
 import { anyone } from '@/access/anyone'
@@ -6,11 +6,34 @@ import { notifyNewRegistration } from './hooks/notifyNewRegistration'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
 import type { Court, Employer } from '@/payload-types'
 import { getTestTypeLabel as getConfiguredTestTypeLabel } from '@/config/test-types'
+import { adminClientSearchEndpoint } from './search/endpoint'
+import { buildClientSearchFields } from './search/normalize'
 
 type ReferralRelation = {
   relationTo?: 'courts' | 'employers'
   value?: string | Court | Employer | null
 }
+
+const populateClientSearchFields: CollectionBeforeValidateHook = ({ data, originalDoc }) => {
+  if (!data) return data
+
+  const identity = {
+    firstName: data.firstName ?? originalDoc?.firstName,
+    middleInitial: data.middleInitial ?? originalDoc?.middleInitial,
+    lastName: data.lastName ?? originalDoc?.lastName,
+    email: data.email ?? originalDoc?.email,
+    phone: data.phone ?? originalDoc?.phone,
+    dob: data.dob ?? originalDoc?.dob,
+  }
+
+  return {
+    ...data,
+    ...buildClientSearchFields(identity),
+  }
+}
+
+const adminSearchFieldRead = ({ req }: { req: { user?: { collection?: string } | null } }) =>
+  req.user?.collection === 'admins'
 
 function getPopulatedTestTypeLabel(testType: unknown): string | null {
   if (!testType) return null
@@ -80,6 +103,7 @@ const resolveRequiredTestTypeLabel: FieldHook = async ({ currentDepth, data, req
 
 export const Clients: CollectionConfig = {
   slug: 'clients',
+  endpoints: [adminClientSearchEndpoint],
   labels: {
     singular: 'Client',
     plural: 'Clients',
@@ -226,6 +250,7 @@ export const Clients: CollectionConfig = {
     },
   },
   hooks: {
+    beforeValidate: [populateClientSearchFields],
     afterChange: [notifyNewRegistration],
   },
   admin: {
@@ -239,6 +264,28 @@ export const Clients: CollectionConfig = {
     },
   },
   fields: [
+    ...[
+      'searchFirstName',
+      'searchMiddleInitial',
+      'searchLastName',
+      'searchFullName',
+      'searchEmail',
+      'searchPhone',
+      'searchDob',
+    ].map(
+      (name) =>
+        ({
+          name,
+          type: 'text',
+          index: true,
+          admin: {
+            hidden: true,
+          },
+          access: {
+            read: adminSearchFieldRead,
+          },
+        }) as const,
+    ),
     // Sidebar fields - always visible
     {
       name: 'fullName',

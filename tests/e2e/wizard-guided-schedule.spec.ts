@@ -108,6 +108,11 @@ test.describe("Wizard Today's Schedule", () => {
     await scheduleCardButton(page, scheduleFixtures.bookings.unlinked.attendeeName).click()
     await expect(page.getByRole('heading', { name: 'Confirm Client' })).toBeVisible()
     await expect(page.getByRole('button', { name: /Register New Client/i })).toBeVisible()
+    await expect(page.getByText('Registered client found')).toBeVisible()
+    const exactMatches = page.getByTestId('guided-exact-client-matches')
+    await expect(exactMatches).toContainText(scheduleFixtures.bookings.unlinked.registeredClient.fullName)
+    await expect(exactMatches).toContainText('Exact email')
+    await expect(page.getByText('Selected client', { exact: true })).toHaveCount(0)
     await page.getByRole('button', { name: /^Back$/i }).click()
     await expect(page.getByRole('heading', { name: "Today's Schedule" })).toBeVisible()
 
@@ -156,7 +161,15 @@ test.describe("Wizard Today's Schedule", () => {
       await quickBookDrawer.getByRole('tab', { name: 'New Client' }).click()
       await expect(quickBookDrawer.getByRole('button', { name: 'Book Appointment' })).toBeVisible()
       await quickBookDrawer.getByRole('tab', { name: 'Existing Client' }).click()
-      await expect(quickBookDrawer.getByLabel('Search Existing Client')).toBeVisible()
+      const quickBookSearch = quickBookDrawer.getByLabel('Search Existing Client')
+      await expect(quickBookSearch).toBeVisible()
+
+      if (attempt === 0) {
+        await quickBookSearch.fill(fixtures.clients.instant.email)
+        await expect(quickBookDrawer.getByText('Exact Matches', { exact: true })).toBeVisible()
+        await expect(quickBookDrawer.getByText(fixtures.clients.instant.fullName, { exact: true })).toBeVisible()
+        await quickBookSearch.fill('')
+      }
 
       await page.keyboard.press('Escape')
       await expect(quickBookDrawer).toBeHidden()
@@ -216,12 +229,14 @@ test.describe("Wizard Today's Schedule", () => {
 
     await scheduleCardButton(page, booking.attendeeName).click()
     await expect(page.getByRole('heading', { name: 'Confirm Client' })).toBeVisible()
-    await selectClientFromSearchDialog(page, fixtures.clients.collectLab.fullName)
+    const exactMatches = page.getByTestId('guided-exact-client-matches')
+    const registeredClient = scheduleFixtures.bookings.unlinked.registeredClient
+    await expect(exactMatches).toContainText(registeredClient.fullName)
+    await exactMatches.getByRole('button', { name: new RegExp(registeredClient.fullName, 'i') }).click()
 
     await expect(page.getByRole('heading', { name: 'Review and Payment' })).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByText(fixtures.clients.collectLab.fullName, { exact: true }).first()).toBeVisible()
-    await expect(page.getByText(`Booked as ${booking.attendeeName}`, { exact: false })).toBeVisible()
-    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
+    await expect(page.getByText(registeredClient.fullName, { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Booking name does not match the selected client')).toHaveCount(0)
 
     await selectClientFromSearchDialog(page, fixtures.clients.instant.fullName)
     await expect(page.getByText(fixtures.clients.instant.fullName, { exact: true }).first()).toBeVisible()

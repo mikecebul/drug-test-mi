@@ -399,6 +399,18 @@ export async function goToEmailsStepFromInstant(page: Page, pdfPath: string, cli
     if (!hasSelectedClient) {
       await selectClientFromSearchDialog(page, clientName)
     }
+
+    // Selecting the client can reveal a report/client name mismatch that was not knowable on the
+    // first extract pass. Revisit the extracted identity and explicitly confirm it when required.
+    await clickBack(page)
+    await ensureInstantExtractReady(page)
+    const mismatchConfirmation = page.getByRole('checkbox', {
+      name: /confirm this is the correct client\/report/i,
+    })
+    if (await mismatchConfirmation.isVisible().catch(() => false)) {
+      await mismatchConfirmation.check()
+    }
+    await clickNextToStep(page, 'client')
   }
 
   await clickNextToStep(page, 'medications')

@@ -12,6 +12,7 @@ import * as migration_20260525_000000_deactivate_15_panel_instant_test_type from
 import * as migration_20260526_000000_migrate_referrals_to_17_panel_instant from './20260526_000000_migrate_referrals_to_17_panel_instant'
 import * as migration_20260701_000000_migrate_test_type_relationships_to_config_values from './20260701_000000_migrate_test_type_relationships_to_config_values'
 import * as migration_20260709_000000_add_17_panel_sos_toxaccess_code from './20260709_000000_add_17_panel_sos_toxaccess_code'
+import * as migration_20260718_000000_backfill_client_search_fields from './20260718_000000_backfill_client_search_fields'
 
 export const migrations = [
   {
@@ -83,5 +84,10 @@ export const migrations = [
     up: migration_20260709_000000_add_17_panel_sos_toxaccess_code.up,
     down: migration_20260709_000000_add_17_panel_sos_toxaccess_code.down,
     name: '20260709_000000_add_17_panel_sos_toxaccess_code',
+  },
+  {
+    up: migration_20260718_000000_backfill_client_search_fields.up,
+    down: migration_20260718_000000_backfill_client_search_fields.down,
+    name: '20260718_000000_backfill_client_search_fields',
   },
 ]

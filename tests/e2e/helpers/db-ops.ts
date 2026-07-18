@@ -65,6 +65,7 @@ type GuidedScheduleFixtures = {
       id: string
       attendeeName: string
       startTime: string
+      registeredClient: SeededPerson
     }
     needsTestType: {
       id: string
@@ -499,9 +500,11 @@ async function seedGuidedScheduleFixtures(ctx: FixtureContext): Promise<GuidedSc
     },
   })
 
+  const registeredAfterBookingName = `Guided ${ctx.runId}`
+  const registeredAfterBookingEmail = `guided-after-booking.${ctx.runId}@example.com`
   const unlinked = await createBooking({
-    attendeeName: `E2E Unlinked Schedule ${ctx.runId}`,
-    attendeeEmail: `schedule.unlinked.${ctx.runId}@example.com`,
+    attendeeName: registeredAfterBookingName,
+    attendeeEmail: registeredAfterBookingEmail,
     startTime: atTodayHour(10),
     status: 'pending',
     scheduledTestType: '11-panel-lab',
@@ -512,6 +515,15 @@ async function seedGuidedScheduleFixtures(ctx: FixtureContext): Promise<GuidedSc
       status: 'unpaid',
     },
   })
+
+  // Reproduce the real ordering: the Cal.com booking exists first, then the client registers online.
+  const registeredAfterBooking = await createClient(payload, {
+    runId: ctx.runId,
+    fullName: registeredAfterBookingName,
+    emailPrefix: 'guided-after-booking',
+    referralEmails: [],
+  })
+  ctx.created.clientIds.push(registeredAfterBooking.id)
 
   const needsTestType = await createBooking({
     attendeeName: `E2E Needs Test Schedule ${ctx.runId}`,
@@ -555,6 +567,7 @@ async function seedGuidedScheduleFixtures(ctx: FixtureContext): Promise<GuidedSc
         id: unlinked.id,
         attendeeName: unlinked.attendeeName,
         startTime: unlinked.startTime,
+        registeredClient: registeredAfterBooking,
       },
       needsTestType: {
         id: needsTestType.id,

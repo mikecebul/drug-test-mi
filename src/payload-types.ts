@@ -1228,6 +1228,13 @@ export interface Booking {
  */
 export interface Client {
   id: string;
+  searchFirstName?: string | null;
+  searchMiddleInitial?: string | null;
+  searchLastName?: string | null;
+  searchFullName?: string | null;
+  searchEmail?: string | null;
+  searchPhone?: string | null;
+  searchDob?: string | null;
   /**
    * Full name (computed from first and last name)
    */
@@ -3499,6 +3506,13 @@ export interface EmployersSelect<T extends boolean = true> {
  * via the `definition` "clients_select".
  */
 export interface ClientsSelect<T extends boolean = true> {
+  searchFirstName?: T;
+  searchMiddleInitial?: T;
+  searchLastName?: T;
+  searchFullName?: T;
+  searchEmail?: T;
+  searchPhone?: T;
+  searchDob?: T;
   fullName?: T;
   headshot?: T;
   disableClientEmails?: T;

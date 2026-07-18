@@ -61,8 +61,8 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { APP_TIMEZONE } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
 import { ClientSearchDialog } from '../components/client/ClientSearchDialog'
-import { getClients, type SimpleClient } from '../components/client/getClients'
-import { searchClients } from '../components/client/clientSearch'
+import type { SimpleClient } from '../components/client/getClients'
+import { useClientSearch } from '../components/client/useClientSearch'
 import {
   cancelAndRefundGuidedBooking,
   cancelGuidedBooking,
@@ -204,6 +204,19 @@ function getBookingContactEmail(booking: Booking) {
   return booking.client?.email || booking.attendeeEmail
 }
 
+function getClientSearchMatchLabel(client: SimpleClient) {
+  const reason =
+    client.matchReason === 'date-of-birth'
+      ? 'date of birth'
+      : client.matchReason === 'recent'
+        ? 'recent client'
+        : client.matchReason || 'identity'
+
+  if (client.matchType === 'exact') return `Exact ${reason}`
+  if (client.matchType === 'partial') return `Partial ${reason}`
+  return `Possible ${reason} match`
+}
+
 function getClientIdentityMismatchKey(booking: Booking) {
   if (!booking.client || doesGuidedBookingNameMatchClient(booking.attendeeName, booking.client)) return null
 
@@ -321,10 +334,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     queryFn: () => getTodaysCollectionBookings(),
     refetchOnMount: 'always',
   })
-  const { data: allClients } = useQuery({
-    queryKey: ['guided', 'clients'],
-    queryFn: getClients,
-  })
   const { data: testTypes = [] } = useQuery({
     queryKey: ['guided', 'test-types'],
     queryFn: getActiveCollectionTestTypes,
@@ -359,16 +368,20 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       queryKey: ['guided', 'today-bookings'],
       queryFn: () => getTodaysCollectionBookings(),
     })
-  const suggestedClients = useMemo(() => {
-    if (!selectedBooking) return []
-    const queryParts = [
-      selectedBooking.attendeeEmail,
-      selectedBooking.attendeeName,
-      selectedBooking.attendeePhone,
-    ].filter(Boolean)
-
-    return searchClients(allClients, queryParts.join(' '), 3)
-  }, [allClients, selectedBooking])
+  const bookingClientSearch = useClientSearch(
+    {
+      name: selectedBooking?.attendeeName,
+      email: selectedBooking?.attendeeEmail,
+      phone: selectedBooking?.attendeePhone,
+      limit: 5,
+    },
+    {
+      enabled: currentStep === 'registration' && Boolean(selectedBooking && !selectedBooking.client),
+      debounceMs: 0,
+    },
+  )
+  const exactBookingMatches = bookingClientSearch.data?.exactMatches ?? []
+  const possibleBookingMatches = bookingClientSearch.data?.possibleMatches ?? []
   const selectedWalkInTestTypeId = walkInTestTypeId || testTypes[0]?.id || ''
   const selectedWalkInTestType = useMemo(
     () => testTypes.find((testType) => testType.id === selectedWalkInTestTypeId) ?? null,
@@ -784,11 +797,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <ClientSearchDialog
-              allClients={allClients}
-              selectedClientId={booking.client?.id ?? ''}
-              onSelect={handleUseExistingClient}
-            >
+            <ClientSearchDialog selectedClientId={booking.client?.id ?? ''} onSelect={handleUseExistingClient}>
               <Button type="button" variant="outline" size="lg" className="w-full">
                 <UserCheck className="mr-2 size-5" />
                 Change Client
@@ -970,11 +979,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     : 'None selected'}
                 </p>
               </div>
-              <ClientSearchDialog
-                allClients={allClients}
-                selectedClientId={walkInClient?.id ?? ''}
-                onSelect={setWalkInClient}
-              >
+              <ClientSearchDialog selectedClientId={walkInClient?.id ?? ''} onSelect={setWalkInClient}>
                 <Button type="button" variant="outline" size="lg" className="h-full min-h-12">
                   <Search className="mr-2 size-5" />
                   Select Client
@@ -1137,15 +1142,44 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
-            {!clientLinked && suggestedClients.length > 0 && (
-              <div className="space-y-3">
-                <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">Possible Matches</p>
-                {suggestedClients.map((client) => (
+            {!clientLinked && bookingClientSearch.isFetching && (
+              <div className="text-muted-foreground flex items-center gap-3 rounded-lg border p-4 text-base">
+                <Loader2 className="size-5 animate-spin" />
+                Checking whether this booking matches a registered client...
+              </div>
+            )}
+
+            {!clientLinked && bookingClientSearch.isError && (
+              <Alert variant="destructive">
+                <TriangleAlert />
+                <AlertTitle>Automatic client check failed</AlertTitle>
+                <AlertDescription>
+                  Search existing clients before registering so a duplicate profile is not created.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {!clientLinked && exactBookingMatches.length > 0 && (
+              <Alert className="border-success/50 bg-success/10">
+                <UserCheck />
+                <AlertTitle>Registered client found</AlertTitle>
+                <AlertDescription>
+                  This appointment matches an account created after booking. Confirm the identity, then select the
+                  client.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {!clientLinked && exactBookingMatches.length > 0 && (
+              <div className="space-y-3" data-testid="guided-exact-client-matches">
+                <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">Exact Matches</p>
+                {exactBookingMatches.map((client) => (
                   <button
                     key={client.id}
                     type="button"
                     onClick={() => handleUseExistingClient(client)}
-                    className="border-border bg-background hover:bg-muted/40 focus-visible:ring-ring flex w-full items-center justify-between gap-4 rounded-lg border p-4 text-left transition focus-visible:ring-2 focus-visible:outline-none"
+                    disabled={isPending}
+                    className="border-success/50 bg-success/5 hover:bg-success/10 focus-visible:ring-ring flex w-full items-center justify-between gap-4 rounded-lg border p-4 text-left transition focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60"
                   >
                     <span>
                       <span className="block text-xl font-semibold">{client.fullName}</span>
@@ -1153,18 +1187,44 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                         {client.email}
                         {client.phone ? ` · ${client.phone}` : ''}
                       </span>
+                      <Badge variant="success" className="mt-2">
+                        {getClientSearchMatchLabel(client)}
+                      </Badge>
                     </span>
-                    <span className="text-sm font-medium">Select</span>
+                    <span className="text-sm font-medium">Use Client</span>
                   </button>
                 ))}
               </div>
             )}
 
-            <ClientSearchDialog
-              allClients={allClients}
-              selectedClientId={selectedBooking.client?.id ?? ''}
-              onSelect={handleUseExistingClient}
-            >
+            {!clientLinked && possibleBookingMatches.length > 0 && (
+              <div className="space-y-3" data-testid="guided-possible-client-matches">
+                <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">Possible Matches</p>
+                {possibleBookingMatches.map((client) => (
+                  <button
+                    key={client.id}
+                    type="button"
+                    onClick={() => handleUseExistingClient(client)}
+                    disabled={isPending}
+                    className="border-border bg-background hover:bg-muted/40 focus-visible:ring-ring flex w-full items-center justify-between gap-4 rounded-lg border p-4 text-left transition focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60"
+                  >
+                    <span>
+                      <span className="block text-xl font-semibold">{client.fullName}</span>
+                      <span className="text-muted-foreground block text-base">
+                        {client.email}
+                        {client.phone ? ` · ${client.phone}` : ''}
+                      </span>
+                      <Badge variant="secondary" className="mt-2">
+                        {getClientSearchMatchLabel(client)}
+                      </Badge>
+                    </span>
+                    <span className="text-sm font-medium">Review Client</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <ClientSearchDialog selectedClientId={selectedBooking.client?.id ?? ''} onSelect={handleUseExistingClient}>
               <Button type="button" variant="outline" className="w-full" size="lg">
                 <Search className="mr-2 size-5" />
                 Search Existing Clients

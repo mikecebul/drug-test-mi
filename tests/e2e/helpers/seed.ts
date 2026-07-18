@@ -63,6 +63,7 @@ export type GuidedScheduleFixtures = {
       id: string
       attendeeName: string
       startTime: string
+      registeredClient: SeededPerson
     }
     needsTestType: {
       id: string
