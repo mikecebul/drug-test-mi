@@ -26,6 +26,8 @@ type ApplyIncomingPaymentInput = {
   relatedBooking?: RelationshipId | null
   relatedDrugTest?: RelationshipId | null
   reservedForBookingAmount?: number
+  bookingBalanceDue?: number
+  allocationOrder?: 'booking-first' | 'oldest-balance-first'
   stripeCheckoutSessionId?: string | null
   stripePaymentIntentId?: string | null
   stripeCheckoutUrl?: string | null
@@ -133,7 +135,10 @@ async function addClientCredit(
 
 export async function applyIncomingPayment(input: ApplyIncomingPaymentInput) {
   const amount = normalizeMoney(input.amount)
-  const reservedForBookingAmount = Math.min(normalizeMoney(input.reservedForBookingAmount), amount)
+  const allocationOrder = input.allocationOrder || 'booking-first'
+  const bookingReservationLimit = normalizeMoney(input.bookingBalanceDue ?? input.reservedForBookingAmount)
+  let reservedForBookingAmount =
+    allocationOrder === 'booking-first' ? Math.min(bookingReservationLimit, amount) : 0
   let remaining = subtractMoney(amount, reservedForBookingAmount)
   const allocations: PaymentAllocation[] = []
 
@@ -182,6 +187,11 @@ export async function applyIncomingPayment(input: ApplyIncomingPaymentInput) {
       })
       remaining = subtractMoney(remaining, amountApplied)
     }
+  }
+
+  if (allocationOrder === 'oldest-balance-first' && remaining > 0 && bookingReservationLimit > 0) {
+    reservedForBookingAmount = Math.min(bookingReservationLimit, remaining)
+    remaining = subtractMoney(remaining, reservedForBookingAmount)
   }
 
   const appliedAmount = allocations.reduce((total, allocation) => addMoney(total, allocation.amount), 0)

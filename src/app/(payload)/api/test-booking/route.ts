@@ -216,6 +216,9 @@ async function createTodayMockBookings(payload: Payload) {
     overrideAccess: true,
   })
 
+  // Keep first-time workflow fixtures distinct from clients created during prior test runs.
+  const unregisteredEmailSuffix = Date.now()
+
   const rows = [
     {
       attendeeName: 'Avery Stone',
@@ -243,7 +246,7 @@ async function createTodayMockBookings(payload: Payload) {
     },
     {
       attendeeName: 'Devon Carter',
-      attendeeEmail: 'mock.devon.carter@example.com',
+      attendeeEmail: `mock.devon.carter+${unregisteredEmailSuffix}@example.com`,
       attendeePhone: '2315550104',
       start: todayAt(13, 0),
       title: 'Mock First-Time Client',
@@ -251,7 +254,7 @@ async function createTodayMockBookings(payload: Payload) {
     },
     {
       attendeeName: 'Emery Lane',
-      attendeeEmail: 'mock.emery.lane@example.com',
+      attendeeEmail: `mock.emery.lane+${unregisteredEmailSuffix}@example.com`,
       attendeePhone: '2315550105',
       start: todayAt(14, 15),
       title: 'Mock Unregistered Referral Needed',

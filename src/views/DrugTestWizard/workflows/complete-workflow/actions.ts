@@ -313,6 +313,47 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
     sort: 'startTime',
     overrideAccess: true,
   })
+
+  const bookingIds = result.docs.map((booking) => String(booking.id))
+  const guidedPaymentTotals = new Map<string, number>()
+
+  if (bookingIds.length > 0) {
+    const guidedPayments = await payload.find({
+      collection: 'payments',
+      where: {
+        and: [
+          {
+            relatedBooking: {
+              in: bookingIds,
+            },
+          },
+          {
+            source: {
+              equals: 'guided-workflow',
+            },
+          },
+          {
+            status: {
+              equals: 'posted',
+            },
+          },
+        ],
+      },
+      depth: 0,
+      limit: 1000,
+      overrideAccess: true,
+    })
+
+    for (const payment of guidedPayments.docs) {
+      const relatedBookingId = getRelationshipId(payment.relatedBooking)
+      if (!relatedBookingId) continue
+      guidedPaymentTotals.set(
+        relatedBookingId,
+        normalizeMoney((guidedPaymentTotals.get(relatedBookingId) || 0) + normalizeMoney(payment.amount)),
+      )
+    }
+  }
+
   return Promise.all(
     result.docs.map(async (booking) => {
       const client = typeof booking.relatedClient === 'object' ? (booking.relatedClient as PopulatedClient) : null
@@ -376,6 +417,7 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
         bookingTestType,
         testType,
         payment: booking.payment || null,
+        guidedPaymentTotal: guidedPaymentTotals.get(String(booking.id)) || 0,
         sampleCollection: booking.sampleCollection || null,
         needsRegistration: !client,
         needsTestType: Boolean(client && !testType),
@@ -386,6 +428,45 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
 
 export async function getActiveCollectionTestTypes() {
   return getActiveTestTypes()
+}
+
+export async function getClientOutstandingPaymentBalances(clientId: string) {
+  if (!clientId) return []
+
+  const payload = await getAdminPayload()
+  const result = await payload.find({
+    collection: 'drug-tests',
+    where: {
+      and: [
+        {
+          relatedClient: {
+            equals: clientId,
+          },
+        },
+        {
+          'payment.balanceDue': {
+            greater_than: 0,
+          },
+        },
+      ],
+    },
+    depth: 0,
+    limit: 1000,
+    sort: 'collectionDate',
+    overrideAccess: true,
+  })
+
+  return result.docs
+    .map((test) => {
+      const testType = mapTestTypeValue(test.testType)
+      return {
+        id: String(test.id),
+        collectionDate: test.collectionDate || test.createdAt,
+        testTypeLabel: testType?.label || 'Drug test',
+        balanceDue: normalizeMoney(test.payment?.balanceDue),
+      }
+    })
+    .filter((balance) => balance.balanceDue > 0)
 }
 
 export async function getClientReferralProfile(clientId: string) {
@@ -720,26 +801,20 @@ export async function cancelAndRefundGuidedBooking(input: { bookingId: string })
 
 export async function recordBookingPayment(input: {
   bookingId: string
-  amountDue: number
-  amountPaid: number
-  method: PaymentMethod
-  status: PaymentStatus
+  amountReceived: number
+  method: Extract<PaymentMethod, 'cash' | 'card'>
   notes?: string
 }) {
   if (!input.bookingId) {
     return { success: false, error: 'Booking is required.' }
   }
 
-  if (!input.status || !input.method) {
-    return { success: false, error: 'Payment method and status are required.' }
+  if (input.method !== 'cash' && input.method !== 'card') {
+    return { success: false, error: 'Payment method must be cash or card.' }
   }
 
-  if (input.amountPaid < 0) {
-    return { success: false, error: 'Amount paid cannot be negative.' }
-  }
-
-  if (input.status !== 'paid' && input.amountDue > 0 && input.amountPaid >= input.amountDue) {
-    return { success: false, error: 'Use Paid if the full amount was collected.' }
+  if (!Number.isFinite(input.amountReceived) || input.amountReceived < 0) {
+    return { success: false, error: 'Amount received must be zero or greater.' }
   }
 
   const payload = await getAdminPayload()
@@ -747,20 +822,33 @@ export async function recordBookingPayment(input: {
     const existingBooking = await payload.findByID({
       collection: 'bookings',
       id: input.bookingId,
-      depth: 0,
+      depth: 4,
       overrideAccess: true,
       req,
     })
     const clientId = getRelationshipId(existingBooking.relatedClient)
-    const existingAmountPaid =
-      typeof existingBooking.payment?.amountPaid === 'number' ? existingBooking.payment.amountPaid : 0
-    const amountAppliedToBooking = Math.min(input.amountPaid, input.amountDue)
-    const existingAmountAppliedToBooking = Math.min(existingAmountPaid, input.amountDue)
-    const newAmountAppliedToBooking = Math.max(0, amountAppliedToBooking - existingAmountAppliedToBooking)
-    const incomingPaymentAmount = Math.max(0, input.amountPaid - existingAmountPaid)
-    const bookingPaymentStatus =
-      amountAppliedToBooking >= input.amountDue ? 'paid' : amountAppliedToBooking > 0 ? 'partial' : input.status
+    if (!clientId) {
+      throw new Error('Select or register the client before recording payment.')
+    }
+
+    const client =
+      typeof existingBooking.relatedClient === 'object'
+        ? (existingBooking.relatedClient as PopulatedClient)
+        : null
+    const referral = await resolveReferral(payload, client)
+    const testType =
+      mapTestTypeValue(existingBooking.scheduledTestType) ??
+      getCalcomBookingTestType(existingBooking) ??
+      getPreferredTestType(referral)
+    const amountDue = normalizeMoney(testType?.price ?? existingBooking.payment?.amountDue)
+
+    if (amountDue <= 0) {
+      throw new Error("Today's test does not have a valid payment amount.")
+    }
+
     const existingPayment = existingBooking.payment
+    const existingAmountPaid = Math.min(normalizeMoney(existingPayment?.amountPaid), amountDue)
+    const currentBookingBalance = Math.max(0, normalizeMoney(amountDue - existingAmountPaid))
     const notes =
       typeof input.notes === 'string'
         ? input.notes.trim() || null
@@ -768,14 +856,43 @@ export async function recordBookingPayment(input: {
           ? existingPayment.notes
           : null
 
+    let amountAppliedToBooking = 0
+
+    if (input.amountReceived > 0) {
+      const ledgerPayment = await applyIncomingPayment({
+        payload,
+        clientId,
+        amount: input.amountReceived,
+        method: input.method,
+        source: 'guided-workflow',
+        relatedBooking: input.bookingId,
+        bookingBalanceDue: currentBookingBalance,
+        allocationOrder: 'oldest-balance-first',
+        req,
+      })
+
+      amountAppliedToBooking = normalizeMoney(ledgerPayment.reservedForBookingAmount)
+    }
+
+    const nextAmountPaid = Math.min(amountDue, normalizeMoney(existingAmountPaid + amountAppliedToBooking))
+    const nextBalanceDue = Math.max(0, normalizeMoney(amountDue - nextAmountPaid))
+    const bookingPaymentStatus: PaymentStatus =
+      nextBalanceDue <= 0 ? 'paid' : nextAmountPaid > 0 ? 'partial' : 'unpaid'
+    const bookingPaymentMethod: PaymentMethod =
+      amountAppliedToBooking > 0
+        ? input.method
+        : existingAmountPaid > 0 && existingPayment?.method
+          ? existingPayment.method
+          : 'not-paid'
+
     const booking = await payload.update({
       collection: 'bookings',
       id: input.bookingId,
       data: {
         payment: {
-          amountDue: input.amountDue,
-          amountPaid: amountAppliedToBooking,
-          method: input.method,
+          amountDue,
+          amountPaid: nextAmountPaid,
+          method: bookingPaymentMethod,
           status: bookingPaymentStatus,
           notes,
           collectedAt: new Date().toISOString(),
@@ -785,19 +902,6 @@ export async function recordBookingPayment(input: {
       overrideAccess: true,
       req,
     })
-
-    if (clientId && incomingPaymentAmount > 0 && input.method !== 'pre-paid' && input.method !== 'not-paid') {
-      await applyIncomingPayment({
-        payload,
-        clientId,
-        amount: incomingPaymentAmount,
-        method: input.method === 'card' ? 'card' : 'cash',
-        source: 'guided-workflow',
-        relatedBooking: input.bookingId,
-        reservedForBookingAmount: newAmountAppliedToBooking,
-        req,
-      })
-    }
 
     return booking.payment
   })

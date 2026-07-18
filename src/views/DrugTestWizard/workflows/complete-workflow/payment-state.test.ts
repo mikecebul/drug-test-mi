@@ -1,44 +1,103 @@
 import { describe, expect, test } from 'vitest'
 
-import { updatePaidAmount, updateStillOwesAmount } from './payment-state'
+import {
+  buildGuidedPaymentAllocationPreview,
+  compactPreviousPaymentAllocations,
+  getGuidedPaymentQuickAmounts,
+  isValidGuidedPaymentAmount,
+  parseGuidedPaymentAmount,
+  type GuidedOutstandingBalance,
+} from './payment-state'
 
-const unpaidPayment = {
-  amountDue: 35,
-  amountPaid: 0,
-  choice: 'still-owes' as const,
-  method: 'cash' as const,
-}
+const previousBalance = (id: string, balanceDue = 35): GuidedOutstandingBalance => ({
+  id,
+  collectionDate: '2026-05-12T12:00:00.000Z',
+  testTypeLabel: '17-Panel Instant',
+  balanceDue,
+})
 
-describe('guided payment amount state', () => {
-  test("preserves money collected above today's test price", () => {
-    expect(updateStillOwesAmount(unpaidPayment, 75)).toEqual({
-      ...unpaidPayment,
-      amountPaid: 75,
-      choice: 'paid',
+describe('guided payment allocation preview', () => {
+  test('applies a $50 payment to the old test before today', () => {
+    const preview = buildGuidedPaymentAllocationPreview({
+      previousBalances: [previousBalance('old-test')],
+      currentBalanceDue: 35,
+      amountReceived: 50,
     })
+
+    expect(preview).toMatchObject({
+      previousBalanceTotal: 35,
+      currentBalanceDue: 35,
+      totalDue: 70,
+      currentAmountApplied: 15,
+      currentBalanceRemaining: 20,
+      creditAmount: 0,
+      remainingClientBalance: 20,
+    })
+    expect(preview.previousAllocations).toEqual([
+      expect.objectContaining({
+        id: 'old-test',
+        amountApplied: 35,
+        balanceRemaining: 0,
+      }),
+    ])
   })
 
-  test('keeps a partial payment in the still-owes state', () => {
-    expect(updateStillOwesAmount(unpaidPayment, 20)).toEqual({
-      ...unpaidPayment,
-      amountPaid: 20,
+  test('pays all of the oldest test and part of the second before today', () => {
+    const preview = buildGuidedPaymentAllocationPreview({
+      previousBalances: [previousBalance('oldest-test'), previousBalance('second-oldest-test')],
+      currentBalanceDue: 35,
+      amountReceived: 50,
     })
+
+    expect(preview.previousAllocations).toEqual([
+      expect.objectContaining({ id: 'oldest-test', amountApplied: 35, balanceRemaining: 0 }),
+      expect.objectContaining({ id: 'second-oldest-test', amountApplied: 15, balanceRemaining: 20 }),
+    ])
+    expect(preview.currentAmountApplied).toBe(0)
+    expect(preview.currentBalanceRemaining).toBe(35)
+    expect(preview.remainingClientBalance).toBe(55)
   })
 
-  test('changes prepaid to cash when additional money is collected', () => {
-    expect(
-      updatePaidAmount(
-        {
-          amountDue: 35,
-          amountPaid: 35,
-          choice: 'paid',
-          method: 'pre-paid',
-        },
-        75,
-      ),
-    ).toMatchObject({
-      amountPaid: 75,
-      method: 'cash',
+  test('turns money above the full balance into client credit', () => {
+    const preview = buildGuidedPaymentAllocationPreview({
+      previousBalances: [previousBalance('old-test')],
+      currentBalanceDue: 35,
+      amountReceived: 90,
     })
+
+    expect(preview.previousAllocations[0].amountApplied).toBe(35)
+    expect(preview.currentAmountApplied).toBe(35)
+    expect(preview.remainingClientBalance).toBe(0)
+    expect(preview.creditAmount).toBe(20)
+  })
+
+  test('allows an empty transient input and has no upper payment limit', () => {
+    expect(isValidGuidedPaymentAmount('')).toBe(true)
+    expect(parseGuidedPaymentAmount('')).toBe(0)
+    expect(isValidGuidedPaymentAmount('500')).toBe(true)
+    expect(parseGuidedPaymentAmount('500')).toBe(500)
+    expect(isValidGuidedPaymentAmount('-1')).toBe(false)
+  })
+
+  test('provides unique zero, today, and pay-all quick amounts', () => {
+    expect(getGuidedPaymentQuickAmounts(35, 70)).toEqual([0, 35, 70])
+    expect(getGuidedPaymentQuickAmounts(35, 35)).toEqual([0, 35])
+  })
+
+  test('collapses long histories around the first unpaid balance', () => {
+    const preview = buildGuidedPaymentAllocationPreview({
+      previousBalances: Array.from({ length: 7 }, (_, index) => previousBalance(`test-${index + 1}`)),
+      currentBalanceDue: 35,
+      amountReceived: 120,
+    })
+
+    const compactRows = compactPreviousPaymentAllocations(preview.previousAllocations)
+
+    expect(compactRows).toEqual([
+      expect.objectContaining({ kind: 'detail', allocation: expect.objectContaining({ id: 'test-1' }) }),
+      expect.objectContaining({ kind: 'summary', count: 2, amountApplied: 70 }),
+      expect.objectContaining({ kind: 'detail', allocation: expect.objectContaining({ id: 'test-4' }) }),
+      expect.objectContaining({ kind: 'summary', count: 3, amountApplied: 0 }),
+    ])
   })
 })

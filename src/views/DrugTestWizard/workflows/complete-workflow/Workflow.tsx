@@ -52,12 +52,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Input } from '@/components/ui/input'
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@/components/ui/input-group'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { APP_TIMEZONE } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
 import { ClientSearchDialog } from '../components/client/ClientSearchDialog'
@@ -68,6 +70,7 @@ import {
   cancelGuidedBooking,
   createWalkInBooking,
   getActiveCollectionTestTypes,
+  getClientOutstandingPaymentBalances,
   getClientReferralProfile,
   getTodaysCollectionBookings,
   linkBookingToClient,
@@ -81,19 +84,21 @@ import {
   getGuidedBookingNextStep,
   getGuidedClientName,
   getGuidedGenderBadgeClass,
-  getGuidedPaymentChoice,
   getGuidedPaymentLabel,
 } from './schedule-utils'
-import { updatePaidAmount, updateStillOwesAmount } from './payment-state'
+import {
+  buildGuidedPaymentAllocationPreview,
+  compactPreviousPaymentAllocations,
+  getGuidedPaymentQuickAmounts,
+  isValidGuidedPaymentAmount,
+  parseGuidedPaymentAmount,
+  type GuidedPaymentEntryMethod,
+} from './payment-state'
 import { ReferralProfileDrawer } from '../components/emails/referrals/ReferralProfileDrawer'
 
 type Booking = Awaited<ReturnType<typeof getTodaysCollectionBookings>>[number]
 type TestType = NonNullable<Booking['testType']>
-type PaymentMethod = 'cash' | 'card' | 'not-paid' | 'pre-paid'
-type PaymentEntryMethod = Exclude<PaymentMethod, 'not-paid'>
-type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type WorkflowStep = 'schedule' | 'registration' | 'payment' | 'toxaccess'
-type PaymentChoice = 'paid' | 'still-owes'
 type ScheduleAction = 'cancel' | 'cancel-refund'
 
 const workflowSteps = ['schedule', 'registration', 'payment', 'toxaccess'] as const
@@ -125,74 +130,35 @@ function formatDateOnly(value?: string | null) {
   }).format(new Date(value))
 }
 
-function getPaymentChoice(payment: Booking['payment'] | undefined): PaymentChoice | null {
-  const choice = getGuidedPaymentChoice(payment)
-  if (choice === 'still-owes') return 'still-owes'
-  if (choice === 'paid' || choice === 'pre-paid') return 'paid'
-  return null
+function formatPaymentDate(value: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: APP_TIMEZONE,
+  }).format(new Date(value))
 }
 
 function getPaymentDefaults(booking: Booking | null) {
   const amountDue = booking?.testType?.price ?? 0
   const existing = booking?.payment
-  const existingAmountPaid = typeof existing?.amountPaid === 'number' ? existing.amountPaid : 0
-  const choice =
-    existing?.status && amountDue > 0 && existingAmountPaid < amountDue ? 'still-owes' : getPaymentChoice(existing)
-  const defaultAmountPaid = choice === 'paid' ? amountDue : 0
-  const method: PaymentEntryMethod =
-    existing?.method === 'pre-paid' ? 'pre-paid' : existing?.method === 'card' ? 'card' : 'cash'
+  const existingAmountPaid = Math.min(
+    amountDue,
+    typeof existing?.amountPaid === 'number' ? Math.max(0, existing.amountPaid) : 0,
+  )
+  const currentBalanceDue = Math.max(0, amountDue - existingAmountPaid)
+  const hasPriorGuidedPayment = (booking?.guidedPaymentTotal ?? 0) > 0
+  const paymentStepWasRecorded = Boolean(existing?.collectedAt)
+  const defaultAmountReceived =
+    existingAmountPaid > 0 || hasPriorGuidedPayment || paymentStepWasRecorded ? 0 : currentBalanceDue
+  const method: GuidedPaymentEntryMethod = existing?.method === 'card' ? 'card' : 'cash'
 
   return {
     amountDue,
-    amountPaid: typeof existing?.amountPaid === 'number' ? existing.amountPaid : defaultAmountPaid,
-    choice,
+    existingAmountPaid,
+    currentBalanceDue,
+    amountReceived: String(defaultAmountReceived),
     method,
-  }
-}
-
-function getPersistedPayment(input: ReturnType<typeof getPaymentDefaults>): {
-  status: PaymentStatus
-  method: PaymentMethod
-  amountPaid: number
-} {
-  if (input.choice === 'still-owes') {
-    return {
-      status: 'partial',
-      method: input.amountPaid > 0 ? input.method : 'not-paid',
-      amountPaid: Math.max(0, Math.min(input.amountPaid, input.amountDue)),
-    }
-  }
-
-  return {
-    status: 'paid',
-    method: input.method === 'pre-paid' ? 'pre-paid' : input.method === 'card' ? 'card' : 'cash',
-    amountPaid: Math.max(input.amountPaid, input.amountDue),
-  }
-}
-
-function getPaymentCardCopy(payment: ReturnType<typeof getPaymentDefaults>) {
-  const balanceDue = Math.max(0, payment.amountDue - payment.amountPaid)
-
-  if (payment.choice === 'paid') {
-    return {
-      title: 'Payment Confirmed',
-      description: payment.method === 'pre-paid' ? 'Pre-paid through the booking.' : 'No balance due today.',
-    }
-  }
-
-  if (payment.choice === 'still-owes') {
-    return {
-      title: 'Payment Required',
-      description:
-        balanceDue > 0
-          ? `${currency.format(balanceDue)} balance due today`
-          : `${currency.format(payment.amountDue)} due today`,
-    }
-  }
-
-  return {
-    title: 'Payment Required',
-    description: `${currency.format(payment.amountDue)} due today`,
   }
 }
 
@@ -346,12 +312,22 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     [bookings, query.bookingId],
   )
   const selectedClientId = selectedBooking?.client?.id ?? null
+  const currentStep: WorkflowStep = query.step
   const { data: referralProfile = null, refetch: refetchReferralProfile } = useQuery({
     queryKey: ['guided', 'referral-profile', selectedClientId],
     queryFn: () => getClientReferralProfile(selectedClientId || ''),
     enabled: Boolean(selectedClientId),
   })
-  const currentStep: WorkflowStep = query.step
+  const {
+    data: outstandingPaymentBalances = [],
+    isLoading: isLoadingOutstandingPaymentBalances,
+    isError: hasOutstandingPaymentBalanceError,
+  } = useQuery({
+    queryKey: ['guided', 'outstanding-payment-balances', selectedClientId],
+    queryFn: () => getClientOutstandingPaymentBalances(selectedClientId || ''),
+    enabled: currentStep === 'payment' && Boolean(selectedClientId),
+    refetchOnMount: 'always',
+  })
   const [paymentDraft, setPaymentDraft] = useState<ReturnType<typeof getPaymentDefaults> | null>(null)
   const [verifiedClientMismatchKey, setVerifiedClientMismatchKey] = useState<string | null>(null)
   const [referralDrawerOpen, setReferralDrawerOpen] = useState(false)
@@ -359,7 +335,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const [testTypeDrawerSelection, setTestTypeDrawerSelection] = useState('')
   const [scheduleAction, setScheduleAction] = useState<{ action: ScheduleAction; booking: Booking } | null>(null)
   const payment = paymentDraft ?? getPaymentDefaults(selectedBooking)
-  const balanceDue = Math.max(0, payment.amountDue - payment.amountPaid)
+  const paymentAmountIsValid = isValidGuidedPaymentAmount(payment.amountReceived)
+  const amountReceived = parseGuidedPaymentAmount(payment.amountReceived)
   const paymentRecorded = Boolean(selectedBooking?.payment?.status)
   const selectedClientMismatchKey = selectedBooking ? getClientIdentityMismatchKey(selectedBooking) : null
   const clientIdentityIsVerified = !selectedClientMismatchKey || verifiedClientMismatchKey === selectedClientMismatchKey
@@ -546,24 +523,25 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       toast.error('Verify the selected client before continuing.')
       return
     }
-    if (!payment.choice) {
-      toast.error('Select a payment status before continuing.')
+    if (!paymentAmountIsValid) {
+      toast.error('Enter zero or a positive amount received.')
       return
     }
-
-    const persistedPayment = getPersistedPayment(payment)
-    if (payment.choice === 'still-owes' && payment.amountPaid >= payment.amountDue) {
-      toast.error('Use Paid if the full amount was collected.')
+    if (isLoadingOutstandingPaymentBalances) {
+      toast.error('Wait for the existing balances to finish loading.')
       return
     }
+    if (hasOutstandingPaymentBalanceError) {
+      toast.error('Existing balances could not be loaded. Refresh and try again.')
+      return
+    }
+    const clientId = selectedBooking.client.id
 
     startTransition(async () => {
       const result = await recordBookingPayment({
         bookingId: selectedBooking.id,
-        amountDue: payment.amountDue,
-        amountPaid: persistedPayment.amountPaid,
-        method: persistedPayment.method,
-        status: persistedPayment.status,
+        amountReceived,
+        method: payment.method,
       })
 
       if (!result.success) {
@@ -572,7 +550,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       }
 
       setPaymentDraft(null)
-      await refreshBookings()
+      await Promise.all([
+        refreshBookings(),
+        queryClient.invalidateQueries({
+          queryKey: ['guided', 'outstanding-payment-balances', clientId],
+        }),
+      ])
       setQuery({ step: 'toxaccess', bookingId: selectedBooking.id })
     })
   }
@@ -729,7 +712,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       booking.bookingTestType?.value !== booking.referralTestType?.value
     const hasTodayTestDifference =
       Boolean(booking.bookingTestType && booking.testType) && booking.bookingTestType?.value !== booking.testType?.value
-    const hasBalanceDifference = payment.amountPaid > 0 && payment.amountPaid < payment.amountDue
+    const hasBalanceDifference = payment.existingAmountPaid > 0 && payment.currentBalanceDue > 0
     const reviewRows = [
       { label: 'Appointment', value: formatTime(booking.startTime) },
       {
@@ -773,7 +756,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 {hasUnknownPrepaidTest && <p>The prepaid booking test is unknown for this appointment.</p>}
                 {hasTestMismatch && <p>The booking test does not match the current referral test.</p>}
                 {hasBalanceDifference && (
-                  <p>{currency.format(balanceDue)} remains due for today&apos;s selected test.</p>
+                  <p>{currency.format(payment.currentBalanceDue)} remains due for today&apos;s selected test.</p>
                 )}
               </div>
             </div>
@@ -1245,13 +1228,20 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     if (isLoading) return renderLoading('Payment')
     if (selectedBooking?.needsRegistration || selectedBooking?.needsTestType) return renderRegistration()
     if (!selectedBooking || !selectedBooking.testType) return renderMissingBooking('Payment')
-    const paymentCardCopy = getPaymentCardCopy(payment)
-    const clientMoneyOwed = selectedBooking.client?.moneyOwed ?? 0
     const clientCreditBalance = selectedBooking.client?.creditBalance ?? 0
-    const extraCollected = Math.max(0, payment.amountPaid - payment.amountDue)
-    const amountAppliedToExistingBalance = Math.min(extraCollected, clientMoneyOwed)
-    const amountBecomingCredit = Math.max(0, extraCollected - clientMoneyOwed)
-    const canUsePrepaidMethod = payment.method === 'pre-paid' || selectedBooking.payment?.method === 'pre-paid'
+    const allocationPreview = buildGuidedPaymentAllocationPreview({
+      previousBalances: outstandingPaymentBalances,
+      currentBalanceDue: payment.currentBalanceDue,
+      amountReceived,
+    })
+    const compactPreviousAllocations = compactPreviousPaymentAllocations(
+      allocationPreview.previousAllocations,
+    )
+    const quickAmounts = getGuidedPaymentQuickAmounts(
+      allocationPreview.currentBalanceDue,
+      allocationPreview.totalDue,
+    )
+    const activeQuickAmount = quickAmounts.includes(amountReceived) ? [String(amountReceived)] : []
 
     return (
       <div className="space-y-6">
@@ -1262,183 +1252,261 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-3 text-2xl">
               <CreditCard className="size-6" />
-              {paymentCardCopy.title}
+              Collect payment
             </CardTitle>
-            <CardDescription className="text-lg">{paymentCardCopy.description}</CardDescription>
+            <CardDescription className="text-base">
+              Payments are automatically applied to the oldest balance first.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {(clientMoneyOwed > 0 || clientCreditBalance > 0) && (
-              <div className="border-border bg-muted/30 grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
-                <div>
-                  <p className="text-muted-foreground text-sm font-medium">Existing balance</p>
-                  <p className={cn('text-2xl font-semibold', clientMoneyOwed > 0 && 'text-destructive')}>
-                    {currency.format(clientMoneyOwed)}
-                  </p>
+          <CardContent className="flex flex-col gap-6">
+            {hasOutstandingPaymentBalanceError ? (
+              <Alert variant="destructive">
+                <TriangleAlert />
+                <AlertTitle>Balances could not be loaded</AlertTitle>
+                <AlertDescription>Refresh the page before recording this payment.</AlertDescription>
+              </Alert>
+            ) : (
+              <div className="border-border bg-muted/30 grid gap-4 rounded-lg border p-4 sm:grid-cols-3">
+                <div className="flex flex-col gap-1">
+                  <p className="text-muted-foreground text-sm font-medium">Previous balance</p>
+                  {isLoadingOutstandingPaymentBalances ? (
+                    <Skeleton className="h-8 w-20" />
+                  ) : (
+                    <p className="text-2xl font-semibold">{currency.format(allocationPreview.previousBalanceTotal)}</p>
+                  )}
                 </div>
-                <div>
-                  <p className="text-muted-foreground text-sm font-medium">Client credit</p>
-                  <p className="text-2xl font-semibold">{currency.format(clientCreditBalance)}</p>
+                <div className="flex flex-col gap-1">
+                  <p className="text-muted-foreground text-sm font-medium">Today&apos;s test</p>
+                  <p className="text-2xl font-semibold">{currency.format(allocationPreview.currentBalanceDue)}</p>
+                </div>
+                <div className="flex flex-col gap-1 sm:border-l sm:pl-4">
+                  <p className="text-muted-foreground text-sm font-medium">Total due</p>
+                  {isLoadingOutstandingPaymentBalances ? (
+                    <Skeleton className="h-9 w-24" />
+                  ) : (
+                    <p className="text-3xl font-bold">{currency.format(allocationPreview.totalDue)}</p>
+                  )}
                 </div>
               </div>
             )}
 
-            <FieldSet>
-              <FieldLegend variant="label">Payment status</FieldLegend>
-              <RadioGroup
-                value={payment.choice ?? ''}
-                onValueChange={(value) => {
-                  const choice = value as PaymentChoice
-                  setPaymentDraft((current) => {
-                    const next = current ?? payment
-                    const maxPartialPayment = Math.max(0, next.amountDue - 1)
-                    const stillOwesAmountPaid = Math.max(0, Math.min(next.amountPaid, maxPartialPayment))
-                    return {
-                      ...next,
-                      choice,
-                      amountPaid:
-                        choice === 'still-owes' ? stillOwesAmountPaid : Math.max(next.amountPaid, next.amountDue),
-                    }
-                  })
-                }}
-                className="gap-3"
-              >
-                {[
-                  {
-                    value: 'paid',
-                    label: 'Paid',
-                    description:
-                      payment.method === 'pre-paid'
-                        ? 'Already paid through the booking.'
-                        : 'Payment collected now or already covered by the booking.',
-                  },
-                  { value: 'still-owes', label: 'Still owes', description: 'Partial payment or balance remains.' },
-                ].map((option) => (
-                  <Label
-                    key={option.value}
-                    htmlFor={`payment-${option.value}`}
-                    className={cn(
-                      'border-border bg-background hover:bg-muted/40 flex cursor-pointer items-start gap-4 rounded-lg border p-5 transition',
-                      payment.choice === option.value && 'border-foreground bg-muted/50',
-                    )}
-                  >
-                    <RadioGroupItem value={option.value} id={`payment-${option.value}`} className="mt-1" />
-                    <span className="space-y-0.5">
-                      <span className="block text-lg font-semibold">{option.label}</span>
-                      <span className="text-muted-foreground block text-base font-normal">{option.description}</span>
-                    </span>
-                  </Label>
-                ))}
-              </RadioGroup>
-            </FieldSet>
-
-            {payment.choice === 'paid' && (
-              <FieldGroup className="grid gap-4 sm:grid-cols-3">
-                <Field>
-                  <FieldLabel htmlFor="amount-collected">Amount collected</FieldLabel>
-                  <Input
-                    id="amount-collected"
+            <FieldGroup className="grid gap-4 sm:grid-cols-2">
+              <Field data-invalid={!paymentAmountIsValid || undefined}>
+                <FieldLabel htmlFor="amount-received">Amount received</FieldLabel>
+                <InputGroup className="h-12!">
+                  <InputGroupInput
+                    id="amount-received"
+                    name="amountReceived"
                     type="number"
-                    min={payment.amountDue}
-                    value={payment.amountPaid}
-                    onChange={(event) => {
-                      const amountPaid = Number(event.target.value || 0)
-                      setPaymentDraft((current) => updatePaidAmount(current ?? payment, amountPaid))
-                    }}
-                  />
-                  <FieldDescription>
-                    Enter today&apos;s test plus any previous balance being collected.
-                  </FieldDescription>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="payment-method">Method</FieldLabel>
-                  <Select
-                    items={[
-                      { value: 'cash', label: 'Cash' },
-                      { value: 'card', label: 'Card' },
-                      ...(canUsePrepaidMethod ? [{ value: 'pre-paid', label: 'Pre-paid' }] : []),
-                    ]}
-                    value={payment.method}
-                    onValueChange={(method) =>
+                    inputMode="decimal"
+                    min={0}
+                    step={1}
+                    value={payment.amountReceived}
+                    aria-invalid={!paymentAmountIsValid || undefined}
+                    onChange={(event) =>
                       setPaymentDraft((current) => ({
                         ...(current ?? payment),
-                        method: (method ?? 'cash') as PaymentEntryMethod,
+                        amountReceived: event.target.value,
                       }))
                     }
+                    className="text-lg"
+                  />
+                  <InputGroupAddon>
+                    <InputGroupText>$</InputGroupText>
+                  </InputGroupAddon>
+                </InputGroup>
+                <FieldDescription>
+                  {selectedBooking.guidedPaymentTotal > 0
+                    ? `${currency.format(selectedBooking.guidedPaymentTotal)} was already recorded here. Enter only additional money received now.`
+                    : 'Enter any amount received now. There is no maximum; excess becomes client credit.'}
+                </FieldDescription>
+                <FieldError
+                  errors={paymentAmountIsValid ? [] : ['Enter zero or a positive amount received.']}
+                />
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="payment-method">Method</FieldLabel>
+                <Select
+                  items={[
+                    { value: 'cash', label: 'Cash' },
+                    { value: 'card', label: 'Card' },
+                  ]}
+                  value={payment.method}
+                  onValueChange={(method) =>
+                    setPaymentDraft((current) => ({
+                      ...(current ?? payment),
+                      method: (method ?? 'cash') as GuidedPaymentEntryMethod,
+                    }))
+                  }
+                >
+                  <SelectTrigger id="payment-method" className="h-12! w-full text-base">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="card">Card</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </FieldGroup>
+
+            {!isLoadingOutstandingPaymentBalances && !hasOutstandingPaymentBalanceError && (
+              <ToggleGroup
+                value={activeQuickAmount}
+                onValueChange={(values) => {
+                  const value = values.at(-1)
+                  if (value === undefined) return
+                  setPaymentDraft((current) => ({
+                    ...(current ?? payment),
+                    amountReceived: value,
+                  }))
+                }}
+                variant="outline"
+                className="w-full"
+                aria-label="Quick amount received"
+              >
+                {quickAmounts.map((amount) => (
+                  <ToggleGroupItem
+                    key={amount}
+                    value={String(amount)}
+                    aria-label={`Set amount received to ${currency.format(amount)}`}
+                    className="h-10"
                   >
-                    <SelectTrigger id="payment-method">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="cash">Cash</SelectItem>
-                        <SelectItem value="card">Card</SelectItem>
-                        {canUsePrepaidMethod && <SelectItem value="pre-paid">Pre-paid</SelectItem>}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="extra-collected">Previous balance payment</FieldLabel>
-                  <Input id="extra-collected" value={currency.format(amountAppliedToExistingBalance)} readOnly />
-                  {amountBecomingCredit > 0 && (
-                    <FieldDescription>{currency.format(amountBecomingCredit)} becomes client credit.</FieldDescription>
-                  )}
-                </Field>
-              </FieldGroup>
+                    {currency.format(amount)}
+                    {amount > 0 && amount === allocationPreview.totalDue ? ' · Pay all' : ''}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
             )}
 
-            {payment.choice === 'still-owes' && (
-              <FieldGroup className="grid gap-4 sm:grid-cols-3">
-                <Field>
-                  <FieldLabel htmlFor="amount-paid">Amount paid</FieldLabel>
-                  <Input
-                    id="amount-paid"
-                    type="number"
-                    min={0}
-                    value={payment.amountPaid}
-                    onChange={(event) => {
-                      const amountPaid = Number(event.target.value || 0)
-                      setPaymentDraft((current) => updateStillOwesAmount(current ?? payment, amountPaid))
-                    }}
-                  />
-                  <FieldDescription>
-                    Amounts covering today&apos;s test switch to Paid without discarding any extra collected.
-                  </FieldDescription>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="partial-payment-method">Method</FieldLabel>
-                  <Select
-                    items={[
-                      { value: 'cash', label: 'Cash' },
-                      { value: 'card', label: 'Card' },
-                      ...(canUsePrepaidMethod ? [{ value: 'pre-paid', label: 'Pre-paid' }] : []),
-                    ]}
-                    value={payment.method}
-                    onValueChange={(method) =>
-                      setPaymentDraft((current) => ({
-                        ...(current ?? payment),
-                        method: (method ?? 'cash') as PaymentEntryMethod,
-                      }))
+            {clientCreditBalance > 0 && (
+              <Alert>
+                <CreditCard />
+                <AlertTitle>{currency.format(clientCreditBalance)} client credit available</AlertTitle>
+                <AlertDescription>
+                  Existing credit remains separate from money received in this step.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="border-border overflow-hidden rounded-lg border">
+              <div className="flex items-center justify-between gap-3 p-4">
+                <p className="text-lg font-semibold">Payment allocation</p>
+                <Badge variant="outline">Oldest first</Badge>
+              </div>
+              <Separator />
+
+              {isLoadingOutstandingPaymentBalances ? (
+                <div className="flex flex-col gap-4 p-4">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              ) : hasOutstandingPaymentBalanceError ? (
+                <p className="text-destructive p-4 text-sm">Allocation preview is unavailable.</p>
+              ) : (
+                <div className="divide-border divide-y">
+                  {compactPreviousAllocations.map((row) => {
+                    if (row.kind === 'summary') {
+                      return (
+                        <div key={row.key} className="bg-muted/20 grid gap-2 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                          <div className="flex flex-col gap-1">
+                            <p className="font-medium">{row.count} other previous tests</p>
+                            <p className="text-muted-foreground text-sm">{currency.format(row.amountDue)} total due</p>
+                          </div>
+                          <div className="text-left sm:text-right">
+                            <p className="font-medium">{currency.format(row.amountApplied)} applied</p>
+                            {row.balanceRemaining > 0 && (
+                              <p className="text-destructive text-sm">
+                                {currency.format(row.balanceRemaining)} remaining
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )
                     }
-                    disabled={payment.amountPaid <= 0}
+
+                    const allocationNumber =
+                      allocationPreview.previousAllocations.findIndex(
+                        (allocation) => allocation.id === row.allocation.id,
+                      ) + 1
+
+                    return (
+                      <div
+                        key={row.allocation.id}
+                        className="grid gap-3 p-4 sm:grid-cols-[auto_1fr_auto] sm:items-center"
+                      >
+                        <Badge variant="outline" className="size-8 rounded-full p-0">
+                          {allocationNumber}
+                        </Badge>
+                        <div className="flex min-w-0 flex-col gap-1">
+                          <p className="font-medium">
+                            {formatPaymentDate(row.allocation.collectionDate)} · {row.allocation.testTypeLabel}
+                          </p>
+                          <p className="text-muted-foreground text-sm">
+                            Previous test · {currency.format(row.allocation.balanceDue)} due
+                          </p>
+                        </div>
+                        <div className="text-left sm:text-right">
+                          <p className="font-medium">{currency.format(row.allocation.amountApplied)} applied</p>
+                          {row.allocation.balanceRemaining <= 0 ? (
+                            <Badge variant="success">Paid</Badge>
+                          ) : (
+                            <p className="text-destructive text-sm font-medium">
+                              {currency.format(row.allocation.balanceRemaining)} remaining
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  <div className="grid gap-3 p-4 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+                    <Badge variant="outline" className="size-8 rounded-full p-0">
+                      {allocationPreview.previousAllocations.length + 1}
+                    </Badge>
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <p className="font-medium">Today · {selectedBooking.testType.label}</p>
+                      <p className="text-muted-foreground text-sm">
+                        Current test · {currency.format(allocationPreview.currentBalanceDue)} due
+                      </p>
+                    </div>
+                    <div className="text-left sm:text-right">
+                      <p className="font-medium">{currency.format(allocationPreview.currentAmountApplied)} applied</p>
+                      {allocationPreview.currentBalanceRemaining <= 0 ? (
+                        <Badge variant="success">Paid</Badge>
+                      ) : (
+                        <p className="text-destructive text-sm font-medium">
+                          {currency.format(allocationPreview.currentBalanceRemaining)} remaining
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {!isLoadingOutstandingPaymentBalances && !hasOutstandingPaymentBalanceError && (
+              <div className="border-border bg-muted/20 flex items-center justify-between gap-4 rounded-lg border p-4">
+                <p className="font-medium">Remaining client balance</p>
+                <div className="text-right">
+                  <p
+                    className={cn(
+                      'text-2xl font-semibold',
+                      allocationPreview.remainingClientBalance > 0 ? 'text-destructive' : 'text-success',
+                    )}
                   >
-                    <SelectTrigger id="partial-payment-method">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="cash">Cash</SelectItem>
-                        <SelectItem value="card">Card</SelectItem>
-                        {canUsePrepaidMethod && <SelectItem value="pre-paid">Pre-paid</SelectItem>}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="balance-due">Balance due</FieldLabel>
-                  <Input id="balance-due" value={currency.format(balanceDue)} readOnly />
-                </Field>
-              </FieldGroup>
+                    {currency.format(allocationPreview.remainingClientBalance)}
+                  </p>
+                  {allocationPreview.creditAmount > 0 && (
+                    <p className="text-muted-foreground text-sm">
+                      {currency.format(allocationPreview.creditAmount)} becomes client credit
+                    </p>
+                  )}
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -1552,7 +1620,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const nextLabel = currentStep === 'toxaccess' ? 'Continue Collection' : 'Next'
   const canGoNext =
     currentStep === 'payment'
-      ? Boolean(selectedBooking?.testType && selectedBooking.client?.id && payment.choice && clientIdentityIsVerified)
+      ? Boolean(
+          selectedBooking?.testType &&
+            selectedBooking.client?.id &&
+            paymentAmountIsValid &&
+            !isLoadingOutstandingPaymentBalances &&
+            !hasOutstandingPaymentBalanceError &&
+            clientIdentityIsVerified,
+        )
       : currentStep === 'toxaccess'
         ? Boolean(
             paymentRecorded && selectedBooking?.testType && selectedBooking.client?.id && clientIdentityIsVerified,

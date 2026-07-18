@@ -123,6 +123,169 @@ describe('payment allocation service', () => {
     )
   })
 
+  test('allocates guided payments to an old balance before reserving the remainder for today', async () => {
+    const payload = createMockPayload({
+      unpaidTests: [
+        {
+          id: 'old-test',
+          payment: {
+            amountDue: 35,
+            amountPaid: 0,
+            balanceDue: 35,
+            status: 'unpaid',
+          },
+        },
+      ],
+    })
+
+    await applyIncomingPayment({
+      payload: payload as unknown as Payload,
+      clientId: 'client-1',
+      amount: 50,
+      method: 'cash',
+      source: 'guided-workflow',
+      relatedBooking: 'booking-1',
+      bookingBalanceDue: 35,
+      allocationOrder: 'oldest-balance-first',
+    })
+
+    expect(payload.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'drug-tests',
+        id: 'old-test',
+        data: expect.objectContaining({
+          payment: expect.objectContaining({
+            amountPaid: 35,
+            balanceDue: 0,
+            status: 'paid',
+          }),
+        }),
+      }),
+    )
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'payments',
+        data: expect.objectContaining({
+          amount: 50,
+          appliedAmount: 35,
+          reservedForBookingAmount: 15,
+          creditAmount: 0,
+          allocations: [{ drugTest: 'old-test', amount: 35 }],
+        }),
+      }),
+    )
+  })
+
+  test('pays multiple prior tests in order before applying anything to today', async () => {
+    const payload = createMockPayload({
+      unpaidTests: [
+        {
+          id: 'oldest-test',
+          payment: {
+            amountDue: 35,
+            amountPaid: 0,
+            balanceDue: 35,
+            status: 'unpaid',
+          },
+        },
+        {
+          id: 'second-oldest-test',
+          payment: {
+            amountDue: 35,
+            amountPaid: 0,
+            balanceDue: 35,
+            status: 'unpaid',
+          },
+        },
+      ],
+    })
+
+    await applyIncomingPayment({
+      payload: payload as unknown as Payload,
+      clientId: 'client-1',
+      amount: 50,
+      method: 'cash',
+      source: 'guided-workflow',
+      relatedBooking: 'booking-1',
+      bookingBalanceDue: 35,
+      allocationOrder: 'oldest-balance-first',
+    })
+
+    expect(payload.update).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        id: 'oldest-test',
+        data: expect.objectContaining({ payment: expect.objectContaining({ amountPaid: 35, balanceDue: 0 }) }),
+      }),
+    )
+    expect(payload.update).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        id: 'second-oldest-test',
+        data: expect.objectContaining({ payment: expect.objectContaining({ amountPaid: 15, balanceDue: 20 }) }),
+      }),
+    )
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          reservedForBookingAmount: 0,
+          appliedAmount: 50,
+          creditAmount: 0,
+          allocations: [
+            { drugTest: 'oldest-test', amount: 35 },
+            { drugTest: 'second-oldest-test', amount: 15 },
+          ],
+        }),
+      }),
+    )
+  })
+
+  test('stores guided overpayments as credit after old and current balances are covered', async () => {
+    const payload = createMockPayload({
+      clientCredit: 5,
+      unpaidTests: [
+        {
+          id: 'old-test',
+          payment: {
+            amountDue: 35,
+            amountPaid: 0,
+            balanceDue: 35,
+            status: 'unpaid',
+          },
+        },
+      ],
+    })
+
+    await applyIncomingPayment({
+      payload: payload as unknown as Payload,
+      clientId: 'client-1',
+      amount: 90,
+      method: 'cash',
+      source: 'guided-workflow',
+      relatedBooking: 'booking-1',
+      bookingBalanceDue: 35,
+      allocationOrder: 'oldest-balance-first',
+    })
+
+    expect(payload.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'clients',
+        id: 'client-1',
+        data: { creditBalance: 25 },
+      }),
+    )
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          amount: 90,
+          appliedAmount: 35,
+          reservedForBookingAmount: 35,
+          creditAmount: 20,
+        }),
+      }),
+    )
+  })
+
   test('keeps overpayments as client credit after open balances are paid', async () => {
     const payload = createMockPayload({
       clientCredit: 5,
