@@ -80,6 +80,16 @@ test.describe('Wizard Register Client', () => {
     await selectWorkflow(page, 'Register New Client')
   })
 
+  test('normalizes common two-digit DOB formats when the field loses focus', async ({ page }) => {
+    const dobInput = page.getByLabel('Date of Birth')
+
+    for (const value of ['1/5/90', '01/5/1990', '1-5-90']) {
+      await dobInput.fill(value)
+      await dobInput.blur()
+      await expect(dobInput).toHaveValue('01/05/1990')
+    }
+  })
+
   test('validates required fields and supports back-forward in recipient setup', async ({ page }) => {
     await clickNext(page)
     await expect(page.getByText('First name is required')).toBeVisible()

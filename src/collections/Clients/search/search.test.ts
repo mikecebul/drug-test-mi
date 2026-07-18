@@ -1,6 +1,12 @@
 import { describe, expect, test, vi } from 'vitest'
 import { adminClientSearchEndpoint } from './endpoint'
-import { buildClientSearchFields, normalizeSearchDob, normalizeSearchPhone, normalizeSearchText } from './normalize'
+import {
+  buildClientSearchFields,
+  looksLikeDobSearch,
+  normalizeSearchDob,
+  normalizeSearchPhone,
+  normalizeSearchText,
+} from './normalize'
 import { rankClientCandidates } from './rank'
 import { searchClientsForAdmin } from './service'
 
@@ -52,7 +58,10 @@ describe('client search normalization', () => {
     expect(normalizeSearchText("  José  O'Neil-Smith ")).toBe('jose o neil smith')
     expect(normalizeSearchPhone('+1 (616) 222-9999')).toBe('6162229999')
     expect(normalizeSearchDob('11/30/1988')).toBe('1988-11-30')
+    expect(normalizeSearchDob('11/30/88')).toBe('1988-11-30')
+    expect(normalizeSearchDob('11-30-88')).toBe('1988-11-30')
     expect(normalizeSearchDob('11301988')).toBe('1988-11-30')
+    expect(looksLikeDobSearch('11-30-88')).toBe(true)
 
     expect(
       buildClientSearchFields({
@@ -181,6 +190,24 @@ describe('protected server-side client search', () => {
       expect.objectContaining({ id: 'phone', matchType: 'partial', matchReason: 'phone' }),
     ])
     expect(payload.find).toHaveBeenCalledTimes(1)
+  })
+
+  test('classifies a hyphenated two-digit-year query as DOB rather than phone', async () => {
+    const client = createClient('dob')
+    const payload = createSearchPayload(page([client]))
+
+    const result = await searchClientsForAdmin({
+      payload: payload as never,
+      req: { user: adminUser } as never,
+      input: { query: '11-30-88' },
+    })
+
+    expect(result.exactMatches).toEqual([
+      expect.objectContaining({ id: 'dob', matchType: 'exact', matchReason: 'date-of-birth' }),
+    ])
+    expect(payload.find).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { searchDob: { equals: '1988-11-30' } } }),
+    )
   })
 
   test('paginates past 1,000 clients when a typo requires the Fuse fallback', async () => {

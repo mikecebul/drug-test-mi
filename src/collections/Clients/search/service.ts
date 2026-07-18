@@ -60,8 +60,9 @@ function getInputValues(input: ClientSearchInput) {
   const query = input.query?.trim() ?? ''
   const structuredName = input.name?.trim() ?? ''
   const email = normalizeSearchEmail(input.email || (query.includes('@') ? query : ''))
-  const phone = normalizeSearchPhone(input.phone || (looksLikePhoneSearch(query) ? query : ''))
-  const dob = normalizeSearchDob(input.dob || (looksLikeDobSearch(query) ? query : ''))
+  const queryDob = looksLikeDobSearch(query) ? query : ''
+  const dob = normalizeSearchDob(input.dob || queryDob)
+  const phone = normalizeSearchPhone(input.phone || (!queryDob && looksLikePhoneSearch(query) ? query : ''))
   const name = normalizeSearchText(structuredName || (!email && !phone && !dob ? query : ''))
 
   return { query, name, email, phone, dob }

@@ -1,3 +1,4 @@
+import { formatDobISO } from '@/lib/date-utils'
 import type { ClientSearchFields } from './types'
 
 type ClientIdentity = {
@@ -29,21 +30,7 @@ export function normalizeSearchPhone(value?: string | null): string {
 }
 
 export function normalizeSearchDob(value?: string | null): string {
-  const trimmed = (value ?? '').trim()
-  if (!trimmed) return ''
-
-  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`
-
-  const usMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)
-  if (usMatch) {
-    return `${usMatch[3]}-${usMatch[1].padStart(2, '0')}-${usMatch[2].padStart(2, '0')}`
-  }
-
-  const compactMatch = trimmed.match(/^(\d{2})(\d{2})(\d{4})$/)
-  if (compactMatch) return `${compactMatch[3]}-${compactMatch[1]}-${compactMatch[2]}`
-
-  return ''
+  return formatDobISO(value)
 }
 
 export function buildClientSearchFields(client: ClientIdentity): ClientSearchFields {
@@ -68,5 +55,5 @@ export function looksLikePhoneSearch(value: string): boolean {
 }
 
 export function looksLikeDobSearch(value: string): boolean {
-  return Boolean(normalizeSearchDob(value)) && (/[/\-]/.test(value) || /^\d{8}$/.test(value.trim()))
+  return Boolean(normalizeSearchDob(value)) && (/[/\-]/.test(value) || /^\d{6}(?:\d{2})?$/.test(value.trim()))
 }

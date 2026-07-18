@@ -10,17 +10,13 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Badge } from '@/components/ui/badge'
+import { formatDobInput } from '@/lib/date-utils'
 import { Check, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import type { ClientSearchMatchReason, ClientSearchResult } from '@/collections/Clients/search/types'
 import { getClientById, type SimpleClient } from './getClients'
 import { CLIENT_SEARCH_MIN_CHARS } from './clientSearch'
 import { useClientSearch } from './useClientSearch'
-
-function formatDob(value?: string) {
-  const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  return match ? `${match[2]}/${match[3]}/${match[1]}` : value
-}
 
 function getMatchLabel(result: ClientSearchResult) {
   if (result.matchReason === 'recent') return 'Recently updated'
@@ -123,7 +119,7 @@ export const ClientSearchDialog = ({
         <span className="text-muted-foreground block truncate text-sm">{client.email}</span>
         <span className="text-muted-foreground block text-sm">
           {client.phone || 'No phone on file'}
-          {client.dob ? ` · DOB ${formatDob(client.dob)}` : ''}
+          {client.dob ? ` · DOB ${formatDobInput(client.dob)}` : ''}
         </span>
       </div>
     </CommandItem>
