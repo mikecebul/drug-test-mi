@@ -35,6 +35,14 @@ async function openGuidedSchedule(page: Page) {
   await expect(page.getByText('Loading appointments...')).toBeHidden({ timeout: 30_000 })
 }
 
+async function verifyGuidedClientMismatch(page: Page) {
+  const mismatchConfirmation = page.getByRole('checkbox', {
+    name: /I verified .* is the person testing today/i,
+  })
+  await expect(mismatchConfirmation).toBeVisible()
+  await mismatchConfirmation.check()
+}
+
 test.describe("Wizard Today's Schedule", () => {
   test.describe.configure({ mode: 'serial' })
 
@@ -111,7 +119,11 @@ test.describe("Wizard Today's Schedule", () => {
 
     await scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
     await expect(page.getByRole('heading', { name: 'Review and Payment' })).toBeVisible()
+    await expect(page.getByText('Selected client', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText(fixtures.clients.instant.fullName, { exact: true }).first()).toBeVisible()
     await expect(page.getByText(scheduleFixtures.bookings.paidLinked.attendeeName)).toBeVisible()
+    await expect(page.getByText('Booking name does not match the selected client')).toBeVisible()
+    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
     await expect(page.getByText('Male')).toHaveClass(/text-blue-900/)
     await expect(
       page.getByText(`${formatScheduleTime(scheduleFixtures.bookings.paidLinked.startTime)} · Male`),
@@ -164,6 +176,7 @@ test.describe("Wizard Today's Schedule", () => {
 
     await scheduleCardButton(page, booking.attendeeName).click()
     await expect(page.getByRole('heading', { name: 'Review and Payment' })).toBeVisible()
+    await verifyGuidedClientMismatch(page)
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()
     await expect(page.getByText('17-Panel Instant', { exact: true }).last()).toBeVisible()
@@ -206,6 +219,18 @@ test.describe("Wizard Today's Schedule", () => {
     await selectClientFromSearchDialog(page, fixtures.clients.collectLab.fullName)
 
     await expect(page.getByRole('heading', { name: 'Review and Payment' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText(fixtures.clients.collectLab.fullName, { exact: true }).first()).toBeVisible()
+    await expect(page.getByText(`Booked as ${booking.attendeeName}`, { exact: false })).toBeVisible()
+    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
+
+    await selectClientFromSearchDialog(page, fixtures.clients.instant.fullName)
+    await expect(page.getByText(fixtures.clients.instant.fullName, { exact: true }).first()).toBeVisible()
+    await expect(
+      page.getByRole('checkbox', { name: new RegExp(fixtures.clients.instant.firstName, 'i') }),
+    ).not.toBeChecked()
+    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
+
+    await verifyGuidedClientMismatch(page)
     await expect(page.getByRole('radio', { name: /^Still owes/i })).toBeChecked()
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()
@@ -218,11 +243,10 @@ test.describe("Wizard Today's Schedule", () => {
     expect(labUrl.searchParams.get('workflow')).toBe('collect-lab')
     expect(labUrl.searchParams.get('step')).toBe('medications')
     expect(labUrl.searchParams.get('bookingId')).toBe(booking.id)
-    expect(labUrl.searchParams.get('clientId')).toBe(fixtures.clients.collectLab.id)
+    expect(labUrl.searchParams.get('clientId')).toBe(fixtures.clients.instant.id)
     expect(labUrl.searchParams.get('testType')).toBe('11-panel-lab')
     expect(labUrl.searchParams.get('returnTo')).toBe('guided')
 
-    await expect(page.getByText(fixtures.clients.collectLab.fullName)).toBeVisible()
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Collection Details' })).toBeVisible()
     await expect(page.getByRole('radio', { name: /^11-Panel$/i })).toBeChecked()

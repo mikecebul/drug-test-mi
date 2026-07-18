@@ -28,6 +28,7 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
 }
 
 function CommandDialog({
+  backdropProps,
   title = 'Command Palette',
   description = 'Search for a command to run...',
   children,
@@ -37,6 +38,7 @@ function CommandDialog({
   trigger,
   ...props
 }: Omit<React.ComponentProps<typeof Dialog>, 'children'> & {
+  backdropProps?: React.ComponentProps<typeof DialogContent>['backdropProps']
   children?: React.ReactNode
   title?: string
   description?: string
@@ -57,6 +59,7 @@ function CommandDialog({
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <DialogContent
+        backdropProps={backdropProps}
         data-twp
         className={cn('top-[25%] overflow-hidden p-0 sm:max-w-2xl', className)}
         showCloseButton={showCloseButton}

@@ -41,10 +41,14 @@ export const ClientSearchDialog = ({
       : 'No client found.'
 
   const groupLabel = showingRecent ? 'Recent Clients' : 'Search Results'
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen)
+    if (!nextOpen) setSearchQuery('')
+  }
+
   const handleSelect = (client: SimpleClient) => {
     onSelect(client)
-    setSearchQuery('')
-    setOpen(false)
+    handleOpenChange(false)
   }
 
   return (
@@ -52,8 +56,14 @@ export const ClientSearchDialog = ({
       title="Search and Select Client"
       trigger={children}
       commandProps={{ shouldFilter: false }}
+      disablePointerDismissal
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={handleOpenChange}
+      backdropProps={{
+        // Base UI can dismiss on pointer-down. Closing on the completed backdrop
+        // click keeps that click from reaching a suggested client behind the dialog.
+        onClick: () => handleOpenChange(false),
+      }}
     >
       <CommandInput
         value={searchQuery}

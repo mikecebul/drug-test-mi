@@ -25,6 +25,7 @@ import {
   UserPlus,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -53,6 +54,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { APP_TIMEZONE } from '@/lib/date-utils'
@@ -73,12 +76,15 @@ import {
   setBookingScheduledTestType,
 } from './actions'
 import {
+  doesGuidedBookingNameMatchClient,
   formatGuidedGender,
   getGuidedBookingNextStep,
+  getGuidedClientName,
   getGuidedGenderBadgeClass,
   getGuidedPaymentChoice,
   getGuidedPaymentLabel,
 } from './schedule-utils'
+import { updatePaidAmount, updateStillOwesAmount } from './payment-state'
 import { ReferralProfileDrawer } from '../components/emails/referrals/ReferralProfileDrawer'
 
 type Booking = Awaited<ReturnType<typeof getTodaysCollectionBookings>>[number]
@@ -196,6 +202,12 @@ function getPaymentLabel(booking: Booking) {
 
 function getBookingContactEmail(booking: Booking) {
   return booking.client?.email || booking.attendeeEmail
+}
+
+function getClientIdentityMismatchKey(booking: Booking) {
+  if (!booking.client || doesGuidedBookingNameMatchClient(booking.attendeeName, booking.client)) return null
+
+  return [booking.id, booking.client.id, booking.attendeeName, getGuidedClientName(booking.client)].join(':')
 }
 
 function getAmountDisplay(booking: Booking) {
@@ -332,6 +344,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   })
   const currentStep: WorkflowStep = query.step
   const [paymentDraft, setPaymentDraft] = useState<ReturnType<typeof getPaymentDefaults> | null>(null)
+  const [verifiedClientMismatchKey, setVerifiedClientMismatchKey] = useState<string | null>(null)
   const [referralDrawerOpen, setReferralDrawerOpen] = useState(false)
   const [testTypeDrawerOpen, setTestTypeDrawerOpen] = useState(false)
   const [testTypeDrawerSelection, setTestTypeDrawerSelection] = useState('')
@@ -339,6 +352,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const payment = paymentDraft ?? getPaymentDefaults(selectedBooking)
   const balanceDue = Math.max(0, payment.amountDue - payment.amountPaid)
   const paymentRecorded = Boolean(selectedBooking?.payment?.status)
+  const selectedClientMismatchKey = selectedBooking ? getClientIdentityMismatchKey(selectedBooking) : null
+  const clientIdentityIsVerified = !selectedClientMismatchKey || verifiedClientMismatchKey === selectedClientMismatchKey
   const refreshBookings = () =>
     queryClient.fetchQuery({
       queryKey: ['guided', 'today-bookings'],
@@ -510,6 +525,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
   const handlePaymentNext = () => {
     if (!selectedBooking?.testType) return
+    if (!selectedBooking.client?.id) {
+      toast.error('Select or register the client before recording payment.')
+      return
+    }
+    if (!clientIdentityIsVerified) {
+      toast.error('Verify the selected client before continuing.')
+      return
+    }
     if (!payment.choice) {
       toast.error('Select a payment status before continuing.')
       return
@@ -543,6 +566,10 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
   const handleContinueToCollection = () => {
     if (!selectedBooking?.testType || !selectedBooking.client?.id) return
+    if (!clientIdentityIsVerified) {
+      toast.error('Verify the selected client before continuing.')
+      return
+    }
 
     startTransition(async () => {
       const context = await refreshBookingClientContext(selectedBooking.id)
@@ -588,15 +615,53 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     </div>
   )
 
+  const renderClientIdentityMismatch = (booking: Booking) => {
+    const mismatchKey = getClientIdentityMismatchKey(booking)
+    if (!mismatchKey || !booking.client) return null
+
+    const selectedClientName = getGuidedClientName(booking.client) || 'Unknown client'
+    const confirmationId = `verify-client-identity-${booking.id}`
+    const isConfirmed = verifiedClientMismatchKey === mismatchKey
+
+    return (
+      <Alert variant="destructive" data-testid="client-identity-mismatch">
+        <TriangleAlert />
+        <AlertTitle>Booking name does not match the selected client</AlertTitle>
+        <AlertDescription>
+          <p>
+            Booked as <strong>{booking.attendeeName}</strong>, but the selected client is{' '}
+            <strong>{selectedClientName}</strong>.
+          </p>
+          <p>Change the client if this is wrong. Otherwise, verify their identity before continuing.</p>
+          <Field orientation="horizontal" className="mt-3 rounded-md border border-current/30 p-3">
+            <Checkbox
+              id={confirmationId}
+              checked={isConfirmed}
+              onCheckedChange={(checked) => setVerifiedClientMismatchKey(checked === true ? mismatchKey : null)}
+            />
+            <FieldLabel htmlFor={confirmationId} className="cursor-pointer font-normal">
+              I verified {selectedClientName} is the person testing today.
+            </FieldLabel>
+          </Field>
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
   const renderSelectedSummary = (booking: Booking) => {
     const amountDisplay = getAmountDisplay(booking)
+    const selectedClientName = getGuidedClientName(booking.client)
+    const displayName = selectedClientName || booking.attendeeName
 
     return (
       <Card className="rounded-lg">
         <CardContent className="space-y-4 p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-2xl font-semibold">{booking.attendeeName}</p>
+              <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
+                {booking.client ? 'Selected client' : 'Booking attendee'}
+              </p>
+              <p className="text-2xl font-semibold">{displayName}</p>
               <p className="text-muted-foreground text-base">{getBookingContactEmail(booking)}</p>
             </div>
             <Badge variant={booking.needsRegistration || booking.needsTestType ? 'secondary' : 'outline'}>
@@ -609,6 +674,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     : getPaymentLabel(booking)}
             </Badge>
           </div>
+          {renderClientIdentityMismatch(booking)}
           <div className="grid grid-cols-2 gap-4 text-base">
             <div>
               <p className="text-muted-foreground text-sm font-medium uppercase">Time</p>
@@ -637,6 +703,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
   const renderPaymentReview = (booking: Booking) => {
     const amountDisplay = getAmountDisplay(booking)
+    const selectedClientName = getGuidedClientName(booking.client) || 'No client selected'
     const prepaidTestLabel = booking.bookingTestType?.label ?? 'Unknown'
     const referralTestLabel = booking.referralTestType?.label ?? 'Not set'
     const todayTestLabel = booking.testType?.label ?? 'Not set'
@@ -675,7 +742,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-2xl font-semibold">{booking.attendeeName}</p>
+              <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">Selected client</p>
+              <p className="text-2xl font-semibold">{selectedClientName}</p>
               <p className="text-muted-foreground text-base">{getBookingContactEmail(booking)}</p>
             </div>
             <Badge variant="outline" className={cn('mt-1 shrink-0', getGuidedGenderBadgeClass(booking.client?.gender))}>
@@ -684,6 +752,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
+          {renderClientIdentityMismatch(booking)}
           {(hasUnknownPrepaidTest || hasTestMismatch || hasBalanceDifference) && (
             <div className="flex gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-950">
               <TriangleAlert className="mt-0.5 size-5 shrink-0" />
@@ -714,7 +783,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             ))}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <ClientSearchDialog
               allClients={allClients}
               selectedClientId={booking.client?.id ?? ''}
@@ -725,6 +794,10 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 Change Client
               </Button>
             </ClientSearchDialog>
+            <Button type="button" variant="outline" size="lg" className="w-full" onClick={handleRegisterClient}>
+              <UserPlus data-icon="inline-start" />
+              Register New Client
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -822,13 +895,15 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger
-                          render={<Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="-mt-2 -mr-2"
-                            aria-label={`${booking.attendeeName} appointment options`}
-                          />}
+                          render={
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="-mt-2 -mr-2"
+                              aria-label={`${booking.attendeeName} appointment options`}
+                            />
+                          }
                         >
                           <Ellipsis className="size-5" />
                         </DropdownMenuTrigger>
@@ -1096,12 +1171,10 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               </Button>
             </ClientSearchDialog>
 
-            {!clientLinked && (
-              <Button type="button" onClick={handleRegisterClient} className="w-full" size="lg">
-                <UserPlus className="mr-2 size-5" />
-                Register New Client
-              </Button>
-            )}
+            <Button type="button" onClick={handleRegisterClient} className="w-full" size="lg">
+              <UserPlus data-icon="inline-start" />
+              Register New Client
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -1116,6 +1189,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     const clientMoneyOwed = selectedBooking.client?.moneyOwed ?? 0
     const clientCreditBalance = selectedBooking.client?.creditBalance ?? 0
     const extraCollected = Math.max(0, payment.amountPaid - payment.amountDue)
+    const amountAppliedToExistingBalance = Math.min(extraCollected, clientMoneyOwed)
+    const amountBecomingCredit = Math.max(0, extraCollected - clientMoneyOwed)
     const canUsePrepaidMethod = payment.method === 'pre-paid' || selectedBooking.payment?.method === 'pre-paid'
 
     return (
@@ -1147,8 +1222,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               </div>
             )}
 
-            <div className="space-y-3">
-              <Label className="text-base">Payment status</Label>
+            <FieldSet>
+              <FieldLegend variant="label">Payment status</FieldLegend>
               <RadioGroup
                 value={payment.choice ?? ''}
                 onValueChange={(value) => {
@@ -1194,12 +1269,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   </Label>
                 ))}
               </RadioGroup>
-            </div>
+            </FieldSet>
 
             {payment.choice === 'paid' && (
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="amount-collected">Amount collected</Label>
+              <FieldGroup className="grid gap-4 sm:grid-cols-3">
+                <Field>
+                  <FieldLabel htmlFor="amount-collected">Amount collected</FieldLabel>
                   <Input
                     id="amount-collected"
                     type="number"
@@ -1207,15 +1282,15 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     value={payment.amountPaid}
                     onChange={(event) => {
                       const amountPaid = Number(event.target.value || 0)
-                      setPaymentDraft((current) => ({
-                        ...(current ?? payment),
-                        amountPaid: Math.max(payment.amountDue, amountPaid),
-                      }))
+                      setPaymentDraft((current) => updatePaidAmount(current ?? payment, amountPaid))
                     }}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="payment-method">Method</Label>
+                  <FieldDescription>
+                    Enter today&apos;s test plus any previous balance being collected.
+                  </FieldDescription>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="payment-method">Method</FieldLabel>
                   <Select
                     items={[
                       { value: 'cash', label: 'Cash' },
@@ -1241,47 +1316,37 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       </SelectGroup>
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="extra-collected">Extra collected</Label>
-                  <Input id="extra-collected" value={currency.format(extraCollected)} readOnly />
-                </div>
-              </div>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="extra-collected">Previous balance payment</FieldLabel>
+                  <Input id="extra-collected" value={currency.format(amountAppliedToExistingBalance)} readOnly />
+                  {amountBecomingCredit > 0 && (
+                    <FieldDescription>{currency.format(amountBecomingCredit)} becomes client credit.</FieldDescription>
+                  )}
+                </Field>
+              </FieldGroup>
             )}
 
             {payment.choice === 'still-owes' && (
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="amount-paid">Amount paid</Label>
+              <FieldGroup className="grid gap-4 sm:grid-cols-3">
+                <Field>
+                  <FieldLabel htmlFor="amount-paid">Amount paid</FieldLabel>
                   <Input
                     id="amount-paid"
                     type="number"
                     min={0}
-                    max={payment.amountDue}
                     value={payment.amountPaid}
                     onChange={(event) => {
                       const amountPaid = Number(event.target.value || 0)
-                      setPaymentDraft((current) => {
-                        const next = current ?? payment
-                        if (next.amountDue > 0 && amountPaid >= next.amountDue) {
-                          return {
-                            ...next,
-                            choice: 'paid',
-                            amountPaid: next.amountDue,
-                            method: next.method === 'pre-paid' ? 'cash' : next.method,
-                          }
-                        }
-
-                        return {
-                          ...next,
-                          amountPaid,
-                        }
-                      })
+                      setPaymentDraft((current) => updateStillOwesAmount(current ?? payment, amountPaid))
                     }}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="partial-payment-method">Method</Label>
+                  <FieldDescription>
+                    Amounts covering today&apos;s test switch to Paid without discarding any extra collected.
+                  </FieldDescription>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="partial-payment-method">Method</FieldLabel>
                   <Select
                     items={[
                       { value: 'cash', label: 'Cash' },
@@ -1308,12 +1373,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       </SelectGroup>
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="balance-due">Balance due</Label>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="balance-due">Balance due</FieldLabel>
                   <Input id="balance-due" value={currency.format(balanceDue)} readOnly />
-                </div>
-              </div>
+                </Field>
+              </FieldGroup>
             )}
           </CardContent>
         </Card>
@@ -1427,9 +1492,11 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const nextLabel = currentStep === 'toxaccess' ? 'Continue Collection' : 'Next'
   const canGoNext =
     currentStep === 'payment'
-      ? Boolean(selectedBooking?.testType && payment.choice)
+      ? Boolean(selectedBooking?.testType && selectedBooking.client?.id && payment.choice && clientIdentityIsVerified)
       : currentStep === 'toxaccess'
-        ? Boolean(paymentRecorded && selectedBooking?.testType && selectedBooking.client?.id)
+        ? Boolean(
+            paymentRecorded && selectedBooking?.testType && selectedBooking.client?.id && clientIdentityIsVerified,
+          )
         : false
 
   const backLabel = currentStep === 'schedule' ? 'Cancel' : 'Back'
