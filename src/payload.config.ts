@@ -40,6 +40,7 @@ import { GenerateTitle, GenerateURL, GenerateImage } from '@payloadcms/plugin-se
 import { Page } from 'src/payload-types'
 import { CompanyInfo } from './globals/CompanyInfo/config'
 import { superAdmin } from './access/superAdmin'
+import { restrictMcpApiKeyCollection } from './plugins/mcp/restrictApiKeyCollection'
 import { Bookings } from './collections/Bookings'
 import { Media } from './collections/Media'
 import { PrivateMedia } from './collections/PrivateMedia'
@@ -303,6 +304,7 @@ export default buildConfig({
   graphQL: { disable: true },
   plugins: [
     mcpPlugin({
+      overrideApiKeyCollection: restrictMcpApiKeyCollection,
       collections: {
         bookings: {
           enabled: { find: true },

@@ -133,14 +133,19 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(
       page.getByText(`${formatScheduleTime(scheduleFixtures.bookings.paidLinked.startTime)} · Male`),
     ).toHaveCount(0)
-    await expect(page.getByText('Payment Confirmed')).toBeVisible()
-    await expect(page.getByText('Pre-paid through the booking.')).toBeVisible()
-    await expect(page.getByText('$35 due today')).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Collect payment' })).toBeVisible()
+    await expect(page.getByRole('spinbutton', { name: 'Amount received' })).toHaveValue('0')
+    await expect(page.getByRole('combobox', { name: 'Method' })).toContainText('Cash')
+    await expect(
+      page.getByRole('group', { name: 'Quick amount received' }).getByRole('button', {
+        name: 'Set amount received to $0',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByText('Today · 17-Panel Instant')).toBeVisible()
+    await expect(page.getByText('Current test · $0 due')).toBeVisible()
+    await expect(page.getByText('$0 applied', { exact: true })).toBeVisible()
     await expect(page.getByText(fixtures.clients.instant.email)).toBeVisible()
     await expect(page.getByText('2485550199@sms.cal.com')).toHaveCount(0)
-    await expect(page.getByRole('radio', { name: /^Paid/i })).toBeChecked()
-    await expect(page.getByText('Already paid through the booking.')).toBeVisible()
-    await expect(page.getByRole('radio', { name: /^Pre-paid/i })).toHaveCount(0)
   })
 
   test('keeps controls interactive after repeatedly closing Quick Book', async ({ page }) => {
@@ -246,7 +251,24 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
 
     await verifyGuidedClientMismatch(page)
-    await expect(page.getByRole('radio', { name: /^Still owes/i })).toBeChecked()
+    const amountReceived = page.getByRole('spinbutton', { name: 'Amount received' })
+    const payAllButton = page
+      .getByRole('group', { name: 'Quick amount received' })
+      .getByRole('button', { name: 'Set amount received to $40' })
+
+    await expect(amountReceived).toHaveValue('40')
+    await expect(payAllButton).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByText('Today · 11-Panel Lab')).toBeVisible()
+    await expect(page.getByText('Current test · $40 due')).toBeVisible()
+    await expect(page.getByText('$40 applied', { exact: true })).toBeVisible()
+
+    await amountReceived.fill('50')
+    await expect(page.getByText('$10 becomes client credit')).toBeVisible()
+    await expect(payAllButton).toHaveAttribute('aria-pressed', 'false')
+
+    await payAllButton.click()
+    await expect(amountReceived).toHaveValue('40')
+    await expect(page.getByText('$10 becomes client credit')).toHaveCount(0)
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()
     await expect(page.getByText(/11-Panel Lab/i).last()).toBeVisible()
