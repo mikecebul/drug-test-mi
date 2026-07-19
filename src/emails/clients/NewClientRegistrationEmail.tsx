@@ -1,17 +1,4 @@
-import {
-  Body,
-  Button,
-  Column,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
-  Preview,
-  Row,
-  Section,
-  Text,
-} from '@react-email/components'
+import { Body, Button, Container, Head, Heading, Hr, Html, Preview, Section, Text } from '@react-email/components'
 import * as React from 'react'
 
 export type NewClientRegistrationEmailProps = {
@@ -29,10 +16,10 @@ export type NewClientRegistrationEmailProps = {
 
 function Detail({ label, value }: { label: string; value: string }) {
   return (
-    <Section style={detailBlock}>
-      <Text style={detailLabel}>{label}</Text>
-      <Text style={detailValue}>{value}</Text>
-    </Section>
+    <Text style={detailLine}>
+      <span style={detailLineLabel}>{label}</span>
+      <span style={detailLineValue}>{value}</span>
+    </Text>
   )
 }
 
@@ -76,31 +63,12 @@ export function NewClientRegistrationEmail({
               Client details
             </Heading>
 
-            <Row>
-              <Column style={leftColumn}>
-                <Detail label="Email" value={email} />
-              </Column>
-              {phone ? (
-                <Column style={rightColumn}>
-                  <Detail label="Phone" value={phone} />
-                </Column>
-              ) : null}
-            </Row>
-
-            {dateOfBirth || gender ? (
-              <Row>
-                {dateOfBirth ? (
-                  <Column style={leftColumn}>
-                    <Detail label="Date of birth" value={dateOfBirth} />
-                  </Column>
-                ) : null}
-                {gender ? (
-                  <Column style={rightColumn}>
-                    <Detail label="Gender" value={gender} />
-                  </Column>
-                ) : null}
-              </Row>
-            ) : null}
+            <Section style={detailsSection}>
+              <Detail label="Email" value={email} />
+              <Detail label="Phone" value={phone || 'Not provided'} />
+              <Detail label="Date of birth" value={dateOfBirth || 'Not provided'} />
+              <Detail label="Gender" value={gender || 'Not specified'} />
+            </Section>
 
             {recipients.length > 0 ? (
               <Section style={recipientsSection}>
@@ -231,15 +199,8 @@ const sectionHeading = {
   margin: '0 0 12px',
 }
 
-const leftColumn = { paddingRight: '7px', verticalAlign: 'top' }
-const rightColumn = { paddingLeft: '7px', verticalAlign: 'top' }
-
-const detailBlock = {
-  backgroundColor: '#f7f8fa',
-  border: '1px solid #e5e7eb',
-  borderRadius: '7px',
-  marginBottom: '14px',
-  padding: '14px 16px',
+const detailsSection = {
+  marginBottom: '4px',
 }
 
 const detailLabel = {
@@ -251,11 +212,25 @@ const detailLabel = {
   textTransform: 'uppercase' as const,
 }
 
-const detailValue = {
-  color: '#172033',
+const detailLine = {
   fontSize: '15px',
   lineHeight: '22px',
-  margin: 0,
+  margin: '0 0 9px',
+}
+
+const detailLineLabel = {
+  color: '#687083',
+  display: 'inline-block',
+  fontSize: '11px',
+  fontWeight: '700',
+  letterSpacing: '0.5px',
+  textTransform: 'uppercase' as const,
+  verticalAlign: 'top',
+  width: '112px',
+}
+
+const detailLineValue = {
+  color: '#172033',
   wordBreak: 'break-word' as const,
 }
 

@@ -22,6 +22,7 @@ describe('NewClientRegistrationEmail', () => {
     expect(email.html).toContain('Jane Smith ·')
     expect(email.html).toContain('jane@charlevoixcounty.org')
     expect(email.html).toContain('View client in admin')
+    expect(email.html).not.toContain('background-color:#f7f8fa')
     expect(email.html).not.toContain('[object Object]')
   })
 })
