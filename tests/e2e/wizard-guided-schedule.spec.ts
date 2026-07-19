@@ -123,8 +123,14 @@ test.describe("Wizard Today's Schedule", () => {
 
   test('chooses or registers a walk-in client from one drawer', async ({ page }) => {
     const walkInCard = page.getByTestId('guided-walk-in-card')
+    const walkInTrigger = walkInCard.getByRole('button', { name: /Walk-In Collection/i })
     await expect(walkInCard.getByRole('heading', { name: 'Walk-In Collection' })).toBeVisible()
-    await expect(walkInCard.getByText('Start a test for someone without an appointment.')).toHaveCount(0)
+    await expect(walkInCard.getByText('For clients without an appointment')).toBeVisible()
+    await expect(walkInTrigger).toHaveAttribute('aria-expanded', 'false')
+    await expect(walkInCard.getByRole('button', { name: /Choose client/i })).toHaveCount(0)
+
+    await walkInTrigger.click()
+    await expect(walkInTrigger).toHaveAttribute('aria-expanded', 'true')
     await expect(walkInCard.getByRole('button', { name: /Choose client/i })).toHaveCount(1)
     await expect(walkInCard.getByRole('button', { name: /Register new client/i })).toHaveCount(0)
 
