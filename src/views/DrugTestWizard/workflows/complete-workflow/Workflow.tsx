@@ -74,7 +74,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { APP_TIMEZONE } from '@/lib/date-utils'
+import { APP_TIMEZONE, formatDobInput } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
 import { RegisterClientDialog } from '../../components/RegisterClientDialog'
 import type { ClientMatch } from '../../types'
@@ -1905,7 +1905,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     const toxAccessRows: Array<{ label: string; value: string }> = isFirstTest
       ? [
           ['Name', fullName],
-          ['DOB', formatDateOnly(client?.dob)],
+          ['DOB', formatDobInput(client?.dob) || 'Unknown'],
           ['Sex', formatGuidedGender(client?.gender)],
           ['Intake Date', intakeDate],
           ['Active', 'Yes'],

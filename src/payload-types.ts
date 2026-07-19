@@ -1293,7 +1293,7 @@ export interface Client {
   /**
    * Date of birth
    */
-  dob?: string | null;
+  dob: string;
   /**
    * Client gender identity
    */
