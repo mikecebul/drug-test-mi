@@ -110,6 +110,18 @@ test.afterAll(async () => {
   }
 })
 
+test('offers only the three supported client gender choices', async ({ page }) => {
+  await openRegistration(page)
+  await page.locator('[id="personalInfo.gender"]').click()
+
+  const options = page.getByRole('option')
+  await expect(options).toHaveCount(3)
+  await expect(page.getByRole('option', { name: 'Male', exact: true })).toBeVisible()
+  await expect(page.getByRole('option', { name: 'Female', exact: true })).toBeVisible()
+  await expect(page.getByRole('option', { name: 'Prefer not to say', exact: true })).toBeVisible()
+  await expect(page.getByRole('option', { name: 'Other', exact: true })).toHaveCount(0)
+})
+
 test('validates steps, supports back-forward navigation, and validates medications in self flow', async ({ page }) => {
   await openRegistration(page)
 
@@ -299,7 +311,6 @@ test('submits frontend registration, signs in, and verifies admin emails in Mail
   const createdClient = await findClientByEmail(registrationEmail)
   expect(createdClient).not.toBeNull()
   expect(createdClient?.dob).toContain('1990-01-15')
-  expect(createdClient?._verified).toBe(true)
 
   await findMailpitMessages({
     apiBase: env.mailpitApiBase,

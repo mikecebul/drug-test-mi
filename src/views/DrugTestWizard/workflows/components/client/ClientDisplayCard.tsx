@@ -23,7 +23,7 @@ export const ClientDisplayCard = ({ selected, children, onClick }: ClientDisplay
   <Card
     className={cn('p-6', {
       'border-info bg-info-muted shadow-sm': selected,
-      'cursor-pointer transition-colors hover:border-info hover:bg-accent': onClick && !selected,
+      'hover:border-info hover:bg-accent cursor-pointer transition-colors': onClick && !selected,
     })}
     onClick={onClick}
   >
@@ -37,6 +37,13 @@ export const ClientInfoContent = ({ client, className, showMatchBadge = false }:
   const hasMatchInfo = 'matchType' in client && client.matchType
   const matchType = hasMatchInfo ? client.matchType : undefined
   const score = hasMatchInfo && 'score' in client ? client.score : undefined
+  const matchReason = hasMatchInfo && 'matchReason' in client ? client.matchReason : undefined
+  const reasonLabel =
+    matchReason === 'date-of-birth'
+      ? 'DOB'
+      : matchReason
+        ? matchReason.charAt(0).toUpperCase() + matchReason.slice(1)
+        : ''
 
   return (
     <div className={cn('flex items-start gap-4', className)}>
@@ -60,7 +67,11 @@ export const ClientInfoContent = ({ client, className, showMatchBadge = false }:
                 'bg-green-500 hover:bg-green-600': matchType === 'exact',
               })}
             >
-              {matchType === 'exact' ? 'Exact Match' : `${Math.round((score ?? 0) * 100)}% Match`}
+              {matchType === 'exact'
+                ? `Exact ${reasonLabel || 'Match'}`
+                : matchType === 'partial'
+                  ? `Partial ${reasonLabel || 'Match'}`
+                  : `${Math.round((score ?? 0) * 100)}% Possible Match`}
             </Badge>
           )}
         </div>

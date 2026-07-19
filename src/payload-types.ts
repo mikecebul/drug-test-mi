@@ -94,6 +94,7 @@ export interface Config {
   auth: {
     admins: AdminAuthOperations;
     clients: ClientAuthOperations;
+    'payload-mcp-api-keys': PayloadMcpApiKeyAuthOperations;
   };
   blocks: {};
   collections: {
@@ -115,6 +116,7 @@ export interface Config {
     exports: Export;
     imports: Import;
     redirects: Redirect;
+    'payload-mcp-api-keys': PayloadMcpApiKey;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -155,6 +157,7 @@ export interface Config {
     exports: ExportsSelect<false> | ExportsSelect<true>;
     imports: ImportsSelect<false> | ImportsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
+    'payload-mcp-api-keys': PayloadMcpApiKeysSelect<false> | PayloadMcpApiKeysSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -183,7 +186,7 @@ export interface Config {
     'admin-alerts': AdminAlertsWidget;
     collections: CollectionsWidget;
   };
-  user: Admin | Client;
+  user: Admin | Client | PayloadMcpApiKey;
   jobs: {
     tasks: {
       createCollectionExport: TaskCreateCollectionExport;
@@ -215,6 +218,24 @@ export interface AdminAuthOperations {
   };
 }
 export interface ClientAuthOperations {
+  forgotPassword: {
+    email: string;
+    password: string;
+  };
+  login: {
+    email: string;
+    password: string;
+  };
+  registerFirstUser: {
+    email: string;
+    password: string;
+  };
+  unlock: {
+    email: string;
+    password: string;
+  };
+}
+export interface PayloadMcpApiKeyAuthOperations {
   forgotPassword: {
     email: string;
     password: string;
@@ -1160,7 +1181,7 @@ export interface Booking {
   payment?: {
     amountDue?: number | null;
     amountPaid?: number | null;
-    method?: ('cash' | 'card' | 'pre-paid' | 'not-paid') | null;
+    method?: ('cash' | 'card' | 'credit' | 'pre-paid' | 'not-paid') | null;
     status?: ('paid' | 'partial' | 'unpaid') | null;
     collectedAt?: string | null;
     notes?: string | null;
@@ -1228,6 +1249,13 @@ export interface Booking {
  */
 export interface Client {
   id: string;
+  searchFirstName?: string | null;
+  searchMiddleInitial?: string | null;
+  searchLastName?: string | null;
+  searchFullName?: string | null;
+  searchEmail?: string | null;
+  searchPhone?: string | null;
+  searchDob?: string | null;
   /**
    * Full name (computed from first and last name)
    */
@@ -1269,7 +1297,7 @@ export interface Client {
   /**
    * Client gender identity
    */
-  gender?: ('male' | 'female' | 'other' | 'prefer-not-to-say') | null;
+  gender?: ('male' | 'female' | 'prefer-not-to-say') | null;
   /**
    * Phone number for contact
    */
@@ -1441,8 +1469,6 @@ export interface Client {
   resetPasswordExpiration?: string | null;
   salt?: string | null;
   hash?: string | null;
-  _verified?: boolean | null;
-  _verificationToken?: string | null;
   loginAttempts?: number | null;
   lockUntil?: string | null;
   sessions?:
@@ -2015,6 +2041,10 @@ export interface Payment {
   collectedAt?: string | null;
   postedAt?: string | null;
   voidedAt?: string | null;
+  /**
+   * Why this payment was reversed while preserving its audit history.
+   */
+  voidReason?: string | null;
   refundedAt?: string | null;
   refundedAmount?: number | null;
   /**
@@ -2317,6 +2347,129 @@ export interface Redirect {
   createdAt: string;
 }
 /**
+ * API keys control which collections, resources, tools, and prompts MCP clients can access
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-mcp-api-keys".
+ */
+export interface PayloadMcpApiKey {
+  id: string;
+  /**
+   * The user that the API key is associated with.
+   */
+  user: string | Admin;
+  /**
+   * A useful label for the API key.
+   */
+  label?: string | null;
+  /**
+   * The purpose of the API key.
+   */
+  description?: string | null;
+  bookings?: {
+    /**
+     * Allow clients to find bookings.
+     */
+    find?: boolean | null;
+  };
+  clients?: {
+    /**
+     * Allow clients to find clients.
+     */
+    find?: boolean | null;
+  };
+  drugTests?: {
+    /**
+     * Allow clients to find drug-tests.
+     */
+    find?: boolean | null;
+  };
+  payments?: {
+    /**
+     * Allow clients to find payments.
+     */
+    find?: boolean | null;
+  };
+  testTypes?: {
+    /**
+     * Allow clients to find test-types.
+     */
+    find?: boolean | null;
+  };
+  courts?: {
+    /**
+     * Allow clients to find courts.
+     */
+    find?: boolean | null;
+  };
+  employers?: {
+    /**
+     * Allow clients to find employers.
+     */
+    find?: boolean | null;
+  };
+  technicians?: {
+    /**
+     * Allow clients to find technicians.
+     */
+    find?: boolean | null;
+  };
+  adminAlerts?: {
+    /**
+     * Allow clients to find admin-alerts.
+     */
+    find?: boolean | null;
+  };
+  pages?: {
+    /**
+     * Allow clients to find pages.
+     */
+    find?: boolean | null;
+  };
+  forms?: {
+    /**
+     * Allow clients to find forms.
+     */
+    find?: boolean | null;
+  };
+  formSubmissions?: {
+    /**
+     * Allow clients to find form-submissions.
+     */
+    find?: boolean | null;
+  };
+  media?: {
+    /**
+     * Allow clients to find media.
+     */
+    find?: boolean | null;
+  };
+  header?: {
+    /**
+     * Allow clients to find header global.
+     */
+    find?: boolean | null;
+  };
+  footer?: {
+    /**
+     * Allow clients to find footer global.
+     */
+    find?: boolean | null;
+  };
+  companyInfo?: {
+    /**
+     * Allow clients to find company-info global.
+     */
+    find?: boolean | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+  enableAPIKey?: boolean | null;
+  apiKey?: string | null;
+  apiKeyIndex?: string | null;
+  collection: 'payload-mcp-api-keys';
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -2495,6 +2648,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'redirects';
         value: string | Redirect;
+      } | null)
+    | ({
+        relationTo: 'payload-mcp-api-keys';
+        value: string | PayloadMcpApiKey;
       } | null);
   globalSlug?: string | null;
   user:
@@ -2505,6 +2662,10 @@ export interface PayloadLockedDocument {
     | {
         relationTo: 'clients';
         value: string | Client;
+      }
+    | {
+        relationTo: 'payload-mcp-api-keys';
+        value: string | PayloadMcpApiKey;
       };
   updatedAt: string;
   createdAt: string;
@@ -2523,6 +2684,10 @@ export interface PayloadPreference {
     | {
         relationTo: 'clients';
         value: string | Client;
+      }
+    | {
+        relationTo: 'payload-mcp-api-keys';
+        value: string | PayloadMcpApiKey;
       };
   key?: string | null;
   value?:
@@ -3499,6 +3664,13 @@ export interface EmployersSelect<T extends boolean = true> {
  * via the `definition` "clients_select".
  */
 export interface ClientsSelect<T extends boolean = true> {
+  searchFirstName?: T;
+  searchMiddleInitial?: T;
+  searchLastName?: T;
+  searchFullName?: T;
+  searchEmail?: T;
+  searchPhone?: T;
+  searchDob?: T;
   fullName?: T;
   headshot?: T;
   disableClientEmails?: T;
@@ -3561,8 +3733,6 @@ export interface ClientsSelect<T extends boolean = true> {
   resetPasswordExpiration?: T;
   salt?: T;
   hash?: T;
-  _verified?: T;
-  _verificationToken?: T;
   loginAttempts?: T;
   lockUntil?: T;
   sessions?:
@@ -3664,6 +3834,7 @@ export interface PaymentsSelect<T extends boolean = true> {
   collectedAt?: T;
   postedAt?: T;
   voidedAt?: T;
+  voidReason?: T;
   refundedAt?: T;
   refundedAmount?: T;
   reservedForBookingAmount?: T;
@@ -3757,6 +3928,100 @@ export interface RedirectsSelect<T extends boolean = true> {
       };
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-mcp-api-keys_select".
+ */
+export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
+  user?: T;
+  label?: T;
+  description?: T;
+  bookings?:
+    | T
+    | {
+        find?: T;
+      };
+  clients?:
+    | T
+    | {
+        find?: T;
+      };
+  drugTests?:
+    | T
+    | {
+        find?: T;
+      };
+  payments?:
+    | T
+    | {
+        find?: T;
+      };
+  testTypes?:
+    | T
+    | {
+        find?: T;
+      };
+  courts?:
+    | T
+    | {
+        find?: T;
+      };
+  employers?:
+    | T
+    | {
+        find?: T;
+      };
+  technicians?:
+    | T
+    | {
+        find?: T;
+      };
+  adminAlerts?:
+    | T
+    | {
+        find?: T;
+      };
+  pages?:
+    | T
+    | {
+        find?: T;
+      };
+  forms?:
+    | T
+    | {
+        find?: T;
+      };
+  formSubmissions?:
+    | T
+    | {
+        find?: T;
+      };
+  media?:
+    | T
+    | {
+        find?: T;
+      };
+  header?:
+    | T
+    | {
+        find?: T;
+      };
+  footer?:
+    | T
+    | {
+        find?: T;
+      };
+  companyInfo?:
+    | T
+    | {
+        find?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  enableAPIKey?: T;
+  apiKey?: T;
+  apiKeyIndex?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

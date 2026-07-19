@@ -5,8 +5,7 @@
 @import 'tailwindcss/utilities.css' layer(utilities);
 
 @layer base {
-  [data-twp],
-  [data-radix-popper-content-wrapper] {
+  [data-twp] {
     @import 'tailwindcss/preflight.css';
   }
 

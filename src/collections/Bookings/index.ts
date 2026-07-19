@@ -164,6 +164,7 @@ export const Bookings: CollectionConfig = {
           options: [
             { label: 'Cash', value: 'cash' },
             { label: 'Card', value: 'card' },
+            { label: 'Client Credit', value: 'credit' },
             { label: 'Pre-paid', value: 'pre-paid' },
             { label: 'Not Paid', value: 'not-paid' },
           ],

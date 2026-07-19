@@ -65,8 +65,20 @@ type GuidedScheduleFixtures = {
       id: string
       attendeeName: string
       startTime: string
+      registeredClient: SeededPerson
     }
     needsTestType: {
+      id: string
+      attendeeName: string
+      startTime: string
+    }
+    creditAvailable: {
+      id: string
+      attendeeName: string
+      startTime: string
+      client: SeededPerson
+    }
+    completedPrepaid: {
       id: string
       attendeeName: string
       startTime: string
@@ -262,7 +274,6 @@ async function createClient(
       })),
       preferredContactMethod: 'email',
       disableClientEmails: false,
-      _verified: true,
       medications: [
         {
           medicationName: 'Suboxone',
@@ -499,9 +510,11 @@ async function seedGuidedScheduleFixtures(ctx: FixtureContext): Promise<GuidedSc
     },
   })
 
+  const registeredAfterBookingName = `Guided ${ctx.runId}`
+  const registeredAfterBookingEmail = `guided-after-booking.${ctx.runId}@example.com`
   const unlinked = await createBooking({
-    attendeeName: `E2E Unlinked Schedule ${ctx.runId}`,
-    attendeeEmail: `schedule.unlinked.${ctx.runId}@example.com`,
+    attendeeName: registeredAfterBookingName,
+    attendeeEmail: registeredAfterBookingEmail,
     startTime: atTodayHour(10),
     status: 'pending',
     scheduledTestType: '11-panel-lab',
@@ -513,11 +526,64 @@ async function seedGuidedScheduleFixtures(ctx: FixtureContext): Promise<GuidedSc
     },
   })
 
+  // Reproduce the real ordering: the Cal.com booking exists first, then the client registers online.
+  const registeredAfterBooking = await createClient(payload, {
+    runId: ctx.runId,
+    fullName: registeredAfterBookingName,
+    emailPrefix: 'guided-after-booking',
+    referralEmails: [],
+  })
+  ctx.created.clientIds.push(registeredAfterBooking.id)
+
   const needsTestType = await createBooking({
     attendeeName: `E2E Needs Test Schedule ${ctx.runId}`,
     attendeeEmail: ctx.clients.instant.email,
     startTime: atTodayHour(11),
     relatedClient: ctx.clients.instant.id,
+  })
+
+  const creditClient = await createClient(payload, {
+    runId: ctx.runId,
+    fullName: `E2E Credit Client ${ctx.runId}`,
+    emailPrefix: 'guided-credit',
+    referralEmails: [],
+  })
+  ctx.created.clientIds.push(creditClient.id)
+  await payload.update({
+    collection: 'clients',
+    id: creditClient.id,
+    data: { creditBalance: 40 },
+    context: { skipClientBalanceSync: true },
+    overrideAccess: true,
+  })
+  const creditAvailable = await createBooking({
+    attendeeName: creditClient.fullName,
+    attendeeEmail: creditClient.email,
+    startTime: atTodayHour(13),
+    relatedClient: creditClient.id,
+    scheduledTestType: '11-panel-lab',
+    payment: {
+      amountDue: 40,
+      amountPaid: 0,
+      method: 'not-paid',
+      status: 'unpaid',
+    },
+  })
+
+  const completedPrepaid = await createBooking({
+    attendeeName: `E2E Completed Schedule ${ctx.runId}`,
+    attendeeEmail: ctx.clients.collectLab.email,
+    startTime: atTodayHour(14),
+    status: 'cancelled',
+    relatedClient: ctx.clients.collectLab.id,
+    scheduledTestType: '11-panel-lab',
+    payment: {
+      amountDue: 40,
+      amountPaid: 40,
+      method: 'pre-paid',
+      status: 'paid',
+    },
+    sampleCollection: { status: 'collected' },
   })
 
   const outsideToday = await createBooking({
@@ -535,7 +601,15 @@ async function seedGuidedScheduleFixtures(ctx: FixtureContext): Promise<GuidedSc
     scheduledTestType: '11-panel-lab',
   })
 
-  const bookingIds = [paidLinked.id, unlinked.id, needsTestType.id, outsideToday.id, cancelledToday.id]
+  const bookingIds = [
+    paidLinked.id,
+    unlinked.id,
+    needsTestType.id,
+    creditAvailable.id,
+    completedPrepaid.id,
+    outsideToday.id,
+    cancelledToday.id,
+  ]
   ctx.created.bookingIds = [...(ctx.created.bookingIds || []), ...bookingIds]
   ctx.created.adminAlertIds = [
     ...(ctx.created.adminAlertIds || []),
@@ -555,11 +629,23 @@ async function seedGuidedScheduleFixtures(ctx: FixtureContext): Promise<GuidedSc
         id: unlinked.id,
         attendeeName: unlinked.attendeeName,
         startTime: unlinked.startTime,
+        registeredClient: registeredAfterBooking,
       },
       needsTestType: {
         id: needsTestType.id,
         attendeeName: needsTestType.attendeeName,
         startTime: needsTestType.startTime,
+      },
+      creditAvailable: {
+        id: creditAvailable.id,
+        attendeeName: creditAvailable.attendeeName,
+        startTime: creditAvailable.startTime,
+        client: creditClient,
+      },
+      completedPrepaid: {
+        id: completedPrepaid.id,
+        attendeeName: completedPrepaid.attendeeName,
+        startTime: completedPrepaid.startTime,
       },
       outsideToday: {
         id: outsideToday.id,
@@ -646,6 +732,24 @@ async function cleanupFixtures(ctx: FixtureContext | undefined): Promise<void> {
 
   for (const adminAlertId of ctx.created.adminAlertIds || []) {
     await safeDelete(payload, 'admin-alerts', adminAlertId)
+  }
+
+  if (ctx.created.clientIds.length > 0) {
+    const payments = await payload.find({
+      collection: 'payments',
+      where: {
+        relatedClient: {
+          in: ctx.created.clientIds,
+        },
+      },
+      limit: 1000,
+      depth: 0,
+      overrideAccess: true,
+    })
+
+    for (const payment of payments.docs) {
+      await safeDelete(payload, 'payments', payment.id)
+    }
   }
 
   for (const bookingId of ctx.created.bookingIds || []) {

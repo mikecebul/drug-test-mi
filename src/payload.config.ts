@@ -6,6 +6,7 @@ import { sentryPlugin } from '@payloadcms/plugin-sentry'
 import * as Sentry from '@sentry/nextjs'
 
 import { importExportPlugin } from '@payloadcms/plugin-import-export'
+import { mcpPlugin } from '@payloadcms/plugin-mcp'
 import { stripePlugin } from '@payloadcms/plugin-stripe'
 import { redirectsPlugin } from '@payloadcms/plugin-redirects'
 import { seoPlugin } from '@payloadcms/plugin-seo'
@@ -39,6 +40,7 @@ import { GenerateTitle, GenerateURL, GenerateImage } from '@payloadcms/plugin-se
 import { Page } from 'src/payload-types'
 import { CompanyInfo } from './globals/CompanyInfo/config'
 import { superAdmin } from './access/superAdmin'
+import { restrictMcpApiKeyCollection } from './plugins/mcp/restrictApiKeyCollection'
 import { Bookings } from './collections/Bookings'
 import { Media } from './collections/Media'
 import { PrivateMedia } from './collections/PrivateMedia'
@@ -301,6 +303,89 @@ export default buildConfig({
   globals: [Header, Footer, CompanyInfo],
   graphQL: { disable: true },
   plugins: [
+    mcpPlugin({
+      overrideApiKeyCollection: restrictMcpApiKeyCollection,
+      collections: {
+        bookings: {
+          enabled: { find: true },
+          description:
+            'Scheduled Cal.com and walk-in bookings, including attendee details, raw webhook data, selected test type, client linkage, and payment state.',
+        },
+        clients: {
+          enabled: { find: true },
+          description:
+            'Client profiles used by registration and collection workflows, including contact details, referrals, balances, and workflow metadata.',
+        },
+        'drug-tests': {
+          enabled: { find: true },
+          description:
+            'Collected drug-test records, test configuration, results, referral context, documents, and per-test payment state.',
+        },
+        payments: {
+          enabled: { find: true },
+          description:
+            'Payment ledger entries and allocations connecting incoming payments to bookings, drug tests, and client credit.',
+        },
+        'test-types': {
+          enabled: { find: true },
+          description: 'Active and historical drug-test types, prices, categories, and external system mappings.',
+        },
+        courts: {
+          enabled: { find: true },
+          description: 'Court referral profiles, contacts, recipients, and preferred test configuration.',
+        },
+        employers: {
+          enabled: { find: true },
+          description: 'Employer referral profiles, contacts, recipients, and preferred test configuration.',
+        },
+        technicians: {
+          enabled: { find: true },
+          description: 'Technicians available for scheduling and collection workflows.',
+        },
+        'admin-alerts': {
+          enabled: { find: true },
+          description: 'Operational alerts shown to administrators for workflow follow-up and debugging.',
+        },
+        pages: {
+          enabled: { find: true },
+          description: 'Website page content and publishing metadata.',
+        },
+        forms: {
+          enabled: { find: true },
+          description: 'Configured website forms and their field definitions.',
+        },
+        'form-submissions': {
+          enabled: { find: true },
+          description: 'Submitted form records used to diagnose form and notification workflows.',
+        },
+        media: {
+          enabled: { find: true },
+          description: 'Public media metadata used by website content.',
+        },
+      },
+      globals: {
+        header: {
+          enabled: { find: true },
+          description: 'Website header and navigation configuration.',
+        },
+        footer: {
+          enabled: { find: true },
+          description: 'Website footer, hours, contact, and navigation configuration.',
+        },
+        'company-info': {
+          enabled: { find: true },
+          description: 'Company contact details, hours, and public business information.',
+        },
+      },
+      mcp: {
+        serverOptions: {
+          serverInfo: {
+            name: 'MI Drug Test Payload',
+            version: '1.0.0',
+          },
+        },
+      },
+    }),
     importExportPlugin({
       collections: [
         {

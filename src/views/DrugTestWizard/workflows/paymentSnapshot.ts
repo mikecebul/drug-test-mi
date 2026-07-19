@@ -8,7 +8,7 @@ type Payload = Awaited<ReturnType<typeof getPayload>>
 type BookingPayment = {
   amountDue?: number | null
   amountPaid?: number | null
-  method?: 'cash' | 'card' | 'not-paid' | 'pre-paid' | null
+  method?: 'cash' | 'card' | 'credit' | 'not-paid' | 'pre-paid' | null
   status?: 'paid' | 'partial' | 'unpaid' | null
   notes?: string | null
 }
@@ -24,7 +24,10 @@ function normalizePayment(payment?: BookingPayment | null, fallbackAmountDue = 0
   const amountPaid =
     typeof payment?.amountPaid === 'number' ? payment.amountPaid : payment?.status === 'paid' ? amountDue : 0
   const method: DrugTestPaymentMethod =
-    payment?.method === 'cash' || payment?.method === 'card' || payment?.method === 'pre-paid'
+    payment?.method === 'cash' ||
+    payment?.method === 'card' ||
+    payment?.method === 'credit' ||
+    payment?.method === 'pre-paid'
       ? payment.method
       : 'unknown'
 

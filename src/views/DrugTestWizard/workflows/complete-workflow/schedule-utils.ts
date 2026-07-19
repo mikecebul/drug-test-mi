@@ -1,6 +1,49 @@
+import { normalizeClientGender } from '@/lib/client-gender'
+
 export type GuidedScheduleStep = 'registration' | 'payment'
 export type GuidedPaymentChoice = 'paid' | 'pre-paid' | 'still-owes'
 export { getCalcomBookingActionLinks } from '@/utilities/calcom-booking-action-links'
+
+export type GuidedClientIdentity = {
+  firstName?: string | null
+  middleInitial?: string | null
+  lastName?: string | null
+}
+
+function normalizeName(value: string | null | undefined) {
+  return (value ?? '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('en-US')
+    .replace(/[^a-z0-9]/g, '')
+}
+
+export function getGuidedClientName(client: GuidedClientIdentity | null | undefined) {
+  if (!client) return ''
+  return [client.firstName, client.middleInitial, client.lastName].filter(Boolean).join(' ').trim()
+}
+
+export function doesGuidedBookingNameMatchClient(
+  attendeeName: string | null | undefined,
+  client: GuidedClientIdentity | null | undefined,
+) {
+  const clientFirstName = normalizeName(client?.firstName)
+  const clientLastName = normalizeName(client?.lastName)
+  if (!clientFirstName || !clientLastName || !attendeeName?.trim()) return false
+
+  const commaParts = attendeeName.split(',')
+  if (commaParts.length === 2) {
+    const bookingLastName = normalizeName(commaParts[0])
+    const bookingFirstName = normalizeName(commaParts[1]?.trim().split(/\s+/)[0])
+    return bookingFirstName === clientFirstName && bookingLastName === clientLastName
+  }
+
+  const bookingNameParts = attendeeName.trim().split(/\s+/).filter(Boolean)
+  const bookingFirstName = normalizeName(bookingNameParts[0])
+  const bookingRemainingName = normalizeName(bookingNameParts.slice(1).join(' '))
+
+  return bookingFirstName === clientFirstName && bookingRemainingName.endsWith(clientLastName)
+}
 
 export function isPastScheduledBookingTime(startTime: string | null | undefined, now = Date.now()) {
   if (!startTime) return false
@@ -28,10 +71,10 @@ export type GuidedScheduleBooking = {
 }
 
 export function formatGuidedGender(value?: string | null) {
-  if (value === 'male') return 'Male'
-  if (value === 'female') return 'Female'
-  if (value === 'other') return 'Other'
-  if (value === 'prefer-not-to-say') return 'Prefer not to say'
+  const gender = normalizeClientGender(value)
+  if (gender === 'male') return 'Male'
+  if (gender === 'female') return 'Female'
+  if (gender === 'prefer-not-to-say') return 'Prefer not to say'
   return 'Unknown'
 }
 

@@ -26,6 +26,8 @@ type ApplyIncomingPaymentInput = {
   relatedBooking?: RelationshipId | null
   relatedDrugTest?: RelationshipId | null
   reservedForBookingAmount?: number
+  bookingBalanceDue?: number
+  allocationOrder?: 'booking-first' | 'oldest-balance-first'
   stripeCheckoutSessionId?: string | null
   stripePaymentIntentId?: string | null
   stripeCheckoutUrl?: string | null
@@ -133,7 +135,9 @@ async function addClientCredit(
 
 export async function applyIncomingPayment(input: ApplyIncomingPaymentInput) {
   const amount = normalizeMoney(input.amount)
-  const reservedForBookingAmount = Math.min(normalizeMoney(input.reservedForBookingAmount), amount)
+  const allocationOrder = input.allocationOrder || 'booking-first'
+  const bookingReservationLimit = normalizeMoney(input.bookingBalanceDue ?? input.reservedForBookingAmount)
+  let reservedForBookingAmount = allocationOrder === 'booking-first' ? Math.min(bookingReservationLimit, amount) : 0
   let remaining = subtractMoney(amount, reservedForBookingAmount)
   const allocations: PaymentAllocation[] = []
 
@@ -184,6 +188,11 @@ export async function applyIncomingPayment(input: ApplyIncomingPaymentInput) {
     }
   }
 
+  if (allocationOrder === 'oldest-balance-first' && remaining > 0 && bookingReservationLimit > 0) {
+    reservedForBookingAmount = Math.min(bookingReservationLimit, remaining)
+    remaining = subtractMoney(remaining, reservedForBookingAmount)
+  }
+
   const appliedAmount = allocations.reduce((total, allocation) => addMoney(total, allocation.amount), 0)
   const creditAmount = Math.max(0, remaining)
 
@@ -230,59 +239,83 @@ export async function applyIncomingPayment(input: ApplyIncomingPaymentInput) {
 export async function applyAvailableClientCredit(input: {
   payload: Payload
   clientId: RelationshipId
+  amount?: number
+  relatedBooking?: RelationshipId | null
   relatedDrugTest?: RelationshipId | null
+  bookingBalanceDue?: number
+  allocationOrder?: 'booking-first' | 'oldest-balance-first'
   req?: Partial<PayloadRequest>
 }) {
-  let remainingCredit = await getClientCreditBalance(input.payload, input.clientId, input.req)
-  if (remainingCredit <= 0) return null
+  const availableCredit = await getClientCreditBalance(input.payload, input.clientId, input.req)
+  if (availableCredit <= 0) return null
+
+  const requestedCredit = input.amount === undefined ? availableCredit : normalizeMoney(input.amount)
+  if (requestedCredit <= 0) return null
+  if (requestedCredit > availableCredit) {
+    throw new Error('The client credit balance changed. Refresh and try again.')
+  }
+
+  const allocationOrder = input.allocationOrder || 'booking-first'
+  const bookingReservationLimit = normalizeMoney(input.bookingBalanceDue)
+  let reservedForBookingAmount =
+    allocationOrder === 'booking-first' ? Math.min(bookingReservationLimit, requestedCredit) : 0
+  let remainingCredit = subtractMoney(requestedCredit, reservedForBookingAmount)
 
   const allocations: PaymentAllocation[] = []
-  const unpaidTests = await input.payload.find({
-    collection: 'drug-tests',
-    where: {
-      and: [
-        {
-          relatedClient: {
-            equals: input.clientId,
+  if (remainingCredit > 0) {
+    const unpaidTests = await input.payload.find({
+      collection: 'drug-tests',
+      where: {
+        and: [
+          {
+            relatedClient: {
+              equals: input.clientId,
+            },
           },
-        },
-        {
-          'payment.balanceDue': {
-            greater_than: 0,
+          {
+            'payment.balanceDue': {
+              greater_than: 0,
+            },
           },
-        },
-      ],
-    },
-    depth: 0,
-    limit: 1000,
-    sort: 'collectionDate',
-    overrideAccess: true,
-    req: input.req,
-  })
-
-  for (const test of unpaidTests.docs) {
-    if (remainingCredit <= 0) break
-
-    const balanceDue = normalizeMoney(test.payment?.balanceDue)
-    if (balanceDue <= 0) continue
-
-    const amountApplied = Math.min(balanceDue, remainingCredit)
-    await updateDrugTestPayment({
-      payload: input.payload,
-      drugTest: test,
-      amountApplied,
-      method: 'credit',
+        ],
+      },
+      depth: 0,
+      limit: 1000,
+      sort: 'collectionDate',
+      overrideAccess: true,
       req: input.req,
     })
 
-    allocations.push({
-      drugTest: String(test.id),
-      amount: amountApplied,
-    })
-    remainingCredit = subtractMoney(remainingCredit, amountApplied)
+    for (const test of unpaidTests.docs) {
+      if (remainingCredit <= 0) break
+
+      const balanceDue = normalizeMoney(test.payment?.balanceDue)
+      if (balanceDue <= 0) continue
+
+      const amountApplied = Math.min(balanceDue, remainingCredit)
+      await updateDrugTestPayment({
+        payload: input.payload,
+        drugTest: test,
+        amountApplied,
+        method: 'credit',
+        req: input.req,
+      })
+
+      allocations.push({
+        drugTest: String(test.id),
+        amount: amountApplied,
+      })
+      remainingCredit = subtractMoney(remainingCredit, amountApplied)
+    }
   }
 
-  const usedCredit = allocations.reduce((total, allocation) => addMoney(total, allocation.amount), 0)
+  if (allocationOrder === 'oldest-balance-first' && remainingCredit > 0 && bookingReservationLimit > 0) {
+    reservedForBookingAmount = Math.min(bookingReservationLimit, remainingCredit)
+    remainingCredit = subtractMoney(remainingCredit, reservedForBookingAmount)
+  }
+
+  const appliedAmount = allocations.reduce((total, allocation) => addMoney(total, allocation.amount), 0)
+  const usedCredit = addMoney(appliedAmount, reservedForBookingAmount)
 
   if (usedCredit <= 0) return null
 
@@ -290,7 +323,7 @@ export async function applyAvailableClientCredit(input: {
     collection: 'clients',
     id: input.clientId,
     data: {
-      creditBalance: remainingCredit,
+      creditBalance: subtractMoney(availableCredit, usedCredit),
     },
     overrideAccess: true,
     context: {
@@ -303,13 +336,14 @@ export async function applyAvailableClientCredit(input: {
     collection: 'payments',
     data: {
       relatedClient: input.clientId,
+      relatedBooking: input.relatedBooking || undefined,
       relatedDrugTest: input.relatedDrugTest || undefined,
       amount: usedCredit,
       method: 'credit',
       source: 'credit-application',
       status: 'posted',
-      reservedForBookingAmount: 0,
-      appliedAmount: usedCredit,
+      reservedForBookingAmount,
+      appliedAmount,
       creditAmount: 0,
       allocations,
     },

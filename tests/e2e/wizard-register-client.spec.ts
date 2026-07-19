@@ -80,6 +80,16 @@ test.describe('Wizard Register Client', () => {
     await selectWorkflow(page, 'Register New Client')
   })
 
+  test('normalizes common two-digit DOB formats when the field loses focus', async ({ page }) => {
+    const dobInput = page.getByLabel('Date of Birth')
+
+    for (const value of ['1/5/90', '01/5/1990', '1-5-90']) {
+      await dobInput.fill(value)
+      await dobInput.blur()
+      await expect(dobInput).toHaveValue('01/05/1990')
+    }
+  })
+
   test('validates required fields and supports back-forward in recipient setup', async ({ page }) => {
     await clickNext(page)
     await expect(page.getByText('First name is required')).toBeVisible()
@@ -159,5 +169,35 @@ test.describe('Wizard Register Client', () => {
 
     const additionalRecipients = (client?.referralAdditionalRecipients || []) as Array<{ email?: string }>
     expect(additionalRecipients.length).toBeGreaterThan(0)
+  })
+
+  test('allows a different client to share an existing phone number', async ({ page }) => {
+    const email = uniqueEmail('wizard-shared-phone')
+    const uniqueSuffix = Date.now().toString(36)
+
+    await fillPersonalInfo(page, {
+      firstName: 'Shared',
+      lastName: `Phone${uniqueSuffix}`,
+      dob: '02/16/1991',
+      phone: '2485553434',
+    })
+    await clickNext(page)
+    await fillAccountInfo(page, email)
+    await clickNext(page)
+
+    await page.getByRole('radio', { name: /Employer/i }).check()
+    await clickNext(page)
+    await page.locator('#employer-select').selectOption(fixtures.referrals.employer.id)
+    await clickNext(page)
+
+    await page.getByLabel(/I confirm the client has been informed and consents to testing/i).check()
+    await page.getByRole('button', { name: /Register Client/i }).click()
+
+    await expect(page.getByRole('heading', { name: 'Registration Complete' })).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('button', { name: 'Take Photo' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Use File Picker' })).toBeVisible()
+
+    createdClientEmails.push(email)
+    expect(await findClientByEmail(email)).not.toBeNull()
   })
 })

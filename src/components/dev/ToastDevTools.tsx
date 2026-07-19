@@ -36,15 +36,7 @@ export function ToastDevTools() {
           </Button>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            size="sm"
-            onClick={() =>
-              toast.success('Registration submitted successfully!', {
-                description: 'Please check your email to verify your account.',
-              })
-            }
-          >
+          <Button type="button" size="sm" onClick={() => toast.success('Registration submitted successfully!')}>
             Success
           </Button>
           <Button
@@ -59,16 +51,7 @@ export function ToastDevTools() {
           >
             Error
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              toast.info('Verification email sent', {
-                description: 'Check your inbox and spam folder.',
-              })
-            }
-          >
+          <Button type="button" size="sm" variant="outline" onClick={() => toast.info('Account is ready to use')}>
             Info
           </Button>
           <Button type="button" size="sm" variant="outline" onClick={() => toast.dismiss()}>

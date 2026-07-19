@@ -7,12 +7,6 @@
       "skillPath": ".claude/skills/calcom-api/SKILL.md",
       "computedHash": "544a43edc72eccc843388905fc7c0b5f91ca703d11fd9097ea6c67eaa19250e3"
     },
-    "migrate-radix-to-base": {
-      "source": "shadcn/ui",
-      "sourceType": "github",
-      "skillPath": "skills/migrate-radix-to-base/SKILL.md",
-      "computedHash": "e1f2030ee5059be3dff0812ca0e4b995ee9fa3132176f049ebe6c90346a6755e"
-    },
     "playwright-best-practices": {
       "source": "currents-dev/playwright-best-practices-skill",
       "sourceType": "github",

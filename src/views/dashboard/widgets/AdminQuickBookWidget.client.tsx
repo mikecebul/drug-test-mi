@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getCalApi } from '@calcom/embed-react'
 import { Calendar, Loader2, Search } from 'lucide-react'
 
@@ -20,8 +20,9 @@ import {
 import { sdk } from '@/lib/payload-sdk'
 import { DRUG_TEST_CAL_LINK, getAdminQuickBookCalLink } from '@/utilities/calcom-config'
 import { installCalModalStabilityPatch } from '@/utilities/calcom-modal-stability'
-import { searchClients } from '@/views/DrugTestWizard/workflows/components/client/clientSearch'
+import { CLIENT_SEARCH_MIN_CHARS } from '@/views/DrugTestWizard/workflows/components/client/clientSearch'
 import type { SimpleClient } from '@/views/DrugTestWizard/workflows/components/client/getClients'
+import { useClientSearch } from '@/views/DrugTestWizard/workflows/components/client/useClientSearch'
 
 type TestTypeOption = TestTypeBookingOption
 
@@ -32,10 +33,6 @@ type AdminQuickBookClientContext = {
 }
 
 const ADMIN_QUICK_BOOK_CAL_NAMESPACE = 'admin-quick-book'
-
-function buildClientInitials(firstName: string, lastName: string): string {
-  return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
-}
 
 function getReferralNameFromValue(referralValue: unknown): string | undefined {
   if (referralValue && typeof referralValue === 'object' && 'name' in referralValue) {
@@ -120,55 +117,56 @@ async function resolveClientQuickBookContext(clientId: string): Promise<AdminQui
   }
 }
 
-async function fetchQuickBookClients(): Promise<SimpleClient[]> {
-  const { docs } = await sdk.find({
-    collection: 'clients',
-    limit: 1000,
-    sort: 'lastName',
-    depth: 1,
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      middleInitial: true,
-      email: true,
-      dob: true,
-      phone: true,
-      headshot: true,
-      updatedAt: true,
-    },
-  })
-
-  return docs.map((client) => {
-    const headshot =
-      typeof client.headshot === 'object' && client.headshot
-        ? client.headshot.thumbnailURL || client.headshot.url || undefined
-        : undefined
-    const headshotId = typeof client.headshot === 'object' && client.headshot ? client.headshot.id : undefined
-    const fullName = client.middleInitial
-      ? `${client.firstName} ${client.middleInitial} ${client.lastName}`
-      : `${client.firstName} ${client.lastName}`
-
-    return {
-      id: client.id,
-      firstName: client.firstName,
-      middleInitial: client.middleInitial ?? undefined,
-      lastName: client.lastName,
-      fullName,
-      initials: buildClientInitials(client.firstName, client.lastName),
-      email: client.email,
-      dob: client.dob ?? undefined,
-      phone: client.phone ?? undefined,
-      headshot,
-      headshotId,
-      updatedAt: client.updatedAt ?? undefined,
-    }
-  })
-}
-
 function resolveTestLabel(options: TestTypeOption[], recommendation: RecommendedTestType): string {
   return (
     resolveRecommendedTestLabel(options, recommendation) ?? options[0]?.label ?? FALLBACK_BOOKING_TEST_TYPES[0].label
+  )
+}
+
+function QuickBookClientResult({
+  client,
+  onSelect,
+}: {
+  client: SimpleClient
+  onSelect: (client: SimpleClient) => Promise<void>
+}) {
+  const reason = client.matchReason === 'date-of-birth' ? 'DOB' : client.matchReason || 'identity'
+  const matchLabel =
+    client.matchType === 'exact'
+      ? `Exact ${reason}`
+      : client.matchType === 'partial'
+        ? `Partial ${reason}`
+        : `Possible ${reason} match`
+
+  return (
+    <button
+      type="button"
+      className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-3 py-2 text-left"
+      onMouseDown={(event) => {
+        event.preventDefault()
+        void onSelect(client)
+      }}
+    >
+      <Avatar className="size-8 shrink-0">
+        <AvatarImage
+          src={client.headshot ?? undefined}
+          alt={client.fullName || `${client.firstName} ${client.lastName}`}
+        />
+        <AvatarFallback className="text-xs font-semibold">{client.initials}</AvatarFallback>
+      </Avatar>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <p className="truncate text-sm font-medium">{client.fullName || `${client.firstName} ${client.lastName}`}</p>
+          <span className="text-muted-foreground shrink-0 text-[0.65rem] font-semibold tracking-wide uppercase">
+            {matchLabel}
+          </span>
+        </div>
+        <p className="text-muted-foreground truncate text-xs">
+          {client.email}
+          {client.phone ? ` · ${client.phone}` : ''}
+        </p>
+      </div>
+    </button>
   )
 }
 
@@ -183,12 +181,9 @@ export function AdminQuickBookWidgetClient({
   resultsMode = 'popover',
   searchInputId = 'admin-quick-book-search',
 }: AdminQuickBookWidgetClientProps = {}) {
-  const [clients, setClients] = useState<SimpleClient[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [isLoadingClients, setIsLoadingClients] = useState(true)
   const [isOpeningBooking, setIsOpeningBooking] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
   const [bookingError, setBookingError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -197,35 +192,14 @@ export function AdminQuickBookWidgetClient({
     })
   }, [])
 
-  useEffect(() => {
-    let mounted = true
-
-    const loadData = async () => {
-      try {
-        const clientList = await fetchQuickBookClients()
-        if (!mounted) return
-        setClients(clientList)
-      } catch (error) {
-        console.error('[AdminQuickBookWidget] Failed to load clients', error)
-        if (!mounted) return
-        setLoadError('Unable to load clients right now.')
-      } finally {
-        if (mounted) {
-          setIsLoadingClients(false)
-        }
-      }
-    }
-
-    void loadData()
-
-    return () => {
-      mounted = false
-    }
-  }, [])
-
-  const results = useMemo(() => {
-    return searchClients(clients, searchQuery.trim(), 8)
-  }, [clients, searchQuery])
+  const clientSearch = useClientSearch(
+    { query: searchQuery.trim(), limit: 8 },
+    { enabled: isDropdownOpen && searchQuery.trim().length > 0 },
+  )
+  const exactMatches = clientSearch.isDebouncing ? [] : (clientSearch.data?.exactMatches ?? [])
+  const possibleMatches = clientSearch.isDebouncing ? [] : (clientSearch.data?.possibleMatches ?? [])
+  const results = [...exactMatches, ...possibleMatches]
+  const isLoadingClients = clientSearch.isFetching || clientSearch.isDebouncing
 
   const openCalBookingModal = async (config: CalModalConfig, calLink = DRUG_TEST_CAL_LINK) => {
     const cal = await getCalApi({ namespace: ADMIN_QUICK_BOOK_CAL_NAMESPACE })
@@ -336,30 +310,21 @@ export function AdminQuickBookWidgetClient({
                     : 'bg-popover border-border absolute z-[80] mt-1 max-h-80 w-full overflow-y-auto rounded-md border shadow-lg'
                 }
               >
-                {results.map((client) => (
-                  <button
-                    key={client.id}
-                    type="button"
-                    className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-3 py-2 text-left"
-                    onMouseDown={(event) => {
-                      event.preventDefault()
-                      void handleSelectClient(client)
-                    }}
-                  >
-                    <Avatar className="size-8 shrink-0">
-                      <AvatarImage
-                        src={client.headshot ?? undefined}
-                        alt={client.fullName || `${client.firstName} ${client.lastName}`}
-                      />
-                      <AvatarFallback className="text-xs font-semibold">{client.initials}</AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">
-                        {client.fullName || `${client.firstName} ${client.lastName}`}
-                      </p>
-                      <p className="text-muted-foreground truncate text-xs">{client.email}</p>
-                    </div>
-                  </button>
+                {exactMatches.length > 0 && (
+                  <p className="text-muted-foreground border-b px-3 py-2 text-xs font-semibold tracking-wide uppercase">
+                    Exact Matches
+                  </p>
+                )}
+                {exactMatches.map((client) => (
+                  <QuickBookClientResult key={client.id} client={client} onSelect={handleSelectClient} />
+                ))}
+                {possibleMatches.length > 0 && (
+                  <p className="text-muted-foreground border-y px-3 py-2 text-xs font-semibold tracking-wide uppercase">
+                    Possible Matches
+                  </p>
+                )}
+                {possibleMatches.map((client) => (
+                  <QuickBookClientResult key={client.id} client={client} onSelect={handleSelectClient} />
                 ))}
               </div>
             )}
@@ -386,11 +351,16 @@ export function AdminQuickBookWidgetClient({
         </TabsContent>
       </Tabs>
 
-      {loadError && <p className="text-destructive text-xs">{loadError}</p>}
+      {clientSearch.isError && <p className="text-destructive text-xs">Unable to search clients right now.</p>}
       {bookingError && <p className="text-destructive text-xs">{bookingError}</p>}
-      {isDropdownOpen && !isLoadingClients && results.length === 0 && searchQuery.trim().length > 0 && (
-        <p className="text-muted-foreground text-xs">No matching clients.</p>
+      {isDropdownOpen && clientSearch.isTooShort && (
+        <p className="text-muted-foreground text-xs">Enter at least {CLIENT_SEARCH_MIN_CHARS} characters to search.</p>
       )}
+      {isDropdownOpen &&
+        !clientSearch.isTooShort &&
+        !isLoadingClients &&
+        results.length === 0 &&
+        searchQuery.trim().length > 0 && <p className="text-muted-foreground text-xs">No matching clients.</p>}
     </div>
   )
 }
