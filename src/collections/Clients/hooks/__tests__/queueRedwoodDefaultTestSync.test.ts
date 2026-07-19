@@ -46,14 +46,9 @@ describe('queueRedwoodDefaultTestSyncAfterChange', () => {
     })
   })
 
-  it('falls back to the previous default test mapping when no synced code is stored yet', async () => {
+  it('falls back to the previous static default test mapping when no synced code is stored yet', async () => {
     const payloadMock: any = {
-      findByID: vi.fn().mockResolvedValue({
-        id: 'test-type-old',
-        category: 'lab',
-        label: 'Old test',
-        redwoodLabTestCode: 'B729',
-      }),
+      findByID: vi.fn(),
       logger: {
         error: vi.fn(),
         info: vi.fn(),
@@ -72,7 +67,7 @@ describe('queueRedwoodDefaultTestSyncAfterChange', () => {
       },
       operation: 'update',
       previousDoc: {
-        defaultTestType: 'test-type-old',
+        defaultTestType: '11-panel-lab',
       },
       req: {
         payload: payloadMock,

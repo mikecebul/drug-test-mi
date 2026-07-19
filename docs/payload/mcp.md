@@ -27,8 +27,9 @@ on that key and the access rules of the admin associated with the key.
 2. Open **MCP → API Keys** and create a key associated with an admin account.
 3. Give it a clear label such as `Codex local development`.
 4. Enable MCP traffic and allow `find` only for the collections needed by the current task. For booking
-   inspection, enable `bookings`; `clients`, `test-types`, `courts`, and `employers` are usually helpful when
-   tracing normalization and referral behavior.
+   inspection, enable `bookings`; `clients`, `courts`, and `employers` are usually helpful when tracing
+   normalization and referral behavior. Test types are static configuration and are not exposed as an MCP
+   collection.
 5. Save and copy the generated key. Payload only shows the complete key when it is generated.
 
 ## Connect Codex without committing the key

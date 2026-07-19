@@ -1,4 +1,4 @@
-import type { CollectionBeforeValidateHook, CollectionConfig, FieldHook } from 'payload'
+import type { CollectionBeforeValidateHook, CollectionConfig } from 'payload'
 import { superAdmin } from '@/access/superAdmin'
 import { baseUrl } from '@/utilities/baseUrl'
 import { anyone } from '@/access/anyone'
@@ -15,16 +15,9 @@ import { syncDefaultTestTypeFromReferral } from './hooks/syncDefaultTestTypeFrom
 import { logClientOperationError } from './hooks/logClientOperationError'
 import { redwoodDefaultTestTypeField, redwoodSyncTab } from './redwoodFields'
 import { REDWOOD_CLIENT_UPDATE_APPROVAL_FIELD, REDWOOD_CLIENT_UPDATE_SKIP_SYNC_FIELD } from './redwoodSyncFields'
-import type { Court, Employer } from '@/payload-types'
-import { getTestTypeLabel as getConfiguredTestTypeLabel } from '@/config/test-types'
 import { adminClientSearchEndpoint } from './search/endpoint'
 import { buildClientSearchFields } from './search/normalize'
 import { CLIENT_GENDER_OPTIONS, normalizeClientGender } from '@/lib/client-gender'
-
-type ReferralRelation = {
-  relationTo?: 'courts' | 'employers'
-  value?: string | Court | Employer | null
-}
 
 const populateClientSearchFields: CollectionBeforeValidateHook = ({ data, originalDoc }) => {
   if (!data) return data
@@ -53,72 +46,6 @@ const normalizeLegacyClientGender: CollectionBeforeValidateHook = ({ data }) => 
 
 const adminSearchFieldRead = ({ req }: { req: { user?: { collection?: string } | null } }) =>
   req.user?.collection === 'admins'
-
-function getPopulatedTestTypeLabel(testType: unknown): string | null {
-  if (!testType) return null
-  if (typeof testType === 'object' && 'label' in testType && typeof testType.label === 'string') {
-    return testType.label
-  }
-  if (typeof testType === 'object' && 'value' in testType && typeof testType.value === 'string') {
-    return getConfiguredTestTypeLabel(testType.value) || testType.value
-  }
-  return null
-}
-
-const resolveRequiredTestTypeLabel: FieldHook = async ({ currentDepth, data, req, siblingData, value }) => {
-  if (typeof currentDepth === 'number' && currentDepth > 0) {
-    return typeof value === 'string' && value ? value : null
-  }
-
-  const referralType =
-    typeof siblingData?.referralType === 'string'
-      ? siblingData.referralType
-      : typeof data?.referralType === 'string'
-        ? data.referralType
-        : undefined
-
-  if (referralType === 'self') {
-    return 'Self referral - no preset test'
-  }
-
-  const referral = (siblingData?.referral ?? data?.referral) as ReferralRelation | undefined
-  const relationTo = referral?.relationTo
-  const referralValue = referral?.value
-
-  if (!relationTo || !referralValue) {
-    return 'No referral selected'
-  }
-
-  let preferredTestType =
-    typeof referralValue === 'object' && 'preferredTestType' in referralValue
-      ? referralValue.preferredTestType
-      : undefined
-
-  if (typeof referralValue === 'string') {
-    try {
-      const referralDoc = await req.payload.findByID({
-        collection: relationTo,
-        id: referralValue,
-        depth: 1,
-        req,
-        overrideAccess: false,
-      })
-      preferredTestType = referralDoc.preferredTestType
-    } catch {
-      return typeof value === 'string' && value ? value : 'Unable to load referral test type'
-    }
-  }
-
-  if (typeof preferredTestType === 'string') {
-    const configuredLabel = getConfiguredTestTypeLabel(preferredTestType)
-    if (configuredLabel) return configuredLabel
-  }
-
-  const populatedLabel = getPopulatedTestTypeLabel(preferredTestType)
-  if (populatedLabel) return populatedLabel
-
-  return typeof value === 'string' && value ? value : 'No preferred test type set'
-}
 
 export const Clients: CollectionConfig = {
   slug: 'clients',
@@ -585,19 +512,6 @@ export const Clients: CollectionConfig = {
                   }
                 }
                 return true
-              },
-            },
-            {
-              name: 'requiredTestType',
-              label: 'Required Test Type',
-              type: 'text',
-              virtual: true,
-              admin: {
-                description: 'Resolved from the selected court or employer preferred test type.',
-                readOnly: true,
-              },
-              hooks: {
-                afterRead: [resolveRequiredTestTypeLabel],
               },
             },
             redwoodDefaultTestTypeField,

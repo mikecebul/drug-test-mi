@@ -786,10 +786,6 @@ export default buildConfig({
           description:
             'Payment ledger entries and allocations connecting incoming payments to bookings, drug tests, and client credit.',
         },
-        'test-types': {
-          enabled: { find: true },
-          description: 'Active and historical drug-test types, prices, categories, and external system mappings.',
-        },
         courts: {
           enabled: { find: true },
           description: 'Court referral profiles, contacts, recipients, and preferred test configuration.',

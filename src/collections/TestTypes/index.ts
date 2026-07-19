@@ -20,7 +20,7 @@ export const TestTypes: CollectionConfig = {
     useAsTitle: 'label',
     defaultColumns: ['label', 'value', 'category', 'price', 'toxAccessCode', 'isActive'],
     description:
-      'Legacy collection kept for historical migrations only. Canonical test types now live in src/config/test-types.ts.',
+      'Legacy collection retained only for historical migration compatibility. Runtime test types live in src/config/test-types.ts.',
   },
   fields: [
     {
@@ -56,7 +56,7 @@ export const TestTypes: CollectionConfig = {
         { label: 'Lab', value: 'lab' },
       ],
       admin: {
-        description: 'Helps filter test types in future workflows.',
+        description: 'Legacy migration metadata only.',
       },
     },
     {
@@ -65,7 +65,7 @@ export const TestTypes: CollectionConfig = {
       required: true,
       min: 0,
       admin: {
-        description: 'Standard client price in USD.',
+        description: 'Legacy migration metadata only.',
         step: 1,
       },
     },
@@ -74,7 +74,7 @@ export const TestTypes: CollectionConfig = {
       label: 'Test Code',
       type: 'text',
       admin: {
-        description: 'Lab test code used when ordering this test in ToxAccess.',
+        description: 'Legacy migration metadata only.',
         condition: (_, siblingData) => siblingData?.category === 'lab',
       },
     },
@@ -83,7 +83,7 @@ export const TestTypes: CollectionConfig = {
       type: 'checkbox',
       defaultValue: true,
       admin: {
-        description: 'Inactive test types remain in history but are hidden from new selections.',
+        description: 'Legacy migration metadata only.',
       },
     },
   ],

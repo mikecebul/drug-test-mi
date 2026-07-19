@@ -61,12 +61,13 @@ const redwoodErrorField = (name: string, description: string): Field => ({
 
 export const redwoodDefaultTestTypeField: Field = {
   name: 'defaultTestType',
+  label: 'Default Test Type',
   type: 'select',
   options: testTypeSelectOptions,
   access: redwoodSystemFieldAccess,
   admin: {
     readOnly: true,
-    description: 'Stored configured test type used by Redwood default-test jobs.',
+    description: 'Stored configured test type inherited from the selected court or employer referral.',
   },
 }
 

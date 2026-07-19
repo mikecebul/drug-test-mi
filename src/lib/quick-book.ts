@@ -6,7 +6,7 @@ export type RecommendedTestType = {
 }
 
 type FindByIdArgs = {
-  collection: 'courts' | 'employers' | 'test-types'
+  collection: 'courts' | 'employers'
   id: string
   depth?: number
   select?: Record<string, true>
@@ -163,27 +163,6 @@ export async function resolveRecommendedTestType(
   const extractedFromReferral = extractPreferredTestType(referralDoc?.preferredTestType)
   if (!extractedFromReferral.recommendedTestTypeId && !extractedFromReferral.recommendedTestTypeValue) {
     return {}
-  }
-
-  if (!extractedFromReferral.recommendedTestTypeValue && extractedFromReferral.recommendedTestTypeId) {
-    try {
-      const testTypeDoc = await findByID<{ value?: string }>({
-        collection: 'test-types',
-        id: extractedFromReferral.recommendedTestTypeId,
-        depth: 0,
-        select: {
-          value: true,
-        },
-      })
-
-      return {
-        ...extractedFromReferral,
-        ...(testTypeDoc?.value ? { recommendedTestTypeValue: testTypeDoc.value } : {}),
-      }
-    } catch (error) {
-      console.warn(`[${logPrefix}] Failed to resolve test type value for recommendation`, error)
-      return extractedFromReferral
-    }
   }
 
   return extractedFromReferral

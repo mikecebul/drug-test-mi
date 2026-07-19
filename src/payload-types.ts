@@ -1333,11 +1333,7 @@ export interface Client {
         value: string | Employer;
       } | null);
   /**
-   * Resolved from the selected court or employer preferred test type.
-   */
-  requiredTestType?: string | null;
-  /**
-   * Stored configured test type used by Redwood default-test jobs.
+   * Stored configured test type inherited from the selected court or employer referral.
    */
   defaultTestType?:
     | (
@@ -2417,7 +2413,7 @@ export interface Technician {
   createdAt: string;
 }
 /**
- * Legacy collection kept for historical migrations only. Canonical test types now live in src/config/test-types.ts.
+ * Legacy collection retained only for historical migration compatibility. Runtime test types live in src/config/test-types.ts.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "test-types".
@@ -2437,19 +2433,19 @@ export interface TestType {
    */
   bookingLabel?: string | null;
   /**
-   * Helps filter test types in future workflows.
+   * Legacy migration metadata only.
    */
   category?: ('instant' | 'lab') | null;
   /**
-   * Standard client price in USD.
+   * Legacy migration metadata only.
    */
   price: number;
   /**
-   * Lab test code used when ordering this test in ToxAccess.
+   * Legacy migration metadata only.
    */
   toxAccessCode?: string | null;
   /**
-   * Inactive test types remain in history but are hidden from new selections.
+   * Legacy migration metadata only.
    */
   isActive?: boolean | null;
   updatedAt: string;
@@ -2591,12 +2587,6 @@ export interface PayloadMcpApiKey {
   payments?: {
     /**
      * Allow clients to find payments.
-     */
-    find?: boolean | null;
-  };
-  testTypes?: {
-    /**
-     * Allow clients to find test-types.
      */
     find?: boolean | null;
   };
@@ -3957,7 +3947,6 @@ export interface ClientsSelect<T extends boolean = true> {
   preferredContactMethod?: T;
   referralType?: T;
   referral?: T;
-  requiredTestType?: T;
   defaultTestType?: T;
   referralAdditionalRecipients?:
     | T
@@ -4246,11 +4235,6 @@ export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
         find?: T;
       };
   payments?:
-    | T
-    | {
-        find?: T;
-      };
-  testTypes?:
     | T
     | {
         find?: T;

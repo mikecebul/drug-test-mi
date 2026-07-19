@@ -48,7 +48,9 @@ function normalizeDefaultTestDoc(value: unknown): RedwoodDefaultTestDoc | null {
   }
 }
 
-export function resolveRedwoodEligibleDefaultTestFromDoc(testType: RedwoodDefaultTestDoc | null): RedwoodEligibleDefaultTest {
+export function resolveRedwoodEligibleDefaultTestFromDoc(
+  testType: RedwoodDefaultTestDoc | null,
+): RedwoodEligibleDefaultTest {
   if (!testType) {
     return {
       kind: 'skip',
@@ -87,7 +89,7 @@ export async function resolveClientRedwoodEligibleDefaultTest(args: {
   }
   payload: Payload
 }): Promise<RedwoodEligibleDefaultTest> {
-  const { client, payload } = args
+  const { client } = args
   const defaultTestType = client.defaultTestType
 
   const populated = normalizeDefaultTestDoc(defaultTestType)
@@ -123,26 +125,8 @@ export async function resolveClientRedwoodEligibleDefaultTest(args: {
     })
   }
 
-  try {
-    const testTypeDoc = (await payload.findByID({
-      collection: 'test-types',
-      id: testTypeId,
-      depth: 0,
-      overrideAccess: true,
-      select: {
-        label: true,
-        value: true,
-        category: true,
-        redwoodLabTestCode: true,
-        toxAccessCode: true,
-      },
-    })) as RedwoodDefaultTestDoc
-
-    return resolveRedwoodEligibleDefaultTestFromDoc(normalizeDefaultTestDoc(testTypeDoc))
-  } catch (error) {
-    return {
-      kind: 'error',
-      reason: error instanceof Error ? error.message : String(error),
-    }
+  return {
+    kind: 'error',
+    reason: `Client default test type "${testTypeId}" is not defined in the static test configuration.`,
   }
 }

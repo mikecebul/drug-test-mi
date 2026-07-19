@@ -93,4 +93,21 @@ describe('resolveClientRedwoodEligibleDefaultTest', () => {
     })
     expect(findByID).not.toHaveBeenCalled()
   })
+
+  it('rejects values that are not in the static test configuration', async () => {
+    const findByID = vi.fn()
+
+    const result = await resolveClientRedwoodEligibleDefaultTest({
+      client: {
+        defaultTestType: 'legacy-test-type-id',
+      },
+      payload: { findByID } as any,
+    })
+
+    expect(result).toEqual({
+      kind: 'error',
+      reason: 'Client default test type "legacy-test-type-id" is not defined in the static test configuration.',
+    })
+    expect(findByID).not.toHaveBeenCalled()
+  })
 })
