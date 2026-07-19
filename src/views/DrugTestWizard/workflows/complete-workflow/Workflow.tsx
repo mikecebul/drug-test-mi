@@ -40,8 +40,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Drawer,
   DrawerContent,
@@ -67,7 +68,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@/components/ui/input-group'
-import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -76,6 +76,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { APP_TIMEZONE } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
+import { RegisterClientDialog } from '../../components/RegisterClientDialog'
+import type { ClientMatch } from '../../types'
 import { ClientSearchDialog } from '../components/client/ClientSearchDialog'
 import type { SimpleClient } from '../components/client/getClients'
 import { useClientSearch } from '../components/client/useClientSearch'
@@ -112,6 +114,7 @@ import {
   type GuidedPaymentEntryMethod,
 } from './payment-state'
 import { ReferralProfileDrawer } from '../components/emails/referrals/ReferralProfileDrawer'
+import { WalkInClientDrawer } from './WalkInClientDrawer'
 
 type Booking = Awaited<ReturnType<typeof getTodaysCollectionBookings>>[number]
 type TestType = NonNullable<Booking['testType']>
@@ -332,6 +335,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   })
   const [isPending, startTransition] = useTransition()
   const [walkInClient, setWalkInClient] = useState<SimpleClient | null>(null)
+  const [walkInClientDrawerOpen, setWalkInClientDrawerOpen] = useState(false)
+  const [walkInRegistrationOpen, setWalkInRegistrationOpen] = useState(false)
   const [walkInTestTypeId, setWalkInTestTypeId] = useState('')
   const selectedBooking = useMemo(
     () => bookings.find((booking) => booking.id === query.bookingId) ?? null,
@@ -550,6 +555,30 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       toast.success('Walk-in collection created')
       setQuery({ bookingId: result.bookingId, step: 'payment' })
     })
+  }
+
+  const handleWalkInClientCreated = (client: ClientMatch) => {
+    const fullName = [client.firstName, client.middleInitial, client.lastName].filter(Boolean).join(' ')
+
+    setWalkInClient({
+      id: client.id,
+      firstName: client.firstName,
+      middleInitial: client.middleInitial ?? undefined,
+      lastName: client.lastName,
+      fullName,
+      initials: `${client.firstName.charAt(0)}${client.lastName.charAt(0)}`,
+      email: client.email,
+      dob: client.dob ?? undefined,
+      headshot: client.headshot ?? undefined,
+      matchType: client.matchType,
+      score: client.score,
+    })
+    toast.success(`${fullName} selected for this walk-in`)
+  }
+
+  const handleOpenWalkInRegistration = () => {
+    setWalkInClientDrawerOpen(false)
+    setWalkInRegistrationOpen(true)
   }
 
   const handlePaymentNext = () => {
@@ -1017,37 +1046,64 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           </CardContent>
         </Card>
 
-        <Card className="rounded-lg">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-3 text-2xl">
-              <UserCheck className="size-6" />
-              Walk-In Collection
-            </CardTitle>
-            <CardDescription className="text-base">
-              Create an internal booking for an existing client who is testing now.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-              <div className="border-border bg-background min-h-12 rounded-lg border px-4 py-3">
-                <p className="text-muted-foreground text-sm font-medium">Client</p>
-                <p className="text-lg font-semibold">
-                  {walkInClient
-                    ? walkInClient.fullName || `${walkInClient.firstName} ${walkInClient.lastName}`
-                    : 'None selected'}
-                </p>
+        <Card data-testid="guided-walk-in-card" className="overflow-hidden rounded-lg">
+          <CardHeader className="border-border border-b p-5">
+            <div className="flex items-center gap-4">
+              <div className="bg-muted text-foreground flex size-11 shrink-0 items-center justify-center rounded-lg">
+                <UserCheck className="size-6" />
               </div>
-              <ClientSearchDialog selectedClientId={walkInClient?.id ?? ''} onSelect={setWalkInClient}>
-                <Button type="button" variant="outline" size="lg" className="h-full min-h-12">
-                  <Search className="mr-2 size-5" />
-                  Select Client
-                </Button>
-              </ClientSearchDialog>
+              <CardTitle className="text-2xl">Walk-In Collection</CardTitle>
             </div>
+          </CardHeader>
+          <CardContent className="p-5">
+            <FieldGroup className="gap-5">
+              <Field>
+                <FieldLabel htmlFor="walk-in-client-trigger">Client</FieldLabel>
+                <Button
+                  id="walk-in-client-trigger"
+                  type="button"
+                  aria-label={walkInClient ? 'Change client' : 'Choose client'}
+                  variant="outline"
+                  size="clear"
+                  className="h-auto min-h-20 w-full justify-start gap-3 p-4 text-left"
+                  onClick={() => setWalkInClientDrawerOpen(true)}
+                >
+                  {walkInClient ? (
+                    <Avatar className="size-11">
+                      <AvatarImage
+                        src={walkInClient.headshot}
+                        alt={walkInClient.fullName || `${walkInClient.firstName} ${walkInClient.lastName}`}
+                      />
+                      <AvatarFallback className="font-semibold">{walkInClient.initials}</AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <span className="bg-muted flex size-11 shrink-0 items-center justify-center rounded-lg">
+                      <Search />
+                    </span>
+                  )}
+                  <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
+                    <span className="truncate text-base font-semibold">
+                      {walkInClient
+                        ? walkInClient.fullName || `${walkInClient.firstName} ${walkInClient.lastName}`
+                        : 'None selected'}
+                    </span>
+                    {walkInClient && (
+                      <span className="text-muted-foreground max-w-full truncate text-sm font-normal">
+                        {walkInClient.email}
+                      </span>
+                    )}
+                  </span>
+                  <span className="ml-auto flex shrink-0 items-center gap-2">
+                    {walkInClient ? 'Change client' : 'Choose client'}
+                    <ChevronRight data-icon="inline-end" />
+                  </span>
+                </Button>
+              </Field>
 
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-              <div className="space-y-2">
-                <Label htmlFor="walk-in-test-type">Test type</Label>
+              <Separator />
+
+              <Field>
+                <FieldLabel htmlFor="walk-in-test-type">Test type</FieldLabel>
                 <Select
                   items={testTypes.map((testType) => ({
                     value: testType.id,
@@ -1056,7 +1112,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   value={selectedWalkInTestTypeId}
                   onValueChange={(value) => setWalkInTestTypeId(value ?? '')}
                 >
-                  <SelectTrigger id="walk-in-test-type" className="h-12 text-base">
+                  <SelectTrigger id="walk-in-test-type" className="h-12 w-full text-base">
                     <SelectValue placeholder="Select test type" />
                   </SelectTrigger>
                   <SelectContent
@@ -1075,24 +1131,34 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-              </div>
-              <Button
-                type="button"
-                onClick={handleCreateWalkInBooking}
-                disabled={!walkInClient || !selectedWalkInTestType || isPending}
-                size="lg"
-                className="h-12"
-              >
-                {isPending ? (
-                  <Loader2 className="mr-2 size-5 animate-spin" />
-                ) : (
-                  <CalendarDays className="mr-2 size-5" />
-                )}
-                Start Guided Test
-              </Button>
-            </div>
+              </Field>
+            </FieldGroup>
           </CardContent>
+          <CardFooter className="p-5 pt-0">
+            <Button
+              type="button"
+              onClick={handleCreateWalkInBooking}
+              disabled={!walkInClient || !selectedWalkInTestType || isPending}
+              size="xl"
+              className="w-full"
+            >
+              {isPending ? <Loader2 className="animate-spin" /> : <CalendarDays />}
+              Start Guided Test
+            </Button>
+          </CardFooter>
         </Card>
+        <WalkInClientDrawer
+          open={walkInClientDrawerOpen}
+          onOpenChange={setWalkInClientDrawerOpen}
+          onRegister={handleOpenWalkInRegistration}
+          onSelect={setWalkInClient}
+          selectedClientId={walkInClient?.id ?? ''}
+        />
+        <RegisterClientDialog
+          open={walkInRegistrationOpen}
+          onOpenChange={setWalkInRegistrationOpen}
+          onClientCreated={handleWalkInClientCreated}
+        />
         <Dialog open={Boolean(scheduleAction)} onOpenChange={(open) => !open && setScheduleAction(null)}>
           <DialogContent>
             <DialogHeader>

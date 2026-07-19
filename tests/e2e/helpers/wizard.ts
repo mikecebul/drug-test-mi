@@ -261,8 +261,10 @@ export async function uploadSinglePdf(page: Page, filePath: string) {
 }
 
 export async function selectClientFromSearchDialog(page: Page, fullName: string) {
-  const openButton = page.getByRole('button', { name: /search all clients|search existing clients|change client/i })
-  const dialog = page.getByRole('dialog', { name: /Search and Select Client/i })
+  const openButton = page.getByRole('button', {
+    name: /search all clients|search existing clients|find existing client|choose client|change client/i,
+  })
+  const dialog = page.getByRole('dialog', { name: /Search and Select Client|Choose client/i })
 
   const deadline = Date.now() + 10_000
   do {

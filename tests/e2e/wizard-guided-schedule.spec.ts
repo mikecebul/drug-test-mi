@@ -121,6 +121,39 @@ test.describe("Wizard Today's Schedule", () => {
     ).toHaveCount(0)
   })
 
+  test('chooses or registers a walk-in client from one drawer', async ({ page }) => {
+    const walkInCard = page.getByTestId('guided-walk-in-card')
+    await expect(walkInCard.getByRole('heading', { name: 'Walk-In Collection' })).toBeVisible()
+    await expect(walkInCard.getByText('Start a test for someone without an appointment.')).toHaveCount(0)
+    await expect(walkInCard.getByRole('button', { name: /Choose client/i })).toHaveCount(1)
+    await expect(walkInCard.getByRole('button', { name: /Register new client/i })).toHaveCount(0)
+
+    const startTestButton = walkInCard.getByRole('button', { name: 'Start Guided Test' })
+    await expect(startTestButton).toBeDisabled()
+    await expect(page.getByText('Choose a client to enable.')).toHaveCount(0)
+
+    await walkInCard.getByRole('button', { name: /Choose client/i }).click()
+    const clientDrawer = page.getByRole('dialog', { name: 'Choose client' })
+    await expect(clientDrawer).toBeVisible()
+    await expect(clientDrawer.getByPlaceholder('Search by name, DOB, phone, or email...')).toBeVisible()
+    await expect(clientDrawer.getByRole('button', { name: /Register new client/i })).toBeVisible()
+
+    await clientDrawer.getByRole('button', { name: /Register new client/i }).click()
+    await expect(clientDrawer).toBeHidden()
+    const registrationDrawer = page.getByRole('dialog', { name: 'Register New Client' })
+    await expect(registrationDrawer).toBeVisible()
+    await expect(registrationDrawer).toContainText('Step 1 of 5: Personal Info')
+    await page.keyboard.press('Escape')
+    await expect(registrationDrawer).toBeHidden()
+
+    await selectClientFromSearchDialog(page, fixtures.clients.instant.fullName)
+    await expect(walkInCard).toContainText(fixtures.clients.instant.fullName)
+    await expect(walkInCard).toContainText(fixtures.clients.instant.email)
+    await expect(walkInCard.getByRole('button', { name: /Change client/i })).toHaveCount(1)
+    await expect(walkInCard.getByRole('button', { name: /Register new client/i })).toHaveCount(0)
+    await expect(startTestButton).toBeEnabled()
+  })
+
   test('opens the correct next step from each schedule card', async ({ page }) => {
     await scheduleCardButton(page, scheduleFixtures.bookings.unlinked.attendeeName).click()
     await expect(page.getByRole('heading', { name: 'Confirm Client' })).toBeVisible()

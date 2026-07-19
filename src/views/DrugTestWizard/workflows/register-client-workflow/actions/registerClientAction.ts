@@ -12,6 +12,7 @@ import {
   normalizeReferralContacts,
   parseRecipientEmails,
 } from '@/lib/referrals'
+import { registrationDuplicateWhere } from './registrationDuplicateWhere'
 
 function normalizeAdditionalRecipients(
   rows: Array<{ name?: string; email?: string }> | undefined,
@@ -147,34 +148,11 @@ export async function registerClientAction(formData: CompleteRegistrationValues)
 
     const duplicateClient = await payload.find({
       collection: 'clients',
-      where: {
-        or: [
-          {
-            and: [
-              {
-                firstName: {
-                  equals: formattedFirstName,
-                },
-              },
-              {
-                lastName: {
-                  equals: formattedLastName,
-                },
-              },
-              {
-                dob: {
-                  equals: formattedDob,
-                },
-              },
-            ],
-          },
-          {
-            phone: {
-              equals: formattedPhone,
-            },
-          },
-        ],
-      },
+      where: registrationDuplicateWhere({
+        firstName: formattedFirstName,
+        lastName: formattedLastName,
+        dob: formattedDob,
+      }),
       limit: 1,
       overrideAccess: true,
     })
@@ -182,8 +160,7 @@ export async function registerClientAction(formData: CompleteRegistrationValues)
     if (duplicateClient.docs.length > 0) {
       return {
         success: false,
-        error:
-          'A likely matching client already exists. Return to the scheduled collection screen and select the existing client instead of registering a new one.',
+        error: 'A client with the same full name and date of birth already exists.',
       }
     }
 
