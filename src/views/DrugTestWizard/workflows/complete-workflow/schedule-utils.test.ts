@@ -1,13 +1,45 @@
 import { describe, expect, test } from 'vitest'
 
 import {
+  doesGuidedBookingNameMatchClient,
   formatGuidedGender,
   getCalcomBookingActionLinks,
+  getGuidedClientName,
   getGuidedGenderBadgeClass,
   getGuidedPaymentChoice,
   getGuidedPaymentLabel,
   isPastScheduledBookingTime,
 } from './schedule-utils'
+
+describe('guided client identity helpers', () => {
+  const client = {
+    firstName: 'Jane',
+    middleInitial: 'Q',
+    lastName: "O'Neil-Smith",
+  }
+
+  test('uses the linked client name as the displayed identity', () => {
+    expect(getGuidedClientName(client)).toBe("Jane Q O'Neil-Smith")
+    expect(getGuidedClientName(null)).toBe('')
+  })
+
+  test('matches booking names while ignoring punctuation, accents, and middle names', () => {
+    expect(doesGuidedBookingNameMatchClient('Jane Quinn Oneil Smith', client)).toBe(true)
+    expect(doesGuidedBookingNameMatchClient("O'Neil-Smith, Jane Q", client)).toBe(true)
+    expect(
+      doesGuidedBookingNameMatchClient('Maria de la Cruz', {
+        firstName: 'María',
+        lastName: 'de la Cruz',
+      }),
+    ).toBe(true)
+  })
+
+  test('flags a different first or last name for explicit verification', () => {
+    expect(doesGuidedBookingNameMatchClient('Janet Quinn Oneil Smith', client)).toBe(false)
+    expect(doesGuidedBookingNameMatchClient('Jane Quinn Jones', client)).toBe(false)
+    expect(doesGuidedBookingNameMatchClient('', client)).toBe(false)
+  })
+})
 
 describe('guided schedule payment helpers', () => {
   test('treats unpaid manual bookings as still owing payment', () => {
@@ -74,6 +106,7 @@ describe('guided schedule payment helpers', () => {
 
   test('uses light-mode-safe gender badge classes', () => {
     expect(formatGuidedGender('male')).toBe('Male')
+    expect(formatGuidedGender('other')).toBe('Prefer not to say')
     expect(getGuidedGenderBadgeClass('male')).toContain('bg-blue-50 text-blue-900')
     expect(getGuidedGenderBadgeClass('female')).toContain('bg-pink-50 text-pink-900')
   })

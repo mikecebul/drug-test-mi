@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { extractLabTest } from '../extractLabTest'
+import { extractLabDonorName, extractLabTest } from '../extractLabTest'
 import fs from 'fs/promises'
 import path from 'path'
 import { format } from 'date-fns'
@@ -43,6 +43,12 @@ function assertCollectionDateString(dateString: string): Date {
 }
 
 describe('extractLabTest', () => {
+  test('preserves a donor last name containing a non-breaking hyphen', () => {
+    const text = 'Accession #:\nJordan Q Cole\u2011Hess\n07/14/2026'
+
+    expect(extractLabDonorName(text)).toBe('Jordan Q Cole-Hess')
+  })
+
   describe('11-panel-lab tests', () => {
     test('should extract screening results from 11-panel lab PDF', async () => {
       const pdf = await getTestPdf(

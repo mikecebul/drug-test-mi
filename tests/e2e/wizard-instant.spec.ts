@@ -58,10 +58,9 @@ test.describe('Wizard Instant Workflow', () => {
     })
     await clickNext(page)
 
-    const selectedClientHeading = page.getByRole('heading', { name: /Selected Client/i })
-    if (!(await selectedClientHeading.isVisible().catch(() => false))) {
-      await selectClientFromSearchDialog(page, fixtures.clients.instant.fullName)
-    }
+    await expect(page.getByRole('heading', { name: /Choose a Client/i })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText('Selected Client', { exact: true })).toHaveCount(0)
+    await selectClientFromSearchDialog(page, fixtures.clients.instant.fullName)
 
     await clickNext(page)
     await clickNext(page)

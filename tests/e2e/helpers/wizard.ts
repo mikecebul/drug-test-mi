@@ -261,8 +261,10 @@ export async function uploadSinglePdf(page: Page, filePath: string) {
 }
 
 export async function selectClientFromSearchDialog(page: Page, fullName: string) {
-  const openButton = page.getByRole('button', { name: /search all clients|search existing clients|change client/i })
-  const dialog = page.getByRole('dialog', { name: /Search and Select Client/i })
+  const openButton = page.getByRole('button', {
+    name: /search all clients|search existing clients|find existing client|choose client|change client/i,
+  })
+  const dialog = page.getByRole('dialog', { name: /Search and Select Client|Choose client/i })
 
   const deadline = Date.now() + 10_000
   do {
@@ -399,6 +401,18 @@ export async function goToEmailsStepFromInstant(page: Page, pdfPath: string, cli
     if (!hasSelectedClient) {
       await selectClientFromSearchDialog(page, clientName)
     }
+
+    // Selecting the client can reveal a report/client name mismatch that was not knowable on the
+    // first extract pass. Revisit the extracted identity and explicitly confirm it when required.
+    await clickBack(page)
+    await ensureInstantExtractReady(page)
+    const mismatchConfirmation = page.getByRole('checkbox', {
+      name: /confirm this is the correct client\/report/i,
+    })
+    if (await mismatchConfirmation.isVisible().catch(() => false)) {
+      await mismatchConfirmation.check()
+    }
+    await clickNextToStep(page, 'client')
   }
 
   await clickNextToStep(page, 'medications')

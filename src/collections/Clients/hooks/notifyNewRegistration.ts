@@ -1,217 +1,58 @@
-import { CollectionAfterChangeHook } from 'payload'
+import type { CollectionAfterChangeHook } from 'payload'
+import { buildNewClientRegistrationEmail } from '@/emails/clients'
+import { formatClientGender } from '@/lib/client-gender'
+import { APP_TIMEZONE, parseDob } from '@/lib/date-utils'
 import { prefixNonLiveEmailSubject, resolveOutboundNotificationRecipients } from '@/lib/email-safety'
+import { getServerSideURL } from '@/utilities/getURL'
+import { resolveRegistrationReferral } from './registrationNotification'
+
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(typeof error === 'string' ? error : String(error))
+}
+
+function formatDateOfBirth(value: unknown): string | undefined {
+  if (typeof value !== 'string' && !(value instanceof Date)) return undefined
+  const date = parseDob(value)
+  if (!date) return undefined
+
+  return date.toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+function formatRegistrationTime(value: unknown): string {
+  const date = typeof value === 'string' || value instanceof Date ? new Date(value) : new Date()
+  const validDate = Number.isNaN(date.getTime()) ? new Date() : date
+
+  return `${new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+    timeZone: APP_TIMEZONE,
+  }).format(validDate)} ET`
+}
 
 export const notifyNewRegistration: CollectionAfterChangeHook = async ({ doc, operation, req }) => {
-  if (operation !== 'create') {
-    return doc
-  }
+  if (operation !== 'create' || req.user) return doc
 
-  if (req.user) {
-    return doc
-  }
+  const { payload } = req
 
   try {
-    const { payload } = req
-    const asError = (error: unknown): Error =>
-      error instanceof Error ? error : new Error(typeof error === 'string' ? error : String(error))
-    const isNotFoundError = (error: unknown): boolean => {
-      const message = asError(error).message.toLowerCase()
-      return message.includes('not found') || message.includes('notfound')
-    }
-
-    const referralTypeMap: Record<string, string> = {
-      court: 'Court',
-      employer: 'Employer',
-      self: 'Self',
-    }
-
-    const referralTypeName = referralTypeMap[doc.referralType] || doc.referralType || 'Not specified'
-
-    let referralName = ''
-    let recipientRows: Array<{ name: string; email: string }> = []
-    type ReferralLike = {
-      contacts?: Array<{ name?: string | null; email?: string | null } | null> | null
-      mainContactName?: string | null
-      mainContactEmail?: string | null
-      recipientEmails?: Array<{ email?: string | null } | null> | null
-      name?: string | null
-    }
-
-    const normalizeReferralContacts = (
-      referral: ReferralLike | null | undefined,
-    ): Array<{ name: string; email: string }> => {
-      const map = new Map<string, { name: string; email: string }>()
-      const add = (contact: { name?: string | null; email?: string | null }) => {
-        const email = typeof contact.email === 'string' ? contact.email.trim() : ''
-        if (!email) return
-        const key = email.toLowerCase()
-        const name = typeof contact.name === 'string' ? contact.name.trim() : ''
-        const existing = map.get(key)
-        if (!existing) {
-          map.set(key, { name, email })
-          return
-        }
-        if (!existing.name && name) {
-          map.set(key, { name, email: existing.email })
-        }
-      }
-
-      for (const contact of referral?.contacts || []) {
-        add(contact || {})
-      }
-
-      // Legacy fallback
-      add({ name: referral?.mainContactName, email: referral?.mainContactEmail })
-      for (const row of referral?.recipientEmails || []) {
-        add({ email: row?.email })
-      }
-
-      return Array.from(map.values())
-    }
-
-    const appendUniqueRecipients = (
-      existing: Array<{ name: string; email: string }>,
-      additional: Array<{ name?: string; email?: string }> | undefined,
-    ) => {
-      const map = new Map<string, { name: string; email: string }>()
-      const add = (recipient: { name?: string; email?: string }) => {
-        const email = typeof recipient.email === 'string' ? recipient.email.trim() : ''
-        if (!email) return
-        const key = email.toLowerCase()
-        const name = typeof recipient.name === 'string' ? recipient.name.trim() : ''
-        const current = map.get(key)
-        if (!current) {
-          map.set(key, { name, email })
-          return
-        }
-        if (!current.name && name) {
-          map.set(key, { name, email: current.email })
-        }
-      }
-
-      existing.forEach(add)
-      ;(additional || []).forEach(add)
-
-      return Array.from(map.values())
-    }
-
-    if (doc.referralType === 'court' || doc.referralType === 'employer') {
-      const relationTo = doc.referralType === 'court' ? 'courts' : 'employers'
-      const referralValue =
-        typeof doc.referral === 'object'
-          ? (doc.referral?.value as string | undefined)
-          : typeof doc.referral === 'string'
-            ? doc.referral
-            : undefined
-
-      if (referralValue) {
-        try {
-          const referral = await payload.findByID({
-            collection: relationTo,
-            id: referralValue,
-            depth: 0,
-            overrideAccess: true,
-          })
-
-          referralName = referral?.name || ''
-          recipientRows = normalizeReferralContacts(referral)
-        } catch (error) {
-          if (isNotFoundError(error)) {
-            payload.logger.warn(
-              `Registration referral no longer exists (${relationTo}:${referralValue}) for client ${doc.email}. Continuing notification without preset referral contacts.`,
-            )
-          } else {
-            throw error
-          }
-        }
-      }
-
-      recipientRows = appendUniqueRecipients(
-        recipientRows,
-        (doc.referralAdditionalRecipients || []) as Array<{ name?: string; email?: string }>,
-      )
-    }
-
-    if (doc.referralType === 'self') {
-      recipientRows = appendUniqueRecipients(
-        (doc.selfReferral?.recipients || []) as Array<{ name: string; email: string }>,
-        (doc.referralAdditionalRecipients || []) as Array<{ name?: string; email?: string }>,
-      )
-    }
-
-    let emailBody = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <title>New Client Registration</title>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #007cba; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
-            .content { background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 5px 5px; }
-            .detail-row { margin: 10px 0; padding: 10px; background-color: white; border-radius: 3px; }
-            .label { font-weight: bold; color: #007cba; }
-            .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 14px; color: #666; text-align: center; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>New Client Registration</h1>
-            </div>
-            <div class="content">
-              <p>A new client has registered through the website:</p>
-
-              <div class="detail-row">
-                <span class="label">Name:</span> ${doc.firstName} ${doc.lastName}
-              </div>
-
-              <div class="detail-row">
-                <span class="label">Email:</span> ${doc.email}
-              </div>
-
-              ${doc.phone ? `<div class="detail-row"><span class="label">Phone:</span> ${doc.phone}</div>` : ''}
-
-              ${doc.dob ? `<div class="detail-row"><span class="label">Date of Birth:</span> ${new Date(doc.dob).toLocaleDateString()}</div>` : ''}
-
-              ${doc.gender ? `<div class="detail-row"><span class="label">Gender:</span> ${doc.gender}</div>` : ''}
-
-              <div class="detail-row">
-                <span class="label">Referral Type:</span> ${referralTypeName}
-              </div>
-
-              ${referralName ? `<div class="detail-row"><span class="label">Referral:</span> ${referralName}</div>` : ''}
-    `
-
-    if (recipientRows.length > 0) {
-      emailBody += `
-              <div class="detail-row">
-                <span class="label">Recipients:</span>
-                <ul style="margin: 5px 0; padding-left: 20px;">
-      `
-
-      recipientRows.forEach((recipient) => {
-        emailBody += `<li>${recipient.name ? `${recipient.name} ` : ''}(${recipient.email})</li>`
-      })
-
-      emailBody += `
-                </ul>
-              </div>
-      `
-    }
-
-    emailBody += `
-              <div class="footer">
-                <p>This is an automated notification from MI Drug Test website registration.</p>
-                <p><small>Registration time: ${new Date().toLocaleString()}</small></p>
-              </div>
-            </div>
-          </div>
-        </body>
-      </html>
-    `
+    const referral = await resolveRegistrationReferral({ doc, payload })
+    const clientName = [doc.firstName, doc.lastName].filter(Boolean).join(' ') || doc.email
+    const email = await buildNewClientRegistrationEmail({
+      adminUrl: `${getServerSideURL()}/admin/collections/clients/${doc.id}`,
+      clientName,
+      dateOfBirth: formatDateOfBirth(doc.dob),
+      email: doc.email,
+      gender: doc.gender ? formatClientGender(doc.gender) : undefined,
+      phone: doc.phone || undefined,
+      recipients: referral.recipients,
+      referralName: referral.referralName,
+      referralType: referral.referralTypeName,
+      registeredAt: formatRegistrationTime(doc.createdAt),
+    })
 
     try {
       const notificationRecipients = resolveOutboundNotificationRecipients([
@@ -222,27 +63,28 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({ doc, op
       await payload.sendEmail({
         to: notificationRecipients.recipients,
         from: payload.email.defaultFromAddress,
-        subject: prefixNonLiveEmailSubject(`New Client Registration - ${doc.firstName} ${doc.lastName}`),
-        html: emailBody,
+        subject: prefixNonLiveEmailSubject(email.subject),
+        html: email.html,
       })
 
       payload.logger.info({
         msg: 'New registration notification sent',
         clientEmail: doc.email,
+        referralName: referral.referralName,
         recipients: notificationRecipients.recipients,
         originalRecipients: notificationRecipients.originalRecipients,
         redirected: notificationRecipients.redirected,
       })
     } catch (error) {
-      req.payload.logger.warn({
+      payload.logger.warn({
         msg: 'Failed to send registration notification email (non-blocking)',
-        err: asError(error),
+        err: toError(error),
       })
     }
   } catch (error) {
-    req.payload.logger.error({
+    payload.logger.error({
       msg: 'Unexpected failure while preparing registration notification',
-      err: error instanceof Error ? error : new Error(String(error)),
+      err: toError(error),
     })
   }
 

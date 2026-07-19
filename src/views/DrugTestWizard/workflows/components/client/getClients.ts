@@ -3,6 +3,7 @@
 import { sdk } from '@/lib/payload-sdk'
 import { extractPreferredTestType } from '@/lib/quick-book'
 import { isLabTestTypeValue, type LabTestTypeValue } from '@/config/test-types'
+import type { ClientSearchMatchReason, ClientSearchMatchType } from '@/collections/Clients/search/types'
 
 type LabTestType = Exclude<LabTestTypeValue, '15-panel-instant'>
 
@@ -17,7 +18,8 @@ export interface SimpleClient {
   dob?: string
   headshot?: string
   headshotId?: string
-  matchType?: 'exact' | 'fuzzy'
+  matchType?: ClientSearchMatchType
+  matchReason?: ClientSearchMatchReason
   score?: number
   phone?: string
   updatedAt?: string
@@ -46,57 +48,6 @@ function resolveRecommendedLabTestType(client: { referral?: unknown }): LabTestT
   const extracted = extractPreferredTestType(getReferralPreferredTestType(client))
   const valueFromReferral = toLabTestType(extracted.recommendedTestTypeValue)
   return valueFromReferral || toLabTestType(extracted.recommendedTestTypeId)
-}
-
-export async function getClients(): Promise<SimpleClient[]> {
-  const { docs: clientsResult } = await sdk.find({
-    collection: 'clients',
-    limit: 1000,
-    sort: 'lastName',
-    depth: 2, // Populate headshot relation
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      middleInitial: true,
-      email: true,
-      dob: true,
-      phone: true,
-      headshot: true,
-      referral: true,
-      updatedAt: true,
-    },
-  })
-  const clients = await Promise.all(
-    clientsResult.map(async (client): Promise<SimpleClient> => {
-      // Prefer thumbnail for performance, fallback to full image
-      const headshot =
-        typeof client.headshot === 'object' && client.headshot
-          ? client.headshot.thumbnailURL || client.headshot.url || undefined
-          : undefined
-
-      const headshotId = typeof client.headshot === 'object' && client.headshot ? client.headshot.id : undefined
-
-      return {
-        id: client.id,
-        firstName: client.firstName,
-        middleInitial: client.middleInitial ?? undefined,
-        lastName: client.lastName,
-        fullName: client.middleInitial
-          ? `${client.firstName} ${client.middleInitial} ${client.lastName}`
-          : `${client.firstName} ${client.lastName}`,
-        initials: `${client.firstName.charAt(0)}${client.lastName.charAt(0)}`,
-        email: client.email,
-        dob: client.dob ?? undefined,
-        phone: client.phone ?? undefined,
-        headshot,
-        headshotId,
-        updatedAt: client.updatedAt ?? undefined,
-        recommendedTestTypeValue: resolveRecommendedLabTestType(client),
-      }
-    }),
-  )
-  return clients
 }
 
 export async function getClientById(id: string): Promise<SimpleClient | null> {

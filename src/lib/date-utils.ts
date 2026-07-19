@@ -14,6 +14,95 @@ import { TZDate } from '@date-fns/tz'
  */
 export const APP_TIMEZONE = 'America/New_York'
 
+const MIN_DOB_YEAR = 1900
+
+function createLocalDate(year: number, month: number, day: number): Date | null {
+  const date = new Date(year, month - 1, day)
+
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null
+  }
+
+  return date
+}
+
+/**
+ * Expands a two-digit year using a DOB-specific century cutoff.
+ * Years through the current two-digit year are treated as 20xx;
+ * later values are treated as 19xx.
+ */
+function expandTwoDigitDobYear(year: number, referenceDate: Date): number {
+  const currentTwoDigitYear = referenceDate.getFullYear() % 100
+  return year <= currentTwoDigitYear ? 2000 + year : 1900 + year
+}
+
+/**
+ * Parse the date formats accepted by the DOB field and client search.
+ * Date-only strings are built in local time so stored ISO dates do not shift
+ * by a day when formatted in a negative UTC offset.
+ */
+export function parseDob(value: string | Date | null | undefined, referenceDate: Date = new Date()): Date | null {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null
+
+    const date = createLocalDate(value.getFullYear(), value.getMonth() + 1, value.getDate())
+    if (!date) return null
+
+    const year = date.getFullYear()
+    return year >= MIN_DOB_YEAR && year <= referenceDate.getFullYear() ? date : null
+  }
+
+  const trimmed = value?.trim()
+  if (!trimmed) return null
+
+  let year: number
+  let month: number
+  let day: number
+
+  const yearFirstMatch = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})(?:T.*)?$/)
+  const monthFirstMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})$/)
+  const compactMatch = trimmed.match(/^(\d{2})(\d{2})(\d{2}|\d{4})$/)
+
+  if (yearFirstMatch) {
+    year = Number(yearFirstMatch[1])
+    month = Number(yearFirstMatch[2])
+    day = Number(yearFirstMatch[3])
+  } else if (monthFirstMatch || compactMatch) {
+    const match = monthFirstMatch || compactMatch
+    if (!match) return null
+
+    month = Number(match[1])
+    day = Number(match[2])
+    const parsedYear = Number(match[3])
+    year = match[3].length === 2 ? expandTwoDigitDobYear(parsedYear, referenceDate) : parsedYear
+  } else {
+    return null
+  }
+
+  if (year < MIN_DOB_YEAR || year > referenceDate.getFullYear()) return null
+  return createLocalDate(year, month, day)
+}
+
+/** Format an accepted DOB value for fields and display (MM/DD/YYYY). */
+export function formatDobInput(value: string | Date | null | undefined, referenceDate: Date = new Date()): string {
+  const date = parseDob(value, referenceDate)
+  if (!date) return ''
+
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${month}/${day}/${date.getFullYear()}`
+}
+
+/** Normalize an accepted DOB value for storage and exact search (YYYY-MM-DD). */
+export function formatDobISO(value: string | Date | null | undefined, referenceDate: Date = new Date()): string {
+  const date = parseDob(value, referenceDate)
+  if (!date) return ''
+
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
 /**
  * Get the UTC instants that bound a calendar day in the app timezone.
  *
@@ -143,8 +232,8 @@ export function getCurrentIsoTimestamp(): string {
 }
 
 /**
- * @deprecated Use formatDateOnly instead (more descriptive name)
+ * @deprecated Use formatDobInput instead (more descriptive name)
  */
 export function formatDob(dateString: string | Date): string {
-  return formatDateOnly(dateString)
+  return formatDobInput(dateString)
 }

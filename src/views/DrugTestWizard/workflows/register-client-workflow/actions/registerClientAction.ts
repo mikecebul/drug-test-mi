@@ -4,6 +4,7 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import type { CompleteRegistrationValues } from '../validators'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
+import { formatDobISO } from '@/lib/date-utils'
 import {
   assertReferralHasContacts,
   buildContactsFromLegacyInput,
@@ -12,6 +13,7 @@ import {
   parseRecipientEmails,
 } from '@/lib/referrals'
 import { REDWOOD_PROVISIONING_SOURCE_CONTEXT_KEY } from '@/lib/redwood/context'
+import { registrationDuplicateWhere } from './registrationDuplicateWhere'
 
 function normalizeAdditionalRecipients(
   rows: Array<{ name?: string; email?: string }> | undefined,
@@ -65,7 +67,10 @@ const PLACEHOLDER_EMAIL_DOMAIN = 'midrugtest.com'
 const PLACEHOLDER_EMAIL_MAX_ATTEMPTS = 5000
 
 function toEmailSlug(value: string): string {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
 }
 
 async function generatePlaceholderEmail(
@@ -112,6 +117,7 @@ export async function registerClientAction(formData: CompleteRegistrationValues)
     const formattedLastName = formatPersonName(personalInfo.lastName)
     const formattedMiddleInitial = formatMiddleInitial(personalInfo.middleInitial)
     const formattedPhone = formatPhoneNumber(personalInfo.phone)
+    const formattedDob = formatDobISO(personalInfo.dob)
     const noEmail = accountInfo.noEmail === true
     const submittedEmail = (accountInfo.email ?? '').trim().toLowerCase()
     const submittedPassword = accountInfo.password
@@ -146,34 +152,11 @@ export async function registerClientAction(formData: CompleteRegistrationValues)
 
     const duplicateClient = await payload.find({
       collection: 'clients',
-      where: {
-        or: [
-          {
-            and: [
-              {
-                firstName: {
-                  equals: formattedFirstName,
-                },
-              },
-              {
-                lastName: {
-                  equals: formattedLastName,
-                },
-              },
-              {
-                dob: {
-                  equals: personalInfo.dob,
-                },
-              },
-            ],
-          },
-          {
-            phone: {
-              equals: formattedPhone,
-            },
-          },
-        ],
-      },
+      where: registrationDuplicateWhere({
+        firstName: formattedFirstName,
+        lastName: formattedLastName,
+        dob: formattedDob,
+      }),
       limit: 1,
       overrideAccess: true,
     })
@@ -181,8 +164,7 @@ export async function registerClientAction(formData: CompleteRegistrationValues)
     if (duplicateClient.docs.length > 0) {
       return {
         success: false,
-        error:
-          'A likely matching client already exists. Return to the scheduled collection screen and select the existing client instead of registering a new one.',
+        error: 'A client with the same full name and date of birth already exists.',
       }
     }
 
@@ -193,12 +175,11 @@ export async function registerClientAction(formData: CompleteRegistrationValues)
       email: clientEmail,
       password: submittedPassword,
       gender: personalInfo.gender,
-      dob: personalInfo.dob,
+      dob: formattedDob,
       phone: formattedPhone,
       referralType: screeningType.requestedBy,
       preferredContactMethod: noEmail ? 'phone' : 'email',
       disableClientEmails: noEmail,
-      _verified: true,
     }
 
     if (screeningType.requestedBy === 'self') {

@@ -63,8 +63,20 @@ export type GuidedScheduleFixtures = {
       id: string
       attendeeName: string
       startTime: string
+      registeredClient: SeededPerson
     }
     needsTestType: {
+      id: string
+      attendeeName: string
+      startTime: string
+    }
+    creditAvailable: {
+      id: string
+      attendeeName: string
+      startTime: string
+      client: SeededPerson
+    }
+    completedPrepaid: {
       id: string
       attendeeName: string
       startTime: string

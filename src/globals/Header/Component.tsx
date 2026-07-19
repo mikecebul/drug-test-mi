@@ -21,9 +21,14 @@ export async function Header() {
     depth: 1,
   })
 
+  const authUser =
+    user && (user.collection === 'admins' || user.collection === 'clients')
+      ? { collection: user.collection, id: user.id }
+      : null
+
   return (
     <HeaderClient
-      authUser={user ? { collection: user.collection, id: user.id } : null}
+      authUser={authUser}
       header={header}
       contact={contact}
     />

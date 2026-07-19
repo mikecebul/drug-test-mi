@@ -2,14 +2,11 @@
 
 import { useQuery, type QueryClient } from '@tanstack/react-query'
 import {
-  findMatchingClients,
-  getAllClients,
   computeTestResultPreview,
   getCollectionEmailPreview,
   getEmailPreview,
   getConfirmationEmailPreview,
   extractPdfData,
-  getClients,
 } from './actions'
 import { getClientFromTestId, getDrugTestWithMedications } from './workflows/components/client/getClients'
 import { fetchPendingTests } from './workflows/lab-screen/components/fetchPendingTests'
@@ -29,9 +26,7 @@ export type ExtractedPdfData = ParsedPDFData
 
 const WIZARD_QUERY_ROOTS = [
   'guided',
-  'clients',
-  'all-clients',
-  'matching-clients',
+  'client-search',
   'email-preview',
   'collection-email-preview',
   'lab-screen-email-preview',
@@ -76,9 +71,7 @@ export function invalidateWizardClientDerivedData(
 ) {
   const { clientId, testId } = options || {}
 
-  queryClient.invalidateQueries({ queryKey: ['clients'] })
-  queryClient.invalidateQueries({ queryKey: ['all-clients'] })
-  queryClient.invalidateQueries({ queryKey: ['matching-clients'] })
+  queryClient.invalidateQueries({ queryKey: ['client-search'] })
   queryClient.invalidateQueries({ queryKey: ['email-preview'] })
   queryClient.invalidateQueries({ queryKey: ['collection-email-preview'] })
   queryClient.invalidateQueries({ queryKey: ['lab-screen-email-preview'] })
@@ -95,45 +88,6 @@ export function invalidateWizardClientDerivedData(
     queryClient.invalidateQueries({ queryKey: ['drug-test-with-medications', testId] })
     queryClient.invalidateQueries({ queryKey: ['drug-test', testId] })
   }
-}
-
-/**
- * Query hook for finding matching clients based on donor name
- */
-export function useFindMatchingClientsQuery(firstName?: string, lastName?: string, middleInitial?: string) {
-  return useQuery({
-    queryKey: ['matching-clients', firstName, lastName, middleInitial],
-    queryFn: async () => {
-      if (!firstName || !lastName) {
-        return { matches: [], searchTerm: '' }
-      }
-      return findMatchingClients(firstName, lastName, middleInitial)
-    },
-    enabled: Boolean(firstName && lastName),
-    staleTime: 30 * 1000, // 30 seconds - clients can be added/deleted frequently
-    refetchOnMount: 'always',
-  })
-}
-
-/**
- * Query hook for getting all clients
- */
-export function useGetAllClientsQuery(enabled: boolean = true) {
-  return useQuery({
-    queryKey: ['all-clients'],
-    queryFn: getAllClients,
-    enabled,
-    staleTime: 30 * 1000, // 30 seconds - clients can be added/deleted frequently
-    refetchOnMount: 'always',
-  })
-}
-export function useGetClientsQuery() {
-  return useQuery({
-    queryKey: ['clients'],
-    queryFn: getClients,
-    staleTime: 30 * 1000, // 30 seconds - clients can be added/deleted frequently
-    refetchOnMount: 'always',
-  })
 }
 
 /**

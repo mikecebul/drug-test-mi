@@ -22,6 +22,7 @@ import {
   requestDrugTestConfirmation,
   sendDrugTestStripePaymentLink,
 } from './DrugTestTracker/actions'
+import { getBalanceDue, getTestStage, shouldStayInTracker } from './DrugTestTracker/stage'
 
 export interface DrugTest {
   id: string
@@ -72,85 +73,17 @@ interface DrugTestTrackerClientProps {
   initialTests: DrugTest[]
 }
 
-const getTestStage = (test: DrugTest) => {
-  if (test.isComplete && getBalanceDue(test) > 0) {
-    return { stage: 'Payment Due', color: 'bg-red-500', priority: 1 }
-  }
-
-  if (!test.initialScreenResult) {
-    return { stage: 'Awaiting Results', color: 'bg-gray-500', priority: 2 }
-  }
-
-  if (['negative', 'inconclusive'].includes(test.initialScreenResult)) {
-    return test.isComplete
-      ? { stage: 'Complete', color: 'bg-green-500', priority: 5 }
-      : { stage: 'Ready to Complete', color: 'bg-blue-500', priority: 4 }
-  }
-
-  if (
-    [
-      'expected-positive',
-      'unexpected-positive',
-      'mixed-unexpected',
-      'unexpected-negative-critical',
-      'unexpected-negative-warning',
-    ].includes(test.initialScreenResult)
-  ) {
-    if (!test.confirmationDecision || test.confirmationDecision === 'pending-decision') {
-      return { stage: 'Awaiting Client Decision', color: 'bg-orange-500', priority: 3 }
-    }
-
-    if (test.confirmationDecision === 'accept') {
-      return test.isComplete
-        ? { stage: 'Complete', color: 'bg-green-500', priority: 5 }
-        : { stage: 'Ready to Complete', color: 'bg-blue-500', priority: 4 }
-    }
-
-    if (test.confirmationDecision === 'request-confirmation') {
-      if (getBalanceDue(test) > 0 && test.payment?.confirmationFeeDue && !test.payment.confirmationPaymentBypassed) {
-        return { stage: 'Awaiting Confirmation Payment', color: 'bg-red-500', priority: 3 }
-      }
-
-      // Check if all confirmation results are in
-      const hasAllResults =
-        test.confirmationResults &&
-        test.confirmationSubstances &&
-        test.confirmationResults.length === test.confirmationSubstances.length &&
-        test.confirmationResults.every((r) => r.result)
-
-      if (!hasAllResults) {
-        return { stage: 'Pending Confirmation', color: 'bg-yellow-500', priority: 4 }
-      }
-
-      // All results are in
-      return test.isComplete
-        ? { stage: 'Complete', color: 'bg-green-500', priority: 5 }
-        : { stage: 'Ready to Complete', color: 'bg-blue-500', priority: 4 }
-    }
-  }
-
-  return { stage: 'Unknown', color: 'bg-gray-500', priority: 0 }
-}
-
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
   maximumFractionDigits: 0,
 })
 
-function getBalanceDue(test: DrugTest) {
-  return typeof test.payment?.balanceDue === 'number' ? Math.max(0, test.payment.balanceDue) : 0
-}
-
 function getPaymentStatusLabel(test: DrugTest) {
   const balanceDue = getBalanceDue(test)
   if (balanceDue <= 0) return 'Paid'
   if (test.payment?.status === 'partial') return 'Partial'
   return 'Unpaid'
-}
-
-function shouldStayInTracker(test: DrugTest) {
-  return !test.isComplete || getBalanceDue(test) > 0
 }
 
 export function DrugTestTrackerClient({ initialError = null, initialTests }: DrugTestTrackerClientProps) {

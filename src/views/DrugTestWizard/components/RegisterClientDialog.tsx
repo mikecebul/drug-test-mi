@@ -31,6 +31,7 @@ import {
 } from '@/app/(frontend)/register/validators'
 import { checkEmailExists } from '@/app/(frontend)/register/actions'
 import { focusFirstInvalidField } from '@/lib/form-scroll-focus'
+import { HeadshotCaptureCard } from '../workflows/components/client/HeadshotCaptureCard'
 import z from 'zod'
 
 interface RegisterClientDialogProps {
@@ -265,6 +266,12 @@ export function RegisterClientDialog({
     }
   }
 
+  const handleHeadshotLinked = (url: string) => {
+    setCreatedClient((client) => (client ? { ...client, headshot: url } : client))
+    queryClient.invalidateQueries({ queryKey: ['matching-clients'] })
+    queryClient.invalidateQueries({ queryKey: ['all-clients'] })
+  }
+
   const handleCopyPassword = async () => {
     try {
       const passwordToCopy = formValues.accountInfo?.password || generatedPassword
@@ -290,6 +297,8 @@ export function RegisterClientDialog({
               {createdClient?.firstName} {createdClient?.lastName} has been added to the system.
             </p>
           </div>
+
+          {createdClient && <HeadshotCaptureCard client={createdClient} onHeadshotLinked={handleHeadshotLinked} />}
 
           <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
             <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />

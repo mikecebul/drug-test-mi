@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { useProfileFormOpts } from './use-profile-form-opts'
 import type { Client, CompanyInfo } from '@/payload-types'
+import { CLIENT_GENDER_OPTIONS, CLIENT_GENDER_VALUES, formatClientGender } from '@/lib/client-gender'
 
 interface ProfileViewProps {
   user: Client
@@ -241,13 +242,7 @@ ${clientName}`,
 
     return (
       <ButtonGroup>
-        <Button
-          render={<a href={mailHref} />}
-          nativeButton={false}
-          variant="outline"
-          size="sm"
-          className="shadow-none"
-        >
+        <Button render={<a href={mailHref} />} nativeButton={false} variant="outline" size="sm" className="shadow-none">
           <MailPlus className="h-4 w-4" />
           Email
         </Button>
@@ -446,29 +441,16 @@ ${clientName}`,
           ) : null}
         </SettingsRow>
 
-        <SettingsRow
-          label="Gender"
-          value={<span className="capitalize">{user?.gender?.replace('-', ' ') || 'Not specified'}</span>}
-        >
+        <SettingsRow label="Gender" value={formatClientGender(user?.gender)}>
           {isEditing ? (
             <FormControlSlot>
               <form.AppField
                 name="gender"
                 validators={{
-                  onChange: z.enum(['male', 'female', 'other', 'prefer-not-to-say']).optional(),
+                  onChange: z.enum(CLIENT_GENDER_VALUES).optional(),
                 }}
               >
-                {(formField) => (
-                  <formField.SelectField
-                    label="Gender"
-                    options={[
-                      { label: 'Male', value: 'male' },
-                      { label: 'Female', value: 'female' },
-                      { label: 'Other', value: 'other' },
-                      { label: 'Prefer not to say', value: 'prefer-not-to-say' },
-                    ]}
-                  />
-                )}
+                {(formField) => <formField.SelectField label="Gender" options={CLIENT_GENDER_OPTIONS} />}
               </form.AppField>
             </FormControlSlot>
           ) : null}

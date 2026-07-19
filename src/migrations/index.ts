@@ -14,6 +14,8 @@ import * as migration_20260701_000000_migrate_test_type_relationships_to_config_
 import * as migration_20260709_000000_add_17_panel_sos_toxaccess_code from './20260709_000000_add_17_panel_sos_toxaccess_code'
 import * as migration_20260711_000000_deduplicate_job_runs from './20260711_000000_deduplicate_job_runs'
 import * as migration_20260712_000000_migrate_client_default_test_to_config_value from './20260712_000000_migrate_client_default_test_to_config_value'
+import * as migration_20260718_000000_backfill_client_search_fields from './20260718_000000_backfill_client_search_fields'
+import * as migration_20260719_000000_normalize_client_gender from './20260719_000000_normalize_client_gender'
 
 export const migrations = [
   {
@@ -95,5 +97,15 @@ export const migrations = [
     up: migration_20260712_000000_migrate_client_default_test_to_config_value.up,
     down: migration_20260712_000000_migrate_client_default_test_to_config_value.down,
     name: '20260712_000000_migrate_client_default_test_to_config_value',
+  },
+  {
+    up: migration_20260718_000000_backfill_client_search_fields.up,
+    down: migration_20260718_000000_backfill_client_search_fields.down,
+    name: '20260718_000000_backfill_client_search_fields',
+  },
+  {
+    up: migration_20260719_000000_normalize_client_gender.up,
+    down: migration_20260719_000000_normalize_client_gender.down,
+    name: '20260719_000000_normalize_client_gender',
   },
 ]

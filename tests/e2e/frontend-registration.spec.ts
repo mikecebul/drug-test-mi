@@ -72,9 +72,9 @@ async function fillPersonalInfo(page: Page) {
   await page.getByLabel('Last Name').fill('Taylor')
   await page.locator('[id="personalInfo.gender"]').click()
   await page.getByRole('option', { name: 'Male', exact: true }).click()
-  await page.getByLabel('Date of Birth').fill('01/15/1990')
-  await page.getByLabel('Date of Birth').press('Tab')
   await page.getByLabel('Phone Number').fill('2485551212')
+  await page.getByLabel('Date of Birth').fill('01/15/1990')
+  await expect(page.getByLabel('Date of Birth')).toHaveValue('01/15/1990')
 }
 
 async function fillAccountInfo(page: Page, emailPrefix: string) {
@@ -108,6 +108,18 @@ test.afterAll(async () => {
   for (const email of createdClientEmails) {
     await deleteClientAndRelatedDataByEmail(email)
   }
+})
+
+test('offers only the three supported client gender choices', async ({ page }) => {
+  await openRegistration(page)
+  await page.locator('[id="personalInfo.gender"]').click()
+
+  const options = page.getByRole('option')
+  await expect(options).toHaveCount(3)
+  await expect(page.getByRole('option', { name: 'Male', exact: true })).toBeVisible()
+  await expect(page.getByRole('option', { name: 'Female', exact: true })).toBeVisible()
+  await expect(page.getByRole('option', { name: 'Prefer not to say', exact: true })).toBeVisible()
+  await expect(page.getByRole('option', { name: 'Other', exact: true })).toHaveCount(0)
 })
 
 test('validates steps, supports back-forward navigation, and validates medications in self flow', async ({ page }) => {
@@ -298,7 +310,7 @@ test('submits frontend registration, signs in, and verifies admin emails in Mail
 
   const createdClient = await findClientByEmail(registrationEmail)
   expect(createdClient).not.toBeNull()
-  expect(createdClient?._verified).toBe(true)
+  expect(createdClient?.dob).toContain('1990-01-15')
 
   await findMailpitMessages({
     apiBase: env.mailpitApiBase,

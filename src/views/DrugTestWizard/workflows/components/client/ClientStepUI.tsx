@@ -4,8 +4,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Check, UserPlus, Loader2 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import { getClients, SimpleClient } from './getClients'
+import { SimpleClient } from './getClients'
 import { FieldGroupHeader } from '../FieldGroupHeader'
 import { ClientDisplayCard, ClientInfoContent } from './ClientDisplayCard'
 import { ClientSearchDialog } from './ClientSearchDialog'
@@ -35,15 +34,10 @@ export const ClientStepUI = ({
   donorName,
   isLoading = false,
 }: ClientStepUIProps) => {
-  // Query for all clients (only enabled when needed)
-  const { data: clients } = useQuery({
-    queryKey: ['clients'],
-    queryFn: getClients,
-    staleTime: 30 * 1000, // 30 seconds - clients can be added/deleted frequently
-    refetchOnMount: 'always',
-  })
-
   const { dismiss } = useDismissModal()
+
+  const exactMatches = suggestedMatches.filter((match) => match.matchType === 'exact')
+  const possibleMatches = suggestedMatches.filter((match) => match.matchType !== 'exact')
 
   const handleSelectClient = (client: SimpleClient) => {
     onSelectClient(client)
@@ -98,19 +92,33 @@ export const ClientStepUI = ({
           /* STATE 2: Suggested Matches */
           suggestedMatches.length > 0 && (
             <div className="space-y-3">
-              <h4 className="text-muted-foreground px-1 text-sm font-medium">Suggested Matches</h4>
-              {suggestedMatches.map((match) => (
-                <ClientDisplayCard key={match.id} onClick={() => handleSelectClient(match)}>
-                  <ClientInfoContent client={match} showMatchBadge={true} />
-                </ClientDisplayCard>
-              ))}
+              {exactMatches.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-muted-foreground px-1 text-sm font-medium">Exact Matches</h4>
+                  {exactMatches.map((match) => (
+                    <ClientDisplayCard key={match.id} onClick={() => handleSelectClient(match)}>
+                      <ClientInfoContent client={match} showMatchBadge={true} />
+                    </ClientDisplayCard>
+                  ))}
+                </div>
+              )}
+              {possibleMatches.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-muted-foreground px-1 text-sm font-medium">Possible Matches</h4>
+                  {possibleMatches.map((match) => (
+                    <ClientDisplayCard key={match.id} onClick={() => handleSelectClient(match)}>
+                      <ClientInfoContent client={match} showMatchBadge={true} />
+                    </ClientDisplayCard>
+                  ))}
+                </div>
+              )}
             </div>
           )
         )}
 
         {/* Actions: Always available */}
         <div className="flex flex-col justify-start gap-6 pt-4 sm:flex-row">
-          <ClientSearchDialog allClients={clients} selectedClientId={selectedClient.id} onSelect={handleSelectClient}>
+          <ClientSearchDialog selectedClientId={selectedClient.id} onSelect={handleSelectClient}>
             <Button type="button" size="xl" variant="default">
               <Check className="size-5" />
               {selectedClient.id ? 'Change Client' : 'Search All Clients'}

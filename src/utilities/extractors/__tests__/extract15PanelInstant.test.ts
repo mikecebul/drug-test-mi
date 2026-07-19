@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { extract15PanelInstant } from '../extract15PanelInstant'
+import { extract15PanelInstant, extractInstantDonorName } from '../extract15PanelInstant'
 import fs from 'fs/promises'
 import path from 'path'
 import { format } from 'date-fns'
@@ -43,6 +43,21 @@ function assertCollectionDateString(dateString: string): Date {
 }
 
 describe('extract15PanelInstant', () => {
+  test.each([
+    ['ASCII hyphen', '-'],
+    ['Unicode hyphen', '\u2010'],
+    ['non-breaking hyphen', '\u2011'],
+    ['en dash', '\u2013'],
+    ['minus sign', '\u2212'],
+    ['soft hyphen', '\u00AD'],
+    ['spaced hyphen', ' - '],
+    ['wrapped hyphen', '-\n'],
+  ])('preserves a Cole-Hess donor last name with a %s', (_description, separator) => {
+    const text = `Phone: (248)555-1212\nJordan Q Cole${separator}Hess\niCup Urine`
+
+    expect(extractInstantDonorName(text)).toBe('Jordan Q Cole-Hess')
+  })
+
   test('extracts all-negative 17-panel instant results', async () => {
     const pdf = await getTestPdf('17-panel-instant/all-neg.pdf')
 

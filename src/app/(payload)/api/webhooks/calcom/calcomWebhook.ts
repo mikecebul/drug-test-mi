@@ -103,7 +103,7 @@ export interface CalcomWebhookPayload {
 type ExistingPayment = {
   amountDue?: number | null
   amountPaid?: number | null
-  method?: 'cash' | 'card' | 'pre-paid' | 'not-paid' | null
+  method?: 'cash' | 'card' | 'credit' | 'pre-paid' | 'not-paid' | null
   status?: 'paid' | 'partial' | 'unpaid' | null
   collectedAt?: string | null
   notes?: string | null
