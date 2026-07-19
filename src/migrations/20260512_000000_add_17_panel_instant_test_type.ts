@@ -1,5 +1,7 @@
 import { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-mongodb'
 
+import { LEGACY_TEST_TYPES_COLLECTION } from './legacy-test-types'
+
 const TEST_TYPE = {
   value: '17-panel-instant',
   label: '17-Panel Instant',
@@ -11,7 +13,7 @@ const TEST_TYPE = {
 
 export async function up({ payload, req }: MigrateUpArgs): Promise<void> {
   const existing = await payload.find({
-    collection: 'test-types',
+    collection: LEGACY_TEST_TYPES_COLLECTION,
     where: {
       value: {
         equals: TEST_TYPE.value,
@@ -25,9 +27,9 @@ export async function up({ payload, req }: MigrateUpArgs): Promise<void> {
 
   if (existing.docs[0]) {
     await payload.update({
-      collection: 'test-types',
-      id: existing.docs[0].id,
-      data: TEST_TYPE,
+      collection: LEGACY_TEST_TYPES_COLLECTION,
+      id: (existing.docs[0] as { id: string }).id,
+      data: TEST_TYPE as never,
       overrideAccess: true,
       req,
     })
@@ -37,8 +39,8 @@ export async function up({ payload, req }: MigrateUpArgs): Promise<void> {
   }
 
   await payload.create({
-    collection: 'test-types',
-    data: TEST_TYPE,
+    collection: LEGACY_TEST_TYPES_COLLECTION,
+    data: TEST_TYPE as never,
     overrideAccess: true,
     req,
   })

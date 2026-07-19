@@ -108,7 +108,6 @@ export interface Config {
     'admin-alerts': AdminAlert;
     'job-runs': JobRun;
     technicians: Technician;
-    'test-types': TestType;
     courts: Court;
     employers: Employer;
     clients: Client;
@@ -150,7 +149,6 @@ export interface Config {
     'admin-alerts': AdminAlertsSelect<false> | AdminAlertsSelect<true>;
     'job-runs': JobRunsSelect<false> | JobRunsSelect<true>;
     technicians: TechniciansSelect<false> | TechniciansSelect<true>;
-    'test-types': TestTypesSelect<false> | TestTypesSelect<true>;
     courts: CourtsSelect<false> | CourtsSelect<true>;
     employers: EmployersSelect<false> | EmployersSelect<true>;
     clients: ClientsSelect<false> | ClientsSelect<true>;
@@ -2413,45 +2411,6 @@ export interface Technician {
   createdAt: string;
 }
 /**
- * Legacy collection retained only for historical migration compatibility. Runtime test types live in src/config/test-types.ts.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "test-types".
- */
-export interface TestType {
-  id: string;
-  /**
-   * Human-readable name (e.g., 15-Panel Instant).
-   */
-  label: string;
-  /**
-   * Canonical key used in code and workflow logic (e.g., 15-panel-instant).
-   */
-  value: string;
-  /**
-   * Optional display text for external scheduling tools like Cal.com.
-   */
-  bookingLabel?: string | null;
-  /**
-   * Legacy migration metadata only.
-   */
-  category?: ('instant' | 'lab') | null;
-  /**
-   * Legacy migration metadata only.
-   */
-  price: number;
-  /**
-   * Legacy migration metadata only.
-   */
-  toxAccessCode?: string | null;
-  /**
-   * Legacy migration metadata only.
-   */
-  isActive?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "exports".
  */
@@ -2845,10 +2804,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'technicians';
         value: string | Technician;
-      } | null)
-    | ({
-        relationTo: 'test-types';
-        value: string | TestType;
       } | null)
     | ({
         relationTo: 'courts';
@@ -3866,21 +3821,6 @@ export interface TechniciansSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "test-types_select".
- */
-export interface TestTypesSelect<T extends boolean = true> {
-  label?: T;
-  value?: T;
-  bookingLabel?: T;
-  category?: T;
-  price?: T;
-  toxAccessCode?: T;
-  isActive?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "courts_select".
  */
 export interface CourtsSelect<T extends boolean = true> {
@@ -4710,7 +4650,6 @@ export interface TaskCreateCollectionExport {
       | 'admin-alerts'
       | 'job-runs'
       | 'technicians'
-      | 'test-types'
       | 'courts'
       | 'employers'
       | 'clients'

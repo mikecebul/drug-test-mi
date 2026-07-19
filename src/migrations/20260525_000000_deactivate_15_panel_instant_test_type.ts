@@ -1,10 +1,12 @@
 import { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-mongodb'
 
+import { LEGACY_TEST_TYPES_COLLECTION } from './legacy-test-types'
+
 const TEST_TYPE_VALUE = '15-panel-instant'
 
 async function findTestType(payload: MigrateUpArgs['payload']) {
   return payload.find({
-    collection: 'test-types',
+    collection: LEGACY_TEST_TYPES_COLLECTION,
     where: {
       value: {
         equals: TEST_TYPE_VALUE,
@@ -25,9 +27,9 @@ export async function up({ payload }: MigrateUpArgs): Promise<void> {
   }
 
   await payload.update({
-    collection: 'test-types',
-    id: existing.docs[0].id,
-    data: { isActive: false },
+    collection: LEGACY_TEST_TYPES_COLLECTION,
+    id: (existing.docs[0] as { id: string }).id,
+    data: { isActive: false } as never,
     overrideAccess: true,
   })
 
@@ -43,9 +45,9 @@ export async function down({ payload }: MigrateDownArgs): Promise<void> {
   }
 
   await payload.update({
-    collection: 'test-types',
-    id: existing.docs[0].id,
-    data: { isActive: true },
+    collection: LEGACY_TEST_TYPES_COLLECTION,
+    id: (existing.docs[0] as { id: string }).id,
+    data: { isActive: true } as never,
     overrideAccess: true,
   })
 

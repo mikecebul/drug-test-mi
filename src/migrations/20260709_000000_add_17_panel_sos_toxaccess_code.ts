@@ -1,11 +1,13 @@
 import { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-mongodb'
 
+import { LEGACY_TEST_TYPES_COLLECTION } from './legacy-test-types'
+
 const TEST_TYPE_VALUE = '17-panel-sos-lab'
 const TOXACCESS_CODE = 'B306'
 
 export async function up({ payload, req }: MigrateUpArgs): Promise<void> {
   const existing = await payload.find({
-    collection: 'test-types',
+    collection: LEGACY_TEST_TYPES_COLLECTION,
     where: {
       value: {
         equals: TEST_TYPE_VALUE,
@@ -23,9 +25,9 @@ export async function up({ payload, req }: MigrateUpArgs): Promise<void> {
   }
 
   await payload.update({
-    collection: 'test-types',
-    id: existing.docs[0].id,
-    data: { toxAccessCode: TOXACCESS_CODE },
+    collection: LEGACY_TEST_TYPES_COLLECTION,
+    id: (existing.docs[0] as { id: string }).id,
+    data: { toxAccessCode: TOXACCESS_CODE } as never,
     overrideAccess: true,
     req,
   })

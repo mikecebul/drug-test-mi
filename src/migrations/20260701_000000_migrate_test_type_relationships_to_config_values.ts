@@ -1,5 +1,7 @@
 import type { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-mongodb'
 
+import { LEGACY_TEST_TYPES_COLLECTION } from './legacy-test-types'
+
 const TEST_TYPE_VALUES = new Set([
   '11-panel-lab',
   '11-panel-lab-no-etg',
@@ -21,7 +23,7 @@ type MigrationTarget = (typeof FIELD_MIGRATIONS)[number]
 
 async function loadTestTypeMaps(payload: Payload) {
   const result = await payload.find({
-    collection: 'test-types',
+    collection: LEGACY_TEST_TYPES_COLLECTION,
     depth: 0,
     limit: 1000,
     overrideAccess: true,

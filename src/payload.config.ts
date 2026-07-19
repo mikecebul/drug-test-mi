@@ -59,7 +59,6 @@ import { AdminAlerts } from './collections/AdminAlerts'
 import { JobRuns } from './collections/JobRuns'
 import { Employers } from './collections/Employers'
 import { Courts } from './collections/Courts'
-import { TestTypes } from './collections/TestTypes'
 import { runRedwoodImportClientJob } from './collections/Clients/services/redwoodImportWorkflow'
 import { runRedwoodClientInactivationJob } from './collections/Clients/services/redwoodClientInactivation'
 import { runRedwoodClientUpdateJob } from './collections/Clients/services/redwoodClientUpdate'
@@ -356,7 +355,6 @@ export default buildConfig({
     AdminAlerts,
     JobRuns,
     Technicians,
-    TestTypes,
     Courts,
     Employers,
     Clients,
