@@ -10,6 +10,7 @@ import {
   CalendarClock,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -43,6 +44,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Drawer,
   DrawerContent,
@@ -945,7 +947,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     key={booking.id}
                     className={cn(
                       'border-border bg-card grid w-full grid-cols-[minmax(0,1fr)_auto] gap-4 rounded-lg border p-5 transition',
-                      isCompleted ? 'bg-muted/20 opacity-60' : 'hover:bg-muted/50',
+                      isCompleted ? 'border-border/60 bg-muted/40 text-muted-foreground' : 'hover:bg-muted/50',
                     )}
                   >
                     <button
@@ -955,16 +957,32 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       className="hover:text-foreground focus-visible:ring-ring min-w-0 space-y-1 rounded-md text-left transition focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default"
                     >
                       <span className="flex flex-wrap items-center gap-2">
-                        <span className="block text-xl font-semibold">{booking.attendeeName}</span>
+                        <span
+                          className={cn(
+                            'block text-xl font-semibold',
+                            isCompleted && 'line-through decoration-current/60 decoration-1',
+                          )}
+                        >
+                          {booking.attendeeName}
+                        </span>
                         <Badge
                           variant="outline"
-                          className={cn('shrink-0', getGuidedGenderBadgeClass(booking.client?.gender))}
+                          className={cn(
+                            'shrink-0',
+                            getGuidedGenderBadgeClass(booking.client?.gender),
+                            isCompleted && 'opacity-70',
+                          )}
                         >
                           {formatGuidedGender(booking.client?.gender)}
                         </Badge>
                       </span>
                       <span className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-base">
-                        <span className="inline-flex items-center gap-1">
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1',
+                            isCompleted && 'line-through decoration-current/60 decoration-1',
+                          )}
+                        >
                           <Clock className="size-4" />
                           {formatTime(booking.startTime)}
                         </span>
@@ -974,15 +992,17 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       <div className="flex flex-col items-end gap-2">
                         <Badge
                           variant={
-                            paymentLabel === 'Paid' || paymentLabel === 'Pre-paid' || paymentLabel === 'Collected'
-                              ? 'success'
-                              : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
-                                ? 'outline'
-                                : 'default'
+                            isCompleted
+                              ? 'secondary'
+                              : paymentLabel === 'Paid' || paymentLabel === 'Pre-paid' || paymentLabel === 'Collected'
+                                ? 'success'
+                                : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
+                                  ? 'outline'
+                                  : 'default'
                           }
                           className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
                         >
-                          {isCompleted && <CheckCircle2 className="size-3" />}
+                          {isCompleted && <CheckCircle2 data-icon="inline-start" />}
                           {isCompleted ? 'Completed' : paymentLabel}
                         </Badge>
                         {needsRegistration && <Badge variant="secondary">Register</Badge>}
@@ -1047,105 +1067,116 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         </Card>
 
         <Card data-testid="guided-walk-in-card" className="overflow-hidden rounded-lg">
-          <CardHeader className="border-border border-b p-5">
-            <div className="flex items-center gap-4">
+          <Collapsible defaultOpen={false}>
+            <CollapsibleTrigger
+              nativeButton={false}
+              render={
+                <CardHeader className="group hover:bg-muted/50 focus-visible:ring-ring flex cursor-pointer flex-row items-center gap-4 p-5 transition-colors focus-visible:ring-2 focus-visible:outline-none" />
+              }
+            >
               <div className="bg-muted text-foreground flex size-11 shrink-0 items-center justify-center rounded-lg">
                 <UserCheck className="size-6" />
               </div>
-              <CardTitle className="text-2xl">Walk-In Collection</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="p-5">
-            <FieldGroup className="gap-5">
-              <Field>
-                <FieldLabel htmlFor="walk-in-client-trigger">Client</FieldLabel>
-                <Button
-                  id="walk-in-client-trigger"
-                  type="button"
-                  aria-label={walkInClient ? 'Change client' : 'Choose client'}
-                  variant="outline"
-                  size="clear"
-                  className="h-auto min-h-20 w-full justify-start gap-3 p-4 text-left"
-                  onClick={() => setWalkInClientDrawerOpen(true)}
-                >
-                  {walkInClient ? (
-                    <Avatar className="size-11">
-                      <AvatarImage
-                        src={walkInClient.headshot}
-                        alt={walkInClient.fullName || `${walkInClient.firstName} ${walkInClient.lastName}`}
-                      />
-                      <AvatarFallback className="font-semibold">{walkInClient.initials}</AvatarFallback>
-                    </Avatar>
-                  ) : (
-                    <span className="bg-muted flex size-11 shrink-0 items-center justify-center rounded-lg">
-                      <Search />
-                    </span>
-                  )}
-                  <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
-                    <span className="truncate text-base font-semibold">
-                      {walkInClient
-                        ? walkInClient.fullName || `${walkInClient.firstName} ${walkInClient.lastName}`
-                        : 'None selected'}
-                    </span>
-                    {walkInClient && (
-                      <span className="text-muted-foreground max-w-full truncate text-sm font-normal">
-                        {walkInClient.email}
+              <div className="flex min-w-0 flex-1 flex-col gap-1 text-left">
+                <CardTitle className="text-2xl">Walk-In Collection</CardTitle>
+                <CardDescription className="text-base">For clients without an appointment</CardDescription>
+              </div>
+              <ChevronDown className="text-muted-foreground size-5 shrink-0 transition-transform duration-200 group-data-panel-open:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsiblePanel className="border-border border-t">
+              <CardContent className="p-5">
+                <FieldGroup className="gap-5">
+                  <Field>
+                    <FieldLabel htmlFor="walk-in-client-trigger">Client</FieldLabel>
+                    <Button
+                      id="walk-in-client-trigger"
+                      type="button"
+                      aria-label={walkInClient ? 'Change client' : 'Choose client'}
+                      variant="outline"
+                      size="clear"
+                      className="h-auto min-h-20 w-full justify-start gap-3 p-4 text-left"
+                      onClick={() => setWalkInClientDrawerOpen(true)}
+                    >
+                      {walkInClient ? (
+                        <Avatar className="size-11">
+                          <AvatarImage
+                            src={walkInClient.headshot}
+                            alt={walkInClient.fullName || `${walkInClient.firstName} ${walkInClient.lastName}`}
+                          />
+                          <AvatarFallback className="font-semibold">{walkInClient.initials}</AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <span className="bg-muted flex size-11 shrink-0 items-center justify-center rounded-lg">
+                          <Search />
+                        </span>
+                      )}
+                      <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
+                        <span className="truncate text-base font-semibold">
+                          {walkInClient
+                            ? walkInClient.fullName || `${walkInClient.firstName} ${walkInClient.lastName}`
+                            : 'None selected'}
+                        </span>
+                        {walkInClient && (
+                          <span className="text-muted-foreground max-w-full truncate text-sm font-normal">
+                            {walkInClient.email}
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                  <span className="ml-auto flex shrink-0 items-center gap-2">
-                    {walkInClient ? 'Change client' : 'Choose client'}
-                    <ChevronRight data-icon="inline-end" />
-                  </span>
-                </Button>
-              </Field>
+                      <span className="ml-auto flex shrink-0 items-center gap-2">
+                        {walkInClient ? 'Change client' : 'Choose client'}
+                        <ChevronRight data-icon="inline-end" />
+                      </span>
+                    </Button>
+                  </Field>
 
-              <Separator />
+                  <Separator />
 
-              <Field>
-                <FieldLabel htmlFor="walk-in-test-type">Test type</FieldLabel>
-                <Select
-                  items={testTypes.map((testType) => ({
-                    value: testType.id,
-                    label: `${testType.label} · ${currency.format(testType.price)}`,
-                  }))}
-                  value={selectedWalkInTestTypeId}
-                  onValueChange={(value) => setWalkInTestTypeId(value ?? '')}
+                  <Field>
+                    <FieldLabel htmlFor="walk-in-test-type">Test type</FieldLabel>
+                    <Select
+                      items={testTypes.map((testType) => ({
+                        value: testType.id,
+                        label: `${testType.label} · ${currency.format(testType.price)}`,
+                      }))}
+                      value={selectedWalkInTestTypeId}
+                      onValueChange={(value) => setWalkInTestTypeId(value ?? '')}
+                    >
+                      <SelectTrigger id="walk-in-test-type" className="h-12 w-full text-base">
+                        <SelectValue placeholder="Select test type" />
+                      </SelectTrigger>
+                      <SelectContent
+                        side="bottom"
+                        align="start"
+                        alignItemWithTrigger={false}
+                        sideOffset={4}
+                        collisionAvoidance={{ side: 'none', align: 'none', fallbackAxisSide: 'none' }}
+                      >
+                        <SelectGroup>
+                          {testTypes.map((testType) => (
+                            <SelectItem key={testType.id} value={testType.id}>
+                              {testType.label} · {currency.format(testType.price)}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </FieldGroup>
+              </CardContent>
+              <CardFooter className="p-5 pt-0">
+                <Button
+                  type="button"
+                  onClick={handleCreateWalkInBooking}
+                  disabled={!walkInClient || !selectedWalkInTestType || isPending}
+                  size="xl"
+                  className="w-full"
                 >
-                  <SelectTrigger id="walk-in-test-type" className="h-12 w-full text-base">
-                    <SelectValue placeholder="Select test type" />
-                  </SelectTrigger>
-                  <SelectContent
-                    side="bottom"
-                    align="start"
-                    alignItemWithTrigger={false}
-                    sideOffset={4}
-                    collisionAvoidance={{ side: 'none', align: 'none', fallbackAxisSide: 'none' }}
-                  >
-                    <SelectGroup>
-                      {testTypes.map((testType) => (
-                        <SelectItem key={testType.id} value={testType.id}>
-                          {testType.label} · {currency.format(testType.price)}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </FieldGroup>
-          </CardContent>
-          <CardFooter className="p-5 pt-0">
-            <Button
-              type="button"
-              onClick={handleCreateWalkInBooking}
-              disabled={!walkInClient || !selectedWalkInTestType || isPending}
-              size="xl"
-              className="w-full"
-            >
-              {isPending ? <Loader2 className="animate-spin" /> : <CalendarDays />}
-              Start Guided Test
-            </Button>
-          </CardFooter>
+                  {isPending ? <Loader2 className="animate-spin" /> : <CalendarDays />}
+                  Start Guided Test
+                </Button>
+              </CardFooter>
+            </CollapsiblePanel>
+          </Collapsible>
         </Card>
         <WalkInClientDrawer
           open={walkInClientDrawerOpen}

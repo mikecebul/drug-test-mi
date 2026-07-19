@@ -1,6 +1,15 @@
 import Link from 'next/link'
 import type { WidgetServerProps } from 'payload'
-import { CalendarClock, CalendarDays, CalendarX, Clock, ExternalLink, Menu, PlayCircle } from 'lucide-react'
+import {
+  CalendarClock,
+  CalendarDays,
+  CalendarX,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  Menu,
+  PlayCircle,
+} from 'lucide-react'
 
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { Badge } from '@/components/ui/badge'
@@ -28,6 +37,7 @@ function formatTime(value: string) {
 
 function ScheduleRow({ booking }: { booking: Booking }) {
   const paymentLabel = getGuidedPaymentLabel(booking)
+  const isCompleted = booking.sampleCollection?.status === 'collected'
   const needsRegistration = booking.needsRegistration
   const needsTestType = booking.needsTestType
   const workflowLabel = needsRegistration || needsTestType ? 'Review & Start' : 'Collect Test'
@@ -39,22 +49,38 @@ function ScheduleRow({ booking }: { booking: Booking }) {
   return (
     <div
       className={cn(
-        'border-border/70 bg-card grid w-full gap-4 rounded-md border p-4 text-left transition',
+        'border-border bg-card grid w-full gap-4 rounded-lg border p-5 text-left transition',
         'md:grid-cols-[minmax(0,1fr)_auto]',
+        isCompleted && 'border-border/60 bg-muted/40 text-muted-foreground',
       )}
     >
-      <div className="grid min-w-0 gap-3 sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-center">
-        <span className="text-foreground inline-flex items-center gap-2 text-sm font-semibold">
-          <Clock className="text-muted-foreground size-3.5" />
+      <div className="min-w-0 space-y-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <span
+            className={cn(
+              'block truncate text-base font-semibold',
+              isCompleted && 'line-through decoration-current/60 decoration-1',
+            )}
+          >
+            {booking.attendeeName}
+          </span>
+          <Badge
+            variant="outline"
+            className={cn('shrink-0', getGuidedGenderBadgeClass(booking.client?.gender), isCompleted && 'opacity-70')}
+          >
+            {formatGuidedGender(booking.client?.gender)}
+          </Badge>
+        </span>
+        <span
+          className={cn(
+            'text-muted-foreground inline-flex items-center gap-1 text-sm',
+            isCompleted && 'line-through decoration-current/60 decoration-1',
+          )}
+        >
+          <Clock className="size-3.5" />
           {formatTime(booking.startTime)}
         </span>
-        <span className="min-w-0 space-y-2">
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="block truncate text-base font-semibold">{booking.attendeeName}</span>
-            <Badge variant="outline" className={cn('shrink-0', getGuidedGenderBadgeClass(booking.client?.gender))}>
-              {formatGuidedGender(booking.client?.gender)}
-            </Badge>
-          </span>
+        {!isCompleted && (
           <span className="flex flex-wrap items-center gap-2">
             <Badge
               variant={
@@ -71,41 +97,48 @@ function ScheduleRow({ booking }: { booking: Booking }) {
             {needsRegistration && <Badge variant="secondary">Register</Badge>}
             {needsTestType && <Badge variant="secondary">Set test</Badge>}
           </span>
-        </span>
-      </div>
-      <div className="flex flex-wrap items-center gap-2 md:justify-end md:self-center">
-        <Link href={getGuidedScheduleHref(booking)} className={cn(buttonVariants({ size: 'sm' }), 'min-w-32 gap-2')}>
-          <PlayCircle className="size-4" />
-          {workflowLabel}
-        </Link>
-        {rescheduleHref && (
-          <a
-            href={rescheduleHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), 'gap-2')}
-          >
-            <CalendarClock className="size-4" />
-            Reschedule
-            <ExternalLink className="size-3" />
-          </a>
-        )}
-        {cancelHref && (
-          <a
-            href={cancelHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              buttonVariants({ size: 'sm', variant: 'outline' }),
-              'border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive gap-2',
-            )}
-          >
-            <CalendarX className="size-4" />
-            Cancel
-            <ExternalLink className="size-3" />
-          </a>
         )}
       </div>
+      {isCompleted ? (
+        <Badge variant="secondary" className="self-start md:self-center">
+          <CheckCircle2 data-icon="inline-start" />
+          Completed
+        </Badge>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2 md:justify-end md:self-center">
+          <Link href={getGuidedScheduleHref(booking)} className={cn(buttonVariants({ size: 'sm' }), 'min-w-32 gap-2')}>
+            <PlayCircle data-icon="inline-start" />
+            {workflowLabel}
+          </Link>
+          {rescheduleHref && (
+            <a
+              href={rescheduleHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), 'gap-2')}
+            >
+              <CalendarClock data-icon="inline-start" />
+              Reschedule
+              <ExternalLink data-icon="inline-end" />
+            </a>
+          )}
+          {cancelHref && (
+            <a
+              href={cancelHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                buttonVariants({ size: 'sm', variant: 'outline' }),
+                'border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive gap-2',
+              )}
+            >
+              <CalendarX data-icon="inline-start" />
+              Cancel
+              <ExternalLink data-icon="inline-end" />
+            </a>
+          )}
+        </div>
+      )}
     </div>
   )
 }
