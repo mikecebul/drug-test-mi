@@ -8,6 +8,7 @@ import type { Court, Employer } from '@/payload-types'
 import { getTestTypeLabel as getConfiguredTestTypeLabel } from '@/config/test-types'
 import { adminClientSearchEndpoint } from './search/endpoint'
 import { buildClientSearchFields } from './search/normalize'
+import { CLIENT_GENDER_OPTIONS, normalizeClientGender } from '@/lib/client-gender'
 
 type ReferralRelation = {
   relationTo?: 'courts' | 'employers'
@@ -30,6 +31,13 @@ const populateClientSearchFields: CollectionBeforeValidateHook = ({ data, origin
     ...data,
     ...buildClientSearchFields(identity),
   }
+}
+
+const normalizeLegacyClientGender: CollectionBeforeValidateHook = ({ data }) => {
+  if (!data || data.gender === undefined) return data
+
+  const gender = normalizeClientGender(data.gender)
+  return gender ? { ...data, gender } : data
 }
 
 const adminSearchFieldRead = ({ req }: { req: { user?: { collection?: string } | null } }) =>
@@ -109,56 +117,6 @@ export const Clients: CollectionConfig = {
     plural: 'Clients',
   },
   auth: {
-    verify: {
-      generateEmailHTML: ({ token, user }) => {
-        const verifyURL = `${baseUrl}/verify-email?token=${token}`
-
-        return `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1">
-              <title>Verify Your Email Address</title>
-              <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { text-align: center; margin-bottom: 30px; }
-                .button { display: inline-block; padding: 12px 24px; background-color: #007cba; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-                .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666; }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <div class="header">
-                  <h1>Verify Your Email Address</h1>
-                </div>
-
-                <p>Hello ${user.name || user.email},</p>
-
-                <p>Thank you for registering with MI Drug Test! To complete your registration and activate your account, please verify your email address by clicking the button below:</p>
-
-                <div style="text-align: center;">
-                  <a href="${verifyURL}" class="button">Verify My Email</a>
-                </div>
-
-                <p>This verification link will expire in 24 hours for security reasons.</p>
-
-                <p>Once verified, you'll be able to schedule your drug screening appointment and access your account.</p>
-
-                <p>If you didn't create this account, you can safely ignore this email.</p>
-
-                <div class="footer">
-                  <p>Best regards,<br>The MI Drug Test Team</p>
-                  <p><small>This is an automated message, please do not reply to this email.</small></p>
-                </div>
-              </div>
-            </body>
-          </html>
-        `
-      },
-      generateEmailSubject: () => 'Verify Your Email Address - MI Drug Test',
-    },
     forgotPassword: {
       generateEmailHTML: (args) => {
         const { token, user } = args || {}
@@ -250,7 +208,7 @@ export const Clients: CollectionConfig = {
     },
   },
   hooks: {
-    beforeValidate: [populateClientSearchFields],
+    beforeValidate: [normalizeLegacyClientGender, populateClientSearchFields],
     afterChange: [notifyNewRegistration],
   },
   admin: {
@@ -427,12 +385,7 @@ export const Clients: CollectionConfig = {
             {
               name: 'gender',
               type: 'select',
-              options: [
-                { label: 'Male', value: 'male' },
-                { label: 'Female', value: 'female' },
-                { label: 'Other', value: 'other' },
-                { label: 'Prefer not to say', value: 'prefer-not-to-say' },
-              ],
+              options: CLIENT_GENDER_OPTIONS,
               admin: {
                 description: 'Client gender identity',
               },

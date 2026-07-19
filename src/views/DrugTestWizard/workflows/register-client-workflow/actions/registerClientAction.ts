@@ -66,7 +66,10 @@ const PLACEHOLDER_EMAIL_DOMAIN = 'midrugtest.com'
 const PLACEHOLDER_EMAIL_MAX_ATTEMPTS = 5000
 
 function toEmailSlug(value: string): string {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
 }
 
 async function generatePlaceholderEmail(
@@ -176,7 +179,6 @@ export async function registerClientAction(formData: CompleteRegistrationValues)
       referralType: screeningType.requestedBy,
       preferredContactMethod: noEmail ? 'phone' : 'email',
       disableClientEmails: noEmail,
-      _verified: true,
     }
 
     if (screeningType.requestedBy === 'self') {

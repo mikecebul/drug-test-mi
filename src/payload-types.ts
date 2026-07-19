@@ -1297,7 +1297,7 @@ export interface Client {
   /**
    * Client gender identity
    */
-  gender?: ('male' | 'female' | 'other' | 'prefer-not-to-say') | null;
+  gender?: ('male' | 'female' | 'prefer-not-to-say') | null;
   /**
    * Phone number for contact
    */
@@ -1469,8 +1469,6 @@ export interface Client {
   resetPasswordExpiration?: string | null;
   salt?: string | null;
   hash?: string | null;
-  _verified?: boolean | null;
-  _verificationToken?: string | null;
   loginAttempts?: number | null;
   lockUntil?: string | null;
   sessions?:
@@ -3735,8 +3733,6 @@ export interface ClientsSelect<T extends boolean = true> {
   resetPasswordExpiration?: T;
   salt?: T;
   hash?: T;
-  _verified?: T;
-  _verificationToken?: T;
   loginAttempts?: T;
   lockUntil?: T;
   sessions?:

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { CLIENT_GENDER_VALUES } from '@/lib/client-gender'
 
 const additionalRecipientRowSchema = z.object({
   name: z.string().optional(),
@@ -13,28 +14,35 @@ export const personalInfoFieldSchema = z.object({
     .trim()
     .min(1, { error: 'Middle initial is required' })
     .max(1, { error: 'Middle initial must be a single character' }),
-  gender: z.string().min(1, { error: 'Please select a gender' }),
-  dob: z.union([
-    z.string().min(1, { error: 'Date of birth is required' }),
-    z.date({ error: 'Date of birth is required' }),
-  ])
-    .refine((val) => {
-      const date = typeof val === 'string' ? new Date(val) : val
-      if (isNaN(date.getTime())) return false
-      const year = date.getFullYear()
-      const currentYear = new Date().getFullYear()
-      return year >= 1900 && year <= currentYear
-    }, {
-      message: 'Please enter a valid date',
-    })
-    .refine((val) => {
-      const date = typeof val === 'string' ? new Date(val) : val
-      const thirteenYearsAgo = new Date()
-      thirteenYearsAgo.setFullYear(thirteenYearsAgo.getFullYear() - 13)
-      return date <= thirteenYearsAgo
-    }, {
-      message: 'You must be at least 13 years old',
-    }),
+  gender: z
+    .string()
+    .min(1, { error: 'Please select a gender' })
+    .pipe(z.enum(CLIENT_GENDER_VALUES, { error: 'Please select a valid gender' })),
+  dob: z
+    .union([z.string().min(1, { error: 'Date of birth is required' }), z.date({ error: 'Date of birth is required' })])
+    .refine(
+      (val) => {
+        const date = typeof val === 'string' ? new Date(val) : val
+        if (isNaN(date.getTime())) return false
+        const year = date.getFullYear()
+        const currentYear = new Date().getFullYear()
+        return year >= 1900 && year <= currentYear
+      },
+      {
+        message: 'Please enter a valid date',
+      },
+    )
+    .refine(
+      (val) => {
+        const date = typeof val === 'string' ? new Date(val) : val
+        const thirteenYearsAgo = new Date()
+        thirteenYearsAgo.setFullYear(thirteenYearsAgo.getFullYear() - 13)
+        return date <= thirteenYearsAgo
+      },
+      {
+        message: 'You must be at least 13 years old',
+      },
+    ),
   phone: z
     .string()
     .min(1, { error: 'Phone number is required' })
@@ -60,11 +68,13 @@ export const accountInfoFieldSchema = z.object({
 })
 
 export const screeningRequestFieldSchema = z.object({
-  requestedBy: z.enum(['court', 'employer', 'self', ''], {
-    error: 'Please select who is requesting this screening',
-  }).refine((val) => val !== '', {
-    error: 'Please select who is requesting this screening',
-  }),
+  requestedBy: z
+    .enum(['court', 'employer', 'self', ''], {
+      error: 'Please select who is requesting this screening',
+    })
+    .refine((val) => val !== '', {
+      error: 'Please select who is requesting this screening',
+    }),
 })
 
 export const termsAndConditionsFieldSchema = z.object({
@@ -101,10 +111,7 @@ function validateRecipients(
   pathPrefix: Array<string | number> = [],
 ) {
   const path = (...parts: Array<string | number>) => [...pathPrefix, ...parts]
-  const validateAdditionalRows = (
-    rows: Array<{ name?: string; email?: string }>,
-    rowPath: Array<string | number>,
-  ) => {
+  const validateAdditionalRows = (rows: Array<{ name?: string; email?: string }>, rowPath: Array<string | number>) => {
     const seenEmails = new Map<string, number>()
 
     rows.forEach((row, index) => {
@@ -215,13 +222,7 @@ function validateRecipients(
   validateAdditionalRows(rows, path('additionalReferralRecipients'))
 }
 
-export const steps = [
-  'personalInfo',
-  'accountInfo',
-  'screeningType',
-  'recipients',
-  'terms',
-] as const
+export const steps = ['personalInfo', 'accountInfo', 'screeningType', 'recipients', 'terms'] as const
 
 export type Steps = typeof steps
 
@@ -315,17 +316,18 @@ export const termsSchema = z.object({
   terms: termsAndConditionsFieldSchema,
 })
 
-export const formSchema = z.object({
-  personalInfo: personalInfoSchema.shape.personalInfo,
-  accountInfo: accountInfoOptionalEmailGroupSchema,
-  screeningType: screeningTypeSchema.shape.screeningType,
-  recipients: recipientsSchema.shape.recipients,
-  terms: termsSchema.shape.terms,
-})
-.refine((data) => data.accountInfo.password === data.accountInfo.confirmPassword, {
-  message: "Passwords don't match",
-  path: ['accountInfo', 'confirmPassword'],
-})
+export const formSchema = z
+  .object({
+    personalInfo: personalInfoSchema.shape.personalInfo,
+    accountInfo: accountInfoOptionalEmailGroupSchema,
+    screeningType: screeningTypeSchema.shape.screeningType,
+    recipients: recipientsSchema.shape.recipients,
+    terms: termsSchema.shape.terms,
+  })
+  .refine((data) => data.accountInfo.password === data.accountInfo.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['accountInfo', 'confirmPassword'],
+  })
 
 export type FormValues = z.input<typeof formSchema>
 export type CompleteRegistrationValues = z.output<typeof formSchema>

@@ -274,7 +274,6 @@ async function createClient(
       })),
       preferredContactMethod: 'email',
       disableClientEmails: false,
-      _verified: true,
       medications: [
         {
           medicationName: 'Suboxone',

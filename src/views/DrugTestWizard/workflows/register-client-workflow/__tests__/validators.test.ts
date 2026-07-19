@@ -27,9 +27,7 @@ function buildBaseRecipientsInput() {
 describe('recipientsSchema additional referral recipients', () => {
   test('allows optional name with required email for court referrals', () => {
     const input = buildBaseRecipientsInput()
-    input.recipients.additionalReferralRecipients = [
-      { name: '', email: 'extra@client.com' },
-    ]
+    input.recipients.additionalReferralRecipients = [{ name: '', email: 'extra@client.com' }]
 
     const result = recipientsSchema.safeParse(input)
     expect(result.success).toBe(true)
@@ -37,9 +35,7 @@ describe('recipientsSchema additional referral recipients', () => {
 
   test('rejects invalid additional recipient email', () => {
     const input = buildBaseRecipientsInput()
-    input.recipients.additionalReferralRecipients = [
-      { name: 'Invalid', email: 'not-an-email' },
-    ]
+    input.recipients.additionalReferralRecipients = [{ name: 'Invalid', email: 'not-an-email' }]
 
     const result = recipientsSchema.safeParse(input)
     expect(result.success).toBe(false)
@@ -113,10 +109,38 @@ describe('personalInfoFieldSchema middle initial', () => {
 
     expect(result.success).toBe(false)
     if (!result.success) {
-      expect(
-        result.error.issues.some((issue) => issue.message === 'Middle initial must be a single character'),
-      ).toBe(true)
+      expect(result.error.issues.some((issue) => issue.message === 'Middle initial must be a single character')).toBe(
+        true,
+      )
     }
+  })
+
+  test.each(['male', 'female', 'prefer-not-to-say'])('accepts the supported gender value %s', (gender) => {
+    const result = personalInfoFieldSchema.safeParse({
+      firstName: 'Alex',
+      lastName: 'Taylor',
+      middleInitial: 'Q',
+      gender,
+      dob: '1990-01-15',
+      phone: '2485551212',
+      headshot: null,
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  test('rejects the retired other gender value', () => {
+    const result = personalInfoFieldSchema.safeParse({
+      firstName: 'Alex',
+      lastName: 'Taylor',
+      middleInitial: 'Q',
+      gender: 'other',
+      dob: '1990-01-15',
+      phone: '2485551212',
+      headshot: null,
+    })
+
+    expect(result.success).toBe(false)
   })
 })
 

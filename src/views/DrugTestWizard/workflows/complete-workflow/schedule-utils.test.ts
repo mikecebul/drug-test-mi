@@ -106,6 +106,7 @@ describe('guided schedule payment helpers', () => {
 
   test('uses light-mode-safe gender badge classes', () => {
     expect(formatGuidedGender('male')).toBe('Male')
+    expect(formatGuidedGender('other')).toBe('Prefer not to say')
     expect(getGuidedGenderBadgeClass('male')).toContain('bg-blue-50 text-blue-900')
     expect(getGuidedGenderBadgeClass('female')).toContain('bg-pink-50 text-pink-900')
   })

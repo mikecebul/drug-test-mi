@@ -1712,7 +1712,6 @@ export async function registerClientFromWizard(data: {
       phone: formattedPhone,
       referralType: data.referralType,
       preferredContactMethod: 'email',
-      _verified: true, // Skip email verification for admin-created clients
     }
 
     clientData.referralAdditionalRecipients = normalizeAdditionalRecipients(data.additionalReferralRecipients)

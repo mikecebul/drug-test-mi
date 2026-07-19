@@ -41,7 +41,11 @@ async function authorizeTestBookingRequest(payload: Payload, request: NextReques
   return null
 }
 
-function buildMockCalcomFields(uid: string, numericId: number, overrides: Partial<BookingData> = {}): Partial<BookingData> {
+function buildMockCalcomFields(
+  uid: string,
+  numericId: number,
+  overrides: Partial<BookingData> = {},
+): Partial<BookingData> {
   return {
     calcomBookingId: uid,
     calcomBookingNumericId: numericId,
@@ -142,7 +146,6 @@ async function ensureClient(
     referralType: input.referralType,
     referral: input.referral,
     preferredContactMethod: 'email' as const,
-    _verified: true,
     isActive: true,
   }
 

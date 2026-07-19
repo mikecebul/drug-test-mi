@@ -61,9 +61,4 @@ export const SCREENING_TYPES = [
   },
 ] as const
 
-export const GENDER_OPTIONS = [
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-  { value: 'other', label: 'Other' },
-  { value: 'prefer-not-to-say', label: 'Prefer not to say' },
-]
+export { CLIENT_GENDER_OPTIONS as GENDER_OPTIONS } from '@/lib/client-gender'

@@ -3,6 +3,7 @@
 import { formOptions } from '@tanstack/react-form'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { normalizeClientGender, type ClientGender } from '@/lib/client-gender'
 
 export type ProfileFormType = {
   firstName: string
@@ -10,7 +11,7 @@ export type ProfileFormType = {
   email: string
   confirmEmail?: string
   phone?: string
-  gender?: 'male' | 'female' | 'other' | 'prefer-not-to-say'
+  gender?: ClientGender
   dob?: string | Date
   preferredContactMethod: 'email' | 'phone' | 'sms'
   // Note: Client type specific fields (courtInfo, employmentInfo, selfInfo)
@@ -18,13 +19,7 @@ export type ProfileFormType = {
   // Users must request updates via the "Request Update" button.
 }
 
-export const useProfileFormOpts = ({
-  user,
-  onSaved,
-}: {
-  user: any
-  onSaved?: () => void
-}) => {
+export const useProfileFormOpts = ({ user, onSaved }: { user: any; onSaved?: () => void }) => {
   const router = useRouter()
 
   const normalizeDateValue = (value?: string | Date) => {
@@ -40,7 +35,7 @@ export const useProfileFormOpts = ({
       email: user?.email || '',
       confirmEmail: '',
       phone: user?.phone || '',
-      gender: user?.gender || '',
+      gender: normalizeClientGender(user?.gender) || '',
       dob: user?.dob || '',
       preferredContactMethod: user?.preferredContactMethod || 'email',
     } as ProfileFormType,
@@ -83,7 +78,7 @@ export const useProfileFormOpts = ({
         }
 
         // Include gender if it's different
-        if (data.gender !== user.gender) {
+        if (data.gender !== normalizeClientGender(user.gender)) {
           updateData.gender = data.gender
         }
 

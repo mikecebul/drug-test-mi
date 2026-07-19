@@ -1,3 +1,5 @@
+import { normalizeClientGender } from '@/lib/client-gender'
+
 export type GuidedScheduleStep = 'registration' | 'payment'
 export type GuidedPaymentChoice = 'paid' | 'pre-paid' | 'still-owes'
 export { getCalcomBookingActionLinks } from '@/utilities/calcom-booking-action-links'
@@ -69,10 +71,10 @@ export type GuidedScheduleBooking = {
 }
 
 export function formatGuidedGender(value?: string | null) {
-  if (value === 'male') return 'Male'
-  if (value === 'female') return 'Female'
-  if (value === 'other') return 'Other'
-  if (value === 'prefer-not-to-say') return 'Prefer not to say'
+  const gender = normalizeClientGender(value)
+  if (gender === 'male') return 'Male'
+  if (gender === 'female') return 'Female'
+  if (gender === 'prefer-not-to-say') return 'Prefer not to say'
   return 'Unknown'
 }
 
