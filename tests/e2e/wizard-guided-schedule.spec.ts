@@ -256,7 +256,7 @@ test.describe("Wizard Today's Schedule", () => {
     const creditInput = page.getByRole('spinbutton', { name: 'Credit to apply' })
     const amountReceived = page.getByRole('spinbutton', { name: 'Amount received now' })
     await expect(creditInput).toHaveValue('0')
-    await expect(amountReceived).toHaveValue('40')
+    await expect(amountReceived).toHaveValue('0')
 
     await page.getByRole('button', { name: 'Apply $40 credit' }).click()
     await expect(creditInput).toHaveValue('40')
@@ -285,6 +285,12 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByRole('heading', { name: 'Collect payment' })).toBeVisible()
     await expect(page.getByText('$40 available')).toBeVisible()
     await expect(page.getByRole('spinbutton', { name: 'Credit to apply' })).toHaveValue('0')
+
+    await page.getByTestId('wizard-next-button').click()
+    const noPaymentDialog = page.getByRole('alertdialog', { name: 'Continue without payment?' })
+    await expect(noPaymentDialog).toContainText('outstanding balance of $40')
+    await noPaymentDialog.getByRole('button', { name: 'Continue', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()
   })
 
   test('carries a guided instant booking into the instant workflow', async ({ page }) => {
@@ -355,11 +361,11 @@ test.describe("Wizard Today's Schedule", () => {
       .getByRole('group', { name: 'Quick amount received' })
       .getByRole('button', { name: 'Set amount received to $40' })
 
-    await expect(amountReceived).toHaveValue('40')
-    await expect(payAllButton).toHaveAttribute('aria-pressed', 'true')
+    await expect(amountReceived).toHaveValue('0')
+    await expect(payAllButton).toHaveAttribute('aria-pressed', 'false')
     await expect(page.getByText('Today · 11-Panel Lab')).toBeVisible()
     await expect(page.getByText('Current test · $40 due')).toBeVisible()
-    await expect(page.getByText('$40 applied', { exact: true })).toBeVisible()
+    await expect(page.getByText('$0 applied', { exact: true })).toBeVisible()
 
     await amountReceived.fill('50')
     await expect(page.getByText('Includes $10 new credit')).toBeVisible()

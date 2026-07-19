@@ -173,17 +173,13 @@ function getPaymentDefaults(booking: Booking | null) {
     typeof existing?.amountPaid === 'number' ? Math.max(0, existing.amountPaid) : 0,
   )
   const currentBalanceDue = Math.max(0, amountDue - existingAmountPaid)
-  const hasPriorGuidedPayment = (booking?.guidedPaymentTotal ?? 0) > 0
-  const paymentStepWasRecorded = Boolean(existing?.collectedAt)
-  const defaultAmountReceived =
-    existingAmountPaid > 0 || hasPriorGuidedPayment || paymentStepWasRecorded ? 0 : currentBalanceDue
   const method: GuidedPaymentEntryMethod = existing?.method === 'card' ? 'card' : 'cash'
 
   return {
     amountDue,
     existingAmountPaid,
     currentBalanceDue,
-    amountReceived: String(defaultAmountReceived),
+    amountReceived: '0',
     creditToApply: '0',
     method,
   }
@@ -384,6 +380,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const [paymentDraft, setPaymentDraft] = useState<ReturnType<typeof getPaymentDefaults> | null>(null)
   const [showAdditionalPayment, setShowAdditionalPayment] = useState(false)
   const [undoPaymentDialogOpen, setUndoPaymentDialogOpen] = useState(false)
+  const [noPaymentDialogOpen, setNoPaymentDialogOpen] = useState(false)
   const [verifiedClientMismatchKey, setVerifiedClientMismatchKey] = useState<string | null>(null)
   const [referralDrawerOpen, setReferralDrawerOpen] = useState(false)
   const [testTypeDrawerOpen, setTestTypeDrawerOpen] = useState(false)
@@ -616,7 +613,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     setWalkInRegistrationOpen(true)
   }
 
-  const handlePaymentNext = () => {
+  const handlePaymentNext = (confirmedNoPayment = false) => {
     if (!selectedBooking?.testType) return
     const selectedTestType = selectedBooking.testType
     if (!selectedBooking.client?.id) {
@@ -643,8 +640,13 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       toast.error('Existing balances could not be loaded. Refresh and try again.')
       return
     }
+    if (amountReceived === 0 && creditToApply === 0 && paymentTotalDue > 0 && !confirmedNoPayment) {
+      setNoPaymentDialogOpen(true)
+      return
+    }
     const clientId = selectedBooking.client.id
 
+    setNoPaymentDialogOpen(false)
     startTransition(async () => {
       const result = await recordBookingPayment({
         bookingId: selectedBooking.id,
@@ -905,7 +907,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     ]
 
     return (
-      <Card className={cn('rounded-lg', (hasUnknownPrepaidTest || hasTestMismatch) && 'border-amber-300')}>
+      <Card className="rounded-lg">
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -2150,7 +2152,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           {currentStep !== 'schedule' && (
             <Button
               type="button"
-              onClick={currentStep === 'payment' ? handlePaymentNext : handleContinueToCollection}
+              onClick={currentStep === 'payment' ? () => handlePaymentNext() : handleContinueToCollection}
               disabled={!canGoNext || isPending}
               size="lg"
               data-testid="wizard-next-button"
@@ -2174,6 +2176,27 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           )}
         </div>
       </div>
+
+      <AlertDialog open={noPaymentDialogOpen} onOpenChange={setNoPaymentDialogOpen}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogMedia className="bg-destructive/10 text-destructive">
+              <TriangleAlert />
+            </AlertDialogMedia>
+            <AlertDialogTitle>Continue without payment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              No payment has been collected. The client will continue to collection with an outstanding balance of{' '}
+              {currency.format(paymentTotalDue)}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel variant="outline">Go back</AlertDialogCancel>
+            <AlertDialogAction type="button" onClick={() => handlePaymentNext(true)} disabled={isPending}>
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ReferralProfileDrawer
         open={referralDrawerOpen}
