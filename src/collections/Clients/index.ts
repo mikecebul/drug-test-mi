@@ -9,6 +9,7 @@ import { getTestTypeLabel as getConfiguredTestTypeLabel } from '@/config/test-ty
 import { adminClientSearchEndpoint } from './search/endpoint'
 import { buildClientSearchFields } from './search/normalize'
 import { CLIENT_GENDER_OPTIONS, normalizeClientGender } from '@/lib/client-gender'
+import { formatDobISO, parseDob } from '@/lib/date-utils'
 
 type ReferralRelation = {
   relationTo?: 'courts' | 'employers'
@@ -374,6 +375,22 @@ export const Clients: CollectionConfig = {
             {
               name: 'dob',
               type: 'date',
+              required: true,
+              hooks: {
+                beforeValidate: [
+                  ({ value }) => {
+                    if (value === undefined || value === null || value === '') return value
+                    return formatDobISO(value) || null
+                  },
+                ],
+              },
+              validate: (value) => {
+                if (!value) {
+                  return 'Date of birth is required.'
+                }
+
+                return parseDob(value) ? true : 'Please enter a valid date of birth.'
+              },
               admin: {
                 description: 'Date of birth',
                 date: {

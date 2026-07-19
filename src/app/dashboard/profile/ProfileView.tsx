@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { formatDateOnly } from '@/lib/date-utils'
+import { formatDobInput, parseDob } from '@/lib/date-utils'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { Separator } from '@/components/ui/separator'
@@ -426,16 +426,18 @@ ${clientName}`,
           ) : null}
         </SettingsRow>
 
-        <SettingsRow label="Date of birth" value={user?.dob ? formatDateOnly(user.dob) : 'Not provided'}>
+        <SettingsRow label="Date of birth" value={user?.dob ? formatDobInput(user.dob) : 'Not provided'}>
           {isEditing ? (
             <FormControlSlot>
               <form.AppField
                 name="dob"
                 validators={{
-                  onChange: z.union([z.string(), z.date()]).optional(),
+                  onChange: z
+                    .union([z.string().min(1, { error: 'Date of birth is required' }), z.date()])
+                    .refine((value) => parseDob(value) !== null, { message: 'Please enter a valid date' }),
                 }}
               >
-                {(formField) => <formField.DobField label="Date of Birth" />}
+                {(formField) => <formField.DobField label="Date of Birth" required />}
               </form.AppField>
             </FormControlSlot>
           ) : null}

@@ -110,6 +110,33 @@ test.afterAll(async () => {
   }
 })
 
+for (const scenario of [
+  { label: 'missing', dob: undefined },
+  { label: 'invalid', dob: 'January 15, 1990' },
+]) {
+  test(`rejects direct client creation with a ${scenario.label} DOB`, async ({ request }) => {
+    const email = uniqueEmail(`direct-${scenario.label}-dob`)
+    createdClientEmails.push(email)
+
+    const response = await request.post('/api/clients', {
+      data: {
+        firstName: 'Direct',
+        lastName: 'Validation',
+        email,
+        password: 'StrongPass123',
+        gender: 'prefer-not-to-say',
+        phone: '2485551212',
+        referralType: 'self',
+        preferredContactMethod: 'email',
+        ...(scenario.dob ? { dob: scenario.dob } : {}),
+      },
+    })
+
+    expect(response.status()).toBe(400)
+    expect(await findClientByEmail(email)).toBeNull()
+  })
+}
+
 test('offers only the three supported client gender choices', async ({ page }) => {
   await openRegistration(page)
   await page.locator('[id="personalInfo.gender"]').click()
@@ -129,8 +156,15 @@ test('validates steps, supports back-forward navigation, and validates medicatio
   await expect(page.getByText('First name is required')).toBeVisible()
   await expect(page.getByText('Middle initial is required')).toBeVisible()
   await expect(page.getByText('Last name is required')).toBeVisible()
+  await expect(page.getByText('Date of birth is required')).toBeVisible()
 
   await fillPersonalInfo(page)
+  await page.getByLabel('Date of Birth').fill('January 15, 1990')
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Personal Information' })).toBeVisible()
+  await expect(page.getByText('Please enter a valid date')).toBeVisible()
+
+  await page.getByLabel('Date of Birth').fill('01/15/1990')
   await page.getByRole('button', { name: 'Next', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Account Info' })).toBeVisible()
 
@@ -310,6 +344,7 @@ test('submits frontend registration, signs in, and verifies admin emails in Mail
 
   const createdClient = await findClientByEmail(registrationEmail)
   expect(createdClient).not.toBeNull()
+  expect(createdClient?.dob).toBeTruthy()
   expect(createdClient?.dob).toContain('1990-01-15')
 
   await findMailpitMessages({

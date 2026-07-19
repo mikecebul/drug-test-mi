@@ -10,6 +10,7 @@ import { computeTestResults, computeFinalStatus, fetchDocument, sendEmails } fro
 import { FormMedications } from './workflows/shared-validators'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
+import { formatRequiredDobISO } from '@/lib/date-utils'
 import {
   assertReferralHasContacts,
   buildContactsFromLegacyInput,
@@ -1699,6 +1700,7 @@ export async function registerClientFromWizard(data: {
     const formattedLastName = formatPersonName(data.lastName)
     const formattedMiddleInitial = formatMiddleInitial(data.middleInitial)
     const formattedPhone = formatPhoneNumber(data.phone)
+    const formattedDob = formatRequiredDobISO(data.dob)
 
     // Build client data
     const clientData: any = {
@@ -1708,7 +1710,7 @@ export async function registerClientFromWizard(data: {
       email: data.email,
       password: generatedPassword,
       gender: data.gender,
-      dob: data.dob,
+      dob: formattedDob,
       phone: formattedPhone,
       referralType: data.referralType,
       preferredContactMethod: 'email',
