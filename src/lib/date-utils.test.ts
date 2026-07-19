@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { formatDobInput, formatDobISO, getAppTimezoneDayWindow, parseDob } from './date-utils'
+import { formatDobInput, formatDobISO, formatRequiredDobISO, getAppTimezoneDayWindow, parseDob } from './date-utils'
 
 describe('DOB parsing and formatting', () => {
   const referenceDate = new Date(2026, 6, 18)
@@ -35,6 +35,10 @@ describe('DOB parsing and formatting', () => {
     expect(parseDob(value, referenceDate)).toBeNull()
     expect(formatDobInput(value, referenceDate)).toBe('')
     expect(formatDobISO(value, referenceDate)).toBe('')
+  })
+
+  test.each(['', 'January 15, 1990', '01.15.1990', 'not-a-date'])('fails closed for required DOB %s', (value) => {
+    expect(() => formatRequiredDobISO(value, referenceDate)).toThrow('A valid date of birth is required.')
   })
 })
 

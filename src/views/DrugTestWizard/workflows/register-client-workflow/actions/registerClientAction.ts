@@ -4,7 +4,7 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import type { CompleteRegistrationValues } from '../validators'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
-import { formatDobISO } from '@/lib/date-utils'
+import { formatRequiredDobISO } from '@/lib/date-utils'
 import {
   assertReferralHasContacts,
   buildContactsFromLegacyInput,
@@ -117,7 +117,7 @@ export async function registerClientAction(formData: CompleteRegistrationValues)
     const formattedLastName = formatPersonName(personalInfo.lastName)
     const formattedMiddleInitial = formatMiddleInitial(personalInfo.middleInitial)
     const formattedPhone = formatPhoneNumber(personalInfo.phone)
-    const formattedDob = formatDobISO(personalInfo.dob)
+    const formattedDob = formatRequiredDobISO(personalInfo.dob)
     const noEmail = accountInfo.noEmail === true
     const submittedEmail = (accountInfo.email ?? '').trim().toLowerCase()
     const submittedPassword = accountInfo.password

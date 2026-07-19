@@ -4,6 +4,7 @@ import { formOptions } from '@tanstack/react-form'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { normalizeClientGender, type ClientGender } from '@/lib/client-gender'
+import { formatDobISO } from '@/lib/date-utils'
 
 export type ProfileFormType = {
   firstName: string
@@ -21,12 +22,6 @@ export type ProfileFormType = {
 
 export const useProfileFormOpts = ({ user, onSaved }: { user: any; onSaved?: () => void }) => {
   const router = useRouter()
-
-  const normalizeDateValue = (value?: string | Date) => {
-    if (!value) return ''
-    if (value instanceof Date) return value.toISOString()
-    return value
-  }
 
   return formOptions({
     defaultValues: {
@@ -83,8 +78,13 @@ export const useProfileFormOpts = ({ user, onSaved }: { user: any; onSaved?: () 
         }
 
         // Include dob if it's different
-        const normalizedDob = normalizeDateValue(data.dob)
-        if (normalizedDob !== (user.dob || '')) {
+        const normalizedDob = formatDobISO(data.dob)
+        if (!normalizedDob) {
+          toast.error('Please enter a valid date of birth.')
+          return
+        }
+
+        if (normalizedDob !== formatDobISO(user.dob)) {
           updateData.dob = normalizedDob
         }
 

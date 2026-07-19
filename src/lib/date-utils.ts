@@ -103,6 +103,20 @@ export function formatDobISO(value: string | Date | null | undefined, referenceD
   return `${date.getFullYear()}-${month}-${day}`
 }
 
+/** Normalize a required DOB for persistence, failing closed when it is missing or invalid. */
+export function formatRequiredDobISO(
+  value: string | Date | null | undefined,
+  referenceDate: Date = new Date(),
+): string {
+  const formattedDob = formatDobISO(value, referenceDate)
+
+  if (!formattedDob) {
+    throw new Error('A valid date of birth is required.')
+  }
+
+  return formattedDob
+}
+
 /**
  * Get the UTC instants that bound a calendar day in the app timezone.
  *

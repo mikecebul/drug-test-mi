@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/utilities/cn'
 import { Camera, Check, Crop as CropIcon, Loader2, Upload, X } from 'lucide-react'
-import { formatDateOnly } from '@/lib/date-utils'
+import { formatDobInput } from '@/lib/date-utils'
 import { toast } from 'sonner'
 import {
   createCenteredAspectCrop,
@@ -260,7 +260,7 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
 
               <div className="text-foreground/85 space-y-0.5 text-sm leading-snug sm:text-base">
                 <p className="wrap-break-word">{client.email}</p>
-                {client.dob && <p>DOB: {formatDateOnly(client.dob)}</p>}
+                {client.dob && <p>DOB: {formatDobInput(client.dob)}</p>}
                 {client.phone && <p>Phone: {client.phone}</p>}
               </div>
             </div>

@@ -142,6 +142,20 @@ describe('personalInfoFieldSchema middle initial', () => {
 
     expect(result.success).toBe(false)
   })
+
+  test.each(['', 'January 15, 1990', '01.15.1990', '02/30/1990'])('rejects missing or unsupported DOB %s', (dob) => {
+    const result = personalInfoFieldSchema.safeParse({
+      firstName: 'Alex',
+      lastName: 'Taylor',
+      middleInitial: 'Q',
+      gender: 'male',
+      dob,
+      phone: '2485551212',
+      headshot: null,
+    })
+
+    expect(result.success).toBe(false)
+  })
 })
 
 describe('formSchema account email handling', () => {

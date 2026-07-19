@@ -193,6 +193,44 @@ describe('dashboard widgets', () => {
     expect(markup).toContain('/admin/drug-test-upload?workflow=guided&amp;step=payment&amp;bookingId=booking-2')
   })
 
+  test('renders completed schedule rows as inactive and prevents collection actions', async () => {
+    const req = createAdminReq()
+    mockGetTodaysCollectionBookings.mockResolvedValue([
+      {
+        id: 'booking-completed',
+        attendeeName: 'Melissa Helsley',
+        startTime: '2026-05-24T15:30:00.000Z',
+        client: {
+          gender: 'female',
+        },
+        payment: {
+          status: 'paid',
+          method: 'pre-paid',
+        },
+        sampleCollection: {
+          status: 'collected',
+        },
+        needsRegistration: false,
+        needsTestType: false,
+        calcomActionLinks: {
+          cancelHref: 'https://cal.com/booking/completed?cancel=true',
+          rescheduleHref: 'https://cal.com/reschedule/completed',
+        },
+      },
+    ])
+
+    const markup = renderMarkup(await NextCalcomBookingWidget(createWidgetProps(req, 'next-calcom-booking')))
+
+    expect(markup).toContain('Completed')
+    expect(markup).toContain('line-through')
+    expect(markup).toContain('bg-muted/40')
+    expect(markup).not.toContain('Collect Test')
+    expect(markup).not.toContain('Review &amp; Start')
+    expect(markup).not.toContain('bookingId=booking-completed')
+    expect(markup).not.toContain('https://cal.com/reschedule/completed')
+    expect(markup).not.toContain('https://cal.com/booking/completed?cancel=true')
+  })
+
   test('describes the wizard widget as manual collection and lab result work', () => {
     const req = createAdminReq()
     const markup = renderMarkup(WizardEntryWidget(createWidgetProps(req, 'wizard-entry')))

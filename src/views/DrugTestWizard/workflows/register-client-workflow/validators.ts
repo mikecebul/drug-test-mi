@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { CLIENT_GENDER_VALUES } from '@/lib/client-gender'
+import { parseDob } from '@/lib/date-utils'
 
 const additionalRecipientRowSchema = z.object({
   name: z.string().optional(),
@@ -19,22 +20,21 @@ export const personalInfoFieldSchema = z.object({
     .min(1, { error: 'Please select a gender' })
     .pipe(z.enum(CLIENT_GENDER_VALUES, { error: 'Please select a valid gender' })),
   dob: z
-    .union([z.string().min(1, { error: 'Date of birth is required' }), z.date({ error: 'Date of birth is required' })])
-    .refine(
-      (val) => {
-        const date = typeof val === 'string' ? new Date(val) : val
-        if (isNaN(date.getTime())) return false
-        const year = date.getFullYear()
-        const currentYear = new Date().getFullYear()
-        return year >= 1900 && year <= currentYear
-      },
-      {
-        message: 'Please enter a valid date',
-      },
+    .union(
+      [
+        z.string().trim().min(1, { error: 'Date of birth is required' }),
+        z.date({ error: 'Date of birth is required' }),
+      ],
+      { error: 'Date of birth is required' },
     )
+    .refine((val) => parseDob(val) !== null, {
+      message: 'Please enter a valid date',
+    })
     .refine(
       (val) => {
-        const date = typeof val === 'string' ? new Date(val) : val
+        const date = parseDob(val)
+        if (!date) return true
+
         const thirteenYearsAgo = new Date()
         thirteenYearsAgo.setFullYear(thirteenYearsAgo.getFullYear() - 13)
         return date <= thirteenYearsAgo
