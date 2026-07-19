@@ -1181,7 +1181,7 @@ export interface Booking {
   payment?: {
     amountDue?: number | null;
     amountPaid?: number | null;
-    method?: ('cash' | 'card' | 'pre-paid' | 'not-paid') | null;
+    method?: ('cash' | 'card' | 'credit' | 'pre-paid' | 'not-paid') | null;
     status?: ('paid' | 'partial' | 'unpaid') | null;
     collectedAt?: string | null;
     notes?: string | null;
@@ -2043,6 +2043,10 @@ export interface Payment {
   collectedAt?: string | null;
   postedAt?: string | null;
   voidedAt?: string | null;
+  /**
+   * Why this payment was reversed while preserving its audit history.
+   */
+  voidReason?: string | null;
   refundedAt?: string | null;
   refundedAmount?: number | null;
   /**
@@ -3834,6 +3838,7 @@ export interface PaymentsSelect<T extends boolean = true> {
   collectedAt?: T;
   postedAt?: T;
   voidedAt?: T;
+  voidReason?: T;
   refundedAt?: T;
   refundedAmount?: T;
   reservedForBookingAmount?: T;

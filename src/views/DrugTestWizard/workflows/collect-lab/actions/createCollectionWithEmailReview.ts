@@ -111,12 +111,14 @@ export async function createCollectionWithEmailReview(
         req,
       })
 
-      await applyAvailableClientCredit({
-        payload,
-        clientId: testData.clientId,
-        relatedDrugTest: createdDrugTest.id,
-        req,
-      })
+      if (!testData.bookingId) {
+        await applyAvailableClientCredit({
+          payload,
+          clientId: testData.clientId,
+          relatedDrugTest: createdDrugTest.id,
+          req,
+        })
+      }
 
       return createdDrugTest
     })

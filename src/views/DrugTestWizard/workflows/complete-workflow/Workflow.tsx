@@ -20,12 +20,26 @@ import {
   Loader2,
   ClipboardList,
   Search,
+  Trash2Icon,
   TriangleAlert,
+  Undo2,
   UserCheck,
   UserPlus,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -55,7 +69,7 @@ import {
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@/components/ui/input-group'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -77,6 +91,7 @@ import {
   recordBookingPayment,
   refreshBookingClientContext,
   setBookingScheduledTestType,
+  undoBookingPayment,
 } from './actions'
 import {
   doesGuidedBookingNameMatchClient,
@@ -89,7 +104,9 @@ import {
 import {
   buildGuidedPaymentAllocationPreview,
   compactPreviousPaymentAllocations,
+  getGuidedCreditMaximum,
   getGuidedPaymentQuickAmounts,
+  isValidGuidedCreditAmount,
   isValidGuidedPaymentAmount,
   parseGuidedPaymentAmount,
   type GuidedPaymentEntryMethod,
@@ -158,6 +175,7 @@ function getPaymentDefaults(booking: Booking | null) {
     existingAmountPaid,
     currentBalanceDue,
     amountReceived: String(defaultAmountReceived),
+    creditToApply: '0',
     method,
   }
 }
@@ -233,6 +251,14 @@ function canRefundPrepaidBooking(booking: Booking) {
 
 function getScheduleActionCopy(action: ScheduleAction, booking: Booking) {
   if (action === 'cancel-refund') {
+    if (booking.sampleCollection?.status === 'collected') {
+      return {
+        title: 'Refund completed appointment',
+        description: `${booking.attendeeName}'s collection stays completed, and the full Stripe prepayment will be refunded.`,
+        confirmLabel: 'Refund prepayment',
+      }
+    }
+
     return {
       title: 'Cancel and refund appointment',
       description: `${booking.attendeeName}'s appointment will be cancelled and the full Stripe prepayment will be refunded.`,
@@ -329,6 +355,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     refetchOnMount: 'always',
   })
   const [paymentDraft, setPaymentDraft] = useState<ReturnType<typeof getPaymentDefaults> | null>(null)
+  const [showAdditionalPayment, setShowAdditionalPayment] = useState(false)
+  const [undoPaymentDialogOpen, setUndoPaymentDialogOpen] = useState(false)
   const [verifiedClientMismatchKey, setVerifiedClientMismatchKey] = useState<string | null>(null)
   const [referralDrawerOpen, setReferralDrawerOpen] = useState(false)
   const [testTypeDrawerOpen, setTestTypeDrawerOpen] = useState(false)
@@ -337,6 +365,16 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const payment = paymentDraft ?? getPaymentDefaults(selectedBooking)
   const paymentAmountIsValid = isValidGuidedPaymentAmount(payment.amountReceived)
   const amountReceived = parseGuidedPaymentAmount(payment.amountReceived)
+  const creditToApply = parseGuidedPaymentAmount(payment.creditToApply)
+  const paymentTotalDue = outstandingPaymentBalances.reduce(
+    (total, balance) => total + balance.balanceDue,
+    payment.currentBalanceDue,
+  )
+  const creditAmountIsValid = isValidGuidedCreditAmount(
+    payment.creditToApply,
+    selectedBooking?.client?.creditBalance ?? 0,
+    paymentTotalDue,
+  )
   const paymentRecorded = Boolean(selectedBooking?.payment?.status)
   const selectedClientMismatchKey = selectedBooking ? getClientIdentityMismatchKey(selectedBooking) : null
   const clientIdentityIsVerified = !selectedClientMismatchKey || verifiedClientMismatchKey === selectedClientMismatchKey
@@ -367,6 +405,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
   const handleSelectBooking = (booking: Booking) => {
     setPaymentDraft(getPaymentDefaults(booking))
+    setShowAdditionalPayment(false)
     setQuery({
       bookingId: booking.id,
       step: getNextStep(booking),
@@ -527,6 +566,10 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       toast.error('Enter zero or a positive amount received.')
       return
     }
+    if (!creditAmountIsValid) {
+      toast.error('Client credit cannot exceed the available credit or total balance due.')
+      return
+    }
     if (isLoadingOutstandingPaymentBalances) {
       toast.error('Wait for the existing balances to finish loading.')
       return
@@ -541,6 +584,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       const result = await recordBookingPayment({
         bookingId: selectedBooking.id,
         amountReceived,
+        creditApplied: creditToApply,
         method: payment.method,
       })
 
@@ -550,6 +594,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       }
 
       setPaymentDraft(null)
+      setShowAdditionalPayment(false)
       await Promise.all([
         refreshBookings(),
         queryClient.invalidateQueries({
@@ -557,6 +602,29 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         }),
       ])
       setQuery({ step: 'toxaccess', bookingId: selectedBooking.id })
+    })
+  }
+
+  const handleUndoPayment = () => {
+    if (!selectedBooking?.client?.id) return
+    const clientId = selectedBooking.client.id
+
+    startTransition(async () => {
+      const result = await undoBookingPayment({ bookingId: selectedBooking.id })
+      if (!result.success) {
+        toast.error(result.error || 'Unable to undo this payment.')
+        return
+      }
+
+      setUndoPaymentDialogOpen(false)
+      setShowAdditionalPayment(false)
+      const refreshedBookings = await refreshBookings()
+      const updatedBooking = refreshedBookings.find((booking) => booking.id === selectedBooking.id)
+      setPaymentDraft(updatedBooking ? getPaymentDefaults(updatedBooking) : null)
+      await queryClient.invalidateQueries({
+        queryKey: ['guided', 'outstanding-payment-balances', clientId],
+      })
+      toast.success('Payment undone and balances restored')
     })
   }
 
@@ -842,15 +910,20 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 const needsRegistration = booking.needsRegistration
                 const needsTestType = booking.needsTestType
                 const canRefund = canRefundPrepaidBooking(booking)
+                const isCompleted = booking.sampleCollection?.status === 'collected'
                 return (
                   <div
                     key={booking.id}
-                    className="border-border bg-card hover:bg-muted/50 grid w-full grid-cols-[minmax(0,1fr)_auto] gap-4 rounded-lg border p-5 transition"
+                    className={cn(
+                      'border-border bg-card grid w-full grid-cols-[minmax(0,1fr)_auto] gap-4 rounded-lg border p-5 transition',
+                      isCompleted ? 'bg-muted/20 opacity-60' : 'hover:bg-muted/50',
+                    )}
                   >
                     <button
                       type="button"
                       onClick={() => handleSelectBooking(booking)}
-                      className="hover:text-foreground focus-visible:ring-ring min-w-0 space-y-1 rounded-md text-left transition focus-visible:ring-2 focus-visible:outline-none"
+                      disabled={isCompleted}
+                      className="hover:text-foreground focus-visible:ring-ring min-w-0 space-y-1 rounded-md text-left transition focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default"
                     >
                       <span className="flex flex-wrap items-center gap-2">
                         <span className="block text-xl font-semibold">{booking.attendeeName}</span>
@@ -880,7 +953,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                           }
                           className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
                         >
-                          {paymentLabel}
+                          {isCompleted && <CheckCircle2 className="size-3" />}
+                          {isCompleted ? 'Completed' : paymentLabel}
                         </Badge>
                         {needsRegistration && <Badge variant="secondary">Register</Badge>}
                         {needsTestType && <Badge variant="secondary">Set test</Badge>}
@@ -902,7 +976,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                         <DropdownMenuContent align="end" className="w-52">
                           <DropdownMenuGroup>
                             <DropdownMenuItem
-                              disabled={!booking.calcomActionLinks?.rescheduleHref}
+                              disabled={isCompleted || !booking.calcomActionLinks?.rescheduleHref}
                               closeOnClick={false}
                               onClick={() => openExternalLink(booking.calcomActionLinks?.rescheduleHref)}
                             >
@@ -910,6 +984,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                               Reschedule
                             </DropdownMenuItem>
                             <DropdownMenuItem
+                              disabled={isCompleted}
                               variant="destructive"
                               closeOnClick={false}
                               onClick={() => setScheduleAction({ action: 'cancel', booking })}
@@ -1229,19 +1304,164 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     if (selectedBooking?.needsRegistration || selectedBooking?.needsTestType) return renderRegistration()
     if (!selectedBooking || !selectedBooking.testType) return renderMissingBooking('Payment')
     const clientCreditBalance = selectedBooking.client?.creditBalance ?? 0
+    const recordedPayment = selectedBooking.guidedPaymentSummary
+    const hasRecordedPayment = Boolean(
+      recordedPayment && (recordedPayment.newMoneyAmount > 0 || recordedPayment.creditAppliedAmount > 0),
+    )
     const allocationPreview = buildGuidedPaymentAllocationPreview({
       previousBalances: outstandingPaymentBalances,
       currentBalanceDue: payment.currentBalanceDue,
       amountReceived,
+      clientCreditAvailable: clientCreditBalance,
+      clientCreditApplied: creditToApply,
     })
-    const compactPreviousAllocations = compactPreviousPaymentAllocations(
-      allocationPreview.previousAllocations,
-    )
+    const compactPreviousAllocations = compactPreviousPaymentAllocations(allocationPreview.previousAllocations)
     const quickAmounts = getGuidedPaymentQuickAmounts(
-      allocationPreview.currentBalanceDue,
-      allocationPreview.totalDue,
+      allocationPreview.currentBalanceAfterCredit,
+      allocationPreview.dueAfterCredit,
     )
     const activeQuickAmount = quickAmounts.includes(amountReceived) ? [String(amountReceived)] : []
+    const maximumCredit = getGuidedCreditMaximum(clientCreditBalance, allocationPreview.totalDue)
+    const futureCreditBalance = allocationPreview.clientCreditRemaining + allocationPreview.creditAmount
+
+    if (hasRecordedPayment && recordedPayment && !showAdditionalPayment) {
+      const totalRecorded = recordedPayment.newMoneyAmount + recordedPayment.creditAppliedAmount
+      const remainingBookingBalance = Math.max(
+        0,
+        (selectedBooking.payment?.amountDue ?? selectedBooking.testType.price) -
+          (selectedBooking.payment?.amountPaid ?? 0),
+      )
+      const moneyMethod = recordedPayment.method === 'card' ? 'Card' : 'Cash'
+
+      return (
+        <div className="space-y-6">
+          {renderHeader('Review & Payment', 'Review and Payment')}
+          {renderPaymentReview(selectedBooking)}
+
+          <Card className="rounded-lg" data-testid="guided-recorded-payment">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3 text-2xl">
+                <CheckCircle2 className="text-success size-6" />
+                Payment recorded
+              </CardTitle>
+              <CardDescription className="text-base">
+                This payment has been applied and remains in the audit history.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5">
+              <div className="border-border overflow-hidden rounded-lg border">
+                <div className="bg-muted/20 flex items-start justify-between gap-4 p-4">
+                  <div>
+                    <p className="text-lg font-semibold">{selectedBooking.testType.label}</p>
+                    {recordedPayment.collectedAt && (
+                      <p className="text-muted-foreground text-sm">
+                        Recorded {formatPaymentDate(recordedPayment.collectedAt)}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-muted-foreground text-sm font-medium">Total recorded</p>
+                    <p className="text-2xl font-semibold">{currency.format(totalRecorded)}</p>
+                  </div>
+                </div>
+                <Separator />
+                <div className="space-y-3 p-4">
+                  {recordedPayment.creditAppliedAmount > 0 && (
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="flex items-center gap-2 font-medium">
+                        <CreditCard className="text-success size-4" /> Client credit
+                      </span>
+                      <span className="text-success font-semibold">
+                        {currency.format(recordedPayment.creditAppliedAmount)}
+                      </span>
+                    </div>
+                  )}
+                  {recordedPayment.newMoneyAmount > 0 && (
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="font-medium">{moneyMethod}</span>
+                      <span className="font-semibold">{currency.format(recordedPayment.newMoneyAmount)}</span>
+                    </div>
+                  )}
+                  {recordedPayment.appliedToPreviousBalancesAmount > 0 && (
+                    <div className="text-muted-foreground flex items-center justify-between gap-4 text-sm">
+                      <span>Applied to previous tests</span>
+                      <span>{currency.format(recordedPayment.appliedToPreviousBalancesAmount)}</span>
+                    </div>
+                  )}
+                  <div className="text-muted-foreground flex items-center justify-between gap-4 text-sm">
+                    <span>Applied to today&apos;s test</span>
+                    <span>{currency.format(recordedPayment.appliedToBookingAmount)}</span>
+                  </div>
+                  {recordedPayment.creditCreatedAmount > 0 && (
+                    <div className="text-success flex items-center justify-between gap-4 text-sm font-medium">
+                      <span>Added to client credit</span>
+                      <span>{currency.format(recordedPayment.creditCreatedAmount)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-border bg-muted/20 grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-muted-foreground text-sm font-medium">Credit remaining</p>
+                  <p className="text-success text-2xl font-semibold">{currency.format(clientCreditBalance)}</p>
+                </div>
+                <div className="sm:text-right">
+                  <p className="text-muted-foreground text-sm font-medium">Today&apos;s balance remaining</p>
+                  <p className={cn('text-2xl font-semibold', remainingBookingBalance > 0 && 'text-destructive')}>
+                    {currency.format(remainingBookingBalance)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+                {remainingBookingBalance > 0 && (
+                  <Button type="button" className="flex-1" onClick={() => setShowAdditionalPayment(true)}>
+                    Add another payment
+                  </Button>
+                )}
+                <AlertDialog open={undoPaymentDialogOpen} onOpenChange={setUndoPaymentDialogOpen}>
+                  <AlertDialogTrigger
+                    render={
+                      <Button type="button" variant="outline" className="flex-1">
+                        <Undo2 data-icon="inline-start" />
+                        Undo payment
+                      </Button>
+                    }
+                  />
+                  <AlertDialogContent size="sm">
+                    <AlertDialogHeader>
+                      <AlertDialogMedia className="bg-destructive/10 text-destructive">
+                        <Trash2Icon />
+                      </AlertDialogMedia>
+                      <AlertDialogTitle>Undo payment?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {recordedPayment.newMoneyAmount > 0
+                          ? recordedPayment.method === 'card'
+                            ? 'Correct the record without refunding the card charge.'
+                            : 'Remove this payment from the balance record.'
+                          : 'Correct the record and restore the applied client credit.'}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel variant="outline">Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        type="button"
+                        variant="destructive"
+                        onClick={handleUndoPayment}
+                        disabled={isPending}
+                      >
+                        {isPending ? 'Undoing...' : 'Undo payment'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )
+    }
 
     return (
       <div className="space-y-6">
@@ -1254,9 +1474,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               <CreditCard className="size-6" />
               Collect payment
             </CardTitle>
-            <CardDescription className="text-base">
-              Payments are automatically applied to the oldest balance first.
-            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
             {hasOutstandingPaymentBalanceError ? (
@@ -1266,7 +1483,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 <AlertDescription>Refresh the page before recording this payment.</AlertDescription>
               </Alert>
             ) : (
-              <div className="border-border bg-muted/30 grid gap-4 rounded-lg border p-4 sm:grid-cols-3">
+              <div
+                className={cn(
+                  'border-border bg-muted/30 grid gap-4 rounded-lg border p-4',
+                  clientCreditBalance > 0 ? 'sm:grid-cols-4' : 'sm:grid-cols-3',
+                )}
+              >
                 <div className="flex flex-col gap-1">
                   <p className="text-muted-foreground text-sm font-medium">Previous balance</p>
                   {isLoadingOutstandingPaymentBalances ? (
@@ -1279,20 +1501,95 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   <p className="text-muted-foreground text-sm font-medium">Today&apos;s test</p>
                   <p className="text-2xl font-semibold">{currency.format(allocationPreview.currentBalanceDue)}</p>
                 </div>
+                {clientCreditBalance > 0 && (
+                  <div className="flex flex-col gap-1">
+                    <p className="text-muted-foreground text-sm font-medium">Credit available</p>
+                    <p className="text-success text-2xl font-semibold">{currency.format(clientCreditBalance)}</p>
+                  </div>
+                )}
                 <div className="flex flex-col gap-1 sm:border-l sm:pl-4">
-                  <p className="text-muted-foreground text-sm font-medium">Total due</p>
+                  <p className="text-muted-foreground text-sm font-medium">Total Due</p>
                   {isLoadingOutstandingPaymentBalances ? (
                     <Skeleton className="h-9 w-24" />
                   ) : (
-                    <p className="text-3xl font-bold">{currency.format(allocationPreview.totalDue)}</p>
+                    <p className="text-3xl font-bold">
+                      {currency.format(
+                        clientCreditBalance > 0 ? allocationPreview.dueAfterCredit : allocationPreview.totalDue,
+                      )}
+                    </p>
                   )}
                 </div>
               </div>
             )}
 
+            {clientCreditBalance > 0 && (
+              <div className="border-success/50 bg-success/5 space-y-4 rounded-lg border p-4">
+                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                  <div className="flex gap-3">
+                    <div className="border-success/50 bg-success/10 flex size-9 shrink-0 items-center justify-center rounded-full border">
+                      <CreditCard className="text-success size-4" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Client credit</p>
+                      <p className="text-success text-2xl font-semibold">
+                        {currency.format(clientCreditBalance)} available
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant={creditToApply > 0 ? 'outline' : 'default'}
+                    aria-pressed={creditToApply > 0}
+                    onClick={() => {
+                      const nextCredit = creditToApply > 0 ? 0 : maximumCredit
+                      const creditIncrease = Math.max(0, nextCredit - creditToApply)
+                      setPaymentDraft((current) => ({
+                        ...(current ?? payment),
+                        creditToApply: String(nextCredit),
+                        amountReceived: String(Math.max(0, amountReceived - creditIncrease)),
+                      }))
+                    }}
+                  >
+                    {creditToApply > 0 ? 'Remove credit' : `Apply ${currency.format(maximumCredit)} credit`}
+                  </Button>
+                </div>
+
+                <Field data-invalid={!creditAmountIsValid || undefined}>
+                  <FieldLabel htmlFor="credit-to-apply">Credit to apply</FieldLabel>
+                  <InputGroup className="h-11!">
+                    <InputGroupInput
+                      id="credit-to-apply"
+                      name="creditToApply"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      max={maximumCredit}
+                      step={1}
+                      value={payment.creditToApply}
+                      aria-invalid={!creditAmountIsValid || undefined}
+                      onChange={(event) =>
+                        setPaymentDraft((current) => ({
+                          ...(current ?? payment),
+                          creditToApply: event.target.value,
+                        }))
+                      }
+                    />
+                    <InputGroupAddon>
+                      <InputGroupText>$</InputGroupText>
+                    </InputGroupAddon>
+                  </InputGroup>
+                  <FieldError
+                    errors={
+                      creditAmountIsValid ? [] : ['Credit cannot exceed the available credit or total balance due.']
+                    }
+                  />
+                </Field>
+              </div>
+            )}
+
             <FieldGroup className="grid gap-4 sm:grid-cols-2">
               <Field data-invalid={!paymentAmountIsValid || undefined}>
-                <FieldLabel htmlFor="amount-received">Amount received</FieldLabel>
+                <FieldLabel htmlFor="amount-received">Amount received now</FieldLabel>
                 <InputGroup className="h-12!">
                   <InputGroupInput
                     id="amount-received"
@@ -1315,14 +1612,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     <InputGroupText>$</InputGroupText>
                   </InputGroupAddon>
                 </InputGroup>
-                <FieldDescription>
-                  {selectedBooking.guidedPaymentTotal > 0
-                    ? `${currency.format(selectedBooking.guidedPaymentTotal)} was already recorded here. Enter only additional money received now.`
-                    : 'Enter any amount received now. There is no maximum; excess becomes client credit.'}
-                </FieldDescription>
-                <FieldError
-                  errors={paymentAmountIsValid ? [] : ['Enter zero or a positive amount received.']}
-                />
+                <FieldError errors={paymentAmountIsValid ? [] : ['Enter zero or a positive amount received.']} />
               </Field>
 
               <Field>
@@ -1376,26 +1666,15 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     className="h-10"
                   >
                     {currency.format(amount)}
-                    {amount > 0 && amount === allocationPreview.totalDue ? ' · Pay all' : ''}
+                    {amount > 0 && amount === allocationPreview.dueAfterCredit ? ' · Pay all' : ''}
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
             )}
 
-            {clientCreditBalance > 0 && (
-              <Alert>
-                <CreditCard />
-                <AlertTitle>{currency.format(clientCreditBalance)} client credit available</AlertTitle>
-                <AlertDescription>
-                  Existing credit remains separate from money received in this step.
-                </AlertDescription>
-              </Alert>
-            )}
-
             <div className="border-border overflow-hidden rounded-lg border">
-              <div className="flex items-center justify-between gap-3 p-4">
+              <div className="p-4">
                 <p className="text-lg font-semibold">Payment allocation</p>
-                <Badge variant="outline">Oldest first</Badge>
               </div>
               <Separator />
 
@@ -1411,13 +1690,22 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   {compactPreviousAllocations.map((row) => {
                     if (row.kind === 'summary') {
                       return (
-                        <div key={row.key} className="bg-muted/20 grid gap-2 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                        <div
+                          key={row.key}
+                          className="bg-muted/20 grid gap-2 p-4 sm:grid-cols-[1fr_auto] sm:items-center"
+                        >
                           <div className="flex flex-col gap-1">
                             <p className="font-medium">{row.count} other previous tests</p>
                             <p className="text-muted-foreground text-sm">{currency.format(row.amountDue)} total due</p>
                           </div>
                           <div className="text-left sm:text-right">
                             <p className="font-medium">{currency.format(row.amountApplied)} applied</p>
+                            {row.creditApplied > 0 && (
+                              <p className="text-success text-sm font-medium">
+                                {currency.format(row.creditApplied)} credit
+                                {row.newMoneyApplied > 0 ? ` + ${currency.format(row.newMoneyApplied)} new money` : ''}
+                              </p>
+                            )}
                             {row.balanceRemaining > 0 && (
                               <p className="text-destructive text-sm">
                                 {currency.format(row.balanceRemaining)} remaining
@@ -1451,6 +1739,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                         </div>
                         <div className="text-left sm:text-right">
                           <p className="font-medium">{currency.format(row.allocation.amountApplied)} applied</p>
+                          {row.allocation.creditApplied > 0 && (
+                            <p className="text-success text-sm font-medium">
+                              {currency.format(row.allocation.creditApplied)} credit
+                              {row.allocation.newMoneyApplied > 0
+                                ? ` + ${currency.format(row.allocation.newMoneyApplied)} new money`
+                                : ''}
+                            </p>
+                          )}
                           {row.allocation.balanceRemaining <= 0 ? (
                             <Badge variant="success">Paid</Badge>
                           ) : (
@@ -1475,6 +1771,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     </div>
                     <div className="text-left sm:text-right">
                       <p className="font-medium">{currency.format(allocationPreview.currentAmountApplied)} applied</p>
+                      {allocationPreview.currentCreditApplied > 0 && (
+                        <p className="text-success text-sm font-medium">
+                          {currency.format(allocationPreview.currentCreditApplied)} credit
+                          {allocationPreview.currentNewMoneyApplied > 0
+                            ? ` + ${currency.format(allocationPreview.currentNewMoneyApplied)} new money`
+                            : ''}
+                        </p>
+                      )}
                       {allocationPreview.currentBalanceRemaining <= 0 ? (
                         <Badge variant="success">Paid</Badge>
                       ) : (
@@ -1489,22 +1793,30 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             </div>
 
             {!isLoadingOutstandingPaymentBalances && !hasOutstandingPaymentBalanceError && (
-              <div className="border-border bg-muted/20 flex items-center justify-between gap-4 rounded-lg border p-4">
-                <p className="font-medium">Remaining client balance</p>
-                <div className="text-right">
+              <div className="border-border bg-muted/20 grid gap-4 rounded-lg border p-4 sm:grid-cols-3">
+                <div>
+                  <p className="text-muted-foreground text-sm font-medium">Balance still due</p>
                   <p
                     className={cn(
                       'text-2xl font-semibold',
-                      allocationPreview.remainingClientBalance > 0 ? 'text-destructive' : 'text-success',
+                      allocationPreview.remainingClientBalance > 0 && 'text-destructive',
                     )}
                   >
                     {currency.format(allocationPreview.remainingClientBalance)}
                   </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-sm font-medium">Credit remaining</p>
+                  <p className="text-success text-2xl font-semibold">{currency.format(futureCreditBalance)}</p>
                   {allocationPreview.creditAmount > 0 && (
                     <p className="text-muted-foreground text-sm">
-                      {currency.format(allocationPreview.creditAmount)} becomes client credit
+                      Includes {currency.format(allocationPreview.creditAmount)} new credit
                     </p>
                   )}
+                </div>
+                <div className="sm:text-right">
+                  <p className="text-muted-foreground text-sm font-medium">New money collected</p>
+                  <p className="text-2xl font-semibold">{currency.format(amountReceived)}</p>
                 </div>
               </div>
             )}
@@ -1622,11 +1934,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     currentStep === 'payment'
       ? Boolean(
           selectedBooking?.testType &&
-            selectedBooking.client?.id &&
-            paymentAmountIsValid &&
-            !isLoadingOutstandingPaymentBalances &&
-            !hasOutstandingPaymentBalanceError &&
-            clientIdentityIsVerified,
+          selectedBooking.client?.id &&
+          paymentAmountIsValid &&
+          creditAmountIsValid &&
+          !isLoadingOutstandingPaymentBalances &&
+          !hasOutstandingPaymentBalanceError &&
+          clientIdentityIsVerified,
         )
       : currentStep === 'toxaccess'
         ? Boolean(

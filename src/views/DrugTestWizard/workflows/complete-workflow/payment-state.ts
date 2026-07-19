@@ -2,6 +2,7 @@ export type GuidedPaymentEntryMethod = 'cash' | 'card'
 
 export type GuidedPaymentDraft = {
   amountReceived: string
+  creditToApply: string
   method: GuidedPaymentEntryMethod
 }
 
@@ -14,6 +15,9 @@ export type GuidedOutstandingBalance = {
 
 export type GuidedPaymentAllocation = GuidedOutstandingBalance & {
   amountApplied: number
+  creditApplied: number
+  newMoneyApplied: number
+  balanceAfterCredit: number
   balanceRemaining: number
 }
 
@@ -21,9 +25,17 @@ export type GuidedPaymentAllocationPreview = {
   previousBalanceTotal: number
   currentBalanceDue: number
   totalDue: number
+  clientCreditAvailable: number
+  clientCreditApplied: number
+  clientCreditRemaining: number
+  dueAfterCredit: number
   amountReceived: number
   previousAllocations: GuidedPaymentAllocation[]
+  previousBalanceAfterCredit: number
   currentAmountApplied: number
+  currentCreditApplied: number
+  currentNewMoneyApplied: number
+  currentBalanceAfterCredit: number
   currentBalanceRemaining: number
   creditAmount: number
   remainingClientBalance: number
@@ -40,6 +52,8 @@ export type CompactPreviousAllocationRow =
       count: number
       amountDue: number
       amountApplied: number
+      creditApplied: number
+      newMoneyApplied: number
       balanceRemaining: number
     }
 
@@ -66,6 +80,15 @@ export function parseGuidedPaymentAmount(value: string) {
   return normalizeMoney(Number(value))
 }
 
+export function getGuidedCreditMaximum(clientCreditAvailable: number, totalDue: number) {
+  return Math.min(Math.max(0, normalizeMoney(clientCreditAvailable)), Math.max(0, normalizeMoney(totalDue)))
+}
+
+export function isValidGuidedCreditAmount(value: string, clientCreditAvailable: number, totalDue: number) {
+  if (!isValidGuidedPaymentAmount(value)) return false
+  return parseGuidedPaymentAmount(value) <= getGuidedCreditMaximum(clientCreditAvailable, totalDue)
+}
+
 export function getGuidedPaymentQuickAmounts(currentBalanceDue: number, totalDue: number) {
   return Array.from(new Set([0, normalizeMoney(currentBalanceDue), normalizeMoney(totalDue)])).filter(
     (amount) => amount >= 0,
@@ -76,33 +99,50 @@ export function buildGuidedPaymentAllocationPreview(input: {
   previousBalances: GuidedOutstandingBalance[]
   currentBalanceDue: number
   amountReceived: number
+  clientCreditAvailable?: number
+  clientCreditApplied?: number
 }): GuidedPaymentAllocationPreview {
-  let remainingPayment = Math.max(0, normalizeMoney(input.amountReceived))
   const previousBalances = input.previousBalances.map((balance) => ({
     ...balance,
     balanceDue: Math.max(0, normalizeMoney(balance.balanceDue)),
   }))
+  const previousBalanceTotal = previousBalances.reduce((total, balance) => addMoney(total, balance.balanceDue), 0)
+  const currentBalanceDue = Math.max(0, normalizeMoney(input.currentBalanceDue))
+  const totalDue = addMoney(previousBalanceTotal, currentBalanceDue)
+  const clientCreditAvailable = Math.max(0, normalizeMoney(input.clientCreditAvailable || 0))
+  let remainingCredit = Math.min(
+    getGuidedCreditMaximum(clientCreditAvailable, totalDue),
+    Math.max(0, normalizeMoney(input.clientCreditApplied || 0)),
+  )
+  const clientCreditApplied = remainingCredit
+  let remainingPayment = Math.max(0, normalizeMoney(input.amountReceived))
+
+  function allocateBalance(balanceDue: number) {
+    const creditApplied = Math.min(balanceDue, remainingCredit)
+    remainingCredit = subtractMoney(remainingCredit, creditApplied)
+    const balanceAfterCredit = Math.max(0, subtractMoney(balanceDue, creditApplied))
+    const newMoneyApplied = Math.min(balanceAfterCredit, remainingPayment)
+    remainingPayment = subtractMoney(remainingPayment, newMoneyApplied)
+
+    return {
+      creditApplied,
+      newMoneyApplied,
+      amountApplied: addMoney(creditApplied, newMoneyApplied),
+      balanceAfterCredit,
+      balanceRemaining: Math.max(0, subtractMoney(balanceAfterCredit, newMoneyApplied)),
+    }
+  }
 
   const previousAllocations = previousBalances.map<GuidedPaymentAllocation>((balance) => {
-    const amountApplied = Math.min(balance.balanceDue, remainingPayment)
-    remainingPayment = subtractMoney(remainingPayment, amountApplied)
+    const allocation = allocateBalance(balance.balanceDue)
 
     return {
       ...balance,
-      amountApplied,
-      balanceRemaining: Math.max(0, subtractMoney(balance.balanceDue, amountApplied)),
+      ...allocation,
     }
   })
 
-  const currentBalanceDue = Math.max(0, normalizeMoney(input.currentBalanceDue))
-  const currentAmountApplied = Math.min(currentBalanceDue, remainingPayment)
-  remainingPayment = subtractMoney(remainingPayment, currentAmountApplied)
-
-  const previousBalanceTotal = previousBalances.reduce(
-    (total, balance) => addMoney(total, balance.balanceDue),
-    0,
-  )
-  const currentBalanceRemaining = Math.max(0, subtractMoney(currentBalanceDue, currentAmountApplied))
+  const currentAllocation = allocateBalance(currentBalanceDue)
   const remainingPreviousBalance = previousAllocations.reduce(
     (total, allocation) => addMoney(total, allocation.balanceRemaining),
     0,
@@ -111,13 +151,24 @@ export function buildGuidedPaymentAllocationPreview(input: {
   return {
     previousBalanceTotal,
     currentBalanceDue,
-    totalDue: addMoney(previousBalanceTotal, currentBalanceDue),
+    totalDue,
+    clientCreditAvailable,
+    clientCreditApplied,
+    clientCreditRemaining: subtractMoney(clientCreditAvailable, clientCreditApplied),
+    dueAfterCredit: Math.max(0, subtractMoney(totalDue, clientCreditApplied)),
     amountReceived: Math.max(0, normalizeMoney(input.amountReceived)),
     previousAllocations,
-    currentAmountApplied,
-    currentBalanceRemaining,
+    previousBalanceAfterCredit: previousAllocations.reduce(
+      (total, allocation) => addMoney(total, allocation.balanceAfterCredit),
+      0,
+    ),
+    currentAmountApplied: currentAllocation.amountApplied,
+    currentCreditApplied: currentAllocation.creditApplied,
+    currentNewMoneyApplied: currentAllocation.newMoneyApplied,
+    currentBalanceAfterCredit: currentAllocation.balanceAfterCredit,
+    currentBalanceRemaining: currentAllocation.balanceRemaining,
     creditAmount: Math.max(0, remainingPayment),
-    remainingClientBalance: addMoney(remainingPreviousBalance, currentBalanceRemaining),
+    remainingClientBalance: addMoney(remainingPreviousBalance, currentAllocation.balanceRemaining),
   }
 }
 
@@ -135,6 +186,8 @@ function summarizeAllocations(
     count: hidden.length,
     amountDue: hidden.reduce((total, allocation) => addMoney(total, allocation.balanceDue), 0),
     amountApplied: hidden.reduce((total, allocation) => addMoney(total, allocation.amountApplied), 0),
+    creditApplied: hidden.reduce((total, allocation) => addMoney(total, allocation.creditApplied), 0),
+    newMoneyApplied: hidden.reduce((total, allocation) => addMoney(total, allocation.newMoneyApplied), 0),
     balanceRemaining: hidden.reduce((total, allocation) => addMoney(total, allocation.balanceRemaining), 0),
   }
 }

@@ -70,6 +70,17 @@ export type GuidedScheduleFixtures = {
       attendeeName: string
       startTime: string
     }
+    creditAvailable: {
+      id: string
+      attendeeName: string
+      startTime: string
+      client: SeededPerson
+    }
+    completedPrepaid: {
+      id: string
+      attendeeName: string
+      startTime: string
+    }
     outsideToday: {
       id: string
       attendeeName: string

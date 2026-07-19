@@ -4,6 +4,7 @@ import {
   buildGuidedPaymentAllocationPreview,
   compactPreviousPaymentAllocations,
   getGuidedPaymentQuickAmounts,
+  isValidGuidedCreditAmount,
   isValidGuidedPaymentAmount,
   parseGuidedPaymentAmount,
   type GuidedOutstandingBalance,
@@ -69,6 +70,42 @@ describe('guided payment allocation preview', () => {
     expect(preview.currentAmountApplied).toBe(35)
     expect(preview.remainingClientBalance).toBe(0)
     expect(preview.creditAmount).toBe(20)
+  })
+
+  test('shows client credit as a separate oldest-first payment source', () => {
+    const preview = buildGuidedPaymentAllocationPreview({
+      previousBalances: [previousBalance('old-test')],
+      currentBalanceDue: 40,
+      clientCreditAvailable: 50,
+      clientCreditApplied: 50,
+      amountReceived: 10,
+    })
+
+    expect(preview).toMatchObject({
+      totalDue: 75,
+      clientCreditAvailable: 50,
+      clientCreditApplied: 50,
+      clientCreditRemaining: 0,
+      dueAfterCredit: 25,
+      previousBalanceAfterCredit: 0,
+      currentCreditApplied: 15,
+      currentNewMoneyApplied: 10,
+      currentBalanceAfterCredit: 25,
+      currentBalanceRemaining: 15,
+      remainingClientBalance: 15,
+    })
+    expect(preview.previousAllocations[0]).toMatchObject({
+      creditApplied: 35,
+      newMoneyApplied: 0,
+      balanceRemaining: 0,
+    })
+  })
+
+  test('validates applied credit against both available credit and total due', () => {
+    expect(isValidGuidedCreditAmount('40', 50, 40)).toBe(true)
+    expect(isValidGuidedCreditAmount('41', 50, 40)).toBe(false)
+    expect(isValidGuidedCreditAmount('51', 50, 80)).toBe(false)
+    expect(isValidGuidedCreditAmount('-1', 50, 80)).toBe(false)
   })
 
   test('allows an empty transient input and has no upper payment limit', () => {

@@ -421,6 +421,68 @@ describe('payment allocation service', () => {
     )
   })
 
+  test('applies an explicit credit amount oldest-first and reserves the remainder for a booking', async () => {
+    const payload = createMockPayload({
+      clientCredit: 60,
+      unpaidTests: [
+        {
+          id: 'old-test',
+          payment: {
+            amountDue: 35,
+            amountPaid: 0,
+            balanceDue: 35,
+            status: 'unpaid',
+          },
+        },
+      ],
+    })
+
+    const result = await applyAvailableClientCredit({
+      payload: payload as unknown as Payload,
+      clientId: 'client-1',
+      amount: 50,
+      relatedBooking: 'booking-1',
+      bookingBalanceDue: 40,
+      allocationOrder: 'oldest-balance-first',
+    })
+
+    expect(result).toMatchObject({ usedCredit: 50 })
+    expect(payload.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'clients',
+        data: { creditBalance: 10 },
+      }),
+    )
+    expect(payload.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'payments',
+        data: expect.objectContaining({
+          relatedBooking: 'booking-1',
+          amount: 50,
+          appliedAmount: 35,
+          reservedForBookingAmount: 15,
+          allocations: [{ drugTest: 'old-test', amount: 35 }],
+        }),
+      }),
+    )
+  })
+
+  test('rejects an explicit credit amount above the current client credit balance', async () => {
+    const payload = createMockPayload({ clientCredit: 20 })
+
+    await expect(
+      applyAvailableClientCredit({
+        payload: payload as unknown as Payload,
+        clientId: 'client-1',
+        amount: 25,
+        relatedBooking: 'booking-1',
+        bookingBalanceDue: 40,
+      }),
+    ).rejects.toThrow('credit balance changed')
+    expect(payload.update).not.toHaveBeenCalled()
+    expect(payload.create).not.toHaveBeenCalled()
+  })
+
   test('threads transaction request through payment allocation operations', async () => {
     const req = { transactionID: 'txn-1' } as Partial<PayloadRequest>
     const payload = createMockPayload({

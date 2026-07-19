@@ -133,6 +133,15 @@ export const Payments: CollectionConfig = {
       },
     },
     {
+      name: 'voidReason',
+      type: 'text',
+      admin: {
+        readOnly: true,
+        condition: (_, siblingData) => siblingData?.status === 'voided',
+        description: 'Why this payment was reversed while preserving its audit history.',
+      },
+    },
+    {
       name: 'refundedAt',
       type: 'date',
       admin: {

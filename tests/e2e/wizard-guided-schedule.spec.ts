@@ -66,9 +66,9 @@ test.describe("Wizard Today's Schedule", () => {
     await openGuidedSchedule(page)
   })
 
-  test('shows only confirmed or pending bookings in the app-timezone day window', async ({ page }) => {
+  test('shows active and completed bookings in the app-timezone day window', async ({ page }) => {
     const todayCards = page.getByRole('button').filter({ hasText: fixtures.runId })
-    await expect(todayCards).toHaveCount(3)
+    await expect(todayCards).toHaveCount(5)
 
     const paidLinked = scheduleCard(page, scheduleFixtures.bookings.paidLinked.attendeeName)
     await expect(paidLinked).toBeVisible()
@@ -95,6 +95,23 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(needsTestType).toBeVisible()
     await expect(needsTestType).toContainText(formatScheduleTime(scheduleFixtures.bookings.needsTestType.startTime))
     await expect(needsTestType).toContainText('Set test')
+
+    const completed = scheduleCard(page, scheduleFixtures.bookings.completedPrepaid.attendeeName)
+    await expect(completed).toBeVisible()
+    await expect(completed).toContainText('Completed')
+    await expect(completed).toHaveClass(/opacity-60/)
+    await expect(scheduleCardButton(page, scheduleFixtures.bookings.completedPrepaid.attendeeName)).toBeDisabled()
+
+    await page
+      .getByRole('button', {
+        name: `${scheduleFixtures.bookings.completedPrepaid.attendeeName} appointment options`,
+      })
+      .click()
+    await page.getByRole('menuitem', { name: 'Cancel and refund' }).click()
+    const completedRefundDialog = page.getByRole('dialog', { name: 'Refund completed appointment' })
+    await expect(completedRefundDialog).toContainText('collection stays completed')
+    await expect(completedRefundDialog.getByRole('button', { name: 'Refund prepayment' })).toBeEnabled()
+    await completedRefundDialog.getByRole('button', { name: 'Keep appointment' }).click()
 
     await expect(
       page.getByRole('button').filter({ hasText: scheduleFixtures.bookings.outsideToday.attendeeName }),
@@ -188,6 +205,49 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByRole('heading', { name: 'Set Appointment Test' })).toBeVisible()
   })
 
+  test('applies client credit and can undo the recorded payment', async ({ page }) => {
+    const booking = scheduleFixtures.bookings.creditAvailable
+
+    await scheduleCardButton(page, booking.attendeeName).click()
+    await expect(page.getByRole('heading', { name: 'Review and Payment' })).toBeVisible()
+    await expect(page.getByText('Credit available')).toBeVisible()
+    await expect(page.getByText('$40 available')).toBeVisible()
+    await expect(page.getByText('Total Due', { exact: true })).toBeVisible()
+
+    const creditInput = page.getByRole('spinbutton', { name: 'Credit to apply' })
+    const amountReceived = page.getByRole('spinbutton', { name: 'Amount received now' })
+    await expect(creditInput).toHaveValue('0')
+    await expect(amountReceived).toHaveValue('40')
+
+    await page.getByRole('button', { name: 'Apply $40 credit' }).click()
+    await expect(creditInput).toHaveValue('40')
+    await expect(amountReceived).toHaveValue('0')
+    await expect(page.getByText('$40 credit', { exact: true })).toBeVisible()
+    await expect(page.getByText('Credit remaining').last()).toBeVisible()
+
+    await clickNext(page)
+    await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()
+    await page.getByRole('button', { name: /^Back$/ }).click()
+
+    const receipt = page.getByTestId('guided-recorded-payment')
+    await expect(receipt.getByRole('heading', { name: 'Payment recorded' })).toBeVisible()
+    await expect(receipt).toContainText('Client credit')
+    await expect(receipt).toContainText("Applied to today's test")
+    await expect(receipt.getByRole('button', { name: 'Undo payment' })).toBeVisible()
+
+    await receipt.getByRole('button', { name: 'Undo payment' }).click()
+    const undoDialog = page.getByRole('alertdialog', { name: 'Undo payment?' })
+    await expect(undoDialog).toContainText('restore the applied client credit')
+    await expect(undoDialog.locator('[data-slot="alert-dialog-media"] svg')).toHaveCount(1)
+    const undoPaymentButton = undoDialog.getByRole('button', { name: 'Undo payment' })
+    await expect(undoPaymentButton.locator('svg')).toHaveCount(0)
+    await undoPaymentButton.click()
+
+    await expect(page.getByRole('heading', { name: 'Collect payment' })).toBeVisible()
+    await expect(page.getByText('$40 available')).toBeVisible()
+    await expect(page.getByRole('spinbutton', { name: 'Credit to apply' })).toHaveValue('0')
+  })
+
   test('carries a guided instant booking into the instant workflow', async ({ page }) => {
     const env = getE2EEnv()
     const booking = scheduleFixtures.bookings.paidLinked
@@ -263,12 +323,12 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByText('$40 applied', { exact: true })).toBeVisible()
 
     await amountReceived.fill('50')
-    await expect(page.getByText('$10 becomes client credit')).toBeVisible()
+    await expect(page.getByText('Includes $10 new credit')).toBeVisible()
     await expect(payAllButton).toHaveAttribute('aria-pressed', 'false')
 
     await payAllButton.click()
     await expect(amountReceived).toHaveValue('40')
-    await expect(page.getByText('$10 becomes client credit')).toHaveCount(0)
+    await expect(page.getByText('Includes $10 new credit')).toHaveCount(0)
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()
     await expect(page.getByText(/11-Panel Lab/i).last()).toBeVisible()
