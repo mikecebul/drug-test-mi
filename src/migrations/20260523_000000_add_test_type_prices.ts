@@ -1,6 +1,6 @@
 import { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-mongodb'
 
-import { LEGACY_TEST_TYPES_COLLECTION } from './legacy-test-types'
+import { LEGACY_TEST_TYPES_COLLECTION } from '@/lib/legacy-test-types-collection'
 
 const TEST_TYPE_PRICES: Record<string, number> = {
   '11-panel-lab': 40,

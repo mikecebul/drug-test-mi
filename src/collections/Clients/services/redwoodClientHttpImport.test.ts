@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  assertRedwoodDonorCreationAllowed,
   assertRedwoodImportDidNotReject,
   assertRedwoodImportUploadAdvanced,
   readRedwoodDonorSearchResults,
@@ -8,6 +9,15 @@ import {
 } from './redwoodClientHttpImport'
 
 describe('redwood HTTP import helpers', () => {
+  it('blocks automatic creation when donor identity requires manual review', () => {
+    expect(() =>
+      assertRedwoodDonorCreationAllowed({
+        allowCreate: false,
+        blockedReason: 'Potential existing Redwood donor: prior Payload test history was found.',
+      }),
+    ).toThrow('Potential existing Redwood donor')
+  })
+
   it('extracts donor IDs and cells from Redwood donor search result rows', () => {
     const rows = readRedwoodDonorSearchResults(`
       <table>

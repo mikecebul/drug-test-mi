@@ -40,6 +40,7 @@ import { runRedwoodImportClientJob } from './redwoodImportWorkflow'
 
 function createPayloadMock() {
   return {
+    find: vi.fn().mockResolvedValue({ docs: [] }),
     findByID: vi.fn().mockResolvedValue({
       id: 'client-1',
       firstName: 'Bob',
@@ -97,6 +98,7 @@ describe('Redwood direct HTTP import workflow', () => {
         sex: 'M',
         uniqueId: 'RWD0001',
       }),
+      expect.objectContaining({ allowCreate: true }),
     )
     expect(payloadMock.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -134,6 +136,40 @@ describe('Redwood direct HTTP import workflow', () => {
           redwoodSyncStatus: 'reactivated-existing',
           redwoodDonorId: '2714034',
         }),
+      }),
+    )
+  })
+
+  it('disables donor creation when Payload has prior drug-test history', async () => {
+    createRedwoodClientViaHttpMock.mockResolvedValue({
+      callInCode: '123456',
+      donorId: '2714034',
+      matchedBy: 'name-dob',
+      matchedDonorName: 'Testing, Bob',
+      status: 'matched-existing',
+    })
+    const payloadMock = createPayloadMock()
+    payloadMock.find.mockResolvedValue({ docs: [{ id: 'test-1' }] })
+
+    const result = await runRedwoodImportClientJob({
+      clientId: 'client-1',
+      payload: payloadMock as never,
+      source: 'manual',
+    })
+
+    expect(result).toEqual({ matchedBy: 'name-dob', status: 'matched-existing' })
+    expect(payloadMock.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'drug-tests',
+        limit: 1,
+        where: { relatedClient: { equals: 'client-1' } },
+      }),
+    )
+    expect(createRedwoodClientViaHttpMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        allowCreate: false,
+        blockedReason: expect.stringContaining('automatic donor creation was blocked'),
       }),
     )
   })

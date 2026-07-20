@@ -33,6 +33,20 @@ export type RedwoodHttpImportedDonor = {
   status: RedwoodHttpImportStatus
 }
 
+export type RedwoodDonorCreationOptions = {
+  allowCreate?: boolean
+  blockedReason?: string
+}
+
+export function assertRedwoodDonorCreationAllowed(options: RedwoodDonorCreationOptions = {}): void {
+  if (options.allowCreate !== false) return
+
+  throw new Error(
+    options.blockedReason ||
+      'Potential existing Redwood donor: automatic creation was blocked because donor identity requires manual review.',
+  )
+}
+
 function readNamedFormControl(html: string, name: string): { name: string; type: string; value: string } | null {
   for (const match of html.matchAll(/<(input|button)\b[^>]*>/gi)) {
     const attributes = readRedwoodHtmlAttributes(match[0])
@@ -130,7 +144,10 @@ export function assertRedwoodImportUploadAdvanced(html: string): void {
   }
 }
 
-export async function createRedwoodClientViaHttp(input: RedwoodImportCSVInput): Promise<RedwoodHttpImportedDonor> {
+export async function createRedwoodClientViaHttp(
+  input: RedwoodImportCSVInput,
+  creationOptions: RedwoodDonorCreationOptions = {},
+): Promise<RedwoodHttpImportedDonor> {
   const auth = resolveRedwoodAuthEnv()
   const donorSearchUrl = process.env.REDWOOD_DONOR_SEARCH_URL?.trim() || DEFAULT_REDWOOD_DONOR_SEARCH_URL
   const importUrl = process.env.REDWOOD_IMPORT_URL?.trim() || DEFAULT_REDWOOD_IMPORT_URL
@@ -193,6 +210,8 @@ export async function createRedwoodClientViaHttp(input: RedwoodImportCSVInput): 
       status: 'reactivated-existing',
     }
   }
+
+  assertRedwoodDonorCreationAllowed(creationOptions)
 
   const importPage = await session.getText(importUrl)
   const uploadEntries = parseRedwoodFormEntries(importPage.text)

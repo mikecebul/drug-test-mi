@@ -76,7 +76,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { APP_TIMEZONE, formatDobInput } from '@/lib/date-utils'
+import { APP_TIMEZONE } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
 import { RegisterClientDialog } from '../../components/RegisterClientDialog'
 import type { ClientMatch } from '../../types'
@@ -96,7 +96,6 @@ import {
   linkBookingToClient,
   recordBookingPayment,
   refreshBookingClientContext,
-  retryClientRedwoodProvisioning,
   setBookingScheduledTestType,
   undoBookingPayment,
 } from './actions'
@@ -144,15 +143,6 @@ function formatTime(value: string) {
     hour: 'numeric',
     minute: '2-digit',
     timeZone: APP_TIMEZONE,
-  }).format(new Date(value))
-}
-
-function formatDateOnly(value?: string | null) {
-  if (!value) return 'Unknown'
-  return new Intl.DateTimeFormat('en-US', {
-    month: '2-digit',
-    day: '2-digit',
-    year: 'numeric',
   }).format(new Date(value))
 }
 
@@ -336,7 +326,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     queryFn: getActiveCollectionTestTypes,
   })
   const [isPending, startTransition] = useTransition()
-  const [isRedwoodRetrying, setIsRedwoodRetrying] = useState(false)
   const redwoodProvisioningStartedForClient = useRef<string | null>(null)
   const [walkInClient, setWalkInClient] = useState<SimpleClient | null>(null)
   const [walkInClientDrawerOpen, setWalkInClientDrawerOpen] = useState(false)
@@ -741,24 +730,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
       router.push(getCollectionRoute(context.testType, context.clientId, selectedBooking.id))
     })
-  }
-
-  const handleRetryRedwoodProvisioning = async () => {
-    if (!selectedClientId) return
-
-    setIsRedwoodRetrying(true)
-    try {
-      const result = await retryClientRedwoodProvisioning(selectedClientId)
-      if (!result.success) {
-        toast.error(result.error || 'Failed to retry ToxAccess donor setup.')
-        return
-      }
-
-      toast.success('ToxAccess verification queued')
-      await refetchRedwoodProvisioning()
-    } finally {
-      setIsRedwoodRetrying(false)
-    }
   }
 
   const goBackOneStep = () => {
@@ -2003,82 +1974,46 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     if (!selectedBooking) return renderMissingBooking('ToxAccess')
     const client = selectedBooking.client
     const isFirstTest = !client?.firstDrugTestDate
-    const intakeDate = client?.firstDrugTestDate
-      ? formatDateOnly(client.firstDrugTestDate)
-      : formatDateOnly(new Date().toISOString())
     const fullName = getToxAccessName(selectedBooking, isFirstTest)
-    const toxAccessRows: Array<{ label: string; value: string }> = isFirstTest
-      ? [
-          ['Name', fullName],
-          ['DOB', formatDobInput(client?.dob) || 'Unknown'],
-          ['Sex', formatGuidedGender(client?.gender)],
-          ['Intake Date', intakeDate],
-          ['Active', 'Yes'],
-          ['Phone', client?.phone || selectedBooking.attendeePhone || 'Unknown'],
-          ['Agency', '(310872) MI Drug Test llc - MI'],
-          ['Test Code', getToxAccessTestValue(selectedBooking.testType)],
-        ].map(([label, value]) => ({ label, value }))
-      : [
-          { label: 'Name', value: fullName },
-          {
-            label: selectedBooking.testType?.category === 'lab' ? 'Test Code' : 'Test',
-            value: getToxAccessTestValue(selectedBooking.testType),
-          },
-        ]
+    const toxAccessRows: Array<{ label: string; value: string }> = [
+      { label: 'Name', value: fullName },
+      {
+        label: selectedBooking.testType?.category === 'lab' ? 'Test Code' : 'Test',
+        value: getToxAccessTestValue(selectedBooking.testType),
+      },
+    ]
 
     return (
       <div className="space-y-5">
         {renderHeader('ToxAccess', 'Collect Sample in ToxAccess')}
         {renderSelectedSummary(selectedBooking)}
 
-        <RedwoodProvisioningCard
-          status={redwoodProvisioning}
-          isLoading={isRedwoodProvisioningLoading}
-          isRetrying={isRedwoodRetrying}
-          onRetry={handleRetryRedwoodProvisioning}
-        />
+        <RedwoodProvisioningCard status={redwoodProvisioning} isLoading={isRedwoodProvisioningLoading} />
 
-        <Card className="rounded-lg">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-3 text-2xl">
-              <ClipboardList className="size-6" />
-              {isFirstTest ? 'Manual Fallback Reference' : 'ToxAccess Reference'}
-            </CardTitle>
-            <CardDescription className="text-base">
-              {isFirstTest
-                ? 'Use these values only if automatic donor setup needs manual help.'
-                : 'Use these values to find the client and select the test.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className={cn('grid gap-3', isFirstTest && 'sm:grid-cols-2')}>
-            {toxAccessRows.map(({ label, value }) => (
-              <div
-                key={label}
-                className={cn(
-                  'border-border bg-background grid gap-1 rounded-lg border p-4',
-                  !isFirstTest && 'sm:grid-cols-[140px_1fr] sm:items-center',
-                  label === 'Agency' && 'sm:col-span-2',
-                  label === 'Test Code' && 'sm:col-span-2',
-                )}
-              >
-                <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">{label}</p>
-                <p className="text-lg font-semibold">{value}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-lg">
-          <CardContent className="flex min-h-[180px] items-center justify-center gap-6 p-6">
-            <div className="bg-muted flex size-24 shrink-0 items-center justify-center rounded-full">
-              <FlaskConical className="text-primary size-14" strokeWidth={1.75} />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-3xl font-bold tracking-tight">Collect in ToxAccess</h2>
-              <p className="text-muted-foreground text-xl">Then continue here.</p>
-            </div>
-          </CardContent>
-        </Card>
+        {!isFirstTest && (
+          <Card className="rounded-lg">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-3 text-2xl">
+                <ClipboardList className="size-6" />
+                ToxAccess Reference
+              </CardTitle>
+              <CardDescription className="text-base">
+                Use these values to find the client and select the test.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              {toxAccessRows.map(({ label, value }) => (
+                <div
+                  key={label}
+                  className="border-border bg-background grid gap-1 rounded-lg border p-4 sm:grid-cols-[140px_1fr] sm:items-center"
+                >
+                  <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">{label}</p>
+                  <p className="text-lg font-semibold">{value}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </div>
     )
   }

@@ -1,6 +1,6 @@
 import { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-mongodb'
 
-import { LEGACY_TEST_TYPES_COLLECTION } from './legacy-test-types'
+import { LEGACY_TEST_TYPES_COLLECTION } from '@/lib/legacy-test-types-collection'
 
 const TOXACCESS_TEST_CODES: Record<string, string> = {
   '11-panel-lab': 'B729',

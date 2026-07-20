@@ -1,6 +1,7 @@
 const DONOR_SEARCH_RESULTS_PATH = '/Pages/User/DonorSearchResults.aspx'
 const DONOR_VIEW_PATH = '/Pages/User/Donor.aspx'
 const DONOR_EDIT_PATH = '/Pages/User/editDonor.aspx'
+const COLLECT_SPECIMEN_PATH = '/Pages/User/CollectSpecimen.aspx'
 
 function createRedwoodUrl(baseUrl: string, pathname: string): URL {
   const url = new URL(baseUrl)
@@ -48,6 +49,12 @@ export function buildRedwoodDonorViewUrl(donorSearchUrl: string, donorId: string
 
 export function buildRedwoodDonorEditUrl(donorSearchUrl: string, donorId: string): string {
   const url = createRedwoodUrl(donorSearchUrl, DONOR_EDIT_PATH)
+  url.searchParams.set('donorid', donorId.trim())
+  return url.toString()
+}
+
+export function buildRedwoodCollectSpecimenUrl(donorSearchUrl: string, donorId: string): string {
+  const url = createRedwoodUrl(donorSearchUrl, COLLECT_SPECIMEN_PATH)
   url.searchParams.set('donorid', donorId.trim())
   return url.toString()
 }

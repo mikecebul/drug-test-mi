@@ -39,6 +39,7 @@ import {
   queueRedwoodImportForClient,
 } from '@/lib/redwood/queue'
 import { deriveRedwoodProvisioningStatus, type RedwoodProvisioningStatus } from '@/lib/redwood/provisioning'
+import { buildRedwoodCollectSpecimenUrl } from '@/lib/redwood/donor-urls'
 
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type PaymentMethod = 'cash' | 'card' | 'credit' | 'not-paid' | 'pre-paid'
@@ -59,10 +60,10 @@ type ScheduleActionResult = {
   refundedAmount?: number
 }
 
-const REDWOOD_DONOR_SEARCH_URL =
-  process.env.REDWOOD_DONOR_SEARCH_URL?.trim() || 'https://toxaccess.redwoodtoxicology.com/Pages/User/DonorSearch.aspx'
+const TOXACCESS_USER_DONOR_SEARCH_URL = 'https://m.toxaccess.com/Pages/User/DonorSearch.aspx'
 
 export type GuidedRedwoodProvisioningStatus = RedwoodProvisioningStatus & {
+  collectSpecimenHref: string | null
   manualHref: string
 }
 
@@ -569,22 +570,27 @@ async function loadClientRedwoodProvisioningStatus(
     client.redwoodHeadshotPushLastError ||
     (defaultTestResolution.kind === 'error' ? defaultTestResolution.reason : null)
 
+  const provisioning = deriveRedwoodProvisioningStatus({
+    automationEnabled: isRedwoodAutomationEnabled(),
+    callInCode: client.redwoodCallInCode,
+    defaultTestRequired,
+    defaultTestStatus:
+      defaultTestResolution.kind === 'error' && client.redwoodDefaultTestSyncStatus === 'not-queued'
+        ? 'failed'
+        : client.redwoodDefaultTestSyncStatus,
+    donorId: client.redwoodDonorId,
+    headshotRequired,
+    headshotStatus: client.redwoodHeadshotPushStatus,
+    lastError,
+    syncStatus: importRetriesExhausted ? 'failed' : client.redwoodSyncStatus,
+  })
+
   return {
-    ...deriveRedwoodProvisioningStatus({
-      automationEnabled: isRedwoodAutomationEnabled(),
-      callInCode: client.redwoodCallInCode,
-      defaultTestRequired,
-      defaultTestStatus:
-        defaultTestResolution.kind === 'error' && client.redwoodDefaultTestSyncStatus === 'not-queued'
-          ? 'failed'
-          : client.redwoodDefaultTestSyncStatus,
-      donorId: client.redwoodDonorId,
-      headshotRequired,
-      headshotStatus: client.redwoodHeadshotPushStatus,
-      lastError,
-      syncStatus: importRetriesExhausted ? 'failed' : client.redwoodSyncStatus,
-    }),
-    manualHref: REDWOOD_DONOR_SEARCH_URL,
+    ...provisioning,
+    collectSpecimenHref: provisioning.donorId
+      ? buildRedwoodCollectSpecimenUrl(TOXACCESS_USER_DONOR_SEARCH_URL, provisioning.donorId)
+      : null,
+    manualHref: TOXACCESS_USER_DONOR_SEARCH_URL,
   }
 }
 

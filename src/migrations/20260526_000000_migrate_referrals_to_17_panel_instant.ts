@@ -1,6 +1,6 @@
 import { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-mongodb'
 
-import { LEGACY_TEST_TYPES_COLLECTION } from './legacy-test-types'
+import { LEGACY_TEST_TYPES_COLLECTION } from '@/lib/legacy-test-types-collection'
 
 const OLD_TEST_TYPE_VALUE = '15-panel-instant'
 const NEW_TEST_TYPE_VALUE = '17-panel-instant'

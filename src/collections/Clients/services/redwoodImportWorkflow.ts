@@ -24,6 +24,22 @@ async function updateClientRedwoodState(payload: Payload, clientId: string, data
   })
 }
 
+async function hasPayloadDrugTestHistory(payload: Payload, clientId: string): Promise<boolean> {
+  const result = await payload.find({
+    collection: 'drug-tests',
+    where: {
+      relatedClient: {
+        equals: clientId,
+      },
+    },
+    depth: 0,
+    limit: 1,
+    overrideAccess: true,
+  })
+
+  return result.docs.length > 0
+}
+
 async function queueRequiredDefaultTest(args: {
   client: Parameters<typeof resolveClientRedwoodEligibleDefaultTest>[0]['client']
   clientId: string
@@ -153,22 +169,30 @@ export async function runRedwoodImportClientJob(args: {
 
   const uniqueId =
     (typeof client.redwoodUniqueId === 'string' && client.redwoodUniqueId.trim()) || buildRedwoodUniqueId(client.id)
-  const donorGroup =
-    mapReferralTypeToRedwoodGroup(client.referralType) || process.env.REDWOOD_DONOR_GROUP?.trim() || ''
+  const donorGroup = mapReferralTypeToRedwoodGroup(client.referralType) || process.env.REDWOOD_DONOR_GROUP?.trim() || ''
+  const hasDrugTestHistory = await hasPayloadDrugTestHistory(payload, String(client.id))
 
   try {
-    const result = await createRedwoodClientViaHttp({
-      accountNumber,
-      firstName: client.firstName,
-      middleInitial: client.middleInitial || '',
-      lastName: client.lastName,
-      uniqueId,
-      dob: client.dob,
-      intakeDate: new Date(),
-      sex: mapGenderToRedwoodSex(client.gender),
-      phoneNumber: normalizePhoneForRedwood(client.phone || ''),
-      group: donorGroup,
-    })
+    const result = await createRedwoodClientViaHttp(
+      {
+        accountNumber,
+        firstName: client.firstName,
+        middleInitial: client.middleInitial || '',
+        lastName: client.lastName,
+        uniqueId,
+        dob: client.dob,
+        intakeDate: new Date(),
+        sex: mapGenderToRedwoodSex(client.gender),
+        phoneNumber: normalizePhoneForRedwood(client.phone || ''),
+        group: donorGroup,
+      },
+      {
+        allowCreate: !hasDrugTestHistory,
+        blockedReason: hasDrugTestHistory
+          ? 'Potential existing Redwood donor: Payload contains prior drug-test history, but no confident ToxAccess match was found by unique ID or name and DOB. Manual review required; automatic donor creation was blocked to prevent a duplicate.'
+          : undefined,
+      },
+    )
 
     return await routeSuccessfulImport({
       client,
@@ -192,6 +216,7 @@ export async function runRedwoodImportClientJob(args: {
       source,
       error: message,
       retryable: classification.retryable,
+      hasDrugTestHistory,
       queue: 'redwood',
     })
 
@@ -213,15 +238,13 @@ export async function runRedwoodImportClientJob(args: {
       payload,
       clientId: String(client.id),
       jobType: 'import',
-      kind:
-        classification.kind === 'manual-review-required'
-          ? 'manual-review-required'
-          : 'business-critical-failure',
+      kind: classification.kind === 'manual-review-required' ? 'manual-review-required' : 'business-critical-failure',
       title: `Redwood donor provisioning needs attention for client ${client.id}`,
       message,
       context: {
         clientId: client.id,
         source,
+        hasDrugTestHistory,
         queue: 'redwood',
       },
       statusSnapshot: {

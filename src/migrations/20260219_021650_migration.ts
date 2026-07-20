@@ -1,6 +1,6 @@
 import { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-mongodb'
 
-import { LEGACY_TEST_TYPES_COLLECTION } from './legacy-test-types'
+import { LEGACY_TEST_TYPES_COLLECTION } from '@/lib/legacy-test-types-collection'
 
 type CanonicalTestType = '11-panel-lab' | '15-panel-instant' | '17-panel-instant' | '17-panel-sos-lab' | 'etg-lab'
 
