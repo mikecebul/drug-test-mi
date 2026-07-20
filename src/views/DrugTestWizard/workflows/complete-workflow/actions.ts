@@ -40,6 +40,7 @@ import {
 } from '@/lib/redwood/queue'
 import { deriveRedwoodProvisioningStatus, type RedwoodProvisioningStatus } from '@/lib/redwood/provisioning'
 import { buildRedwoodCollectSpecimenUrl } from '@/lib/redwood/donor-urls'
+import { shouldQueueGuidedRedwoodDonor } from './redwood-provisioning-state'
 
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type PaymentMethod = 'cash' | 'card' | 'credit' | 'not-paid' | 'pre-paid'
@@ -619,11 +620,13 @@ async function queueMissingRedwoodProvisioningWork(args: {
     ['matched-existing', 'reactivated-existing', 'synced'].includes(client.redwoodSyncStatus || '')
 
   if (!donorReady) {
-    const canQueueDonor =
-      args.retryFailedDonor || !client.redwoodSyncStatus || client.redwoodSyncStatus === 'not-queued'
+    const canQueueDonor = shouldQueueGuidedRedwoodDonor({
+      retryFailedDonor: args.retryFailedDonor,
+      syncStatus: client.redwoodSyncStatus,
+    })
 
     if (canQueueDonor) {
-      await queueRedwoodImportForClient(args.clientId, 'manual', args.payload)
+      await queueRedwoodImportForClient(args.clientId, 'guided-workflow', args.payload)
     }
 
     return

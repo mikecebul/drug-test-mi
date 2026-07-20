@@ -2301,7 +2301,7 @@ export interface AdminAlert {
     | boolean
     | null;
   /**
-   * How many times this same incident has been observed.
+   * How many separate times this same incident has been observed.
    */
   attemptCount?: number | null;
   /**

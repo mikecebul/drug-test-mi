@@ -326,7 +326,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     queryFn: getActiveCollectionTestTypes,
   })
   const [isPending, startTransition] = useTransition()
-  const redwoodProvisioningStartedForClient = useRef<string | null>(null)
+  const redwoodProvisioningStartedForBooking = useRef<string | null>(null)
   const [walkInClient, setWalkInClient] = useState<SimpleClient | null>(null)
   const [walkInClientDrawerOpen, setWalkInClientDrawerOpen] = useState(false)
   const [walkInRegistrationOpen, setWalkInRegistrationOpen] = useState(false)
@@ -336,6 +336,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     [bookings, query.bookingId],
   )
   const selectedClientId = selectedBooking?.client?.id ?? null
+  const redwoodProvisioningBookingKey =
+    selectedBooking && selectedClientId ? `${selectedBooking.id}:${selectedClientId}` : null
   const currentStep: WorkflowStep = query.step
   const { data: referralProfile = null, refetch: refetchReferralProfile } = useQuery({
     queryKey: ['guided', 'referral-profile', selectedClientId],
@@ -418,16 +420,17 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
   useEffect(() => {
     if (currentStep !== 'toxaccess' || !selectedClientId) return
-    if (redwoodProvisioningStartedForClient.current === selectedClientId) return
+    if (!redwoodProvisioningBookingKey) return
+    if (redwoodProvisioningStartedForBooking.current === redwoodProvisioningBookingKey) return
 
-    redwoodProvisioningStartedForClient.current = selectedClientId
+    redwoodProvisioningStartedForBooking.current = redwoodProvisioningBookingKey
     void ensureClientRedwoodProvisioning(selectedClientId).then((result) => {
       if (!result.success && result.error) {
         toast.error(result.error)
       }
       void refetchRedwoodProvisioning()
     })
-  }, [currentStep, refetchRedwoodProvisioning, selectedClientId])
+  }, [currentStep, redwoodProvisioningBookingKey, refetchRedwoodProvisioning, selectedClientId])
 
   const handleSelectBooking = (booking: Booking) => {
     setPaymentDraft(getPaymentDefaults(booking))
@@ -654,7 +657,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           selectedBooking.client.id,
           selectedTestType.value,
         )
-        redwoodProvisioningStartedForClient.current = selectedBooking.client.id
+        redwoodProvisioningStartedForBooking.current = `${selectedBooking.id}:${selectedBooking.client.id}`
         if (!provisioningResult.success && provisioningResult.error) {
           toast.warning(provisioningResult.error)
         }

@@ -157,11 +157,12 @@ export const AdminAlerts: CollectionConfig = {
     },
     {
       name: 'attemptCount',
+      label: 'Occurrences',
       type: 'number',
       defaultValue: 1,
       admin: {
         readOnly: true,
-        description: 'How many times this same incident has been observed.',
+        description: 'How many separate times this same incident has been observed.',
       },
     },
     {

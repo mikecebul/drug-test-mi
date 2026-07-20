@@ -10,6 +10,7 @@ export type RedwoodQueueSource =
   | 'frontend-registration'
   | 'admin-registration'
   | 'wizard-registration'
+  | 'guided-workflow'
   | 'client-reactivation'
   | 'manual'
 export type RedwoodClientUpdateField = 'firstName' | 'middleInitial' | 'lastName' | 'dob' | 'gender' | 'phone'
