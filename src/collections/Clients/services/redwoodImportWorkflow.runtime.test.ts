@@ -199,6 +199,41 @@ describe('Redwood direct HTTP import workflow', () => {
     )
   })
 
+  it('creates an admin alert when test history blocks duplicate donor creation', async () => {
+    const blockedMessage =
+      'Potential existing Redwood donor: Payload contains prior drug-test history, but no confident ToxAccess match was found by unique ID or name and DOB. Manual review required; automatic donor creation was blocked to prevent a duplicate.'
+    createRedwoodClientViaHttpMock.mockRejectedValue(new Error(blockedMessage))
+    classifyRedwoodIncidentMock.mockReturnValue({
+      errorClass: 'duplicate-prevention-block',
+      kind: 'manual-review-required',
+      retryable: false,
+    })
+    const payloadMock = createPayloadMock()
+    payloadMock.find.mockResolvedValue({ docs: [{ id: 'test-1' }] })
+
+    const result = await runRedwoodImportClientJob({
+      clientId: 'client-1',
+      payload: payloadMock as never,
+      source: 'guided-workflow',
+    })
+
+    expect(result).toEqual({ status: 'manual-review' })
+    expect(upsertRedwoodIncidentAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientId: 'client-1',
+        jobType: 'import',
+        kind: 'manual-review-required',
+        message: blockedMessage,
+        title: 'Duplicate ToxAccess donor creation blocked for client client-1',
+        context: expect.objectContaining({
+          automaticCreationBlockedByHistory: true,
+          hasDrugTestHistory: true,
+          source: 'guided-workflow',
+        }),
+      }),
+    )
+  })
+
   it('throws transient HTTP failures so the Payload job retries without creating an early alert', async () => {
     createRedwoodClientViaHttpMock.mockRejectedValue(new Error('Redwood request timed out'))
     classifyRedwoodIncidentMock.mockReturnValue({

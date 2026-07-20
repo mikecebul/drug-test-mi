@@ -15,6 +15,9 @@ type RedwoodImportResult = {
   status: 'manual-review' | 'matched-existing' | 'partial-success' | 'reactivated-existing' | 'synced'
 }
 
+const DUPLICATE_PREVENTION_BLOCKED_REASON =
+  'Potential existing Redwood donor: Payload contains prior drug-test history, but no confident ToxAccess match was found by unique ID or name and DOB. Manual review required; automatic donor creation was blocked to prevent a duplicate.'
+
 async function updateClientRedwoodState(payload: Payload, clientId: string, data: Record<string, unknown>) {
   await payload.update({
     collection: 'clients',
@@ -197,9 +200,7 @@ export async function runRedwoodImportClientJob(args: {
       },
       {
         allowCreate: !hasDrugTestHistory,
-        blockedReason: hasDrugTestHistory
-          ? 'Potential existing Redwood donor: Payload contains prior drug-test history, but no confident ToxAccess match was found by unique ID or name and DOB. Manual review required; automatic donor creation was blocked to prevent a duplicate.'
-          : undefined,
+        blockedReason: hasDrugTestHistory ? DUPLICATE_PREVENTION_BLOCKED_REASON : undefined,
       },
     )
 
@@ -212,10 +213,11 @@ export async function runRedwoodImportClientJob(args: {
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
+    const automaticCreationBlockedByHistory = hasDrugTestHistory && message === DUPLICATE_PREVENTION_BLOCKED_REASON
     const classification = classifyRedwoodIncident({
       message,
       jobType: 'import',
-      phase: 'runtime',
+      phase: automaticCreationBlockedByHistory ? 'manual-review' : 'runtime',
     })
     const attemptedAt = new Date().toISOString()
 
@@ -248,9 +250,12 @@ export async function runRedwoodImportClientJob(args: {
       clientId: String(client.id),
       jobType: 'import',
       kind: classification.kind === 'manual-review-required' ? 'manual-review-required' : 'business-critical-failure',
-      title: `Redwood donor provisioning needs attention for client ${client.id}`,
+      title: automaticCreationBlockedByHistory
+        ? `Duplicate ToxAccess donor creation blocked for client ${client.id}`
+        : `Redwood donor provisioning needs attention for client ${client.id}`,
       message,
       context: {
+        automaticCreationBlockedByHistory,
         clientId: client.id,
         source,
         hasDrugTestHistory,

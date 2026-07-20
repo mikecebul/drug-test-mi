@@ -37,6 +37,10 @@ function normalizeMessage(message: string): string {
 function deriveRedwoodErrorClass(message: string): string {
   const normalized = normalizeMessage(message)
 
+  if (normalized.includes('automatic donor creation was blocked to prevent a duplicate')) {
+    return 'duplicate-prevention-block'
+  }
+
   if (normalized.includes('redwood import rejected') || normalized.includes('rejected row')) {
     return 'import-rejected'
   }
@@ -75,7 +79,10 @@ function deriveRedwoodErrorClass(message: string): string {
     return 'invalid-input'
   }
 
-  if (normalized.includes('no redwood donor rows found') || normalized.includes('no dob-verified redwood donor match found')) {
+  if (
+    normalized.includes('no redwood donor rows found') ||
+    normalized.includes('no dob-verified redwood donor match found')
+  ) {
     return 'donor-not-found'
   }
 
@@ -85,12 +92,7 @@ function deriveRedwoodErrorClass(message: string): string {
 export function classifyRedwoodIncident(args: {
   message: string
   jobType: RedwoodJobType
-  phase?:
-    | 'queue'
-    | 'runtime'
-    | 'manual-review'
-    | 'partial-success'
-    | 'follow-up'
+  phase?: 'queue' | 'runtime' | 'manual-review' | 'partial-success' | 'follow-up'
 }): RedwoodIncidentClassification {
   const { message, phase } = args
   const errorClass = deriveRedwoodErrorClass(message)
@@ -161,10 +163,7 @@ export function classifyRedwoodIncident(args: {
     }
   }
 
-  if (
-    errorClass === 'mutation-verification-failed' ||
-    errorClass === 'post-import-identity-gap'
-  ) {
+  if (errorClass === 'mutation-verification-failed' || errorClass === 'post-import-identity-gap') {
     return {
       errorClass,
       kind: 'business-critical-failure',
@@ -196,6 +195,10 @@ function getRecommendedAction(args: {
 }): string {
   const { errorClass, kind, jobType } = args
 
+  if (errorClass === 'duplicate-prevention-block') {
+    return 'Search ToxAccess manually by name and DOB and complete collection against the existing donor. Do not create another donor. Let Mike know at (231) 373-6341 so the donor ID can be verified and attached.'
+  }
+
   if (kind === 'manual-review-required') {
     return 'Review the Redwood donor match and decide whether to link the existing donor or proceed manually.'
   }
@@ -220,7 +223,8 @@ export async function upsertRedwoodIncidentAlert(params: RedwoodIncidentRecordPa
   const classification = classifyRedwoodIncident({
     message,
     jobType,
-    phase: kind === 'manual-review-required' ? 'manual-review' : kind === 'partial-success' ? 'partial-success' : 'runtime',
+    phase:
+      kind === 'manual-review-required' ? 'manual-review' : kind === 'partial-success' ? 'partial-success' : 'runtime',
   })
   const dedupeKey = buildRedwoodDedupeKey({
     clientId,

@@ -48,6 +48,21 @@ describe('redwood incidents', () => {
     )
   })
 
+  it('classifies duplicate-prevention blocks as manual review incidents', () => {
+    expect(
+      classifyRedwoodIncident({
+        message:
+          'Potential existing Redwood donor: automatic donor creation was blocked to prevent a duplicate. Manual review required.',
+        jobType: 'import',
+        phase: 'runtime',
+      }),
+    ).toEqual({
+      errorClass: 'duplicate-prevention-block',
+      kind: 'manual-review-required',
+      retryable: false,
+    })
+  })
+
   it('upserts repeated Redwood incidents instead of creating duplicates', async () => {
     const payloadMock: any = {
       create: vi.fn(),
