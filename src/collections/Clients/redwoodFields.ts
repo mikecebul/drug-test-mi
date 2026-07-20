@@ -72,8 +72,8 @@ export const redwoodDefaultTestTypeField: Field = {
 }
 
 export const redwoodSyncTab: ClientTab = {
-  label: 'Redwood Sync',
-  description: 'Redwood integration and worker status',
+  label: 'ToxAccess',
+  description: 'Donor connection status in ToxAccess',
   fields: [
     {
       name: 'redwoodSyncStatus',
@@ -95,148 +95,162 @@ export const redwoodSyncTab: ClientTab = {
       },
     },
     {
-      name: 'redwoodUniqueId',
-      type: 'text',
-      access: redwoodSystemFieldAccess,
-      maxLength: 20,
-      admin: {
-        readOnly: true,
-        description: 'Deterministic Redwood Unique ID (20 chars max).',
-      },
-    },
-    {
-      name: 'redwoodCallInCode',
-      type: 'text',
-      access: redwoodSystemFieldAccess,
-      admin: {
-        readOnly: true,
-        description: 'Redwood call-in / check-in code synced back from the donor record.',
-      },
-    },
-    {
       name: 'redwoodDonorId',
       type: 'text',
       access: redwoodSystemFieldAccess,
       admin: {
         readOnly: true,
-        description: 'Redwood donor ID captured from the donor detail URL for direct follow-up lookups.',
+        description: 'ToxAccess donor ID used for direct collection links.',
       },
     },
     {
-      name: 'redwoodClientUpdateStatus',
-      type: 'select',
-      access: redwoodSystemFieldAccess,
-      defaultValue: 'not-queued',
-      options: redwoodStatusOptions,
+      type: 'collapsible',
+      label: 'Technical sync details',
       admin: {
-        readOnly: true,
-        description: 'Tracks batched Payload-to-Redwood client field updates.',
+        initCollapsed: true,
+        description: 'Worker diagnostics and audit details. Expand only when troubleshooting a sync.',
       },
-    },
-    {
-      name: REDWOOD_PENDING_CLIENT_UPDATE_FIELDS,
-      type: 'select',
-      access: redwoodSystemFieldAccess,
-      hasMany: true,
-      options: REDWOOD_CLIENT_UPDATE_FIELDS.map((field) => ({
-        label: getRedwoodClientUpdateFieldLabel(field),
-        value: field,
-      })),
-      admin: {
-        readOnly: true,
-        description: 'Redwood-backed fields whose latest saved values have not been confirmed back into Redwood yet.',
-      },
-    },
-    redwoodTimestampField(
-      'redwoodClientUpdateLastAttemptAt',
-      'Timestamp of the most recent Redwood client update attempt.',
-    ),
-    redwoodErrorField('redwoodClientUpdateLastError', 'Most recent Redwood client update error message, if any.'),
-    {
-      name: 'redwoodHeadshotPushStatus',
-      type: 'select',
-      access: redwoodSystemFieldAccess,
-      defaultValue: 'not-queued',
-      options: redwoodStatusOptions,
-      admin: {
-        readOnly: true,
-        description: 'Tracks website-to-Redwood headshot upload state.',
-      },
-    },
-    redwoodTimestampField(
-      'redwoodHeadshotPushLastAttemptAt',
-      'Timestamp of the most recent Redwood headshot upload attempt.',
-    ),
-    redwoodErrorField('redwoodHeadshotPushLastError', 'Most recent Redwood headshot upload error message, if any.'),
-    {
-      name: 'redwoodDefaultTestSyncStatus',
-      type: 'select',
-      access: redwoodSystemFieldAccess,
-      defaultValue: 'not-queued',
-      options: [
-        { label: 'Not Queued', value: 'not-queued' },
-        { label: 'Queued', value: 'queued' },
-        { label: 'Skipped', value: 'skipped' },
-        { label: 'Synced', value: 'synced' },
-        { label: 'Failed', value: 'failed' },
-        { label: 'Manual Review', value: 'manual-review' },
+      fields: [
+        {
+          name: 'redwoodUniqueId',
+          type: 'text',
+          access: redwoodSystemFieldAccess,
+          maxLength: 20,
+          admin: {
+            readOnly: true,
+            description: 'Deterministic Redwood Unique ID (20 chars max).',
+          },
+        },
+        {
+          name: 'redwoodCallInCode',
+          type: 'text',
+          access: redwoodSystemFieldAccess,
+          admin: {
+            readOnly: true,
+            description: 'Redwood call-in / check-in code synced back from the donor record.',
+          },
+        },
+        {
+          name: 'redwoodClientUpdateStatus',
+          type: 'select',
+          access: redwoodSystemFieldAccess,
+          defaultValue: 'not-queued',
+          options: redwoodStatusOptions,
+          admin: {
+            readOnly: true,
+            description: 'Tracks batched Payload-to-Redwood client field updates.',
+          },
+        },
+        {
+          name: REDWOOD_PENDING_CLIENT_UPDATE_FIELDS,
+          type: 'select',
+          access: redwoodSystemFieldAccess,
+          hasMany: true,
+          options: REDWOOD_CLIENT_UPDATE_FIELDS.map((field) => ({
+            label: getRedwoodClientUpdateFieldLabel(field),
+            value: field,
+          })),
+          admin: {
+            readOnly: true,
+            description:
+              'Redwood-backed fields whose latest saved values have not been confirmed back into Redwood yet.',
+          },
+        },
+        redwoodTimestampField(
+          'redwoodClientUpdateLastAttemptAt',
+          'Timestamp of the most recent Redwood client update attempt.',
+        ),
+        redwoodErrorField('redwoodClientUpdateLastError', 'Most recent Redwood client update error message, if any.'),
+        {
+          name: 'redwoodHeadshotPushStatus',
+          type: 'select',
+          access: redwoodSystemFieldAccess,
+          defaultValue: 'not-queued',
+          options: redwoodStatusOptions,
+          admin: {
+            readOnly: true,
+            description: 'Tracks website-to-Redwood headshot upload state.',
+          },
+        },
+        redwoodTimestampField(
+          'redwoodHeadshotPushLastAttemptAt',
+          'Timestamp of the most recent Redwood headshot upload attempt.',
+        ),
+        redwoodErrorField('redwoodHeadshotPushLastError', 'Most recent Redwood headshot upload error message, if any.'),
+        {
+          name: 'redwoodDefaultTestSyncStatus',
+          type: 'select',
+          access: redwoodSystemFieldAccess,
+          defaultValue: 'not-queued',
+          options: [
+            { label: 'Not Queued', value: 'not-queued' },
+            { label: 'Queued', value: 'queued' },
+            { label: 'Skipped', value: 'skipped' },
+            { label: 'Synced', value: 'synced' },
+            { label: 'Failed', value: 'failed' },
+            { label: 'Manual Review', value: 'manual-review' },
+          ],
+          admin: {
+            readOnly: true,
+            description: 'Tracks Redwood donor default-test sync state.',
+          },
+        },
+        {
+          name: 'redwoodDefaultTestSyncedCode',
+          type: 'text',
+          access: redwoodSystemFieldAccess,
+          admin: {
+            readOnly: true,
+            description: 'Last Redwood default-test code managed by the website sync job.',
+          },
+        },
+        redwoodTimestampField(
+          'redwoodDefaultTestLastAttemptAt',
+          'Timestamp of the most recent Redwood default-test sync attempt.',
+        ),
+        redwoodErrorField(
+          'redwoodDefaultTestLastError',
+          'Most recent Redwood default-test sync error message, if any.',
+        ),
+        {
+          name: 'redwoodInactivationStatus',
+          type: 'select',
+          access: redwoodSystemFieldAccess,
+          defaultValue: 'not-queued',
+          options: redwoodStatusOptions,
+          admin: {
+            readOnly: true,
+            description: 'Tracks website inactive-client sync to Redwood donor inactive status.',
+          },
+        },
+        redwoodTimestampField(
+          'redwoodInactivationLastAttemptAt',
+          'Timestamp of the most recent Redwood inactivation attempt.',
+        ),
+        redwoodErrorField('redwoodInactivationLastError', 'Most recent Redwood inactivation error message, if any.'),
+        {
+          name: 'redwoodMatchedBy',
+          type: 'select',
+          access: redwoodSystemFieldAccess,
+          options: [
+            { label: 'Unique ID', value: 'unique-id' },
+            { label: 'Name + DOB', value: 'name-dob' },
+          ],
+          admin: {
+            readOnly: true,
+            description: 'How this client was matched in Redwood export.',
+          },
+        },
+        {
+          name: 'redwoodMatchedDonorName',
+          type: 'text',
+          access: redwoodSystemFieldAccess,
+          admin: {
+            readOnly: true,
+            description: 'Matched donor identifier from Redwood export.',
+          },
+        },
       ],
-      admin: {
-        readOnly: true,
-        description: 'Tracks Redwood donor default-test sync state.',
-      },
-    },
-    {
-      name: 'redwoodDefaultTestSyncedCode',
-      type: 'text',
-      access: redwoodSystemFieldAccess,
-      admin: {
-        readOnly: true,
-        description: 'Last Redwood default-test code managed by the website sync job.',
-      },
-    },
-    redwoodTimestampField(
-      'redwoodDefaultTestLastAttemptAt',
-      'Timestamp of the most recent Redwood default-test sync attempt.',
-    ),
-    redwoodErrorField('redwoodDefaultTestLastError', 'Most recent Redwood default-test sync error message, if any.'),
-    {
-      name: 'redwoodInactivationStatus',
-      type: 'select',
-      access: redwoodSystemFieldAccess,
-      defaultValue: 'not-queued',
-      options: redwoodStatusOptions,
-      admin: {
-        readOnly: true,
-        description: 'Tracks website inactive-client sync to Redwood donor inactive status.',
-      },
-    },
-    redwoodTimestampField(
-      'redwoodInactivationLastAttemptAt',
-      'Timestamp of the most recent Redwood inactivation attempt.',
-    ),
-    redwoodErrorField('redwoodInactivationLastError', 'Most recent Redwood inactivation error message, if any.'),
-    {
-      name: 'redwoodMatchedBy',
-      type: 'select',
-      access: redwoodSystemFieldAccess,
-      options: [
-        { label: 'Unique ID', value: 'unique-id' },
-        { label: 'Name + DOB', value: 'name-dob' },
-      ],
-      admin: {
-        readOnly: true,
-        description: 'How this client was matched in Redwood export.',
-      },
-    },
-    {
-      name: 'redwoodMatchedDonorName',
-      type: 'text',
-      access: redwoodSystemFieldAccess,
-      admin: {
-        readOnly: true,
-        description: 'Matched donor identifier from Redwood export.',
-      },
     },
     redwoodTimestampField('redwoodLastAttemptAt', 'Timestamp of most recent Redwood worker attempt.'),
     redwoodErrorField('redwoodLastError', 'Most recent Redwood worker error message, if any.'),

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { getRedwoodFormEntry } from '@/lib/redwood/http'
 import {
+  buildRedwoodDefaultTestClearPlan,
   buildRedwoodDefaultTestSelectionPlan,
   readRedwoodDefaultTestSelectionState,
 } from './redwoodDefaultTestHttpSync'
@@ -55,9 +56,12 @@ describe('redwood HTTP default-test helpers', () => {
 
     expect(plan.targetAlreadySelected).toBe(false)
     expect(plan.nextSelectedCodes).toEqual(['B729', 'B829'])
-    expect(getRedwoodFormEntry(plan.entries, 'ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$hiddenSelectedTests')).toBe(
-      'B729||B829',
-    )
+    expect(
+      getRedwoodFormEntry(
+        plan.entries,
+        'ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$hiddenSelectedTests',
+      ),
+    ).toBe('B729||B829')
     expect(
       getRedwoodFormEntry(
         plan.entries,
@@ -72,9 +76,12 @@ describe('redwood HTTP default-test helpers', () => {
     expect(plan.targetAlreadySelected).toBe(false)
     expect(plan.selectionChanged).toBe(true)
     expect(plan.nextSelectedCodes).toEqual(['B829'])
-    expect(getRedwoodFormEntry(plan.entries, 'ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$hiddenSelectedTests')).toBe(
-      'B829',
-    )
+    expect(
+      getRedwoodFormEntry(
+        plan.entries,
+        'ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$hiddenSelectedTests',
+      ),
+    ).toBe('B829')
     expect(
       getRedwoodFormEntry(
         plan.entries,
@@ -88,6 +95,32 @@ describe('redwood HTTP default-test helpers', () => {
 
     expect(plan.targetAlreadySelected).toBe(true)
     expect(plan.nextSelectedCodes).toEqual(['B729'])
+  })
+
+  it('clears only the last website-managed code and preserves unrelated defaults', () => {
+    const htmlWithTwoSelections = defaultTestFormHtml
+      .replace('value="B729" />\n  </form>', 'value="B729||B829" />\n  </form>')
+      .replace(
+        'name="ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$gvTestSelection$ctl03$chkSelectedTest" />',
+        'name="ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$gvTestSelection$ctl03$chkSelectedTest" checked="checked" />',
+      )
+
+    const plan = buildRedwoodDefaultTestClearPlan(htmlWithTwoSelections, 'B729')
+
+    expect(plan.selectionChanged).toBe(true)
+    expect(plan.nextSelectedCodes).toEqual(['B829'])
+    expect(
+      getRedwoodFormEntry(
+        plan.entries,
+        'ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$gvTestSelection$ctl02$chkSelectedTest',
+      ),
+    ).toBeUndefined()
+    expect(
+      getRedwoodFormEntry(
+        plan.entries,
+        'ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$gvTestSelection$ctl03$chkSelectedTest',
+      ),
+    ).toBe('on')
   })
 
   it('throws with available codes when the target default-test code is missing', () => {

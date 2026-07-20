@@ -113,4 +113,31 @@ describe('queueRedwoodDefaultTestSyncAfterChange', () => {
       }),
     )
   })
+
+  it('queues clearing when a Redwood-ready client removes its managed default test', async () => {
+    const payloadMock: any = {
+      findByID: vi.fn(),
+      logger: { error: vi.fn(), info: vi.fn() },
+    }
+
+    await queueRedwoodDefaultTestSyncAfterChange({
+      collection: {} as any,
+      context: {},
+      data: {},
+      doc: {
+        id: 'client-1',
+        defaultTestType: null,
+        redwoodDefaultTestSyncedCode: 'B729',
+        redwoodDonorId: '2714034',
+        redwoodSyncStatus: 'synced',
+      },
+      operation: 'update',
+      previousDoc: { defaultTestType: '11-panel-lab' },
+      req: { payload: payloadMock } as any,
+    })
+
+    expect(queueRedwoodDefaultTestSync).toHaveBeenCalledWith('client-1', payloadMock, expect.anything(), {
+      previousSyncedCode: 'B729',
+    })
+  })
 })

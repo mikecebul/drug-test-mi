@@ -29,6 +29,7 @@ COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_OUTPUT=standalone
+ENV NODE_ENV=production
 
 # Enable the same pinned pnpm version in the builder stage.
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate

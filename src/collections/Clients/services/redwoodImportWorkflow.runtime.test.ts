@@ -140,6 +140,31 @@ describe('Redwood direct HTTP import workflow', () => {
     )
   })
 
+  it('queues removal of a stale managed default after donor verification', async () => {
+    createRedwoodClientViaHttpMock.mockResolvedValue({
+      callInCode: '123456',
+      donorId: '2714034',
+      matchedBy: 'unique-id',
+      matchedDonorName: 'Testing, Bob',
+      status: 'matched-existing',
+    })
+    queueRedwoodDefaultTestSyncMock.mockResolvedValue({ jobId: 'job-clear-1' })
+    const payloadMock = createPayloadMock()
+    payloadMock.findByID.mockResolvedValue({
+      ...(await payloadMock.findByID()),
+      defaultTestType: '17-panel-instant',
+      redwoodDefaultTestSyncedCode: 'B729',
+    })
+
+    await runRedwoodImportClientJob({
+      clientId: 'client-1',
+      payload: payloadMock as never,
+      source: 'manual',
+    })
+
+    expect(queueRedwoodDefaultTestSyncMock).toHaveBeenCalledWith('client-1', payloadMock)
+  })
+
   it('disables donor creation when Payload has prior drug-test history', async () => {
     createRedwoodClientViaHttpMock.mockResolvedValue({
       callInCode: '123456',

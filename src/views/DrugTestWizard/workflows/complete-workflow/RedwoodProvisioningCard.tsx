@@ -19,7 +19,26 @@ export function redwoodProvisioningNeedsManualHelp(status?: GuidedRedwoodProvisi
     (status.overallStatus === 'disabled' ||
       status.overallStatus === 'failed' ||
       status.overallStatus === 'manual-review' ||
-      status.steps.some((step) => step.status === 'failed' || step.status === 'manual-review')),
+      status.steps.some(
+        (step) => step.id === 'default-test' && (step.status === 'failed' || step.status === 'manual-review'),
+      )),
+  )
+}
+
+function redwoodDonorNeedsManualSearch(status?: GuidedRedwoodProvisioningStatus) {
+  return Boolean(
+    status &&
+    (status.overallStatus === 'disabled' ||
+      status.overallStatus === 'failed' ||
+      status.overallStatus === 'manual-review'),
+  )
+}
+
+function redwoodDefaultTestNeedsHelp(status?: GuidedRedwoodProvisioningStatus) {
+  return Boolean(
+    status?.steps.some(
+      (step) => step.id === 'default-test' && (step.status === 'failed' || step.status === 'manual-review'),
+    ),
   )
 }
 
@@ -54,10 +73,12 @@ function getCardCopy(status?: GuidedRedwoodProvisioningStatus) {
 }
 
 export function RedwoodProvisioningCard({ isLoading, status }: Props) {
-  const needsManualHelp = redwoodProvisioningNeedsManualHelp(status) || (!status && !isLoading)
+  const donorNeedsManualSearch = redwoodDonorNeedsManualSearch(status) || (!status && !isLoading)
+  const defaultTestNeedsHelp = redwoodDefaultTestNeedsHelp(status)
+  const needsManualHelp = donorNeedsManualSearch || defaultTestNeedsHelp
   const isReady = Boolean(status?.canContinue && !needsManualHelp)
   const isWorking = !isReady && !needsManualHelp
-  const copy = getCardCopy(needsManualHelp && !status ? undefined : status)
+  const copy = getCardCopy(donorNeedsManualSearch && !status ? undefined : status)
   const TitleIcon = isReady ? CheckCircle2 : needsManualHelp ? CircleAlert : Loader2
   const statusLabel = needsManualHelp ? 'Needs help' : isReady ? 'Ready for collection' : 'Working'
   const statusVariant = needsManualHelp ? 'warning' : isReady ? 'success' : 'secondary'
@@ -91,17 +112,29 @@ export function RedwoodProvisioningCard({ isLoading, status }: Props) {
           <div className="min-w-0 flex-1 space-y-2" aria-live="polite">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <CardTitle className="text-2xl">
-                {needsManualHelp && !status ? 'ToxAccess status unavailable' : copy.title}
+                {donorNeedsManualSearch && !status
+                  ? 'ToxAccess status unavailable'
+                  : defaultTestNeedsHelp
+                    ? 'Default test needs help'
+                    : copy.title}
               </CardTitle>
               <Badge variant={statusVariant}>{statusLabel}</Badge>
             </div>
-            {needsManualHelp ? (
+            {donorNeedsManualSearch ? (
               <CardDescription className="text-base">
                 Let Mike know at{' '}
                 <a className="text-foreground font-semibold underline underline-offset-4" href="tel:+12313736341">
                   (231) 373-6341
                 </a>
                 . To complete this collection, open ToxAccess and search for the donor manually.
+              </CardDescription>
+            ) : defaultTestNeedsHelp ? (
+              <CardDescription className="text-base">
+                The donor is available, but the default test was not verified. Let Mike know at{' '}
+                <a className="text-foreground font-semibold underline underline-offset-4" href="tel:+12313736341">
+                  (231) 373-6341
+                </a>
+                , then verify the test in ToxAccess before collection.
               </CardDescription>
             ) : (
               <CardDescription className="text-base">{copy.description}</CardDescription>
@@ -110,9 +143,10 @@ export function RedwoodProvisioningCard({ isLoading, status }: Props) {
         </div>
       </CardHeader>
 
-      {((isReady && status?.collectSpecimenHref) || (needsManualHelp && status?.manualHref)) && (
+      {(((isReady || defaultTestNeedsHelp) && status?.collectSpecimenHref) ||
+        (donorNeedsManualSearch && status?.manualHref)) && (
         <CardFooter className="justify-end">
-          {isReady && status?.collectSpecimenHref ? (
+          {(isReady || defaultTestNeedsHelp) && status?.collectSpecimenHref ? (
             <Button
               render={<a href={status.collectSpecimenHref} target="_blank" rel="noopener noreferrer" />}
               nativeButton={false}

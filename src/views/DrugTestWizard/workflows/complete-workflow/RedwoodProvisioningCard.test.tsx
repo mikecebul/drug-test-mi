@@ -77,6 +77,41 @@ describe('RedwoodProvisioningCard', () => {
     expect(markup).not.toContain('headshot')
   })
 
+  it('preserves the donor link when optional headshot upload fails', () => {
+    const markup = renderCard({
+      automationEnabled: true,
+      defaultTestRequired: false,
+      donorId: '2714034',
+      headshotRequired: true,
+      headshotStatus: 'failed',
+      lastError: 'Headshot upload failed.',
+      syncStatus: 'synced',
+    })
+
+    expect(markup).toContain('Donor ready')
+    expect(markup).toContain('Link to ToxAccess')
+    expect(markup).not.toContain('ToxAccess setup needs help')
+    expect(markup).not.toContain('search for the donor manually')
+  })
+
+  it('shows a focused default-test warning while preserving the donor link', () => {
+    const markup = renderCard({
+      automationEnabled: true,
+      defaultTestRequired: true,
+      defaultTestStatus: 'failed',
+      donorId: '2714034',
+      headshotRequired: false,
+      lastError: 'Default test could not be set.',
+      syncStatus: 'synced',
+    })
+
+    expect(markup).toContain('Default test needs help')
+    expect(markup).toContain('default test was not verified')
+    expect(markup).toContain('(231) 373-6341')
+    expect(markup).toContain('Link to ToxAccess')
+    expect(markup).not.toContain('search for the donor manually')
+  })
+
   it('shows simple contact and manual-search instructions after setup fails', () => {
     const markup = renderCard({
       automationEnabled: true,

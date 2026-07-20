@@ -1,6 +1,7 @@
 import { calculateNameSimilarity } from '@/views/DrugTestWizard/utils/calculateSimilarity'
 
 const DONOR_AMBIGUOUS_SCORE_DELTA = 0.02
+const DOB_NAME_MIN_SCORE = 0.9
 const NAME_ONLY_MIN_SCORE = 0.85
 
 export type RedwoodDonorLookupClient = {
@@ -167,6 +168,12 @@ export function selectBestRedwoodDonorCandidate(
     }
 
     const top = dobMatches[0]
+    if (top.score < DOB_NAME_MIN_SCORE) {
+      throw new Error(
+        'DOB-verified Redwood donor candidates did not meet the required name confidence; manual review required.',
+      )
+    }
+
     const runnerUp = dobMatches[1]
     if (runnerUp && top.score - runnerUp.score <= DONOR_AMBIGUOUS_SCORE_DELTA) {
       throw new Error('Multiple DOB-verified Redwood donor matches are ambiguous in the allowed account')

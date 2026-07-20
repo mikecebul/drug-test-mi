@@ -133,8 +133,8 @@ export interface Config {
     clients: {
       drugTests: 'drug-tests';
       drugTestsWithBalance: 'drug-tests';
-      payments: 'payments';
       bookings: 'bookings';
+      payments: 'payments';
       privateDocuments: 'private-media';
     };
   };
@@ -1390,18 +1390,18 @@ export interface Client {
     totalDocs?: number;
   };
   /**
-   * Payment ledger records linked to this client.
-   */
-  payments?: {
-    docs?: (string | Payment)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
    * Bookings automatically linked to this client
    */
   bookings?: {
     docs?: (string | Booking)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Payments received, including the related drug test when available.
+   */
+  payments?: {
+    docs?: (string | Payment)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
@@ -1486,6 +1486,10 @@ export interface Client {
     | ('not-queued' | 'queued' | 'matched-existing' | 'reactivated-existing' | 'synced' | 'failed' | 'manual-review')
     | null;
   /**
+   * ToxAccess donor ID used for direct collection links.
+   */
+  redwoodDonorId?: string | null;
+  /**
    * Deterministic Redwood Unique ID (20 chars max).
    */
   redwoodUniqueId?: string | null;
@@ -1493,10 +1497,6 @@ export interface Client {
    * Redwood call-in / check-in code synced back from the donor record.
    */
   redwoodCallInCode?: string | null;
-  /**
-   * Redwood donor ID captured from the donor detail URL for direct follow-up lookups.
-   */
-  redwoodDonorId?: string | null;
   /**
    * Tracks batched Payload-to-Redwood client field updates.
    */
@@ -3909,8 +3909,8 @@ export interface ClientsSelect<T extends boolean = true> {
       };
   drugTests?: T;
   drugTestsWithBalance?: T;
-  payments?: T;
   bookings?: T;
+  payments?: T;
   medications?:
     | T
     | {
@@ -3926,9 +3926,9 @@ export interface ClientsSelect<T extends boolean = true> {
       };
   privateDocuments?: T;
   redwoodSyncStatus?: T;
+  redwoodDonorId?: T;
   redwoodUniqueId?: T;
   redwoodCallInCode?: T;
-  redwoodDonorId?: T;
   redwoodClientUpdateStatus?: T;
   redwoodPendingSyncFields?: T;
   redwoodClientUpdateLastAttemptAt?: T;

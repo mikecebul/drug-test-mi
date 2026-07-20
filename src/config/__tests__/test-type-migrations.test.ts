@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { down as rollbackReferralTestTypes } from '@/migrations/20260701_000000_migrate_test_type_relationships_to_config_values'
-import { resolveConfiguredDefaultTestValue } from '@/migrations/20260712_000000_migrate_client_default_test_to_config_value'
+import {
+  resolveConfiguredDefaultTestValue,
+  up as migrateClientDefaultTest,
+} from '@/migrations/20260712_000000_migrate_client_default_test_to_config_value'
 
 describe('test type config-value migrations', () => {
   it('bypasses select validation when restoring legacy referral relationship IDs', async () => {
@@ -51,6 +54,35 @@ describe('test type config-value migrations', () => {
 
     it('does not preserve unknown relationship IDs as select values', () => {
       expect(resolveConfiguredDefaultTestValue('507f1f77bcf86cd799439099', legacyIdToValue)).toBeNull()
+    })
+
+    it('reads the unregistered legacy model through the physical Mongo collection', async () => {
+      const updateOne = vi.fn().mockResolvedValue({ modifiedCount: 1 })
+      const legacyFind = vi.fn().mockReturnValue({
+        toArray: vi
+          .fn()
+          .mockResolvedValue([{ _id: { toString: () => '507f1f77bcf86cd799439011' }, value: '11-panel-lab' }]),
+      })
+      const clientsFind = vi.fn().mockReturnValue({
+        toArray: vi
+          .fn()
+          .mockResolvedValue([{ _id: 'client-1', defaultTestType: { toString: () => '507f1f77bcf86cd799439011' } }]),
+      })
+      const physicalCollection = vi.fn().mockReturnValue({ find: legacyFind })
+      const payload = {
+        db: {
+          connection: { collection: physicalCollection },
+          collections: {
+            clients: { collection: { find: clientsFind, updateOne } },
+          },
+        },
+        logger: { info: vi.fn() },
+      }
+
+      await migrateClientDefaultTest({ payload } as never)
+
+      expect(physicalCollection).toHaveBeenCalledWith('test-types')
+      expect(updateOne).toHaveBeenCalledWith({ _id: 'client-1' }, { $set: { defaultTestType: '11-panel-lab' } })
     })
   })
 })

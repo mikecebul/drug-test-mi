@@ -37,6 +37,16 @@ describe('redwood donor search helpers', () => {
     expect(() => selectBestRedwoodDonorCandidate(candidates, '1990-01-01')).toThrow('ambiguous')
   })
 
+  it('requires a confident name match even when the surname and DOB match', () => {
+    const rows: RedwoodDonorTableRow[] = [
+      { rowIndex: 0, cells: ['Cebulski, Jennifer', '310974', 'RWD0001', '01/01/1990'] },
+    ]
+
+    const candidates = buildRedwoodDonorCandidates(rows, '310974', client)
+
+    expect(() => selectBestRedwoodDonorCandidate(candidates, '1990-01-01')).toThrow('manual review required')
+  })
+
   it('filters out rows from disallowed Redwood accounts', () => {
     const rows: RedwoodDonorTableRow[] = [
       { rowIndex: 0, cells: ['Cebulski, Michael A', '310974', 'RWD0001', '01/01/1990'] },

@@ -20,9 +20,7 @@ export function hasExhaustedRedwoodRetries(totalTried: unknown): boolean {
 export function getRedwoodAutomationRuntimeState(): RedwoodAutomationRuntimeState {
   const configuredValue = readRuntimeEnv('REDWOOD_AUTOMATION_ENABLED')?.trim().toLowerCase() || null
   const nodeEnv = readRuntimeEnv('NODE_ENV')?.trim() || null
-  const enabled = configuredValue
-    ? configuredValue === 'true' || configuredValue === '1' || configuredValue === 'yes'
-    : nodeEnv !== 'production'
+  const enabled = configuredValue === 'true' || configuredValue === '1' || configuredValue === 'yes'
 
   return {
     configured: configuredValue !== null,

@@ -22,9 +22,8 @@ async function resolvePreviousSyncedCode(args: {
   previousDefaultTestType: unknown
   req: Parameters<CollectionAfterChangeHook>[0]['req']
 }): Promise<string | null> {
-  const existingSyncedCode = typeof args.doc?.redwoodDefaultTestSyncedCode === 'string'
-    ? args.doc.redwoodDefaultTestSyncedCode.trim()
-    : ''
+  const existingSyncedCode =
+    typeof args.doc?.redwoodDefaultTestSyncedCode === 'string' ? args.doc.redwoodDefaultTestSyncedCode.trim() : ''
 
   if (existingSyncedCode) return existingSyncedCode
 
@@ -59,7 +58,7 @@ export const queueRedwoodDefaultTestSyncAfterChange: CollectionAfterChangeHook =
   const currentDefaultTestTypeId = extractRelationshipId(doc?.defaultTestType)
   const previousDefaultTestTypeId = extractRelationshipId(previousDoc?.defaultTestType)
 
-  if (!currentDefaultTestTypeId || currentDefaultTestTypeId === previousDefaultTestTypeId) {
+  if (currentDefaultTestTypeId === previousDefaultTestTypeId) {
     return doc
   }
 

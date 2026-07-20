@@ -3,7 +3,10 @@ import type { Payload } from 'payload'
 import { resolveClientRedwoodEligibleDefaultTest } from '@/lib/redwood/default-test'
 import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
 import { classifyRedwoodIncident, upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
-import { syncClientDefaultLabTestInRedwoodViaHttp } from './redwoodDefaultTestHttpSync'
+import {
+  clearClientDefaultLabTestInRedwoodViaHttp,
+  syncClientDefaultLabTestInRedwoodViaHttp,
+} from './redwoodDefaultTestHttpSync'
 
 export async function runRedwoodDefaultTestSync(
   payload: Payload,
@@ -30,14 +33,62 @@ export async function runRedwoodDefaultTestSync(
       payload,
     })
 
+    const uniqueId = typeof client.redwoodUniqueId === 'string' ? client.redwoodUniqueId.trim() : ''
+    const donorId = typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId.trim() : ''
+    const previousSyncedCode =
+      (typeof client.redwoodDefaultTestSyncedCode === 'string' && client.redwoodDefaultTestSyncedCode.trim()) ||
+      options?.previousSyncedCode?.trim() ||
+      undefined
+
     if (resolution.kind === 'skip') {
+      let resolvedDonorId = donorId
+
+      if (previousSyncedCode) {
+        if (!uniqueId && !donorId) {
+          throw new Error(
+            'Client is missing Redwood identity; clearing the managed default test requires redwoodUniqueId or redwoodDonorId.',
+          )
+        }
+
+        const accountNumber = getRedwoodAccountNumber()
+        assertRedwoodMutationAllowed(accountNumber, 'default test clearing')
+
+        await payload.update({
+          collection: 'clients',
+          id: client.id,
+          data: {
+            redwoodDefaultTestSyncStatus: 'queued',
+            redwoodDefaultTestLastAttemptAt: new Date().toISOString(),
+            redwoodDefaultTestLastError: null,
+          },
+          overrideAccess: true,
+        })
+
+        const result = await clearClientDefaultLabTestInRedwoodViaHttp({
+          accountNumber,
+          client: {
+            id: String(client.id),
+            firstName: client.firstName,
+            lastName: client.lastName,
+            middleInitial: client.middleInitial || undefined,
+            dob: client.dob || undefined,
+            redwoodUniqueId: uniqueId || undefined,
+            redwoodDonorId: donorId || undefined,
+          },
+          previouslySyncedCode: previousSyncedCode,
+        })
+        resolvedDonorId = result.donorId || donorId
+      }
+
       await payload.update({
         collection: 'clients',
         id: client.id,
         data: {
+          redwoodDonorId: resolvedDonorId || null,
           redwoodDefaultTestSyncStatus: 'skipped',
+          redwoodDefaultTestSyncedCode: null,
           redwoodDefaultTestLastAttemptAt: new Date().toISOString(),
-          redwoodDefaultTestLastError: resolution.reason,
+          redwoodDefaultTestLastError: null,
         },
         overrideAccess: true,
       })
@@ -52,20 +103,14 @@ export async function runRedwoodDefaultTestSync(
       throw new Error(resolution.reason)
     }
 
-    const uniqueId = typeof client.redwoodUniqueId === 'string' ? client.redwoodUniqueId.trim() : ''
-    const donorId = typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId.trim() : ''
-
     if (!uniqueId && !donorId) {
-      throw new Error('Client is missing Redwood identity; default-test sync requires redwoodUniqueId or redwoodDonorId.')
+      throw new Error(
+        'Client is missing Redwood identity; default-test sync requires redwoodUniqueId or redwoodDonorId.',
+      )
     }
 
     const accountNumber = getRedwoodAccountNumber()
     assertRedwoodMutationAllowed(accountNumber, 'default test sync')
-    const previousSyncedCode =
-      (typeof client.redwoodDefaultTestSyncedCode === 'string' && client.redwoodDefaultTestSyncedCode.trim()) ||
-      options?.previousSyncedCode?.trim() ||
-      undefined
-
     await payload.update({
       collection: 'clients',
       id: client.id,
@@ -124,16 +169,18 @@ export async function runRedwoodDefaultTestSync(
       err: error,
     })
 
-    await payload.update({
-      collection: 'clients',
-      id: clientId,
-      data: {
-        redwoodDefaultTestSyncStatus: status,
-        redwoodDefaultTestLastAttemptAt: new Date().toISOString(),
-        redwoodDefaultTestLastError: message,
-      },
-      overrideAccess: true,
-    }).catch(() => undefined)
+    await payload
+      .update({
+        collection: 'clients',
+        id: clientId,
+        data: {
+          redwoodDefaultTestSyncStatus: status,
+          redwoodDefaultTestLastAttemptAt: new Date().toISOString(),
+          redwoodDefaultTestLastError: message,
+        },
+        overrideAccess: true,
+      })
+      .catch(() => undefined)
 
     if (classification.kind !== 'monitor-only') {
       await upsertRedwoodIncidentAlert({

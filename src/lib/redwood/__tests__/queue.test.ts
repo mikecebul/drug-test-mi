@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/redwood/incidents', () => ({
   upsertRedwoodIncidentAlert: vi.fn().mockResolvedValue(undefined),
@@ -18,6 +18,14 @@ import {
 } from '@/lib/redwood/queue'
 
 describe('redwood queue helpers', () => {
+  beforeEach(() => {
+    vi.stubEnv('REDWOOD_AUTOMATION_ENABLED', 'true')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('queues import jobs in the redwood queue and marks client queued after queueing succeeds', async () => {
     const payloadMock: any = {
       find: vi.fn().mockResolvedValue({ docs: [] }),
@@ -62,7 +70,9 @@ describe('redwood queue helpers', () => {
         taskSlug: 'redwood-import-client',
       }),
     )
-    expect(payloadMock.jobs.queue.mock.invocationCallOrder[0]).toBeLessThan(payloadMock.update.mock.invocationCallOrder[0])
+    expect(payloadMock.jobs.queue.mock.invocationCallOrder[0]).toBeLessThan(
+      payloadMock.update.mock.invocationCallOrder[0],
+    )
   })
 
   it('does not mark client queued if queueing fails', async () => {

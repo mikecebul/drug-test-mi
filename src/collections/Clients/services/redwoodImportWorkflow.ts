@@ -41,7 +41,9 @@ async function hasPayloadDrugTestHistory(payload: Payload, clientId: string): Pr
 }
 
 async function queueRequiredDefaultTest(args: {
-  client: Parameters<typeof resolveClientRedwoodEligibleDefaultTest>[0]['client']
+  client: Parameters<typeof resolveClientRedwoodEligibleDefaultTest>[0]['client'] & {
+    redwoodDefaultTestSyncedCode?: unknown
+  }
   clientId: string
   payload: Payload
   source: string
@@ -51,7 +53,14 @@ async function queueRequiredDefaultTest(args: {
     payload: args.payload,
   })
 
-  if (resolution.kind === 'skip') return null
+  if (resolution.kind === 'skip') {
+    const previouslyManagedCode =
+      typeof args.client.redwoodDefaultTestSyncedCode === 'string'
+        ? args.client.redwoodDefaultTestSyncedCode.trim()
+        : ''
+
+    if (!previouslyManagedCode) return null
+  }
   if (resolution.kind === 'error') return resolution.reason
 
   try {

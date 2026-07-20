@@ -6,7 +6,11 @@ import { testTypeSelectOptions } from '@/config/test-types'
 import { redwoodDefaultTestTypeField, redwoodSyncTab, redwoodSystemFieldAccess } from './redwoodFields'
 
 function getNamedFields(fields: Field[]): Array<Field & { name: string }> {
-  return fields.filter((field): field is Field & { name: string } => 'name' in field && typeof field.name === 'string')
+  return fields.flatMap((field) => {
+    const namedField = 'name' in field && typeof field.name === 'string' ? [field as Field & { name: string }] : []
+    const nestedFields = 'fields' in field && Array.isArray(field.fields) ? getNamedFields(field.fields) : []
+    return [...namedField, ...nestedFields]
+  })
 }
 
 describe('Redwood field access', () => {

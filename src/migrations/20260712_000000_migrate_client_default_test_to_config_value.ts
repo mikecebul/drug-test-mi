@@ -34,7 +34,10 @@ export function resolveConfiguredDefaultTestValue(
 }
 
 async function loadLegacyTestTypeMaps(payload: MigrateUpArgs['payload']) {
-  const testTypesCollection = payload.db.collections['test-types'].collection
+  // `test-types` is deliberately no longer registered in Payload. Opening the
+  // physical Mongo collection through the connection keeps this migration
+  // runnable in a fresh production process without restoring the legacy model.
+  const testTypesCollection = payload.db.connection.collection('test-types')
   const rows = (await testTypesCollection
     .find({ value: { $in: Array.from(TEST_TYPE_VALUES) } }, { projection: { _id: 1, value: 1 } })
     .toArray()) as LegacyTestTypeRow[]

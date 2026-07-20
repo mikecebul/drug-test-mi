@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   assertRedwoodMutationAllowedMock,
+  clearClientDefaultLabTestInRedwoodViaHttpMock,
   resolveClientRedwoodEligibleDefaultTestMock,
   syncClientDefaultLabTestInRedwoodViaHttpMock,
 } = vi.hoisted(() => ({
   assertRedwoodMutationAllowedMock: vi.fn(),
+  clearClientDefaultLabTestInRedwoodViaHttpMock: vi.fn(),
   resolveClientRedwoodEligibleDefaultTestMock: vi.fn(),
   syncClientDefaultLabTestInRedwoodViaHttpMock: vi.fn(),
 }))
@@ -29,6 +31,7 @@ vi.mock('@/lib/redwood/incidents', () => ({
 }))
 
 vi.mock('./redwoodDefaultTestHttpSync', () => ({
+  clearClientDefaultLabTestInRedwoodViaHttp: clearClientDefaultLabTestInRedwoodViaHttpMock,
   syncClientDefaultLabTestInRedwoodViaHttp: syncClientDefaultLabTestInRedwoodViaHttpMock,
 }))
 
@@ -38,6 +41,7 @@ describe('runRedwoodDefaultTestSync', () => {
   beforeEach(() => {
     assertRedwoodMutationAllowedMock.mockClear()
     resolveClientRedwoodEligibleDefaultTestMock.mockReset()
+    clearClientDefaultLabTestInRedwoodViaHttpMock.mockReset()
     syncClientDefaultLabTestInRedwoodViaHttpMock.mockReset()
   })
 
@@ -95,6 +99,50 @@ describe('runRedwoodDefaultTestSync', () => {
           redwoodDonorId: '2714034',
         }),
         id: 'client-1',
+      }),
+    )
+  })
+
+  it('removes the previously managed lab default when the new default is not eligible', async () => {
+    resolveClientRedwoodEligibleDefaultTestMock.mockResolvedValue({
+      kind: 'skip',
+      reason: 'The configured default test is not a lab test.',
+    })
+    clearClientDefaultLabTestInRedwoodViaHttpMock.mockResolvedValue({
+      donorId: '2714034',
+      status: 'cleared',
+    })
+
+    const payloadMock: any = {
+      findByID: vi.fn().mockResolvedValue({
+        id: 'client-1',
+        defaultTestType: '15-panel-instant',
+        dob: '1990-01-01',
+        firstName: 'Bob',
+        lastName: 'Testing',
+        redwoodDefaultTestSyncedCode: 'B729',
+        redwoodDonorId: '2714034',
+        redwoodUniqueId: 'RWD0001',
+      }),
+      logger: { error: vi.fn() },
+      update: vi.fn().mockResolvedValue({}),
+    }
+
+    const result = await runRedwoodDefaultTestSync(payloadMock, 'client-1')
+
+    expect(result).toEqual({ status: 'skipped', success: true })
+    expect(clearClientDefaultLabTestInRedwoodViaHttpMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountNumber: '310872',
+        previouslySyncedCode: 'B729',
+      }),
+    )
+    expect(payloadMock.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          redwoodDefaultTestSyncedCode: null,
+          redwoodDefaultTestSyncStatus: 'skipped',
+        }),
       }),
     )
   })

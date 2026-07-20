@@ -703,13 +703,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     }
 
     startTransition(async () => {
-      const provisioning = await getClientRedwoodProvisioningStatus(selectedBooking.client!.id)
-      if (!provisioning.canContinue) {
-        toast.error(
-          'Wait for the ToxAccess donor to be verified, or complete the manual fallback and retry verification.',
-        )
-        await refetchRedwoodProvisioning()
-        return
+      if (!redwoodProvisioning?.canContinue) {
+        toast.warning('ToxAccess setup is not verified. Complete the collection manually if needed.')
       }
 
       const context = await refreshBookingClientContext(selectedBooking.id)
@@ -2056,11 +2051,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         )
       : currentStep === 'toxaccess'
         ? Boolean(
-            paymentRecorded &&
-            selectedBooking?.testType &&
-            selectedBooking.client?.id &&
-            redwoodProvisioning?.canContinue &&
-            clientIdentityIsVerified,
+            paymentRecorded && selectedBooking?.testType && selectedBooking.client?.id && clientIdentityIsVerified,
           )
         : false
 

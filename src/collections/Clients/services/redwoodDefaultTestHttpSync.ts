@@ -37,6 +37,13 @@ export type RedwoodDefaultTestSelectionPlan = RedwoodDefaultTestSelectionState &
   targetCode: string
 }
 
+export type RedwoodDefaultTestClearPlan = RedwoodDefaultTestSelectionState & {
+  clearedCode: string
+  entries: [string, string][]
+  nextSelectedCodes: string[]
+  selectionChanged: boolean
+}
+
 function normalizeTestCode(value: string): string {
   return value.trim().toUpperCase()
 }
@@ -64,8 +71,7 @@ function readDefaultTestRows(html: string): RedwoodDefaultTestRow[] {
     )
 
     const hiddenCodeInput = inputs.find(
-      (attributes) =>
-        /hiddentestcode/i.test(attributes.name || '') || /hiddentestcode/i.test(attributes.id || ''),
+      (attributes) => /hiddentestcode/i.test(attributes.name || '') || /hiddentestcode/i.test(attributes.id || ''),
     )
     const code = normalizeTestCode(hiddenCodeInput?.value || '')
     if (!code) return []
@@ -94,7 +100,9 @@ function splitSelectedCodes(value: string | undefined): string[] {
 export function readRedwoodDefaultTestSelectionState(html: string): RedwoodDefaultTestSelectionState {
   const entries = parseRedwoodFormEntries(html)
   const rows = readDefaultTestRows(html)
-  const hiddenSelectedCodes = splitSelectedCodes(getRedwoodFormEntry(entries, REDWOOD_DEFAULT_TEST_HIDDEN_SELECTED_FIELD))
+  const hiddenSelectedCodes = splitSelectedCodes(
+    getRedwoodFormEntry(entries, REDWOOD_DEFAULT_TEST_HIDDEN_SELECTED_FIELD),
+  )
   const rowSelectedCodes = rows.filter((row) => row.selected).map((row) => row.code)
   const selectedCodes = uniqueCodes([...hiddenSelectedCodes, ...rowSelectedCodes])
 
@@ -131,7 +139,9 @@ export function buildRedwoodDefaultTestSelectionPlan(
 
   const targetRow = rows.find((row) => row.code === targetCode)
   if (!targetRow) {
-    throw new Error(`Redwood donor default-test code "${targetCode}" was not found. Available codes: ${state.availableCodes.join(', ')}`)
+    throw new Error(
+      `Redwood donor default-test code "${targetCode}" was not found. Available codes: ${state.availableCodes.join(', ')}`,
+    )
   }
 
   const targetAlreadySelected = state.selectedCodes.includes(targetCode)
@@ -169,6 +179,47 @@ export function buildRedwoodDefaultTestSelectionPlan(
   }
 }
 
+export function buildRedwoodDefaultTestClearPlan(
+  html: string,
+  rawPreviouslySyncedCode: string,
+): RedwoodDefaultTestClearPlan {
+  const clearedCode = normalizeTestCode(rawPreviouslySyncedCode)
+  if (!clearedCode) {
+    throw new Error('Redwood default-test clearing requires the previously managed lab test code.')
+  }
+
+  const entries = parseRedwoodFormEntries(html)
+  const rows = readDefaultTestRows(html)
+  const state = readRedwoodDefaultTestSelectionState(html)
+
+  if (rows.length === 0) {
+    throw new Error('Redwood donor default-test grid did not expose any available lab test codes.')
+  }
+
+  const nextSelectedCodes = state.selectedCodes.filter((code) => code !== clearedCode)
+  const selectionChanged = !sameCodeSet(state.selectedCodes, nextSelectedCodes)
+  setRedwoodFormEntry(entries, REDWOOD_DEFAULT_TEST_HIDDEN_SELECTED_FIELD, nextSelectedCodes.join('||'))
+
+  const nextSelectedCodeSet = new Set(nextSelectedCodes)
+  for (const row of rows) {
+    if (!row.checkboxName) continue
+
+    if (nextSelectedCodeSet.has(row.code)) {
+      setRedwoodFormEntry(entries, row.checkboxName, 'on')
+    } else {
+      removeRedwoodFormEntry(entries, row.checkboxName)
+    }
+  }
+
+  return {
+    ...state,
+    clearedCode,
+    entries,
+    nextSelectedCodes,
+    selectionChanged,
+  }
+}
+
 function assertDefaultTestEditPage(html: string, donorId: string): void {
   if (/PageContent_Donor_DefaultTestsPanel_testSelectionGridView_gvTestSelection/.test(html)) return
 
@@ -179,16 +230,12 @@ function assertDefaultTestEditPage(html: string, donorId: string): void {
   throw new Error(`Redwood donor edit page did not expose default-test fields for donor ${donorId}.`)
 }
 
-function assertDefaultTestPersisted(args: {
-  expectedCodes: string[]
-  html: string
-  targetCode: string
-}): void {
+function assertDefaultTestPersisted(args: { expectedCodes: string[]; html: string }): void {
   const persisted = readRedwoodDefaultTestSelectionState(args.html).selectedCodes
   const missingCodes = args.expectedCodes.filter((code) => !persisted.includes(code))
   const extraCodes = persisted.filter((code) => !args.expectedCodes.includes(code))
 
-  if (!persisted.includes(args.targetCode) || missingCodes.length > 0 || extraCodes.length > 0) {
+  if (missingCodes.length > 0 || extraCodes.length > 0) {
     throw new Error(
       `Redwood donor default-test selection did not persist as expected. Expected "${args.expectedCodes.join(', ')}", received "${persisted.join(', ')}".`,
     )
@@ -226,7 +273,6 @@ export async function syncClientDefaultLabTestInRedwoodViaHttp(args: {
     assertDefaultTestPersisted({
       expectedCodes: plan.nextSelectedCodes,
       html: editPage.text,
-      targetCode: plan.targetCode,
     })
 
     return {
@@ -251,7 +297,6 @@ export async function syncClientDefaultLabTestInRedwoodViaHttp(args: {
   assertDefaultTestPersisted({
     expectedCodes: plan.nextSelectedCodes,
     html: verificationPage.text,
-    targetCode: plan.targetCode,
   })
 
   return {
@@ -259,4 +304,58 @@ export async function syncClientDefaultLabTestInRedwoodViaHttp(args: {
     selectedCode: plan.targetCode,
     status: 'synced',
   }
+}
+
+export async function clearClientDefaultLabTestInRedwoodViaHttp(args: {
+  accountNumber: string
+  client: RedwoodDonorLookupClient & {
+    id: string
+  }
+  previouslySyncedCode: string
+}): Promise<{
+  donorId: string | null
+  status: 'cleared'
+}> {
+  const auth = resolveRedwoodAuthEnv()
+  const donorSearchUrl = process.env.REDWOOD_DONOR_SEARCH_URL?.trim() || DEFAULT_REDWOOD_DONOR_SEARCH_URL
+  const session = await createRedwoodHttpSession(auth)
+  const donorId = await resolveRedwoodDonorIdViaHttp({
+    accountNumber: args.accountNumber,
+    client: args.client,
+    donorSearchUrl,
+    session,
+  })
+  const editUrl = buildRedwoodDonorEditUrl(donorSearchUrl, donorId)
+
+  const editPage = await session.getText(editUrl)
+  assertDefaultTestEditPage(editPage.text, donorId)
+  const plan = buildRedwoodDefaultTestClearPlan(editPage.text, args.previouslySyncedCode)
+
+  if (!plan.selectionChanged) {
+    assertDefaultTestPersisted({
+      expectedCodes: plan.nextSelectedCodes,
+      html: editPage.text,
+    })
+
+    return { donorId, status: 'cleared' }
+  }
+
+  setRedwoodFormEntry(plan.entries, REDWOOD_DONOR_SAVE_BUTTON, 'Save')
+  const saveResponse = await session.postFormData(editUrl, plan.entries, { referer: editUrl })
+  const saveLocation = saveResponse.headers.get('location')
+  if (saveResponse.status !== 302 || !saveLocation || !/Donor\.aspx/i.test(saveLocation)) {
+    const body = await saveResponse.text().catch(() => '')
+    throw new Error(
+      `Redwood donor direct HTTP default-test clear failed with status ${saveResponse.status}: ${stripRedwoodHtml(body).slice(0, 500)}`,
+    )
+  }
+
+  const verificationPage = await session.getText(editUrl)
+  assertDefaultTestEditPage(verificationPage.text, donorId)
+  assertDefaultTestPersisted({
+    expectedCodes: plan.nextSelectedCodes,
+    html: verificationPage.text,
+  })
+
+  return { donorId, status: 'cleared' }
 }

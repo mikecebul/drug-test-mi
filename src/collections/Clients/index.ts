@@ -654,16 +654,6 @@ export const Clients: CollectionConfig = {
                 description: 'Drug tests where this client still has a balance due.',
               },
             },
-            {
-              name: 'payments',
-              type: 'join',
-              collection: 'payments',
-              on: 'relatedClient',
-              admin: {
-                defaultColumns: ['collectedAt', 'amount', 'method', 'status', 'relatedDrugTest'],
-                description: 'Payment ledger records linked to this client.',
-              },
-            },
             // Bookings (auto-populated via join)
             {
               name: 'bookings',
@@ -672,6 +662,23 @@ export const Clients: CollectionConfig = {
               on: 'relatedClient',
               admin: {
                 description: 'Bookings automatically linked to this client',
+              },
+            },
+          ],
+        },
+
+        {
+          label: 'Payments',
+          description: 'Complete payment ledger for this client',
+          fields: [
+            {
+              name: 'payments',
+              type: 'join',
+              collection: 'payments',
+              on: 'relatedClient',
+              admin: {
+                defaultColumns: ['collectedAt', 'amount', 'method', 'status', 'relatedDrugTest'],
+                description: 'Payments received, including the related drug test when available.',
               },
             },
           ],
