@@ -58,17 +58,21 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   --info: oklch(0.488 0.243 264.376);
-  --info-foreground: oklch(0.26 0.08 265);
-  --info-muted: oklch(0.95 0.03 265);
+  --info-foreground: oklch(37.9% 0.146 265.522);
+  --info-muted: oklch(97% 0.014 254.604);
+  --info-border: oklch(88.2% 0.059 254.128);
   --warning: oklch(0.75 0.18 55);
-  --warning-foreground: oklch(0.35 0.12 55);
-  --warning-muted: oklch(0.96 0.03 85);
+  --warning-foreground: oklch(41.4% 0.112 45.904);
+  --warning-muted: oklch(98.7% 0.022 95.277);
+  --warning-border: oklch(92.4% 0.12 95.746);
   --success: oklch(0.72 0.18 145);
-  --success-foreground: oklch(0.3 0.1 145);
-  --success-muted: oklch(0.95 0.04 150);
+  --success-foreground: oklch(39.3% 0.095 152.535);
+  --success-muted: oklch(98.2% 0.018 155.826);
+  --success-border: oklch(92.5% 0.084 155.995);
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.38 0.16 25);
-  --destructive-muted: oklch(0.93 0.05 30);
+  --destructive-foreground: oklch(39.6% 0.141 25.723);
+  --destructive-muted: oklch(97.1% 0.013 17.38);
+  --destructive-border: oklch(88.5% 0.062 18.334);
 }
 
 :is(.dark, [data-theme='dark']) {
@@ -87,17 +91,21 @@
   --accent: oklch(0.371 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --info: oklch(40.473% 0.12973 266.804);
-  --info-foreground: oklch(79.938% 0.03684 269.843);
-  --info-muted: oklch(15.819% 0.03315 267.795);
+  --info-foreground: oklch(97% 0.014 254.604);
+  --info-muted: oklch(28.2% 0.091 267.935);
+  --info-border: oklch(37.9% 0.146 265.522);
   --warning: oklch(0.78 0.16 70);
-  --warning-foreground: oklch(0.92 0.08 85);
-  --warning-muted: oklch(0.25 0.04 60);
+  --warning-foreground: oklch(98.7% 0.022 95.277);
+  --warning-muted: oklch(27.9% 0.077 45.635);
+  --warning-border: oklch(41.4% 0.112 45.904);
   --success: oklch(49.567% 0.0947 150.721);
-  --success-foreground: oklch(0.92 0.08 150);
-  --success-muted: oklch(21.04% 0.03855 145.344);
+  --success-foreground: oklch(98.2% 0.018 155.826);
+  --success-muted: oklch(26.6% 0.065 152.934);
+  --success-border: oklch(39.3% 0.095 152.535);
   --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.92 0.06 25);
-  --destructive-muted: oklch(22.031% 0.05887 23.212);
+  --destructive-foreground: oklch(97.1% 0.013 17.38);
+  --destructive-muted: oklch(25.8% 0.092 26.042);
+  --destructive-border: oklch(39.6% 0.141 25.723);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -115,14 +123,17 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.439 0 0);
   --warning: oklch(0.78 0.16 70);
-  --warning-foreground: oklch(0.92 0.08 85);
-  --warning-muted: oklch(0.25 0.04 60);
+  --warning-foreground: oklch(98.7% 0.022 95.277);
+  --warning-muted: oklch(27.9% 0.077 45.635);
+  --warning-border: oklch(41.4% 0.112 45.904);
   --success: oklch(49.567% 0.0947 150.721);
-  --success-foreground: oklch(0.92 0.08 150);
-  --success-muted: oklch(21.04% 0.03855 145.344);
+  --success-foreground: oklch(98.2% 0.018 155.826);
+  --success-muted: oklch(26.6% 0.065 152.934);
+  --success-border: oklch(39.3% 0.095 152.535);
   --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.92 0.06 25);
-  --destructive-muted: oklch(0.26 0.06 25 / 50%);
+  --destructive-foreground: oklch(97.1% 0.013 17.38);
+  --destructive-muted: oklch(25.8% 0.092 26.042);
+  --destructive-border: oklch(39.6% 0.141 25.723);
 }
 
 @theme inline {
@@ -148,15 +159,19 @@
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
   --color-info-muted: var(--info-muted);
+  --color-info-border: var(--info-border);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-warning-muted: var(--warning-muted);
+  --color-warning-border: var(--warning-border);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-success-muted: var(--success-muted);
+  --color-success-border: var(--success-border);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive-muted: var(--destructive-muted);
+  --color-destructive-border: var(--destructive-border);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
