@@ -97,6 +97,24 @@ describe('redwood HTTP default-test helpers', () => {
     expect(plan.nextSelectedCodes).toEqual(['B729'])
   })
 
+  it('accepts an already selected code when Redwood omits it from the available-test rows', () => {
+    const htmlWithSelectedCodeOmittedFromRows = defaultTestFormHtml.replace(
+      /\s*<tr class="tableText">[\s\S]*?value="B729" \/>[\s\S]*?<\/tr>/,
+      '',
+    )
+
+    const state = readRedwoodDefaultTestSelectionState(htmlWithSelectedCodeOmittedFromRows)
+    const plan = buildRedwoodDefaultTestSelectionPlan(htmlWithSelectedCodeOmittedFromRows, 'B729')
+
+    expect(state).toEqual({
+      availableCodes: ['B829'],
+      selectedCodes: ['B729'],
+    })
+    expect(plan.targetAlreadySelected).toBe(true)
+    expect(plan.selectionChanged).toBe(false)
+    expect(plan.nextSelectedCodes).toEqual(['B729'])
+  })
+
   it('clears only the last website-managed code and preserves unrelated defaults', () => {
     const htmlWithTwoSelections = defaultTestFormHtml
       .replace('value="B729" />\n  </form>', 'value="B729||B829" />\n  </form>')
@@ -125,7 +143,7 @@ describe('redwood HTTP default-test helpers', () => {
 
   it('throws with available codes when the target default-test code is missing', () => {
     expect(() => buildRedwoodDefaultTestSelectionPlan(defaultTestFormHtml, 'P40')).toThrow(
-      'Redwood donor default-test code "P40" was not found. Available codes: B729, B829',
+      'Redwood donor default-test code "P40" was not found. Available codes: B729, B829. Selected codes: B729',
     )
   })
 })

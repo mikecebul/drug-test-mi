@@ -138,13 +138,13 @@ export function buildRedwoodDefaultTestSelectionPlan(
   }
 
   const targetRow = rows.find((row) => row.code === targetCode)
-  if (!targetRow) {
+  const targetAlreadySelected = state.selectedCodes.includes(targetCode)
+  if (!targetRow && !targetAlreadySelected) {
     throw new Error(
-      `Redwood donor default-test code "${targetCode}" was not found. Available codes: ${state.availableCodes.join(', ')}`,
+      `Redwood donor default-test code "${targetCode}" was not found. Available codes: ${state.availableCodes.join(', ')}. Selected codes: ${state.selectedCodes.join(', ') || 'none'}`,
     )
   }
 
-  const targetAlreadySelected = state.selectedCodes.includes(targetCode)
   const normalizedPreviousSyncedCode = normalizeTestCode(previousSyncedCode || '')
   const selectedCodesWithoutPreviousSyncedCode =
     normalizedPreviousSyncedCode && normalizedPreviousSyncedCode !== targetCode
