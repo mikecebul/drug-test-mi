@@ -762,7 +762,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     const isConfirmed = verifiedClientMismatchKey === mismatchKey
 
     return (
-      <Alert variant="destructive" data-testid="client-identity-mismatch">
+      <Alert variant="warning" data-testid="client-identity-mismatch">
         <TriangleAlert />
         <AlertTitle>Booking name does not match the selected client</AlertTitle>
         <AlertDescription>
@@ -771,7 +771,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             <strong>{selectedClientName}</strong>.
           </p>
           <p>Change the client if this is wrong. Otherwise, verify their identity before continuing.</p>
-          <Field orientation="horizontal" className="mt-3 rounded-md border border-current/30 p-3">
+          <Field orientation="horizontal" className="mt-3">
             <Checkbox
               id={confirmationId}
               checked={isConfirmed}

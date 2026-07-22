@@ -10,11 +10,13 @@ const alertVariants = cva(
       variant: {
         default: 'bg-background text-foreground',
         destructive:
-          'text-destructive-foreground bg-card [&>svg]:text-current *:data-[slot=alert-description]:text-destructive',
-        success: 'text-success-foreground bg-card [&>svg]:text-current *:data-[slot=alert-description]:text-success',
-        warning: 'text-warning-foreground bg-card [&>svg]:text-current *:data-[slot=alert-description]:text-warning',
+          'border-destructive-border bg-destructive-muted text-destructive-foreground [&>svg]:text-current',
+        success:
+          'border-success-border bg-success-muted text-success-foreground [&>svg]:text-current',
+        warning:
+          'border-warning-border bg-warning-muted text-warning-foreground [&>svg]:text-current',
         info:
-          'border-info/40 bg-info-muted text-info-foreground [&>svg]:text-info-foreground *:data-[slot=alert-description]:text-info-foreground',
+          'border-info-border bg-info-muted text-info-foreground [&>svg]:text-current',
       },
     },
     defaultVariants: {
@@ -39,7 +41,7 @@ function AlertDescription({ className, ...props }: React.ComponentProps<'div'>) 
     <div
       data-slot="alert-description"
       className={cn(
-        'text-muted-foreground col-start-2 grid justify-items-start gap-1 text-base [&_p]:leading-relaxed',
+        'text-muted-foreground col-start-2 grid justify-items-start gap-1 text-base [&_p]:leading-relaxed [&_[data-slot=field]]:rounded-md [&_[data-slot=field]]:border [&_[data-slot=field]]:border-border [&_[data-slot=field]]:bg-background/80 [&_[data-slot=field]]:p-3 [&_[data-slot=field]]:text-foreground [&_[data-slot=checkbox]]:border-foreground/50 [&_[data-slot=checkbox]:not([data-checked])]:bg-background',
         className,
       )}
       {...props}
