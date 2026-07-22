@@ -97,14 +97,36 @@ function splitSelectedCodes(value: string | undefined): string[] {
   )
 }
 
-export function readRedwoodDefaultTestSelectionState(html: string): RedwoodDefaultTestSelectionState {
-  const entries = parseRedwoodFormEntries(html)
-  const rows = readDefaultTestRows(html)
+function readInheritedDefaultTestCodes(html: string): string[] {
+  const codes: string[] = []
+  const inheritedDefaultCellPattern =
+    /(?:Agency|Donor Group) Default Test\(s\)[\s\S]*?<\/td>\s*<td\b[^>]*>([\s\S]*?)<\/td>/gi
+
+  for (const match of html.matchAll(inheritedDefaultCellPattern)) {
+    const cellText = stripRedwoodHtml(match[1] || '')
+    for (const codeMatch of cellText.matchAll(/\(([A-Z0-9]{2,10})\)/gi)) {
+      if (codeMatch[1]) codes.push(codeMatch[1])
+    }
+  }
+
+  return uniqueCodes(codes)
+}
+
+function readDonorSelectedCodes(entries: [string, string][], rows: RedwoodDefaultTestRow[]): string[] {
   const hiddenSelectedCodes = splitSelectedCodes(
     getRedwoodFormEntry(entries, REDWOOD_DEFAULT_TEST_HIDDEN_SELECTED_FIELD),
   )
   const rowSelectedCodes = rows.filter((row) => row.selected).map((row) => row.code)
-  const selectedCodes = uniqueCodes([...hiddenSelectedCodes, ...rowSelectedCodes])
+
+  return uniqueCodes([...hiddenSelectedCodes, ...rowSelectedCodes])
+}
+
+export function readRedwoodDefaultTestSelectionState(html: string): RedwoodDefaultTestSelectionState {
+  const entries = parseRedwoodFormEntries(html)
+  const rows = readDefaultTestRows(html)
+  const donorSelectedCodes = readDonorSelectedCodes(entries, rows)
+  const inheritedCodes = readInheritedDefaultTestCodes(html)
+  const selectedCodes = uniqueCodes([...inheritedCodes, ...donorSelectedCodes])
 
   return {
     availableCodes: rows.map((row) => row.code),
@@ -132,6 +154,8 @@ export function buildRedwoodDefaultTestSelectionPlan(
   const entries = parseRedwoodFormEntries(html)
   const rows = readDefaultTestRows(html)
   const state = readRedwoodDefaultTestSelectionState(html)
+  const inheritedCodes = readInheritedDefaultTestCodes(html)
+  const donorSelectedCodes = readDonorSelectedCodes(entries, rows)
 
   if (rows.length === 0) {
     throw new Error('Redwood donor default-test grid did not expose any available lab test codes.')
@@ -146,23 +170,26 @@ export function buildRedwoodDefaultTestSelectionPlan(
   }
 
   const normalizedPreviousSyncedCode = normalizeTestCode(previousSyncedCode || '')
-  const selectedCodesWithoutPreviousSyncedCode =
+  const donorSelectedCodesWithoutPreviousSyncedCode =
     normalizedPreviousSyncedCode && normalizedPreviousSyncedCode !== targetCode
-      ? state.selectedCodes.filter((code) => code !== normalizedPreviousSyncedCode)
-      : state.selectedCodes
-  const nextSelectedCodes = uniqueCodes([...selectedCodesWithoutPreviousSyncedCode, targetCode])
-  const selectionChanged = !sameCodeSet(state.selectedCodes, nextSelectedCodes)
-  setRedwoodFormEntry(entries, REDWOOD_DEFAULT_TEST_HIDDEN_SELECTED_FIELD, nextSelectedCodes.join('||'))
+      ? donorSelectedCodes.filter((code) => code !== normalizedPreviousSyncedCode)
+      : donorSelectedCodes
+  const nextDonorSelectedCodes = inheritedCodes.includes(targetCode)
+    ? donorSelectedCodesWithoutPreviousSyncedCode
+    : uniqueCodes([...donorSelectedCodesWithoutPreviousSyncedCode, targetCode])
+  const nextSelectedCodes = uniqueCodes([...inheritedCodes, ...nextDonorSelectedCodes])
+  const selectionChanged = !sameCodeSet(donorSelectedCodes, nextDonorSelectedCodes)
+  setRedwoodFormEntry(entries, REDWOOD_DEFAULT_TEST_HIDDEN_SELECTED_FIELD, nextDonorSelectedCodes.join('||'))
 
   const rowsByCode = new Map(rows.map((row) => [row.code, row]))
-  const nextSelectedCodeSet = new Set(nextSelectedCodes)
+  const nextDonorSelectedCodeSet = new Set(nextDonorSelectedCodes)
   for (const row of rows) {
-    if (row.checkboxName && !nextSelectedCodeSet.has(row.code)) {
+    if (row.checkboxName && !nextDonorSelectedCodeSet.has(row.code)) {
       removeRedwoodFormEntry(entries, row.checkboxName)
     }
   }
 
-  for (const selectedCode of nextSelectedCodes) {
+  for (const selectedCode of nextDonorSelectedCodes) {
     const checkboxName = rowsByCode.get(selectedCode)?.checkboxName
     if (checkboxName) {
       setRedwoodFormEntry(entries, checkboxName, 'on')
@@ -191,20 +218,29 @@ export function buildRedwoodDefaultTestClearPlan(
   const entries = parseRedwoodFormEntries(html)
   const rows = readDefaultTestRows(html)
   const state = readRedwoodDefaultTestSelectionState(html)
+  const inheritedCodes = readInheritedDefaultTestCodes(html)
+  const donorSelectedCodes = readDonorSelectedCodes(entries, rows)
 
   if (rows.length === 0) {
     throw new Error('Redwood donor default-test grid did not expose any available lab test codes.')
   }
 
-  const nextSelectedCodes = state.selectedCodes.filter((code) => code !== clearedCode)
-  const selectionChanged = !sameCodeSet(state.selectedCodes, nextSelectedCodes)
-  setRedwoodFormEntry(entries, REDWOOD_DEFAULT_TEST_HIDDEN_SELECTED_FIELD, nextSelectedCodes.join('||'))
+  if (inheritedCodes.includes(clearedCode)) {
+    throw new Error(
+      `Redwood default-test code "${clearedCode}" is inherited from the donor's agency or donor group and cannot be cleared at the donor level.`,
+    )
+  }
 
-  const nextSelectedCodeSet = new Set(nextSelectedCodes)
+  const nextDonorSelectedCodes = donorSelectedCodes.filter((code) => code !== clearedCode)
+  const nextSelectedCodes = uniqueCodes([...inheritedCodes, ...nextDonorSelectedCodes])
+  const selectionChanged = !sameCodeSet(donorSelectedCodes, nextDonorSelectedCodes)
+  setRedwoodFormEntry(entries, REDWOOD_DEFAULT_TEST_HIDDEN_SELECTED_FIELD, nextDonorSelectedCodes.join('||'))
+
+  const nextDonorSelectedCodeSet = new Set(nextDonorSelectedCodes)
   for (const row of rows) {
     if (!row.checkboxName) continue
 
-    if (nextSelectedCodeSet.has(row.code)) {
+    if (nextDonorSelectedCodeSet.has(row.code)) {
       setRedwoodFormEntry(entries, row.checkboxName, 'on')
     } else {
       removeRedwoodFormEntry(entries, row.checkboxName)
