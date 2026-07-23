@@ -45,6 +45,10 @@ function deriveRedwoodErrorClass(message: string): string {
     return 'import-rejected'
   }
 
+  if (normalized.includes('exact-name redwood donor match') && normalized.includes('different dob')) {
+    return 'donor-dob-mismatch'
+  }
+
   if (normalized.includes('manual review required') || normalized.includes('ambiguous')) {
     return 'manual-review-match'
   }
@@ -206,6 +210,10 @@ function getRecommendedAction(args: {
 
   if (errorClass === 'duplicate-prevention-block') {
     return 'Search ToxAccess manually by name and DOB and complete collection against the existing donor. Do not create another donor. Let Mike know at (231) 373-6341 so the donor ID can be verified and attached.'
+  }
+
+  if (errorClass === 'donor-dob-mismatch') {
+    return 'Compare the Payload and ToxAccess DOBs for the exact-name donor, correct whichever record is wrong, then retry Redwood provisioning. Do not link or create a donor until the identity is verified.'
   }
 
   if (kind === 'manual-review-required') {

@@ -4,18 +4,19 @@ import {
   assertRedwoodDonorAccountAllowed,
   findExistingRedwoodDonorMatchesViaHttp,
   findRedwoodDonorByNameDobAcrossAccountsViaHttp,
+  findRedwoodDonorByNameDobViaHttp,
   readRedwoodDonorAccountNumber,
 } from '@/lib/redwood/http-donor-search'
 
-function donorRow(accountNumber: string, donorId: string) {
+function donorRow(accountNumber: string, donorId: string, name = 'Testing, Bob F', dob = '01/01/1990') {
   return `
     <table>
       <tr>
         <td>
           <input type="hidden" name="ctl00$PageContent$DonorGridView1$gvDonor$hfDonorId" value="${donorId}" />
         </td>
-        <td>Testing, Bob F</td>
-        <td>01/01/1990</td>
+        <td>${name}</td>
+        <td>${dob}</td>
         <td>MI Drug Test (${accountNumber})</td>
       </tr>
     </table>
@@ -67,6 +68,76 @@ describe('Redwood HTTP donor account discovery', () => {
       matchedBy: 'name-dob',
     })
     expect(session.getText).toHaveBeenCalledTimes(2)
+  })
+
+  it('requires manual review when an exact-name donor has a different DOB', async () => {
+    const session = {
+      getText: vi.fn(async () => ({
+        response: new Response(),
+        text: donorRow('310872', '2656596', 'Mosley, Ronald', '11/30/1982'),
+      })),
+    }
+
+    await expect(
+      findRedwoodDonorByNameDobViaHttp({
+        accountNumber: '310872',
+        client: {
+          dob: '1982-12-01',
+          firstName: 'Ronald',
+          lastName: 'Mosley',
+        },
+        donorSearchUrl: 'https://toxaccess.example.test/Pages/User/DonorSearch.aspx',
+        session: session as never,
+      }),
+    ).rejects.toThrow(
+      'donor 2656596 (Mosley, Ronald) in account 310872 has ToxAccess DOB 1982-11-30, while Payload has DOB 1982-12-01',
+    )
+  })
+
+  it('does not report a DOB mismatch when the returned donor name is not exact', async () => {
+    const session = {
+      getText: vi.fn(async () => ({
+        response: new Response(),
+        text: donorRow('310872', '2656596', 'Mosley, Robert', '11/30/1982'),
+      })),
+    }
+
+    await expect(
+      findRedwoodDonorByNameDobViaHttp({
+        accountNumber: '310872',
+        client: {
+          dob: '1982-12-01',
+          firstName: 'Ronald',
+          lastName: 'Mosley',
+        },
+        donorSearchUrl: 'https://toxaccess.example.test/Pages/User/DonorSearch.aspx',
+        session: session as never,
+      }),
+    ).resolves.toBeNull()
+  })
+
+  it('warns about an exact-name DOB mismatch even when another row matches the DOB', async () => {
+    const session = {
+      getText: vi.fn(async () => ({
+        response: new Response(),
+        text:
+          donorRow('310872', '2656596', 'Mosley, Ronald', '11/30/1982') +
+          donorRow('310872', '2656999', 'Mosley, Ron', '12/01/1982'),
+      })),
+    }
+
+    await expect(
+      findRedwoodDonorByNameDobViaHttp({
+        accountNumber: '310872',
+        client: {
+          dob: '1982-12-01',
+          firstName: 'Ronald',
+          lastName: 'Mosley',
+        },
+        donorSearchUrl: 'https://toxaccess.example.test/Pages/User/DonorSearch.aspx',
+        session: session as never,
+      }),
+    ).rejects.toThrow('donor 2656596 (Mosley, Ronald)')
   })
 
   it('requires manual review when the same identity matches multiple accounts', async () => {

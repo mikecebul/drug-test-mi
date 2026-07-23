@@ -6,7 +6,10 @@ import {
 } from '@/lib/redwood/donor-urls'
 import {
   buildRedwoodDonorCandidates,
+  normalizeRedwoodNameValue,
+  parseRedwoodDateKey,
   selectBestRedwoodDonorCandidate,
+  type RedwoodDonorCandidate,
   type RedwoodDonorLookupClient,
   type RedwoodDonorTableRow,
 } from '@/lib/redwood/donor-search'
@@ -130,6 +133,59 @@ function getMatchedDonorName(row: RedwoodHttpDonorSearchRow): string | null {
   return row.cells.find((cell) => cell.includes(',')) || null
 }
 
+class RedwoodDonorDobMismatchError extends Error {}
+
+function normalizeExactNamePart(value: string): string {
+  return normalizeRedwoodNameValue(value).toLowerCase()
+}
+
+function buildExactNameDobMismatchError(args: {
+  accountNumber: string
+  candidates: RedwoodDonorCandidate[]
+  client: Pick<RedwoodDonorLookupClient, 'dob' | 'firstName' | 'lastName'>
+  rows: RedwoodHttpDonorSearchRow[]
+}): RedwoodDonorDobMismatchError | null {
+  const clientDobKey = parseRedwoodDateKey(args.client.dob)
+  if (!clientDobKey) return null
+
+  const clientFirstName = normalizeExactNamePart(args.client.firstName)
+  const clientLastName = normalizeExactNamePart(args.client.lastName)
+  const mismatches = args.candidates.flatMap((candidate) => {
+    if (
+      normalizeExactNamePart(candidate.firstName) !== clientFirstName ||
+      normalizeExactNamePart(candidate.lastName) !== clientLastName ||
+      !candidate.dobKey ||
+      candidate.dobKey === clientDobKey
+    ) {
+      return []
+    }
+
+    const row = args.rows[candidate.rowIndex]
+    if (!row?.donorId) return []
+
+    return [
+      {
+        donorId: row.donorId,
+        donorName: getMatchedDonorName(row) || candidate.displayName,
+        toxAccessDob: candidate.dobKey,
+      },
+    ]
+  })
+
+  if (mismatches.length === 0) return null
+
+  const donorDescription = mismatches
+    .map(
+      (mismatch) =>
+        `donor ${mismatch.donorId} (${mismatch.donorName}) in account ${args.accountNumber} has ToxAccess DOB ${mismatch.toxAccessDob}`,
+    )
+    .join('; ')
+
+  return new RedwoodDonorDobMismatchError(
+    `Exact-name Redwood donor match has a different DOB: ${donorDescription}, while Payload has DOB ${clientDobKey}; manual review required. Verify which DOB is correct before linking or creating a donor.`,
+  )
+}
+
 function isNonMatchSelectionError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error)
   return (
@@ -159,6 +215,13 @@ export async function findRedwoodDonorByNameDobViaHttp(args: {
   if (rows.length === 0) return null
 
   const candidates = buildRedwoodDonorCandidates(rows, accountNumber, client)
+  const mismatchError = buildExactNameDobMismatchError({
+    accountNumber,
+    candidates,
+    client,
+    rows,
+  })
+  if (mismatchError) throw mismatchError
 
   try {
     const selectedCandidate = selectBestRedwoodDonorCandidate(candidates, client.dob)
@@ -189,16 +252,30 @@ export async function findRedwoodDonorByNameDobAcrossAccountsViaHttp(args: {
   const { active = true } = args
   const accountNumbers = Array.from(new Set(args.accountNumbers.map((value) => value.trim()).filter(Boolean)))
   const matches: RedwoodHttpResolvedDonor[] = []
+  const dobMismatchErrors: RedwoodDonorDobMismatchError[] = []
 
   for (const accountNumber of accountNumbers) {
-    const match = await findRedwoodDonorByNameDobViaHttp({
-      accountNumber,
-      active,
-      client: args.client,
-      donorSearchUrl: args.donorSearchUrl,
-      session: args.session,
-    })
-    if (match) matches.push(match)
+    try {
+      const match = await findRedwoodDonorByNameDobViaHttp({
+        accountNumber,
+        active,
+        client: args.client,
+        donorSearchUrl: args.donorSearchUrl,
+        session: args.session,
+      })
+      if (match) matches.push(match)
+    } catch (error) {
+      if (error instanceof RedwoodDonorDobMismatchError) {
+        dobMismatchErrors.push(error)
+        continue
+      }
+
+      throw error
+    }
+  }
+
+  if (dobMismatchErrors.length > 0) {
+    throw new RedwoodDonorDobMismatchError(dobMismatchErrors.map((error) => error.message).join(' '))
   }
 
   const uniqueMatches = Array.from(new Map(matches.map((match) => [match.donorId, match])).values())

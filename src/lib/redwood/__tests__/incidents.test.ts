@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { Payload } from 'payload'
 
 import { classifyRedwoodIncident, upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
 
@@ -77,8 +78,51 @@ describe('redwood incidents', () => {
     })
   })
 
+  it('classifies exact-name DOB mismatches as a distinct manual review incident', () => {
+    expect(
+      classifyRedwoodIncident({
+        message:
+          'Exact-name Redwood donor match has a different DOB: donor 2656596 (Mosley, Ronald) in account 310872 has ToxAccess DOB 1982-11-30, while Payload has DOB 1982-12-01; manual review required.',
+        jobType: 'import',
+        phase: 'runtime',
+      }),
+    ).toEqual({
+      errorClass: 'donor-dob-mismatch',
+      kind: 'manual-review-required',
+      retryable: false,
+    })
+  })
+
+  it('gives exact-name DOB mismatch alerts a correction-specific recommendation', async () => {
+    const payloadMock = {
+      create: vi.fn().mockResolvedValue({}),
+      find: vi.fn().mockResolvedValue({ docs: [] }),
+      logger: {
+        error: vi.fn(),
+      },
+    }
+
+    await upsertRedwoodIncidentAlert({
+      payload: payloadMock as unknown as Payload,
+      clientId: 'client-1',
+      jobType: 'import',
+      kind: 'manual-review-required',
+      title: 'Redwood donor provisioning needs attention for client client-1',
+      message:
+        'Exact-name Redwood donor match has a different DOB: donor 2656596 (Mosley, Ronald) in account 310872 has ToxAccess DOB 1982-11-30, while Payload has DOB 1982-12-01; manual review required.',
+    })
+
+    expect(payloadMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          recommendedAction: expect.stringContaining('Compare the Payload and ToxAccess DOBs'),
+        }),
+      }),
+    )
+  })
+
   it('upserts repeated Redwood incidents instead of creating duplicates', async () => {
-    const payloadMock: any = {
+    const payloadMock = {
       create: vi.fn(),
       find: vi
         .fn()
@@ -100,7 +144,7 @@ describe('redwood incidents', () => {
     }
 
     await upsertRedwoodIncidentAlert({
-      payload: payloadMock,
+      payload: payloadMock as unknown as Payload,
       clientId: 'client-1',
       jobType: 'import',
       kind: 'business-critical-failure',
@@ -109,7 +153,7 @@ describe('redwood incidents', () => {
     })
 
     await upsertRedwoodIncidentAlert({
-      payload: payloadMock,
+      payload: payloadMock as unknown as Payload,
       clientId: 'client-1',
       jobType: 'import',
       kind: 'business-critical-failure',
@@ -131,7 +175,7 @@ describe('redwood incidents', () => {
   })
 
   it('reopens a resolved alert when the same Redwood incident recurs', async () => {
-    const payloadMock: any = {
+    const payloadMock = {
       create: vi.fn(),
       find: vi.fn().mockResolvedValue({
         docs: [
@@ -149,7 +193,7 @@ describe('redwood incidents', () => {
     }
 
     await upsertRedwoodIncidentAlert({
-      payload: payloadMock,
+      payload: payloadMock as unknown as Payload,
       clientId: 'client-2',
       jobType: 'default-test-sync',
       kind: 'partial-success',

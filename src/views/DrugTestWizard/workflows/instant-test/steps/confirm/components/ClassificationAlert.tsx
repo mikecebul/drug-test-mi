@@ -8,8 +8,7 @@ const CLASSIFICATION_MAP = {
     variant: 'success' as const,
     icon: CheckCircle2,
     title: 'All Negative (Pass)',
-    description:
-      'No substances detected and no medications expected. This result will be automatically accepted.',
+    description: 'No substances detected and no medications expected.',
   },
   'expected-positive': {
     variant: 'success' as const,
