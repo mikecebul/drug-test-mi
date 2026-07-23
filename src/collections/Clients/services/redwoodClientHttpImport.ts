@@ -7,8 +7,7 @@ import {
   stripRedwoodHtml,
 } from '@/lib/redwood/http'
 import {
-  findExistingActiveRedwoodDonorViaHttp,
-  findExistingInactiveRedwoodDonorViaHttp,
+  findExistingRedwoodDonorMatchesViaHttp,
   findRedwoodDonorByNameDobViaHttp,
   readRedwoodCallInCodeViaHttp,
 } from '@/lib/redwood/http-donor-search'
@@ -156,10 +155,7 @@ export async function createRedwoodClientViaHttp(
   const session = await createRedwoodHttpSession(auth)
   const searchAccountNumbers = Array.from(
     new Set(
-      (creationOptions.searchAccountNumbers?.length
-        ? creationOptions.searchAccountNumbers
-        : [input.accountNumber]
-      )
+      (creationOptions.searchAccountNumbers?.length ? creationOptions.searchAccountNumbers : [input.accountNumber])
         .map((value) => value.trim())
         .filter(Boolean),
     ),
@@ -171,22 +167,18 @@ export async function createRedwoodClientViaHttp(
     middleInitial: input.middleInitial,
   }
 
-  const existing = await findExistingActiveRedwoodDonorViaHttp({
+  const matches = await findExistingRedwoodDonorMatchesViaHttp({
     accountNumbers: searchAccountNumbers,
     client: lookupClient,
     donorSearchUrl,
     session,
   })
-  const inactive = await findExistingInactiveRedwoodDonorViaHttp({
-    accountNumbers: searchAccountNumbers,
-    client: lookupClient,
-    donorSearchUrl,
-    session,
-  })
+  const existing = matches.active
+  const inactive = matches.inactive
 
   if (existing && inactive) {
     throw new Error(
-      `DOB-verified Redwood donor matches were found in both active account ${existing.accountNumber} and inactive account ${inactive.accountNumber}; manual review required.`,
+      `DOB-verified Redwood donor matches were verified as different records: active donor ${existing.donorId} (${existing.matchedDonorName || 'name unavailable'}) in account ${existing.accountNumber}; inactive donor ${inactive.donorId} (${inactive.matchedDonorName || 'name unavailable'}) in account ${inactive.accountNumber}; manual review required.`,
     )
   }
 

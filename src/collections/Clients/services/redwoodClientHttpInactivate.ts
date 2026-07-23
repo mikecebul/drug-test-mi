@@ -2,17 +2,19 @@ import { buildRedwoodDonorEditUrl } from '@/lib/redwood/donor-urls'
 import type { RedwoodDonorLookupClient } from '@/lib/redwood/donor-search'
 import {
   createRedwoodHttpSession,
-  getRedwoodFormEntry,
   parseRedwoodFormEntries,
   setRedwoodFormEntry,
   stripRedwoodHtml,
 } from '@/lib/redwood/http'
 import {
   assertRedwoodDonorAccountAllowed,
+  readRedwoodDonorActiveStatus,
   resolveRedwoodDonorIdViaHttp,
 } from '@/lib/redwood/http-donor-search'
 import { resolveRedwoodAuthEnv } from '@/lib/redwood/auth'
 import { getAllowedRedwoodAccountNumbers } from '@/lib/redwood/config'
+
+export { readRedwoodDonorActiveStatus }
 
 const DEFAULT_REDWOOD_DONOR_SEARCH_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/DonorSearch.aspx'
 
@@ -20,25 +22,19 @@ const REDWOOD_ACTIVE_FIELD = 'ctl00$PageContent$Donor$Active'
 const REDWOOD_DONOR_SAVE_BUTTON = 'ctl00$PageContent$Donor$btnsave'
 
 export function clearRedwoodDonorGroup(entries: [string, string][]): boolean {
-  const groupEntries = entries.filter(([name]) => /PageContent\$Donor[^$]*\$.*group|PageContent\$Donor\$.*group/i.test(name))
+  const groupEntries = entries.filter(([name]) =>
+    /PageContent\$Donor[^$]*\$.*group|PageContent\$Donor\$.*group/i.test(name),
+  )
   for (const entry of groupEntries) {
     entry[1] = ''
   }
   return groupEntries.length > 0
 }
 
-export type RedwoodDonorActiveStatus = 'active' | 'inactive' | 'unknown'
-
-export function readRedwoodDonorActiveStatus(html: string): RedwoodDonorActiveStatus {
-  const entries = parseRedwoodFormEntries(html)
-  const value = getRedwoodFormEntry(entries, REDWOOD_ACTIVE_FIELD)
-
-  if (value === 'rdbActive') return 'active'
-  if (value === 'rdbInActive') return 'inactive'
-  return 'unknown'
-}
-
-export function buildRedwoodDonorActiveStatusPlan(html: string, active: boolean): {
+export function buildRedwoodDonorActiveStatusPlan(
+  html: string,
+  active: boolean,
+): {
   alreadySynced: boolean
   entries: [string, string][]
 } {
@@ -125,7 +121,9 @@ export async function setRedwoodClientActiveStatusViaHttp(args: {
   const saveLocation = saveResponse.headers.get('location')
   if (saveResponse.status !== 302 || !saveLocation || !/Donor\.aspx/i.test(saveLocation)) {
     const body = await saveResponse.text().catch(() => '')
-    throw new Error(`Redwood donor direct HTTP active-status save failed with status ${saveResponse.status}: ${stripRedwoodHtml(body).slice(0, 500)}`)
+    throw new Error(
+      `Redwood donor direct HTTP active-status save failed with status ${saveResponse.status}: ${stripRedwoodHtml(body).slice(0, 500)}`,
+    )
   }
 
   const verificationPage = await session.getText(editUrl)

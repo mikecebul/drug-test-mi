@@ -1,5 +1,9 @@
 import { getAllowedRedwoodAccountNumbers } from '@/lib/redwood/config'
-import { buildRedwoodDonorSearchResultsUrl, buildRedwoodDonorViewUrl } from '@/lib/redwood/donor-urls'
+import {
+  buildRedwoodDonorEditUrl,
+  buildRedwoodDonorSearchResultsUrl,
+  buildRedwoodDonorViewUrl,
+} from '@/lib/redwood/donor-urls'
 import {
   buildRedwoodDonorCandidates,
   selectBestRedwoodDonorCandidate,
@@ -14,6 +18,7 @@ import {
 } from '@/lib/redwood/http'
 
 const REDWOOD_AGENCY_FIELD = 'ctl00$PageContent$Donor$ddlAgencies'
+const REDWOOD_ACTIVE_FIELD = 'ctl00$PageContent$Donor$Active'
 
 export type RedwoodHttpDonorSearchRow = RedwoodDonorTableRow & {
   donorId: string
@@ -25,6 +30,17 @@ export type RedwoodHttpResolvedDonor = {
   donorId: string
   matchedBy: 'name-dob'
   matchedDonorName: string | null
+}
+
+export type RedwoodDonorActiveStatus = 'active' | 'inactive' | 'unknown'
+
+export type RedwoodHttpVerifiedDonor = RedwoodHttpResolvedDonor & {
+  activeStatus: Exclude<RedwoodDonorActiveStatus, 'unknown'>
+}
+
+export type RedwoodHttpVerifiedDonorMatches = {
+  active: RedwoodHttpVerifiedDonor | null
+  inactive: RedwoodHttpVerifiedDonor | null
 }
 
 function readDonorIdFromRowHtml(rowHtml: string): string {
@@ -84,6 +100,14 @@ export function readRedwoodCallInCodeFromDonorView(html: string): string | null 
 export function readRedwoodDonorAccountNumber(html: string): string | null {
   const accountNumber = getRedwoodFormEntry(parseRedwoodFormEntries(html), REDWOOD_AGENCY_FIELD)?.trim()
   return accountNumber || null
+}
+
+export function readRedwoodDonorActiveStatus(html: string): RedwoodDonorActiveStatus {
+  const value = getRedwoodFormEntry(parseRedwoodFormEntries(html), REDWOOD_ACTIVE_FIELD)
+
+  if (value === 'rdbActive') return 'active'
+  if (value === 'rdbInActive') return 'inactive'
+  return 'unknown'
 }
 
 export function assertRedwoodDonorAccountAllowed(html: string, donorId: string): string {
@@ -177,25 +201,110 @@ export async function findRedwoodDonorByNameDobAcrossAccountsViaHttp(args: {
     if (match) matches.push(match)
   }
 
-  if (matches.length > 1) {
+  const uniqueMatches = Array.from(new Map(matches.map((match) => [match.donorId, match])).values())
+
+  if (uniqueMatches.length > 1) {
     throw new Error(
-      `Multiple DOB-verified Redwood donor matches were found across accounts ${matches.map((match) => match.accountNumber).join(', ')}; manual review required.`,
+      `Multiple DOB-verified Redwood donor matches were found across accounts ${uniqueMatches
+        .map(
+          (match) => `${match.accountNumber} (donor ${match.donorId}, ${match.matchedDonorName || 'name unavailable'})`,
+        )
+        .join(', ')}; manual review required.`,
     )
   }
 
-  return matches[0] || null
+  return uniqueMatches[0] || null
 }
 
-export async function findExistingActiveRedwoodDonorViaHttp(
-  args: Omit<Parameters<typeof findRedwoodDonorByNameDobAcrossAccountsViaHttp>[0], 'active'>,
-): Promise<RedwoodHttpResolvedDonor | null> {
-  return findRedwoodDonorByNameDobAcrossAccountsViaHttp({ ...args, active: true })
+function describeVerifiedDonor(match: RedwoodHttpVerifiedDonor): string {
+  return `${match.activeStatus} donor ${match.donorId} (${match.matchedDonorName || 'name unavailable'}) in account ${match.accountNumber}`
 }
 
-export async function findExistingInactiveRedwoodDonorViaHttp(
+async function verifyRedwoodDonorStatusViaHttp(args: {
+  allowedAccountNumbers: string[]
+  donorSearchUrl: string
+  match: RedwoodHttpResolvedDonor
+  session: RedwoodHttpSession
+}): Promise<RedwoodHttpVerifiedDonor> {
+  const editPage = await args.session.getText(buildRedwoodDonorEditUrl(args.donorSearchUrl, args.match.donorId))
+  const accountNumber = readRedwoodDonorAccountNumber(editPage.text)
+  if (!accountNumber) {
+    throw new Error(
+      `Redwood donor ${args.match.donorId} matched by name and DOB, but its account could not be verified from the donor edit page; manual review required.`,
+    )
+  }
+
+  if (!args.allowedAccountNumbers.includes(accountNumber)) {
+    throw new Error(
+      `Redwood donor ${args.match.donorId} matched by name and DOB, but its verified account ${accountNumber} is not allowed; manual review required.`,
+    )
+  }
+
+  const activeStatus = readRedwoodDonorActiveStatus(editPage.text)
+  if (activeStatus === 'unknown') {
+    throw new Error(
+      `Redwood donor ${args.match.donorId} matched by name and DOB, but its active status could not be verified from the donor edit page; manual review required.`,
+    )
+  }
+
+  return {
+    ...args.match,
+    accountNumber,
+    activeStatus,
+  }
+}
+
+export async function findExistingRedwoodDonorMatchesViaHttp(
   args: Omit<Parameters<typeof findRedwoodDonorByNameDobAcrossAccountsViaHttp>[0], 'active'>,
-): Promise<RedwoodHttpResolvedDonor | null> {
-  return findRedwoodDonorByNameDobAcrossAccountsViaHttp({ ...args, active: false })
+): Promise<RedwoodHttpVerifiedDonorMatches> {
+  const accountNumbers = Array.from(new Set(args.accountNumbers.map((value) => value.trim()).filter(Boolean)))
+  const activeSearchMatch = await findRedwoodDonorByNameDobAcrossAccountsViaHttp({
+    ...args,
+    accountNumbers,
+    active: true,
+  })
+  const inactiveSearchMatch = await findRedwoodDonorByNameDobAcrossAccountsViaHttp({
+    ...args,
+    accountNumbers,
+    active: false,
+  })
+  const uniqueSearchMatches = Array.from(
+    new Map(
+      [activeSearchMatch, inactiveSearchMatch]
+        .filter((match): match is RedwoodHttpResolvedDonor => Boolean(match))
+        .map((match) => [match.donorId, match]),
+    ).values(),
+  )
+  const verifiedMatches: RedwoodHttpVerifiedDonor[] = []
+
+  for (const match of uniqueSearchMatches) {
+    verifiedMatches.push(
+      await verifyRedwoodDonorStatusViaHttp({
+        allowedAccountNumbers: accountNumbers,
+        donorSearchUrl: args.donorSearchUrl,
+        match,
+        session: args.session,
+      }),
+    )
+  }
+
+  const activeMatches = verifiedMatches.filter((match) => match.activeStatus === 'active')
+  const inactiveMatches = verifiedMatches.filter((match) => match.activeStatus === 'inactive')
+
+  for (const matches of [activeMatches, inactiveMatches]) {
+    if (matches.length > 1) {
+      throw new Error(
+        `Multiple DOB-verified Redwood donor matches remained after edit-page status verification: ${matches
+          .map(describeVerifiedDonor)
+          .join('; ')}; manual review required.`,
+      )
+    }
+  }
+
+  return {
+    active: activeMatches[0] || null,
+    inactive: inactiveMatches[0] || null,
+  }
 }
 
 export async function resolveRedwoodDonorIdViaHttp(args: {
