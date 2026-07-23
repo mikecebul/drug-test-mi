@@ -22,6 +22,14 @@ describe('shiftStoredDobByUtcDays', () => {
     expect(shifted?.searchDob).toBe('1985-10-15')
   })
 
+  test('compensates the unnecessary production increase without restoring the rendering bug', () => {
+    const incorrectlyAdvanced = shiftStoredDobByUtcDays(new Date('1986-05-28T00:00:00.000Z'), 1)
+    const restored = shiftStoredDobByUtcDays(incorrectlyAdvanced?.dob, -1)
+
+    expect(restored?.dob.toISOString()).toBe('1986-05-28T12:00:00.000Z')
+    expect(restored?.searchDob).toBe('1986-05-28')
+  })
+
   test.each([null, undefined, 'not-a-date', '1985-02-30', new Date('not-a-date')])(
     'rejects missing or invalid value %s',
     (value) => {

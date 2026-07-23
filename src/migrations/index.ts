@@ -17,6 +17,7 @@ import * as migration_20260712_000000_migrate_client_default_test_to_config_valu
 import * as migration_20260718_000000_backfill_client_search_fields from './20260718_000000_backfill_client_search_fields'
 import * as migration_20260719_000000_normalize_client_gender from './20260719_000000_normalize_client_gender'
 import * as migration_20260723_203006_increase_client_dobs_one_day from './20260723_203006_increase_client_dobs_one_day'
+import * as migration_20260723_205754_restore_client_dobs_after_render_fix from './20260723_205754_restore_client_dobs_after_render_fix'
 
 export const migrations = [
   {
@@ -113,5 +114,10 @@ export const migrations = [
     up: migration_20260723_203006_increase_client_dobs_one_day.up,
     down: migration_20260723_203006_increase_client_dobs_one_day.down,
     name: '20260723_203006_increase_client_dobs_one_day',
+  },
+  {
+    up: migration_20260723_205754_restore_client_dobs_after_render_fix.up,
+    down: migration_20260723_205754_restore_client_dobs_after_render_fix.down,
+    name: '20260723_205754_restore_client_dobs_after_render_fix',
   },
 ]

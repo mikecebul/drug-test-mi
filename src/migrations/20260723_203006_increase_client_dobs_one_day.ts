@@ -60,7 +60,7 @@ export function shiftStoredDobByUtcDays(value: unknown, days: number): ShiftedCl
   }
 }
 
-async function shiftAllClientDobs({
+export async function shiftAllClientDobs({
   days,
   payload,
   session,
@@ -111,6 +111,8 @@ async function shiftAllClientDobs({
 }
 
 export async function up({ payload, session }: MigrateUpArgs): Promise<void> {
+  // Retained because this migration has already run in production. The
+  // following restore_client_dobs_after_render_fix migration compensates it.
   const updated = await shiftAllClientDobs({ days: 1, payload, session })
   payload.logger.info(`Increased DOB by one calendar day for ${updated} client(s)`)
 }
