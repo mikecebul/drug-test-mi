@@ -9,7 +9,7 @@ export type RedwoodDonorLookupClient = {
   lastName: string
   middleInitial?: string | null
   dob?: string | null
-  redwoodUniqueId?: string
+  redwoodAccountNumber?: string
   redwoodDonorId?: string
 }
 

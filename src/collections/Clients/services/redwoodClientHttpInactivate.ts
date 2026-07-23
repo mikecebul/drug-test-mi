@@ -7,8 +7,12 @@ import {
   setRedwoodFormEntry,
   stripRedwoodHtml,
 } from '@/lib/redwood/http'
-import { resolveRedwoodDonorIdViaHttp } from '@/lib/redwood/http-donor-search'
+import {
+  assertRedwoodDonorAccountAllowed,
+  resolveRedwoodDonorIdViaHttp,
+} from '@/lib/redwood/http-donor-search'
 import { resolveRedwoodAuthEnv } from '@/lib/redwood/auth'
+import { getAllowedRedwoodAccountNumbers } from '@/lib/redwood/config'
 
 const DEFAULT_REDWOOD_DONOR_SEARCH_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/DonorSearch.aspx'
 
@@ -84,6 +88,7 @@ export async function setRedwoodClientActiveStatusViaHttp(args: {
     id: string
   }
 }): Promise<{
+  accountNumber: string
   donorId: string
   status: 'synced'
 }> {
@@ -91,7 +96,7 @@ export async function setRedwoodClientActiveStatusViaHttp(args: {
   const donorSearchUrl = process.env.REDWOOD_DONOR_SEARCH_URL?.trim() || DEFAULT_REDWOOD_DONOR_SEARCH_URL
   const session = await createRedwoodHttpSession(auth)
   const donorId = await resolveRedwoodDonorIdViaHttp({
-    accountNumber: args.accountNumber,
+    accountNumbers: getAllowedRedwoodAccountNumbers(),
     client: args.client,
     donorSearchUrl,
     session,
@@ -100,6 +105,7 @@ export async function setRedwoodClientActiveStatusViaHttp(args: {
 
   const editPage = await session.getText(editUrl)
   assertDonorEditPage(editPage.text, donorId)
+  const accountNumber = assertRedwoodDonorAccountAllowed(editPage.text, donorId)
   const plan = buildRedwoodDonorActiveStatusPlan(editPage.text, args.active)
 
   if (args.active && !clearRedwoodDonorGroup(plan.entries)) {
@@ -108,6 +114,7 @@ export async function setRedwoodClientActiveStatusViaHttp(args: {
 
   if (plan.alreadySynced) {
     return {
+      accountNumber,
       donorId,
       status: 'synced',
     }
@@ -123,6 +130,7 @@ export async function setRedwoodClientActiveStatusViaHttp(args: {
 
   const verificationPage = await session.getText(editUrl)
   assertDonorEditPage(verificationPage.text, donorId)
+  assertRedwoodDonorAccountAllowed(verificationPage.text, donorId)
 
   const expectedStatus = args.active ? 'active' : 'inactive'
   if (readRedwoodDonorActiveStatus(verificationPage.text) !== expectedStatus) {
@@ -130,6 +138,7 @@ export async function setRedwoodClientActiveStatusViaHttp(args: {
   }
 
   return {
+    accountNumber,
     donorId,
     status: 'synced',
   }

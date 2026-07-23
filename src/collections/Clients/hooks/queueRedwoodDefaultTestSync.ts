@@ -63,10 +63,9 @@ export const queueRedwoodDefaultTestSyncAfterChange: CollectionAfterChangeHook =
   }
 
   const donorId = typeof doc?.redwoodDonorId === 'string' ? doc.redwoodDonorId.trim() : ''
-  const uniqueId = typeof doc?.redwoodUniqueId === 'string' ? doc.redwoodUniqueId.trim() : ''
   const syncStatus = typeof doc?.redwoodSyncStatus === 'string' ? doc.redwoodSyncStatus : ''
 
-  if ((!donorId && !uniqueId) || !REDWOOD_READY_SYNC_STATUSES.has(syncStatus)) {
+  if (!donorId || !REDWOOD_READY_SYNC_STATUSES.has(syncStatus)) {
     req.payload.logger.info({
       msg: '[clients] Skipped auto-queueing Redwood default-test sync because client is not Redwood-ready yet',
       clientId: String(doc.id),

@@ -11,8 +11,13 @@ import {
   setRedwoodFormEntry,
   type RedwoodMultipartFile,
 } from '@/lib/redwood/http'
-import { readRedwoodCallInCodeViaHttp, resolveRedwoodDonorIdViaHttp } from '@/lib/redwood/http-donor-search'
+import {
+  assertRedwoodDonorAccountAllowed,
+  readRedwoodCallInCodeViaHttp,
+  resolveRedwoodDonorIdViaHttp,
+} from '@/lib/redwood/http-donor-search'
 import { resolveRedwoodAuthEnv } from '@/lib/redwood/auth'
+import { getAllowedRedwoodAccountNumbers } from '@/lib/redwood/config'
 
 const DEFAULT_REDWOOD_DONOR_SEARCH_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/DonorSearch.aspx'
 const REDWOOD_PHOTO_FIELD_NAME = 'ctl00$PageContent$Donor$Photo'
@@ -77,11 +82,12 @@ export async function uploadClientHeadshotToRedwoodViaHttp(args: {
     headshotId: string
     id: string
     lastName: string
+    redwoodAccountNumber?: string
     redwoodDonorId?: string
-    redwoodUniqueId?: string
   }
   payload: Payload
 }): Promise<{
+  accountNumber: string
   callInCode: string | null
   donorId: string | null
   status: 'synced'
@@ -92,7 +98,7 @@ export async function uploadClientHeadshotToRedwoodViaHttp(args: {
   const donorSearchUrl = process.env.REDWOOD_DONOR_SEARCH_URL?.trim() || DEFAULT_REDWOOD_DONOR_SEARCH_URL
   const session = await createRedwoodHttpSession(auth)
   const donorId = await resolveRedwoodDonorIdViaHttp({
-    accountNumber: args.accountNumber,
+    accountNumbers: getAllowedRedwoodAccountNumbers(),
     client,
     donorSearchUrl,
     session,
@@ -103,6 +109,7 @@ export async function uploadClientHeadshotToRedwoodViaHttp(args: {
 
   const editPage = await session.getText(editUrl)
   assertDonorEditPage(editPage.text, donorId)
+  const accountNumber = assertRedwoodDonorAccountAllowed(editPage.text, donorId)
   const editEntries = parseRedwoodFormEntries(editPage.text)
   setRedwoodFormEntry(editEntries, REDWOOD_SAVE_BUTTON_NAME, 'Save')
 
@@ -117,11 +124,13 @@ export async function uploadClientHeadshotToRedwoodViaHttp(args: {
 
   const verificationPage = await session.getText(editUrl)
   assertDonorEditPage(verificationPage.text, donorId)
+  assertRedwoodDonorAccountAllowed(verificationPage.text, donorId)
   if (!readDonorPhotoSaved(verificationPage.text)) {
     throw new Error('Redwood donor direct HTTP headshot upload could not be verified on the donor edit page.')
   }
 
   return {
+    accountNumber,
     callInCode: await readRedwoodCallInCodeViaHttp({ donorId, donorSearchUrl, session }),
     donorId,
     status: 'synced',

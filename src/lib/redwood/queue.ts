@@ -4,7 +4,6 @@ import { recordQueuedJobRun } from '@/lib/jobs/jobRuns'
 import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
 import { REDWOOD_SKIP_PROVISIONING_QUEUE_CONTEXT_KEY } from '@/lib/redwood/context'
 import { upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
-import { buildRedwoodUniqueId } from '@/lib/redwood/unique-id'
 
 export type RedwoodQueueSource =
   | 'frontend-registration'
@@ -114,8 +113,6 @@ export async function queueRedwoodImportForClient(
       overrideAccess: true,
     })
 
-    const existingUniqueId = typeof client.redwoodUniqueId === 'string' ? client.redwoodUniqueId.trim() : ''
-    const uniqueId = existingUniqueId || buildRedwoodUniqueId(client.id)
     const accountNumber = getRedwoodAccountNumber()
     const input = {
       clientId,
@@ -160,7 +157,6 @@ export async function queueRedwoodImportForClient(
       collection: 'clients',
       id: client.id,
       data: {
-        redwoodUniqueId: uniqueId,
         redwoodSyncStatus: 'queued',
         redwoodLastError: null,
       },
@@ -218,7 +214,6 @@ export async function queueRedwoodHeadshotUpload(
       ...reqOption(reqArg),
       overrideAccess: true,
     })
-    const uniqueId = typeof client.redwoodUniqueId === 'string' ? client.redwoodUniqueId.trim() : ''
     const donorId = typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId.trim() : ''
     const headshotId =
       typeof client.headshot === 'string'
@@ -226,14 +221,12 @@ export async function queueRedwoodHeadshotUpload(
         : client.headshot && typeof client.headshot === 'object' && 'id' in client.headshot
           ? String(client.headshot.id)
           : ''
-    const accountNumber = getRedwoodAccountNumber()
-    const provisioningPending = new Set(['queued']).has(
-      typeof client.redwoodSyncStatus === 'string' ? client.redwoodSyncStatus : '',
-    )
-
+    const accountNumber =
+      (typeof client.redwoodAccountNumber === 'string' && client.redwoodAccountNumber.trim()) ||
+      getRedwoodAccountNumber()
     assertRedwoodMutationAllowed(accountNumber, 'headshot upload')
 
-    if (!uniqueId && !donorId && !provisioningPending) {
+    if (!donorId) {
       await payload.update({
         collection: 'clients',
         id: client.id,
@@ -247,7 +240,7 @@ export async function queueRedwoodHeadshotUpload(
       })
 
       throw new Error(
-        'Client is missing Redwood identity; headshot upload requires Redwood donor provisioning to be queued or complete.',
+        'Client is missing Redwood donor ID; headshot upload requires completed Redwood donor provisioning.',
       )
     }
 
@@ -498,13 +491,14 @@ export async function queueRedwoodClientInactivation(
       ...reqOption(reqArg),
       overrideAccess: true,
     })
-    const uniqueId = typeof client.redwoodUniqueId === 'string' ? client.redwoodUniqueId.trim() : ''
     const donorId = typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId.trim() : ''
-    const accountNumber = getRedwoodAccountNumber()
+    const accountNumber =
+      (typeof client.redwoodAccountNumber === 'string' && client.redwoodAccountNumber.trim()) ||
+      getRedwoodAccountNumber()
 
     assertRedwoodMutationAllowed(accountNumber, 'client inactivation')
 
-    if (!uniqueId && !donorId) {
+    if (!donorId) {
       await payload.update({
         collection: 'clients',
         id: client.id,
@@ -517,7 +511,7 @@ export async function queueRedwoodClientInactivation(
         overrideAccess: true,
       })
 
-      throw new Error('Client is missing Redwood identity; inactivation requires redwoodUniqueId or redwoodDonorId.')
+      throw new Error('Client is missing Redwood donor ID; inactivation requires redwoodDonorId.')
     }
 
     const input = {

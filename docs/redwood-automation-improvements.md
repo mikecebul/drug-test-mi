@@ -11,7 +11,7 @@
 ## Automatic behavior
 
 - Every active client creation queues one idempotent `redwood-import-client` job from the Clients collection hook. Frontend, guided/admin registration, and direct Payload admin creation use the same launch path.
-- Import searches before creating, matches by deterministic unique ID first, reactivates an inactive donor when found, and records the donor ID/call-in code after verification.
+- Import searches active and inactive donors by name and DOB across every allowed ToxAccess account before creating. It records the assigned donor ID, actual account, and call-in code after verification.
 - Required lab defaults queue after donor verification. Instant-only clients are skipped; a lab test without a ToxAccess code requires manual review.
 - Admin headshot changes queue behind an in-progress donor import or upload immediately for an existing donor.
 - Redwood-backed identity edits require the admin save decision. Client/self-service and trusted workflow edits queue automatically, and all paths remain durable pending fields until the update job verifies them.
@@ -27,7 +27,8 @@
 
 ## Operator triage
 
-- **Ambiguous match:** compare name, middle initial, DOB, and deterministic unique ID in ToxAccess. Correct the donor/client data, then retry verification.
+- **Ambiguous match:** compare name, middle initial, DOB, active status, and account in ToxAccess. Correct the donor/client data, then retry verification.
+- **Different account:** do not create a duplicate. Leave or move the donor deliberately in ToxAccess, ensure that account is present in `REDWOOD_ALLOWED_ACCOUNT_NUMBERS`, then retry so the website records the donor's actual account.
 - **Inactive donor reactivation:** confirm the donor is active and the inactive group was cleared, then retry.
 - **Default-test failure:** confirm the client referral/default test maps to a ToxAccess lab code. Instant tests intentionally skip this step.
 - **Headshot failure:** collection may continue once donor/default-test readiness is green. Correct and re-save the website headshot to queue another HTTP upload.

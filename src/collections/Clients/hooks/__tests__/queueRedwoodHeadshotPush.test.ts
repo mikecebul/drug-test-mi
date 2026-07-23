@@ -14,6 +14,7 @@ describe('queueRedwoodHeadshotPush', () => {
       doc: {
         id: 'client-1',
         headshot: 'media-new',
+        redwoodDonorId: '2714034',
         redwoodSyncStatus: 'synced',
       },
       previousDoc: {
@@ -41,7 +42,7 @@ describe('queueRedwoodHeadshotPush', () => {
     )
   })
 
-  it('queues behind donor provisioning when the client import is still running', async () => {
+  it('defers queueing until donor provisioning provides a donor ID', async () => {
     await queueRedwoodHeadshotPush({
       doc: {
         id: 'client-2',
@@ -66,7 +67,7 @@ describe('queueRedwoodHeadshotPush', () => {
       },
     } as any)
 
-    expect(queueRedwoodHeadshotUpload).toHaveBeenCalledTimes(2)
+    expect(queueRedwoodHeadshotUpload).toHaveBeenCalledTimes(1)
   })
 
   it('skips queueing when the update originated from Redwood pull sync', async () => {
@@ -94,6 +95,6 @@ describe('queueRedwoodHeadshotPush', () => {
       },
     } as any)
 
-    expect(queueRedwoodHeadshotUpload).toHaveBeenCalledTimes(2)
+    expect(queueRedwoodHeadshotUpload).toHaveBeenCalledTimes(1)
   })
 })

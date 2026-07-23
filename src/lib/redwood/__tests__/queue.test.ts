@@ -20,6 +20,7 @@ import {
 describe('redwood queue helpers', () => {
   beforeEach(() => {
     vi.stubEnv('REDWOOD_AUTOMATION_ENABLED', 'true')
+    vi.stubEnv('REDWOOD_ALLOWED_ACCOUNT_NUMBERS', '310974,310872')
   })
 
   afterEach(() => {
@@ -31,7 +32,6 @@ describe('redwood queue helpers', () => {
       find: vi.fn().mockResolvedValue({ docs: [] }),
       findByID: vi.fn().mockResolvedValue({
         id: 'client-1',
-        redwoodUniqueId: '',
       }),
       update: vi.fn().mockResolvedValue({ id: 'client-1' }),
       jobs: {
@@ -80,7 +80,6 @@ describe('redwood queue helpers', () => {
       find: vi.fn().mockResolvedValue({ docs: [] }),
       findByID: vi.fn().mockResolvedValue({
         id: 'client-1',
-        redwoodUniqueId: '',
       }),
       update: vi.fn(),
       jobs: {
@@ -102,7 +101,6 @@ describe('redwood queue helpers', () => {
       find: vi.fn().mockResolvedValue({ docs: [{ jobId: 'job-existing' }] }),
       findByID: vi.fn().mockResolvedValue({
         id: 'client-1',
-        redwoodUniqueId: 'MDTCLIENT1',
       }),
       update: vi.fn(),
       jobs: {
@@ -160,7 +158,6 @@ describe('redwood queue helpers', () => {
     const payloadMock: any = {
       findByID: vi.fn().mockResolvedValue({
         id: 'client-4',
-        redwoodUniqueId: '',
         redwoodDonorId: '',
         headshot: 'media-1',
       }),
@@ -174,7 +171,7 @@ describe('redwood queue helpers', () => {
     }
 
     await expect(queueRedwoodHeadshotUpload('client-4', 'admin-3', payloadMock)).rejects.toThrow(
-      'missing Redwood identity',
+      'missing Redwood donor ID',
     )
     expect(payloadMock.jobs.queue).not.toHaveBeenCalled()
     expect(payloadMock.update).toHaveBeenCalledWith(
@@ -186,12 +183,12 @@ describe('redwood queue helpers', () => {
     )
   })
 
-  it('queues website-to-Redwood headshot upload when donorId exists without unique ID', async () => {
+  it('queues website-to-Redwood headshot upload when donorId exists', async () => {
     const payloadMock: any = {
       find: vi.fn().mockResolvedValue({ docs: [] }),
       findByID: vi.fn().mockResolvedValue({
         id: 'client-5',
-        redwoodUniqueId: '',
+        redwoodAccountNumber: '310872',
         redwoodDonorId: '2714034',
         headshot: 'media-2',
       }),
@@ -248,8 +245,8 @@ describe('redwood queue helpers', () => {
     const payloadMock: any = {
       findByID: vi.fn().mockResolvedValue({
         id: 'client-8',
+        redwoodAccountNumber: '310872',
         redwoodDonorId: '2714034',
-        redwoodUniqueId: '',
       }),
       update: vi.fn().mockResolvedValue({ id: 'client-8' }),
       jobs: {

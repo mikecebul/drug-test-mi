@@ -51,6 +51,7 @@ describe('runRedwoodDefaultTestSync', () => {
       redwoodLabTestCode: 'B829',
     })
     syncClientDefaultLabTestInRedwoodViaHttpMock.mockResolvedValue({
+      accountNumber: '310872',
       donorId: '2714034',
       selectedCode: 'B829',
       status: 'synced',
@@ -64,8 +65,8 @@ describe('runRedwoodDefaultTestSync', () => {
         firstName: 'Bob',
         lastName: 'Testing',
         redwoodDefaultTestSyncedCode: 'B729',
+        redwoodAccountNumber: '310872',
         redwoodDonorId: '2714034',
-        redwoodUniqueId: 'RWD0001',
       }),
       logger: {
         error: vi.fn(),
@@ -83,8 +84,8 @@ describe('runRedwoodDefaultTestSync', () => {
       accountNumber: '310872',
       client: expect.objectContaining({
         id: 'client-1',
+        redwoodAccountNumber: '310872',
         redwoodDonorId: '2714034',
-        redwoodUniqueId: 'RWD0001',
       }),
       previousSyncedCode: 'B729',
       redwoodLabTestCode: 'B829',
@@ -96,6 +97,7 @@ describe('runRedwoodDefaultTestSync', () => {
           redwoodDefaultTestLastError: null,
           redwoodDefaultTestSyncedCode: 'B829',
           redwoodDefaultTestSyncStatus: 'synced',
+          redwoodAccountNumber: '310872',
           redwoodDonorId: '2714034',
         }),
         id: 'client-1',
@@ -109,6 +111,7 @@ describe('runRedwoodDefaultTestSync', () => {
       reason: 'The configured default test is not a lab test.',
     })
     clearClientDefaultLabTestInRedwoodViaHttpMock.mockResolvedValue({
+      accountNumber: '310872',
       donorId: '2714034',
       status: 'cleared',
     })
@@ -121,8 +124,8 @@ describe('runRedwoodDefaultTestSync', () => {
         firstName: 'Bob',
         lastName: 'Testing',
         redwoodDefaultTestSyncedCode: 'B729',
+        redwoodAccountNumber: '310872',
         redwoodDonorId: '2714034',
-        redwoodUniqueId: 'RWD0001',
       }),
       logger: { error: vi.fn() },
       update: vi.fn().mockResolvedValue({}),

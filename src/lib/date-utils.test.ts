@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'vitest'
 
-import { formatDobInput, formatDobISO, formatRequiredDobISO, getAppTimezoneDayWindow, parseDob } from './date-utils'
+import {
+  APP_TIMEZONE,
+  formatDobForPayload,
+  formatDobInput,
+  formatDobISO,
+  formatRequiredDobISO,
+  getAppTimezoneDayWindow,
+  parseDob,
+} from './date-utils'
 
 describe('DOB parsing and formatting', () => {
   const referenceDate = new Date(2026, 6, 18)
@@ -24,6 +32,26 @@ describe('DOB parsing and formatting', () => {
     expect(formatDobInput('1/2/90', referenceDate)).toBe('01/02/1990')
     expect(formatDobInput('01/2/1990', referenceDate)).toBe('01/02/1990')
     expect(formatDobInput('1-02-90', referenceDate)).toBe('01/02/1990')
+  })
+
+  test.each(['10/16/1985', '1985-10-16', '1985-10-16T00:00:00.000Z'])(
+    'anchors %s at UTC noon for Payload without changing the calendar date',
+    (value) => {
+      expect(formatDobForPayload(value, referenceDate)).toBe('1985-10-16T12:00:00.000Z')
+    },
+  )
+
+  test('keeps 10/16/1985 visible as 10/16/1985 in the app timezone', () => {
+    const storedDob = formatDobForPayload('10/16/1985', referenceDate)
+
+    expect(
+      new Date(storedDob).toLocaleDateString('en-US', {
+        day: '2-digit',
+        month: '2-digit',
+        timeZone: APP_TIMEZONE,
+        year: 'numeric',
+      }),
+    ).toBe('10/16/1985')
   })
 
   test('uses the DOB century cutoff for two-digit years', () => {

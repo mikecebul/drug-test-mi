@@ -33,8 +33,9 @@ export async function runRedwoodDefaultTestSync(
       payload,
     })
 
-    const uniqueId = typeof client.redwoodUniqueId === 'string' ? client.redwoodUniqueId.trim() : ''
     const donorId = typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId.trim() : ''
+    const savedAccountNumber =
+      typeof client.redwoodAccountNumber === 'string' ? client.redwoodAccountNumber.trim() : ''
     const previousSyncedCode =
       (typeof client.redwoodDefaultTestSyncedCode === 'string' && client.redwoodDefaultTestSyncedCode.trim()) ||
       options?.previousSyncedCode?.trim() ||
@@ -42,15 +43,14 @@ export async function runRedwoodDefaultTestSync(
 
     if (resolution.kind === 'skip') {
       let resolvedDonorId = donorId
+      let resolvedAccountNumber = savedAccountNumber
 
       if (previousSyncedCode) {
-        if (!uniqueId && !donorId) {
-          throw new Error(
-            'Client is missing Redwood identity; clearing the managed default test requires redwoodUniqueId or redwoodDonorId.',
-          )
+        if (!donorId) {
+          throw new Error('Client is missing Redwood donor ID; clearing the managed default test requires redwoodDonorId.')
         }
 
-        const accountNumber = getRedwoodAccountNumber()
+        const accountNumber = savedAccountNumber || getRedwoodAccountNumber()
         assertRedwoodMutationAllowed(accountNumber, 'default test clearing')
 
         await payload.update({
@@ -72,18 +72,20 @@ export async function runRedwoodDefaultTestSync(
             lastName: client.lastName,
             middleInitial: client.middleInitial || undefined,
             dob: client.dob || undefined,
-            redwoodUniqueId: uniqueId || undefined,
+            redwoodAccountNumber: accountNumber,
             redwoodDonorId: donorId || undefined,
           },
           previouslySyncedCode: previousSyncedCode,
         })
         resolvedDonorId = result.donorId || donorId
+        resolvedAccountNumber = result.accountNumber
       }
 
       await payload.update({
         collection: 'clients',
         id: client.id,
         data: {
+          redwoodAccountNumber: resolvedAccountNumber || null,
           redwoodDonorId: resolvedDonorId || null,
           redwoodDefaultTestSyncStatus: 'skipped',
           redwoodDefaultTestSyncedCode: null,
@@ -103,13 +105,11 @@ export async function runRedwoodDefaultTestSync(
       throw new Error(resolution.reason)
     }
 
-    if (!uniqueId && !donorId) {
-      throw new Error(
-        'Client is missing Redwood identity; default-test sync requires redwoodUniqueId or redwoodDonorId.',
-      )
+    if (!donorId) {
+      throw new Error('Client is missing Redwood donor ID; default-test sync requires redwoodDonorId.')
     }
 
-    const accountNumber = getRedwoodAccountNumber()
+    const accountNumber = savedAccountNumber || getRedwoodAccountNumber()
     assertRedwoodMutationAllowed(accountNumber, 'default test sync')
     await payload.update({
       collection: 'clients',
@@ -129,7 +129,7 @@ export async function runRedwoodDefaultTestSync(
         lastName: client.lastName,
         middleInitial: client.middleInitial || undefined,
         dob: client.dob || undefined,
-        redwoodUniqueId: uniqueId || undefined,
+        redwoodAccountNumber: accountNumber,
         redwoodDonorId: donorId || undefined,
       },
       accountNumber,
@@ -141,6 +141,7 @@ export async function runRedwoodDefaultTestSync(
       collection: 'clients',
       id: client.id,
       data: {
+        redwoodAccountNumber: result.accountNumber,
         redwoodDonorId: result.donorId || donorId || null,
         redwoodDefaultTestSyncStatus: 'synced',
         redwoodDefaultTestSyncedCode: result.selectedCode,

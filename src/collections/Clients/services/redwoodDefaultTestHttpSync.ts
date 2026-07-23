@@ -8,9 +8,13 @@ import {
   setRedwoodFormEntry,
   stripRedwoodHtml,
 } from '@/lib/redwood/http'
-import { resolveRedwoodDonorIdViaHttp } from '@/lib/redwood/http-donor-search'
+import {
+  assertRedwoodDonorAccountAllowed,
+  resolveRedwoodDonorIdViaHttp,
+} from '@/lib/redwood/http-donor-search'
 import { resolveRedwoodAuthEnv } from '@/lib/redwood/auth'
 import type { RedwoodDonorLookupClient } from '@/lib/redwood/donor-search'
+import { getAllowedRedwoodAccountNumbers } from '@/lib/redwood/config'
 
 const DEFAULT_REDWOOD_DONOR_SEARCH_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/DonorSearch.aspx'
 
@@ -286,6 +290,7 @@ export async function syncClientDefaultLabTestInRedwoodViaHttp(args: {
   previousSyncedCode?: string | null
   redwoodLabTestCode: string
 }): Promise<{
+  accountNumber: string
   donorId: string | null
   selectedCode: string
   status: 'synced'
@@ -294,7 +299,7 @@ export async function syncClientDefaultLabTestInRedwoodViaHttp(args: {
   const donorSearchUrl = process.env.REDWOOD_DONOR_SEARCH_URL?.trim() || DEFAULT_REDWOOD_DONOR_SEARCH_URL
   const session = await createRedwoodHttpSession(auth)
   const donorId = await resolveRedwoodDonorIdViaHttp({
-    accountNumber: args.accountNumber,
+    accountNumbers: getAllowedRedwoodAccountNumbers(),
     client: args.client,
     donorSearchUrl,
     session,
@@ -303,6 +308,7 @@ export async function syncClientDefaultLabTestInRedwoodViaHttp(args: {
 
   const editPage = await session.getText(editUrl)
   assertDefaultTestEditPage(editPage.text, donorId)
+  const accountNumber = assertRedwoodDonorAccountAllowed(editPage.text, donorId)
   const plan = buildRedwoodDefaultTestSelectionPlan(editPage.text, args.redwoodLabTestCode, args.previousSyncedCode)
 
   if (!plan.selectionChanged) {
@@ -312,6 +318,7 @@ export async function syncClientDefaultLabTestInRedwoodViaHttp(args: {
     })
 
     return {
+      accountNumber,
       donorId,
       selectedCode: plan.targetCode,
       status: 'synced',
@@ -330,12 +337,14 @@ export async function syncClientDefaultLabTestInRedwoodViaHttp(args: {
 
   const verificationPage = await session.getText(editUrl)
   assertDefaultTestEditPage(verificationPage.text, donorId)
+  assertRedwoodDonorAccountAllowed(verificationPage.text, donorId)
   assertDefaultTestPersisted({
     expectedCodes: plan.nextSelectedCodes,
     html: verificationPage.text,
   })
 
   return {
+    accountNumber,
     donorId,
     selectedCode: plan.targetCode,
     status: 'synced',
@@ -349,6 +358,7 @@ export async function clearClientDefaultLabTestInRedwoodViaHttp(args: {
   }
   previouslySyncedCode: string
 }): Promise<{
+  accountNumber: string
   donorId: string | null
   status: 'cleared'
 }> {
@@ -356,7 +366,7 @@ export async function clearClientDefaultLabTestInRedwoodViaHttp(args: {
   const donorSearchUrl = process.env.REDWOOD_DONOR_SEARCH_URL?.trim() || DEFAULT_REDWOOD_DONOR_SEARCH_URL
   const session = await createRedwoodHttpSession(auth)
   const donorId = await resolveRedwoodDonorIdViaHttp({
-    accountNumber: args.accountNumber,
+    accountNumbers: getAllowedRedwoodAccountNumbers(),
     client: args.client,
     donorSearchUrl,
     session,
@@ -365,6 +375,7 @@ export async function clearClientDefaultLabTestInRedwoodViaHttp(args: {
 
   const editPage = await session.getText(editUrl)
   assertDefaultTestEditPage(editPage.text, donorId)
+  const accountNumber = assertRedwoodDonorAccountAllowed(editPage.text, donorId)
   const plan = buildRedwoodDefaultTestClearPlan(editPage.text, args.previouslySyncedCode)
 
   if (!plan.selectionChanged) {
@@ -373,7 +384,7 @@ export async function clearClientDefaultLabTestInRedwoodViaHttp(args: {
       html: editPage.text,
     })
 
-    return { donorId, status: 'cleared' }
+    return { accountNumber, donorId, status: 'cleared' }
   }
 
   setRedwoodFormEntry(plan.entries, REDWOOD_DONOR_SAVE_BUTTON, 'Save')
@@ -388,10 +399,11 @@ export async function clearClientDefaultLabTestInRedwoodViaHttp(args: {
 
   const verificationPage = await session.getText(editUrl)
   assertDefaultTestEditPage(verificationPage.text, donorId)
+  assertRedwoodDonorAccountAllowed(verificationPage.text, donorId)
   assertDefaultTestPersisted({
     expectedCodes: plan.nextSelectedCodes,
     html: verificationPage.text,
   })
 
-  return { donorId, status: 'cleared' }
+  return { accountNumber, donorId, status: 'cleared' }
 }

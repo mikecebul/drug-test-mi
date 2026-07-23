@@ -103,6 +103,19 @@ export function formatDobISO(value: string | Date | null | undefined, referenceD
   return `${date.getFullYear()}-${month}-${day}`
 }
 
+/**
+ * Normalize a DOB for Payload's timestamp-backed date field.
+ *
+ * Payload's day-only picker anchors selected dates at UTC noon so the same
+ * calendar date remains visible in negative UTC offsets. Storing a bare
+ * YYYY-MM-DD value makes MongoDB use midnight UTC, which renders as the
+ * previous day in the Payload admin UI in America/New_York.
+ */
+export function formatDobForPayload(value: string | Date | null | undefined, referenceDate: Date = new Date()): string {
+  const formattedDob = formatDobISO(value, referenceDate)
+  return formattedDob ? `${formattedDob}T12:00:00.000Z` : ''
+}
+
 /** Normalize a required DOB for persistence, failing closed when it is missing or invalid. */
 export function formatRequiredDobISO(
   value: string | Date | null | undefined,

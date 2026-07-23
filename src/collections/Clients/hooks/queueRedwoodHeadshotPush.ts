@@ -3,13 +3,6 @@ import type { CollectionAfterChangeHook } from 'payload'
 import { queueRedwoodHeadshotUpload } from '@/lib/redwood/queue'
 import { REDWOOD_SKIP_HEADSHOT_PUSH_CONTEXT_KEY } from '@/lib/redwood/context'
 
-const ELIGIBLE_REDWOOD_SYNC_STATUSES = new Set([
-  'matched-existing',
-  'queued',
-  'reactivated-existing',
-  'synced',
-])
-
 function extractRelationshipId(value: unknown): string | null {
   if (typeof value === 'string' && value.trim()) {
     return value
@@ -34,18 +27,16 @@ export const queueRedwoodHeadshotPush: CollectionAfterChangeHook = async ({ doc,
   const currentHeadshotId = extractRelationshipId(doc?.headshot)
   const previousHeadshotId = extractRelationshipId(previousDoc?.headshot)
   const hasDonorId = typeof doc?.redwoodDonorId === 'string' && doc.redwoodDonorId.trim()
-  const currentSyncStatus = typeof doc?.redwoodSyncStatus === 'string' ? doc.redwoodSyncStatus : ''
-
   if (!currentHeadshotId || currentHeadshotId === previousHeadshotId) {
     return doc
   }
 
-  if (!hasDonorId && !ELIGIBLE_REDWOOD_SYNC_STATUSES.has(currentSyncStatus)) {
+  if (!hasDonorId) {
     req.payload.logger.info({
-      msg: '[clients] Skipped auto-queueing Redwood headshot upload because client is not Redwood-ready yet',
+      msg: '[clients] Deferred Redwood headshot upload until donor provisioning is complete',
       clientId: String(doc.id),
       headshotId: currentHeadshotId,
-      redwoodSyncStatus: currentSyncStatus || null,
+      redwoodSyncStatus: typeof doc?.redwoodSyncStatus === 'string' ? doc.redwoodSyncStatus : null,
     })
     return doc
   }

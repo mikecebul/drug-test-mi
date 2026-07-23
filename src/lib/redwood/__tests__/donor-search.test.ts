@@ -13,7 +13,7 @@ const client = {
 }
 
 describe('redwood donor search helpers', () => {
-  it('falls back to the best DOB-verified candidate when unique ID is not present', () => {
+  it('selects the best DOB-verified candidate by name', () => {
     const rows: RedwoodDonorTableRow[] = [
       { rowIndex: 0, cells: ['Cebulski, Michael A', '310974', 'RWD0002', '01/01/1990'] },
       { rowIndex: 1, cells: ['Cebulski, Michelle A', '310974', 'RWD0003', '01/02/1990'] },

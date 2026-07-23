@@ -25,7 +25,6 @@ export async function runRedwoodHeadshotUploadJob(
       throw new Error('Client must have first and last name before Redwood headshot upload can run.')
     }
 
-    const uniqueId = typeof client.redwoodUniqueId === 'string' ? client.redwoodUniqueId.trim() : ''
     const donorId = typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId.trim() : ''
     const headshotId =
       typeof client.headshot === 'string'
@@ -34,15 +33,17 @@ export async function runRedwoodHeadshotUploadJob(
           ? String(client.headshot.id)
           : ''
 
-    if (!uniqueId && !donorId) {
-      throw new Error('Client is missing Redwood identity; headshot upload requires redwoodUniqueId or redwoodDonorId.')
+    if (!donorId) {
+      throw new Error('Client is missing Redwood donor ID; headshot upload requires redwoodDonorId.')
     }
 
     if (!headshotId) {
       throw new Error('Client is missing a website headshot; Redwood headshot upload cannot run.')
     }
 
-    const accountNumber = getRedwoodAccountNumber()
+    const accountNumber =
+      (typeof client.redwoodAccountNumber === 'string' && client.redwoodAccountNumber.trim()) ||
+      getRedwoodAccountNumber()
     assertRedwoodMutationAllowed(accountNumber, 'headshot upload')
 
     await payload.update({
@@ -61,7 +62,7 @@ export async function runRedwoodHeadshotUploadJob(
         id: client.id,
         firstName: client.firstName,
         lastName: client.lastName,
-        redwoodUniqueId: uniqueId || undefined,
+        redwoodAccountNumber: accountNumber,
         redwoodDonorId: donorId || undefined,
         headshotId,
       },
@@ -73,6 +74,7 @@ export async function runRedwoodHeadshotUploadJob(
       collection: 'clients',
       id: client.id,
       data: {
+        redwoodAccountNumber: result.accountNumber,
         redwoodDonorId: result.donorId || (typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId : null),
         redwoodCallInCode: result.callInCode || (typeof client.redwoodCallInCode === 'string' ? client.redwoodCallInCode : null),
         redwoodHeadshotPushStatus: result.status,

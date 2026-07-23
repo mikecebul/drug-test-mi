@@ -12,7 +12,6 @@ describe('buildRedwoodImportCSV', () => {
       firstName: 'Avery',
       middleInitial: 'J',
       lastName: 'Example',
-      uniqueId: '68E51E5A5CB1AA425ABC',
       dob: '1975-02-28',
       sex: 'M',
       group: '',
@@ -22,7 +21,6 @@ describe('buildRedwoodImportCSV', () => {
     expect(csv).toContain('"Account Number"')
     expect(csv).toContain('"Unique ID"')
     expect(csv).toContain('"Intake Date"')
-    expect(csv).toContain('"68E51E5A5CB1AA425ABC"')
     expect(csv).toContain('"02/28/1975"')
 
     const [headers, row] = parseCSVRows(csv)
@@ -30,6 +28,12 @@ describe('buildRedwoodImportCSV', () => {
     expect(row[1]).toBe('Avery')
     expect(row[2]).toBe('J')
     expect(row[3]).toBe('Example')
+    expect(row[4]).toBe('')
+
+    const dataRow = csv.trim().split('\n')[1]
+    expect(dataRow).toContain('"Example",,"02/28/1975"')
+    expect(dataRow).not.toContain('"Example","","02/28/1975"')
+    expect(dataRow).not.toContain('&quot;')
   })
 
   it('preserves ISO datetime DOB strings without timezone shifting', () => {
@@ -38,7 +42,6 @@ describe('buildRedwoodImportCSV', () => {
       firstName: 'Bob',
       middleInitial: 'F',
       lastName: 'Testing',
-      uniqueId: '188644EA193203374B5B',
       dob: '1982-03-13T00:00:00.000Z',
     })
 

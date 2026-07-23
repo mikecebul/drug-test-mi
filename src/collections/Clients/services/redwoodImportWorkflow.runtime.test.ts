@@ -4,18 +4,21 @@ const {
   classifyRedwoodIncidentMock,
   createRedwoodClientViaHttpMock,
   queueRedwoodDefaultTestSyncMock,
+  queueRedwoodHeadshotUploadMock,
   resolveClientRedwoodEligibleDefaultTestMock,
   upsertRedwoodIncidentAlertMock,
 } = vi.hoisted(() => ({
   classifyRedwoodIncidentMock: vi.fn(),
   createRedwoodClientViaHttpMock: vi.fn(),
   queueRedwoodDefaultTestSyncMock: vi.fn(),
+  queueRedwoodHeadshotUploadMock: vi.fn(),
   resolveClientRedwoodEligibleDefaultTestMock: vi.fn(),
   upsertRedwoodIncidentAlertMock: vi.fn(),
 }))
 
 vi.mock('@/lib/redwood/config', () => ({
   assertRedwoodMutationAllowed: vi.fn(),
+  getAllowedRedwoodAccountNumbers: vi.fn(() => ['310974', '310872']),
   getRedwoodAccountNumber: vi.fn(() => '310974'),
 }))
 
@@ -30,6 +33,7 @@ vi.mock('@/lib/redwood/incidents', () => ({
 
 vi.mock('@/lib/redwood/queue', () => ({
   queueRedwoodDefaultTestSync: queueRedwoodDefaultTestSyncMock,
+  queueRedwoodHeadshotUpload: queueRedwoodHeadshotUploadMock,
 }))
 
 vi.mock('./redwoodClientHttpImport', () => ({
@@ -49,7 +53,6 @@ function createPayloadMock() {
       gender: 'male',
       phone: '(555) 111-2222',
       referralType: 'court',
-      redwoodUniqueId: 'RWD0001',
     }),
     update: vi.fn().mockResolvedValue({}),
     logger: {
@@ -64,6 +67,7 @@ describe('Redwood direct HTTP import workflow', () => {
     classifyRedwoodIncidentMock.mockReset()
     createRedwoodClientViaHttpMock.mockReset()
     queueRedwoodDefaultTestSyncMock.mockReset()
+    queueRedwoodHeadshotUploadMock.mockReset()
     resolveClientRedwoodEligibleDefaultTestMock.mockReset()
     upsertRedwoodIncidentAlertMock.mockReset()
     resolveClientRedwoodEligibleDefaultTestMock.mockResolvedValue({
@@ -74,6 +78,7 @@ describe('Redwood direct HTTP import workflow', () => {
 
   it('creates and verifies a donor through the reconstructed HTTP form workflow', async () => {
     createRedwoodClientViaHttpMock.mockResolvedValue({
+      accountNumber: '310974',
       callInCode: '123456',
       donorId: '2714034',
       matchedDonorName: null,
@@ -96,15 +101,18 @@ describe('Redwood direct HTTP import workflow', () => {
         lastName: 'Testing',
         phoneNumber: '555-111-2222',
         sex: 'M',
-        uniqueId: 'RWD0001',
       }),
-      expect.objectContaining({ allowCreate: true }),
+      expect.objectContaining({
+        allowCreate: true,
+        searchAccountNumbers: ['310974', '310872'],
+      }),
     )
     expect(payloadMock.update).toHaveBeenCalledWith(
       expect.objectContaining({
         collection: 'clients',
         data: expect.objectContaining({
           redwoodCallInCode: '123456',
+          redwoodAccountNumber: '310974',
           redwoodDonorId: '2714034',
           redwoodSyncStatus: 'synced',
         }),
@@ -115,9 +123,10 @@ describe('Redwood direct HTTP import workflow', () => {
 
   it('records inactive donor reactivation as a ready donor', async () => {
     createRedwoodClientViaHttpMock.mockResolvedValue({
+      accountNumber: '310872',
       callInCode: '654321',
       donorId: '2714034',
-      matchedBy: 'unique-id',
+      matchedBy: 'name-dob',
       matchedDonorName: 'Testing, Bob',
       status: 'reactivated-existing',
     })
@@ -129,22 +138,49 @@ describe('Redwood direct HTTP import workflow', () => {
       source: 'client-reactivation',
     })
 
-    expect(result).toEqual({ matchedBy: 'unique-id', status: 'reactivated-existing' })
+    expect(result).toEqual({ matchedBy: 'name-dob', status: 'reactivated-existing' })
     expect(payloadMock.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           redwoodSyncStatus: 'reactivated-existing',
+          redwoodAccountNumber: '310872',
           redwoodDonorId: '2714034',
         }),
       }),
     )
   })
 
-  it('queues removal of a stale managed default after donor verification', async () => {
+  it('queues a deferred headshot after donor provisioning returns the donor ID', async () => {
     createRedwoodClientViaHttpMock.mockResolvedValue({
+      accountNumber: '310974',
       callInCode: '123456',
       donorId: '2714034',
-      matchedBy: 'unique-id',
+      matchedDonorName: null,
+      status: 'imported',
+    })
+    queueRedwoodHeadshotUploadMock.mockResolvedValue({ jobId: 'headshot-job-1' })
+    const payloadMock = createPayloadMock()
+    payloadMock.findByID.mockResolvedValue({
+      ...(await payloadMock.findByID()),
+      headshot: 'media-1',
+      redwoodHeadshotPushStatus: null,
+    })
+
+    await runRedwoodImportClientJob({
+      clientId: 'client-1',
+      payload: payloadMock as never,
+      source: 'frontend-registration',
+    })
+
+    expect(queueRedwoodHeadshotUploadMock).toHaveBeenCalledWith('client-1', undefined, payloadMock)
+  })
+
+  it('queues removal of a stale managed default after donor verification', async () => {
+    createRedwoodClientViaHttpMock.mockResolvedValue({
+      accountNumber: '310974',
+      callInCode: '123456',
+      donorId: '2714034',
+      matchedBy: 'name-dob',
       matchedDonorName: 'Testing, Bob',
       status: 'matched-existing',
     })
@@ -167,6 +203,7 @@ describe('Redwood direct HTTP import workflow', () => {
 
   it('disables donor creation when Payload has prior drug-test history', async () => {
     createRedwoodClientViaHttpMock.mockResolvedValue({
+      accountNumber: '310974',
       callInCode: '123456',
       donorId: '2714034',
       matchedBy: 'name-dob',
@@ -201,7 +238,7 @@ describe('Redwood direct HTTP import workflow', () => {
 
   it('creates an admin alert when test history blocks duplicate donor creation', async () => {
     const blockedMessage =
-      'Potential existing Redwood donor: Payload contains prior drug-test history, but no confident ToxAccess match was found by unique ID or name and DOB. Manual review required; automatic donor creation was blocked to prevent a duplicate.'
+      'Potential existing Redwood donor: Payload contains prior drug-test history, but no confident ToxAccess match was found by name and DOB across allowed accounts. Manual review required; automatic donor creation was blocked to prevent a duplicate.'
     createRedwoodClientViaHttpMock.mockRejectedValue(new Error(blockedMessage))
     classifyRedwoodIncidentMock.mockReturnValue({
       errorClass: 'duplicate-prevention-block',

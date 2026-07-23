@@ -104,6 +104,15 @@ export const redwoodSyncTab: ClientTab = {
       },
     },
     {
+      name: 'redwoodAccountNumber',
+      type: 'text',
+      access: redwoodSystemFieldAccess,
+      admin: {
+        readOnly: true,
+        description: 'ToxAccess account that currently owns the donor and controls account-level collection settings.',
+      },
+    },
+    {
       type: 'collapsible',
       label: 'Technical sync details',
       admin: {
@@ -111,16 +120,6 @@ export const redwoodSyncTab: ClientTab = {
         description: 'Worker diagnostics and audit details. Expand only when troubleshooting a sync.',
       },
       fields: [
-        {
-          name: 'redwoodUniqueId',
-          type: 'text',
-          access: redwoodSystemFieldAccess,
-          maxLength: 20,
-          admin: {
-            readOnly: true,
-            description: 'Deterministic Redwood Unique ID (20 chars max).',
-          },
-        },
         {
           name: 'redwoodCallInCode',
           type: 'text',
@@ -232,10 +231,7 @@ export const redwoodSyncTab: ClientTab = {
           name: 'redwoodMatchedBy',
           type: 'select',
           access: redwoodSystemFieldAccess,
-          options: [
-            { label: 'Unique ID', value: 'unique-id' },
-            { label: 'Name + DOB', value: 'name-dob' },
-          ],
+          options: [{ label: 'Name + DOB', value: 'name-dob' }],
           admin: {
             readOnly: true,
             description: 'How this client was matched in Redwood export.',

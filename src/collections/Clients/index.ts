@@ -4,7 +4,6 @@ import { baseUrl } from '@/utilities/baseUrl'
 import { anyone } from '@/access/anyone'
 import { notifyNewRegistration } from './hooks/notifyNewRegistration'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
-import { ensureRedwoodUniqueId } from './hooks/ensureRedwoodUniqueId'
 import { queueRedwoodClientProvisioningAfterChange } from './hooks/queueRedwoodClientProvisioning'
 import { queueRedwoodClientInactivationAfterChange } from './hooks/queueRedwoodClientInactivation'
 import { queueRedwoodClientUpdateAfterChange } from './hooks/queueRedwoodClientUpdate'
@@ -18,7 +17,7 @@ import { REDWOOD_CLIENT_UPDATE_APPROVAL_FIELD, REDWOOD_CLIENT_UPDATE_SKIP_SYNC_F
 import { adminClientSearchEndpoint } from './search/endpoint'
 import { buildClientSearchFields } from './search/normalize'
 import { CLIENT_GENDER_OPTIONS, normalizeClientGender } from '@/lib/client-gender'
-import { formatDobISO, parseDob } from '@/lib/date-utils'
+import { formatDobForPayload, parseDob } from '@/lib/date-utils'
 
 const populateClientSearchFields: CollectionBeforeValidateHook = ({ data, originalDoc }) => {
   if (!data) return data
@@ -151,7 +150,6 @@ export const Clients: CollectionConfig = {
     afterError: [logClientOperationError],
     beforeChange: [syncDefaultTestTypeFromReferral, requireRedwoodClientUpdateApproval],
     afterChange: [
-      ensureRedwoodUniqueId,
       queueRedwoodClientProvisioningAfterChange,
       notifyNewRegistration,
       queueRedwoodClientUpdateAfterChange,
@@ -365,7 +363,7 @@ export const Clients: CollectionConfig = {
                 beforeValidate: [
                   ({ value }) => {
                     if (value === undefined || value === null || value === '') return value
-                    return formatDobISO(value) || null
+                    return formatDobForPayload(value) || null
                   },
                 ],
               },

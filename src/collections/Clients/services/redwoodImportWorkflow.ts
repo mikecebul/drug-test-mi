@@ -1,22 +1,24 @@
 import type { Payload } from 'payload'
 
 import { mapGenderToRedwoodSex, normalizePhoneForRedwood } from '@/lib/redwood/client-fields'
-import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
-import type { RedwoodMatchBy } from '@/lib/redwood/csv'
+import {
+  assertRedwoodMutationAllowed,
+  getAllowedRedwoodAccountNumbers,
+  getRedwoodAccountNumber,
+} from '@/lib/redwood/config'
 import { resolveClientRedwoodEligibleDefaultTest } from '@/lib/redwood/default-test'
 import { mapReferralTypeToRedwoodGroup } from '@/lib/redwood/groups'
 import { classifyRedwoodIncident, upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
-import { queueRedwoodDefaultTestSync } from '@/lib/redwood/queue'
-import { buildRedwoodUniqueId } from '@/lib/redwood/unique-id'
+import { queueRedwoodDefaultTestSync, queueRedwoodHeadshotUpload } from '@/lib/redwood/queue'
 import { createRedwoodClientViaHttp, type RedwoodHttpImportedDonor } from './redwoodClientHttpImport'
 
 type RedwoodImportResult = {
-  matchedBy?: RedwoodMatchBy
+  matchedBy?: 'name-dob'
   status: 'manual-review' | 'matched-existing' | 'partial-success' | 'reactivated-existing' | 'synced'
 }
 
 const DUPLICATE_PREVENTION_BLOCKED_REASON =
-  'Potential existing Redwood donor: Payload contains prior drug-test history, but no confident ToxAccess match was found by unique ID or name and DOB. Manual review required; automatic donor creation was blocked to prevent a duplicate.'
+  'Potential existing Redwood donor: Payload contains prior drug-test history, but no confident ToxAccess match was found by name and DOB across allowed accounts. Manual review required; automatic donor creation was blocked to prevent a duplicate.'
 
 async function updateClientRedwoodState(payload: Payload, clientId: string, data: Record<string, unknown>) {
   await payload.update({
@@ -84,7 +86,9 @@ async function queueRequiredDefaultTest(args: {
 async function routeSuccessfulImport(args: {
   client: Parameters<typeof resolveClientRedwoodEligibleDefaultTest>[0]['client'] & {
     firstName: string
+    headshot?: unknown
     lastName: string
+    redwoodHeadshotPushStatus?: unknown
   }
   clientId: string
   payload: Payload
@@ -100,8 +104,9 @@ async function routeSuccessfulImport(args: {
         : 'matched-existing'
 
   await updateClientRedwoodState(payload, clientId, {
+    redwoodAccountNumber: result.accountNumber,
     redwoodSyncStatus: syncStatus,
-    redwoodMatchedBy: result.status === 'imported' ? null : result.matchedBy || 'unique-id',
+    redwoodMatchedBy: result.status === 'imported' ? null : result.matchedBy || 'name-dob',
     redwoodMatchedDonorName: result.status === 'imported' ? null : result.matchedDonorName,
     redwoodCallInCode: result.callInCode,
     redwoodDonorId: result.donorId,
@@ -113,12 +118,34 @@ async function routeSuccessfulImport(args: {
     msg: '[redwood-import] Redwood donor is active and verified via direct HTTP',
     clientId,
     source,
+    accountNumber: result.accountNumber,
     donorId: result.donorId,
     callInCode: result.callInCode,
     matchedBy: result.matchedBy,
     status: syncStatus,
     queue: 'redwood',
   })
+
+  const headshotId =
+    typeof client.headshot === 'string'
+      ? client.headshot
+      : client.headshot && typeof client.headshot === 'object' && 'id' in client.headshot
+        ? String(client.headshot.id)
+        : ''
+  const headshotStatus =
+    typeof client.redwoodHeadshotPushStatus === 'string' ? client.redwoodHeadshotPushStatus : ''
+  if (headshotId && !['queued', 'synced'].includes(headshotStatus)) {
+    try {
+      await queueRedwoodHeadshotUpload(clientId, undefined, payload)
+    } catch (error) {
+      payload.logger.error({
+        msg: '[redwood-import] Donor is ready, but headshot upload could not be queued',
+        clientId,
+        source,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
 
   const defaultTestError = await queueRequiredDefaultTest({ client, clientId, payload, source })
   if (!defaultTestError) {
@@ -142,12 +169,14 @@ async function routeSuccessfulImport(args: {
     message,
     context: {
       clientId,
+      accountNumber: result.accountNumber,
       donorId: result.donorId,
       source,
       queue: 'redwood',
     },
     statusSnapshot: {
       redwoodSyncStatus: syncStatus,
+      redwoodAccountNumber: result.accountNumber,
       redwoodDonorId: result.donorId,
     },
   })
@@ -179,8 +208,6 @@ export async function runRedwoodImportClientJob(args: {
     throw new Error('Client is missing required fields for Redwood import (firstName, lastName, dob)')
   }
 
-  const uniqueId =
-    (typeof client.redwoodUniqueId === 'string' && client.redwoodUniqueId.trim()) || buildRedwoodUniqueId(client.id)
   const donorGroup = mapReferralTypeToRedwoodGroup(client.referralType) || process.env.REDWOOD_DONOR_GROUP?.trim() || ''
   const hasDrugTestHistory = await hasPayloadDrugTestHistory(payload, String(client.id))
 
@@ -191,7 +218,6 @@ export async function runRedwoodImportClientJob(args: {
         firstName: client.firstName,
         middleInitial: client.middleInitial || '',
         lastName: client.lastName,
-        uniqueId,
         dob: client.dob,
         intakeDate: new Date(),
         sex: mapGenderToRedwoodSex(client.gender),
@@ -201,6 +227,7 @@ export async function runRedwoodImportClientJob(args: {
       {
         allowCreate: !hasDrugTestHistory,
         blockedReason: hasDrugTestHistory ? DUPLICATE_PREVENTION_BLOCKED_REASON : undefined,
+        searchAccountNumbers: getAllowedRedwoodAccountNumbers(),
       },
     )
 

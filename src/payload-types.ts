@@ -1490,9 +1490,9 @@ export interface Client {
    */
   redwoodDonorId?: string | null;
   /**
-   * Deterministic Redwood Unique ID (20 chars max).
+   * ToxAccess account that currently owns the donor and controls account-level collection settings.
    */
-  redwoodUniqueId?: string | null;
+  redwoodAccountNumber?: string | null;
   /**
    * Redwood call-in / check-in code synced back from the donor record.
    */
@@ -1556,7 +1556,7 @@ export interface Client {
   /**
    * How this client was matched in Redwood export.
    */
-  redwoodMatchedBy?: ('unique-id' | 'name-dob') | null;
+  redwoodMatchedBy?: 'name-dob' | null;
   /**
    * Matched donor identifier from Redwood export.
    */
@@ -3927,7 +3927,7 @@ export interface ClientsSelect<T extends boolean = true> {
   privateDocuments?: T;
   redwoodSyncStatus?: T;
   redwoodDonorId?: T;
-  redwoodUniqueId?: T;
+  redwoodAccountNumber?: T;
   redwoodCallInCode?: T;
   redwoodClientUpdateStatus?: T;
   redwoodPendingSyncFields?: T;

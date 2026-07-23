@@ -15,7 +15,9 @@ function shouldRouteClientUpdateToManualReview(message: string): boolean {
     /no redwood donor rows found/i.test(message) ||
     /no dob-verified redwood donor match found/i.test(message) ||
     /no confident name-only redwood donor match found/i.test(message) ||
-    /ambiguous/i.test(message)
+    /ambiguous/i.test(message) ||
+    /not in REDWOOD_ALLOWED_ACCOUNT_NUMBERS/i.test(message) ||
+    /did not expose its account number/i.test(message)
   )
 }
 
@@ -47,7 +49,9 @@ export async function runRedwoodClientUpdateJob(
       throw new Error('Client must have first and last name before Redwood update can run.')
     }
 
-    const accountNumber = getRedwoodAccountNumber()
+    const accountNumber =
+      (typeof client.redwoodAccountNumber === 'string' && client.redwoodAccountNumber.trim()) ||
+      getRedwoodAccountNumber()
     assertRedwoodMutationAllowed(accountNumber, 'client update')
 
     await payload.update({
@@ -71,7 +75,7 @@ export async function runRedwoodClientUpdateJob(
         lastName: client.lastName,
         middleInitial: client.middleInitial || undefined,
         dob: client.dob || undefined,
-        redwoodUniqueId: typeof client.redwoodUniqueId === 'string' ? client.redwoodUniqueId : undefined,
+        redwoodAccountNumber: accountNumber,
         redwoodDonorId: typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId : undefined,
         gender: client.gender || undefined,
         phone: client.phone || undefined,
@@ -84,6 +88,7 @@ export async function runRedwoodClientUpdateJob(
       collection: 'clients',
       id: client.id,
       data: {
+        redwoodAccountNumber: result.accountNumber,
         redwoodCallInCode: result.callInCode || (typeof client.redwoodCallInCode === 'string' ? client.redwoodCallInCode : null),
         redwoodClientUpdateStatus: 'synced',
         redwoodClientUpdateLastAttemptAt: new Date().toISOString(),

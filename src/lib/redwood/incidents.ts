@@ -49,6 +49,13 @@ function deriveRedwoodErrorClass(message: string): string {
     return 'manual-review-match'
   }
 
+  if (
+    normalized.includes('not in redwood_allowed_account_numbers') ||
+    normalized.includes('did not expose its account number')
+  ) {
+    return 'donor-account-review'
+  }
+
   if (normalized.includes('metadata lookup failed') || normalized.includes('missing redwood identity after import')) {
     return 'post-import-identity-gap'
   }
@@ -133,6 +140,8 @@ export function classifyRedwoodIncident(args: {
   if (
     normalized.includes('potential existing redwood donor') ||
     normalized.includes('manual review required') ||
+    normalized.includes('not in redwood_allowed_account_numbers') ||
+    normalized.includes('did not expose its account number') ||
     normalized.includes('rejected row') ||
     normalized.includes('rejected one or more import rows')
   ) {

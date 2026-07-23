@@ -1,7 +1,5 @@
 import { formatDateForRedwood } from '@/lib/redwood/client-fields'
 
-export type RedwoodMatchBy = 'unique-id' | 'name-dob'
-
 function normalizeValue(value: string | null | undefined): string {
   return (value || '').trim()
 }
@@ -54,7 +52,6 @@ export interface RedwoodImportCSVInput {
   firstName: string
   middleInitial?: string | null
   lastName: string
-  uniqueId: string
   dob: string | Date
   intakeDate?: string | Date | null
   sex?: string | null
@@ -63,6 +60,11 @@ export interface RedwoodImportCSVInput {
 }
 
 function asCsvCell(value: string): string {
+  // ToxAccess stores the quote from a standards-compliant `""` empty field
+  // as the literal HTML-encoded value `&quot;`. Emit an unquoted empty field
+  // so the importer receives no characters at all.
+  if (value === '') return ''
+
   return `"${value.replace(/"/g, '""')}"`
 }
 
@@ -84,7 +86,7 @@ export function buildRedwoodImportCSV(input: RedwoodImportCSVInput): string {
     normalizeValue(input.firstName),
     normalizeValue(input.middleInitial),
     normalizeValue(input.lastName),
-    normalizeValue(input.uniqueId),
+    '',
     formatDateForRedwood(input.dob),
     input.intakeDate ? formatDateForRedwood(input.intakeDate) : '',
     normalizeValue(input.sex),

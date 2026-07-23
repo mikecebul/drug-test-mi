@@ -25,14 +25,15 @@ export async function runRedwoodClientInactivationJob(
       throw new Error('Client must have first and last name before Redwood inactivation can run.')
     }
 
-    const uniqueId = typeof client.redwoodUniqueId === 'string' ? client.redwoodUniqueId.trim() : ''
     const donorId = typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId.trim() : ''
 
-    if (!uniqueId && !donorId) {
-      throw new Error('Client is missing Redwood identity; inactivation requires redwoodUniqueId or redwoodDonorId.')
+    if (!donorId) {
+      throw new Error('Client is missing Redwood donor ID; inactivation requires redwoodDonorId.')
     }
 
-    const accountNumber = getRedwoodAccountNumber()
+    const accountNumber =
+      (typeof client.redwoodAccountNumber === 'string' && client.redwoodAccountNumber.trim()) ||
+      getRedwoodAccountNumber()
     assertRedwoodMutationAllowed(accountNumber, 'client inactivation')
 
     await payload.update({
@@ -57,7 +58,7 @@ export async function runRedwoodClientInactivationJob(
         lastName: client.lastName,
         middleInitial: client.middleInitial || undefined,
         dob: client.dob || undefined,
-        redwoodUniqueId: uniqueId || undefined,
+        redwoodAccountNumber: accountNumber,
         redwoodDonorId: donorId || undefined,
       },
     })
@@ -66,6 +67,7 @@ export async function runRedwoodClientInactivationJob(
       collection: 'clients',
       id: client.id,
       data: {
+        redwoodAccountNumber: result.accountNumber,
         redwoodDonorId: result.donorId || donorId || null,
         redwoodInactivationStatus: 'synced',
         redwoodInactivationLastAttemptAt: new Date().toISOString(),

@@ -8,6 +8,6 @@ interface RegistrationIdentity {
 
 export function registrationDuplicateWhere({ firstName, lastName, dob }: RegistrationIdentity): Where {
   return {
-    and: [{ firstName: { equals: firstName } }, { lastName: { equals: lastName } }, { dob: { equals: dob } }],
+    and: [{ firstName: { equals: firstName } }, { lastName: { equals: lastName } }, { searchDob: { equals: dob } }],
   }
 }

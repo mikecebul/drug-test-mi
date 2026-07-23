@@ -16,6 +16,7 @@ import * as migration_20260711_000000_deduplicate_job_runs from './20260711_0000
 import * as migration_20260712_000000_migrate_client_default_test_to_config_value from './20260712_000000_migrate_client_default_test_to_config_value'
 import * as migration_20260718_000000_backfill_client_search_fields from './20260718_000000_backfill_client_search_fields'
 import * as migration_20260719_000000_normalize_client_gender from './20260719_000000_normalize_client_gender'
+import * as migration_20260723_203006_increase_client_dobs_one_day from './20260723_203006_increase_client_dobs_one_day'
 
 export const migrations = [
   {
@@ -107,5 +108,10 @@ export const migrations = [
     up: migration_20260719_000000_normalize_client_gender.up,
     down: migration_20260719_000000_normalize_client_gender.down,
     name: '20260719_000000_normalize_client_gender',
+  },
+  {
+    up: migration_20260723_203006_increase_client_dobs_one_day.up,
+    down: migration_20260723_203006_increase_client_dobs_one_day.down,
+    name: '20260723_203006_increase_client_dobs_one_day',
   },
 ]

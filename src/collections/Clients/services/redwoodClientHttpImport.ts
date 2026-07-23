@@ -1,4 +1,4 @@
-import { buildRedwoodImportCSV, type RedwoodImportCSVInput, type RedwoodMatchBy } from '@/lib/redwood/csv'
+import { buildRedwoodImportCSV, type RedwoodImportCSVInput } from '@/lib/redwood/csv'
 import {
   createRedwoodHttpSession,
   parseRedwoodFormEntries,
@@ -9,7 +9,7 @@ import {
 import {
   findExistingActiveRedwoodDonorViaHttp,
   findExistingInactiveRedwoodDonorViaHttp,
-  findRedwoodDonorByUniqueIdViaHttp,
+  findRedwoodDonorByNameDobViaHttp,
   readRedwoodCallInCodeViaHttp,
 } from '@/lib/redwood/http-donor-search'
 import { resolveRedwoodAuthEnv } from '@/lib/redwood/auth'
@@ -26,9 +26,10 @@ const REDWOOD_IMPORT_UPLOAD_BUTTON = 'ctl00$PageContent$ImportDonor1$btnImport'
 type RedwoodHttpImportStatus = 'imported' | 'matched-existing' | 'reactivated-existing'
 
 export type RedwoodHttpImportedDonor = {
+  accountNumber: string
   callInCode: string | null
   donorId: string
-  matchedBy?: RedwoodMatchBy
+  matchedBy?: 'name-dob'
   matchedDonorName: string | null
   status: RedwoodHttpImportStatus
 }
@@ -36,6 +37,7 @@ export type RedwoodHttpImportedDonor = {
 export type RedwoodDonorCreationOptions = {
   allowCreate?: boolean
   blockedReason?: string
+  searchAccountNumbers?: string[]
 }
 
 export function assertRedwoodDonorCreationAllowed(options: RedwoodDonorCreationOptions = {}): void {
@@ -152,21 +154,45 @@ export async function createRedwoodClientViaHttp(
   const donorSearchUrl = process.env.REDWOOD_DONOR_SEARCH_URL?.trim() || DEFAULT_REDWOOD_DONOR_SEARCH_URL
   const importUrl = process.env.REDWOOD_IMPORT_URL?.trim() || DEFAULT_REDWOOD_IMPORT_URL
   const session = await createRedwoodHttpSession(auth)
+  const searchAccountNumbers = Array.from(
+    new Set(
+      (creationOptions.searchAccountNumbers?.length
+        ? creationOptions.searchAccountNumbers
+        : [input.accountNumber]
+      )
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  )
+  const lookupClient = {
+    dob: typeof input.dob === 'string' ? input.dob : input.dob.toISOString(),
+    firstName: input.firstName,
+    lastName: input.lastName,
+    middleInitial: input.middleInitial,
+  }
 
   const existing = await findExistingActiveRedwoodDonorViaHttp({
-    accountNumber: input.accountNumber,
-    client: {
-      dob: typeof input.dob === 'string' ? input.dob : input.dob.toISOString(),
-      firstName: input.firstName,
-      lastName: input.lastName,
-      middleInitial: input.middleInitial,
-      redwoodUniqueId: input.uniqueId,
-    },
+    accountNumbers: searchAccountNumbers,
+    client: lookupClient,
     donorSearchUrl,
     session,
   })
+  const inactive = await findExistingInactiveRedwoodDonorViaHttp({
+    accountNumbers: searchAccountNumbers,
+    client: lookupClient,
+    donorSearchUrl,
+    session,
+  })
+
+  if (existing && inactive) {
+    throw new Error(
+      `DOB-verified Redwood donor matches were found in both active account ${existing.accountNumber} and inactive account ${inactive.accountNumber}; manual review required.`,
+    )
+  }
+
   if (existing) {
     return {
+      accountNumber: existing.accountNumber,
       callInCode: await readRedwoodCallInCodeViaHttp({ donorId: existing.donorId, donorSearchUrl, session }),
       donorId: existing.donorId,
       matchedBy: existing.matchedBy,
@@ -175,34 +201,23 @@ export async function createRedwoodClientViaHttp(
     }
   }
 
-  const inactive = await findExistingInactiveRedwoodDonorViaHttp({
-    accountNumber: input.accountNumber,
-    client: {
-      dob: typeof input.dob === 'string' ? input.dob : input.dob.toISOString(),
-      firstName: input.firstName,
-      lastName: input.lastName,
-      middleInitial: input.middleInitial,
-      redwoodUniqueId: input.uniqueId,
-    },
-    donorSearchUrl,
-    session,
-  })
   if (inactive) {
     await setRedwoodClientActiveStatusViaHttp({
-      accountNumber: input.accountNumber,
+      accountNumber: inactive.accountNumber,
       active: true,
       client: {
-        dob: typeof input.dob === 'string' ? input.dob : input.dob.toISOString(),
+        dob: lookupClient.dob,
         firstName: input.firstName,
-        id: input.uniqueId,
+        id: `redwood-donor-${inactive.donorId}`,
         lastName: input.lastName,
         middleInitial: input.middleInitial,
+        redwoodAccountNumber: inactive.accountNumber,
         redwoodDonorId: inactive.donorId,
-        redwoodUniqueId: input.uniqueId,
       },
     })
 
     return {
+      accountNumber: inactive.accountNumber,
       callInCode: await readRedwoodCallInCodeViaHttp({ donorId: inactive.donorId, donorSearchUrl, session }),
       donorId: inactive.donorId,
       matchedBy: inactive.matchedBy,
@@ -222,7 +237,7 @@ export async function createRedwoodClientViaHttp(
     files: [
       {
         blob: new Blob([csv], { type: 'text/csv' }),
-        filename: `redwood-import-${input.uniqueId}.csv`,
+        filename: `redwood-import-${input.lastName.replace(/[^a-z0-9-]+/gi, '-').toLowerCase()}.csv`,
         name: REDWOOD_IMPORT_FILE_FIELD,
       },
     ],
@@ -230,7 +245,22 @@ export async function createRedwoodClientViaHttp(
   })
   let resultHtml = await uploadResponse.text()
   assertRedwoodImportDidNotReject(resultHtml)
-  assertRedwoodImportUploadAdvanced(resultHtml)
+
+  let imported = await findRedwoodDonorByNameDobViaHttp({
+    accountNumber: input.accountNumber,
+    client: lookupClient,
+    donorSearchUrl,
+    session,
+  })
+  if (imported) {
+    return {
+      accountNumber: imported.accountNumber,
+      callInCode: await readRedwoodCallInCodeViaHttp({ donorId: imported.donorId, donorSearchUrl, session }),
+      donorId: imported.donorId,
+      matchedDonorName: imported.matchedDonorName,
+      status: 'imported',
+    }
+  }
 
   const submitControl = readRedwoodImportFinalSubmitControl(resultHtml)
   if (submitControl) {
@@ -244,19 +274,22 @@ export async function createRedwoodClientViaHttp(
     if (readRedwoodImportFinalSubmitControl(resultHtml) && !isImportProcessedSummary(resultSummary)) {
       throw new Error('Redwood donor import final submit did not complete.')
     }
+  } else {
+    assertRedwoodImportUploadAdvanced(resultHtml)
   }
 
-  const imported = await findRedwoodDonorByUniqueIdViaHttp({
+  imported = await findRedwoodDonorByNameDobViaHttp({
     accountNumber: input.accountNumber,
+    client: lookupClient,
     donorSearchUrl,
     session,
-    uniqueId: input.uniqueId,
   })
   if (!imported) {
-    throw new Error('Redwood donor import completed, but the imported donor could not be resolved by unique ID.')
+    throw new Error('Redwood donor import completed, but the imported donor could not be resolved by name and DOB.')
   }
 
   return {
+    accountNumber: imported.accountNumber,
     callInCode: await readRedwoodCallInCodeViaHttp({ donorId: imported.donorId, donorSearchUrl, session }),
     donorId: imported.donorId,
     matchedDonorName: imported.matchedDonorName,

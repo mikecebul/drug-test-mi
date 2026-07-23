@@ -5,9 +5,14 @@ import {
   parseRedwoodFormEntries,
   setRedwoodFormEntry,
 } from '@/lib/redwood/http'
-import { readRedwoodCallInCodeViaHttp, resolveRedwoodDonorIdViaHttp } from '@/lib/redwood/http-donor-search'
+import {
+  assertRedwoodDonorAccountAllowed,
+  readRedwoodCallInCodeViaHttp,
+  resolveRedwoodDonorIdViaHttp,
+} from '@/lib/redwood/http-donor-search'
 import { formatDateForRedwood, mapGenderToRedwoodSex, normalizePhoneForRedwood } from '@/lib/redwood/client-fields'
 import { resolveRedwoodAuthEnv } from '@/lib/redwood/auth'
+import { getAllowedRedwoodAccountNumbers } from '@/lib/redwood/config'
 import type { RedwoodClientUpdateField } from '@/lib/redwood/queue'
 import type { RedwoodDonorLookupClient } from '@/lib/redwood/donor-search'
 
@@ -122,6 +127,7 @@ export async function updateRedwoodClientDetailsViaHttp(args: {
   changedFields: RedwoodClientUpdateField[]
   client: RedwoodHttpUpdateClient
 }): Promise<{
+  accountNumber: string
   callInCode: string | null
   donorId: string | null
   updatedFields: RedwoodClientUpdateField[]
@@ -137,7 +143,7 @@ export async function updateRedwoodClientDetailsViaHttp(args: {
   const donorSearchUrl = process.env.REDWOOD_DONOR_SEARCH_URL?.trim() || DEFAULT_REDWOOD_DONOR_SEARCH_URL
   const session = await createRedwoodHttpSession(auth)
   const donorId = await resolveRedwoodDonorIdViaHttp({
-    accountNumber: args.accountNumber,
+    accountNumbers: getAllowedRedwoodAccountNumbers(),
     client,
     donorSearchUrl,
     session,
@@ -146,6 +152,7 @@ export async function updateRedwoodClientDetailsViaHttp(args: {
 
   const editPage = await session.getText(editUrl)
   assertDonorEditPage(editPage.text, donorId)
+  const accountNumber = assertRedwoodDonorAccountAllowed(editPage.text, donorId)
 
   const editEntries = parseRedwoodFormEntries(editPage.text)
   const missingFields = plan.filter((entry) => getRedwoodFormEntry(editEntries, entry.formName) === undefined)
@@ -163,6 +170,7 @@ export async function updateRedwoodClientDetailsViaHttp(args: {
 
   if (alreadySynced) {
     return {
+      accountNumber,
       callInCode: await readRedwoodCallInCodeViaHttp({ donorId, donorSearchUrl, session }),
       donorId,
       updatedFields: plan.map((entry) => entry.field),
@@ -182,6 +190,7 @@ export async function updateRedwoodClientDetailsViaHttp(args: {
 
   const verificationPage = await session.getText(editUrl)
   assertDonorEditPage(verificationPage.text, donorId)
+  assertRedwoodDonorAccountAllowed(verificationPage.text, donorId)
   const verificationEntries = parseRedwoodFormEntries(verificationPage.text)
   const failedFields = plan.filter(
     (entry) =>
@@ -197,6 +206,7 @@ export async function updateRedwoodClientDetailsViaHttp(args: {
   }
 
   return {
+    accountNumber,
     callInCode: await readRedwoodCallInCodeViaHttp({ donorId, donorSearchUrl, session }),
     donorId,
     updatedFields: plan.map((entry) => entry.field),

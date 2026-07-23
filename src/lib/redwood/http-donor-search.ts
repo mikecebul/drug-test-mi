@@ -1,4 +1,4 @@
-import type { RedwoodMatchBy } from '@/lib/redwood/csv'
+import { getAllowedRedwoodAccountNumbers } from '@/lib/redwood/config'
 import { buildRedwoodDonorSearchResultsUrl, buildRedwoodDonorViewUrl } from '@/lib/redwood/donor-urls'
 import {
   buildRedwoodDonorCandidates,
@@ -6,16 +6,24 @@ import {
   type RedwoodDonorLookupClient,
   type RedwoodDonorTableRow,
 } from '@/lib/redwood/donor-search'
-import { stripRedwoodHtml, type RedwoodHttpSession } from '@/lib/redwood/http'
+import {
+  getRedwoodFormEntry,
+  parseRedwoodFormEntries,
+  stripRedwoodHtml,
+  type RedwoodHttpSession,
+} from '@/lib/redwood/http'
+
+const REDWOOD_AGENCY_FIELD = 'ctl00$PageContent$Donor$ddlAgencies'
 
 export type RedwoodHttpDonorSearchRow = RedwoodDonorTableRow & {
   donorId: string
 }
 
 export type RedwoodHttpResolvedDonor = {
+  accountNumber: string
   callInCode?: string | null
   donorId: string
-  matchedBy: RedwoodMatchBy
+  matchedBy: 'name-dob'
   matchedDonorName: string | null
 }
 
@@ -73,46 +81,29 @@ export function readRedwoodCallInCodeFromDonorView(html: string): string | null 
   return null
 }
 
+export function readRedwoodDonorAccountNumber(html: string): string | null {
+  const accountNumber = getRedwoodFormEntry(parseRedwoodFormEntries(html), REDWOOD_AGENCY_FIELD)?.trim()
+  return accountNumber || null
+}
+
+export function assertRedwoodDonorAccountAllowed(html: string, donorId: string): string {
+  const accountNumber = readRedwoodDonorAccountNumber(html)
+  if (!accountNumber) {
+    throw new Error(`Redwood donor ${donorId} did not expose its account number on the donor edit page.`)
+  }
+
+  const allowedAccountNumbers = getAllowedRedwoodAccountNumbers()
+  if (!allowedAccountNumbers.includes(accountNumber)) {
+    throw new Error(
+      `Redwood donor ${donorId} belongs to account ${accountNumber}, which is not in REDWOOD_ALLOWED_ACCOUNT_NUMBERS (${allowedAccountNumbers.join(', ')}).`,
+    )
+  }
+
+  return accountNumber
+}
+
 function getMatchedDonorName(row: RedwoodHttpDonorSearchRow): string | null {
   return row.cells.find((cell) => cell.includes(',')) || null
-}
-
-function rowMatchesAllowedAccount(row: RedwoodHttpDonorSearchRow, accountNumber: string): boolean {
-  return row.cells.join(' ').includes(accountNumber.trim())
-}
-
-export async function findRedwoodDonorByUniqueIdViaHttp(args: {
-  accountNumber: string
-  active?: boolean
-  donorSearchUrl: string
-  session: RedwoodHttpSession
-  uniqueId: string
-}): Promise<RedwoodHttpResolvedDonor | null> {
-  const { accountNumber, active = true, donorSearchUrl, session, uniqueId } = args
-  const searchPage = await session.getText(
-    buildRedwoodDonorSearchResultsUrl({
-      accountNumber,
-      active,
-      donorSearchUrl,
-      uniqueId,
-    }),
-  )
-  const rows = readRedwoodDonorSearchResults(searchPage.text)
-  const normalizedUniqueId = uniqueId.trim().toUpperCase()
-  if (!normalizedUniqueId) return null
-
-  const match = rows.find((row) => {
-    const rowText = row.cells.join(' ').toUpperCase()
-    return rowText.includes(normalizedUniqueId) && rowMatchesAllowedAccount(row, accountNumber)
-  })
-
-  if (!match) return null
-
-  return {
-    donorId: match.donorId,
-    matchedBy: 'unique-id',
-    matchedDonorName: getMatchedDonorName(match),
-  }
 }
 
 function isNonMatchSelectionError(error: unknown): boolean {
@@ -141,7 +132,6 @@ export async function findRedwoodDonorByNameDobViaHttp(args: {
     }),
   )
   const rows = readRedwoodDonorSearchResults(searchPage.text)
-
   if (rows.length === 0) return null
 
   const candidates = buildRedwoodDonorCandidates(rows, accountNumber, client)
@@ -154,9 +144,10 @@ export async function findRedwoodDonorByNameDobViaHttp(args: {
     }
 
     return {
+      accountNumber,
       donorId: selectedRow.donorId,
       matchedBy: 'name-dob',
-      matchedDonorName: selectedCandidate.displayName,
+      matchedDonorName: getMatchedDonorName(selectedRow),
     }
   } catch (error) {
     if (isNonMatchSelectionError(error)) return null
@@ -164,49 +155,51 @@ export async function findRedwoodDonorByNameDobViaHttp(args: {
   }
 }
 
-export async function findExistingRedwoodDonorViaHttp(args: {
-  active: boolean
-  accountNumber: string
-  client: RedwoodDonorLookupClient
+export async function findRedwoodDonorByNameDobAcrossAccountsViaHttp(args: {
+  accountNumbers: string[]
+  active?: boolean
+  client: Pick<RedwoodDonorLookupClient, 'dob' | 'firstName' | 'lastName' | 'middleInitial'>
   donorSearchUrl: string
   session: RedwoodHttpSession
 }): Promise<RedwoodHttpResolvedDonor | null> {
-  const uniqueId = args.client.redwoodUniqueId?.trim()
+  const { active = true } = args
+  const accountNumbers = Array.from(new Set(args.accountNumbers.map((value) => value.trim()).filter(Boolean)))
+  const matches: RedwoodHttpResolvedDonor[] = []
 
-  if (uniqueId) {
-    const uniqueIdMatch = await findRedwoodDonorByUniqueIdViaHttp({
-      accountNumber: args.accountNumber,
-      active: args.active,
+  for (const accountNumber of accountNumbers) {
+    const match = await findRedwoodDonorByNameDobViaHttp({
+      accountNumber,
+      active,
+      client: args.client,
       donorSearchUrl: args.donorSearchUrl,
       session: args.session,
-      uniqueId,
     })
-    if (uniqueIdMatch) return uniqueIdMatch
+    if (match) matches.push(match)
   }
 
-  return findRedwoodDonorByNameDobViaHttp({
-    accountNumber: args.accountNumber,
-    active: args.active,
-    client: args.client,
-    donorSearchUrl: args.donorSearchUrl,
-    session: args.session,
-  })
+  if (matches.length > 1) {
+    throw new Error(
+      `Multiple DOB-verified Redwood donor matches were found across accounts ${matches.map((match) => match.accountNumber).join(', ')}; manual review required.`,
+    )
+  }
+
+  return matches[0] || null
 }
 
 export async function findExistingActiveRedwoodDonorViaHttp(
-  args: Omit<Parameters<typeof findExistingRedwoodDonorViaHttp>[0], 'active'>,
+  args: Omit<Parameters<typeof findRedwoodDonorByNameDobAcrossAccountsViaHttp>[0], 'active'>,
 ): Promise<RedwoodHttpResolvedDonor | null> {
-  return findExistingRedwoodDonorViaHttp({ ...args, active: true })
+  return findRedwoodDonorByNameDobAcrossAccountsViaHttp({ ...args, active: true })
 }
 
 export async function findExistingInactiveRedwoodDonorViaHttp(
-  args: Omit<Parameters<typeof findExistingRedwoodDonorViaHttp>[0], 'active'>,
+  args: Omit<Parameters<typeof findRedwoodDonorByNameDobAcrossAccountsViaHttp>[0], 'active'>,
 ): Promise<RedwoodHttpResolvedDonor | null> {
-  return findExistingRedwoodDonorViaHttp({ ...args, active: false })
+  return findRedwoodDonorByNameDobAcrossAccountsViaHttp({ ...args, active: false })
 }
 
 export async function resolveRedwoodDonorIdViaHttp(args: {
-  accountNumber: string
+  accountNumbers: string[]
   client: RedwoodDonorLookupClient
   donorSearchUrl: string
   session: RedwoodHttpSession
@@ -214,20 +207,8 @@ export async function resolveRedwoodDonorIdViaHttp(args: {
   const donorId = args.client.redwoodDonorId?.trim()
   if (donorId) return donorId
 
-  const uniqueId = args.client.redwoodUniqueId?.trim()
-  if (uniqueId) {
-    const uniqueIdMatch = await findRedwoodDonorByUniqueIdViaHttp({
-      accountNumber: args.accountNumber,
-      active: true,
-      donorSearchUrl: args.donorSearchUrl,
-      session: args.session,
-      uniqueId,
-    })
-    if (uniqueIdMatch?.donorId) return uniqueIdMatch.donorId
-  }
-
-  const nameDobMatch = await findRedwoodDonorByNameDobViaHttp({
-    accountNumber: args.accountNumber,
+  const nameDobMatch = await findRedwoodDonorByNameDobAcrossAccountsViaHttp({
+    accountNumbers: args.accountNumbers,
     active: true,
     client: args.client,
     donorSearchUrl: args.donorSearchUrl,
@@ -235,7 +216,7 @@ export async function resolveRedwoodDonorIdViaHttp(args: {
   })
   if (nameDobMatch?.donorId) return nameDobMatch.donorId
 
-  throw new Error('Unable to resolve Redwood donor ID from donor ID, unique ID, or active name/DOB search.')
+  throw new Error('Unable to resolve Redwood donor ID from donor ID or active name/DOB search across allowed accounts.')
 }
 
 export async function readRedwoodCallInCodeViaHttp(args: {

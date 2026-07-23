@@ -21,7 +21,7 @@ describe('redwood incidents', () => {
   it('classifies ambiguous donor matching as manual-review without retry', () => {
     expect(
       classifyRedwoodIncident({
-        message: 'No Redwood donor rows found for unique ID "RWD001"',
+        message: 'No DOB-verified Redwood donor match found across allowed accounts',
         jobType: 'client-update',
         phase: 'runtime',
       }),
@@ -31,6 +31,20 @@ describe('redwood incidents', () => {
         retryable: false,
       }),
     )
+  })
+
+  it('classifies an unapproved donor account as manual-review without retry', () => {
+    expect(
+      classifyRedwoodIncident({
+        jobType: 'client-update',
+        message:
+          'Redwood donor 2714034 belongs to account 999999, which is not in REDWOOD_ALLOWED_ACCOUNT_NUMBERS (310974, 310872).',
+      }),
+    ).toEqual({
+      errorClass: 'donor-account-review',
+      kind: 'manual-review-required',
+      retryable: false,
+    })
   })
 
   it('classifies explicit partial-success escalations without retry', () => {
