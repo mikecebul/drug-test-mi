@@ -33,6 +33,8 @@ function formatDisplayDateTime(date: Date | undefined) {
 }
 
 interface InputDateTimePickerProps {
+  'aria-describedby'?: string
+  'aria-invalid'?: React.AriaAttributes['aria-invalid']
   id?: string
   label?: string
   value: Date | undefined
@@ -43,6 +45,8 @@ interface InputDateTimePickerProps {
 }
 
 export default function InputDateTimePicker({
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
   id = 'datetime',
   label,
   value,
@@ -54,9 +58,7 @@ export default function InputDateTimePicker({
   const [open, setOpen] = React.useState(false)
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(value)
   const [selectedTime, setSelectedTime] = React.useState<string | null>(
-    value
-      ? `${value.getHours().toString().padStart(2, '0')}:${value.getMinutes().toString().padStart(2, '0')}`
-      : null,
+    value ? `${value.getHours().toString().padStart(2, '0')}:${value.getMinutes().toString().padStart(2, '0')}` : null,
   )
   const [inputValue, setInputValue] = React.useState(formatDisplayDateTime(value))
 
@@ -144,6 +146,8 @@ export default function InputDateTimePicker({
       )}
       <div className="relative">
         <Input
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid}
           id={id}
           value={inputValue}
           placeholder={placeholder}
@@ -153,12 +157,14 @@ export default function InputDateTimePicker({
         />
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger
-            render={<Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
-            />}
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
+              />
+            }
           >
             <CalendarIcon className="size-4" />
             <span className="sr-only">Select date and time</span>

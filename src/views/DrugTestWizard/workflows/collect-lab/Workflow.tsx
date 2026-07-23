@@ -19,7 +19,7 @@ import { createCollectionWithEmailReview } from './actions/createCollectionWithE
 import { TestCompleted } from '../../components/TestCompleted'
 import { clientSchema, collectionSchema, emailsGroupSchema, labTests, medicationsSchema, steps } from './validators'
 import { getClientByBookingId, getClientById } from '../components/client/getClients'
-import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
+import { focusFirstInvalidFieldWithToast, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface CollectLabWorkflowProps {
   onBack: () => void
@@ -79,21 +79,11 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   })
 
   const selectedClientId = useStore(form.store, (state) => state.values.client.id)
-  const recommendedTestType = useStore(form.store, (state) => state.values.client.recommendedTestTypeValue)
-
   useEffect(() => {
     if (presetTestType) {
       form.setFieldValue('collection.testType', presetTestType)
     }
   }, [form, presetTestType])
-
-  useEffect(() => {
-    if (presetTestType) {
-      return
-    }
-
-    form.setFieldValue('collection.testType', recommendedTestType ?? '11-panel-lab')
-  }, [form, selectedClientId, recommendedTestType, presetTestType])
 
   // Handle client pre-population from scheduled collection or registration workflow.
   useEffect(() => {
@@ -180,10 +170,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   }
 
   const handleGroupSubmitInvalid = (_error?: unknown) => {
-    const focusedField = focusFirstInvalidField(formRef.current)
-    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
-      id: 'collect-lab-step-invalid',
-    })
+    focusFirstInvalidFieldWithToast(formRef.current, 'collect-lab-step-invalid')
   }
 
   const renderStep = () => {
@@ -241,6 +228,18 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
       }}
       className="flex flex-1 flex-col"
     >
+      <form.Field
+        name="client.recommendedTestTypeValue"
+        listeners={{
+          onChange: ({ value }) => {
+            if (!presetTestType) {
+              form.setFieldValue('collection.testType', value ?? '11-panel-lab')
+            }
+          },
+        }}
+      >
+        {() => null}
+      </form.Field>
       {renderStep()}
     </form>
   )

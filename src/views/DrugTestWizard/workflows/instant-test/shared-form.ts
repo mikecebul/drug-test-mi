@@ -25,7 +25,7 @@ const getDefaultValues = (testType: InstantTestType = '17-panel-instant'): FormV
   medications: [],
   verifyData: {
     testType,
-    collectionDate: '',
+    collectionDate: new Date().toISOString(),
     detectedSubstances: [],
     isDilute: false,
     breathalyzerTaken: false,

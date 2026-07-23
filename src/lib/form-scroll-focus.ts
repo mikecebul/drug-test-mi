@@ -1,6 +1,7 @@
 'use client'
 
 import { RefObject, useEffect, useRef } from 'react'
+import { toast } from 'sonner'
 
 const FIRST_INTERACTIVE_FIELD_SELECTOR =
   '.wizard-content input:not([type="hidden"]):not([disabled]), .wizard-content select:not([disabled]), .wizard-content textarea:not([disabled])'
@@ -52,13 +53,19 @@ export function focusFirstInvalidField(container: ParentNode | null) {
   return true
 }
 
+export function focusFirstInvalidFieldWithToast(container: ParentNode | null, toastId: string) {
+  const focusedField = focusFirstInvalidField(container)
+
+  toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
+    id: toastId,
+  })
+
+  return focusedField
+}
+
 export function scrollElementIntoViewWithMargin(
   element: Element | null,
-  {
-    behavior = 'smooth',
-    block = 'start',
-    topMarginPx = 0,
-  }: ScrollWithMarginOptions = {},
+  { behavior = 'smooth', block = 'start', topMarginPx = 0 }: ScrollWithMarginOptions = {},
 ) {
   if (!element) return
 

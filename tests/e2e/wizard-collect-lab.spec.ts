@@ -63,17 +63,21 @@ test.describe('Wizard Collect Lab Workflow', () => {
 
     await expect(page.getByRole('heading', { name: 'Collection Details' })).toBeVisible()
 
-    await page.locator('#collection-date').fill('')
-    await page.locator('#collection-date').press('Tab')
+    const collectionDate = page.locator('#collection-date')
+    await expect(collectionDate).not.toBeEmpty()
+    await collectionDate.fill('')
+    await collectionDate.press('Tab')
     await clickNext(page)
     await expect(page.getByText('Collection date is required')).toBeVisible()
+    await expect(collectionDate).toBeFocused()
 
-    await page.locator('#collection-date').fill(isoDateTimeForInput('2026-01-07T23:11:00-05:00'))
-    await page.locator('#collection-date').press('Tab')
+    await collectionDate.fill(isoDateTimeForInput('2026-01-07T23:11:00-05:00'))
+    await collectionDate.press('Tab')
 
     await page.getByLabel(/Breathalyzer test was administered/i).check()
     await clickNext(page)
     await expect(page.getByText('Breathalyzer result is required')).toBeVisible()
+    await expect(page.locator('#breathalyzerResult')).toBeFocused()
 
     await page.locator('#breathalyzerResult').fill('0.000')
     await clickNext(page)

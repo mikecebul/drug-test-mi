@@ -30,7 +30,7 @@ import {
   type FormValues,
 } from '@/app/(frontend)/register/validators'
 import { checkEmailExists } from '@/app/(frontend)/register/actions'
-import { focusFirstInvalidField } from '@/lib/form-scroll-focus'
+import { focusFirstInvalidFieldWithToast } from '@/lib/form-scroll-focus'
 import { HeadshotCaptureCard } from '../workflows/components/client/HeadshotCaptureCard'
 import z from 'zod'
 
@@ -157,10 +157,7 @@ export function RegisterClientDialog({
   }
 
   const handleStepInvalid = () => {
-    const focusedField = focusFirstInvalidField(formRef.current)
-    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
-      id: 'register-client-dialog-step-invalid',
-    })
+    focusFirstInvalidFieldWithToast(formRef.current, 'register-client-dialog-step-invalid')
   }
 
   const handlePrevious = () => {

@@ -40,7 +40,8 @@ async function verifyGuidedClientMismatch(page: Page) {
     name: /I verified .* is the person testing today/i,
   })
   await expect(mismatchConfirmation).toBeVisible()
-  await mismatchConfirmation.check()
+  await mismatchConfirmation.click()
+  await expect(page.getByTestId('client-identity-mismatch')).toBeHidden()
 }
 
 test.describe("Wizard Today's Schedule", () => {
@@ -99,7 +100,6 @@ test.describe("Wizard Today's Schedule", () => {
     const completed = scheduleCard(page, scheduleFixtures.bookings.completedPrepaid.attendeeName)
     await expect(completed).toBeVisible()
     await expect(completed).toContainText('Completed')
-    await expect(completed).toHaveClass(/opacity-60/)
     await expect(scheduleCardButton(page, scheduleFixtures.bookings.completedPrepaid.attendeeName)).toBeDisabled()
 
     await page
@@ -184,7 +184,7 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByText(fixtures.clients.instant.fullName, { exact: true }).first()).toBeVisible()
     await expect(page.getByText(scheduleFixtures.bookings.paidLinked.attendeeName)).toBeVisible()
     await expect(page.getByText('Booking name does not match the selected client')).toBeVisible()
-    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
+    await expect(page.getByTestId('wizard-next-button')).toBeEnabled()
     await expect(page.getByText('Male')).toHaveClass(/text-blue-900/)
     await expect(
       page.getByText(`${formatScheduleTime(scheduleFixtures.bookings.paidLinked.startTime)} · Male`),
@@ -202,6 +202,25 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByText('$0 applied', { exact: true })).toBeVisible()
     await expect(page.getByText(fixtures.clients.instant.email)).toBeVisible()
     await expect(page.getByText('2485550199@sms.cal.com')).toHaveCount(0)
+  })
+
+  test('focuses the required identity confirmation without disabling Next', async ({ page }) => {
+    await scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
+    await expect(page.getByRole('heading', { name: 'Review and Payment' })).toBeVisible()
+
+    const identityConfirmation = page.getByRole('checkbox', {
+      name: /I verified .* is the person testing today/i,
+    })
+    const nextButton = page.getByTestId('wizard-next-button')
+
+    await expect(nextButton).toBeEnabled()
+    await nextButton.click()
+    await expect(identityConfirmation).toBeFocused()
+    await expect(identityConfirmation).toHaveAttribute('aria-invalid', 'true')
+    await expect(page.getByText('Verify the selected client before continuing.')).toBeVisible()
+
+    await identityConfirmation.click()
+    await expect(page.getByTestId('client-identity-mismatch')).toBeHidden()
   })
 
   test('keeps controls interactive after repeatedly closing Quick Book', async ({ page }) => {
@@ -302,6 +321,7 @@ test.describe("Wizard Today's Schedule", () => {
     await verifyGuidedClientMismatch(page)
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()
+    await expect(page.getByTestId('client-identity-mismatch')).toHaveCount(0)
     await expect(page.getByText('17-Panel Instant', { exact: true }).last()).toBeVisible()
 
     await page.getByRole('button', { name: /Continue Collection/i }).click()
@@ -353,7 +373,7 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(
       page.getByRole('checkbox', { name: new RegExp(fixtures.clients.instant.firstName, 'i') }),
     ).not.toBeChecked()
-    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
+    await expect(page.getByTestId('wizard-next-button')).toBeEnabled()
 
     await verifyGuidedClientMismatch(page)
     const amountReceived = page.getByRole('spinbutton', { name: 'Amount received' })

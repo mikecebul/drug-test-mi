@@ -34,7 +34,7 @@ import type { ExtractedPdfData } from '../../queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { getClientByBookingId, getClientById } from '../components/client/getClients'
 import { getFileFromStorage, clearFileStorage, hasStoredFile, saveFileToStorage } from './utils/fileStorage'
-import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
+import { focusFirstInvalidFieldWithToast, useStepFocus } from '@/lib/form-scroll-focus'
 import { getReportClientMatch, getReportClientMismatchKey } from './utils/reportClientMatch'
 
 interface InstantTestWorkflowProps {
@@ -370,10 +370,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   }
 
   const handleGroupSubmitInvalid = (_error?: unknown) => {
-    const focusedField = focusFirstInvalidField(formRef.current)
-    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
-      id: 'instant-test-step-invalid',
-    })
+    focusFirstInvalidFieldWithToast(formRef.current, 'instant-test-step-invalid')
   }
 
   const renderStep = () => {

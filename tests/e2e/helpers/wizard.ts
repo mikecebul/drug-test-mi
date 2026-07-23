@@ -44,6 +44,10 @@ const validationMessages = [
 ]
 
 async function hasVisibleValidationMessage(page: Page) {
+  if ((await page.locator('[data-slot="field-error"]:visible').count()) > 0) {
+    return true
+  }
+
   for (const message of validationMessages) {
     if (await page.getByText(message).first().isVisible().catch(() => false)) {
       return true
@@ -176,21 +180,26 @@ export async function clickNext(page: Page) {
   await expect(nextButton).toBeEnabled({ timeout: 20_000 })
   await nextButton.scrollIntoViewIfNeeded()
   const beforeUrl = page.url()
+  const clickedButton = await nextButton.elementHandle()
 
-  const deadline = Date.now() + 5_000
-  do {
-    await nextButton.click({ timeout: 10_000 })
-    await page.waitForTimeout(500)
+  await nextButton.click({ timeout: 10_000 })
 
-    if (page.url() !== beforeUrl || (await hasVisibleValidationMessage(page))) {
-      return
-    }
+  await expect
+    .poll(
+      async () => {
+        if (page.url() !== beforeUrl || (await hasVisibleValidationMessage(page))) {
+          return true
+        }
 
-    const canRetry = (await nextButton.isVisible().catch(() => false)) && (await nextButton.isEnabled().catch(() => false))
-    if (!canRetry) {
-      return
-    }
-  } while (Date.now() < deadline)
+        if (!clickedButton) return true
+        return clickedButton.evaluate((element) => !element.isConnected).catch(() => true)
+      },
+      {
+        message: 'Expected Next to change the wizard step or show a validation error',
+        timeout: 20_000,
+      },
+    )
+    .toBe(true)
 }
 
 export async function triggerNextValidation(page: Page) {

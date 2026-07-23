@@ -27,7 +27,7 @@ import {
 } from './validators'
 import { extractPdfQueryKey } from '../../queries'
 import type { ExtractedPdfData } from '../../queries'
-import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
+import { focusFirstInvalidFieldWithToast, useStepFocus } from '@/lib/form-scroll-focus'
 
 interface LabConfirmationWorkflowProps {
   onBack: () => void
@@ -38,10 +38,7 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
 
   // URL is single source of truth
-  const [currentStep, setCurrentStep] = useQueryState(
-    'step',
-    parseAsStringLiteral(steps).withDefault('upload'),
-  )
+  const [currentStep, setCurrentStep] = useQueryState('step', parseAsStringLiteral(steps).withDefault('upload'))
   const formRef = useRef<HTMLFormElement | null>(null)
 
   useStepFocus({
@@ -96,10 +93,7 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
   }
 
   const handleGroupSubmitInvalid = (_error?: unknown) => {
-    const focusedField = focusFirstInvalidField(formRef.current)
-    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
-      id: 'lab-confirmation-step-invalid',
-    })
+    focusFirstInvalidFieldWithToast(formRef.current, 'lab-confirmation-step-invalid')
   }
 
   const renderStep = () => {

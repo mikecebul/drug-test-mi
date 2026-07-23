@@ -1,7 +1,7 @@
 const DONOR_SEARCH_RESULTS_PATH = '/Pages/User/DonorSearchResults.aspx'
 const DONOR_VIEW_PATH = '/Pages/User/Donor.aspx'
 const DONOR_EDIT_PATH = '/Pages/User/editDonor.aspx'
-const COLLECT_SPECIMEN_PATH = '/Pages/User/CollectSpecimen.aspx'
+const COLLECTION_START_STEP = 1
 
 function createRedwoodUrl(baseUrl: string, pathname: string): URL {
   const url = new URL(baseUrl)
@@ -53,9 +53,12 @@ export function buildRedwoodDonorEditUrl(donorSearchUrl: string, donorId: string
   return url.toString()
 }
 
-export function buildRedwoodCollectSpecimenUrl(donorSearchUrl: string, donorId: string): string {
-  const url = createRedwoodUrl(donorSearchUrl, COLLECT_SPECIMEN_PATH)
-  url.searchParams.set('donorid', donorId.trim())
+export function buildRedwoodCollectSpecimenUrl(donorSearchUrl: string, donorId: string, isOnSite: boolean): string {
+  const url = createRedwoodUrl(
+    donorSearchUrl,
+    `/donors/${encodeURIComponent(donorId.trim())}/collection/steps/${COLLECTION_START_STEP}`,
+  )
+  url.searchParams.set('isOnSite', isOnSite ? 'true' : 'false')
   return url.toString()
 }
 

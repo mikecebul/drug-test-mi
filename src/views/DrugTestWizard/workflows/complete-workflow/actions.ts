@@ -502,6 +502,7 @@ export async function getActiveCollectionTestTypes() {
 async function loadClientRedwoodProvisioningStatus(
   payload: Payload,
   clientId: string,
+  testTypeValue?: string,
 ): Promise<GuidedRedwoodProvisioningStatus> {
   const client = await payload.findByID({
     collection: 'clients',
@@ -585,23 +586,32 @@ async function loadClientRedwoodProvisioningStatus(
     lastError,
     syncStatus: importRetriesExhausted ? 'failed' : client.redwoodSyncStatus,
   })
+  const collectionTestType = mapTestTypeValue(testTypeValue)
 
   return {
     ...provisioning,
-    collectSpecimenHref: provisioning.donorId
-      ? buildRedwoodCollectSpecimenUrl(TOXACCESS_USER_DONOR_SEARCH_URL, provisioning.donorId)
-      : null,
+    collectSpecimenHref:
+      provisioning.donorId && collectionTestType
+        ? buildRedwoodCollectSpecimenUrl(
+            TOXACCESS_USER_DONOR_SEARCH_URL,
+            provisioning.donorId,
+            collectionTestType.category === 'instant',
+          )
+        : null,
     manualHref: TOXACCESS_USER_DONOR_SEARCH_URL,
   }
 }
 
-export async function getClientRedwoodProvisioningStatus(clientId: string): Promise<GuidedRedwoodProvisioningStatus> {
+export async function getClientRedwoodProvisioningStatus(
+  clientId: string,
+  testTypeValue: string,
+): Promise<GuidedRedwoodProvisioningStatus> {
   if (!clientId) {
     throw new Error('Client ID is required.')
   }
 
   const payload = await getAdminPayload()
-  return loadClientRedwoodProvisioningStatus(payload, clientId)
+  return loadClientRedwoodProvisioningStatus(payload, clientId, testTypeValue)
 }
 
 async function queueMissingRedwoodProvisioningWork(args: {
@@ -681,7 +691,7 @@ async function applyGuidedLabDefaultTest(args: {
 
 export async function ensureClientRedwoodProvisioning(
   clientId: string,
-  testTypeValue?: string,
+  testTypeValue: string,
 ): Promise<{
   error?: string
   status?: GuidedRedwoodProvisioningStatus
@@ -694,7 +704,7 @@ export async function ensureClientRedwoodProvisioning(
       return {
         success: false,
         error: 'Redwood automation is disabled on this server.',
-        status: await loadClientRedwoodProvisioningStatus(payload, clientId),
+        status: await loadClientRedwoodProvisioningStatus(payload, clientId, testTypeValue),
       }
     }
 
@@ -712,13 +722,13 @@ export async function ensureClientRedwoodProvisioning(
 
     return {
       success: true,
-      status: await loadClientRedwoodProvisioningStatus(payload, clientId),
+      status: await loadClientRedwoodProvisioningStatus(payload, clientId, testTypeValue),
     }
   } catch (error) {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to queue Redwood donor provisioning.',
-      status: await loadClientRedwoodProvisioningStatus(payload, clientId).catch(() => undefined),
+      status: await loadClientRedwoodProvisioningStatus(payload, clientId, testTypeValue).catch(() => undefined),
     }
   }
 }

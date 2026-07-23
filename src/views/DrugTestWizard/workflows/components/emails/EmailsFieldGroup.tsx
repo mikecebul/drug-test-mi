@@ -100,6 +100,7 @@ export const EmailsFieldGroup = withFieldGroup({
     const clientRecipients = group.getFieldValue('clientRecipients')
     const referralEmailEnabled = group.getFieldValue('referralEmailEnabled')
     const referralRecipients = group.getFieldValue('referralRecipients')
+    const referralRecipientsMissing = referralEmailEnabled && referralRecipients.length === 0
     const canSendClientEmail = Boolean(previewData?.clientEmail)
     const savedReferralRecipients = React.useMemo(() => {
       const detailedRecipients = [
@@ -366,6 +367,8 @@ export const EmailsFieldGroup = withFieldGroup({
                     className="w-full lg:w-auto lg:shrink-0"
                     onClick={() => setShowReferralEditor(true)}
                     disabled={!clientId || !previewData.referralType}
+                    aria-describedby={referralRecipientsMissing ? 'referral-recipients-error' : undefined}
+                    aria-invalid={referralRecipientsMissing || undefined}
                   >
                     <Pencil className="mr-2 h-4 w-4" />
                     Edit Referral
@@ -375,39 +378,43 @@ export const EmailsFieldGroup = withFieldGroup({
               {referralEmailEnabled && (
                 <FieldSet className="min-w-0">
                   <group.Field name="referralRecipients">
-                    {(field) => (
-                      <>
-                        <div className="space-y-4">
-                          <div className="space-y-1">
-                            <FieldLabel className="text-base font-semibold">Referral recipients</FieldLabel>
-                          </div>
+                    {(field) => {
+                      const hasErrors = field.state.meta.errors.length > 0
 
-                          <div className="space-y-2">
-                            {savedReferralRecipients.length > 0 ? (
-                              savedReferralRecipients.map((recipient) => (
-                                <div
-                                  key={recipient.email}
-                                  className="border-border bg-background rounded-lg border p-4"
-                                >
-                                  <div className="min-w-0">
-                                    <p className="font-semibold">{recipient.name || 'Saved referral recipient'}</p>
-                                    <p className="text-muted-foreground truncate text-base">{recipient.email}</p>
+                      return (
+                        <Field data-invalid={hasErrors}>
+                          <div className="space-y-4">
+                            <div className="space-y-1">
+                              <FieldLabel className="text-base font-semibold">Referral recipients</FieldLabel>
+                            </div>
+
+                            <div className="space-y-2">
+                              {savedReferralRecipients.length > 0 ? (
+                                savedReferralRecipients.map((recipient) => (
+                                  <div
+                                    key={recipient.email}
+                                    className="border-border bg-background rounded-lg border p-4"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="font-semibold">{recipient.name || 'Saved referral recipient'}</p>
+                                      <p className="text-muted-foreground truncate text-base">{recipient.email}</p>
+                                    </div>
                                   </div>
+                                ))
+                              ) : (
+                                <div className="border-border bg-muted/40 rounded-lg border p-4">
+                                  <p className="text-muted-foreground text-base">
+                                    No saved referral recipients are available.
+                                  </p>
                                 </div>
-                              ))
-                            ) : (
-                              <div className="border-border bg-muted/40 rounded-lg border p-4">
-                                <p className="text-muted-foreground text-base">
-                                  No saved referral recipients are available.
-                                </p>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
-                        </div>
 
-                        <FieldError errors={field.state.meta.errors} />
-                      </>
-                    )}
+                          <FieldError id="referral-recipients-error" errors={field.state.meta.errors} />
+                        </Field>
+                      )
+                    }}
                   </group.Field>
                 </FieldSet>
               )}

@@ -412,6 +412,7 @@ export function ReferralProfileDrawer({
                           size="icon"
                           onClick={() => field.removeValue(index)}
                           disabled={isPresetLocked || (referralTypeUi !== 'self' && field.state.value.length <= 1)}
+                          aria-label={`Remove recipient ${index + 1}`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -495,7 +496,13 @@ export function ReferralProfileDrawer({
                             }}
                           </form.Field>
 
-                          <Button type="button" variant="outline" size="icon" onClick={() => field.removeValue(index)}>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => field.removeValue(index)}
+                            aria-label={`Remove additional recipient ${index + 1}`}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>

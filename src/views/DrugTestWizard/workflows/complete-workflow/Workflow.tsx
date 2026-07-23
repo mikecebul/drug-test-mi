@@ -71,12 +71,13 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@/components/ui/input-group'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { APP_TIMEZONE } from '@/lib/date-utils'
+import { focusFirstInvalidField } from '@/lib/form-scroll-focus'
 import { cn } from '@/utilities/cn'
 import { RegisterClientDialog } from '../../components/RegisterClientDialog'
 import type { ClientMatch } from '../../types'
@@ -336,8 +337,11 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     [bookings, query.bookingId],
   )
   const selectedClientId = selectedBooking?.client?.id ?? null
+  const selectedTestTypeValue = selectedBooking?.testType?.value ?? null
   const redwoodProvisioningBookingKey =
-    selectedBooking && selectedClientId ? `${selectedBooking.id}:${selectedClientId}` : null
+    selectedBooking && selectedClientId && selectedTestTypeValue
+      ? `${selectedBooking.id}:${selectedClientId}:${selectedTestTypeValue}`
+      : null
   const currentStep: WorkflowStep = query.step
   const { data: referralProfile = null, refetch: refetchReferralProfile } = useQuery({
     queryKey: ['guided', 'referral-profile', selectedClientId],
@@ -349,9 +353,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     isLoading: isRedwoodProvisioningLoading,
     refetch: refetchRedwoodProvisioning,
   } = useQuery({
-    queryKey: ['guided', 'redwood-provisioning', selectedClientId],
-    queryFn: () => getClientRedwoodProvisioningStatus(selectedClientId || ''),
-    enabled: currentStep === 'toxaccess' && Boolean(selectedClientId),
+    queryKey: ['guided', 'redwood-provisioning', selectedClientId, selectedTestTypeValue],
+    queryFn: () => getClientRedwoodProvisioningStatus(selectedClientId || '', selectedTestTypeValue || ''),
+    enabled: currentStep === 'toxaccess' && Boolean(selectedClientId && selectedTestTypeValue),
     refetchInterval: (query) => {
       const status = query.state.data
       if (!status || status.overallStatus === 'working') return 1500
@@ -372,7 +376,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const [showAdditionalPayment, setShowAdditionalPayment] = useState(false)
   const [undoPaymentDialogOpen, setUndoPaymentDialogOpen] = useState(false)
   const [noPaymentDialogOpen, setNoPaymentDialogOpen] = useState(false)
-  const [verifiedClientMismatchKey, setVerifiedClientMismatchKey] = useState<string | null>(null)
+  const [verifiedClientMismatchKeys, setVerifiedClientMismatchKeys] = useState<Set<string>>(() => new Set())
+  const [clientIdentityValidationErrorKey, setClientIdentityValidationErrorKey] = useState<string | null>(null)
   const [referralDrawerOpen, setReferralDrawerOpen] = useState(false)
   const [testTypeDrawerOpen, setTestTypeDrawerOpen] = useState(false)
   const [testTypeDrawerSelection, setTestTypeDrawerSelection] = useState('')
@@ -392,7 +397,23 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   )
   const paymentRecorded = Boolean(selectedBooking?.payment?.status)
   const selectedClientMismatchKey = selectedBooking ? getClientIdentityMismatchKey(selectedBooking) : null
-  const clientIdentityIsVerified = !selectedClientMismatchKey || verifiedClientMismatchKey === selectedClientMismatchKey
+  const clientIdentityIsVerified =
+    !selectedClientMismatchKey || verifiedClientMismatchKeys.has(selectedClientMismatchKey)
+  const guidedWorkflowRef = useRef<HTMLDivElement>(null)
+
+  const focusGuidedInvalidField = () => {
+    requestAnimationFrame(() => {
+      focusFirstInvalidField(guidedWorkflowRef.current)
+    })
+  }
+
+  const validateClientIdentity = () => {
+    if (clientIdentityIsVerified) return true
+
+    setClientIdentityValidationErrorKey(selectedClientMismatchKey)
+    focusGuidedInvalidField()
+    return false
+  }
   const refreshBookings = () =>
     queryClient.fetchQuery({
       queryKey: ['guided', 'today-bookings'],
@@ -419,18 +440,18 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   )
 
   useEffect(() => {
-    if (currentStep !== 'toxaccess' || !selectedClientId) return
+    if (currentStep !== 'toxaccess' || !selectedClientId || !selectedTestTypeValue) return
     if (!redwoodProvisioningBookingKey) return
     if (redwoodProvisioningStartedForBooking.current === redwoodProvisioningBookingKey) return
 
     redwoodProvisioningStartedForBooking.current = redwoodProvisioningBookingKey
-    void ensureClientRedwoodProvisioning(selectedClientId).then((result) => {
+    void ensureClientRedwoodProvisioning(selectedClientId, selectedTestTypeValue).then((result) => {
       if (!result.success && result.error) {
         toast.error(result.error)
       }
       void refetchRedwoodProvisioning()
     })
-  }, [currentStep, redwoodProvisioningBookingKey, refetchRedwoodProvisioning, selectedClientId])
+  }, [currentStep, redwoodProvisioningBookingKey, refetchRedwoodProvisioning, selectedClientId, selectedTestTypeValue])
 
   const handleSelectBooking = (booking: Booking) => {
     setPaymentDraft(getPaymentDefaults(booking))
@@ -612,16 +633,13 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       toast.error('Select or register the client before recording payment.')
       return
     }
-    if (!clientIdentityIsVerified) {
-      toast.error('Verify the selected client before continuing.')
-      return
-    }
+    if (!validateClientIdentity()) return
     if (!paymentAmountIsValid) {
-      toast.error('Enter zero or a positive amount received.')
+      focusGuidedInvalidField()
       return
     }
     if (!creditAmountIsValid) {
-      toast.error('Client credit cannot exceed the available credit or total balance due.')
+      focusGuidedInvalidField()
       return
     }
     if (isLoadingOutstandingPaymentBalances) {
@@ -657,7 +675,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           selectedBooking.client.id,
           selectedTestType.value,
         )
-        redwoodProvisioningStartedForBooking.current = `${selectedBooking.id}:${selectedBooking.client.id}`
+        redwoodProvisioningStartedForBooking.current = `${selectedBooking.id}:${selectedBooking.client.id}:${selectedTestType.value}`
         if (!provisioningResult.success && provisioningResult.error) {
           toast.warning(provisioningResult.error)
         }
@@ -700,10 +718,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
   const handleContinueToCollection = () => {
     if (!selectedBooking?.testType || !selectedBooking.client?.id) return
-    if (!clientIdentityIsVerified) {
-      toast.error('Verify the selected client before continuing.')
-      return
-    }
+    if (!validateClientIdentity()) return
 
     startTransition(async () => {
       if (!redwoodProvisioning?.canContinue) {
@@ -756,10 +771,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const renderClientIdentityMismatch = (booking: Booking) => {
     const mismatchKey = getClientIdentityMismatchKey(booking)
     if (!mismatchKey || !booking.client) return null
+    if (verifiedClientMismatchKeys.has(mismatchKey)) return null
 
     const selectedClientName = getGuidedClientName(booking.client) || 'Unknown client'
     const confirmationId = `verify-client-identity-${booking.id}`
-    const isConfirmed = verifiedClientMismatchKey === mismatchKey
+    const confirmationErrorId = `${confirmationId}-error`
+    const showValidationError = clientIdentityValidationErrorKey === mismatchKey
 
     return (
       <Alert variant="warning" data-testid="client-identity-mismatch">
@@ -771,15 +788,32 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             <strong>{selectedClientName}</strong>.
           </p>
           <p>Change the client if this is wrong. Otherwise, verify their identity before continuing.</p>
-          <Field orientation="horizontal" className="mt-3">
+          <Field orientation="horizontal" className="mt-3" data-invalid={showValidationError || undefined}>
             <Checkbox
               id={confirmationId}
-              checked={isConfirmed}
-              onCheckedChange={(checked) => setVerifiedClientMismatchKey(checked === true ? mismatchKey : null)}
+              aria-required="true"
+              aria-invalid={showValidationError || undefined}
+              aria-describedby={showValidationError ? confirmationErrorId : undefined}
+              onCheckedChange={(checked) => {
+                if (checked !== true) return
+
+                setVerifiedClientMismatchKeys((current) => {
+                  const next = new Set(current)
+                  next.add(mismatchKey)
+                  return next
+                })
+                setClientIdentityValidationErrorKey((current) => (current === mismatchKey ? null : current))
+              }}
             />
-            <FieldLabel htmlFor={confirmationId} className="cursor-pointer font-normal">
-              I verified {selectedClientName} is the person testing today.
-            </FieldLabel>
+            <FieldContent>
+              <FieldLabel htmlFor={confirmationId} className="cursor-pointer font-normal">
+                I verified {selectedClientName} is the person testing today.
+              </FieldLabel>
+              <FieldError
+                id={confirmationErrorId}
+                errors={showValidationError ? ['Verify the selected client before continuing.'] : []}
+              />
+            </FieldContent>
           </Field>
         </AlertDescription>
       </Alert>
@@ -2046,23 +2080,18 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       ? Boolean(
           selectedBooking?.testType &&
           selectedBooking.client?.id &&
-          paymentAmountIsValid &&
-          creditAmountIsValid &&
           !isLoadingOutstandingPaymentBalances &&
-          !hasOutstandingPaymentBalanceError &&
-          clientIdentityIsVerified,
+          !hasOutstandingPaymentBalanceError,
         )
       : currentStep === 'toxaccess'
-        ? Boolean(
-            paymentRecorded && selectedBooking?.testType && selectedBooking.client?.id && clientIdentityIsVerified,
-          )
+        ? Boolean(paymentRecorded && selectedBooking?.testType && selectedBooking.client?.id)
         : false
 
   const backLabel = currentStep === 'schedule' ? 'Cancel' : 'Back'
 
   return (
     <>
-      <div className="mx-auto flex w-full max-w-2xl flex-col px-2">
+      <div ref={guidedWorkflowRef} className="mx-auto flex w-full max-w-2xl flex-col px-2">
         {renderCurrentStep()}
 
         <div className="mt-8 flex items-center justify-between border-t pt-4">
