@@ -125,7 +125,7 @@ test.describe('Wizard Instant Workflow', () => {
     await expect(page.getByRole('heading', { name: /Upload Instant Drug Test Report/i })).toBeVisible({
       timeout: 30_000,
     })
-    expect(new URL(page.url()).searchParams.get('step')).toBeNull()
+    await expect.poll(() => new URL(page.url()).searchParams.get('step')).toBeNull()
     await clickNext(page)
     await expect(page.getByText('Please upload a PDF file')).toBeVisible()
   })

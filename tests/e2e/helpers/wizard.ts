@@ -304,7 +304,7 @@ export async function uploadSinglePdf(page: Page, filePath: string) {
 
 export async function selectClientFromSearchDialog(page: Page, fullName: string) {
   const openButton = page.getByRole('button', {
-    name: /search all clients|search existing clients|find existing client|choose client|change client/i,
+    name: /search all clients|search existing clients|find existing client|choose(?: or register)? client|change client/i,
   })
   const dialog = page.getByRole('dialog', { name: /Search and Select Client|Choose client/i })
 
@@ -464,7 +464,7 @@ export async function goToEmailsStepFromInstant(page: Page, pdfPath: string, cli
     await clickBack(page)
     await ensureInstantExtractReady(page)
     const mismatchConfirmation = page.getByRole('checkbox', {
-      name: /confirm this is the correct client\/report/i,
+      name: /confirm it belongs to this client/i,
     })
     if (await mismatchConfirmation.isVisible().catch(() => false)) {
       await mismatchConfirmation.check()

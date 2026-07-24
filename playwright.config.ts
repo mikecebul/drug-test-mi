@@ -30,7 +30,10 @@ export default defineConfig({
     ? undefined
     : {
         command: `pnpm dev --port ${port}`,
-        url: baseURL,
+        // Probe the TCP port instead of issuing an HTTP request. A wedged Next
+        // server can accept connections without returning a response, causing
+        // Playwright's HTTP readiness check to appear hung before tests start.
+        port,
         timeout: 180_000,
         // Reusing a developer server could inherit REDWOOD_AUTOMATION_ENABLED=true.
         // Fail on a busy port instead of running E2E against an unsafe process.

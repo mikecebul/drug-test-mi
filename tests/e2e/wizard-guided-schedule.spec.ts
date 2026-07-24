@@ -162,25 +162,32 @@ test.describe("Wizard Today's Schedule", () => {
 
   test('opens the correct next step from each schedule card', async ({ page }) => {
     await scheduleCardButton(page, scheduleFixtures.bookings.unlinked.attendeeName).click()
-    await expect(page.getByRole('heading', { name: 'Confirm Client' })).toBeVisible()
-    await expect(page.getByRole('button', { name: /Register New Client/i })).toBeVisible()
-    await expect(page.getByText('Registered client found')).toBeVisible()
-    const exactMatches = page.getByTestId('guided-exact-client-matches')
-    await expect(exactMatches).toContainText(scheduleFixtures.bookings.unlinked.registeredClient.fullName)
-    await expect(exactMatches).toContainText('Exact email')
-    await expect(page.getByText('Selected client', { exact: true })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
+    await expect(page.getByText('No client profile is linked')).toBeVisible()
+    await page.getByRole('button', { name: /Choose or Register Client/i }).click()
+    const clientDrawer = page.getByRole('dialog', { name: 'Choose client' })
+    await clientDrawer
+      .getByPlaceholder('Search by name, DOB, phone, or email...')
+      .fill(scheduleFixtures.bookings.unlinked.registeredClient.email)
+    await expect(clientDrawer.getByText('Exact matches', { exact: true })).toBeVisible()
+    await expect(
+      clientDrawer.getByText(scheduleFixtures.bookings.unlinked.registeredClient.fullName, { exact: true }),
+    ).toBeVisible()
+    await clientDrawer.getByRole('button', { name: 'Close client chooser' }).click()
     await page.getByRole('button', { name: /^Back$/i }).click()
     await expect(page.getByRole('heading', { name: "Today's Schedule" })).toBeVisible()
 
     await scheduleCardButton(page, scheduleFixtures.bookings.needsTestType.attendeeName).click()
-    await expect(page.getByRole('heading', { name: 'Set Appointment Test' })).toBeVisible()
-    await expect(page.getByText('What test is needed today?')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
+    await page.getByRole('button', { name: 'Edit Booking test' }).click()
+    const testDrawer = page.getByRole('dialog', { name: "Change Today's Test" })
+    await expect(testDrawer).toBeVisible()
+    await testDrawer.getByRole('button', { name: 'Cancel' }).click()
     await page.getByRole('button', { name: /^Back$/i }).click()
     await expect(page.getByRole('heading', { name: "Today's Schedule" })).toBeVisible()
 
     await scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
-    await expect(page.getByRole('heading', { name: 'Review and Payment' })).toBeVisible()
-    await expect(page.getByText('Selected client', { exact: true }).first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
     await expect(page.getByText(fixtures.clients.instant.fullName, { exact: true }).first()).toBeVisible()
     await expect(page.getByText(scheduleFixtures.bookings.paidLinked.attendeeName)).toBeVisible()
     await expect(page.getByText('Booking name does not match the selected client')).toBeVisible()
@@ -189,8 +196,11 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(
       page.getByText(`${formatScheduleTime(scheduleFixtures.bookings.paidLinked.startTime)} · Male`),
     ).toHaveCount(0)
-    await expect(page.getByRole('heading', { name: 'Collect payment' })).toBeVisible()
-    await expect(page.getByRole('spinbutton', { name: 'Amount received' })).toHaveValue('0')
+    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toHaveCount(0)
+    await verifyGuidedClientMismatch(page)
+    await clickNext(page)
+    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
+    await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toHaveValue('0')
     await expect(page.getByRole('combobox', { name: 'Method' })).toContainText('Cash')
     await expect(
       page.getByRole('group', { name: 'Quick amount received' }).getByRole('button', {
@@ -200,13 +210,11 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByText('Today · 17-Panel Instant')).toBeVisible()
     await expect(page.getByText('Current test · $0 due')).toBeVisible()
     await expect(page.getByText('$0 applied', { exact: true })).toBeVisible()
-    await expect(page.getByText(fixtures.clients.instant.email)).toBeVisible()
-    await expect(page.getByText('2485550199@sms.cal.com')).toHaveCount(0)
   })
 
   test('focuses the required identity confirmation without disabling Next', async ({ page }) => {
     await scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
-    await expect(page.getByRole('heading', { name: 'Review and Payment' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
 
     const identityConfirmation = page.getByRole('checkbox', {
       name: /I verified .* is the person testing today/i,
@@ -260,14 +268,16 @@ test.describe("Wizard Today's Schedule", () => {
     }
 
     await scheduleCardButton(page, scheduleFixtures.bookings.needsTestType.attendeeName).click()
-    await expect(page.getByRole('heading', { name: 'Set Appointment Test' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
   })
 
   test('applies client credit and can undo the recorded payment', async ({ page }) => {
     const booking = scheduleFixtures.bookings.creditAvailable
 
     await scheduleCardButton(page, booking.attendeeName).click()
-    await expect(page.getByRole('heading', { name: 'Review and Payment' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
+    await clickNext(page)
+    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
     await expect(page.getByText('Credit available')).toBeVisible()
     await expect(page.getByText('$40 available')).toBeVisible()
     await expect(page.getByText('Total Due', { exact: true })).toBeVisible()
@@ -317,12 +327,13 @@ test.describe("Wizard Today's Schedule", () => {
     const booking = scheduleFixtures.bookings.paidLinked
 
     await scheduleCardButton(page, booking.attendeeName).click()
-    await expect(page.getByRole('heading', { name: 'Review and Payment' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
     await verifyGuidedClientMismatch(page)
+    await clickNext(page)
+    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()
     await expect(page.getByTestId('client-identity-mismatch')).toHaveCount(0)
-    await expect(page.getByText('17-Panel Instant', { exact: true }).last()).toBeVisible()
 
     await page.getByRole('button', { name: /Continue Collection/i }).click()
     await expect(page.getByRole('heading', { name: /Upload Instant Drug Test Report/i })).toBeVisible({
@@ -341,7 +352,7 @@ test.describe("Wizard Today's Schedule", () => {
     await waitForExtractStepReady(page, { readyHeadings: [/Extract Data/i] })
 
     const mismatchConfirmation = page.getByRole('checkbox', {
-      name: /confirm this is the correct client\/report/i,
+      name: /confirm it belongs to this client/i,
     })
     if (await mismatchConfirmation.isVisible().catch(() => false)) {
       await mismatchConfirmation.check()
@@ -358,13 +369,11 @@ test.describe("Wizard Today's Schedule", () => {
     const booking = scheduleFixtures.bookings.unlinked
 
     await scheduleCardButton(page, booking.attendeeName).click()
-    await expect(page.getByRole('heading', { name: 'Confirm Client' })).toBeVisible()
-    const exactMatches = page.getByTestId('guided-exact-client-matches')
     const registeredClient = scheduleFixtures.bookings.unlinked.registeredClient
-    await expect(exactMatches).toContainText(registeredClient.fullName)
-    await exactMatches.getByRole('button', { name: new RegExp(registeredClient.fullName, 'i') }).click()
+    await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
+    await selectClientFromSearchDialog(page, registeredClient.fullName)
 
-    await expect(page.getByRole('heading', { name: 'Review and Payment' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible({ timeout: 30_000 })
     await expect(page.getByText(registeredClient.fullName, { exact: true }).first()).toBeVisible()
     await expect(page.getByText('Booking name does not match the selected client')).toHaveCount(0)
 
@@ -376,7 +385,9 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByTestId('wizard-next-button')).toBeEnabled()
 
     await verifyGuidedClientMismatch(page)
-    const amountReceived = page.getByRole('spinbutton', { name: 'Amount received' })
+    await clickNext(page)
+    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
+    const amountReceived = page.getByRole('spinbutton', { name: 'Amount received now' })
     const payAllButton = page
       .getByRole('group', { name: 'Quick amount received' })
       .getByRole('button', { name: 'Set amount received to $40' })
@@ -396,7 +407,6 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByText('Includes $10 new credit')).toHaveCount(0)
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()
-    await expect(page.getByText(/11-Panel Lab/i).last()).toBeVisible()
 
     await page.getByRole('button', { name: /Continue Collection/i }).click()
     await expect(page.getByText('Verify Medications')).toBeVisible({ timeout: 30_000 })
@@ -410,7 +420,7 @@ test.describe("Wizard Today's Schedule", () => {
     expect(labUrl.searchParams.get('returnTo')).toBe('guided')
 
     await clickNext(page)
-    await expect(page.getByRole('heading', { name: 'Collection Details' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Confirm Details' })).toBeVisible()
     await expect(page.getByRole('radio', { name: /^11-Panel$/i })).toBeChecked()
   })
 })

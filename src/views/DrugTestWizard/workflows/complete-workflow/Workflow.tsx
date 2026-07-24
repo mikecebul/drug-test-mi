@@ -1939,7 +1939,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         : 'Continue Collection'
   const canGoNext =
     currentStep === 'review' || currentStep === 'registration'
-      ? Boolean(selectedBooking?.testType && selectedBooking.client?.id && clientIdentityIsVerified)
+      ? Boolean(selectedBooking?.testType && selectedBooking.client?.id)
       : currentStep === 'payment'
         ? Boolean(
             selectedBooking?.testType &&
