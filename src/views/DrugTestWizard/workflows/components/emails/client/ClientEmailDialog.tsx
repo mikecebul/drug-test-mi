@@ -88,9 +88,9 @@ export function ClientEmailDialog({ open, onOpenChange, clientId, currentEmail, 
 
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={handleDialogOpenChange}>
-      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(32rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
-        <DrawerHeader className="border-border border-b px-6 py-5">
-          <DrawerTitle className="text-2xl tracking-tight">Edit Client Email</DrawerTitle>
+      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(512px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
+        <DrawerHeader className="border-border border-b">
+          <DrawerTitle>Edit Client Email</DrawerTitle>
           <DrawerDescription>Update the client profile email used for notifications.</DrawerDescription>
         </DrawerHeader>
 
@@ -102,7 +102,7 @@ export function ClientEmailDialog({ open, onOpenChange, clientId, currentEmail, 
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="no-scrollbar flex-1 overflow-y-auto px-6 py-5">
+          <div className="no-scrollbar flex-1 overflow-y-auto p-4">
             <form.Field name="email">
               {(field) => (
                 <div className="space-y-2">
@@ -121,7 +121,7 @@ export function ClientEmailDialog({ open, onOpenChange, clientId, currentEmail, 
             </form.Field>
           </div>
 
-          <DrawerFooter className="border-border border-t px-6 py-4 sm:flex-row sm:justify-end">
+          <DrawerFooter className="border-border border-t sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)}>
               Cancel
             </Button>

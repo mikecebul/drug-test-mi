@@ -503,15 +503,15 @@ function RequestConfirmationDialog({
       >
         Request Confirmation
       </DrawerTrigger>
-      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(44rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
-        <DrawerHeader className="border-border border-b px-6 py-5">
-          <DrawerTitle className="text-2xl tracking-tight">Request Confirmation</DrawerTitle>
+      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(704px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
+        <DrawerHeader className="border-border border-b">
+          <DrawerTitle>Request Confirmation</DrawerTitle>
           <DrawerDescription>
             Select the unexpected positive substances that should be sent for confirmation testing.
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="no-scrollbar flex-1 overflow-y-auto px-6 py-5">
+        <div className="no-scrollbar flex-1 overflow-y-auto p-4">
           {unexpectedPositives.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               No unexpected positive substances are available for this test. Edit the test if confirmation is still
@@ -545,7 +545,7 @@ function RequestConfirmationDialog({
           </label>
         </div>
 
-        <DrawerFooter className="border-border border-t px-6 py-4 sm:flex-row sm:justify-end">
+        <DrawerFooter className="border-border border-t sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
@@ -604,15 +604,15 @@ function RecordPaymentDialog({
       <DrawerTrigger render={<Button size="sm" disabled={disabled} />}>
         Record Payment
       </DrawerTrigger>
-      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(34rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
-        <DrawerHeader className="border-border border-b px-6 py-5">
-          <DrawerTitle className="text-2xl tracking-tight">Record Payment</DrawerTitle>
+      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(544px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
+        <DrawerHeader className="border-border border-b">
+          <DrawerTitle>Record Payment</DrawerTitle>
           <DrawerDescription>
             Payment applies to the oldest unpaid balance first. Any extra becomes client credit.
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+        <div className="flex-1 space-y-5 overflow-y-auto p-4">
           <div className="border-border bg-muted/30 rounded-lg border p-4">
             <p className="text-muted-foreground text-sm font-medium">Current balance</p>
             <p className="text-2xl font-semibold">{currency.format(balanceDue)}</p>
@@ -650,7 +650,7 @@ function RecordPaymentDialog({
           {error && <p className="text-destructive text-sm font-medium">{error}</p>}
         </div>
 
-        <DrawerFooter className="border-border border-t px-6 py-4 sm:flex-row sm:justify-end">
+        <DrawerFooter className="border-border border-t sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>

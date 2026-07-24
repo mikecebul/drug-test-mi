@@ -417,10 +417,10 @@ export function RegisterClientDialog({
 
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={handleOpenChange}>
-      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(48rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
+      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(768px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
         <ShadcnWrapper className="flex min-h-0 flex-1 flex-col">
-          <DrawerHeader className="border-border border-b px-6 py-5">
-            <DrawerTitle className="text-2xl tracking-tight">Register New Client</DrawerTitle>
+          <DrawerHeader className="border-border border-b">
+            <DrawerTitle>Register New Client</DrawerTitle>
             <DrawerDescription>
               {registrationComplete
                 ? 'Registration complete'
@@ -428,7 +428,7 @@ export function RegisterClientDialog({
             </DrawerDescription>
           </DrawerHeader>
 
-          <div className="no-scrollbar flex-1 overflow-y-auto px-6 py-5">
+          <div className="no-scrollbar flex-1 overflow-y-auto p-4">
             {!registrationComplete && (
               <div className="mb-6">
                 <Progress value={progress} className="h-2" />

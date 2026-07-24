@@ -8,14 +8,13 @@ import { Button } from '@/components/ui/button'
 
 export default function DrugTestCollectorLink() {
   return (
-    <ShadcnWrapper className="py-1.5">
+    <ShadcnWrapper className="w-full py-1.5">
       <Button
-        size="lg"
         render={<Link href="/admin/drug-test-upload" />}
         nativeButton={false}
-        className="w-full min-w-2xs gap-2"
+        className="w-full min-w-0 justify-start"
       >
-        <CalendarCheck className="size-[18px]" />
+        <CalendarCheck data-icon="inline-start" />
         Collect Test
       </Button>
     </ShadcnWrapper>

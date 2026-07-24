@@ -227,9 +227,9 @@ export function ReferralProfileDrawer({
 
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={handleDrawerOpenChange}>
-      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(48rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
-        <DrawerHeader className="px-6 pt-6 pb-2">
-          <DrawerTitle className="text-2xl tracking-tight">Edit Referral Profile</DrawerTitle>
+      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(768px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
+        <DrawerHeader>
+          <DrawerTitle>Edit Referral Profile</DrawerTitle>
         </DrawerHeader>
 
         <form
@@ -516,7 +516,7 @@ export function ReferralProfileDrawer({
             )}
           </div>
 
-          <DrawerFooter className="px-6 pt-2 pb-6 sm:flex-row sm:justify-end">
+          <DrawerFooter className="sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={() => handleDrawerOpenChange(false)}>
               Cancel
             </Button>

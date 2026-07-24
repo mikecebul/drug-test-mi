@@ -940,7 +940,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
           <div className="border-border bg-background/40 divide-border divide-y overflow-hidden rounded-lg border">
             {reviewRows.map((item) => (
-              <div key={item.label} className="grid gap-1 px-4 py-3 sm:grid-cols-[11rem_1fr_auto] sm:items-center">
+              <div key={item.label} className="grid gap-1 px-4 py-3 sm:grid-cols-[176px_1fr_auto] sm:items-center">
                 <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">{item.label}</p>
                 <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
                   <div className="min-w-0">
@@ -1151,8 +1151,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 <CardHeader className="group hover:bg-muted/50 focus-visible:ring-ring flex cursor-pointer flex-row items-center gap-4 p-5 transition-colors focus-visible:ring-2 focus-visible:outline-none" />
               }
             >
-              <div className="bg-muted text-foreground flex size-11 shrink-0 items-center justify-center rounded-lg">
-                <UserCheck className="size-6" />
+              <div className="bg-muted text-foreground flex size-10 shrink-0 items-center justify-center rounded-lg">
+                <UserCheck className="size-5" />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-1 text-left">
                 <CardTitle className="text-2xl">Walk-In Collection</CardTitle>
@@ -1170,12 +1170,11 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       type="button"
                       aria-label={walkInClient ? 'Change client' : 'Choose client'}
                       variant="outline"
-                      size="clear"
-                      className="h-auto min-h-20 w-full justify-start gap-3 p-4 text-left"
+                      className="h-auto min-h-16 w-full justify-start gap-3 py-3 text-left"
                       onClick={() => setWalkInClientDrawerOpen(true)}
                     >
                       {walkInClient ? (
-                        <Avatar className="size-11">
+                        <Avatar className="size-10">
                           <AvatarImage
                             src={walkInClient.headshot}
                             alt={walkInClient.fullName || `${walkInClient.firstName} ${walkInClient.lastName}`}
@@ -1183,7 +1182,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                           <AvatarFallback className="font-semibold">{walkInClient.initials}</AvatarFallback>
                         </Avatar>
                       ) : (
-                        <span className="bg-muted flex size-11 shrink-0 items-center justify-center rounded-lg">
+                        <span className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-lg">
                           <Search />
                         </span>
                       )}
@@ -1218,7 +1217,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       value={selectedWalkInTestTypeId}
                       onValueChange={(value) => setWalkInTestTypeId(value ?? '')}
                     >
-                      <SelectTrigger id="walk-in-test-type" className="h-12 w-full text-base">
+                      <SelectTrigger id="walk-in-test-type" className="w-full">
                         <SelectValue placeholder="Select test type" />
                       </SelectTrigger>
                       <SelectContent
@@ -1245,7 +1244,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   type="button"
                   onClick={handleCreateWalkInBooking}
                   disabled={!walkInClient || !selectedWalkInTestType || isPending}
-                  size="xl"
                   className="w-full"
                 >
                   {isPending ? <Loader2 className="animate-spin" /> : <CalendarDays />}
@@ -2170,15 +2168,15 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       />
 
       <Drawer swipeDirection="right" open={testTypeDrawerOpen} onOpenChange={setTestTypeDrawerOpen}>
-        <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(36rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
-          <DrawerHeader className="border-border border-b px-6 py-5">
-            <DrawerTitle className="text-2xl tracking-tight">Change Today&apos;s Test</DrawerTitle>
+        <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(576px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
+          <DrawerHeader className="border-border border-b">
+            <DrawerTitle>Change Today&apos;s Test</DrawerTitle>
             <DrawerDescription>
               Updates only this appointment so pricing and collection stay aligned for today.
             </DrawerDescription>
           </DrawerHeader>
 
-          <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto px-6 py-5">
+          <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto p-4">
             {testTypes.map((testType) => {
               const isSelected = testTypeDrawerSelection === testType.id
               const isCurrentBookingTest = selectedBooking?.bookingTestType?.id === testType.id
@@ -2217,7 +2215,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             )}
           </div>
 
-          <DrawerFooter className="border-border border-t px-6 py-4 sm:flex-row sm:justify-end">
+          <DrawerFooter className="border-border border-t sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={() => setTestTypeDrawerOpen(false)}>
               Cancel
             </Button>

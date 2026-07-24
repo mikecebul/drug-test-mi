@@ -157,7 +157,7 @@ function QuickBookClientResult({
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <p className="truncate text-sm font-medium">{client.fullName || `${client.firstName} ${client.lastName}`}</p>
-          <span className="text-muted-foreground shrink-0 text-[0.65rem] font-semibold tracking-wide uppercase">
+          <span className="text-muted-foreground shrink-0 text-[10.4px] font-semibold tracking-wide uppercase">
             {matchLabel}
           </span>
         </div>
@@ -296,7 +296,7 @@ export function AdminQuickBookWidgetClient({
                 setTimeout(() => setIsDropdownOpen(false), 120)
               }}
               placeholder="Search client name, email, phone, or DOB..."
-              className="border-primary/35 bg-background focus-visible:border-primary focus-visible:ring-primary/20 h-11 rounded-md pr-10 pl-10 shadow-sm focus-visible:ring-4"
+              className="border-primary/35 bg-background focus-visible:border-primary focus-visible:ring-primary/20 rounded-md pr-10 pl-10 shadow-sm focus-visible:ring-4"
               disabled={isOpeningBooking}
             />
             {(isLoadingClients || isOpeningBooking) && (
@@ -306,7 +306,7 @@ export function AdminQuickBookWidgetClient({
               <div
                 className={
                   resultsMode === 'inline'
-                    ? 'bg-popover border-border relative mt-2 max-h-[min(18rem,36vh)] w-full overflow-y-auto rounded-md border shadow-sm'
+                    ? 'bg-popover border-border relative mt-2 max-h-[min(288px,36vh)] w-full overflow-y-auto rounded-md border shadow-sm'
                     : 'bg-popover border-border absolute z-[80] mt-1 max-h-80 w-full overflow-y-auto rounded-md border shadow-lg'
                 }
               >
@@ -341,7 +341,7 @@ export function AdminQuickBookWidgetClient({
           </div>
           <Button
             type="button"
-            className="h-11 w-full justify-center px-4"
+            className="w-full justify-center"
             onClick={() => void handleBookUnregistered()}
             disabled={isOpeningBooking}
           >

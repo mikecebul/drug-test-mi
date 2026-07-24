@@ -135,10 +135,10 @@ export function WalkInClientDrawer({
 
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={handleOpenChange}>
-      <DrawerContent className="data-[swipe-direction=right]:w-[min(32rem,calc(100vw-1rem))] data-[swipe-direction=right]:sm:max-w-none">
-        <DrawerHeader className="border-border border-b px-5 py-4">
+      <DrawerContent className="data-[swipe-direction=right]:w-[min(512px,calc(100vw-16px))] data-[swipe-direction=right]:sm:max-w-none">
+        <DrawerHeader className="border-border border-b">
           <div className="flex items-center justify-between gap-4">
-            <DrawerTitle className="text-2xl tracking-tight">Choose client</DrawerTitle>
+            <DrawerTitle>Choose client</DrawerTitle>
             <DrawerClose render={<Button type="button" variant="ghost" size="icon" aria-label="Close client chooser" />}>
               <X data-icon="inline-start" />
             </DrawerClose>
@@ -147,13 +147,12 @@ export function WalkInClientDrawer({
         </DrawerHeader>
 
         <Command shouldFilter={false} className="bg-background min-h-0 flex-1 rounded-none">
-          <div className="flex flex-col gap-4 p-5 pb-4">
-            <div className="border-input rounded-lg border [&_[data-slot=command-input-wrapper]]:h-12 [&_[data-slot=command-input-wrapper]]:border-b-0">
+          <div className="flex flex-col gap-4 p-4">
+            <div className="border-input rounded-lg border [&_[data-slot=command-input-wrapper]]:border-b-0">
               <CommandInput
                 value={searchQuery}
                 onValueChange={setSearchQuery}
                 placeholder="Search by name, DOB, phone, or email..."
-                className="h-12 text-base"
               />
             </div>
             <Button

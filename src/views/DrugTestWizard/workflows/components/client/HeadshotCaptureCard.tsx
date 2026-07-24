@@ -326,15 +326,15 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
       </div>
 
       <Dialog open={showCropper} onOpenChange={(open) => (!open ? resetCropState() : setShowCropper(true))}>
-        <DialogContent className="grid h-[calc(100dvh-1rem)] max-h-[54rem] w-[min(56rem,calc(100vw-1rem))] max-w-none grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-none">
-          <DialogHeader className="border-border border-b px-6 py-5 pr-14">
-            <DialogTitle className="flex items-center gap-2 text-2xl tracking-tight">
+        <DialogContent className="grid h-[calc(100dvh-16px)] max-h-[864px] w-[min(896px,calc(100vw-16px))] max-w-none grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-none">
+          <DialogHeader className="border-border border-b p-4 pr-12">
+            <DialogTitle className="flex items-center gap-2">
               <CropIcon className="size-5" />
               Crop Headshot
             </DialogTitle>
           </DialogHeader>
 
-          <div className="min-h-0 overflow-hidden px-6 py-5">
+          <div className="min-h-0 overflow-hidden p-4">
             <div className="bg-muted h-full min-h-0 overflow-hidden rounded-lg p-2">
               <div
                 ref={observeCropViewport}
@@ -369,7 +369,7 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
             </div>
           </div>
 
-          <DialogFooter className="border-border border-t px-6 py-4 sm:flex-row sm:justify-end">
+          <DialogFooter className="border-border border-t p-4 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={resetCropState} disabled={isUploading}>
               <X className="mr-2 size-4" />
               Cancel

@@ -24,6 +24,7 @@ const Toaster = ({ richColors = true, toastOptions, ...props }: ToasterProps) =>
 
   return (
     <Sonner
+      data-twp
       theme={sonnerTheme}
       richColors={richColors}
       toastOptions={mergedToastOptions}

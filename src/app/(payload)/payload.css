@@ -4,9 +4,66 @@
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
 
+/*
+ * Payload intentionally uses a smaller root font size than the frontend.
+ * Tailwind's default rem-based tokens therefore render custom shadcn UI at
+ * 81.25% on desktop and 75% at Payload's tablet breakpoint. Keep the bridge
+ * scoped to custom UI so native Payload components remain untouched.
+ */
+@layer theme {
+  [data-twp] {
+    --spacing: 4px;
+
+    --text-xs: 12px;
+    --text-xs--line-height: 16px;
+    --text-sm: 14px;
+    --text-sm--line-height: 20px;
+    --text-base: 16px;
+    --text-base--line-height: 24px;
+    --text-lg: 18px;
+    --text-lg--line-height: 28px;
+    --text-xl: 20px;
+    --text-xl--line-height: 28px;
+    --text-2xl: 24px;
+    --text-2xl--line-height: 32px;
+    --text-3xl: 30px;
+    --text-3xl--line-height: 36px;
+    --text-4xl: 36px;
+    --text-4xl--line-height: 40px;
+    --text-5xl: 48px;
+    --text-5xl--line-height: 1;
+    --text-6xl: 60px;
+    --text-6xl--line-height: 1;
+    --text-7xl: 72px;
+    --text-7xl--line-height: 1;
+
+    --container-2xs: 288px;
+    --container-xs: 320px;
+    --container-sm: 384px;
+    --container-md: 448px;
+    --container-lg: 512px;
+    --container-xl: 576px;
+    --container-2xl: 672px;
+    --container-3xl: 768px;
+    --container-4xl: 896px;
+    --container-5xl: 1024px;
+    --container-6xl: 1152px;
+    --container-7xl: 1280px;
+
+    --radius-xs: 2px;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-xl: 14px;
+    --radius-2xl: 16px;
+  }
+}
+
 @layer base {
   [data-twp] {
     @import 'tailwindcss/preflight.css';
+    font-size: 16px;
+    line-height: 24px;
   }
 
   [data-twp-reset] {
