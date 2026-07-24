@@ -4,6 +4,7 @@ import React from 'react'
 import { useStore } from '@tanstack/react-form'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { Drawer, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Field, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -21,6 +22,7 @@ import {
 import { useReferralProfileFormOpts } from './useReferralProfileFormOpts'
 import { useCourtOptions } from '@/app/(frontend)/register/hooks/useCourtOptions'
 import { useEmployerOptions } from '@/app/(frontend)/register/hooks/useEmployerOptions'
+import { cn } from '@/utilities/cn'
 
 type EmailPreviewData = {
   referralType?: ReferralClientType
@@ -38,6 +40,7 @@ type ReferralProfileDrawerProps = {
   clientId: string | null
   previewData: EmailPreviewData | null
   fallbackReferralEmails: string[]
+  nested?: boolean
   onSaved: (data: {
     referralType: ReferralClientType
     referralTitle: string
@@ -54,6 +57,7 @@ export function ReferralProfileDrawer({
   clientId,
   previewData,
   fallbackReferralEmails,
+  nested = false,
   onSaved,
 }: ReferralProfileDrawerProps) {
   const shouldSeedRecipients = !(
@@ -227,7 +231,14 @@ export function ReferralProfileDrawer({
 
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={handleDrawerOpenChange}>
-      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(768px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
+      <DrawerContent
+        className={cn(
+          'bg-background shadow-2xl data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none',
+          nested
+            ? 'data-[swipe-direction=right]:w-[min(576px,calc(100vw-32px))]'
+            : 'data-[swipe-direction=right]:w-[min(640px,calc(100vw-16px))]',
+        )}
+      >
         <DrawerHeader>
           <DrawerTitle>Edit Referral Profile</DrawerTitle>
         </DrawerHeader>
@@ -352,72 +363,87 @@ export function ReferralProfileDrawer({
                     </Button>
                   </div>
 
-                  <FieldGroup className="gap-4">
-                    {field.state.value.map((recipient, index) => (
-                      <div key={recipient.rowId} className="grid grid-cols-[1fr_1fr_auto] items-start gap-3">
-                        <form.Field name={`recipients[${index}].name` as const}>
-                          {(nameField) => {
-                            const errors = nameField.state.meta.errors
-                            const hasErrors = errors.length > 0
+                  <FieldGroup className="gap-3">
+                    {isPresetLocked
+                      ? field.state.value.map((recipient) => (
+                          <Card key={recipient.rowId}>
+                            <CardContent className="flex min-w-0 items-center justify-between gap-3 p-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium">{recipient.name || 'Referral recipient'}</p>
+                                <p className="text-muted-foreground truncate text-sm">{recipient.email}</p>
+                              </div>
+                              <span className="text-muted-foreground shrink-0 text-xs">Preset</span>
+                            </CardContent>
+                          </Card>
+                        ))
+                      : field.state.value.map((recipient, index) => (
+                          <Card key={recipient.rowId}>
+                            <CardContent className="grid grid-cols-[1fr_1fr_auto] items-start gap-3 p-3">
+                              <form.Field name={`recipients[${index}].name` as const}>
+                                {(nameField) => {
+                                  const errors = nameField.state.meta.errors
+                                  const hasErrors = errors.length > 0
 
-                            return (
-                              <Field data-invalid={hasErrors}>
-                                <FieldLabel htmlFor={nameField.name} className="sr-only">
-                                  Recipient name
-                                </FieldLabel>
-                                <Input
-                                  id={nameField.name}
-                                  aria-invalid={hasErrors || undefined}
-                                  value={nameField.state.value}
-                                  onChange={(event) => nameField.handleChange(event.target.value)}
-                                  onBlur={nameField.handleBlur}
-                                  placeholder="Recipient name (optional)"
-                                  readOnly={isPresetLocked}
-                                />
-                                <FieldError errors={errors} className="text-xs" />
-                              </Field>
-                            )
-                          }}
-                        </form.Field>
+                                  return (
+                                    <Field data-invalid={hasErrors}>
+                                      <FieldLabel htmlFor={nameField.name} className="sr-only">
+                                        Recipient name
+                                      </FieldLabel>
+                                      <Input
+                                        id={nameField.name}
+                                        aria-invalid={hasErrors || undefined}
+                                        value={nameField.state.value}
+                                        onChange={(event) => nameField.handleChange(event.target.value)}
+                                        onBlur={nameField.handleBlur}
+                                        placeholder="Recipient name (optional)"
+                                        readOnly={isPresetLocked}
+                                      />
+                                      <FieldError errors={errors} className="text-xs" />
+                                    </Field>
+                                  )
+                                }}
+                              </form.Field>
 
-                        <form.Field name={`recipients[${index}].email` as const}>
-                          {(emailField) => {
-                            const errors = emailField.state.meta.errors
-                            const hasErrors = errors.length > 0
+                              <form.Field name={`recipients[${index}].email` as const}>
+                                {(emailField) => {
+                                  const errors = emailField.state.meta.errors
+                                  const hasErrors = errors.length > 0
 
-                            return (
-                              <Field data-invalid={hasErrors}>
-                                <FieldLabel htmlFor={emailField.name} className="sr-only">
-                                  Recipient email
-                                </FieldLabel>
-                                <Input
-                                  id={emailField.name}
-                                  aria-invalid={hasErrors || undefined}
-                                  value={emailField.state.value}
-                                  onChange={(event) => emailField.handleChange(event.target.value)}
-                                  onBlur={emailField.handleBlur}
-                                  placeholder="recipient@example.com"
-                                  type="email"
-                                  readOnly={isPresetLocked}
-                                />
-                                <FieldError errors={errors} className="text-xs" />
-                              </Field>
-                            )
-                          }}
-                        </form.Field>
+                                  return (
+                                    <Field data-invalid={hasErrors}>
+                                      <FieldLabel htmlFor={emailField.name} className="sr-only">
+                                        Recipient email
+                                      </FieldLabel>
+                                      <Input
+                                        id={emailField.name}
+                                        aria-invalid={hasErrors || undefined}
+                                        value={emailField.state.value}
+                                        onChange={(event) => emailField.handleChange(event.target.value)}
+                                        onBlur={emailField.handleBlur}
+                                        placeholder="recipient@example.com"
+                                        type="email"
+                                        readOnly={isPresetLocked}
+                                      />
+                                      <FieldError errors={errors} className="text-xs" />
+                                    </Field>
+                                  )
+                                }}
+                              </form.Field>
 
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => field.removeValue(index)}
-                          disabled={isPresetLocked || (referralTypeUi !== 'self' && field.state.value.length <= 1)}
-                          aria-label={`Remove recipient ${index + 1}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="clear"
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive size-7"
+                                onClick={() => field.removeValue(index)}
+                                disabled={referralTypeUi !== 'self' && field.state.value.length <= 1}
+                                aria-label={`Remove recipient ${index + 1}`}
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        ))}
                   </FieldGroup>
 
                   <FieldError errors={field.state.meta.errors} />
@@ -446,66 +472,69 @@ export function ReferralProfileDrawer({
 
                     <FieldGroup className="gap-4">
                       {field.state.value.map((recipient, index) => (
-                        <div key={recipient.rowId} className="grid grid-cols-[1fr_1fr_auto] items-start gap-3">
-                          <form.Field name={`additionalRecipients[${index}].name` as const}>
-                            {(nameField) => {
-                              const errors = nameField.state.meta.errors
-                              const hasErrors = errors.length > 0
+                        <Card key={recipient.rowId}>
+                          <CardContent className="grid grid-cols-[1fr_1fr_auto] items-start gap-3 p-3">
+                            <form.Field name={`additionalRecipients[${index}].name` as const}>
+                              {(nameField) => {
+                                const errors = nameField.state.meta.errors
+                                const hasErrors = errors.length > 0
 
-                              return (
-                                <Field data-invalid={hasErrors}>
-                                  <FieldLabel htmlFor={nameField.name} className="sr-only">
-                                    Additional recipient name
-                                  </FieldLabel>
-                                  <Input
-                                    id={nameField.name}
-                                    aria-invalid={hasErrors || undefined}
-                                    value={nameField.state.value}
-                                    onChange={(event) => nameField.handleChange(event.target.value)}
-                                    onBlur={nameField.handleBlur}
-                                    placeholder="Recipient name (optional)"
-                                  />
-                                  <FieldError errors={errors} className="text-xs" />
-                                </Field>
-                              )
-                            }}
-                          </form.Field>
+                                return (
+                                  <Field data-invalid={hasErrors}>
+                                    <FieldLabel htmlFor={nameField.name} className="sr-only">
+                                      Additional recipient name
+                                    </FieldLabel>
+                                    <Input
+                                      id={nameField.name}
+                                      aria-invalid={hasErrors || undefined}
+                                      value={nameField.state.value}
+                                      onChange={(event) => nameField.handleChange(event.target.value)}
+                                      onBlur={nameField.handleBlur}
+                                      placeholder="Recipient name (optional)"
+                                    />
+                                    <FieldError errors={errors} className="text-xs" />
+                                  </Field>
+                                )
+                              }}
+                            </form.Field>
 
-                          <form.Field name={`additionalRecipients[${index}].email` as const}>
-                            {(emailField) => {
-                              const errors = emailField.state.meta.errors
-                              const hasErrors = errors.length > 0
+                            <form.Field name={`additionalRecipients[${index}].email` as const}>
+                              {(emailField) => {
+                                const errors = emailField.state.meta.errors
+                                const hasErrors = errors.length > 0
 
-                              return (
-                                <Field data-invalid={hasErrors}>
-                                  <FieldLabel htmlFor={emailField.name} className="sr-only">
-                                    Additional recipient email
-                                  </FieldLabel>
-                                  <Input
-                                    id={emailField.name}
-                                    aria-invalid={hasErrors || undefined}
-                                    value={emailField.state.value}
-                                    onChange={(event) => emailField.handleChange(event.target.value)}
-                                    onBlur={emailField.handleBlur}
-                                    placeholder="recipient@example.com"
-                                    type="email"
-                                  />
-                                  <FieldError errors={errors} className="text-xs" />
-                                </Field>
-                              )
-                            }}
-                          </form.Field>
+                                return (
+                                  <Field data-invalid={hasErrors}>
+                                    <FieldLabel htmlFor={emailField.name} className="sr-only">
+                                      Additional recipient email
+                                    </FieldLabel>
+                                    <Input
+                                      id={emailField.name}
+                                      aria-invalid={hasErrors || undefined}
+                                      value={emailField.state.value}
+                                      onChange={(event) => emailField.handleChange(event.target.value)}
+                                      onBlur={emailField.handleBlur}
+                                      placeholder="recipient@example.com"
+                                      type="email"
+                                    />
+                                    <FieldError errors={errors} className="text-xs" />
+                                  </Field>
+                                )
+                              }}
+                            </form.Field>
 
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => field.removeValue(index)}
-                            aria-label={`Remove additional recipient ${index + 1}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="clear"
+                              className="text-destructive hover:bg-destructive/10 hover:text-destructive size-7"
+                              onClick={() => field.removeValue(index)}
+                              aria-label={`Remove additional recipient ${index + 1}`}
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </CardContent>
+                        </Card>
                       ))}
                     </FieldGroup>
 

@@ -13,7 +13,6 @@ import { requireRedwoodClientUpdateApproval } from './hooks/requireRedwoodClient
 import { syncDefaultTestTypeFromReferral } from './hooks/syncDefaultTestTypeFromReferral'
 import { logClientOperationError } from './hooks/logClientOperationError'
 import { redwoodDefaultTestTypeField, redwoodSyncTab } from './redwoodFields'
-import { REDWOOD_CLIENT_UPDATE_APPROVAL_FIELD, REDWOOD_CLIENT_UPDATE_SKIP_SYNC_FIELD } from './redwoodSyncFields'
 import { adminClientSearchEndpoint } from './search/endpoint'
 import { buildClientSearchFields } from './search/normalize'
 import { CLIENT_GENDER_OPTIONS, normalizeClientGender } from '@/lib/client-gender'
@@ -164,11 +163,7 @@ export const Clients: CollectionConfig = {
     listSearchableFields: ['email', 'firstName', 'lastName'],
     components: {
       edit: {
-        SaveButton: '@/collections/Clients/components/RedwoodClientSaveButton.client',
-        beforeDocumentControls: [
-          '@/collections/Clients/components/QuickBookButton',
-          '@/collections/Clients/components/SyncPendingRedwoodClientChangesButton',
-        ],
+        beforeDocumentControls: ['@/collections/Clients/components/QuickBookButton'],
       },
     },
   },
@@ -302,39 +297,6 @@ export const Clients: CollectionConfig = {
           label: 'Personal Information',
           description: 'Basic client details and contact information',
           fields: [
-            {
-              name: 'redwoodClientSyncAlert',
-              type: 'ui',
-              admin: {
-                components: {
-                  Field: '@/collections/Clients/components/RedwoodClientSyncAlert.client#RedwoodClientSyncAlert',
-                },
-              },
-            },
-            {
-              name: REDWOOD_CLIENT_UPDATE_APPROVAL_FIELD,
-              type: 'checkbox',
-              defaultValue: false,
-              access: {
-                read: ({ req }) => req.user?.collection === 'admins',
-                update: ({ req }) => req.user?.collection === 'admins',
-              },
-              admin: {
-                condition: () => false,
-              },
-            },
-            {
-              name: REDWOOD_CLIENT_UPDATE_SKIP_SYNC_FIELD,
-              type: 'checkbox',
-              defaultValue: false,
-              access: {
-                read: ({ req }) => req.user?.collection === 'admins',
-                update: ({ req }) => req.user?.collection === 'admins',
-              },
-              admin: {
-                condition: () => false,
-              },
-            },
             {
               name: 'firstName',
               type: 'text',

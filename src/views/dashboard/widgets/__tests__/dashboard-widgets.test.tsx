@@ -75,9 +75,7 @@ describe('dashboard widgets', () => {
     const quickBookMarkup = renderMarkup(AdminQuickBookWidget(createWidgetProps(quickBookReq, 'admin-quick-book')))
 
     const probeReq = createAdminReq()
-    const probeMarkup = renderMarkup(
-      RedwoodQueueProbeWidget(createWidgetProps(probeReq, 'redwood-queue-probe')),
-    )
+    const probeMarkup = renderMarkup(RedwoodQueueProbeWidget(createWidgetProps(probeReq, 'redwood-queue-probe')))
 
     const scheduleReq = createAdminReq()
     const scheduleMarkup = renderMarkup(
@@ -189,8 +187,8 @@ describe('dashboard widgets', () => {
     expect(markup).toContain('Reschedule')
     expect(markup).toContain('https://cal.com/reschedule/cal-booking-2')
     expect(markup).toContain('https://cal.com/booking/cal-booking-2?cancel=true')
-    expect(markup).toContain('/admin/drug-test-upload?workflow=guided&amp;step=registration&amp;bookingId=booking-1')
-    expect(markup).toContain('/admin/drug-test-upload?workflow=guided&amp;step=payment&amp;bookingId=booking-2')
+    expect(markup).toContain('/admin/drug-test-upload?workflow=guided&amp;step=review&amp;bookingId=booking-1')
+    expect(markup).toContain('/admin/drug-test-upload?workflow=guided&amp;step=review&amp;bookingId=booking-2')
   })
 
   test('renders completed schedule rows as inactive and prevents collection actions', async () => {
@@ -224,6 +222,8 @@ describe('dashboard widgets', () => {
     expect(markup).toContain('Completed')
     expect(markup).toContain('line-through')
     expect(markup).toContain('bg-muted/40')
+    expect(markup).toContain('opacity-60')
+    expect(markup).toContain('grayscale')
     expect(markup).not.toContain('Collect Test')
     expect(markup).not.toContain('Review &amp; Start')
     expect(markup).not.toContain('bookingId=booking-completed')

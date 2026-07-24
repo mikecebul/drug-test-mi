@@ -417,7 +417,7 @@ export function RegisterClientDialog({
 
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={handleOpenChange}>
-      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(768px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
+      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(640px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
         <ShadcnWrapper className="flex min-h-0 flex-1 flex-col">
           <DrawerHeader className="border-border border-b">
             <DrawerTitle>Register New Client</DrawerTitle>

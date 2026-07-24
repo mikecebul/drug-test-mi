@@ -8,14 +8,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Separator } from '@/components/ui/separator'
 import type { ParsedPDFData } from '@/views/DrugTestWizard/types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { useExtractPdfQuery } from '@/views/DrugTestWizard/queries'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { getInstantTestFormOpts } from '../shared-form'
 import { getReportClientMatch, getReportClientMismatchKey } from '../utils/reportClientMatch'
-import { AlertTriangle, Calendar, CheckCircle2, ChevronDown, FileCheck2, FileX2, Loader2, User } from 'lucide-react'
+import { AlertTriangle, Calendar, CheckCircle2, FileCheck2, FileX2, Loader2, User } from 'lucide-react'
 import { formatSubstance } from '@/lib/substances'
 
 function formatCollectionDate(value: string | null | undefined) {
@@ -154,8 +153,8 @@ export const ExtractStep = withForm({
                   <AlertTriangle className="size-6" />
                 </div>
                 <div className="min-w-0 space-y-2">
-                  <h3 className="text-amber-900 text-2xl font-bold tracking-tight">Name spelling does not match</h3>
-                  <p className="text-amber-950/75 text-lg">
+                  <h3 className="text-2xl font-bold tracking-tight text-amber-900">Name spelling does not match</h3>
+                  <p className="text-lg text-amber-950/75">
                     The report name is close to the selected client. Verify the correct spelling, then fix it in
                     ToxAccess or the Client Collection.
                   </p>
@@ -163,11 +162,11 @@ export const ExtractStep = withForm({
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="border-amber-300 bg-card rounded-lg border p-4">
+                <div className="bg-card rounded-lg border border-amber-300 p-4">
                   <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">Report</p>
                   <p className="text-foreground mt-2 text-2xl font-semibold">{reportClientMatch.reportName}</p>
                 </div>
-                <div className="border-amber-300 bg-card rounded-lg border p-4">
+                <div className="bg-card rounded-lg border border-amber-300 p-4">
                   <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
                     Selected client
                   </p>
@@ -179,44 +178,42 @@ export const ExtractStep = withForm({
         )}
         {reportClientMatch?.status === 'mismatch' && (
           <Card className="border-destructive/70 bg-destructive/5">
-            <CardContent className="space-y-5 p-6">
-              <div className="flex items-start gap-4">
-                <div className="border-destructive/40 bg-destructive/10 text-destructive flex size-12 shrink-0 items-center justify-center rounded-full border">
-                  <AlertTriangle className="size-6" />
+            <CardContent className="flex flex-col gap-3 p-4">
+              <div className="flex items-start gap-3">
+                <div className="border-destructive/40 bg-destructive/10 text-destructive flex size-8 shrink-0 items-center justify-center rounded-full border">
+                  <AlertTriangle className="size-4" />
                 </div>
-                <div className="min-w-0 space-y-2">
-                  <h3 className="text-destructive text-2xl font-bold tracking-tight">Possible wrong client report</h3>
-                  <p className="text-muted-foreground text-lg">
-                    The report name is not close enough to the selected client. Confirm this is the correct
-                    client/report before continuing.
+                <div className="min-w-0">
+                  <h3 className="text-destructive text-base font-semibold">Possible wrong client report</h3>
+                  <p className="text-muted-foreground text-sm">
+                    The names do not closely match. Verify the report before continuing.
                   </p>
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="border-destructive/30 bg-card rounded-lg border p-4">
-                  <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">Report</p>
-                  <p className="text-foreground mt-2 text-2xl font-semibold">{reportClientMatch.reportName}</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="border-destructive/30 bg-card rounded-md border px-3 py-2">
+                  <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Report</p>
+                  <p className="text-foreground truncate text-base font-semibold">{reportClientMatch.reportName}</p>
                 </div>
-                <div className="border-destructive/30 bg-card rounded-lg border p-4">
-                  <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
+                <div className="border-destructive/30 bg-card rounded-md border px-3 py-2">
+                  <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
                     Selected client
                   </p>
-                  <p className="text-foreground mt-2 text-2xl font-semibold">{reportClientMatch.clientName}</p>
+                  <p className="text-foreground truncate text-base font-semibold">{reportClientMatch.clientName}</p>
                 </div>
               </div>
 
-              <label className="border-destructive/40 bg-card hover:bg-muted/40 flex min-h-20 cursor-pointer items-center gap-4 rounded-lg border p-5 transition">
+              <label className="border-destructive/40 bg-card hover:bg-muted/40 flex cursor-pointer items-center gap-3 rounded-md border p-3 transition">
                 <Checkbox
                   checked={mismatchIsConfirmed}
                   onCheckedChange={(checked) => {
                     form.setFieldValue('extract.clientMismatchConfirmed', checked === true)
                     form.setFieldValue('extract.clientMismatchConfirmationKey', checked === true ? mismatchKey : null)
                   }}
-                  className="size-5"
                 />
-                <span className="text-lg font-semibold">
-                  I reviewed the parsed report and confirm this is the correct client/report.
+                <span className="text-sm font-medium">
+                  I reviewed the report and confirm it belongs to this client.
                 </span>
               </label>
             </CardContent>
@@ -301,31 +298,6 @@ export const ExtractStep = withForm({
             </div>
           </CardContent>
         </Card>
-
-        <details className="group">
-          <summary className="cursor-pointer list-none">
-            <Card className="group-open:border-primary transition-colors">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-lg font-medium">View Raw Extracted Text</span>
-                  <span className="text-muted-foreground flex items-center gap-2 text-base">
-                    <span className="group-open:hidden">Click to expand</span>
-                    <span className="hidden group-open:inline">Click to collapse</span>
-                    <ChevronDown className="size-5 transition-transform group-open:rotate-180" />
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </summary>
-          <Card className="mt-2">
-            <CardContent className="p-6">
-              <Separator className="mb-4" />
-              <pre className="bg-muted text-muted-foreground max-h-96 overflow-y-auto rounded-md p-4 text-sm whitespace-pre-wrap">
-                {parsedData.rawText}
-              </pre>
-            </CardContent>
-          </Card>
-        </details>
       </div>
     )
   },

@@ -4,16 +4,14 @@ import { withForm } from '@/blocks/Form/hooks/form'
 import { getInstantTestFormOpts } from '../shared-form'
 import { useEffect } from 'react'
 import { useStore } from '@tanstack/react-form'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { getClientMedications } from '../../components/medications/helpers'
 import { MedicationFieldGroup } from '../../components/medications/MedicationFieldGroup'
-import { invalidateWizardClientDerivedData } from '../../../queries'
 
 export const MedicationsStep = withForm({
   ...getInstantTestFormOpts(),
 
   render: function Render({ form }) {
-    const queryClient = useQueryClient()
     const client = useStore(form.store, (state) => state.values.client)
 
     const {
@@ -56,10 +54,18 @@ export const MedicationsStep = withForm({
         isLoading={isLoading}
         error={error}
         handleRefresh={handleRefresh}
-        onHeadshotLinked={(url, docId) => {
-          form.setFieldValue('client.headshot', url)
-          form.setFieldValue('client.headshotId', docId)
-          invalidateWizardClientDerivedData(queryClient, { clientId: client.id })
+        onClientUpdated={(updated) => {
+          if (updated.firstName !== undefined) form.setFieldValue('client.firstName', updated.firstName)
+          if (updated.middleInitial !== undefined) form.setFieldValue('client.middleInitial', updated.middleInitial)
+          if (updated.lastName !== undefined) form.setFieldValue('client.lastName', updated.lastName)
+          if (updated.email !== undefined) form.setFieldValue('client.email', updated.email)
+          if (updated.dob !== undefined) form.setFieldValue('client.dob', updated.dob)
+          if (updated.phone !== undefined) form.setFieldValue('client.phone', updated.phone)
+          if (updated.gender !== undefined) form.setFieldValue('client.gender', updated.gender)
+          if (updated.headshot !== undefined) form.setFieldValue('client.headshot', updated.headshot)
+          if (updated.headshotId !== undefined) form.setFieldValue('client.headshotId', updated.headshotId)
+          if (updated.referralType !== undefined) form.setFieldValue('client.referralType', updated.referralType)
+          if (updated.referralTitle !== undefined) form.setFieldValue('client.referralTitle', updated.referralTitle)
         }}
       />
     )

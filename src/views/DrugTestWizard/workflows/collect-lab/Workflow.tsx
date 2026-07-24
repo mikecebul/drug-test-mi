@@ -13,7 +13,6 @@ import { CollectLabNavigation } from './components/Navigation'
 import { ClientStep } from './steps/Client/Step'
 import { MedicationsStep } from './steps/medications/Step'
 import { CollectionStep } from './steps/Collection'
-import { ConfirmStep } from './steps/Confirm'
 import { EmailsStep } from './steps/Emails'
 import { createCollectionWithEmailReview } from './actions/createCollectionWithEmailReview'
 import { TestCompleted } from '../../components/TestCompleted'
@@ -105,6 +104,11 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
           form.setFieldValue('client.email', client.email)
           form.setFieldValue('client.dob', client.dob ?? null)
           form.setFieldValue('client.headshot', client.headshot ?? null)
+          form.setFieldValue('client.headshotId', client.headshotId ?? null)
+          form.setFieldValue('client.phone', client.phone ?? null)
+          form.setFieldValue('client.gender', client.gender ?? null)
+          form.setFieldValue('client.referralType', client.referralType ?? null)
+          form.setFieldValue('client.referralTitle', client.referralTitle ?? null)
           form.setFieldValue('client.recommendedTestTypeValue', client.recommendedTestTypeValue)
 
           hydratedClientIdRef.current = client.id
@@ -211,8 +215,6 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
           { onDynamic: collectionSchema.shape.collection },
           <CollectionStep form={form} />,
         )
-      case 'confirm':
-        return renderGroup('collection', undefined, <ConfirmStep form={form} />)
       case 'reviewEmails':
         return renderGroup('emails', { onDynamic: emailsGroupSchema }, <EmailsStep form={form} />)
       default:

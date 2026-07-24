@@ -88,7 +88,7 @@ export function ClientEmailDialog({ open, onOpenChange, clientId, currentEmail, 
 
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={handleDialogOpenChange}>
-      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(512px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
+      <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(640px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
         <DrawerHeader className="border-border border-b">
           <DrawerTitle>Edit Client Email</DrawerTitle>
           <DrawerDescription>Update the client profile email used for notifications.</DrawerDescription>

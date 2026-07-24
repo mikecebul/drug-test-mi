@@ -262,7 +262,8 @@ export function UpdateConfirmationDecisionDialog({
                           <div className="flex-1">
                             <span className="text-foreground font-medium">Accept Results</span>
                             <p className="text-muted-foreground mt-0.5 text-sm">
-                              Accept the screening results as final. Sample will be disposed.
+                              Accept as final. First-time unexpected failures are retained for 14 days if confirmation
+                              is requested later.
                             </p>
                           </div>
                         </Label>

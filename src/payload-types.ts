@@ -1293,8 +1293,6 @@ export interface Client {
    * Whether this client is active
    */
   isActive?: boolean | null;
-  approveRedwoodSync?: boolean | null;
-  skipRedwoodSync?: boolean | null;
   firstName: string;
   lastName: string;
   /**
@@ -1556,7 +1554,7 @@ export interface Client {
   /**
    * How this client was matched in Redwood export.
    */
-  redwoodMatchedBy?: 'name-dob' | null;
+  redwoodMatchedBy?: string | null;
   /**
    * Matched donor identifier from Redwood export.
    */
@@ -3876,8 +3874,6 @@ export interface ClientsSelect<T extends boolean = true> {
   moneyOwed?: T;
   creditBalance?: T;
   isActive?: T;
-  approveRedwoodSync?: T;
-  skipRedwoodSync?: T;
   firstName?: T;
   lastName?: T;
   middleInitial?: T;

@@ -11,7 +11,7 @@ import { Plus, RefreshCw, AlertCircle } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { MedicationMotionWrapper } from './MedicationWrapper'
 import { FieldGroupHeader } from '../FieldGroupHeader'
-import { HeadshotCaptureCard } from '../client/HeadshotCaptureCard'
+import { ClientDetailsCard, type ClientDetailsValue } from '../client/ClientDetailsCard'
 import type { FormClient } from '../../shared-validators'
 
 // Default values for a single medication
@@ -26,9 +26,9 @@ export const MedicationFieldGroup = withFieldGroup({
     isLoading: false,
     error: null as Error | null,
     handleRefresh: () => {},
-    onHeadshotLinked: ((_url: string, _docId: string) => {}) as (url: string, docId: string) => void,
+    onClientUpdated: ((_client: Partial<ClientDetailsValue>) => {}) as (client: Partial<ClientDetailsValue>) => void,
   },
-  render: function Render({ group, client, isLoading, error, handleRefresh, onHeadshotLinked }) {
+  render: function Render({ group, client, isLoading, error, handleRefresh, onClientUpdated }) {
     if (!client) {
       return (
         <div className="space-y-6">
@@ -53,27 +53,26 @@ export const MedicationFieldGroup = withFieldGroup({
           title="Verify Medications"
           description="Review and update the client's medications for accurate drug test interpretation"
         />
-        <HeadshotCaptureCard client={client} onHeadshotLinked={onHeadshotLinked} />
+        <ClientDetailsCard client={client} editable onClientUpdated={onClientUpdated} />
 
         {/* Medications Section */}
         <Card className="shadow-md">
           <CardContent className="space-y-4 pt-6">
-            <div className="flex items-center justify-between pb-4">
+            <div className="flex items-start justify-between gap-4 pb-4">
               <div>
                 <h3 className="text-2xl font-semibold">Medications</h3>
-                <p className="text-muted-foreground text-lg">
-                  Manage medications for accurate drug test interpretation
-                </p>
+                <p className="text-muted-foreground text-base">Review active medications before the test.</p>
               </div>
               <Button
                 type="button"
-                size="sm"
+                size="icon"
                 variant="ghost"
                 onClick={handleRefresh}
-                className="text-muted-foreground hover:text-foreground p-2 transition-colors"
+                className="text-muted-foreground hover:text-foreground size-8 shrink-0"
                 title="Refresh medications"
+                aria-label="Refresh medications"
               >
-                <RefreshCw className="size-5" />
+                <RefreshCw className="size-4" />
               </Button>
             </div>
 
@@ -81,13 +80,8 @@ export const MedicationFieldGroup = withFieldGroup({
               <div className="text-destructive py-8 text-center">
                 <AlertCircle className="mx-auto mb-2 h-8 w-8" />
                 <p className="font-semibold">Failed to load medications</p>
-                <p className="text-sm mt-1">{error.message}</p>
-                <Button
-                  onClick={handleRefresh}
-                  variant="outline"
-                  className="mt-4"
-                  type="button"
-                >
+                <p className="mt-1 text-sm">{error.message}</p>
+                <Button onClick={handleRefresh} variant="outline" className="mt-4" type="button">
                   <RefreshCw className="mr-2 size-4" />
                   Try Again
                 </Button>
@@ -101,27 +95,29 @@ export const MedicationFieldGroup = withFieldGroup({
               <group.Field name="medications" mode="array">
                 {(field) => (
                   <div className="space-y-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() =>
-                        field.insertValue(0, {
-                          medicationName: '',
-                          startDate: getTodayDateString(),
-                          endDate: '',
-                          status: 'active',
-                          detectedAs: [],
-                          requireConfirmation: false,
-                          notes: '',
-                          _isNew: true,
-                          _wasDiscontinued: false,
-                        })
-                      }
-                    >
-                      <Plus className="mr-2 size-4" />
-                      Add Medication
-                    </Button>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="border-success/50 bg-success/10 text-success hover:bg-success/20 hover:text-success"
+                        onClick={() =>
+                          field.insertValue(0, {
+                            medicationName: '',
+                            startDate: getTodayDateString(),
+                            endDate: '',
+                            status: 'active',
+                            detectedAs: [],
+                            requireConfirmation: false,
+                            notes: '',
+                            _isNew: true,
+                            _wasDiscontinued: false,
+                          })
+                        }
+                      >
+                        <Plus className="size-5 stroke-[2.5]" />
+                        Add Medication
+                      </Button>
+                    </div>
 
                     {field.state.value.length === 0 ? (
                       <p className="text-muted-foreground py-8 text-center">

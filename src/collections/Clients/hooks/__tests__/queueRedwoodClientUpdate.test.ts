@@ -17,6 +17,7 @@ type QueueHookArgs = Parameters<typeof queueRedwoodClientUpdateAfterChange>[0]
 describe('queueRedwoodClientUpdateAfterChange', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.stubEnv('REDWOOD_AUTOMATION_ENABLED', 'true')
   })
 
   it('detects sync-relevant client changes', () => {
@@ -75,7 +76,7 @@ describe('queueRedwoodClientUpdateAfterChange', () => {
     )
   })
 
-  it('skips queueing when an admin update does not include Redwood sync approval', async () => {
+  it('skips queueing when a changed field was not prepared by the before-change hook', async () => {
     await queueRedwoodClientUpdateAfterChange({
       doc: {
         id: 'client-1',
@@ -193,7 +194,7 @@ describe('queueRedwoodClientUpdateAfterChange', () => {
     expect(queueRedwoodClientUpdate).not.toHaveBeenCalled()
   })
 
-  it('skips auto-queueing approved Redwood changes when the previous doc already had pending Redwood drift', async () => {
+  it('merges old pending drift into the next automatic sync', async () => {
     await queueRedwoodClientUpdateAfterChange({
       doc: {
         id: 'client-3',
@@ -223,10 +224,16 @@ describe('queueRedwoodClientUpdateAfterChange', () => {
       },
     } as unknown as QueueHookArgs)
 
-    expect(queueRedwoodClientUpdate).not.toHaveBeenCalled()
+    expect(queueRedwoodClientUpdate).toHaveBeenCalledWith(
+      'client-3',
+      ['phone', 'lastName'],
+      'admin-1',
+      expect.anything(),
+      expect.anything(),
+    )
   })
 
-  it('skips auto-queueing approved Redwood changes when a Redwood client update is already queued', async () => {
+  it('allows a later edit to queue behind an active client update', async () => {
     await queueRedwoodClientUpdateAfterChange({
       doc: {
         id: 'client-4',
@@ -251,6 +258,41 @@ describe('queueRedwoodClientUpdateAfterChange', () => {
         user: {
           collection: 'admins',
           id: 'admin-1',
+        },
+      },
+    } as unknown as QueueHookArgs)
+
+    expect(queueRedwoodClientUpdate).toHaveBeenCalledWith(
+      'client-4',
+      ['lastName'],
+      'admin-1',
+      expect.anything(),
+      expect.anything(),
+    )
+  })
+
+  it('does not queue when Redwood automation is disabled', async () => {
+    vi.stubEnv('REDWOOD_AUTOMATION_ENABLED', 'false')
+
+    await queueRedwoodClientUpdateAfterChange({
+      doc: {
+        id: 'client-5',
+        phone: '248-555-1000',
+        redwoodSyncStatus: 'synced',
+      },
+      operation: 'update',
+      previousDoc: {
+        phone: '248-555-2000',
+        redwoodSyncStatus: 'synced',
+      },
+      req: {
+        context: {
+          [REDWOOD_APPROVED_CLIENT_UPDATE_FIELDS_CONTEXT_KEY]: ['phone'],
+        },
+        payload: {
+          logger: {
+            error: vi.fn(),
+          },
         },
       },
     } as unknown as QueueHookArgs)

@@ -189,7 +189,10 @@ export async function updateLabScreenWithEmailReview(
 
     const clientRecipients =
       !disableClientEmails && formValues.emails.clientEmailEnabled ? formValues.emails.clientRecipients : []
-    const referralRecipients = formValues.emails.referralEmailEnabled ? formValues.emails.referralRecipients : []
+    const clientRecipientKeys = new Set(clientRecipients.map((email) => email.trim().toLowerCase()))
+    const referralRecipients = formValues.emails.referralEmailEnabled
+      ? formValues.emails.referralRecipients.filter((email) => !clientRecipientKeys.has(email.trim().toLowerCase()))
+      : []
 
     // 11. Fetch document and send emails using service layer
     let sentTo: string[] = []
@@ -236,10 +239,9 @@ export async function updateLabScreenWithEmailReview(
       recipients: sentTo.join(', ') || null,
       status: failedTo.length > 0 ? 'failed' : 'sent',
       intendedRecipients:
-        [
-          ...clientRecipients.map((e) => `Client: ${e}`),
-          ...referralRecipients.map((e) => `Referral: ${e}`),
-        ].join(', ') || null,
+        [...clientRecipients.map((e) => `Client: ${e}`), ...referralRecipients.map((e) => `Referral: ${e}`)].join(
+          ', ',
+        ) || null,
       errorMessage: failedTo.length > 0 ? `Failed to send to: ${failedTo.join(', ')}` : null,
     } as const
 

@@ -16,8 +16,7 @@ import {
   Clock,
   CreditCard,
   Ellipsis,
-  FilePenLine,
-  FlaskConical,
+  Pencil,
   Loader2,
   ClipboardList,
   Search,
@@ -81,9 +80,8 @@ import { focusFirstInvalidField } from '@/lib/form-scroll-focus'
 import { cn } from '@/utilities/cn'
 import { RegisterClientDialog } from '../../components/RegisterClientDialog'
 import type { ClientMatch } from '../../types'
-import { ClientSearchDialog } from '../components/client/ClientSearchDialog'
+import { ClientDetailsCard } from '../components/client/ClientDetailsCard'
 import type { SimpleClient } from '../components/client/getClients'
-import { useClientSearch } from '../components/client/useClientSearch'
 import {
   cancelAndRefundGuidedBooking,
   cancelGuidedBooking,
@@ -124,10 +122,10 @@ import { WalkInClientDrawer } from './WalkInClientDrawer'
 
 type Booking = Awaited<ReturnType<typeof getTodaysCollectionBookings>>[number]
 type TestType = NonNullable<Booking['testType']>
-type WorkflowStep = 'schedule' | 'registration' | 'payment' | 'toxaccess'
+type WorkflowStep = 'schedule' | 'review' | 'registration' | 'payment' | 'toxaccess'
 type ScheduleAction = 'cancel' | 'cancel-refund'
 
-const workflowSteps = ['schedule', 'registration', 'payment', 'toxaccess'] as const
+const workflowSteps = ['schedule', 'review', 'registration', 'payment', 'toxaccess'] as const
 
 interface GuidedWorkflowProps {
   onBack: () => void
@@ -178,23 +176,6 @@ function getPaymentDefaults(booking: Booking | null) {
 
 function getPaymentLabel(booking: Booking) {
   return getGuidedPaymentLabel(booking)
-}
-
-function getBookingContactEmail(booking: Booking) {
-  return booking.client?.email || booking.attendeeEmail
-}
-
-function getClientSearchMatchLabel(client: SimpleClient) {
-  const reason =
-    client.matchReason === 'date-of-birth'
-      ? 'date of birth'
-      : client.matchReason === 'recent'
-        ? 'recent client'
-        : client.matchReason || 'identity'
-
-  if (client.matchType === 'exact') return `Exact ${reason}`
-  if (client.matchType === 'partial') return `Partial ${reason}`
-  return `Possible ${reason} match`
 }
 
 function getClientIdentityMismatchKey(booking: Booking) {
@@ -330,6 +311,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const redwoodProvisioningStartedForBooking = useRef<string | null>(null)
   const [walkInClient, setWalkInClient] = useState<SimpleClient | null>(null)
   const [walkInClientDrawerOpen, setWalkInClientDrawerOpen] = useState(false)
+  const [bookingClientDrawerOpen, setBookingClientDrawerOpen] = useState(false)
   const [walkInRegistrationOpen, setWalkInRegistrationOpen] = useState(false)
   const [walkInTestTypeId, setWalkInTestTypeId] = useState('')
   const selectedBooking = useMemo(
@@ -419,20 +401,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       queryKey: ['guided', 'today-bookings'],
       queryFn: () => getTodaysCollectionBookings(),
     })
-  const bookingClientSearch = useClientSearch(
-    {
-      name: selectedBooking?.attendeeName,
-      email: selectedBooking?.attendeeEmail,
-      phone: selectedBooking?.attendeePhone,
-      limit: 5,
-    },
-    {
-      enabled: currentStep === 'registration' && Boolean(selectedBooking && !selectedBooking.client),
-      debounceMs: 0,
-    },
-  )
-  const exactBookingMatches = bookingClientSearch.data?.exactMatches ?? []
-  const possibleBookingMatches = bookingClientSearch.data?.possibleMatches ?? []
   const selectedWalkInTestTypeId = walkInTestTypeId || testTypes[0]?.id || ''
   const selectedWalkInTestType = useMemo(
     () => testTypes.find((testType) => testType.id === selectedWalkInTestTypeId) ?? null,
@@ -542,12 +510,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
       if (!updatedBooking?.client) {
         toast.error('Client could not be linked. Try again or search manually.')
-        setQuery({ step: 'registration', bookingId: selectedBooking.id })
+        setQuery({ step: 'review', bookingId: selectedBooking.id })
         return
       }
 
       toast.success(`${client.fullName ?? `${client.firstName} ${client.lastName}`} linked to booking`)
-      setQuery({ step: updatedBooking.needsTestType ? 'registration' : 'payment', bookingId: selectedBooking.id })
+      setQuery({ step: 'review', bookingId: selectedBooking.id })
     })
   }
 
@@ -598,7 +566,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       setPaymentDraft(null)
       await refreshBookings()
       toast.success('Walk-in collection created')
-      setQuery({ bookingId: result.bookingId, step: 'payment' })
+      setQuery({ bookingId: result.bookingId, step: 'review' })
     })
   }
 
@@ -693,6 +661,21 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     })
   }
 
+  const handleReviewNext = () => {
+    if (!selectedBooking?.client?.id) {
+      setBookingClientDrawerOpen(true)
+      return
+    }
+    if (!selectedBooking.testType) {
+      openTestTypeDrawer()
+      return
+    }
+    if (!validateClientIdentity()) return
+
+    setPaymentDraft(getPaymentDefaults(selectedBooking))
+    setQuery({ step: 'payment', bookingId: selectedBooking.id })
+  }
+
   const handleUndoPayment = () => {
     if (!selectedBooking?.client?.id) return
     const clientId = selectedBooking.client.id
@@ -730,14 +713,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       if (context.needsRegistration || !context.clientId) {
         toast.error('Select or register the client before collection.')
         await refreshBookings()
-        setQuery({ step: 'registration', bookingId: selectedBooking.id })
+        setQuery({ step: 'review', bookingId: selectedBooking.id })
         return
       }
 
       if (context.needsTestType || !context.testType) {
         toast.error('Select the test type for this appointment before collection.')
         await refreshBookings()
-        setQuery({ step: 'registration', bookingId: selectedBooking.id })
+        setQuery({ step: 'review', bookingId: selectedBooking.id })
         return
       }
 
@@ -753,6 +736,11 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
     if (currentStep === 'toxaccess') {
       setQuery({ step: 'payment' })
+      return
+    }
+
+    if (currentStep === 'payment') {
+      setQuery({ step: 'review' })
       return
     }
 
@@ -820,67 +808,15 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     )
   }
 
-  const renderSelectedSummary = (booking: Booking) => {
+  const renderBookingDetails = (booking: Booking, editable = false) => {
     const amountDisplay = getAmountDisplay(booking)
-    const selectedClientName = getGuidedClientName(booking.client)
-    const displayName = selectedClientName || booking.attendeeName
-
-    return (
-      <Card className="rounded-lg">
-        <CardContent className="space-y-4 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
-                {booking.client ? 'Selected client' : 'Booking attendee'}
-              </p>
-              <p className="text-2xl font-semibold">{displayName}</p>
-              <p className="text-muted-foreground text-base">{getBookingContactEmail(booking)}</p>
-            </div>
-            <Badge variant={booking.needsRegistration || booking.needsTestType ? 'secondary' : 'outline'}>
-              {booking.sampleCollection?.status === 'collected'
-                ? 'Collected'
-                : booking.needsRegistration
-                  ? 'Register'
-                  : booking.needsTestType
-                    ? 'Set test'
-                    : getPaymentLabel(booking)}
-            </Badge>
-          </div>
-          {renderClientIdentityMismatch(booking)}
-          <div className="grid grid-cols-2 gap-4 text-base">
-            <div>
-              <p className="text-muted-foreground text-sm font-medium uppercase">Time</p>
-              <p>{formatTime(booking.startTime)}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm font-medium uppercase">Gender</p>
-              <p>{formatGuidedGender(booking.client?.gender)}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm font-medium uppercase">Test</p>
-              <p>{booking.testType?.label ?? 'Set after registration'}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm font-medium uppercase">Amount</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <span>{amountDisplay.amount}</span>
-                {amountDisplay.badge && <Badge variant={amountDisplay.badgeVariant}>{amountDisplay.badge}</Badge>}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  const renderPaymentReview = (booking: Booking) => {
-    const amountDisplay = getAmountDisplay(booking)
-    const selectedClientName = getGuidedClientName(booking.client) || 'No client selected'
     const prepaidTestLabel = booking.bookingTestType?.label ?? 'Unknown'
     const referralTestLabel = booking.referralTestType?.label ?? 'Not set'
     const todayTestLabel = booking.testType?.label ?? 'Not set'
     const referralLabel = booking.referral
-      ? `${booking.referral.name}${booking.referral.type ? ` (${booking.referral.type})` : ''}`
+      ? booking.referral.type === 'self' || booking.referral.name.toLowerCase() === booking.referral.type?.toLowerCase()
+        ? booking.referral.name
+        : `${booking.referral.name}${booking.referral.type ? ` (${booking.referral.type})` : ''}`
       : 'Not set'
     const hasUnknownPrepaidTest = !booking.bookingTestType
     const hasTestMismatch =
@@ -897,8 +833,17 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         badge: amountDisplay.badge,
         badgeVariant: amountDisplay.badgeVariant,
       },
-      { label: 'Referral', value: referralLabel, subValue: `Default test: ${referralTestLabel}` },
-      { label: 'Booking test', value: prepaidTestLabel },
+      {
+        label: 'Referral',
+        value: referralLabel,
+        subValue: `Default test: ${referralTestLabel}`,
+        action: editable && booking.client ? () => setReferralDrawerOpen(true) : undefined,
+      },
+      {
+        label: 'Booking test',
+        value: prepaidTestLabel,
+        action: editable ? openTestTypeDrawer : undefined,
+      },
       ...(hasTodayTestDifference
         ? [
             {
@@ -911,20 +856,13 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
     return (
       <Card className="rounded-lg">
-        <CardHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">Selected client</p>
-              <p className="text-2xl font-semibold">{selectedClientName}</p>
-              <p className="text-muted-foreground text-base">{getBookingContactEmail(booking)}</p>
-            </div>
-            <Badge variant="outline" className={cn('mt-1 shrink-0', getGuidedGenderBadgeClass(booking.client?.gender))}>
-              {formatGuidedGender(booking.client?.gender)}
-            </Badge>
-          </div>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-3 text-xl">
+            <ClipboardList className="size-5" />
+            Booking Information
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          {renderClientIdentityMismatch(booking)}
           {(hasUnknownPrepaidTest || hasTestMismatch || hasBalanceDifference) && (
             <div className="flex gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-950">
               <TriangleAlert className="mt-0.5 size-5 shrink-0" />
@@ -940,9 +878,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
           <div className="border-border bg-background/40 divide-border divide-y overflow-hidden rounded-lg border">
             {reviewRows.map((item) => (
-              <div key={item.label} className="grid gap-1 px-4 py-3 sm:grid-cols-[176px_1fr_auto] sm:items-center">
+              <div
+                key={item.label}
+                className="grid gap-2 px-4 py-3 sm:grid-cols-[160px_minmax(0,1fr)_auto] sm:items-center"
+              >
                 <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">{item.label}</p>
-                <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <div className="min-w-0">
                     <p className="text-lg font-semibold">{item.value}</p>
                     {'subValue' in item && item.subValue && (
@@ -951,38 +892,76 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   </div>
                   {item.badge && <Badge variant={item.badgeVariant}>{item.badge}</Badge>}
                 </div>
+                {'action' in item && item.action && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    onClick={item.action}
+                    aria-label={`Edit ${item.label}`}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                )}
               </div>
             ))}
           </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <ClientSearchDialog selectedClientId={booking.client?.id ?? ''} onSelect={handleUseExistingClient}>
-              <Button type="button" variant="outline" size="lg" className="w-full">
-                <UserCheck className="mr-2 size-5" />
-                Change Client
-              </Button>
-            </ClientSearchDialog>
-            <Button type="button" variant="outline" size="lg" className="w-full" onClick={handleRegisterClient}>
-              <UserPlus data-icon="inline-start" />
-              Register New Client
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              className="w-full"
-              onClick={() => setReferralDrawerOpen(true)}
-            >
-              <FilePenLine className="mr-2 size-5" />
-              Change Referral
-            </Button>
-            <Button type="button" variant="outline" size="lg" className="w-full" onClick={openTestTypeDrawer}>
-              <FlaskConical className="mr-2 size-5" />
-              Change Today&apos;s Test
-            </Button>
-          </div>
         </CardContent>
       </Card>
+    )
+  }
+
+  const renderReview = () => {
+    if (isLoading) return renderLoading('Review')
+    if (!selectedBooking) return renderMissingBooking('Review')
+
+    const client = selectedBooking.client
+
+    return (
+      <div className="space-y-6">
+        {renderHeader('Review', 'Review Client & Appointment')}
+
+        {client ? (
+          <div className="space-y-3">
+            <ClientDetailsCard
+              client={{
+                ...client,
+                referralTitle: selectedBooking.referral?.name || null,
+              }}
+              editable
+              onChangeClient={() => setBookingClientDrawerOpen(true)}
+              onClientUpdated={() => {
+                setPaymentDraft(null)
+                void refreshBookings()
+                void refetchReferralProfile()
+              }}
+            />
+          </div>
+        ) : (
+          <Card className="rounded-lg border-amber-300">
+            <CardContent className="space-y-4 p-6">
+              <div>
+                <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">Booking attendee</p>
+                <p className="text-2xl font-semibold">{selectedBooking.attendeeName}</p>
+                <p className="text-muted-foreground">{selectedBooking.attendeeEmail}</p>
+              </div>
+              <Alert variant="warning">
+                <TriangleAlert />
+                <AlertTitle>No client profile is linked</AlertTitle>
+                <AlertDescription>Choose an existing client or register a new client before payment.</AlertDescription>
+              </Alert>
+              <Button type="button" onClick={() => setBookingClientDrawerOpen(true)}>
+                <UserPlus className="size-4" />
+                Choose or Register Client
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {renderClientIdentityMismatch(selectedBooking)}
+        {renderBookingDetails(selectedBooking, true)}
+      </div>
     )
   }
 
@@ -993,8 +972,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       <div className="space-y-6">
         {renderHeader('Today')}
         <p className="text-muted-foreground max-w-2xl text-xl">
-          Select the scheduled client who is ready for collection. Registration and payment happen before the sample
-          step.
+          Select the scheduled client who is ready for collection. Review the appointment, then collect payment.
         </p>
 
         <Card className="rounded-lg">
@@ -1031,37 +1009,49 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       type="button"
                       onClick={() => handleSelectBooking(booking)}
                       disabled={isCompleted}
-                      className="hover:text-foreground focus-visible:ring-ring min-w-0 space-y-1 rounded-md text-left transition focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default"
+                      className="hover:text-foreground focus-visible:ring-ring flex min-w-0 items-center gap-3 rounded-md text-left transition focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default"
                     >
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={cn(
-                            'block text-xl font-semibold',
-                            isCompleted && 'line-through decoration-current/60 decoration-1',
-                          )}
-                        >
-                          {booking.attendeeName}
+                      <Avatar className={cn('size-14 shrink-0', isCompleted && 'opacity-60 grayscale')}>
+                        <AvatarImage src={booking.client?.headshot || undefined} alt={booking.attendeeName} />
+                        <AvatarFallback>
+                          {booking.attendeeName
+                            .split(/\s+/)
+                            .slice(0, 2)
+                            .map((part) => part.charAt(0))
+                            .join('')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="min-w-0 space-y-1">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={cn(
+                              'block text-xl font-semibold',
+                              isCompleted && 'line-through decoration-current/60 decoration-1',
+                            )}
+                          >
+                            {booking.attendeeName}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'shrink-0',
+                              getGuidedGenderBadgeClass(booking.client?.gender),
+                              isCompleted && 'opacity-70',
+                            )}
+                          >
+                            {formatGuidedGender(booking.client?.gender)}
+                          </Badge>
                         </span>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'shrink-0',
-                            getGuidedGenderBadgeClass(booking.client?.gender),
-                            isCompleted && 'opacity-70',
-                          )}
-                        >
-                          {formatGuidedGender(booking.client?.gender)}
-                        </Badge>
-                      </span>
-                      <span className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-base">
-                        <span
-                          className={cn(
-                            'inline-flex items-center gap-1',
-                            isCompleted && 'line-through decoration-current/60 decoration-1',
-                          )}
-                        >
-                          <Clock className="size-4" />
-                          {formatTime(booking.startTime)}
+                        <span className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-base">
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1',
+                              isCompleted && 'line-through decoration-current/60 decoration-1',
+                            )}
+                          >
+                            <Clock className="size-4" />
+                            {formatTime(booking.startTime)}
+                          </span>
                         </span>
                       </span>
                     </button>
@@ -1311,169 +1301,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     </div>
   )
 
-  const renderRegistration = () => {
-    if (isLoading) return renderLoading('Registration')
-    if (!selectedBooking) return renderSchedule()
-    const clientLinked = Boolean(selectedBooking.client)
-
-    return (
-      <div className="space-y-6">
-        {renderHeader(
-          clientLinked ? 'Test Type' : 'Registration',
-          clientLinked ? 'Set Appointment Test' : 'Confirm Client',
-        )}
-        {renderSelectedSummary(selectedBooking)}
-
-        {clientLinked && selectedBooking.needsTestType && (
-          <Card className="rounded-lg border-amber-300">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-3 text-2xl">
-                <FlaskConical className="size-6" />
-                What test is needed today?
-              </CardTitle>
-              <CardDescription className="text-base">
-                This is saved on the appointment. It does not require changing the referral.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {testTypes.length === 0 ? (
-                <p className="text-muted-foreground text-base">No active test types are available.</p>
-              ) : (
-                testTypes.map((testType) => (
-                  <button
-                    key={testType.id}
-                    type="button"
-                    onClick={() => handleSelectTestType(testType.id)}
-                    disabled={isPending}
-                    className="border-border bg-background hover:bg-muted/40 focus-visible:ring-ring flex w-full items-center justify-between gap-4 rounded-lg border p-5 text-left transition focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <span>
-                      <span className="block text-xl font-semibold">{testType.label}</span>
-                      <span className="text-muted-foreground block text-base capitalize">{testType.category}</span>
-                    </span>
-                    <span className="text-xl font-semibold">{currency.format(testType.price)}</span>
-                  </button>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        <Card className={cn('rounded-lg', !clientLinked && 'border-amber-300')}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-3 text-2xl">
-              <UserCheck className="size-6" />
-              {clientLinked ? 'Wrong client linked?' : 'Is this client already registered?'}
-            </CardTitle>
-            <CardDescription className="text-base">
-              {clientLinked
-                ? 'Search and select the correct client if this appointment was linked incorrectly.'
-                : 'Link an existing client when there is a match. Only register if this is truly a new client.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {!clientLinked && bookingClientSearch.isFetching && (
-              <div className="text-muted-foreground flex items-center gap-3 rounded-lg border p-4 text-base">
-                <Loader2 className="size-5 animate-spin" />
-                Checking whether this booking matches a registered client...
-              </div>
-            )}
-
-            {!clientLinked && bookingClientSearch.isError && (
-              <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle>Automatic client check failed</AlertTitle>
-                <AlertDescription>
-                  Search existing clients before registering so a duplicate profile is not created.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {!clientLinked && exactBookingMatches.length > 0 && (
-              <Alert className="border-success/50 bg-success/10">
-                <UserCheck />
-                <AlertTitle>Registered client found</AlertTitle>
-                <AlertDescription>
-                  This appointment matches an account created after booking. Confirm the identity, then select the
-                  client.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {!clientLinked && exactBookingMatches.length > 0 && (
-              <div className="space-y-3" data-testid="guided-exact-client-matches">
-                <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">Exact Matches</p>
-                {exactBookingMatches.map((client) => (
-                  <button
-                    key={client.id}
-                    type="button"
-                    onClick={() => handleUseExistingClient(client)}
-                    disabled={isPending}
-                    className="border-success/50 bg-success/5 hover:bg-success/10 focus-visible:ring-ring flex w-full items-center justify-between gap-4 rounded-lg border p-4 text-left transition focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60"
-                  >
-                    <span>
-                      <span className="block text-xl font-semibold">{client.fullName}</span>
-                      <span className="text-muted-foreground block text-base">
-                        {client.email}
-                        {client.phone ? ` · ${client.phone}` : ''}
-                      </span>
-                      <Badge variant="success" className="mt-2">
-                        {getClientSearchMatchLabel(client)}
-                      </Badge>
-                    </span>
-                    <span className="text-sm font-medium">Use Client</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {!clientLinked && possibleBookingMatches.length > 0 && (
-              <div className="space-y-3" data-testid="guided-possible-client-matches">
-                <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">Possible Matches</p>
-                {possibleBookingMatches.map((client) => (
-                  <button
-                    key={client.id}
-                    type="button"
-                    onClick={() => handleUseExistingClient(client)}
-                    disabled={isPending}
-                    className="border-border bg-background hover:bg-muted/40 focus-visible:ring-ring flex w-full items-center justify-between gap-4 rounded-lg border p-4 text-left transition focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60"
-                  >
-                    <span>
-                      <span className="block text-xl font-semibold">{client.fullName}</span>
-                      <span className="text-muted-foreground block text-base">
-                        {client.email}
-                        {client.phone ? ` · ${client.phone}` : ''}
-                      </span>
-                      <Badge variant="secondary" className="mt-2">
-                        {getClientSearchMatchLabel(client)}
-                      </Badge>
-                    </span>
-                    <span className="text-sm font-medium">Review Client</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <ClientSearchDialog selectedClientId={selectedBooking.client?.id ?? ''} onSelect={handleUseExistingClient}>
-              <Button type="button" variant="outline" className="w-full" size="lg">
-                <Search className="mr-2 size-5" />
-                Search Existing Clients
-              </Button>
-            </ClientSearchDialog>
-
-            <Button type="button" onClick={handleRegisterClient} className="w-full" size="lg">
-              <UserPlus data-icon="inline-start" />
-              Register New Client
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   const renderPayment = () => {
     if (isLoading) return renderLoading('Payment')
-    if (selectedBooking?.needsRegistration || selectedBooking?.needsTestType) return renderRegistration()
+    if (selectedBooking?.needsRegistration || selectedBooking?.needsTestType) return renderReview()
     if (!selectedBooking || !selectedBooking.testType) return renderMissingBooking('Payment')
     const clientCreditBalance = selectedBooking.client?.creditBalance ?? 0
     const recordedPayment = selectedBooking.guidedPaymentSummary
@@ -1507,8 +1337,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
       return (
         <div className="space-y-6">
-          {renderHeader('Review & Payment', 'Review and Payment')}
-          {renderPaymentReview(selectedBooking)}
+          {renderHeader('Payment', 'Collect Payment')}
 
           <Card className="rounded-lg" data-testid="guided-recorded-payment">
             <CardHeader>
@@ -1637,17 +1466,21 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
     return (
       <div className="space-y-6">
-        {renderHeader('Review & Payment', 'Review and Payment')}
-        {renderPaymentReview(selectedBooking)}
+        {renderHeader('Payment', 'Collect Payment')}
 
-        <Card className="rounded-lg">
-          <CardHeader>
+        <Card className="border-primary/20 overflow-hidden rounded-lg">
+          <CardHeader className="border-border bg-muted/20 border-b">
             <CardTitle className="flex items-center gap-3 text-2xl">
-              <CreditCard className="size-6" />
+              <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center rounded-full">
+                <CreditCard className="size-5" />
+              </span>
               Collect payment
             </CardTitle>
+            <CardDescription>
+              Review the balance, enter the amount received, then use the primary button below to record it.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-6">
+          <CardContent className="flex flex-col gap-7 p-4 sm:p-6">
             {hasOutstandingPaymentBalanceError ? (
               <Alert variant="destructive">
                 <TriangleAlert />
@@ -1679,12 +1512,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     <p className="text-success text-2xl font-semibold">{currency.format(clientCreditBalance)}</p>
                   </div>
                 )}
-                <div className="flex flex-col gap-1 sm:border-l sm:pl-4">
-                  <p className="text-muted-foreground text-sm font-medium">Total Due</p>
+                <div className="border-primary/30 bg-background flex flex-col gap-1 rounded-lg border p-3 sm:col-span-1">
+                  <p className="text-primary text-sm font-semibold tracking-wide uppercase">Total Due</p>
                   {isLoadingOutstandingPaymentBalances ? (
                     <Skeleton className="h-9 w-24" />
                   ) : (
-                    <p className="text-3xl font-bold">
+                    <p className="text-3xl font-bold sm:text-4xl">
                       {currency.format(
                         clientCreditBalance > 0 ? allocationPreview.dueAfterCredit : allocationPreview.totalDue,
                       )}
@@ -1759,90 +1592,103 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               </div>
             )}
 
-            <FieldGroup className="grid gap-4 sm:grid-cols-2">
-              <Field data-invalid={!paymentAmountIsValid || undefined}>
-                <FieldLabel htmlFor="amount-received">Amount received now</FieldLabel>
-                <InputGroup className="h-12!">
-                  <InputGroupInput
-                    id="amount-received"
-                    name="amountReceived"
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step={1}
-                    value={payment.amountReceived}
-                    aria-invalid={!paymentAmountIsValid || undefined}
-                    onChange={(event) =>
-                      setPaymentDraft((current) => ({
-                        ...(current ?? payment),
-                        amountReceived: event.target.value,
-                      }))
-                    }
-                    className="text-lg"
-                  />
-                  <InputGroupAddon>
-                    <InputGroupText>$</InputGroupText>
-                  </InputGroupAddon>
-                </InputGroup>
-                <FieldError errors={paymentAmountIsValid ? [] : ['Enter zero or a positive amount received.']} />
-              </Field>
+            <section className="border-primary/40 bg-primary/5 space-y-5 rounded-xl border p-4 sm:p-6">
+              <div>
+                <p className="text-xl font-semibold">Enter payment received</p>
+                <p className="text-muted-foreground text-sm">
+                  Choose a quick amount or type the exact amount the client is paying now.
+                </p>
+              </div>
 
-              <Field>
-                <FieldLabel htmlFor="payment-method">Method</FieldLabel>
-                <Select
-                  items={[
-                    { value: 'cash', label: 'Cash' },
-                    { value: 'card', label: 'Card' },
-                  ]}
-                  value={payment.method}
-                  onValueChange={(method) =>
+              {!isLoadingOutstandingPaymentBalances && !hasOutstandingPaymentBalanceError && (
+                <ToggleGroup
+                  value={activeQuickAmount}
+                  onValueChange={(values) => {
+                    const value = values.at(-1)
+                    if (value === undefined) return
                     setPaymentDraft((current) => ({
                       ...(current ?? payment),
-                      method: (method ?? 'cash') as GuidedPaymentEntryMethod,
+                      amountReceived: value,
                     }))
-                  }
+                  }}
+                  variant="outline"
+                  className="w-full"
+                  aria-label="Quick amount received"
                 >
-                  <SelectTrigger id="payment-method" className="h-12! w-full text-base">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="card">Card</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </FieldGroup>
+                  {quickAmounts.map((amount) => (
+                    <ToggleGroupItem
+                      key={amount}
+                      value={String(amount)}
+                      aria-label={`Set amount received to ${currency.format(amount)}`}
+                      className="bg-background h-11"
+                    >
+                      {currency.format(amount)}
+                      {amount > 0 && amount === allocationPreview.dueAfterCredit ? ' · Pay all' : ''}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              )}
 
-            {!isLoadingOutstandingPaymentBalances && !hasOutstandingPaymentBalanceError && (
-              <ToggleGroup
-                value={activeQuickAmount}
-                onValueChange={(values) => {
-                  const value = values.at(-1)
-                  if (value === undefined) return
-                  setPaymentDraft((current) => ({
-                    ...(current ?? payment),
-                    amountReceived: value,
-                  }))
-                }}
-                variant="outline"
-                className="w-full"
-                aria-label="Quick amount received"
-              >
-                {quickAmounts.map((amount) => (
-                  <ToggleGroupItem
-                    key={amount}
-                    value={String(amount)}
-                    aria-label={`Set amount received to ${currency.format(amount)}`}
-                    className="h-10"
+              <FieldGroup className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_14rem]">
+                <Field data-invalid={!paymentAmountIsValid || undefined}>
+                  <FieldLabel htmlFor="amount-received" className="text-base font-semibold">
+                    Amount received now
+                  </FieldLabel>
+                  <InputGroup className="border-primary/50 bg-background h-16! shadow-sm">
+                    <InputGroupInput
+                      id="amount-received"
+                      name="amountReceived"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step={1}
+                      value={payment.amountReceived}
+                      aria-invalid={!paymentAmountIsValid || undefined}
+                      onChange={(event) =>
+                        setPaymentDraft((current) => ({
+                          ...(current ?? payment),
+                          amountReceived: event.target.value,
+                        }))
+                      }
+                      className="text-2xl font-bold"
+                    />
+                    <InputGroupAddon>
+                      <InputGroupText className="text-lg font-semibold">$</InputGroupText>
+                    </InputGroupAddon>
+                  </InputGroup>
+                  <FieldError errors={paymentAmountIsValid ? [] : ['Enter zero or a positive amount received.']} />
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="payment-method" className="text-base font-semibold">
+                    Payment method
+                  </FieldLabel>
+                  <Select
+                    items={[
+                      { value: 'cash', label: 'Cash' },
+                      { value: 'card', label: 'Card' },
+                    ]}
+                    value={payment.method}
+                    onValueChange={(method) =>
+                      setPaymentDraft((current) => ({
+                        ...(current ?? payment),
+                        method: (method ?? 'cash') as GuidedPaymentEntryMethod,
+                      }))
+                    }
                   >
-                    {currency.format(amount)}
-                    {amount > 0 && amount === allocationPreview.dueAfterCredit ? ' · Pay all' : ''}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-            )}
+                    <SelectTrigger id="payment-method" className="bg-background h-16! w-full text-base">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="end" alignItemWithTrigger={false} sideOffset={6}>
+                      <SelectGroup>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="card">Card</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </FieldGroup>
+            </section>
 
             <div className="border-border overflow-hidden rounded-lg border">
               <div className="p-4">
@@ -2000,7 +1846,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
   const renderToxAccess = () => {
     if (isLoading) return renderLoading('ToxAccess')
-    if (selectedBooking?.needsRegistration || selectedBooking?.needsTestType) return renderRegistration()
+    if (selectedBooking?.needsRegistration || selectedBooking?.needsTestType) return renderReview()
     if (!selectedBooking) return renderMissingBooking('ToxAccess')
     const client = selectedBooking.client
     const isFirstTest = !client?.firstDrugTestDate
@@ -2016,8 +1862,19 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     return (
       <div className="space-y-5">
         {renderHeader('ToxAccess', 'Collect Sample in ToxAccess')}
-        {renderSelectedSummary(selectedBooking)}
-
+        {selectedBooking.client && (
+          <ClientDetailsCard
+            client={{
+              ...selectedBooking.client,
+              referralTitle: selectedBooking.referral?.name || null,
+            }}
+            editable
+            onClientUpdated={() => {
+              void refreshBookings()
+              void refetchReferralProfile()
+            }}
+          />
+        )}
         <RedwoodProvisioningCard status={redwoodProvisioning} isLoading={isRedwoodProvisioningLoading} />
 
         {!isFirstTest && (
@@ -2049,7 +1906,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   }
 
   const renderCurrentStep = () => {
-    if (currentStep === 'registration') return renderRegistration()
+    if (currentStep === 'review' || currentStep === 'registration') return renderReview()
     if (currentStep === 'payment') return renderPayment()
     if (currentStep === 'toxaccess') return renderToxAccess()
     return renderSchedule()
@@ -2072,24 +1929,33 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const drawerPriceDifference =
     selectedDrawerTestType && drawerCurrentPrice !== null ? selectedDrawerTestType.price - drawerCurrentPrice : 0
 
-  const nextLabel = currentStep === 'toxaccess' ? 'Continue Collection' : 'Next'
+  const nextLabel =
+    currentStep === 'review' || currentStep === 'registration'
+      ? 'Continue to Payment'
+      : currentStep === 'payment'
+        ? amountReceived > 0 || creditToApply > 0
+          ? 'Record Payment & Continue'
+          : 'Continue to Collection Setup'
+        : 'Continue Collection'
   const canGoNext =
-    currentStep === 'payment'
-      ? Boolean(
-          selectedBooking?.testType &&
-          selectedBooking.client?.id &&
-          !isLoadingOutstandingPaymentBalances &&
-          !hasOutstandingPaymentBalanceError,
-        )
-      : currentStep === 'toxaccess'
-        ? Boolean(paymentRecorded && selectedBooking?.testType && selectedBooking.client?.id)
-        : false
+    currentStep === 'review' || currentStep === 'registration'
+      ? Boolean(selectedBooking?.testType && selectedBooking.client?.id && clientIdentityIsVerified)
+      : currentStep === 'payment'
+        ? Boolean(
+            selectedBooking?.testType &&
+            selectedBooking.client?.id &&
+            !isLoadingOutstandingPaymentBalances &&
+            !hasOutstandingPaymentBalanceError,
+          )
+        : currentStep === 'toxaccess'
+          ? Boolean(paymentRecorded && selectedBooking?.testType && selectedBooking.client?.id)
+          : false
 
   const backLabel = currentStep === 'schedule' ? 'Cancel' : 'Back'
 
   return (
     <>
-      <div ref={guidedWorkflowRef} className="mx-auto flex w-full max-w-2xl flex-col px-2">
+      <div ref={guidedWorkflowRef} className="mx-auto flex w-full max-w-4xl flex-col px-2 pb-24 sm:px-4">
         {renderCurrentStep()}
 
         <div className="mt-8 flex items-center justify-between border-t pt-4">
@@ -2108,7 +1974,13 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           {currentStep !== 'schedule' && (
             <Button
               type="button"
-              onClick={currentStep === 'payment' ? () => handlePaymentNext() : handleContinueToCollection}
+              onClick={
+                currentStep === 'review' || currentStep === 'registration'
+                  ? handleReviewNext
+                  : currentStep === 'payment'
+                    ? () => handlePaymentNext()
+                    : handleContinueToCollection
+              }
               disabled={!canGoNext || isPending}
               size="lg"
               data-testid="wizard-next-button"
@@ -2167,8 +2039,19 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         }}
       />
 
+      <WalkInClientDrawer
+        open={bookingClientDrawerOpen}
+        onOpenChange={setBookingClientDrawerOpen}
+        onRegister={() => {
+          setBookingClientDrawerOpen(false)
+          handleRegisterClient()
+        }}
+        onSelect={handleUseExistingClient}
+        selectedClientId={selectedBooking?.client?.id ?? ''}
+      />
+
       <Drawer swipeDirection="right" open={testTypeDrawerOpen} onOpenChange={setTestTypeDrawerOpen}>
-        <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(576px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
+        <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(640px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
           <DrawerHeader className="border-border border-b">
             <DrawerTitle>Change Today&apos;s Test</DrawerTitle>
             <DrawerDescription>
@@ -2222,7 +2105,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             <Button
               type="button"
               disabled={!testTypeDrawerSelection || isPending}
-              onClick={() => handleSelectTestType(testTypeDrawerSelection, { closeDrawer: true, nextStep: 'payment' })}
+              onClick={() =>
+                handleSelectTestType(testTypeDrawerSelection, {
+                  closeDrawer: true,
+                  nextStep: currentStep === 'payment' ? 'payment' : 'review',
+                })
+              }
             >
               {isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
               Save Test

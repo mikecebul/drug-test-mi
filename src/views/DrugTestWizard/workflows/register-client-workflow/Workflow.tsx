@@ -129,7 +129,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
         router.push('/admin')
       } else if ((returnTo === 'guided' || returnTo === 'complete-workflow') && bookingId) {
         await linkBookingToClient(bookingId, createdClientId)
-        router.push(`/admin/drug-test-upload?workflow=guided&step=payment&bookingId=${bookingId}`)
+        router.push(`/admin/drug-test-upload?workflow=guided&step=review&bookingId=${bookingId}`)
       } else {
         // No specific workflow, return to wizard selector
         onBack()

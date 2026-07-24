@@ -21,6 +21,10 @@ const getDefaultValues = (testType: InstantTestType = '17-panel-instant'): FormV
     dob: null,
     headshot: null,
     headshotId: null,
+    phone: null,
+    gender: null,
+    referralType: null,
+    referralTitle: null,
   },
   medications: [],
   verifyData: {

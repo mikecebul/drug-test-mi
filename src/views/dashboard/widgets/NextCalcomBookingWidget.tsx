@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -54,50 +55,62 @@ function ScheduleRow({ booking }: { booking: Booking }) {
         isCompleted && 'border-border/60 bg-muted/40 text-muted-foreground',
       )}
     >
-      <div className="min-w-0 space-y-1">
-        <span className="flex flex-wrap items-center gap-2">
+      <div className="flex min-w-0 items-center gap-3">
+        <Avatar className={cn('size-12 shrink-0', isCompleted && 'opacity-60 grayscale')}>
+          <AvatarImage src={booking.client?.headshot || undefined} alt={booking.attendeeName} />
+          <AvatarFallback>
+            {booking.attendeeName
+              .split(/\s+/)
+              .slice(0, 2)
+              .map((part) => part.charAt(0))
+              .join('')}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 space-y-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span
+              className={cn(
+                'block truncate text-base font-semibold',
+                isCompleted && 'line-through decoration-current/60 decoration-1',
+              )}
+            >
+              {booking.attendeeName}
+            </span>
+            <Badge
+              variant="outline"
+              className={cn('shrink-0', getGuidedGenderBadgeClass(booking.client?.gender), isCompleted && 'opacity-70')}
+            >
+              {formatGuidedGender(booking.client?.gender)}
+            </Badge>
+          </span>
           <span
             className={cn(
-              'block truncate text-base font-semibold',
+              'text-muted-foreground inline-flex items-center gap-1 text-sm',
               isCompleted && 'line-through decoration-current/60 decoration-1',
             )}
           >
-            {booking.attendeeName}
+            <Clock className="size-3.5" />
+            {formatTime(booking.startTime)}
           </span>
-          <Badge
-            variant="outline"
-            className={cn('shrink-0', getGuidedGenderBadgeClass(booking.client?.gender), isCompleted && 'opacity-70')}
-          >
-            {formatGuidedGender(booking.client?.gender)}
-          </Badge>
-        </span>
-        <span
-          className={cn(
-            'text-muted-foreground inline-flex items-center gap-1 text-sm',
-            isCompleted && 'line-through decoration-current/60 decoration-1',
+          {!isCompleted && (
+            <span className="flex flex-wrap items-center gap-2">
+              <Badge
+                variant={
+                  paymentLabel === 'Paid' || paymentLabel === 'Pre-paid' || paymentLabel === 'Collected'
+                    ? 'success'
+                    : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
+                      ? 'outline'
+                      : 'default'
+                }
+                className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
+              >
+                {paymentLabel}
+              </Badge>
+              {needsRegistration && <Badge variant="secondary">Register</Badge>}
+              {needsTestType && <Badge variant="secondary">Set test</Badge>}
+            </span>
           )}
-        >
-          <Clock className="size-3.5" />
-          {formatTime(booking.startTime)}
-        </span>
-        {!isCompleted && (
-          <span className="flex flex-wrap items-center gap-2">
-            <Badge
-              variant={
-                paymentLabel === 'Paid' || paymentLabel === 'Pre-paid' || paymentLabel === 'Collected'
-                  ? 'success'
-                  : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
-                    ? 'outline'
-                    : 'default'
-              }
-              className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
-            >
-              {paymentLabel}
-            </Badge>
-            {needsRegistration && <Badge variant="secondary">Register</Badge>}
-            {needsTestType && <Badge variant="secondary">Set test</Badge>}
-          </span>
-        )}
+        </div>
       </div>
       {isCompleted ? (
         <Badge variant="secondary" className="self-start md:self-center">

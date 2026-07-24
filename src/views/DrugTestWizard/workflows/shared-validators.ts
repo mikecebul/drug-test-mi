@@ -21,6 +21,10 @@ export const clientSchema = z.object({
     dob: z.string().nullable(),
     headshot: z.string().nullable(),
     headshotId: z.string().nullable(),
+    phone: z.string().nullable().optional(),
+    gender: z.enum(['male', 'female', 'prefer-not-to-say']).nullable().optional(),
+    referralType: z.enum(['court', 'employer', 'self']).nullable().optional(),
+    referralTitle: z.string().nullable().optional(),
     recommendedTestTypeValue: z
       .enum(['11-panel-lab', '11-panel-lab-no-etg', '8-panel-lab', '17-panel-sos-lab', 'etg-lab'])
       .optional(),

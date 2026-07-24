@@ -2,18 +2,19 @@
 
 import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
-import { useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import InputDateTimePicker from '@/components/input-datetime-picker'
-import { MedicationDisplayField, FieldGroupHeader, HeadshotCaptureCard } from '../../components'
+import { MedicationDisplayField, FieldGroupHeader } from '../../components'
+import { ClientDetailsCard } from '../../components/client/ClientDetailsCard'
+import { ClassificationAlert } from './confirm/components'
 import { getInstantTestFormOpts } from '../shared-form'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldGroup, FieldLabel, FieldError, FieldLegend } from '@/components/ui/field'
-import { useComputeTestResultPreviewQuery, invalidateWizardClientDerivedData } from '../../../queries'
+import { useComputeTestResultPreviewQuery } from '../../../queries'
 import { formatSubstance } from '@/lib/substances'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { ConfirmationSubstanceSelector } from '@/blocks/Form/field-components/confirmation-substance-selector'
@@ -25,7 +26,6 @@ export const VerifyDataStep = withForm({
   ...getInstantTestFormOpts(),
 
   render: function Render({ form }) {
-    const queryClient = useQueryClient()
     const formValues = useStore(form.store, (state) => state.values)
     const formClient = formValues.client
     const verifyData = formValues.verifyData
@@ -101,12 +101,21 @@ export const VerifyDataStep = withForm({
 
         {/* Client Info & Medications */}
         {client && (
-          <HeadshotCaptureCard
+          <ClientDetailsCard
             client={client}
-            onHeadshotLinked={(url: string, docId: string) => {
-              form.setFieldValue('client.headshot', url)
-              form.setFieldValue('client.headshotId', docId)
-              invalidateWizardClientDerivedData(queryClient, { clientId: client.id })
+            editable
+            onClientUpdated={(updated) => {
+              if (updated.firstName !== undefined) form.setFieldValue('client.firstName', updated.firstName)
+              if (updated.middleInitial !== undefined) form.setFieldValue('client.middleInitial', updated.middleInitial)
+              if (updated.lastName !== undefined) form.setFieldValue('client.lastName', updated.lastName)
+              if (updated.email !== undefined) form.setFieldValue('client.email', updated.email)
+              if (updated.dob !== undefined) form.setFieldValue('client.dob', updated.dob)
+              if (updated.phone !== undefined) form.setFieldValue('client.phone', updated.phone)
+              if (updated.gender !== undefined) form.setFieldValue('client.gender', updated.gender)
+              if (updated.headshot !== undefined) form.setFieldValue('client.headshot', updated.headshot)
+              if (updated.headshotId !== undefined) form.setFieldValue('client.headshotId', updated.headshotId)
+              if (updated.referralType !== undefined) form.setFieldValue('client.referralType', updated.referralType)
+              if (updated.referralTitle !== undefined) form.setFieldValue('client.referralTitle', updated.referralTitle)
             }}
           />
         )}
@@ -301,7 +310,8 @@ export const VerifyDataStep = withForm({
                         <div className="flex-1">
                           <span className="text-foreground font-medium">Accept Results</span>
                           <p className="text-muted-foreground mt-0.5 text-sm">
-                            Accept the screening results as final. Sample will be disposed.
+                            Accept as final. First-time unexpected failures are retained for 14 days if confirmation is
+                            requested later.
                           </p>
                         </div>
                       </Label>
@@ -379,6 +389,8 @@ export const VerifyDataStep = withForm({
             )}
           </div>
         )}
+
+        <ClassificationAlert preview={preview} />
       </div>
     )
   },

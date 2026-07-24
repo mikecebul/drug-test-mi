@@ -8,15 +8,10 @@ export const REDWOOD_CLIENT_UPDATE_FIELDS = [
 ] as const
 
 export type RedwoodClientUpdateField = (typeof REDWOOD_CLIENT_UPDATE_FIELDS)[number]
-export type RedwoodClientUpdateSaveBehavior = 'queue-now' | 'save-pending'
-export type RedwoodPendingSyncMode = 'hidden' | 'queued' | 'ready'
 
-export const REDWOOD_CLIENT_UPDATE_APPROVAL_FIELD = 'approveRedwoodSync'
-export const REDWOOD_CLIENT_UPDATE_SKIP_SYNC_FIELD = 'skipRedwoodSync'
 export const REDWOOD_PENDING_CLIENT_UPDATE_FIELDS = 'redwoodPendingSyncFields'
 
 const ELIGIBLE_SYNC_STATUSES = new Set(['matched-existing', 'synced'])
-const QUEUED_CLIENT_UPDATE_STATUSES = new Set(['queued'])
 
 function normalizePhoneForComparison(value: string): string {
   return value.replace(/\D/g, '')
@@ -92,7 +87,7 @@ export function isEligibleForRedwoodClientUpdate(
   const previousStatus = typeof previousDoc?.redwoodSyncStatus === 'string' ? previousDoc.redwoodSyncStatus : ''
   const hasRedwoodDonorId = Boolean(
     (typeof doc?.redwoodDonorId === 'string' && doc.redwoodDonorId.trim()) ||
-      (typeof previousDoc?.redwoodDonorId === 'string' && previousDoc.redwoodDonorId.trim()),
+    (typeof previousDoc?.redwoodDonorId === 'string' && previousDoc.redwoodDonorId.trim()),
   )
 
   return hasRedwoodDonorId || ELIGIBLE_SYNC_STATUSES.has(currentStatus) || ELIGIBLE_SYNC_STATUSES.has(previousStatus)
@@ -113,56 +108,12 @@ export function normalizePendingRedwoodClientUpdateFields(value: unknown): Redwo
   return REDWOOD_CLIENT_UPDATE_FIELDS.filter((field) => normalized.has(field))
 }
 
-export function mergePendingRedwoodClientUpdateFields(
-  existing: unknown,
-  added: RedwoodClientUpdateField[],
-): RedwoodClientUpdateField[] {
-  return Array.from(new Set([...normalizePendingRedwoodClientUpdateFields(existing), ...added]))
-}
-
 export function removePendingRedwoodClientUpdateFields(
   existing: unknown,
   removed: RedwoodClientUpdateField[],
 ): RedwoodClientUpdateField[] {
   const removeSet = new Set(removed)
   return normalizePendingRedwoodClientUpdateFields(existing).filter((field) => !removeSet.has(field))
-}
-
-export function isRedwoodClientUpdateQueued(value: unknown): boolean {
-  return typeof value === 'string' && QUEUED_CLIENT_UPDATE_STATUSES.has(value)
-}
-
-export function resolveRedwoodClientUpdateSaveBehavior(args: {
-  pendingFields: unknown
-  redwoodClientUpdateStatus: unknown
-}): RedwoodClientUpdateSaveBehavior {
-  return normalizePendingRedwoodClientUpdateFields(args.pendingFields).length > 0 ||
-    isRedwoodClientUpdateQueued(args.redwoodClientUpdateStatus)
-    ? 'save-pending'
-    : 'queue-now'
-}
-
-export function resolveRedwoodPendingSyncMode(args: {
-  eligible: boolean
-  pendingFields: unknown
-  redwoodClientUpdateStatus: unknown
-}): RedwoodPendingSyncMode {
-  const pendingFields = normalizePendingRedwoodClientUpdateFields(args.pendingFields)
-
-  if (!args.eligible || pendingFields.length === 0) {
-    return 'hidden'
-  }
-
-  return isRedwoodClientUpdateQueued(args.redwoodClientUpdateStatus) ? 'queued' : 'ready'
-}
-
-export function shouldAutoQueueApprovedRedwoodClientUpdate(previousDoc: Record<string, unknown> | undefined): boolean {
-  return (
-    resolveRedwoodClientUpdateSaveBehavior({
-      pendingFields: previousDoc?.[REDWOOD_PENDING_CLIENT_UPDATE_FIELDS],
-      redwoodClientUpdateStatus: previousDoc?.redwoodClientUpdateStatus,
-    }) === 'queue-now'
-  )
 }
 
 export function getRedwoodClientUpdateFieldLabel(field: RedwoodClientUpdateField): string {

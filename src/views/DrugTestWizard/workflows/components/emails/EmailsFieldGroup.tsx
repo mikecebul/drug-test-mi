@@ -93,6 +93,7 @@ export const EmailsFieldGroup = withFieldGroup({
   }) {
     const queryClient = useQueryClient()
     const [showClientEmailEditor, setShowClientEmailEditor] = React.useState(false)
+    const [showClientPreview, setShowClientPreview] = React.useState(false)
     const [showReferralEditor, setShowReferralEditor] = React.useState(false)
 
     // Get current field group values
@@ -100,7 +101,6 @@ export const EmailsFieldGroup = withFieldGroup({
     const clientRecipients = group.getFieldValue('clientRecipients')
     const referralEmailEnabled = group.getFieldValue('referralEmailEnabled')
     const referralRecipients = group.getFieldValue('referralRecipients')
-    const referralRecipientsMissing = referralEmailEnabled && referralRecipients.length === 0
     const canSendClientEmail = Boolean(previewData?.clientEmail)
     const savedReferralRecipients = React.useMemo(() => {
       const detailedRecipients = [
@@ -108,6 +108,11 @@ export const EmailsFieldGroup = withFieldGroup({
         ...(previewData?.clientAdditionalRecipientsDetailed || []),
       ].filter((recipient) => recipient.email.trim())
 
+      const clientEmailKeys = new Set(
+        [previewData?.clientEmail, ...(clientRecipients || [])]
+          .filter((email): email is string => Boolean(email?.trim()))
+          .map((email) => email.trim().toLowerCase()),
+      )
       const seenEmails = new Set<string>()
       const recipients =
         detailedRecipients.length > 0
@@ -119,12 +124,14 @@ export const EmailsFieldGroup = withFieldGroup({
 
       return recipients.filter((recipient) => {
         const emailKey = recipient.email.trim().toLowerCase()
-        if (!emailKey || seenEmails.has(emailKey)) return false
+        if (!emailKey || clientEmailKeys.has(emailKey) || seenEmails.has(emailKey)) return false
         seenEmails.add(emailKey)
         return true
       })
     }, [
+      clientRecipients,
       previewData?.clientAdditionalRecipientsDetailed,
+      previewData?.clientEmail,
       previewData?.referralEmails,
       previewData?.referralRecipientsDetailed,
       previewData?.referralTitle,
@@ -133,6 +140,7 @@ export const EmailsFieldGroup = withFieldGroup({
       () => savedReferralRecipients.map((recipient) => recipient.email),
       [savedReferralRecipients],
     )
+    const referralRecipientsMissing = referralEmailEnabled && savedReferralEmails.length === 0
 
     const setEmailFieldValue = React.useCallback(
       function setEmailFieldValue(
@@ -216,6 +224,31 @@ export const EmailsFieldGroup = withFieldGroup({
       setEmailFieldValue,
       validateSubmitState,
     ])
+
+    React.useEffect(() => {
+      if (savedReferralEmails.length > 0) {
+        const recipientsChanged =
+          referralRecipients.length !== savedReferralEmails.length ||
+          referralRecipients.some(
+            (email, index) => email.trim().toLowerCase() !== savedReferralEmails[index]?.trim().toLowerCase(),
+          )
+
+        if (referralEmailEnabled && recipientsChanged) {
+          setEmailFieldValue('referralRecipients', savedReferralEmails)
+          validateSubmitState()
+        }
+        return
+      }
+
+      if (referralEmailEnabled) {
+        setEmailFieldValue('referralEmailEnabled', false)
+        validateSubmitState()
+      }
+      if (referralRecipients.length > 0) {
+        setEmailFieldValue('referralRecipients', [])
+        validateSubmitState()
+      }
+    }, [referralEmailEnabled, referralRecipients, savedReferralEmails, setEmailFieldValue, validateSubmitState])
 
     if (isLoading) {
       return (
@@ -327,31 +360,39 @@ export const EmailsFieldGroup = withFieldGroup({
             <FieldGroup className="min-w-0">
               <FieldSet className="min-w-0">
                 <FieldLegend>Referral Notification</FieldLegend>
-                <FieldGroup data-slot="checkbox-group">
-                  <group.Field name="referralEmailEnabled">
-                    {(field) => (
-                      <Field orientation="horizontal" data-invalid={field.state.meta.errors.length > 0}>
-                        <Checkbox
-                          id="referral-enabled"
-                          checked={field.state.value}
-                          onCheckedChange={(checked) => {
-                            const isEnabled = checked === true
-                            field.handleChange(isEnabled)
-                            if (
-                              isEnabled &&
-                              savedReferralEmails.length > 0 &&
-                              (referralRecipients || []).length === 0
-                            ) {
-                              setEmailFieldValue('referralRecipients', savedReferralEmails)
-                            }
-                            validateSubmitState()
-                          }}
-                        />
-                        <FieldLabel htmlFor="referral-enabled">Send referral notifications</FieldLabel>
-                      </Field>
-                    )}
-                  </group.Field>
-                </FieldGroup>
+                {savedReferralEmails.length > 0 ? (
+                  <FieldGroup data-slot="checkbox-group">
+                    <group.Field name="referralEmailEnabled">
+                      {(field) => (
+                        <Field orientation="horizontal" data-invalid={field.state.meta.errors.length > 0}>
+                          <Checkbox
+                            id="referral-enabled"
+                            checked={field.state.value}
+                            onCheckedChange={(checked) => {
+                              const isEnabled = checked === true
+                              field.handleChange(isEnabled)
+                              if (
+                                isEnabled &&
+                                savedReferralEmails.length > 0 &&
+                                (referralRecipients || []).length === 0
+                              ) {
+                                setEmailFieldValue('referralRecipients', savedReferralEmails)
+                              }
+                              validateSubmitState()
+                            }}
+                          />
+                          <FieldLabel htmlFor="referral-enabled">Send referral notifications</FieldLabel>
+                        </Field>
+                      )}
+                    </group.Field>
+                  </FieldGroup>
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    {showClientEmail
+                      ? 'No separate referral email will be sent. The client notification above covers this recipient.'
+                      : 'No separate referral recipient is configured, so no referral email will be sent.'}
+                  </p>
+                )}
                 <div className="mt-2 flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0 space-y-1 lg:flex-1">
                     <FieldLabel className="text-base font-semibold">Referral</FieldLabel>
@@ -444,14 +485,26 @@ export const EmailsFieldGroup = withFieldGroup({
                 )
               })()}
             </AlertDescription>
-            {referralEmailEnabled && savedReferralRecipients.length > 0 && (
+            {referralEmailEnabled && savedReferralRecipients.length > 0 ? (
               <AlertAction>
                 <Button type="button" variant="outline" onClick={() => setShowPreview(true)}>
                   <Eye className="mr-2 h-4 w-4" />
                   Preview Referral Email
                 </Button>
               </AlertAction>
-            )}
+            ) : clientEmailEnabled && clientRecipients.length > 0 ? (
+              <AlertAction>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowClientPreview(true)}
+                  disabled={!previewData.clientHtml || !previewData.clientSubject}
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  Preview Client Email
+                </Button>
+              </AlertAction>
+            ) : null}
           </Alert>
 
           {/* Email Preview Modals */}
@@ -463,6 +516,16 @@ export const EmailsFieldGroup = withFieldGroup({
               subject={previewData.referralSubject}
               recipients={savedReferralEmails}
               emailType="referral"
+            />
+          )}
+          {showClientPreview && previewData.clientHtml && (
+            <EmailPreviewModal
+              isOpen={showClientPreview}
+              onClose={() => setShowClientPreview(false)}
+              emailHtml={previewData.clientHtml}
+              subject={previewData.clientSubject || 'Client notification'}
+              recipients={clientRecipients}
+              emailType="client"
             />
           )}
           <ReferralProfileDrawer

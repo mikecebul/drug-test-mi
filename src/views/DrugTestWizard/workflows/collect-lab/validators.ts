@@ -1,7 +1,7 @@
 import z from 'zod'
 import { clientSchema, medicationsSchema, emailsGroupSchema, emailsSchema } from '../shared-validators'
 
-export const steps = ['client', 'medications', 'collection', 'confirm', 'reviewEmails'] as const
+export const steps = ['client', 'medications', 'collection', 'reviewEmails'] as const
 export type Steps = typeof steps
 
 export const labTests = ['11-panel-lab', '11-panel-lab-no-etg', '8-panel-lab', '17-panel-sos-lab', 'etg-lab'] as const

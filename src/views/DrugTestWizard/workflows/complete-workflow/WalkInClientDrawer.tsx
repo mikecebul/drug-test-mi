@@ -4,14 +4,7 @@ import { useState } from 'react'
 import { CheckCircle2, ChevronRight, Loader2, UserPlus, X } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import {
   Drawer,
   DrawerClose,
@@ -135,11 +128,13 @@ export function WalkInClientDrawer({
 
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={handleOpenChange}>
-      <DrawerContent className="data-[swipe-direction=right]:w-[min(512px,calc(100vw-16px))] data-[swipe-direction=right]:sm:max-w-none">
+      <DrawerContent className="data-[swipe-direction=right]:w-[min(640px,calc(100vw-16px))] data-[swipe-direction=right]:sm:max-w-none">
         <DrawerHeader className="border-border border-b">
           <div className="flex items-center justify-between gap-4">
             <DrawerTitle>Choose client</DrawerTitle>
-            <DrawerClose render={<Button type="button" variant="ghost" size="icon" aria-label="Close client chooser" />}>
+            <DrawerClose
+              render={<Button type="button" variant="ghost" size="icon" aria-label="Close client chooser" />}
+            >
               <X data-icon="inline-start" />
             </DrawerClose>
           </div>

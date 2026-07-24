@@ -8,6 +8,7 @@ import {
   getGuidedGenderBadgeClass,
   getGuidedPaymentChoice,
   getGuidedPaymentLabel,
+  getGuidedBookingNextStep,
   isPastScheduledBookingTime,
 } from './schedule-utils'
 
@@ -42,6 +43,16 @@ describe('guided client identity helpers', () => {
 })
 
 describe('guided schedule payment helpers', () => {
+  test('always starts a selected appointment on the review step', () => {
+    expect(
+      getGuidedBookingNextStep({
+        id: 'booking-1',
+        needsRegistration: false,
+        needsTestType: false,
+      }),
+    ).toBe('review')
+  })
+
   test('treats unpaid manual bookings as still owing payment', () => {
     const booking = {
       id: 'booking-1',

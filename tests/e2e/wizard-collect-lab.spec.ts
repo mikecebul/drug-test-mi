@@ -61,7 +61,7 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await clickNext(page)
     await clickNext(page)
 
-    await expect(page.getByRole('heading', { name: 'Collection Details' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Confirm Details' })).toBeVisible()
 
     const collectionDate = page.locator('#collection-date')
     await expect(collectionDate).not.toBeEmpty()
@@ -82,12 +82,11 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await page.locator('#breathalyzerResult').fill('0.000')
     await clickNext(page)
 
-    await expect(page.getByRole('heading', { name: 'Confirm Collection Details' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review Collection Notification' })).toBeVisible()
     await clickBack(page)
-    await expect(page.getByRole('heading', { name: 'Collection Details' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Confirm Details' })).toBeVisible()
     await clickNext(page)
 
-    await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Review Collection Notification' })).toBeVisible()
 
     await page.getByLabel(/Send referral notifications/i).uncheck()

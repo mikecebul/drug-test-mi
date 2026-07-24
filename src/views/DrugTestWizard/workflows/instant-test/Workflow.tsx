@@ -16,7 +16,6 @@ import { ExtractStep } from './steps/Extract'
 import { ClientStep } from './steps/Client/Step'
 import { MedicationsStep } from './steps/Medications'
 import { VerifyDataStep } from './steps/VerifyData'
-import { ConfirmStep } from './steps/confirm/Step'
 import { EmailsStep } from './steps/Emails'
 import { createInstantTest } from './actions/createInstantTest'
 import { TestCompleted } from '../../components/TestCompleted'
@@ -284,6 +283,10 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
           form.setFieldValue('client.dob', client.dob ?? null)
           form.setFieldValue('client.headshot', client.headshot ?? null)
           form.setFieldValue('client.headshotId', client.headshotId ?? null)
+          form.setFieldValue('client.phone', client.phone ?? null)
+          form.setFieldValue('client.gender', client.gender ?? null)
+          form.setFieldValue('client.referralType', client.referralType ?? null)
+          form.setFieldValue('client.referralTitle', client.referralTitle ?? null)
 
           hydratedClientIdRef.current = client.id
           if (!bookingId) {
@@ -415,8 +418,6 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
           { onDynamic: verifyDataSchema.shape.verifyData },
           <VerifyDataStep form={form} />,
         )
-      case 'confirm':
-        return renderGroup('verifyData', undefined, <ConfirmStep form={form} />)
       case 'reviewEmails':
         return renderGroup('emails', { onDynamic: emailsGroupSchema }, <EmailsStep form={form} />)
       default:

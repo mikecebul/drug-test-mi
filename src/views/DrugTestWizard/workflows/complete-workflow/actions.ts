@@ -438,6 +438,11 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
       const testType = bookingTestType ?? referralTestType
       const referralType = client?.referralType as 'court' | 'employer' | 'self' | undefined
       const firstDrugTestDate = await getFirstDrugTestDate(payload, client?.id as string | undefined)
+      const headshot =
+        client?.headshot && typeof client.headshot === 'object'
+          ? client.headshot.thumbnailURL || client.headshot.url || null
+          : null
+      const headshotId = client?.headshot && typeof client.headshot === 'object' ? String(client.headshot.id) : null
 
       return {
         id: booking.id as string,
@@ -462,6 +467,8 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
               dob: typeof client.dob === 'string' ? client.dob : null,
               gender: typeof client.gender === 'string' ? client.gender : null,
               phone: typeof client.phone === 'string' ? client.phone : null,
+              headshot,
+              headshotId,
               moneyOwed: typeof client.moneyOwed === 'number' ? client.moneyOwed : 0,
               creditBalance: typeof client.creditBalance === 'number' ? client.creditBalance : 0,
               firstDrugTestDate,
