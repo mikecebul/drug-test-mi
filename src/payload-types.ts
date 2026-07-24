@@ -1554,10 +1554,6 @@ export interface Client {
    */
   redwoodInactivationLastError?: string | null;
   /**
-   * How this client was matched in Redwood export.
-   */
-  redwoodMatchedBy?: 'name-dob' | null;
-  /**
    * Matched donor identifier from Redwood export.
    */
   redwoodMatchedDonorName?: string | null;
@@ -3943,7 +3939,6 @@ export interface ClientsSelect<T extends boolean = true> {
   redwoodInactivationStatus?: T;
   redwoodInactivationLastAttemptAt?: T;
   redwoodInactivationLastError?: T;
-  redwoodMatchedBy?: T;
   redwoodMatchedDonorName?: T;
   redwoodLastAttemptAt?: T;
   redwoodLastError?: T;
@@ -4561,7 +4556,6 @@ export interface TaskRedwoodImportClient {
   };
   output: {
     status: string;
-    matchedBy?: string | null;
   };
 }
 /**

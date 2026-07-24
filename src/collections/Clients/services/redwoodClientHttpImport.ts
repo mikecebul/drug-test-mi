@@ -28,7 +28,6 @@ export type RedwoodHttpImportedDonor = {
   accountNumber: string
   callInCode: string | null
   donorId: string
-  matchedBy?: 'name-dob'
   matchedDonorName: string | null
   status: RedwoodHttpImportStatus
 }
@@ -187,7 +186,6 @@ export async function createRedwoodClientViaHttp(
       accountNumber: existing.accountNumber,
       callInCode: await readRedwoodCallInCodeViaHttp({ donorId: existing.donorId, donorSearchUrl, session }),
       donorId: existing.donorId,
-      matchedBy: existing.matchedBy,
       matchedDonorName: existing.matchedDonorName,
       status: 'matched-existing',
     }
@@ -212,7 +210,6 @@ export async function createRedwoodClientViaHttp(
       accountNumber: inactive.accountNumber,
       callInCode: await readRedwoodCallInCodeViaHttp({ donorId: inactive.donorId, donorSearchUrl, session }),
       donorId: inactive.donorId,
-      matchedBy: inactive.matchedBy,
       matchedDonorName: inactive.matchedDonorName,
       status: 'reactivated-existing',
     }

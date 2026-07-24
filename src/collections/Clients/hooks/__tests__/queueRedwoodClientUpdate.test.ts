@@ -166,6 +166,38 @@ describe('queueRedwoodClientUpdateAfterChange', () => {
     expect(queueRedwoodClientUpdate).not.toHaveBeenCalled()
   })
 
+  it('skips queueing when an instant test updates only client medications', async () => {
+    await queueRedwoodClientUpdateAfterChange({
+      doc: {
+        id: 'client-1',
+        firstName: 'Isaac',
+        lastName: 'Hoaglung',
+        phone: '231-555-0100',
+        medications: [{ medicationName: 'Prescription A', status: 'active' }],
+        redwoodSyncStatus: 'synced',
+      },
+      operation: 'update',
+      previousDoc: {
+        id: 'client-1',
+        firstName: 'Isaac',
+        lastName: 'Hoaglung',
+        phone: '231-555-0100',
+        medications: [],
+        redwoodSyncStatus: 'synced',
+      },
+      req: {
+        context: {},
+        payload: {
+          logger: {
+            error: vi.fn(),
+          },
+        },
+      },
+    } as unknown as QueueHookArgs)
+
+    expect(queueRedwoodClientUpdate).not.toHaveBeenCalled()
+  })
+
   it('skips queueing when explicitly disabled by context', async () => {
     await queueRedwoodClientUpdateAfterChange({
       doc: {
