@@ -13,7 +13,6 @@ import { queueRedwoodDefaultTestSync, queueRedwoodHeadshotUpload } from '@/lib/r
 import { createRedwoodClientViaHttp, type RedwoodHttpImportedDonor } from './redwoodClientHttpImport'
 
 type RedwoodImportResult = {
-  matchedBy?: 'name-dob'
   status: 'manual-review' | 'matched-existing' | 'partial-success' | 'reactivated-existing' | 'synced'
 }
 
@@ -106,7 +105,6 @@ async function routeSuccessfulImport(args: {
   await updateClientRedwoodState(payload, clientId, {
     redwoodAccountNumber: result.accountNumber,
     redwoodSyncStatus: syncStatus,
-    redwoodMatchedBy: result.status === 'imported' ? null : result.matchedBy || 'name-dob',
     redwoodMatchedDonorName: result.status === 'imported' ? null : result.matchedDonorName,
     redwoodCallInCode: result.callInCode,
     redwoodDonorId: result.donorId,
@@ -121,7 +119,6 @@ async function routeSuccessfulImport(args: {
     accountNumber: result.accountNumber,
     donorId: result.donorId,
     callInCode: result.callInCode,
-    matchedBy: result.matchedBy,
     status: syncStatus,
     queue: 'redwood',
   })
@@ -132,8 +129,7 @@ async function routeSuccessfulImport(args: {
       : client.headshot && typeof client.headshot === 'object' && 'id' in client.headshot
         ? String(client.headshot.id)
         : ''
-  const headshotStatus =
-    typeof client.redwoodHeadshotPushStatus === 'string' ? client.redwoodHeadshotPushStatus : ''
+  const headshotStatus = typeof client.redwoodHeadshotPushStatus === 'string' ? client.redwoodHeadshotPushStatus : ''
   if (headshotId && !['queued', 'synced'].includes(headshotStatus)) {
     try {
       await queueRedwoodHeadshotUpload(clientId, undefined, payload)
@@ -149,10 +145,7 @@ async function routeSuccessfulImport(args: {
 
   const defaultTestError = await queueRequiredDefaultTest({ client, clientId, payload, source })
   if (!defaultTestError) {
-    return {
-      ...(result.matchedBy ? { matchedBy: result.matchedBy } : {}),
-      status: syncStatus,
-    }
+    return { status: syncStatus }
   }
 
   const message = `Redwood donor is ready, but required default-test sync could not be queued: ${defaultTestError}`
@@ -181,10 +174,7 @@ async function routeSuccessfulImport(args: {
     },
   })
 
-  return {
-    ...(result.matchedBy ? { matchedBy: result.matchedBy } : {}),
-    status: 'partial-success',
-  }
+  return { status: 'partial-success' }
 }
 
 export async function runRedwoodImportClientJob(args: {

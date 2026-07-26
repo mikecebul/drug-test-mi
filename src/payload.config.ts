@@ -440,10 +440,7 @@ export default buildConfig({
           { name: 'clientId', type: 'text', required: true },
           { name: 'source', type: 'text', required: true },
         ],
-        outputSchema: [
-          { name: 'status', type: 'text', required: true },
-          { name: 'matchedBy', type: 'text', required: false },
-        ],
+        outputSchema: [{ name: 'status', type: 'text', required: true }],
         handler: async ({ input, job, req }) => {
           await recordRunningJobRun(req.payload, job)
 
@@ -456,7 +453,6 @@ export default buildConfig({
 
             const output = {
               status: result.status,
-              matchedBy: result.matchedBy,
             }
 
             await recordCompletedJobRun(req.payload, {

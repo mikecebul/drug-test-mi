@@ -228,15 +228,6 @@ export const redwoodSyncTab: ClientTab = {
         ),
         redwoodErrorField('redwoodInactivationLastError', 'Most recent Redwood inactivation error message, if any.'),
         {
-          name: 'redwoodMatchedBy',
-          type: 'text',
-          access: redwoodSystemFieldAccess,
-          admin: {
-            readOnly: true,
-            description: 'How this client was matched in Redwood export.',
-          },
-        },
-        {
           name: 'redwoodMatchedDonorName',
           type: 'text',
           access: redwoodSystemFieldAccess,

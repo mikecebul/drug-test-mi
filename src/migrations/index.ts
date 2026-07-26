@@ -18,6 +18,7 @@ import * as migration_20260718_000000_backfill_client_search_fields from './2026
 import * as migration_20260719_000000_normalize_client_gender from './20260719_000000_normalize_client_gender'
 import * as migration_20260723_203006_increase_client_dobs_one_day from './20260723_203006_increase_client_dobs_one_day'
 import * as migration_20260723_205754_restore_client_dobs_after_render_fix from './20260723_205754_restore_client_dobs_after_render_fix'
+import * as migration_20260724_000000_clear_isaac_legacy_redwood_match from './20260724_000000_clear_isaac_legacy_redwood_match'
 
 export const migrations = [
   {
@@ -119,5 +120,10 @@ export const migrations = [
     up: migration_20260723_205754_restore_client_dobs_after_render_fix.up,
     down: migration_20260723_205754_restore_client_dobs_after_render_fix.down,
     name: '20260723_205754_restore_client_dobs_after_render_fix',
+  },
+  {
+    up: migration_20260724_000000_clear_isaac_legacy_redwood_match.up,
+    down: migration_20260724_000000_clear_isaac_legacy_redwood_match.down,
+    name: '20260724_000000_clear_isaac_legacy_redwood_match',
   },
 ]

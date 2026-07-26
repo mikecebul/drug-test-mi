@@ -65,7 +65,6 @@ describe('Redwood HTTP donor account discovery', () => {
     expect(result).toMatchObject({
       accountNumber: '310872',
       donorId: '2714034',
-      matchedBy: 'name-dob',
     })
     expect(session.getText).toHaveBeenCalledTimes(2)
   })
@@ -191,7 +190,6 @@ describe('Redwood HTTP donor account discovery', () => {
         accountNumber: '310872',
         activeStatus,
         donorId: '2714034',
-        matchedBy: 'name-dob',
         matchedDonorName: 'Testing, Bob F',
       }
 

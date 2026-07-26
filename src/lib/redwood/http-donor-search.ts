@@ -31,7 +31,6 @@ export type RedwoodHttpResolvedDonor = {
   accountNumber: string
   callInCode?: string | null
   donorId: string
-  matchedBy: 'name-dob'
   matchedDonorName: string | null
 }
 
@@ -233,7 +232,6 @@ export async function findRedwoodDonorByNameDobViaHttp(args: {
     return {
       accountNumber,
       donorId: selectedRow.donorId,
-      matchedBy: 'name-dob',
       matchedDonorName: getMatchedDonorName(selectedRow),
     }
   } catch (error) {

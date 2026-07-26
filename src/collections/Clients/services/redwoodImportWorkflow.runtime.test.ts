@@ -126,7 +126,6 @@ describe('Redwood direct HTTP import workflow', () => {
       accountNumber: '310872',
       callInCode: '654321',
       donorId: '2714034',
-      matchedBy: 'name-dob',
       matchedDonorName: 'Testing, Bob',
       status: 'reactivated-existing',
     })
@@ -138,7 +137,7 @@ describe('Redwood direct HTTP import workflow', () => {
       source: 'client-reactivation',
     })
 
-    expect(result).toEqual({ matchedBy: 'name-dob', status: 'reactivated-existing' })
+    expect(result).toEqual({ status: 'reactivated-existing' })
     expect(payloadMock.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -180,7 +179,6 @@ describe('Redwood direct HTTP import workflow', () => {
       accountNumber: '310974',
       callInCode: '123456',
       donorId: '2714034',
-      matchedBy: 'name-dob',
       matchedDonorName: 'Testing, Bob',
       status: 'matched-existing',
     })
@@ -206,7 +204,6 @@ describe('Redwood direct HTTP import workflow', () => {
       accountNumber: '310974',
       callInCode: '123456',
       donorId: '2714034',
-      matchedBy: 'name-dob',
       matchedDonorName: 'Testing, Bob',
       status: 'matched-existing',
     })
@@ -219,7 +216,7 @@ describe('Redwood direct HTTP import workflow', () => {
       source: 'manual',
     })
 
-    expect(result).toEqual({ matchedBy: 'name-dob', status: 'matched-existing' })
+    expect(result).toEqual({ status: 'matched-existing' })
     expect(payloadMock.find).toHaveBeenCalledWith(
       expect.objectContaining({
         collection: 'drug-tests',

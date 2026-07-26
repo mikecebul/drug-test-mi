@@ -104,7 +104,6 @@ describe('Redwood donor creation policy', () => {
     findRedwoodDonorByNameDobViaHttpMock.mockResolvedValue({
       accountNumber: '310872',
       donorId: '2793207',
-      matchedBy: 'name-dob',
       matchedDonorName: 'Testing, Bob',
     })
     readRedwoodCallInCodeViaHttpMock.mockResolvedValue('123456')
@@ -146,14 +145,12 @@ describe('Redwood donor creation policy', () => {
         accountNumber: '310872',
         activeStatus: 'active',
         donorId: '2714034',
-        matchedBy: 'name-dob',
         matchedDonorName: 'Testing, Bob',
       },
       inactive: {
         accountNumber: '310872',
         activeStatus: 'inactive',
         donorId: '2714999',
-        matchedBy: 'name-dob',
         matchedDonorName: 'Testing, Robert',
       },
     })
