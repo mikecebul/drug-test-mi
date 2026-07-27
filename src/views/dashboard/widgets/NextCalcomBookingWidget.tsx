@@ -1,15 +1,6 @@
 import Link from 'next/link'
 import type { WidgetServerProps } from 'payload'
-import {
-  CalendarClock,
-  CalendarDays,
-  CalendarX,
-  CheckCircle2,
-  Clock,
-  ExternalLink,
-  Menu,
-  PlayCircle,
-} from 'lucide-react'
+import { CalendarDays, CheckCircle2, Clock, Menu } from 'lucide-react'
 
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -25,6 +16,7 @@ import {
   getGuidedPaymentLabel,
   getGuidedScheduleHref,
 } from '@/views/DrugTestWizard/workflows/complete-workflow/schedule-utils'
+import { ScheduleRowActions } from './ScheduleRowActions'
 
 type Booking = Awaited<ReturnType<typeof getTodaysCollectionBookings>>[number]
 
@@ -50,108 +42,102 @@ function ScheduleRow({ booking }: { booking: Booking }) {
   return (
     <div
       className={cn(
-        'border-border bg-card grid w-full gap-4 rounded-lg border p-5 text-left transition',
-        'md:grid-cols-[minmax(0,1fr)_auto]',
-        isCompleted && 'border-border/60 bg-muted/40 text-muted-foreground',
+        'border-border bg-card grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-lg border p-3 text-left transition',
+        isCompleted
+          ? 'border-border/60 bg-muted/40 text-muted-foreground'
+          : 'hover:bg-muted/50 focus-within:border-primary/40',
       )}
     >
-      <div className="flex min-w-0 items-center gap-3">
-        <Avatar className={cn('size-12 shrink-0', isCompleted && 'opacity-60 grayscale')}>
-          <AvatarImage src={booking.client?.headshot || undefined} alt={booking.attendeeName} />
-          <AvatarFallback>
-            {booking.attendeeName
-              .split(/\s+/)
-              .slice(0, 2)
-              .map((part) => part.charAt(0))
-              .join('')}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 space-y-1">
-          <span className="flex flex-wrap items-center gap-2">
-            <span
-              className={cn(
-                'block truncate text-base font-semibold',
-                isCompleted && 'line-through decoration-current/60 decoration-1',
-              )}
-            >
-              {booking.attendeeName}
-            </span>
-            <Badge
-              variant="outline"
-              className={cn('shrink-0', getGuidedGenderBadgeClass(booking.client?.gender), isCompleted && 'opacity-70')}
-            >
-              {formatGuidedGender(booking.client?.gender)}
-            </Badge>
-          </span>
-          <span
-            className={cn(
-              'text-muted-foreground inline-flex items-center gap-1 text-sm',
-              isCompleted && 'line-through decoration-current/60 decoration-1',
-            )}
-          >
-            <Clock className="size-3.5" />
-            {formatTime(booking.startTime)}
-          </span>
-          {!isCompleted && (
-            <span className="flex flex-wrap items-center gap-2">
-              <Badge
-                variant={
-                  paymentLabel === 'Paid' || paymentLabel === 'Pre-paid' || paymentLabel === 'Collected'
-                    ? 'success'
-                    : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
-                      ? 'outline'
-                      : 'default'
-                }
-                className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
-              >
-                {paymentLabel}
-              </Badge>
-              {needsRegistration && <Badge variant="secondary">Register</Badge>}
-              {needsTestType && <Badge variant="secondary">Set test</Badge>}
-            </span>
-          )}
-        </div>
-      </div>
       {isCompleted ? (
-        <Badge variant="secondary" className="self-start md:self-center">
-          <CheckCircle2 data-icon="inline-start" />
-          Completed
-        </Badge>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2 md:justify-end md:self-center">
-          <Link href={getGuidedScheduleHref(booking)} className={cn(buttonVariants({ size: 'sm' }), 'min-w-32 gap-2')}>
-            <PlayCircle data-icon="inline-start" />
-            {workflowLabel}
-          </Link>
-          {rescheduleHref && (
-            <a
-              href={rescheduleHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), 'gap-2')}
-            >
-              <CalendarClock data-icon="inline-start" />
-              Reschedule
-              <ExternalLink data-icon="inline-end" />
-            </a>
-          )}
-          {cancelHref && (
-            <a
-              href={cancelHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(
-                buttonVariants({ size: 'sm', variant: 'outline' }),
-                'border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive gap-2',
-              )}
-            >
-              <CalendarX data-icon="inline-start" />
-              Cancel
-              <ExternalLink data-icon="inline-end" />
-            </a>
-          )}
+        <div className="flex min-w-0 items-center gap-3">
+          <Avatar className="size-10 shrink-0 opacity-60 grayscale">
+            <AvatarImage src={booking.client?.headshot || undefined} alt={booking.attendeeName} />
+            <AvatarFallback>
+              {booking.attendeeName
+                .split(/\s+/)
+                .slice(0, 2)
+                .map((part) => part.charAt(0))
+                .join('')}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="line-clamp-2 font-semibold line-through decoration-current/60 decoration-1">
+                {booking.attendeeName}
+              </span>
+              <Badge
+                variant="outline"
+                className={cn('shrink-0 opacity-70', getGuidedGenderBadgeClass(booking.client?.gender))}
+              >
+                {formatGuidedGender(booking.client?.gender)}
+              </Badge>
+            </span>
+            <span className="text-muted-foreground mt-1 inline-flex items-center gap-1 text-sm line-through decoration-current/60 decoration-1">
+              <Clock className="size-4" />
+              {formatTime(booking.startTime)}
+            </span>
+          </div>
         </div>
+      ) : (
+        <Link
+          href={getGuidedScheduleHref(booking)}
+          aria-label={`${workflowLabel} for ${booking.attendeeName}`}
+          className="focus-visible:ring-ring hover:text-foreground flex min-w-0 items-center gap-3 rounded-md transition focus-visible:ring-2 focus-visible:outline-none"
+        >
+          <Avatar className="size-10 shrink-0">
+            <AvatarImage src={booking.client?.headshot || undefined} alt={booking.attendeeName} />
+            <AvatarFallback>
+              {booking.attendeeName
+                .split(/\s+/)
+                .slice(0, 2)
+                .map((part) => part.charAt(0))
+                .join('')}
+            </AvatarFallback>
+          </Avatar>
+          <span className="min-w-0">
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="line-clamp-2 font-semibold">{booking.attendeeName}</span>
+              <Badge variant="outline" className={cn('shrink-0', getGuidedGenderBadgeClass(booking.client?.gender))}>
+                {formatGuidedGender(booking.client?.gender)}
+              </Badge>
+            </span>
+            <span className="text-muted-foreground mt-1 inline-flex items-center gap-1 text-sm">
+              <Clock className="size-4" />
+              {formatTime(booking.startTime)}
+            </span>
+          </span>
+        </Link>
       )}
+
+      <div className="flex items-start gap-2">
+        <div className="flex flex-col items-end gap-2">
+          <Badge
+            variant={
+              isCompleted
+                ? 'secondary'
+                : paymentLabel === 'Paid' || paymentLabel === 'Pre-paid' || paymentLabel === 'Collected'
+                  ? 'success'
+                  : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
+                    ? 'outline'
+                    : 'default'
+            }
+            className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
+          >
+            {isCompleted && <CheckCircle2 data-icon="inline-start" />}
+            {isCompleted ? 'Completed' : paymentLabel}
+          </Badge>
+          {!isCompleted && needsRegistration && <Badge variant="secondary">Register</Badge>}
+          {!isCompleted && needsTestType && <Badge variant="secondary">Set test</Badge>}
+        </div>
+
+        {!isCompleted && (
+          <ScheduleRowActions
+            attendeeName={booking.attendeeName}
+            cancelHref={cancelHref}
+            rescheduleHref={rescheduleHref}
+          />
+        )}
+      </div>
     </div>
   )
 }
@@ -174,7 +160,7 @@ export default async function NextCalcomBookingWidget({ req }: WidgetServerProps
   return (
     <ShadcnWrapper className="pb-0">
       <Card variant="admin">
-        <CardHeader className="flex-row items-start justify-between gap-4 pb-4">
+        <CardHeader className="flex-row items-start justify-between gap-3 p-4 pb-3 sm:gap-4">
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-3 text-xl">
               <CalendarDays className="size-5" />
@@ -197,7 +183,7 @@ export default async function NextCalcomBookingWidget({ req }: WidgetServerProps
             </Link>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="flex flex-col gap-2 p-4 pt-0">
           {hasLoadError && <p className="text-muted-foreground text-sm">Unable to load booking data right now.</p>}
 
           {!hasLoadError && bookings.length === 0 && (

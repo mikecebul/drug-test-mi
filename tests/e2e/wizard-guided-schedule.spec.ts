@@ -37,11 +37,7 @@ async function openGuidedSchedule(page: Page) {
 
 async function expectNoHorizontalOverflow(page: Page) {
   await expect
-    .poll(() =>
-      page.evaluate(
-        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-      ),
-    )
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth))
     .toBe(true)
 }
 
@@ -210,6 +206,45 @@ test.describe("Wizard Today's Schedule", () => {
         )
       })
       .toBeLessThanOrEqual(1)
+  })
+
+  test('keeps the dashboard schedule compact and usable on mobile and portrait iPad', async ({ page }) => {
+    const viewports = [
+      { width: 390, height: 844 },
+      { width: 768, height: 1024 },
+    ]
+
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport)
+      await page.goto('/admin', { waitUntil: 'domcontentloaded' })
+
+      await expect(page.getByRole('heading', { name: "Today's Schedule" })).toBeVisible({ timeout: 30_000 })
+
+      const workflowLink = page.getByRole('link', {
+        name: `Collect Test for ${scheduleFixtures.bookings.paidLinked.attendeeName}`,
+      })
+      const scheduleRow = workflowLink.locator('xpath=..')
+      await expect(workflowLink).toBeVisible()
+      await expect(scheduleRow).toContainText('Pre-paid')
+      await expect
+        .poll(async () => (await scheduleRow.boundingBox())?.height ?? Number.POSITIVE_INFINITY)
+        .toBeLessThanOrEqual(136)
+
+      const optionsButton = page.getByRole('button', {
+        name: `${scheduleFixtures.bookings.paidLinked.attendeeName} appointment options`,
+      })
+      await expect(optionsButton).toBeVisible()
+      await optionsButton.click()
+      const rescheduleOption = page.getByRole('menuitem', { name: /Reschedule/ })
+      const cancelOption = page.getByRole('menuitem', { name: /Cancel/ })
+      await expect(rescheduleOption).toBeVisible()
+      await expect(rescheduleOption).toHaveAttribute('href', /cal\.com\/reschedule\//)
+      await expect(cancelOption).toBeVisible()
+      await expect(cancelOption).toHaveAttribute('href', /cal\.com\/booking\//)
+      await page.keyboard.press('Escape')
+
+      await expectNoHorizontalOverflow(page)
+    }
   })
 
   test('opens the correct next step from each schedule card', async ({ page }) => {
