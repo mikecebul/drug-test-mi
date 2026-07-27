@@ -1,11 +1,12 @@
 'use client'
 
+import { useState, type ReactElement, type ReactNode } from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { Card, CardContent } from '@/components/ui/card'
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/utilities/cn'
 import { MedicationCardHeader } from './MedicationCardHeader'
-import { getTodayDateString, type MedicationWithUIState } from './helpers'
+import { createMedicationUIId, getTodayDateString, type MedicationWithUIState } from './helpers'
 import { Button } from '@/components/ui/button'
 import { Plus, RefreshCw, AlertCircle } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
@@ -17,6 +18,55 @@ import type { FormClient } from '../../shared-validators'
 // Default values for a single medication
 const defaultValues = {
   medications: [] as MedicationWithUIState[],
+}
+
+function MedicationEditorCard({
+  children,
+  defaultOpen,
+  hasErrors,
+  isLocked,
+  medicationName,
+  trigger,
+}: {
+  children: ReactNode
+  defaultOpen: boolean
+  hasErrors: boolean
+  isLocked: boolean
+  medicationName: string
+  trigger: ReactElement
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+
+  return (
+    <Card
+      role="group"
+      aria-label={`Medication: ${medicationName || 'New Medication'}`}
+      onFocusCapture={() => {
+        if (hasErrors && !open) {
+          setOpen(true)
+        }
+      }}
+      className={cn(
+        'transition-all duration-200',
+        isLocked && 'bg-muted/30 opacity-60',
+        hasErrors && 'border-destructive/60',
+      )}
+    >
+      <Collapsible
+        open={hasErrors || open}
+        onOpenChange={(nextOpen) => {
+          if (!hasErrors) {
+            setOpen(nextOpen)
+          }
+        }}
+      >
+        <CollapsibleTrigger nativeButton={false} render={trigger} />
+        <CollapsiblePanel>
+          <div className="mt-1 flex cursor-text flex-col gap-2 rounded-sm rounded-t-none border-t p-6">{children}</div>
+        </CollapsiblePanel>
+      </Collapsible>
+    </Card>
+  )
 }
 
 export const MedicationFieldGroup = withFieldGroup({
@@ -111,6 +161,7 @@ export const MedicationFieldGroup = withFieldGroup({
                             notes: '',
                             _isNew: true,
                             _wasDiscontinued: false,
+                            _uiId: createMedicationUIId(),
                           })
                         }
                       >
@@ -130,27 +181,31 @@ export const MedicationFieldGroup = withFieldGroup({
                           const isNew = med._isNew === true
 
                           return (
-                            <MedicationMotionWrapper key={`${med.medicationName || 'new'}-${med.startDate || i}-${i}`}>
-                              <group.Subscribe
-                                selector={(state) => [
-                                  state.values.medications[i]?.status,
-                                  state.values.medications[i]?.medicationName,
-                                  state.values.medications[i]?.detectedAs,
-                                ]}
-                              >
-                                {([status, medicationName, detectedAs]) => {
-                                  const isDiscontinued = status === 'discontinued'
-                                  return (
-                                    <Card
-                                      className={cn(
-                                        'transition-all duration-200',
-                                        isDiscontinued && 'bg-muted/30 opacity-60',
-                                      )}
-                                    >
-                                      <Collapsible defaultOpen={isNew}>
-                                        <CollapsibleTrigger
-                                          nativeButton={false}
-                                          render={
+                            <MedicationMotionWrapper
+                              key={
+                                med._uiId ??
+                                med.createdAt ??
+                                `${med.medicationName || 'medication'}-${med.startDate || i}-${i}`
+                              }
+                            >
+                              <group.AppField name={`medications[${i}].endDate`}>
+                                {(endDateField) => (
+                                  <group.Subscribe
+                                    selector={(state) => [
+                                      state.values.medications[i]?.status,
+                                      state.values.medications[i]?.medicationName,
+                                      state.values.medications[i]?.detectedAs,
+                                    ]}
+                                  >
+                                    {([status, medicationName, detectedAs]) => {
+                                      const isDiscontinued = status === 'discontinued'
+                                      return (
+                                        <MedicationEditorCard
+                                          defaultOpen={isNew}
+                                          hasErrors={endDateField.state.meta.errors.length > 0}
+                                          isLocked={isLocked}
+                                          medicationName={medicationName as string}
+                                          trigger={
                                             <MedicationCardHeader
                                               medicationName={medicationName as string}
                                               detectedAs={detectedAs as string[] | null}
@@ -159,51 +214,62 @@ export const MedicationFieldGroup = withFieldGroup({
                                               onRemove={() => field.removeValue(i)}
                                             />
                                           }
-                                        />
+                                        >
+                                          <group.AppField name={`medications[${i}].medicationName`}>
+                                            {(f) => <f.MedicationNameField isLocked={isLocked} />}
+                                          </group.AppField>
 
-                                        <CollapsiblePanel>
-                                          <div className="mt-1 flex cursor-text flex-col gap-2 rounded-sm rounded-t-none border-t p-6">
-                                            <group.AppField name={`medications[${i}].medicationName`}>
-                                              {(f) => <f.MedicationNameField isLocked={isLocked} />}
+                                          <group.AppField name={`medications[${i}].status`}>
+                                            {(f) => (
+                                              <f.MedicationStatusField
+                                                isLocked={isLocked}
+                                                onStatusChange={(nextStatus) => {
+                                                  if (nextStatus === 'active') {
+                                                    endDateField.handleChange('')
+                                                  }
+                                                }}
+                                              />
+                                            )}
+                                          </group.AppField>
+
+                                          <div
+                                            className={cn('grid gap-4', isDiscontinued ? 'grid-cols-2' : 'grid-cols-1')}
+                                          >
+                                            <group.AppField name={`medications[${i}].startDate`}>
+                                              {(f) => (
+                                                <f.MedicationDateField
+                                                  label="Start Date"
+                                                  isLocked={isLocked}
+                                                  required
+                                                />
+                                              )}
                                             </group.AppField>
 
-                                            <div className="grid grid-cols-2 gap-4">
-                                              <group.AppField name={`medications[${i}].startDate`}>
-                                                {(f) => (
-                                                  <f.MedicationDateField
-                                                    label="Start Date"
-                                                    isLocked={isLocked}
-                                                    required
-                                                  />
-                                                )}
-                                              </group.AppField>
-
-                                              <group.AppField name={`medications[${i}].endDate`}>
-                                                {(f) => <f.MedicationDateField label="End Date" isLocked={isLocked} />}
-                                              </group.AppField>
-                                            </div>
-
-                                            <group.AppField name={`medications[${i}].status`}>
-                                              {(f) => <f.MedicationStatusField isLocked={isLocked} />}
-                                            </group.AppField>
-
-                                            <group.AppField name={`medications[${i}].detectedAs`}>
-                                              {(f) => <f.MedicationDetectedAsField isLocked={isLocked} />}
-                                            </group.AppField>
-                                            <group.AppField name={`medications[${i}].requireConfirmation`}>
-                                              {(f) => <f.MedicationRequireConfirmationField isLocked={isLocked} />}
-                                            </group.AppField>
-
-                                            <group.AppField name={`medications[${i}].notes`}>
-                                              {(f) => <f.MedicationNotesField isLocked={isLocked} />}
-                                            </group.AppField>
+                                            {isDiscontinued ? (
+                                              <endDateField.MedicationDateField
+                                                label="End Date"
+                                                isLocked={isLocked}
+                                                required
+                                              />
+                                            ) : null}
                                           </div>
-                                        </CollapsiblePanel>
-                                      </Collapsible>
-                                    </Card>
-                                  )
-                                }}
-                              </group.Subscribe>
+
+                                          <group.AppField name={`medications[${i}].detectedAs`}>
+                                            {(f) => <f.MedicationDetectedAsField isLocked={isLocked} />}
+                                          </group.AppField>
+                                          <group.AppField name={`medications[${i}].requireConfirmation`}>
+                                            {(f) => <f.MedicationRequireConfirmationField isLocked={isLocked} />}
+                                          </group.AppField>
+
+                                          <group.AppField name={`medications[${i}].notes`}>
+                                            {(f) => <f.MedicationNotesField isLocked={isLocked} />}
+                                          </group.AppField>
+                                        </MedicationEditorCard>
+                                      )
+                                    }}
+                                  </group.Subscribe>
+                                )}
+                              </group.AppField>
                             </MedicationMotionWrapper>
                           )
                         })}

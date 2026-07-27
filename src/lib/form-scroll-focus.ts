@@ -42,7 +42,10 @@ export function focusFirstInteractiveField(container: ParentNode | null) {
 }
 
 export function focusFirstInvalidField(container: ParentNode | null) {
-  const field = container?.querySelector<HTMLElement>('[aria-invalid="true"]') ?? null
+  const field =
+    Array.from(container?.querySelectorAll<HTMLElement>('[aria-invalid="true"]') ?? []).find(
+      (candidate) => candidate.getClientRects().length > 0,
+    ) ?? null
   if (!field) return false
 
   scrollElementIntoViewWithMargin(field, {
@@ -54,13 +57,19 @@ export function focusFirstInvalidField(container: ParentNode | null) {
 }
 
 export function focusFirstInvalidFieldWithToast(container: ParentNode | null, toastId: string) {
-  const focusedField = focusFirstInvalidField(container)
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const focusedField = focusFirstInvalidField(container)
 
-  toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
-    id: toastId,
+        toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
+          id: toastId,
+        })
+      })
+    })
   })
 
-  return focusedField
+  return false
 }
 
 export function scrollElementIntoViewWithMargin(

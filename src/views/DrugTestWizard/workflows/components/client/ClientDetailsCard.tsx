@@ -183,10 +183,10 @@ export function ClientDetailsCard({
   return (
     <>
       <Card className={cn('rounded-lg', className)}>
-        <CardHeader className="flex-row items-start justify-between gap-4 pb-3">
+        <CardHeader className="flex-row items-start justify-between gap-3 p-4 pb-2">
           <div>
             <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">{eyebrow}</p>
-            <CardTitle className="mt-1 text-xl">{fullName}</CardTitle>
+            <CardTitle className="mt-1 text-lg">{fullName}</CardTitle>
           </div>
           <div className="flex flex-wrap justify-end gap-2">
             {onChangeClient && (
@@ -209,12 +209,12 @@ export function ClientDetailsCard({
             )}
           </div>
         </CardHeader>
-        <CardContent className="grid gap-5 sm:grid-cols-[auto_1fr]">
-          <Avatar className="size-20 shrink-0 sm:size-24">
+        <CardContent className="grid gap-4 p-4 pt-0 sm:grid-cols-[4rem_minmax(0,1fr)]">
+          <Avatar className="size-16 shrink-0">
             <AvatarImage src={client.headshot || undefined} alt={fullName} />
             <AvatarFallback className="text-xl">{initials}</AvatarFallback>
           </Avatar>
-          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
             <Detail icon={AtSign} label="Email" value={client.email} />
             <Detail
               icon={CalendarDays}

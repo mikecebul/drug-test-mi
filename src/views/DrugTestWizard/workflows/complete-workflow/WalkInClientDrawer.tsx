@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle2, ChevronRight, Loader2, UserPlus, X } from 'lucide-react'
+import { ChevronRight, Loader2, UserPlus, X } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -16,7 +16,6 @@ import {
 import { Separator } from '@/components/ui/separator'
 import type { ClientSearchResult } from '@/collections/Clients/search/types'
 import { formatDobInput } from '@/lib/date-utils'
-import { cn } from '@/utilities/cn'
 import { CLIENT_SEARCH_MIN_CHARS } from '../components/client/clientSearch'
 import { getClientById, type SimpleClient } from '../components/client/getClients'
 import { useClientSearch } from '../components/client/useClientSearch'
@@ -25,8 +24,7 @@ interface WalkInClientDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onRegister: () => void
-  onSelect: (client: SimpleClient) => void
-  selectedClientId: string
+  onSelect: (client: SimpleClient) => boolean | void | Promise<boolean | void>
 }
 
 export function WalkInClientDrawer({
@@ -34,7 +32,6 @@ export function WalkInClientDrawer({
   onOpenChange,
   onRegister,
   onSelect,
-  selectedClientId,
 }: WalkInClientDrawerProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectingClientId, setSelectingClientId] = useState<string | null>(null)
@@ -82,7 +79,8 @@ export function WalkInClientDrawer({
     try {
       const client = await getClientById(result.id)
       if (!client) throw new Error('Client record is no longer available.')
-      onSelect(client)
+      const selected = await onSelect(client)
+      if (selected === false) return
       handleOpenChange(false)
     } catch (error) {
       setSelectionError(error instanceof Error ? error.message : 'Unable to select this client.')
@@ -92,8 +90,6 @@ export function WalkInClientDrawer({
   }
 
   const renderResult = (client: ClientSearchResult) => {
-    const isSelected = selectedClientId === client.id
-
     return (
       <CommandItem
         key={client.id}
@@ -118,10 +114,6 @@ export function WalkInClientDrawer({
             {client.dob ? ` · DOB ${formatDobInput(client.dob)}` : ''}
           </p>
         </div>
-        <CheckCircle2
-          aria-hidden="true"
-          className={cn('ml-auto size-5 shrink-0', isSelected ? 'text-primary opacity-100' : 'opacity-0')}
-        />
       </CommandItem>
     )
   }

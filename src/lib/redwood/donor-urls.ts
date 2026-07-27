@@ -3,6 +3,10 @@ const DONOR_VIEW_PATH = '/Pages/User/Donor.aspx'
 const DONOR_EDIT_PATH = '/Pages/User/editDonor.aspx'
 const COLLECTION_START_STEP = 1
 
+export const REDWOOD_DESKTOP_DONOR_SEARCH_URL =
+  'https://toxaccess.redwoodtoxicology.com/Pages/User/DonorSearch.aspx'
+export const REDWOOD_MOBILE_DONORS_URL = 'https://m.toxaccess.com/donors'
+
 function createRedwoodUrl(baseUrl: string, pathname: string): URL {
   const url = new URL(baseUrl)
   url.pathname = pathname
@@ -60,6 +64,18 @@ export function buildRedwoodCollectSpecimenUrl(donorSearchUrl: string, donorId: 
   )
   url.searchParams.set('isOnSite', isOnSite ? 'true' : 'false')
   return url.toString()
+}
+
+export function resolveGuidedToxAccessHref(args: {
+  donorId?: string | null
+  mobileHref: string
+  useDesktopSite: boolean
+}): string {
+  if (!args.useDesktopSite) return args.mobileHref
+  if (args.donorId?.trim()) {
+    return buildRedwoodDonorViewUrl(REDWOOD_DESKTOP_DONOR_SEARCH_URL, args.donorId)
+  }
+  return REDWOOD_DESKTOP_DONOR_SEARCH_URL
 }
 
 export function extractRedwoodDonorIdFromUrl(rawUrl: string): string | null {

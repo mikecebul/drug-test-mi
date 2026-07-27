@@ -15,6 +15,14 @@ export type MedicationWithUIState = {
   // UI state flags (not persisted to server)
   _isNew?: boolean
   _wasDiscontinued?: boolean
+  _uiId?: string
+}
+
+let medicationUIId = 0
+
+export const createMedicationUIId = (): string => {
+  medicationUIId += 1
+  return `medication-${Date.now()}-${medicationUIId}`
 }
 
 // Helper to get today's date in YYYY-MM-DD format
@@ -40,9 +48,10 @@ export const normalizeMedications = (meds: Client['medications']): MedicationWit
   return meds.map((med) => ({
     ...med,
     startDate: formatDateForInput(med.startDate),
-    endDate: formatDateForInput(med.endDate),
+    endDate: med.status === 'discontinued' ? formatDateForInput(med.endDate) : '',
     _isNew: false,
     _wasDiscontinued: med.status === 'discontinued',
+    _uiId: createMedicationUIId(),
   }))
 }
 

@@ -35,6 +35,16 @@ async function openGuidedSchedule(page: Page) {
   await expect(page.getByText('Loading appointments...')).toBeHidden({ timeout: 30_000 })
 }
 
+async function expectNoHorizontalOverflow(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    )
+    .toBe(true)
+}
+
 async function verifyGuidedClientMismatch(page: Page) {
   const mismatchConfirmation = page.getByRole('checkbox', {
     name: /I verified .* is the person testing today/i,
@@ -95,7 +105,7 @@ test.describe("Wizard Today's Schedule", () => {
     const needsTestType = scheduleCard(page, scheduleFixtures.bookings.needsTestType.attendeeName)
     await expect(needsTestType).toBeVisible()
     await expect(needsTestType).toContainText(formatScheduleTime(scheduleFixtures.bookings.needsTestType.startTime))
-    await expect(needsTestType).toContainText('Set test')
+    await expect(needsTestType).not.toContainText('Set test')
 
     const completed = scheduleCard(page, scheduleFixtures.bookings.completedPrepaid.attendeeName)
     await expect(completed).toBeVisible()
@@ -123,20 +133,12 @@ test.describe("Wizard Today's Schedule", () => {
 
   test('chooses or registers a walk-in client from one drawer', async ({ page }) => {
     const walkInCard = page.getByTestId('guided-walk-in-card')
-    const walkInTrigger = walkInCard.getByRole('button', { name: /Walk-In Collection/i })
     await expect(walkInCard.getByRole('heading', { name: 'Walk-In Collection' })).toBeVisible()
-    await expect(walkInCard.getByText('For clients without an appointment')).toBeVisible()
-    await expect(walkInTrigger).toHaveAttribute('aria-expanded', 'false')
-    await expect(walkInCard.getByRole('button', { name: /Choose client/i })).toHaveCount(0)
-
-    await walkInTrigger.click()
-    await expect(walkInTrigger).toHaveAttribute('aria-expanded', 'true')
+    await expect(walkInCard.getByText("Add a client without an appointment to today's schedule.")).toBeVisible()
     await expect(walkInCard.getByRole('button', { name: /Choose client/i })).toHaveCount(1)
     await expect(walkInCard.getByRole('button', { name: /Register new client/i })).toHaveCount(0)
-
-    const startTestButton = walkInCard.getByRole('button', { name: 'Start Guided Test' })
-    await expect(startTestButton).toBeDisabled()
-    await expect(page.getByText('Choose a client to enable.')).toHaveCount(0)
+    await expect(walkInCard.getByText(/Test type/i)).toHaveCount(0)
+    await expect(walkInCard.getByRole('button', { name: /Start/i })).toHaveCount(0)
 
     await walkInCard.getByRole('button', { name: /Choose client/i }).click()
     const clientDrawer = page.getByRole('dialog', { name: 'Choose client' })
@@ -153,11 +155,61 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(registrationDrawer).toBeHidden()
 
     await selectClientFromSearchDialog(page, fixtures.clients.instant.fullName)
-    await expect(walkInCard).toContainText(fixtures.clients.instant.fullName)
-    await expect(walkInCard).toContainText(fixtures.clients.instant.email)
-    await expect(walkInCard.getByRole('button', { name: /Change client/i })).toHaveCount(1)
-    await expect(walkInCard.getByRole('button', { name: /Register new client/i })).toHaveCount(0)
-    await expect(startTestButton).toBeEnabled()
+    await expect(clientDrawer).toBeHidden()
+    await expect(scheduleCard(page, fixtures.clients.instant.fullName)).toBeVisible()
+    await expect(walkInCard.getByRole('button', { name: /Choose client/i })).toHaveCount(1)
+    await expect(walkInCard).not.toContainText(fixtures.clients.instant.fullName)
+  })
+
+  test('keeps schedule, review, and payment usable on a portrait iPad', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 })
+    await openGuidedSchedule(page)
+
+    const walkInCard = page.getByTestId('guided-walk-in-card')
+    await expect(walkInCard.getByRole('button', { name: /Choose client/i })).toBeVisible()
+    await expectNoHorizontalOverflow(page)
+
+    await scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
+    await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Booking Information' })).toBeVisible()
+    await expect(page.getByTestId('wizard-next-button')).toBeVisible()
+    await expectNoHorizontalOverflow(page)
+
+    await verifyGuidedClientMismatch(page)
+    await clickNext(page)
+    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
+    await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toBeVisible()
+    await expect(page.getByTestId('wizard-next-button')).toBeVisible()
+    await expectNoHorizontalOverflow(page)
+
+    const cashMethod = page.getByRole('button', { name: 'Cash payment method' })
+    const cardMethod = page.getByRole('button', { name: 'Card payment method' })
+    await expect(cashMethod).toHaveAttribute('aria-pressed', 'true')
+    await expect(cardMethod).toHaveAttribute('aria-pressed', 'false')
+    await expect(cashMethod).toHaveCSS('opacity', '1')
+    await expect(cardMethod).toHaveCSS('opacity', '0.6')
+    await cardMethod.click()
+    await expect(cardMethod).toHaveAttribute('aria-pressed', 'true')
+    await expect(cashMethod).toHaveAttribute('aria-pressed', 'false')
+    await expect(cardMethod).toHaveCSS('opacity', '1')
+    await expect(cashMethod).toHaveCSS('opacity', '0.6')
+    await expect
+      .poll(async () => {
+        const [amountBox, methodBox, cashBox, cardBox] = await Promise.all([
+          page.getByTestId('amount-received-control').boundingBox(),
+          page.getByTestId('payment-method-control').boundingBox(),
+          cashMethod.boundingBox(),
+          cardMethod.boundingBox(),
+        ])
+        if (!amountBox || !methodBox || !cashBox || !cardBox) return Number.POSITIVE_INFINITY
+        return Math.max(
+          Math.abs(amountBox.width - methodBox.width),
+          Math.abs(cashBox.width - cardBox.width),
+          Math.abs(amountBox.height - cashBox.height),
+          Math.abs(amountBox.height - cardBox.height),
+        )
+      })
+      .toBeLessThanOrEqual(1)
   })
 
   test('opens the correct next step from each schedule card', async ({ page }) => {
@@ -179,7 +231,14 @@ test.describe("Wizard Today's Schedule", () => {
 
     await scheduleCardButton(page, scheduleFixtures.bookings.needsTestType.attendeeName).click()
     await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
-    await page.getByRole('button', { name: 'Edit Booking test' }).click()
+    const missingTestNextButton = page.getByTestId('wizard-next-button')
+    const editBookingTestButton = page.getByRole('button', { name: 'Edit Booking test' })
+    await expect(missingTestNextButton).toBeEnabled()
+    await missingTestNextButton.click()
+    await expect(editBookingTestButton).toBeFocused()
+    await expect(editBookingTestButton).toHaveAttribute('aria-invalid', 'true')
+    await expect(page.getByText('Choose a test type before continuing.')).toBeVisible()
+    await editBookingTestButton.click()
     const testDrawer = page.getByRole('dialog', { name: "Change Today's Test" })
     await expect(testDrawer).toBeVisible()
     await testDrawer.getByRole('button', { name: 'Cancel' }).click()
@@ -201,7 +260,7 @@ test.describe("Wizard Today's Schedule", () => {
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
     await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toHaveValue('0')
-    await expect(page.getByRole('combobox', { name: 'Method' })).toContainText('Cash')
+    await expect(page.getByRole('button', { name: 'Cash payment method' })).toHaveAttribute('aria-pressed', 'true')
     await expect(
       page.getByRole('group', { name: 'Quick amount received' }).getByRole('button', {
         name: 'Set amount received to $0',
@@ -388,22 +447,32 @@ test.describe("Wizard Today's Schedule", () => {
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
     const amountReceived = page.getByRole('spinbutton', { name: 'Amount received now' })
-    const payAllButton = page
-      .getByRole('group', { name: 'Quick amount received' })
-      .getByRole('button', { name: 'Set amount received to $40' })
+    const quickAmountGroup = page.getByRole('group', { name: 'Quick amount received' })
+    const zeroAmountButton = quickAmountGroup.getByRole('button', { name: 'Set amount received to $0' })
+    const payAllButton = quickAmountGroup.getByRole('button', { name: 'Set amount received to $40' })
 
     await expect(amountReceived).toHaveValue('0')
+    await expect(zeroAmountButton).toHaveAttribute('aria-pressed', 'true')
     await expect(payAllButton).toHaveAttribute('aria-pressed', 'false')
+    await expect(zeroAmountButton).toHaveCSS('opacity', '1')
+    await expect(payAllButton).toHaveCSS('opacity', '0.6')
     await expect(page.getByText('Today · 11-Panel Lab')).toBeVisible()
     await expect(page.getByText('Current test · $40 due')).toBeVisible()
     await expect(page.getByText('$0 applied', { exact: true })).toBeVisible()
 
     await amountReceived.fill('50')
     await expect(page.getByText('Includes $10 new credit')).toBeVisible()
+    await expect(zeroAmountButton).toHaveAttribute('aria-pressed', 'false')
     await expect(payAllButton).toHaveAttribute('aria-pressed', 'false')
+    await expect(zeroAmountButton).toHaveCSS('opacity', '0.6')
+    await expect(payAllButton).toHaveCSS('opacity', '0.6')
 
     await payAllButton.click()
     await expect(amountReceived).toHaveValue('40')
+    await expect(zeroAmountButton).toHaveAttribute('aria-pressed', 'false')
+    await expect(payAllButton).toHaveAttribute('aria-pressed', 'true')
+    await expect(zeroAmountButton).toHaveCSS('opacity', '0.6')
+    await expect(payAllButton).toHaveCSS('opacity', '1')
     await expect(page.getByText('Includes $10 new credit')).toHaveCount(0)
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()

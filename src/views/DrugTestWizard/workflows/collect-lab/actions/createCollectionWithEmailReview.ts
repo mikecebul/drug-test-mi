@@ -17,6 +17,7 @@ import { withPayloadTransaction } from '@/collections/Payments/services/withPayl
 type MedicationInput = NonNullable<Client['medications']>[number] & {
   _isNew?: boolean
   _wasDiscontinued?: boolean
+  _uiId?: string
 }
 
 export async function createCollectionWithEmailReview(
@@ -58,17 +59,22 @@ export async function createCollectionWithEmailReview(
 
     // 1. Update client medications if there are changes
     if (medications.length > 0) {
-      // Remove UI-only flags (_isNew, _wasDiscontinued) and prepare for database
+      // Remove UI-only flags and prepare for database
       const cleanedMedications = medications.map((med) => {
-        const { _isNew, _wasDiscontinued, ...cleanMed } = med
+        const { _isNew, _wasDiscontinued, _uiId, ...cleanMed } = med
+        const normalizedMedication = {
+          ...cleanMed,
+          endDate: cleanMed.status === 'active' ? null : cleanMed.endDate,
+        }
+
         // Ensure createdAt is set for new medications
-        if (!cleanMed.createdAt) {
+        if (!normalizedMedication.createdAt) {
           return {
-            ...cleanMed,
+            ...normalizedMedication,
             createdAt: new Date().toISOString(),
           }
         }
-        return cleanMed
+        return normalizedMedication
       })
 
       await payload.update({

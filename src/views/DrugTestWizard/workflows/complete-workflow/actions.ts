@@ -39,7 +39,10 @@ import {
   queueRedwoodImportForClient,
 } from '@/lib/redwood/queue'
 import { deriveRedwoodProvisioningStatus, type RedwoodProvisioningStatus } from '@/lib/redwood/provisioning'
-import { buildRedwoodCollectSpecimenUrl } from '@/lib/redwood/donor-urls'
+import {
+  buildRedwoodCollectSpecimenUrl,
+  REDWOOD_MOBILE_DONORS_URL,
+} from '@/lib/redwood/donor-urls'
 import { shouldQueueGuidedRedwoodDonor } from './redwood-provisioning-state'
 
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
@@ -60,8 +63,6 @@ type ScheduleActionResult = {
   fallbackHref?: string | null
   refundedAmount?: number
 }
-
-const TOXACCESS_USER_DONOR_SEARCH_URL = 'https://m.toxaccess.com/Pages/User/DonorSearch.aspx'
 
 export type GuidedRedwoodProvisioningStatus = RedwoodProvisioningStatus & {
   collectSpecimenHref: string | null
@@ -600,12 +601,12 @@ async function loadClientRedwoodProvisioningStatus(
     collectSpecimenHref:
       provisioning.donorId && collectionTestType
         ? buildRedwoodCollectSpecimenUrl(
-            TOXACCESS_USER_DONOR_SEARCH_URL,
+            REDWOOD_MOBILE_DONORS_URL,
             provisioning.donorId,
             collectionTestType.category === 'instant',
           )
         : null,
-    manualHref: TOXACCESS_USER_DONOR_SEARCH_URL,
+    manualHref: REDWOOD_MOBILE_DONORS_URL,
   }
 }
 
@@ -916,23 +917,23 @@ export async function setBookingScheduledTestType(bookingId: string, testTypeId:
   return { success: true }
 }
 
-export async function createWalkInBooking(input: { clientId: string; testTypeId: string }) {
-  if (!input.clientId || !input.testTypeId) {
-    return { success: false, error: 'Client and test type are required.' }
-  }
-
-  const mappedTestType = getActiveTestTypes().find((testType) => testType.value === input.testTypeId)
-  if (!mappedTestType) {
-    return { success: false, error: 'Select an active collection test type.' }
+export async function createWalkInBooking(input: { clientId: string }) {
+  if (!input.clientId) {
+    return { success: false, error: 'Client is required.' }
   }
 
   const payload = await getAdminPayload()
   const client = await payload.findByID({
     collection: 'clients',
     id: input.clientId,
-    depth: 0,
+    depth: 2,
     overrideAccess: true,
   })
+  const referral = await resolveReferral(payload, client as PopulatedClient)
+  const preferredTestType = getPreferredTestType(referral)
+  const activePreferredTestType = preferredTestType
+    ? getActiveTestTypes().find((testType) => testType.value === preferredTestType.value)
+    : undefined
   const startTime = new Date()
   const endTime = new Date(startTime.getTime() + 30 * 60 * 1000)
   const attendeeName = [client.firstName, client.middleInitial, client.lastName].filter(Boolean).join(' ')
@@ -953,7 +954,7 @@ export async function createWalkInBooking(input: { clientId: string; testTypeId:
     attendeeName,
     attendeeEmail: client.email,
     relatedClient: input.clientId,
-    scheduledTestType: mappedTestType.value,
+    ...(activePreferredTestType ? { scheduledTestType: activePreferredTestType.value } : {}),
     location: 'Walk-in',
     customInputs: {
       source: 'guided-walk-in',

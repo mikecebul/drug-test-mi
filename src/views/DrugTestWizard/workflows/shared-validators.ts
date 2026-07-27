@@ -53,6 +53,7 @@ export const medicationsSchema = z.object({
         // UI state flags (not persisted to server)
         _isNew: z.boolean().optional(),
         _wasDiscontinued: z.boolean().optional(),
+        _uiId: z.string().optional(),
       })
       .superRefine((data, ctx) => {
         if (data.status === 'discontinued' && !data.endDate) {

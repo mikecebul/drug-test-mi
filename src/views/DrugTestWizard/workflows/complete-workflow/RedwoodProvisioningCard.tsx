@@ -5,6 +5,8 @@ import { CheckCircle2, CircleAlert, ExternalLink, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { useDeviceType } from '@/hooks/use-device-type'
+import { resolveGuidedToxAccessHref } from '@/lib/redwood/donor-urls'
 import { cn } from '@/utilities/cn'
 import type { GuidedRedwoodProvisioningStatus } from './actions'
 
@@ -73,6 +75,8 @@ function getCardCopy(status?: GuidedRedwoodProvisioningStatus) {
 }
 
 export function RedwoodProvisioningCard({ isLoading, status }: Props) {
+  const deviceType = useDeviceType()
+  const useDesktopSite = deviceType !== 'desktop'
   const donorNeedsManualSearch = redwoodDonorNeedsManualSearch(status) || (!status && !isLoading)
   const defaultTestNeedsHelp = redwoodDefaultTestNeedsHelp(status)
   const needsManualHelp = donorNeedsManualSearch || defaultTestNeedsHelp
@@ -82,6 +86,19 @@ export function RedwoodProvisioningCard({ isLoading, status }: Props) {
   const TitleIcon = isReady ? CheckCircle2 : needsManualHelp ? CircleAlert : Loader2
   const statusLabel = needsManualHelp ? 'Needs help' : isReady ? 'Ready for collection' : 'Working'
   const statusVariant = needsManualHelp ? 'warning' : isReady ? 'success' : 'secondary'
+  const collectSpecimenHref = status?.collectSpecimenHref
+    ? resolveGuidedToxAccessHref({
+        donorId: status.donorId,
+        mobileHref: status.collectSpecimenHref,
+        useDesktopSite,
+      })
+    : null
+  const manualHref = status?.manualHref
+    ? resolveGuidedToxAccessHref({
+        mobileHref: status.manualHref,
+        useDesktopSite,
+      })
+    : null
 
   return (
     <Card
@@ -91,27 +108,27 @@ export function RedwoodProvisioningCard({ isLoading, status }: Props) {
         needsManualHelp && 'border-amber-300 bg-amber-50/40',
       )}
     >
-      <CardHeader>
-        <div className="flex items-start gap-4">
+      <CardHeader className="p-4">
+        <div className="flex items-start gap-3">
           <div
             className={cn(
-              'bg-muted flex size-12 shrink-0 items-center justify-center rounded-full border',
+              'bg-muted flex size-9 shrink-0 items-center justify-center rounded-full border',
               isReady && 'border-success/30 bg-success/10',
               needsManualHelp && 'border-amber-300 bg-amber-50',
             )}
           >
             <TitleIcon
               className={cn(
-                'size-6',
+                'size-4',
                 isReady && 'text-success',
                 needsManualHelp && 'text-amber-700',
                 isWorking && 'text-primary animate-spin',
               )}
             />
           </div>
-          <div className="min-w-0 flex-1 space-y-2" aria-live="polite">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5" aria-live="polite">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <CardTitle className="text-2xl">
+              <CardTitle className="text-lg">
                 {donorNeedsManualSearch && !status
                   ? 'ToxAccess status unavailable'
                   : defaultTestNeedsHelp
@@ -121,7 +138,7 @@ export function RedwoodProvisioningCard({ isLoading, status }: Props) {
               <Badge variant={statusVariant}>{statusLabel}</Badge>
             </div>
             {donorNeedsManualSearch ? (
-              <CardDescription className="text-base">
+              <CardDescription>
                 Let Mike know at{' '}
                 <a className="text-foreground font-semibold underline underline-offset-4" href="tel:+12313736341">
                   (231) 373-6341
@@ -129,7 +146,7 @@ export function RedwoodProvisioningCard({ isLoading, status }: Props) {
                 . To complete this collection, open ToxAccess and search for the donor manually.
               </CardDescription>
             ) : defaultTestNeedsHelp ? (
-              <CardDescription className="text-base">
+              <CardDescription>
                 The donor is available, but the default test was not verified. Let Mike know at{' '}
                 <a className="text-foreground font-semibold underline underline-offset-4" href="tel:+12313736341">
                   (231) 373-6341
@@ -137,27 +154,27 @@ export function RedwoodProvisioningCard({ isLoading, status }: Props) {
                 , then verify the test in ToxAccess before collection.
               </CardDescription>
             ) : (
-              <CardDescription className="text-base">{copy.description}</CardDescription>
+              <CardDescription>{copy.description}</CardDescription>
             )}
           </div>
         </div>
       </CardHeader>
 
-      {(((isReady || defaultTestNeedsHelp) && status?.collectSpecimenHref) ||
-        (donorNeedsManualSearch && status?.manualHref)) && (
-        <CardFooter className="justify-end">
-          {(isReady || defaultTestNeedsHelp) && status?.collectSpecimenHref ? (
+      {(((isReady || defaultTestNeedsHelp) && collectSpecimenHref) ||
+        (donorNeedsManualSearch && manualHref)) && (
+        <CardFooter className="justify-end p-4 pt-0">
+          {(isReady || defaultTestNeedsHelp) && collectSpecimenHref ? (
             <Button
-              render={<a href={status.collectSpecimenHref} target="_blank" rel="noopener noreferrer" />}
+              render={<a href={collectSpecimenHref} target="_blank" rel="noopener noreferrer" />}
               nativeButton={false}
             >
               <ExternalLink data-icon="inline-start" />
               Link to ToxAccess
             </Button>
           ) : (
-            status?.manualHref && (
+            manualHref && (
               <Button
-                render={<a href={status.manualHref} target="_blank" rel="noopener noreferrer" />}
+                render={<a href={manualHref} target="_blank" rel="noopener noreferrer" />}
                 nativeButton={false}
               >
                 <ExternalLink data-icon="inline-start" />

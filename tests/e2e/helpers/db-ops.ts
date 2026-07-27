@@ -758,6 +758,22 @@ async function cleanupFixtures(ctx: FixtureContext | undefined): Promise<void> {
     for (const payment of payments.docs) {
       await safeDelete(payload, 'payments', payment.id)
     }
+
+    const clientBookings = await payload.find({
+      collection: 'bookings',
+      where: {
+        relatedClient: {
+          in: ctx.created.clientIds,
+        },
+      },
+      limit: 1000,
+      depth: 0,
+      overrideAccess: true,
+    })
+
+    for (const booking of clientBookings.docs) {
+      await safeDelete(payload, 'bookings', booking.id)
+    }
   }
 
   for (const bookingId of ctx.created.bookingIds || []) {

@@ -18,7 +18,7 @@ function createStatus(input: ProvisioningInput) {
     collectSpecimenHref: status.donorId
       ? `https://m.toxaccess.com/donors/${status.donorId}/collection/steps/1?isOnSite=false`
       : null,
-    manualHref: 'https://m.toxaccess.com/Pages/User/DonorSearch.aspx',
+    manualHref: 'https://m.toxaccess.com/donors',
   }
 }
 
@@ -55,7 +55,7 @@ describe('RedwoodProvisioningCard', () => {
     expect(markup).toContain('Ready for collection')
     expect(markup).toContain('Donor 2714034 is ready for collection in ToxAccess.')
     expect(markup).toContain('Link to ToxAccess')
-    expect(markup).toContain('/donors/2714034/collection/steps/1?isOnSite=false')
+    expect(markup).toContain('/Pages/User/Donor.aspx?donorid=2714034')
     expect(markup).not.toContain('Donor verified in ToxAccess')
     expect(markup).not.toContain('remaining headshot')
     expect(markup).not.toContain('Retry setup')
