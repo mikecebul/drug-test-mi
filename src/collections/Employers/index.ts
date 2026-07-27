@@ -3,6 +3,7 @@ import { admins } from '@/access/admins'
 import { anyone } from '@/access/anyone'
 import { superAdmin } from '@/access/superAdmin'
 import { testTypeSelectOptions } from '@/config/test-types'
+import { syncLinkedClientDefaultTestsFromReferral } from '@/collections/Clients/hooks/syncLinkedClientDefaultTestsFromReferral'
 
 export const Employers: CollectionConfig = {
   slug: 'employers',
@@ -15,6 +16,9 @@ export const Employers: CollectionConfig = {
     delete: superAdmin,
     read: anyone,
     update: admins,
+  },
+  hooks: {
+    afterChange: [syncLinkedClientDefaultTestsFromReferral('employers')],
   },
   admin: {
     group: 'Referrals',
@@ -40,9 +44,7 @@ export const Employers: CollectionConfig = {
 
         for (const row of rows) {
           const rowEmail =
-            row && typeof row === 'object' && 'email' in row
-              ? (row as { email?: unknown }).email
-              : undefined
+            row && typeof row === 'object' && 'email' in row ? (row as { email?: unknown }).email : undefined
           const email = typeof rowEmail === 'string' ? rowEmail.trim().toLowerCase() : ''
           if (!email) continue
           if (seenEmails.has(email)) {
@@ -69,8 +71,7 @@ export const Employers: CollectionConfig = {
         },
       ],
       admin: {
-        description:
-          'Recipient contacts. The first row is treated as the main contact for display purposes.',
+        description: 'Recipient contacts. The first row is treated as the main contact for display purposes.',
       },
     },
     {

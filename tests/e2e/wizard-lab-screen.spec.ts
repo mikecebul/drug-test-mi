@@ -154,39 +154,19 @@ test.describe('Wizard Lab Screen Workflow', () => {
       await resolveConfirmationDecision(page)
     }
 
-    const nextButton = page.getByTestId('wizard-next-button')
-    if (await nextButton.isDisabled().catch(() => false)) {
-      if (await hasDecisionSection(page).isVisible().catch(() => false)) {
-        await resolveConfirmationDecision(page)
-      }
-    }
+    await ensureLabScreenDataReadyToAdvance(page)
+    await clickNext(page)
+    await expect(page.getByText('Confirm Lab Screening')).toBeVisible()
 
-    if (await nextButton.isEnabled().catch(() => false)) {
-      await triggerNextValidation(page)
-      const confirmHeading = page.getByText('Confirm Lab Screening')
-      if (await confirmHeading.isVisible().catch(() => false)) {
-        await clickBack(page)
-        await expect(page.getByText('Verify Lab Screening Data')).toBeVisible()
+    await clickBack(page)
+    await expect(page.getByText('Verify Lab Screening Data')).toBeVisible()
 
-        if (await nextButton.isDisabled().catch(() => false)) {
-          if (await hasDecisionSection(page).isVisible().catch(() => false)) {
-            await resolveConfirmationDecision(page)
-          }
-        }
+    await ensureLabScreenDataReadyToAdvance(page)
+    await clickNext(page)
+    await expect(page.getByText('Confirm Lab Screening')).toBeVisible()
 
-        if (await nextButton.isEnabled().catch(() => false)) {
-          await clickNext(page)
-          await clickNext(page)
-          await expect(page.getByText('Review Screening Notification Emails')).toBeVisible()
-        } else {
-          await expect(nextButton).toBeDisabled()
-        }
-      } else {
-        await expect(nextButton).toBeDisabled()
-      }
-    } else {
-      await expect(nextButton).toBeDisabled()
-    }
+    await clickNext(page)
+    await expect(page.getByText('Review Screening Notification Emails')).toBeVisible()
   })
 
   test('submits lab-screen workflow, updates seeded collected test, and verifies screened-stage email with attachment', async ({ page }) => {

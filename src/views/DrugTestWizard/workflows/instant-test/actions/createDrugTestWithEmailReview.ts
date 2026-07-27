@@ -245,7 +245,10 @@ export async function createDrugTestWithEmailReview(
     })
 
     const clientRecipients = !disableClientEmails && emailConfig.clientEmailEnabled ? emailConfig.clientRecipients : []
-    const referralRecipients = emailConfig.referralEmailEnabled ? emailConfig.referralRecipients : []
+    const clientRecipientKeys = new Set(clientRecipients.map((email) => email.trim().toLowerCase()))
+    const referralRecipients = emailConfig.referralEmailEnabled
+      ? emailConfig.referralRecipients.filter((email) => !clientRecipientKeys.has(email.trim().toLowerCase()))
+      : []
 
     // 6-8. Fetch document and send emails using service layer
     payload.logger.info('[createDrugTestWithEmailReview] Preparing to send emails...')

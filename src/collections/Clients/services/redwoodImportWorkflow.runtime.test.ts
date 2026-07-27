@@ -1,0 +1,295 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const {
+  classifyRedwoodIncidentMock,
+  createRedwoodClientViaHttpMock,
+  queueRedwoodDefaultTestSyncMock,
+  queueRedwoodHeadshotUploadMock,
+  resolveClientRedwoodEligibleDefaultTestMock,
+  upsertRedwoodIncidentAlertMock,
+} = vi.hoisted(() => ({
+  classifyRedwoodIncidentMock: vi.fn(),
+  createRedwoodClientViaHttpMock: vi.fn(),
+  queueRedwoodDefaultTestSyncMock: vi.fn(),
+  queueRedwoodHeadshotUploadMock: vi.fn(),
+  resolveClientRedwoodEligibleDefaultTestMock: vi.fn(),
+  upsertRedwoodIncidentAlertMock: vi.fn(),
+}))
+
+vi.mock('@/lib/redwood/config', () => ({
+  assertRedwoodMutationAllowed: vi.fn(),
+  getAllowedRedwoodAccountNumbers: vi.fn(() => ['310974', '310872']),
+  getRedwoodAccountNumber: vi.fn(() => '310974'),
+}))
+
+vi.mock('@/lib/redwood/default-test', () => ({
+  resolveClientRedwoodEligibleDefaultTest: resolveClientRedwoodEligibleDefaultTestMock,
+}))
+
+vi.mock('@/lib/redwood/incidents', () => ({
+  classifyRedwoodIncident: classifyRedwoodIncidentMock,
+  upsertRedwoodIncidentAlert: upsertRedwoodIncidentAlertMock,
+}))
+
+vi.mock('@/lib/redwood/queue', () => ({
+  queueRedwoodDefaultTestSync: queueRedwoodDefaultTestSyncMock,
+  queueRedwoodHeadshotUpload: queueRedwoodHeadshotUploadMock,
+}))
+
+vi.mock('./redwoodClientHttpImport', () => ({
+  createRedwoodClientViaHttp: createRedwoodClientViaHttpMock,
+}))
+
+import { runRedwoodImportClientJob } from './redwoodImportWorkflow'
+
+function createPayloadMock() {
+  return {
+    find: vi.fn().mockResolvedValue({ docs: [] }),
+    findByID: vi.fn().mockResolvedValue({
+      id: 'client-1',
+      firstName: 'Bob',
+      lastName: 'Testing',
+      dob: '1990-01-01',
+      gender: 'male',
+      phone: '(555) 111-2222',
+      referralType: 'court',
+    }),
+    update: vi.fn().mockResolvedValue({}),
+    logger: {
+      error: vi.fn(),
+      info: vi.fn(),
+    },
+  }
+}
+
+describe('Redwood direct HTTP import workflow', () => {
+  beforeEach(() => {
+    classifyRedwoodIncidentMock.mockReset()
+    createRedwoodClientViaHttpMock.mockReset()
+    queueRedwoodDefaultTestSyncMock.mockReset()
+    queueRedwoodHeadshotUploadMock.mockReset()
+    resolveClientRedwoodEligibleDefaultTestMock.mockReset()
+    upsertRedwoodIncidentAlertMock.mockReset()
+    resolveClientRedwoodEligibleDefaultTestMock.mockResolvedValue({
+      kind: 'skip',
+      reason: 'No lab default is required.',
+    })
+  })
+
+  it('creates and verifies a donor through the reconstructed HTTP form workflow', async () => {
+    createRedwoodClientViaHttpMock.mockResolvedValue({
+      accountNumber: '310974',
+      callInCode: '123456',
+      donorId: '2714034',
+      matchedDonorName: null,
+      status: 'imported',
+    })
+    const payloadMock = createPayloadMock()
+
+    const result = await runRedwoodImportClientJob({
+      clientId: 'client-1',
+      payload: payloadMock as never,
+      source: 'frontend-registration',
+    })
+
+    expect(result).toEqual({ status: 'synced' })
+    expect(createRedwoodClientViaHttpMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountNumber: '310974',
+        firstName: 'Bob',
+        group: 'Court',
+        lastName: 'Testing',
+        phoneNumber: '555-111-2222',
+        sex: 'M',
+      }),
+      expect.objectContaining({
+        allowCreate: true,
+        searchAccountNumbers: ['310974', '310872'],
+      }),
+    )
+    expect(payloadMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'clients',
+        data: expect.objectContaining({
+          redwoodCallInCode: '123456',
+          redwoodAccountNumber: '310974',
+          redwoodDonorId: '2714034',
+          redwoodSyncStatus: 'synced',
+        }),
+        id: 'client-1',
+      }),
+    )
+  })
+
+  it('records inactive donor reactivation as a ready donor', async () => {
+    createRedwoodClientViaHttpMock.mockResolvedValue({
+      accountNumber: '310872',
+      callInCode: '654321',
+      donorId: '2714034',
+      matchedDonorName: 'Testing, Bob',
+      status: 'reactivated-existing',
+    })
+    const payloadMock = createPayloadMock()
+
+    const result = await runRedwoodImportClientJob({
+      clientId: 'client-1',
+      payload: payloadMock as never,
+      source: 'client-reactivation',
+    })
+
+    expect(result).toEqual({ status: 'reactivated-existing' })
+    expect(payloadMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          redwoodSyncStatus: 'reactivated-existing',
+          redwoodAccountNumber: '310872',
+          redwoodDonorId: '2714034',
+        }),
+      }),
+    )
+  })
+
+  it('queues a deferred headshot after donor provisioning returns the donor ID', async () => {
+    createRedwoodClientViaHttpMock.mockResolvedValue({
+      accountNumber: '310974',
+      callInCode: '123456',
+      donorId: '2714034',
+      matchedDonorName: null,
+      status: 'imported',
+    })
+    queueRedwoodHeadshotUploadMock.mockResolvedValue({ jobId: 'headshot-job-1' })
+    const payloadMock = createPayloadMock()
+    payloadMock.findByID.mockResolvedValue({
+      ...(await payloadMock.findByID()),
+      headshot: 'media-1',
+      redwoodHeadshotPushStatus: null,
+    })
+
+    await runRedwoodImportClientJob({
+      clientId: 'client-1',
+      payload: payloadMock as never,
+      source: 'frontend-registration',
+    })
+
+    expect(queueRedwoodHeadshotUploadMock).toHaveBeenCalledWith('client-1', undefined, payloadMock)
+  })
+
+  it('queues removal of a stale managed default after donor verification', async () => {
+    createRedwoodClientViaHttpMock.mockResolvedValue({
+      accountNumber: '310974',
+      callInCode: '123456',
+      donorId: '2714034',
+      matchedDonorName: 'Testing, Bob',
+      status: 'matched-existing',
+    })
+    queueRedwoodDefaultTestSyncMock.mockResolvedValue({ jobId: 'job-clear-1' })
+    const payloadMock = createPayloadMock()
+    payloadMock.findByID.mockResolvedValue({
+      ...(await payloadMock.findByID()),
+      defaultTestType: '17-panel-instant',
+      redwoodDefaultTestSyncedCode: 'B729',
+    })
+
+    await runRedwoodImportClientJob({
+      clientId: 'client-1',
+      payload: payloadMock as never,
+      source: 'manual',
+    })
+
+    expect(queueRedwoodDefaultTestSyncMock).toHaveBeenCalledWith('client-1', payloadMock)
+  })
+
+  it('disables donor creation when Payload has prior drug-test history', async () => {
+    createRedwoodClientViaHttpMock.mockResolvedValue({
+      accountNumber: '310974',
+      callInCode: '123456',
+      donorId: '2714034',
+      matchedDonorName: 'Testing, Bob',
+      status: 'matched-existing',
+    })
+    const payloadMock = createPayloadMock()
+    payloadMock.find.mockResolvedValue({ docs: [{ id: 'test-1' }] })
+
+    const result = await runRedwoodImportClientJob({
+      clientId: 'client-1',
+      payload: payloadMock as never,
+      source: 'manual',
+    })
+
+    expect(result).toEqual({ status: 'matched-existing' })
+    expect(payloadMock.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'drug-tests',
+        limit: 1,
+        where: { relatedClient: { equals: 'client-1' } },
+      }),
+    )
+    expect(createRedwoodClientViaHttpMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        allowCreate: false,
+        blockedReason: expect.stringContaining('automatic donor creation was blocked'),
+      }),
+    )
+  })
+
+  it('creates an admin alert when test history blocks duplicate donor creation', async () => {
+    const blockedMessage =
+      'Potential existing Redwood donor: Payload contains prior drug-test history, but no confident ToxAccess match was found by name and DOB across allowed accounts. Manual review required; automatic donor creation was blocked to prevent a duplicate.'
+    createRedwoodClientViaHttpMock.mockRejectedValue(new Error(blockedMessage))
+    classifyRedwoodIncidentMock.mockReturnValue({
+      errorClass: 'duplicate-prevention-block',
+      kind: 'manual-review-required',
+      retryable: false,
+    })
+    const payloadMock = createPayloadMock()
+    payloadMock.find.mockResolvedValue({ docs: [{ id: 'test-1' }] })
+
+    const result = await runRedwoodImportClientJob({
+      clientId: 'client-1',
+      payload: payloadMock as never,
+      source: 'guided-workflow',
+    })
+
+    expect(result).toEqual({ status: 'manual-review' })
+    expect(upsertRedwoodIncidentAlertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientId: 'client-1',
+        jobType: 'import',
+        kind: 'manual-review-required',
+        message: blockedMessage,
+        title: 'Duplicate ToxAccess donor creation blocked for client client-1',
+        context: expect.objectContaining({
+          automaticCreationBlockedByHistory: true,
+          hasDrugTestHistory: true,
+          source: 'guided-workflow',
+        }),
+      }),
+    )
+  })
+
+  it('throws transient HTTP failures so the Payload job retries without creating an early alert', async () => {
+    createRedwoodClientViaHttpMock.mockRejectedValue(new Error('Redwood request timed out'))
+    classifyRedwoodIncidentMock.mockReturnValue({
+      errorClass: 'unknown',
+      kind: 'monitor-only',
+      retryable: true,
+    })
+    const payloadMock = createPayloadMock()
+
+    await expect(
+      runRedwoodImportClientJob({
+        clientId: 'client-1',
+        payload: payloadMock as never,
+        source: 'wizard-registration',
+      }),
+    ).rejects.toThrow('Redwood request timed out')
+
+    expect(payloadMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ redwoodSyncStatus: 'queued' }),
+      }),
+    )
+    expect(upsertRedwoodIncidentAlertMock).not.toHaveBeenCalled()
+  })
+})

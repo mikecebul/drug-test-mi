@@ -29,21 +29,14 @@ export const CollectLabNavigation = withForm({
 
   render: function Render({ form, onBack, group }) {
     // Read step from URL (single source of truth)
-    const [currentStep, setCurrentStep] = useQueryState(
-      'step',
-      parseAsStringLiteral(steps).withDefault('client'),
-    )
+    const [currentStep, setCurrentStep] = useQueryState('step', parseAsStringLiteral(steps).withDefault('client'))
     const [bookingId] = useQueryState('bookingId', parseAsString)
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
-    const referralEmailEnabled = useStore(form.store, (state) => state.values.emails.referralEmailEnabled)
-    const referralRecipients = useStore(form.store, (state) => state.values.emails.referralRecipients)
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
     const isScheduledWorkflowEntry = Boolean(bookingId) && currentStep === 'medications'
-    const isMissingRequiredReferralRecipient =
-      isLastStep && referralEmailEnabled && referralRecipients.length === 0
     const handleBack = () => {
       if (isFirstStep || isScheduledWorkflowEntry) {
         onBack()
@@ -70,7 +63,7 @@ export const CollectLabNavigation = withForm({
         <Button
           type="button"
           onClick={() => group.handleSubmit()}
-          disabled={isSubmitting || group.state.meta.isSubmitting || isMissingRequiredReferralRecipient}
+          disabled={isSubmitting || group.state.meta.isSubmitting}
           size="lg"
           data-testid="wizard-next-button"
         >

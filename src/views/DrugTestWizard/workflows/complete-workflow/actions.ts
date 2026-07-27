@@ -31,6 +31,19 @@ import {
   syncCalcomPrepaidBookingPayment,
 } from '@/collections/Payments/services/calcomBookingPayment'
 import { cancelCalcomBooking } from '@/utilities/calcom-api'
+import { isRedwoodAutomationEnabled, REDWOOD_TASK_RETRIES } from '@/lib/redwood/config'
+import { resolveClientRedwoodEligibleDefaultTest } from '@/lib/redwood/default-test'
+import {
+  queueRedwoodDefaultTestSync,
+  queueRedwoodHeadshotUpload,
+  queueRedwoodImportForClient,
+} from '@/lib/redwood/queue'
+import { deriveRedwoodProvisioningStatus, type RedwoodProvisioningStatus } from '@/lib/redwood/provisioning'
+import {
+  buildRedwoodCollectSpecimenUrl,
+  REDWOOD_MOBILE_DONORS_URL,
+} from '@/lib/redwood/donor-urls'
+import { shouldQueueGuidedRedwoodDonor } from './redwood-provisioning-state'
 
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type PaymentMethod = 'cash' | 'card' | 'credit' | 'not-paid' | 'pre-paid'
@@ -49,6 +62,11 @@ type ScheduleActionResult = {
   warning?: string
   fallbackHref?: string | null
   refundedAmount?: number
+}
+
+export type GuidedRedwoodProvisioningStatus = RedwoodProvisioningStatus & {
+  collectSpecimenHref: string | null
+  manualHref: string
 }
 
 function getRelationshipId(value: unknown): string | null {
@@ -421,6 +439,11 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
       const testType = bookingTestType ?? referralTestType
       const referralType = client?.referralType as 'court' | 'employer' | 'self' | undefined
       const firstDrugTestDate = await getFirstDrugTestDate(payload, client?.id as string | undefined)
+      const headshot =
+        client?.headshot && typeof client.headshot === 'object'
+          ? client.headshot.thumbnailURL || client.headshot.url || null
+          : null
+      const headshotId = client?.headshot && typeof client.headshot === 'object' ? String(client.headshot.id) : null
 
       return {
         id: booking.id as string,
@@ -445,6 +468,8 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
               dob: typeof client.dob === 'string' ? client.dob : null,
               gender: typeof client.gender === 'string' ? client.gender : null,
               phone: typeof client.phone === 'string' ? client.phone : null,
+              headshot,
+              headshotId,
               moneyOwed: typeof client.moneyOwed === 'number' ? client.moneyOwed : 0,
               creditBalance: typeof client.creditBalance === 'number' ? client.creditBalance : 0,
               firstDrugTestDate,
@@ -480,6 +505,271 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
 
 export async function getActiveCollectionTestTypes() {
   return getActiveTestTypes()
+}
+
+async function loadClientRedwoodProvisioningStatus(
+  payload: Payload,
+  clientId: string,
+  testTypeValue?: string,
+): Promise<GuidedRedwoodProvisioningStatus> {
+  const client = await payload.findByID({
+    collection: 'clients',
+    id: clientId,
+    depth: 1,
+    overrideAccess: true,
+  })
+  const importRuns = await payload.find({
+    collection: 'job-runs',
+    where: {
+      and: [
+        {
+          client: {
+            equals: clientId,
+          },
+        },
+        {
+          taskSlug: {
+            equals: 'redwood-import-client',
+          },
+        },
+      ],
+    },
+    sort: '-createdAt',
+    limit: 1,
+    depth: 0,
+    overrideAccess: true,
+  })
+  const payloadImportJobs = await payload.find({
+    collection: 'payload-jobs',
+    where: {
+      and: [
+        {
+          'input.clientId': {
+            equals: clientId,
+          },
+        },
+        {
+          taskSlug: {
+            equals: 'redwood-import-client',
+          },
+        },
+      ],
+    },
+    sort: '-createdAt',
+    limit: 1,
+    depth: 0,
+    overrideAccess: true,
+  })
+  const latestImportRun = importRuns.docs[0]
+  const latestPayloadImportJob = payloadImportJobs.docs[0]
+  const importRetriesExhausted =
+    latestPayloadImportJob?.hasError === true ||
+    (latestImportRun?.status === 'failed' &&
+      typeof latestImportRun.attemptCount === 'number' &&
+      latestImportRun.attemptCount >= REDWOOD_TASK_RETRIES)
+  const defaultTestResolution = await resolveClientRedwoodEligibleDefaultTest({
+    client,
+    payload,
+  })
+  const defaultTestRequired = defaultTestResolution.kind === 'eligible' || defaultTestResolution.kind === 'error'
+  const headshotRequired = Boolean(getRelationshipId(client.headshot))
+  const lastError =
+    (importRetriesExhausted ? latestImportRun?.errorMessage : null) ||
+    client.redwoodLastError ||
+    client.redwoodDefaultTestLastError ||
+    client.redwoodHeadshotPushLastError ||
+    (defaultTestResolution.kind === 'error' ? defaultTestResolution.reason : null)
+
+  const provisioning = deriveRedwoodProvisioningStatus({
+    automationEnabled: isRedwoodAutomationEnabled(),
+    callInCode: client.redwoodCallInCode,
+    defaultTestRequired,
+    defaultTestStatus:
+      defaultTestResolution.kind === 'error' && client.redwoodDefaultTestSyncStatus === 'not-queued'
+        ? 'failed'
+        : client.redwoodDefaultTestSyncStatus,
+    donorId: client.redwoodDonorId,
+    headshotRequired,
+    headshotStatus: client.redwoodHeadshotPushStatus,
+    lastError,
+    syncStatus: importRetriesExhausted ? 'failed' : client.redwoodSyncStatus,
+  })
+  const collectionTestType = mapTestTypeValue(testTypeValue)
+
+  return {
+    ...provisioning,
+    collectSpecimenHref:
+      provisioning.donorId && collectionTestType
+        ? buildRedwoodCollectSpecimenUrl(
+            REDWOOD_MOBILE_DONORS_URL,
+            provisioning.donorId,
+            collectionTestType.category === 'instant',
+          )
+        : null,
+    manualHref: REDWOOD_MOBILE_DONORS_URL,
+  }
+}
+
+export async function getClientRedwoodProvisioningStatus(
+  clientId: string,
+  testTypeValue: string,
+): Promise<GuidedRedwoodProvisioningStatus> {
+  if (!clientId) {
+    throw new Error('Client ID is required.')
+  }
+
+  const payload = await getAdminPayload()
+  return loadClientRedwoodProvisioningStatus(payload, clientId, testTypeValue)
+}
+
+async function queueMissingRedwoodProvisioningWork(args: {
+  clientId: string
+  payload: Payload
+  retryFailedDonor: boolean
+}): Promise<void> {
+  const client = await args.payload.findByID({
+    collection: 'clients',
+    id: args.clientId,
+    depth: 1,
+    overrideAccess: true,
+  })
+  const donorReady =
+    Boolean(typeof client.redwoodDonorId === 'string' && client.redwoodDonorId.trim()) &&
+    ['matched-existing', 'reactivated-existing', 'synced'].includes(client.redwoodSyncStatus || '')
+
+  if (!donorReady) {
+    const canQueueDonor = shouldQueueGuidedRedwoodDonor({
+      retryFailedDonor: args.retryFailedDonor,
+      syncStatus: client.redwoodSyncStatus,
+    })
+
+    if (canQueueDonor) {
+      await queueRedwoodImportForClient(args.clientId, 'guided-workflow', args.payload)
+    }
+
+    return
+  }
+
+  const defaultTestResolution = await resolveClientRedwoodEligibleDefaultTest({
+    client,
+    payload: args.payload,
+  })
+  if (
+    defaultTestResolution.kind === 'eligible' &&
+    !['queued', 'synced'].includes(client.redwoodDefaultTestSyncStatus || '')
+  ) {
+    await queueRedwoodDefaultTestSync(args.clientId, args.payload)
+  }
+
+  if (getRelationshipId(client.headshot) && !['queued', 'synced'].includes(client.redwoodHeadshotPushStatus || '')) {
+    await queueRedwoodHeadshotUpload(args.clientId, undefined, args.payload)
+  }
+}
+
+async function applyGuidedLabDefaultTest(args: {
+  clientId: string
+  payload: Payload
+  testTypeValue?: string
+}): Promise<void> {
+  const testType = mapTestTypeValue(args.testTypeValue)
+  if (!testType || testType.category !== 'lab') {
+    return
+  }
+
+  const client = await args.payload.findByID({
+    collection: 'clients',
+    id: args.clientId,
+    depth: 1,
+    overrideAccess: true,
+  })
+  const currentTestType = mapTestTypeValue(client.defaultTestType)
+  if (currentTestType?.value === testType.value) {
+    return
+  }
+
+  await args.payload.update({
+    collection: 'clients',
+    id: args.clientId,
+    data: {
+      defaultTestType: testType.value,
+    },
+    overrideAccess: true,
+  })
+}
+
+export async function ensureClientRedwoodProvisioning(
+  clientId: string,
+  testTypeValue: string,
+): Promise<{
+  error?: string
+  status?: GuidedRedwoodProvisioningStatus
+  success: boolean
+}> {
+  const payload = await getAdminPayload()
+
+  try {
+    if (!isRedwoodAutomationEnabled()) {
+      return {
+        success: false,
+        error: 'Redwood automation is disabled on this server.',
+        status: await loadClientRedwoodProvisioningStatus(payload, clientId, testTypeValue),
+      }
+    }
+
+    await applyGuidedLabDefaultTest({
+      clientId,
+      payload,
+      testTypeValue,
+    })
+
+    await queueMissingRedwoodProvisioningWork({
+      clientId,
+      payload,
+      retryFailedDonor: false,
+    })
+
+    return {
+      success: true,
+      status: await loadClientRedwoodProvisioningStatus(payload, clientId, testTypeValue),
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to queue Redwood donor provisioning.',
+      status: await loadClientRedwoodProvisioningStatus(payload, clientId, testTypeValue).catch(() => undefined),
+    }
+  }
+}
+
+export async function retryClientRedwoodProvisioning(clientId: string): Promise<{
+  error?: string
+  status?: GuidedRedwoodProvisioningStatus
+  success: boolean
+}> {
+  const payload = await getAdminPayload()
+
+  try {
+    if (!isRedwoodAutomationEnabled()) {
+      throw new Error('Redwood automation is disabled on this server.')
+    }
+
+    await queueMissingRedwoodProvisioningWork({
+      clientId,
+      payload,
+      retryFailedDonor: true,
+    })
+
+    return {
+      success: true,
+      status: await loadClientRedwoodProvisioningStatus(payload, clientId),
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to retry Redwood donor provisioning.',
+      status: await loadClientRedwoodProvisioningStatus(payload, clientId).catch(() => undefined),
+    }
+  }
 }
 
 export async function getClientOutstandingPaymentBalances(clientId: string) {
@@ -627,23 +917,23 @@ export async function setBookingScheduledTestType(bookingId: string, testTypeId:
   return { success: true }
 }
 
-export async function createWalkInBooking(input: { clientId: string; testTypeId: string }) {
-  if (!input.clientId || !input.testTypeId) {
-    return { success: false, error: 'Client and test type are required.' }
-  }
-
-  const mappedTestType = getActiveTestTypes().find((testType) => testType.value === input.testTypeId)
-  if (!mappedTestType) {
-    return { success: false, error: 'Select an active collection test type.' }
+export async function createWalkInBooking(input: { clientId: string }) {
+  if (!input.clientId) {
+    return { success: false, error: 'Client is required.' }
   }
 
   const payload = await getAdminPayload()
   const client = await payload.findByID({
     collection: 'clients',
     id: input.clientId,
-    depth: 0,
+    depth: 2,
     overrideAccess: true,
   })
+  const referral = await resolveReferral(payload, client as PopulatedClient)
+  const preferredTestType = getPreferredTestType(referral)
+  const activePreferredTestType = preferredTestType
+    ? getActiveTestTypes().find((testType) => testType.value === preferredTestType.value)
+    : undefined
   const startTime = new Date()
   const endTime = new Date(startTime.getTime() + 30 * 60 * 1000)
   const attendeeName = [client.firstName, client.middleInitial, client.lastName].filter(Boolean).join(' ')
@@ -664,7 +954,7 @@ export async function createWalkInBooking(input: { clientId: string; testTypeId:
     attendeeName,
     attendeeEmail: client.email,
     relatedClient: input.clientId,
-    scheduledTestType: mappedTestType.value,
+    ...(activePreferredTestType ? { scheduledTestType: activePreferredTestType.value } : {}),
     location: 'Walk-in',
     customInputs: {
       source: 'guided-walk-in',

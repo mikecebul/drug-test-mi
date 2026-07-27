@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { ensureDotEnvLoaded } from './env'
 import type { TestTypeValue } from '../../../src/config/test-types'
+import { REDWOOD_SKIP_PROVISIONING_QUEUE_CONTEXT_KEY } from '../../../src/lib/redwood/context'
 
 type SeededPerson = {
   id: string
@@ -274,6 +275,10 @@ async function createClient(
       })),
       preferredContactMethod: 'email',
       disableClientEmails: false,
+      _verified: true,
+      redwoodSyncStatus: 'synced',
+      redwoodDonorId: `e2e-${args.emailPrefix}-${args.runId}`,
+      redwoodCallInCode: 'E2E-READY',
       medications: [
         {
           medicationName: 'Suboxone',
@@ -290,6 +295,9 @@ async function createClient(
         id: 'e2e-seed',
         collection: 'admins',
       },
+    },
+    context: {
+      [REDWOOD_SKIP_PROVISIONING_QUEUE_CONTEXT_KEY]: true,
     },
     overrideAccess: true,
   })
@@ -749,6 +757,22 @@ async function cleanupFixtures(ctx: FixtureContext | undefined): Promise<void> {
 
     for (const payment of payments.docs) {
       await safeDelete(payload, 'payments', payment.id)
+    }
+
+    const clientBookings = await payload.find({
+      collection: 'bookings',
+      where: {
+        relatedClient: {
+          in: ctx.created.clientIds,
+        },
+      },
+      limit: 1000,
+      depth: 0,
+      overrideAccess: true,
+    })
+
+    for (const booking of clientBookings.docs) {
+      await safeDelete(payload, 'bookings', booking.id)
     }
   }
 

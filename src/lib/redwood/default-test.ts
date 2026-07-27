@@ -1,0 +1,132 @@
+import type { Payload } from 'payload'
+
+import { getTestTypeByValue } from '@/config/test-types'
+
+type RedwoodDefaultTestDoc = {
+  id?: string
+  label?: string | null
+  value?: string | null
+  category?: string | null
+  redwoodLabTestCode?: string | null
+  toxAccessCode?: string | null
+}
+
+export type RedwoodEligibleDefaultTest =
+  | {
+      kind: 'eligible'
+      redwoodLabTestCode: string
+      testTypeId?: string
+      testTypeLabel?: string
+      testTypeValue?: string
+    }
+  | {
+      kind: 'skip'
+      reason: string
+    }
+  | {
+      kind: 'error'
+      reason: string
+    }
+
+function normalizeText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function normalizeDefaultTestDoc(value: unknown): RedwoodDefaultTestDoc | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const record = value as Record<string, unknown>
+  return {
+    id: normalizeText(record.id),
+    label: normalizeText(record.label) || null,
+    value: normalizeText(record.value) || null,
+    category: normalizeText(record.category) || null,
+    redwoodLabTestCode: normalizeText(record.redwoodLabTestCode) || null,
+    toxAccessCode: normalizeText(record.toxAccessCode) || null,
+  }
+}
+
+export function resolveRedwoodEligibleDefaultTestFromDoc(
+  testType: RedwoodDefaultTestDoc | null,
+): RedwoodEligibleDefaultTest {
+  if (!testType) {
+    return {
+      kind: 'skip',
+      reason: 'Client does not have a default test type.',
+    }
+  }
+
+  if (testType.category !== 'lab') {
+    return {
+      kind: 'skip',
+      reason: 'Redwood default tests only support lab test types.',
+    }
+  }
+
+  const redwoodLabTestCode = testType.redwoodLabTestCode || testType.toxAccessCode || null
+
+  if (!redwoodLabTestCode) {
+    return {
+      kind: 'error',
+      reason: `Lab test type "${testType.label || testType.value || testType.id || 'unknown'}" is missing Redwood lab test code mapping.`,
+    }
+  }
+
+  return {
+    kind: 'eligible',
+    redwoodLabTestCode,
+    testTypeId: testType.id || undefined,
+    testTypeLabel: testType.label || undefined,
+    testTypeValue: testType.value || undefined,
+  }
+}
+
+export async function resolveClientRedwoodEligibleDefaultTest(args: {
+  client: {
+    defaultTestType?: unknown
+  }
+  payload: Payload
+}): Promise<RedwoodEligibleDefaultTest> {
+  const { client } = args
+  const defaultTestType = client.defaultTestType
+
+  const populated = normalizeDefaultTestDoc(defaultTestType)
+  if (populated?.category || populated?.redwoodLabTestCode || populated?.label || populated?.value) {
+    return resolveRedwoodEligibleDefaultTestFromDoc(populated)
+  }
+
+  const testTypeId =
+    typeof defaultTestType === 'string'
+      ? defaultTestType.trim()
+      : defaultTestType &&
+          typeof defaultTestType === 'object' &&
+          'id' in defaultTestType &&
+          typeof defaultTestType.id === 'string'
+        ? defaultTestType.id.trim()
+        : ''
+
+  if (!testTypeId) {
+    return {
+      kind: 'skip',
+      reason: 'Client does not have a default test type.',
+    }
+  }
+
+  const configuredTestType = getTestTypeByValue(testTypeId)
+  if (configuredTestType) {
+    return resolveRedwoodEligibleDefaultTestFromDoc({
+      id: configuredTestType.value,
+      label: configuredTestType.label,
+      value: configuredTestType.value,
+      category: configuredTestType.category,
+      toxAccessCode: configuredTestType.toxAccessCode,
+    })
+  }
+
+  return {
+    kind: 'error',
+    reason: `Client default test type "${testTypeId}" is not defined in the static test configuration.`,
+  }
+}

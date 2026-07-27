@@ -1,0 +1,207 @@
+import { describe, expect, it } from 'vitest'
+
+import { getRedwoodFormEntry } from '@/lib/redwood/http'
+import {
+  buildRedwoodDefaultTestClearPlan,
+  buildRedwoodDefaultTestSelectionPlan,
+  readRedwoodDefaultTestSelectionState,
+} from './redwoodDefaultTestHttpSync'
+
+const defaultTestFormHtml = `
+  <form>
+    <input type="hidden" name="__VIEWSTATE" value="state" />
+    <table id="PageContent_Donor_DefaultTestsPanel_testSelectionGridView_gvTestSelection">
+      <tbody>
+        <tr class="tableText">
+          <td>
+            <input id="chkSelectedTest" type="checkbox"
+              name="ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$gvTestSelection$ctl02$chkSelectedTest"
+              checked="checked" />
+            <input type="hidden"
+              name="ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$gvTestSelection$ctl02$hiddenTestCode"
+              value="B729" />
+          </td>
+          <td>Urine 11 Panel</td>
+          <td>B729</td>
+        </tr>
+        <tr class="tableText">
+          <td>
+            <input id="chkSelectedTest" type="checkbox"
+              name="ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$gvTestSelection$ctl03$chkSelectedTest" />
+            <input type="hidden"
+              name="ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$gvTestSelection$ctl03$hiddenTestCode"
+              value="B829" />
+          </td>
+          <td>Urine 12 Panel</td>
+          <td>B829</td>
+        </tr>
+      </tbody>
+    </table>
+    <input type="hidden"
+      name="ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$hiddenSelectedTests"
+      value="B729" />
+  </form>
+`
+
+const inheritedDefaultTestFormHtml = `
+  <form>
+    <table>
+      <tr class="alt">
+        <td><span>Agency Default Test(s)</span></td>
+        <td><span>There are no inherited default tests.</span></td>
+      </tr>
+      <tr class="alt">
+        <td><span>Donor Group Default Test(s)</span></td>
+        <td><span>(B729) Urine 11 Panel AMP,BUP,BZO,COC,CR,ETG,FEN,MIT,MTD,OPI,THC</span></td>
+      </tr>
+    </table>
+    <table id="PageContent_Donor_DefaultTestsPanel_testSelectionGridView_gvTestSelection">
+      <tbody>
+        <tr class="tableText">
+          <td>
+            <input id="chkSelectedTest" type="checkbox"
+              name="ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$gvTestSelection$ctl02$chkSelectedTest" />
+            <input type="hidden"
+              name="ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$gvTestSelection$ctl02$hiddenTestCode"
+              value="B829" />
+          </td>
+          <td>Urine 11 Panel without EtG</td>
+          <td>B829</td>
+        </tr>
+      </tbody>
+    </table>
+    <input type="hidden"
+      name="ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$hiddenSelectedTests"
+      value="" />
+  </form>
+`
+
+describe('redwood HTTP default-test helpers', () => {
+  it('reads available and selected default-test codes from the donor edit form', () => {
+    expect(readRedwoodDefaultTestSelectionState(defaultTestFormHtml)).toEqual({
+      availableCodes: ['B729', 'B829'],
+      selectedCodes: ['B729'],
+    })
+  })
+
+  it('adds a changed default-test code while preserving existing selected codes', () => {
+    const plan = buildRedwoodDefaultTestSelectionPlan(defaultTestFormHtml, 'b829')
+
+    expect(plan.targetAlreadySelected).toBe(false)
+    expect(plan.nextSelectedCodes).toEqual(['B729', 'B829'])
+    expect(
+      getRedwoodFormEntry(
+        plan.entries,
+        'ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$hiddenSelectedTests',
+      ),
+    ).toBe('B729||B829')
+    expect(
+      getRedwoodFormEntry(
+        plan.entries,
+        'ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$gvTestSelection$ctl03$chkSelectedTest',
+      ),
+    ).toBe('on')
+  })
+
+  it('replaces the last website-managed default-test code while preserving other selected codes', () => {
+    const plan = buildRedwoodDefaultTestSelectionPlan(defaultTestFormHtml, 'b829', 'B729')
+
+    expect(plan.targetAlreadySelected).toBe(false)
+    expect(plan.selectionChanged).toBe(true)
+    expect(plan.nextSelectedCodes).toEqual(['B829'])
+    expect(
+      getRedwoodFormEntry(
+        plan.entries,
+        'ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$hiddenSelectedTests',
+      ),
+    ).toBe('B829')
+    expect(
+      getRedwoodFormEntry(
+        plan.entries,
+        'ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$gvTestSelection$ctl02$chkSelectedTest',
+      ),
+    ).toBeUndefined()
+  })
+
+  it('detects already selected default-test codes without changing the selection set', () => {
+    const plan = buildRedwoodDefaultTestSelectionPlan(defaultTestFormHtml, 'B729')
+
+    expect(plan.targetAlreadySelected).toBe(true)
+    expect(plan.nextSelectedCodes).toEqual(['B729'])
+  })
+
+  it('accepts an already selected code when Redwood omits it from the available-test rows', () => {
+    const htmlWithSelectedCodeOmittedFromRows = defaultTestFormHtml.replace(
+      /\s*<tr class="tableText">[\s\S]*?value="B729" \/>[\s\S]*?<\/tr>/,
+      '',
+    )
+
+    const state = readRedwoodDefaultTestSelectionState(htmlWithSelectedCodeOmittedFromRows)
+    const plan = buildRedwoodDefaultTestSelectionPlan(htmlWithSelectedCodeOmittedFromRows, 'B729')
+
+    expect(state).toEqual({
+      availableCodes: ['B829'],
+      selectedCodes: ['B729'],
+    })
+    expect(plan.targetAlreadySelected).toBe(true)
+    expect(plan.selectionChanged).toBe(false)
+    expect(plan.nextSelectedCodes).toEqual(['B729'])
+  })
+
+  it('recognizes an inherited donor-group default without adding it to the donor selection payload', () => {
+    const state = readRedwoodDefaultTestSelectionState(inheritedDefaultTestFormHtml)
+    const plan = buildRedwoodDefaultTestSelectionPlan(inheritedDefaultTestFormHtml, 'B729')
+
+    expect(state).toEqual({
+      availableCodes: ['B829'],
+      selectedCodes: ['B729'],
+    })
+    expect(plan.targetAlreadySelected).toBe(true)
+    expect(plan.selectionChanged).toBe(false)
+    expect(plan.nextSelectedCodes).toEqual(['B729'])
+    expect(
+      getRedwoodFormEntry(
+        plan.entries,
+        'ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$hiddenSelectedTests',
+      ),
+    ).toBe('')
+  })
+
+  it('does not try to clear a default inherited from the donor group', () => {
+    expect(() => buildRedwoodDefaultTestClearPlan(inheritedDefaultTestFormHtml, 'B729')).toThrow(
+      'Redwood default-test code "B729" is inherited from the donor\'s agency or donor group and cannot be cleared at the donor level.',
+    )
+  })
+
+  it('clears only the last website-managed code and preserves unrelated defaults', () => {
+    const htmlWithTwoSelections = defaultTestFormHtml
+      .replace('value="B729" />\n  </form>', 'value="B729||B829" />\n  </form>')
+      .replace(
+        'name="ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$gvTestSelection$ctl03$chkSelectedTest" />',
+        'name="ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$gvTestSelection$ctl03$chkSelectedTest" checked="checked" />',
+      )
+
+    const plan = buildRedwoodDefaultTestClearPlan(htmlWithTwoSelections, 'B729')
+
+    expect(plan.selectionChanged).toBe(true)
+    expect(plan.nextSelectedCodes).toEqual(['B829'])
+    expect(
+      getRedwoodFormEntry(
+        plan.entries,
+        'ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$gvTestSelection$ctl02$chkSelectedTest',
+      ),
+    ).toBeUndefined()
+    expect(
+      getRedwoodFormEntry(
+        plan.entries,
+        'ctl00$PageContent$Donor$DefaultTestsPanel$testSelectionGridView$gvTestSelection$ctl03$chkSelectedTest',
+      ),
+    ).toBe('on')
+  })
+
+  it('throws with available codes when the target default-test code is missing', () => {
+    expect(() => buildRedwoodDefaultTestSelectionPlan(defaultTestFormHtml, 'P40')).toThrow(
+      'Redwood donor default-test code "P40" was not found. Available codes: B729, B829. Selected codes: B729',
+    )
+  })
+})

@@ -11,7 +11,11 @@ describe('registrationDuplicateWhere', () => {
     })
 
     expect(where).toEqual({
-      and: [{ firstName: { equals: 'Brett' } }, { lastName: { equals: 'Farve' } }, { dob: { equals: '1970-01-01' } }],
+      and: [
+        { firstName: { equals: 'Brett' } },
+        { lastName: { equals: 'Farve' } },
+        { searchDob: { equals: '1970-01-01' } },
+      ],
     })
     expect(JSON.stringify(where)).not.toContain('phone')
   })

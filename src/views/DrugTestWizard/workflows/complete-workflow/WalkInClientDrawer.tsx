@@ -1,17 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle2, ChevronRight, Loader2, UserPlus, X } from 'lucide-react'
+import { ChevronRight, Loader2, UserPlus, X } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import {
   Drawer,
   DrawerClose,
@@ -23,7 +16,6 @@ import {
 import { Separator } from '@/components/ui/separator'
 import type { ClientSearchResult } from '@/collections/Clients/search/types'
 import { formatDobInput } from '@/lib/date-utils'
-import { cn } from '@/utilities/cn'
 import { CLIENT_SEARCH_MIN_CHARS } from '../components/client/clientSearch'
 import { getClientById, type SimpleClient } from '../components/client/getClients'
 import { useClientSearch } from '../components/client/useClientSearch'
@@ -32,8 +24,7 @@ interface WalkInClientDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onRegister: () => void
-  onSelect: (client: SimpleClient) => void
-  selectedClientId: string
+  onSelect: (client: SimpleClient) => boolean | void | Promise<boolean | void>
 }
 
 export function WalkInClientDrawer({
@@ -41,7 +32,6 @@ export function WalkInClientDrawer({
   onOpenChange,
   onRegister,
   onSelect,
-  selectedClientId,
 }: WalkInClientDrawerProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectingClientId, setSelectingClientId] = useState<string | null>(null)
@@ -89,7 +79,8 @@ export function WalkInClientDrawer({
     try {
       const client = await getClientById(result.id)
       if (!client) throw new Error('Client record is no longer available.')
-      onSelect(client)
+      const selected = await onSelect(client)
+      if (selected === false) return
       handleOpenChange(false)
     } catch (error) {
       setSelectionError(error instanceof Error ? error.message : 'Unable to select this client.')
@@ -99,8 +90,6 @@ export function WalkInClientDrawer({
   }
 
   const renderResult = (client: ClientSearchResult) => {
-    const isSelected = selectedClientId === client.id
-
     return (
       <CommandItem
         key={client.id}
@@ -125,21 +114,19 @@ export function WalkInClientDrawer({
             {client.dob ? ` · DOB ${formatDobInput(client.dob)}` : ''}
           </p>
         </div>
-        <CheckCircle2
-          aria-hidden="true"
-          className={cn('ml-auto size-5 shrink-0', isSelected ? 'text-primary opacity-100' : 'opacity-0')}
-        />
       </CommandItem>
     )
   }
 
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={handleOpenChange}>
-      <DrawerContent className="data-[swipe-direction=right]:w-[min(32rem,calc(100vw-1rem))] data-[swipe-direction=right]:sm:max-w-none">
-        <DrawerHeader className="border-border border-b px-5 py-4">
+      <DrawerContent className="data-[swipe-direction=right]:w-[min(640px,calc(100vw-16px))] data-[swipe-direction=right]:sm:max-w-none">
+        <DrawerHeader className="border-border border-b">
           <div className="flex items-center justify-between gap-4">
-            <DrawerTitle className="text-2xl tracking-tight">Choose client</DrawerTitle>
-            <DrawerClose render={<Button type="button" variant="ghost" size="icon" aria-label="Close client chooser" />}>
+            <DrawerTitle>Choose client</DrawerTitle>
+            <DrawerClose
+              render={<Button type="button" variant="ghost" size="icon" aria-label="Close client chooser" />}
+            >
               <X data-icon="inline-start" />
             </DrawerClose>
           </div>
@@ -147,13 +134,12 @@ export function WalkInClientDrawer({
         </DrawerHeader>
 
         <Command shouldFilter={false} className="bg-background min-h-0 flex-1 rounded-none">
-          <div className="flex flex-col gap-4 p-5 pb-4">
-            <div className="border-input rounded-lg border [&_[data-slot=command-input-wrapper]]:h-12 [&_[data-slot=command-input-wrapper]]:border-b-0">
+          <div className="flex flex-col gap-4 p-4">
+            <div className="border-input rounded-lg border [&_[data-slot=command-input-wrapper]]:border-b-0">
               <CommandInput
                 value={searchQuery}
                 onValueChange={setSearchQuery}
                 placeholder="Search by name, DOB, phone, or email..."
-                className="h-12 text-base"
               />
             </div>
             <Button

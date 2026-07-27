@@ -44,8 +44,18 @@ const validationMessages = [
 ]
 
 async function hasVisibleValidationMessage(page: Page) {
+  if ((await page.locator('[data-slot="field-error"]:visible').count()) > 0) {
+    return true
+  }
+
   for (const message of validationMessages) {
-    if (await page.getByText(message).first().isVisible().catch(() => false)) {
+    if (
+      await page
+        .getByText(message)
+        .first()
+        .isVisible()
+        .catch(() => false)
+    ) {
       return true
     }
   }
@@ -63,7 +73,12 @@ async function waitForWizardHome(page: Page) {
   const end = Date.now() + 30_000
   while (Date.now() < end) {
     for (const locator of indicators) {
-      if (await locator.first().isVisible().catch(() => false)) {
+      if (
+        await locator
+          .first()
+          .isVisible()
+          .catch(() => false)
+      ) {
         return
       }
     }
@@ -77,9 +92,21 @@ export async function openWizard(page: Page) {
   const alreadyOnWizard = page.url().includes('/admin/drug-test-upload')
   if (alreadyOnWizard) {
     const hasWizardUI =
-      (await page.getByText('Select the type of workflow you want to perform').first().isVisible().catch(() => false)) ||
-      (await page.getByTestId('wizard-next-button').first().isVisible().catch(() => false)) ||
-      (await page.getByText('Drug Test Workflow').first().isVisible().catch(() => false))
+      (await page
+        .getByText('Select the type of workflow you want to perform')
+        .first()
+        .isVisible()
+        .catch(() => false)) ||
+      (await page
+        .getByTestId('wizard-next-button')
+        .first()
+        .isVisible()
+        .catch(() => false)) ||
+      (await page
+        .getByText('Drug Test Workflow')
+        .first()
+        .isVisible()
+        .catch(() => false))
 
     if (hasWizardUI) {
       return
@@ -176,21 +203,26 @@ export async function clickNext(page: Page) {
   await expect(nextButton).toBeEnabled({ timeout: 20_000 })
   await nextButton.scrollIntoViewIfNeeded()
   const beforeUrl = page.url()
+  const clickedButton = await nextButton.elementHandle()
 
-  const deadline = Date.now() + 5_000
-  do {
-    await nextButton.click({ timeout: 10_000 })
-    await page.waitForTimeout(500)
+  await nextButton.click({ timeout: 10_000 })
 
-    if (page.url() !== beforeUrl || (await hasVisibleValidationMessage(page))) {
-      return
-    }
+  await expect
+    .poll(
+      async () => {
+        if (page.url() !== beforeUrl || (await hasVisibleValidationMessage(page))) {
+          return true
+        }
 
-    const canRetry = (await nextButton.isVisible().catch(() => false)) && (await nextButton.isEnabled().catch(() => false))
-    if (!canRetry) {
-      return
-    }
-  } while (Date.now() < deadline)
+        if (!clickedButton) return true
+        return clickedButton.evaluate((element) => !element.isConnected).catch(() => true)
+      },
+      {
+        message: 'Expected Next to change the wizard step or show a validation error',
+        timeout: 20_000,
+      },
+    )
+    .toBe(true)
 }
 
 export async function triggerNextValidation(page: Page) {
@@ -234,7 +266,13 @@ export async function uploadSinglePdf(page: Page, filePath: string) {
         await input.setInputFiles(filePath)
       }
       await page.waitForTimeout(500)
-      if (await page.getByText(filename).first().isVisible().catch(() => false)) {
+      if (
+        await page
+          .getByText(filename)
+          .first()
+          .isVisible()
+          .catch(() => false)
+      ) {
         return
       }
     } while (Date.now() < deadline)
@@ -245,7 +283,11 @@ export async function uploadSinglePdf(page: Page, filePath: string) {
 
   for (let i = 0; i < rootCount; i += 1) {
     const root = uploadRoots.nth(i)
-    const visibleDropzone = await root.locator('[data-slot="file-upload-dropzone"]').first().isVisible().catch(() => false)
+    const visibleDropzone = await root
+      .locator('[data-slot="file-upload-dropzone"]')
+      .first()
+      .isVisible()
+      .catch(() => false)
     if (!visibleDropzone) {
       continue
     }
@@ -262,7 +304,7 @@ export async function uploadSinglePdf(page: Page, filePath: string) {
 
 export async function selectClientFromSearchDialog(page: Page, fullName: string) {
   const openButton = page.getByRole('button', {
-    name: /search all clients|search existing clients|find existing client|choose client|change client/i,
+    name: /search all clients|search existing clients|find existing client|choose(?: or register)? client|change client/i,
   })
   const dialog = page.getByRole('dialog', { name: /Search and Select Client|Choose client/i })
 
@@ -308,7 +350,7 @@ export async function selectClientFromSearchDialog(page: Page, fullName: string)
   await dialog.getByRole('option', { name: clientMatchPattern }).first().click()
 }
 
-type InstantStep = 'upload' | 'extract' | 'client' | 'medications' | 'verifyData' | 'confirm' | 'reviewEmails'
+type InstantStep = 'upload' | 'extract' | 'client' | 'medications' | 'verifyData' | 'reviewEmails'
 
 async function waitForWizardStep(page: Page, step: InstantStep, timeoutMs = 20_000) {
   await expect
@@ -338,7 +380,11 @@ export async function waitForExtractStepReady(
   const timeoutMs = options?.timeoutMs ?? 45_000
   const end = Date.now() + timeoutMs
   while (Date.now() < end) {
-    const loading = await page.getByText('Extracting Data...').first().isVisible().catch(() => false)
+    const loading = await page
+      .getByText('Extracting Data...')
+      .first()
+      .isVisible()
+      .catch(() => false)
     if (loading) {
       await page.waitForTimeout(200)
       continue
@@ -347,9 +393,17 @@ export async function waitForExtractStepReady(
     const hasReadyHeading = await Promise.all(
       readyHeadings.map(async (heading) => {
         if (heading instanceof RegExp) {
-          return page.getByText(heading).first().isVisible().catch(() => false)
+          return page
+            .getByText(heading)
+            .first()
+            .isVisible()
+            .catch(() => false)
         }
-        return page.getByText(heading, { exact: false }).first().isVisible().catch(() => false)
+        return page
+          .getByText(heading, { exact: false })
+          .first()
+          .isVisible()
+          .catch(() => false)
       }),
     ).then((states) => states.some(Boolean))
 
@@ -397,7 +451,10 @@ export async function goToEmailsStepFromInstant(page: Page, pdfPath: string, cli
   await clickNextToStep(page, 'client')
 
   if (clientName) {
-    const hasSelectedClient = await page.getByRole('heading', { name: /Selected Client/i }).isVisible().catch(() => false)
+    const hasSelectedClient = await page
+      .getByRole('heading', { name: /Selected Client/i })
+      .isVisible()
+      .catch(() => false)
     if (!hasSelectedClient) {
       await selectClientFromSearchDialog(page, clientName)
     }
@@ -407,7 +464,7 @@ export async function goToEmailsStepFromInstant(page: Page, pdfPath: string, cli
     await clickBack(page)
     await ensureInstantExtractReady(page)
     const mismatchConfirmation = page.getByRole('checkbox', {
-      name: /confirm this is the correct client\/report/i,
+      name: /confirm it belongs to this client/i,
     })
     if (await mismatchConfirmation.isVisible().catch(() => false)) {
       await mismatchConfirmation.check()
@@ -418,7 +475,6 @@ export async function goToEmailsStepFromInstant(page: Page, pdfPath: string, cli
   await clickNextToStep(page, 'medications')
   await clickNextToStep(page, 'verifyData')
   await ensureInstantVerifyDataReady(page)
-  await clickNextToStep(page, 'confirm')
   await clickNextToStep(page, 'reviewEmails')
 }
 

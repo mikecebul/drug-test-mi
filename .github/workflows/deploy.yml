@@ -1,113 +1,89 @@
-name: Build Docker images
+name: Build and deploy production images
 
 on:
   push:
     branches:
-      - 'main'
-      - 'staging'
+      - main
   workflow_dispatch:
+
+concurrency:
+  group: production-docker-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   build-and-push-dockerfile-image-production:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set Docker image tag
-        id: vars
-        run: echo "tag=latest" >> $GITHUB_OUTPUT
+        uses: actions/checkout@v4
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v4
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: mikecebul/drug-test-mi:${{ steps.vars.outputs.tag }}
+          tags: |
+            mikecebul/drug-test-mi:latest
+            mikecebul/drug-test-mi:main-${{ github.sha }}
           platforms: linux/amd64
           secrets: |
             DATABASE_URI=${{ secrets.DATABASE_URI }}
-            DOCKERHUB_TOKEN=${{ secrets.DOCKERHUB_TOKEN }}
-            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
             NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
             NEXT_PUBLIC_IS_LIVE=${{ secrets.NEXT_PUBLIC_IS_LIVE }}
             NEXT_PUBLIC_S3_HOSTNAME=${{ secrets.NEXT_PUBLIC_S3_HOSTNAME }}
             NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
             NEXT_PUBLIC_SERVER_URL=${{ secrets.NEXT_PUBLIC_SERVER_URL }}
             NEXT_PUBLIC_UPLOAD_PREFIX=${{ secrets.NEXT_PUBLIC_UPLOAD_PREFIX }}
+            NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=${{ secrets.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY }}
             PAYLOAD_SECRET=${{ secrets.PAYLOAD_SECRET }}
-            PREVIEW_SECRET=${{ secrets.PREVIEW_SECRET }}
-            RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
-            S3_ACCESS_KEY_ID=${{ secrets.S3_ACCESS_KEY_ID }}
-            S3_BUCKET=${{ secrets.S3_BUCKET }}
-            S3_ENDPOINT=${{ secrets.S3_ENDPOINT }}
-            S3_REGION=${{ secrets.S3_REGION }}
-            S3_SECRET_ACCESS_KEY=${{ secrets.S3_SECRET_ACCESS_KEY }}
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
-            UNSPLASH_ACCESS_KEY=${{ secrets.UNSPLASH_ACCESS_KEY }}
-            UNSPLASH_URL=${{ secrets.UNSPLASH_URL }}
 
-  build-and-push-dockerfile-image-staging:
-    if: github.ref == 'refs/heads/staging'
-    runs-on: ubuntu-latest
-    environment: staging
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set Docker image tag
-        id: vars
-        run: echo "tag=staging" >> $GITHUB_OUTPUT
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v4
+      - name: Build and push Redwood worker image
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
+          target: worker
           push: true
-          tags: mikecebul/drug-test-mi:${{ steps.vars.outputs.tag }}
+          tags: |
+            mikecebul/drug-test-mi:latest-worker
+            mikecebul/drug-test-mi:main-${{ github.sha }}-worker
           platforms: linux/amd64
-          secrets: |
-            DATABASE_URI=${{ secrets.DATABASE_URI }}
-            DOCKERHUB_TOKEN=${{ secrets.DOCKERHUB_TOKEN }}
-            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-            NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
-            NEXT_PUBLIC_IS_LIVE=${{ secrets.NEXT_PUBLIC_IS_LIVE }}
-            NEXT_PUBLIC_S3_HOSTNAME=${{ secrets.NEXT_PUBLIC_S3_HOSTNAME }}
-            NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
-            NEXT_PUBLIC_SERVER_URL=${{ secrets.NEXT_PUBLIC_SERVER_URL }}
-            NEXT_PUBLIC_UPLOAD_PREFIX=${{ secrets.NEXT_PUBLIC_UPLOAD_PREFIX }}
-            PAYLOAD_SECRET=${{ secrets.PAYLOAD_SECRET }}
-            EMAIL_HOST=${{ secrets.EMAIL_HOST }}
-            EMAIL_PORT=${{ secrets.EMAIL_PORT }}
-            EMAIL_USER=${{ secrets.EMAIL_USER }}
-            EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }}
-            S3_ACCESS_KEY_ID=${{ secrets.S3_ACCESS_KEY_ID }}
-            S3_BUCKET=${{ secrets.S3_BUCKET }}
-            S3_ENDPOINT=${{ secrets.S3_ENDPOINT }}
-            S3_REGION=${{ secrets.S3_REGION }}
-            S3_SECRET_ACCESS_KEY=${{ secrets.S3_SECRET_ACCESS_KEY }}
-            SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
-            SOURCE_API_KEY=${{ secrets.SOURCE_API_KEY }}
-            SOURCE_API_URL=${{ secrets.SOURCE_API_URL }}
-            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
-            STRIPE_WEBHOOKS_ENDPOINT_SECRET=${{ secrets.STRIPE_WEBHOOKS_ENDPOINT_SECRET }}
-            UNSPLASH_ACCESS_KEY=${{ secrets.UNSPLASH_ACCESS_KEY }}
-            UNSPLASH_URL=${{ secrets.UNSPLASH_URL }}
+
+      - name: Deploy production Compose in Dokploy
+        env:
+          DOKPLOY_COMPOSE_DEPLOY_WEBHOOK_URL: ${{ secrets.DOKPLOY_COMPOSE_DEPLOY_WEBHOOK_URL }}
+        run: |
+          if [ -z "$DOKPLOY_COMPOSE_DEPLOY_WEBHOOK_URL" ]; then
+            echo "DOKPLOY_COMPOSE_DEPLOY_WEBHOOK_URL is not configured in the production environment."
+            exit 1
+          fi
+
+          response="$(curl --fail --show-error --silent \
+            --connect-timeout 15 \
+            --max-time 30 \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "X-GitHub-Event: ${GITHUB_EVENT_NAME}" \
+            --data-binary "@${GITHUB_EVENT_PATH}" \
+            "$DOKPLOY_COMPOSE_DEPLOY_WEBHOOK_URL")"
+
+          echo "$response"
+          if [[ "$response" != *'"message":"Compose deployed successfully"'* ]]; then
+            echo "Dokploy did not accept the production Compose deployment request."
+            exit 1
+          fi

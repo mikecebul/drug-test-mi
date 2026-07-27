@@ -8,13 +8,11 @@ import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useStore } from '@tanstack/react-form'
-import { useQueryClient } from '@tanstack/react-query'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
-import { HeadshotCaptureCard } from '../../components'
+import { ClientDetailsCard } from '../../components/client/ClientDetailsCard'
 import { getCollectLabFormOpts } from '../shared-form'
 import { labTests } from '../validators'
 import InputDateTimePicker from '@/components/input-datetime-picker'
-import { invalidateWizardClientDerivedData } from '../../../queries'
 
 const TEST_LABELS: Record<(typeof labTests)[number], string> = {
   '11-panel-lab': '11-Panel',
@@ -28,7 +26,6 @@ export const CollectionStep = withForm({
   ...getCollectLabFormOpts(),
 
   render: function Render({ form }) {
-    const queryClient = useQueryClient()
     // Access breathalyzerTaken value for conditional rendering
     const breathalyzerTaken = useStore(form.store, (state) => state.values.collection.breathalyzerTaken)
 
@@ -54,15 +51,24 @@ export const CollectionStep = withForm({
 
     return (
       <div className="space-y-8">
-        <FieldGroupHeader title="Collection Details" description="Verify the collection details are correct." />
+        <FieldGroupHeader title="Confirm Details" description="Confirm the client, test, and collection details." />
 
         {client && (
-          <HeadshotCaptureCard
+          <ClientDetailsCard
             client={client}
-            onHeadshotLinked={(url: string, docId: string) => {
-              form.setFieldValue('client.headshot', url)
-              form.setFieldValue('client.headshotId', docId)
-              invalidateWizardClientDerivedData(queryClient, { clientId: client.id })
+            editable
+            onClientUpdated={(updated) => {
+              if (updated.firstName !== undefined) form.setFieldValue('client.firstName', updated.firstName)
+              if (updated.middleInitial !== undefined) form.setFieldValue('client.middleInitial', updated.middleInitial)
+              if (updated.lastName !== undefined) form.setFieldValue('client.lastName', updated.lastName)
+              if (updated.email !== undefined) form.setFieldValue('client.email', updated.email)
+              if (updated.dob !== undefined) form.setFieldValue('client.dob', updated.dob)
+              if (updated.phone !== undefined) form.setFieldValue('client.phone', updated.phone)
+              if (updated.gender !== undefined) form.setFieldValue('client.gender', updated.gender)
+              if (updated.headshot !== undefined) form.setFieldValue('client.headshot', updated.headshot)
+              if (updated.headshotId !== undefined) form.setFieldValue('client.headshotId', updated.headshotId)
+              if (updated.referralType !== undefined) form.setFieldValue('client.referralType', updated.referralType)
+              if (updated.referralTitle !== undefined) form.setFieldValue('client.referralTitle', updated.referralTitle)
             }}
           />
         )}

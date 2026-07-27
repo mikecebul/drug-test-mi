@@ -1,0 +1,24 @@
+services:
+  web:
+    image: mikecebul/drug-test-mi:latest
+    pull_policy: always
+    restart: always
+    ports:
+      - 3000
+    env_file:
+      - .env
+    networks:
+      - dokploy-network
+
+  worker-redwood:
+    image: mikecebul/drug-test-mi:latest-worker
+    pull_policy: always
+    restart: always
+    env_file:
+      - .env
+    networks:
+      - dokploy-network
+
+networks:
+  dokploy-network:
+    external: true

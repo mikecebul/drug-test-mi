@@ -38,7 +38,7 @@ export const CompanyInfo: GlobalConfig = {
               name: 'email',
               label: 'Email',
               type: 'text',
-              defaultValue: 'info@drugtestmi.com',
+              defaultValue: 'mike@midrugtest.com',
               admin: { width: '50%' },
             },
           ],

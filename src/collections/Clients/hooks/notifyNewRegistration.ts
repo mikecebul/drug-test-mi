@@ -2,6 +2,7 @@ import type { CollectionAfterChangeHook } from 'payload'
 import { buildNewClientRegistrationEmail } from '@/emails/clients'
 import { formatClientGender } from '@/lib/client-gender'
 import { APP_TIMEZONE, parseDob } from '@/lib/date-utils'
+import { prefixNonLiveEmailSubject, resolveOutboundNotificationRecipients } from '@/lib/email-safety'
 import { getServerSideURL } from '@/utilities/getURL'
 import { resolveRegistrationReferral } from './registrationNotification'
 
@@ -54,16 +55,26 @@ export const notifyNewRegistration: CollectionAfterChangeHook = async ({ doc, op
     })
 
     try {
+      const notificationRecipients = resolveOutboundNotificationRecipients([
+        'mike@midrugtest.com',
+        'tom@midrugtest.com',
+      ])
+
       await payload.sendEmail({
-        to: ['mike@midrugtest.com', 'tom@midrugtest.com'],
+        to: notificationRecipients.recipients,
         from: payload.email.defaultFromAddress,
-        subject: email.subject,
+        subject: prefixNonLiveEmailSubject(email.subject),
         html: email.html,
       })
 
-      payload.logger.info(
-        `New registration notification sent to owners for client ${doc.email} (${referral.referralName})`,
-      )
+      payload.logger.info({
+        msg: 'New registration notification sent',
+        clientEmail: doc.email,
+        referralName: referral.referralName,
+        recipients: notificationRecipients.recipients,
+        originalRecipients: notificationRecipients.originalRecipients,
+        redirected: notificationRecipients.redirected,
+      })
     } catch (error) {
       payload.logger.warn({
         msg: 'Failed to send registration notification email (non-blocking)',

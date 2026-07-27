@@ -16,7 +16,6 @@ import { ExtractStep } from './steps/Extract'
 import { ClientStep } from './steps/Client/Step'
 import { MedicationsStep } from './steps/Medications'
 import { VerifyDataStep } from './steps/VerifyData'
-import { ConfirmStep } from './steps/confirm/Step'
 import { EmailsStep } from './steps/Emails'
 import { createInstantTest } from './actions/createInstantTest'
 import { TestCompleted } from '../../components/TestCompleted'
@@ -34,7 +33,7 @@ import type { ExtractedPdfData } from '../../queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { getClientByBookingId, getClientById } from '../components/client/getClients'
 import { getFileFromStorage, clearFileStorage, hasStoredFile, saveFileToStorage } from './utils/fileStorage'
-import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
+import { focusFirstInvalidFieldWithToast, useStepFocus } from '@/lib/form-scroll-focus'
 import { getReportClientMatch, getReportClientMismatchKey } from './utils/reportClientMatch'
 
 interface InstantTestWorkflowProps {
@@ -284,6 +283,10 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
           form.setFieldValue('client.dob', client.dob ?? null)
           form.setFieldValue('client.headshot', client.headshot ?? null)
           form.setFieldValue('client.headshotId', client.headshotId ?? null)
+          form.setFieldValue('client.phone', client.phone ?? null)
+          form.setFieldValue('client.gender', client.gender ?? null)
+          form.setFieldValue('client.referralType', client.referralType ?? null)
+          form.setFieldValue('client.referralTitle', client.referralTitle ?? null)
 
           hydratedClientIdRef.current = client.id
           if (!bookingId) {
@@ -370,10 +373,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   }
 
   const handleGroupSubmitInvalid = (_error?: unknown) => {
-    const focusedField = focusFirstInvalidField(formRef.current)
-    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
-      id: 'instant-test-step-invalid',
-    })
+    focusFirstInvalidFieldWithToast(formRef.current, 'instant-test-step-invalid')
   }
 
   const renderStep = () => {
@@ -418,8 +418,6 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
           { onDynamic: verifyDataSchema.shape.verifyData },
           <VerifyDataStep form={form} />,
         )
-      case 'confirm':
-        return renderGroup('verifyData', undefined, <ConfirmStep form={form} />)
       case 'reviewEmails':
         return renderGroup('emails', { onDynamic: emailsGroupSchema }, <EmailsStep form={form} />)
       default:

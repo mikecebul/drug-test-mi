@@ -16,7 +16,7 @@ import { TermsStep } from './steps/Terms'
 import { SuccessStep } from './steps/Success'
 import { registerClientAction } from './actions/registerClientAction'
 import { useRouter } from 'next/navigation'
-import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
+import { focusFirstInvalidFieldWithToast, useStepFocus } from '@/lib/form-scroll-focus'
 import { getBookingRegistrationDefaults, linkBookingToClient } from '../complete-workflow/actions'
 
 interface RegisterClientWorkflowProps {
@@ -129,7 +129,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
         router.push('/admin')
       } else if ((returnTo === 'guided' || returnTo === 'complete-workflow') && bookingId) {
         await linkBookingToClient(bookingId, createdClientId)
-        router.push(`/admin/drug-test-upload?workflow=guided&step=payment&bookingId=${bookingId}`)
+        router.push(`/admin/drug-test-upload?workflow=guided&step=review&bookingId=${bookingId}`)
       } else {
         // No specific workflow, return to wizard selector
         onBack()
@@ -167,10 +167,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
   }
 
   const handleStepInvalid = () => {
-    const focusedField = focusFirstInvalidField(formRef.current)
-    toast.error(focusedField ? 'Please fix the highlighted field.' : 'Please complete the required fields.', {
-      id: 'register-client-step-invalid',
-    })
+    focusFirstInvalidFieldWithToast(formRef.current, 'register-client-step-invalid')
   }
 
   const renderStep = () => {

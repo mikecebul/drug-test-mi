@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { clientSchema, medicationsSchema, emailsGroupSchema, emailsSchema } from '../shared-validators'
 
 // Step names as readonly tuple
-export const steps = ['upload', 'extract', 'client', 'medications', 'verifyData', 'confirm', 'reviewEmails'] as const
+export const steps = ['upload', 'extract', 'client', 'medications', 'verifyData', 'reviewEmails'] as const
 export type Steps = typeof steps
 
 // Individual schemas (one per step)

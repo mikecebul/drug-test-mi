@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getPayload } from 'payload'
 import { headers } from 'next/headers'
 import { createAdminAlert } from '@/lib/admin-alerts'
+import { REDWOOD_SKIP_HEADSHOT_PUSH_CONTEXT_KEY } from '@/lib/redwood/context'
+import { queueRedwoodHeadshotUpload } from '@/lib/redwood/queue'
 import { uploadHeadshot } from '../uploadHeadshot'
 
 vi.mock('payload', () => ({
@@ -18,6 +20,10 @@ vi.mock('next/headers', () => ({
 
 vi.mock('@/lib/admin-alerts', () => ({
   createAdminAlert: vi.fn(),
+}))
+
+vi.mock('@/lib/redwood/queue', () => ({
+  queueRedwoodHeadshotUpload: vi.fn(),
 }))
 
 type MockPayload = {
@@ -53,6 +59,7 @@ describe('uploadHeadshot', () => {
     payloadMock.auth.mockResolvedValue({
       user: { id: 'admin-1', collection: 'admins' },
     })
+    vi.mocked(queueRedwoodHeadshotUpload).mockResolvedValue({ jobId: 'job-1' })
     payloadMock.findByID.mockResolvedValue({
       id: 'client-1',
       firstName: 'John',
@@ -126,9 +133,14 @@ describe('uploadHeadshot', () => {
     expect(payloadMock.update).toHaveBeenCalledWith(
       expect.objectContaining({
         collection: 'clients',
+        context: {
+          [REDWOOD_SKIP_HEADSHOT_PUSH_CONTEXT_KEY]: true,
+        },
         id: 'client-1',
+        user: { id: 'admin-1', collection: 'admins' },
       }),
     )
+    expect(queueRedwoodHeadshotUpload).toHaveBeenCalledWith('client-1', 'admin-1', payloadMock)
   })
 
   it('re-fetches media doc when create response is missing URL fields', async () => {
@@ -204,7 +216,37 @@ describe('uploadHeadshot', () => {
       2,
       expect.objectContaining({
         collection: 'clients',
+        context: {
+          [REDWOOD_SKIP_HEADSHOT_PUSH_CONTEXT_KEY]: true,
+        },
         id: 'client-1',
+        user: { id: 'admin-1', collection: 'admins' },
+      }),
+    )
+    expect(queueRedwoodHeadshotUpload).toHaveBeenCalledWith('client-1', 'admin-1', payloadMock)
+  })
+
+  it('keeps the website headshot save successful when Redwood queueing fails', async () => {
+    payloadMock.create.mockResolvedValue({
+      id: 'media-1',
+      thumbnailURL: '/media/thumb.jpg',
+      url: '/media/full.jpg',
+    })
+    payloadMock.update.mockResolvedValue({ id: 'client-1' })
+    vi.mocked(queueRedwoodHeadshotUpload).mockRejectedValueOnce(new Error('queue unavailable'))
+
+    const result = await uploadHeadshot('client-1', [1, 2, 3], 'image/jpeg', 'headshot.jpg')
+
+    expect(result).toEqual({
+      success: true,
+      id: 'media-1',
+      url: '/media/thumb.jpg',
+    })
+    expect(payloadMock.logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        msg: '[uploadHeadshot] Headshot saved, but Redwood upload could not be queued',
+        clientId: 'client-1',
+        headshotId: 'media-1',
       }),
     )
   })

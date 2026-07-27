@@ -1,5 +1,7 @@
 import { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-mongodb'
 
+import { LEGACY_TEST_TYPES_COLLECTION } from '@/lib/legacy-test-types-collection'
+
 const OLD_TEST_TYPE_VALUE = '15-panel-instant'
 const NEW_TEST_TYPE_VALUE = '17-panel-instant'
 const REFERRAL_COLLECTIONS = ['courts', 'employers'] as const
@@ -8,7 +10,7 @@ type ReferralCollection = (typeof REFERRAL_COLLECTIONS)[number]
 
 async function findTestTypeId(payload: MigrateUpArgs['payload'], value: string): Promise<string | null> {
   const result = await payload.find({
-    collection: 'test-types',
+    collection: LEGACY_TEST_TYPES_COLLECTION,
     where: {
       value: {
         equals: value,
@@ -19,7 +21,8 @@ async function findTestTypeId(payload: MigrateUpArgs['payload'], value: string):
     overrideAccess: true,
   })
 
-  return result.docs[0]?.id ? String(result.docs[0].id) : null
+  const testType = result.docs[0] as { id?: unknown } | undefined
+  return testType?.id ? String(testType.id) : null
 }
 
 async function migrateReferralCollection({

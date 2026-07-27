@@ -1,5 +1,7 @@
 import type { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-mongodb'
 
+import { LEGACY_TEST_TYPES_COLLECTION } from '@/lib/legacy-test-types-collection'
+
 const TEST_TYPE_VALUES = new Set([
   '11-panel-lab',
   '11-panel-lab-no-etg',
@@ -21,7 +23,7 @@ type MigrationTarget = (typeof FIELD_MIGRATIONS)[number]
 
 async function loadTestTypeMaps(payload: Payload) {
   const result = await payload.find({
-    collection: 'test-types',
+    collection: LEGACY_TEST_TYPES_COLLECTION,
     depth: 0,
     limit: 1000,
     overrideAccess: true,
@@ -105,41 +107,18 @@ async function migrateTargetToValues(payload: Payload, target: MigrationTarget, 
 }
 
 async function migrateTargetToLegacyIds(payload: Payload, target: MigrationTarget, valueToId: Map<string, string>) {
-  let page = 1
   let updated = 0
-  let totalPages = 1
+  const collection = payload.db.collections[target.collection].collection
 
-  do {
-    const result = await payload.find({
-      collection: target.collection,
-      depth: 0,
-      limit: 100,
-      page,
-      overrideAccess: true,
-    })
+  for (const [value, legacyId] of valueToId) {
+    if (legacyId === value) continue
 
-    totalPages = result.totalPages || 1
-
-    for (const doc of result.docs as unknown as Array<Record<string, unknown> & { id: string }>) {
-      const currentValue = getFieldValue(doc, target.field)
-      if (typeof currentValue !== 'string' || !TEST_TYPE_VALUES.has(currentValue)) continue
-
-      const legacyId = valueToId.get(currentValue)
-      if (!legacyId || legacyId === currentValue) continue
-
-      await payload.update({
-        collection: target.collection,
-        id: doc.id,
-        data: {
-          [target.field]: legacyId,
-        },
-        overrideAccess: true,
-      })
-      updated++
-    }
-
-    page++
-  } while (page <= totalPages)
+    // The active schema is already a select when this down migration runs, so
+    // use the native collection to restore legacy relationship IDs without
+    // having select validation reject them.
+    const result = await collection.updateMany({ [target.field]: value }, { $set: { [target.field]: legacyId } })
+    updated += result.modifiedCount
+  }
 
   return updated
 }

@@ -45,6 +45,88 @@ test.describe('Wizard Instant Workflow', () => {
     await selectWorkflow(page, 'Screen Instant Test')
   })
 
+  test('reveals discontinued medication errors and animates consecutive additions on portrait iPad', async ({
+    page,
+  }) => {
+    const env = getE2EEnv()
+
+    await uploadSinglePdf(page, env.pdfInstantPath)
+    await clickNext(page)
+    await waitForExtractStepReady(page, {
+      readyHeadings: [/Extract Data/i],
+    })
+    await clickNext(page)
+
+    await expect(page.getByRole('heading', { name: /Choose a Client/i })).toBeVisible({ timeout: 30_000 })
+    await selectClientFromSearchDialog(page, fixtures.clients.instant.fullName)
+    await clickNext(page)
+    await expect(page.getByText('Verify Medications')).toBeVisible()
+    await page.setViewportSize({ width: 768, height: 1024 })
+
+    const medicationCard = page.getByRole('group', { name: 'Medication: Suboxone' })
+    const medicationTrigger = medicationCard.getByRole('button', { name: /Suboxone/i })
+    await medicationTrigger.click()
+
+    const medicationStatus = medicationCard.getByRole('combobox', { name: 'Status *' })
+    const endDate = medicationCard.getByLabel('End Date')
+
+    await expect(endDate).toBeHidden()
+    await medicationStatus.click()
+    await page.getByRole('option', { name: 'Discontinued', exact: true }).click()
+    await expect(endDate).toBeVisible()
+    await expect(endDate).toContainText('Select date')
+
+    await medicationTrigger.click()
+    await expect(endDate).toBeHidden()
+    await triggerNextValidation(page)
+
+    await expect(endDate).toBeVisible()
+    await expect(endDate).toHaveAttribute('aria-invalid', 'true')
+    await expect(endDate).toBeFocused()
+    await expect(page.getByText('End date is required for discontinued medications')).toBeVisible()
+    await expect
+      .poll(() =>
+        endDate.evaluate((element) => {
+          const bounds = element.getBoundingClientRect()
+          return bounds.top >= 0 && bounds.bottom <= window.innerHeight
+        }),
+      )
+      .toBe(true)
+
+    await endDate.click()
+    await page.locator('[data-slot="calendar"] button[data-day]').filter({ visible: true }).first().click()
+    await expect(endDate).not.toContainText('Select date')
+    await medicationStatus.click()
+    await page.getByRole('option', { name: 'Active', exact: true }).click()
+    await expect(endDate).toBeHidden()
+    await expect(page.getByText('End date is required for discontinued medications')).toHaveCount(0)
+
+    await medicationStatus.click()
+    await page.getByRole('option', { name: 'Discontinued', exact: true }).click()
+    await expect(endDate).toContainText('Select date')
+    await medicationStatus.click()
+    await page.getByRole('option', { name: 'Active', exact: true }).click()
+    await expect(endDate).toBeHidden()
+
+    const pageErrors: Error[] = []
+    page.on('pageerror', (error) => pageErrors.push(error))
+
+    const addMedicationButton = page.getByRole('button', { name: 'Add Medication' })
+    const newMedicationCards = page.getByRole('group', { name: 'Medication: New Medication', exact: true })
+    const newMedicationNames = newMedicationCards.getByPlaceholder('e.g., Ibuprofen')
+
+    await addMedicationButton.click()
+    await expect(newMedicationCards).toHaveCount(1)
+    await addMedicationButton.click()
+    await expect(newMedicationCards).toHaveCount(2)
+
+    await triggerNextValidation(page)
+    await expect(newMedicationNames.first()).toHaveAttribute('aria-invalid', 'true')
+    await expect(newMedicationNames.first()).toBeFocused()
+    await expect(page.getByText('Medication name is required')).toHaveCount(2)
+    expect(pageErrors.map((error) => error.message)).toEqual([])
+  })
+
   test('validates upload and confirmation-decision branches, with back-forward navigation', async ({ page }) => {
     const env = getE2EEnv()
 
@@ -125,7 +207,7 @@ test.describe('Wizard Instant Workflow', () => {
     await expect(page.getByRole('heading', { name: /Upload Instant Drug Test Report/i })).toBeVisible({
       timeout: 30_000,
     })
-    expect(new URL(page.url()).searchParams.get('step')).toBeNull()
+    await expect.poll(() => new URL(page.url()).searchParams.get('step')).toBeNull()
     await clickNext(page)
     await expect(page.getByText('Please upload a PDF file')).toBeVisible()
   })

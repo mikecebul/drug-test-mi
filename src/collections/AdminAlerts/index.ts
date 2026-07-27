@@ -10,9 +10,13 @@ import type { CollectionConfig } from 'payload'
  */
 export const AdminAlerts: CollectionConfig = {
   slug: 'admin-alerts',
+  labels: {
+    singular: 'Alert',
+    plural: 'Alerts',
+  },
   admin: {
     useAsTitle: 'title',
-    defaultColumns: ['title', 'severity', 'alertType', 'resolved', 'createdAt'],
+    defaultColumns: ['title', 'jobType', 'client', 'attemptCount', 'resolved', 'lastSeenAt'],
     group: 'Admin',
     description: 'Business-critical alerts requiring admin attention',
   },
@@ -111,6 +115,72 @@ export const AdminAlerts: CollectionConfig = {
       type: 'json',
       admin: {
         description: 'Additional context (client ID, drug test ID, error details, etc.)',
+      },
+    },
+    {
+      name: 'client',
+      type: 'relationship',
+      relationTo: 'clients',
+      admin: {
+        description: 'Client impacted by the alert, when applicable.',
+      },
+    },
+    {
+      name: 'jobType',
+      type: 'select',
+      options: [
+        { label: 'Redwood Import', value: 'import' },
+        { label: 'Redwood Client Update', value: 'client-update' },
+        { label: 'Redwood Headshot Upload', value: 'headshot-upload' },
+        { label: 'Redwood Default Test Sync', value: 'default-test-sync' },
+        { label: 'Redwood Client Inactivation', value: 'client-inactivation' },
+      ],
+      admin: {
+        description: 'Workflow or Redwood job type associated with this alert.',
+      },
+    },
+    {
+      name: 'dedupeKey',
+      type: 'text',
+      index: true,
+      admin: {
+        readOnly: true,
+        description: 'Stable incident key used to dedupe repeated Redwood failures.',
+      },
+    },
+    {
+      name: 'statusSnapshot',
+      type: 'json',
+      admin: {
+        description: 'Latest Redwood status snapshot captured when the alert was last seen.',
+      },
+    },
+    {
+      name: 'attemptCount',
+      label: 'Occurrences',
+      type: 'number',
+      defaultValue: 1,
+      admin: {
+        readOnly: true,
+        description: 'How many separate times this same incident has been observed.',
+      },
+    },
+    {
+      name: 'lastSeenAt',
+      type: 'date',
+      admin: {
+        date: {
+          pickerAppearance: 'dayAndTime',
+          displayFormat: 'MM/dd/yyyy HH:mm',
+        },
+        description: 'When this incident was most recently observed.',
+      },
+    },
+    {
+      name: 'recommendedAction',
+      type: 'textarea',
+      admin: {
+        description: 'Short operator guidance for triage and recovery.',
       },
     },
     {

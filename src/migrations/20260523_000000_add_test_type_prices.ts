@@ -1,5 +1,7 @@
 import { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-mongodb'
 
+import { LEGACY_TEST_TYPES_COLLECTION } from '@/lib/legacy-test-types-collection'
+
 const TEST_TYPE_PRICES: Record<string, number> = {
   '11-panel-lab': 40,
   '11-panel-lab-no-etg': 40,
@@ -12,7 +14,7 @@ const TEST_TYPE_PRICES: Record<string, number> = {
 export async function up({ payload, req }: MigrateUpArgs): Promise<void> {
   for (const [value, price] of Object.entries(TEST_TYPE_PRICES)) {
     const existing = await payload.find({
-      collection: 'test-types',
+      collection: LEGACY_TEST_TYPES_COLLECTION,
       where: {
         value: {
           equals: value,
@@ -27,9 +29,9 @@ export async function up({ payload, req }: MigrateUpArgs): Promise<void> {
     if (!existing.docs[0]) continue
 
     await payload.update({
-      collection: 'test-types',
-      id: existing.docs[0].id,
-      data: { price },
+      collection: LEGACY_TEST_TYPES_COLLECTION,
+      id: (existing.docs[0] as { id: string }).id,
+      data: { price } as never,
       overrideAccess: true,
       req,
     })

@@ -103,9 +103,7 @@ export async function updateLabConfirmationWithEmailReview(
 
     const originalDetectedSubstances = (existingTest.detectedSubstances || []) as SubstanceValue[]
     const adjustedSubstances = originalDetectedSubstances.filter((substance) => {
-      const confirmationResult = confirmationResults.find(
-        (r) => r.substance.toLowerCase() === substance.toLowerCase(),
-      )
+      const confirmationResult = confirmationResults.find((r) => r.substance.toLowerCase() === substance.toLowerCase())
       return !(confirmationResult && confirmationResult.result === 'confirmed-negative')
     })
 
@@ -194,7 +192,10 @@ export async function updateLabConfirmationWithEmailReview(
 
     const clientRecipients =
       !disableClientEmails && formValues.emails.clientEmailEnabled ? formValues.emails.clientRecipients : []
-    const referralRecipients = formValues.emails.referralEmailEnabled ? formValues.emails.referralRecipients : []
+    const clientRecipientKeys = new Set(clientRecipients.map((email) => email.trim().toLowerCase()))
+    const referralRecipients = formValues.emails.referralEmailEnabled
+      ? formValues.emails.referralRecipients.filter((email) => !clientRecipientKeys.has(email.trim().toLowerCase()))
+      : []
 
     // 10. Fetch document and send emails
     let sentTo: string[] = []

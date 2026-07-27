@@ -12,6 +12,7 @@ import {
   normalizeReferralContacts,
   parseRecipientEmails,
 } from '@/lib/referrals'
+import { REDWOOD_PROVISIONING_SOURCE_CONTEXT_KEY } from '@/lib/redwood/context'
 import { registrationDuplicateWhere } from './registrationDuplicateWhere'
 
 function normalizeAdditionalRecipients(
@@ -252,6 +253,9 @@ export async function registerClientAction(formData: CompleteRegistrationValues)
     const newClient = await payload.create({
       collection: 'clients',
       data: clientData as any,
+      context: {
+        [REDWOOD_PROVISIONING_SOURCE_CONTEXT_KEY]: 'wizard-registration',
+      },
       overrideAccess: true,
     })
 

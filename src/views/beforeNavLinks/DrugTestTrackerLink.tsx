@@ -15,18 +15,16 @@ export default function DrugTestTrackerLink() {
   }
 
   return (
-    <ShadcnWrapper className="py-1.5">
+    <ShadcnWrapper className="w-full py-1.5">
       <Button
-        size="lg"
         render={<Link href="/admin/drug-test-tracker" />}
         nativeButton={false}
         variant="secondary"
-        className="w-full min-w-2xs gap-2"
+        className="w-full min-w-0 justify-start"
       >
         <svg
+          data-icon="inline-start"
           xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"

@@ -18,6 +18,7 @@ import {
   normalizeReferralContacts,
   parseRecipientEmails,
 } from '@/lib/referrals'
+import { REDWOOD_PROVISIONING_SOURCE_CONTEXT_KEY } from '@/lib/redwood/context'
 
 const _TEST_MODE = process.env.EMAIL_TEST_MODE === 'true'
 const _TEST_EMAIL = process.env.EMAIL_TEST_ADDRESS || 'mike@midrugtest.com'
@@ -1747,6 +1748,9 @@ export async function registerClientFromWizard(data: {
     const newClient = await payload.create({
       collection: 'clients',
       data: clientData,
+      context: {
+        [REDWOOD_PROVISIONING_SOURCE_CONTEXT_KEY]: 'wizard-registration',
+      },
       overrideAccess: true,
     })
 

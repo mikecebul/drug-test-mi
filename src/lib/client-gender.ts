@@ -18,3 +18,14 @@ export function formatClientGender(value: unknown): string {
   const gender = normalizeClientGender(value)
   return CLIENT_GENDER_OPTIONS.find((option) => option.value === gender)?.label || 'Not specified'
 }
+
+export function getClientGenderBadgeClass(value: unknown): string {
+  const gender = normalizeClientGender(value)
+  if (gender === 'male') {
+    return 'border-blue-600/40 bg-blue-50 text-blue-900 dark:border-blue-400/50 dark:bg-blue-500/20 dark:text-blue-100'
+  }
+  if (gender === 'female') {
+    return 'border-pink-600/40 bg-pink-50 text-pink-900 dark:border-pink-400/50 dark:bg-pink-500/20 dark:text-pink-100'
+  }
+  return 'border-border bg-muted text-muted-foreground'
+}

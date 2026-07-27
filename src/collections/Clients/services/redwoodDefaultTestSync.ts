@@ -1,0 +1,214 @@
+import type { Payload } from 'payload'
+
+import { resolveClientRedwoodEligibleDefaultTest } from '@/lib/redwood/default-test'
+import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
+import { classifyRedwoodIncident, upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
+import {
+  clearClientDefaultLabTestInRedwoodViaHttp,
+  syncClientDefaultLabTestInRedwoodViaHttp,
+} from './redwoodDefaultTestHttpSync'
+
+export async function runRedwoodDefaultTestSync(
+  payload: Payload,
+  clientId: string,
+  options?: {
+    previousSyncedCode?: string | null
+  },
+): Promise<{
+  success: boolean
+  status: 'synced' | 'skipped' | 'failed' | 'manual-review'
+  error?: string
+  retryable?: boolean
+}> {
+  try {
+    const client = await payload.findByID({
+      collection: 'clients',
+      id: clientId,
+      depth: 1,
+      overrideAccess: true,
+    })
+
+    const resolution = await resolveClientRedwoodEligibleDefaultTest({
+      client,
+      payload,
+    })
+
+    const donorId = typeof client.redwoodDonorId === 'string' ? client.redwoodDonorId.trim() : ''
+    const savedAccountNumber =
+      typeof client.redwoodAccountNumber === 'string' ? client.redwoodAccountNumber.trim() : ''
+    const previousSyncedCode =
+      (typeof client.redwoodDefaultTestSyncedCode === 'string' && client.redwoodDefaultTestSyncedCode.trim()) ||
+      options?.previousSyncedCode?.trim() ||
+      undefined
+
+    if (resolution.kind === 'skip') {
+      let resolvedDonorId = donorId
+      let resolvedAccountNumber = savedAccountNumber
+
+      if (previousSyncedCode) {
+        if (!donorId) {
+          throw new Error('Client is missing Redwood donor ID; clearing the managed default test requires redwoodDonorId.')
+        }
+
+        const accountNumber = savedAccountNumber || getRedwoodAccountNumber()
+        assertRedwoodMutationAllowed(accountNumber, 'default test clearing')
+
+        await payload.update({
+          collection: 'clients',
+          id: client.id,
+          data: {
+            redwoodDefaultTestSyncStatus: 'queued',
+            redwoodDefaultTestLastAttemptAt: new Date().toISOString(),
+            redwoodDefaultTestLastError: null,
+          },
+          overrideAccess: true,
+        })
+
+        const result = await clearClientDefaultLabTestInRedwoodViaHttp({
+          accountNumber,
+          client: {
+            id: String(client.id),
+            firstName: client.firstName,
+            lastName: client.lastName,
+            middleInitial: client.middleInitial || undefined,
+            dob: client.dob || undefined,
+            redwoodAccountNumber: accountNumber,
+            redwoodDonorId: donorId || undefined,
+          },
+          previouslySyncedCode: previousSyncedCode,
+        })
+        resolvedDonorId = result.donorId || donorId
+        resolvedAccountNumber = result.accountNumber
+      }
+
+      await payload.update({
+        collection: 'clients',
+        id: client.id,
+        data: {
+          redwoodAccountNumber: resolvedAccountNumber || null,
+          redwoodDonorId: resolvedDonorId || null,
+          redwoodDefaultTestSyncStatus: 'skipped',
+          redwoodDefaultTestSyncedCode: null,
+          redwoodDefaultTestLastAttemptAt: new Date().toISOString(),
+          redwoodDefaultTestLastError: null,
+        },
+        overrideAccess: true,
+      })
+
+      return {
+        success: true,
+        status: 'skipped',
+      }
+    }
+
+    if (resolution.kind === 'error') {
+      throw new Error(resolution.reason)
+    }
+
+    if (!donorId) {
+      throw new Error('Client is missing Redwood donor ID; default-test sync requires redwoodDonorId.')
+    }
+
+    const accountNumber = savedAccountNumber || getRedwoodAccountNumber()
+    assertRedwoodMutationAllowed(accountNumber, 'default test sync')
+    await payload.update({
+      collection: 'clients',
+      id: client.id,
+      data: {
+        redwoodDefaultTestSyncStatus: 'queued',
+        redwoodDefaultTestLastAttemptAt: new Date().toISOString(),
+        redwoodDefaultTestLastError: null,
+      },
+      overrideAccess: true,
+    })
+
+    const result = await syncClientDefaultLabTestInRedwoodViaHttp({
+      client: {
+        id: String(client.id),
+        firstName: client.firstName,
+        lastName: client.lastName,
+        middleInitial: client.middleInitial || undefined,
+        dob: client.dob || undefined,
+        redwoodAccountNumber: accountNumber,
+        redwoodDonorId: donorId || undefined,
+      },
+      accountNumber,
+      previousSyncedCode,
+      redwoodLabTestCode: resolution.redwoodLabTestCode,
+    })
+
+    await payload.update({
+      collection: 'clients',
+      id: client.id,
+      data: {
+        redwoodAccountNumber: result.accountNumber,
+        redwoodDonorId: result.donorId || donorId || null,
+        redwoodDefaultTestSyncStatus: 'synced',
+        redwoodDefaultTestSyncedCode: result.selectedCode,
+        redwoodDefaultTestLastAttemptAt: new Date().toISOString(),
+        redwoodDefaultTestLastError: null,
+      },
+      overrideAccess: true,
+    })
+
+    return {
+      success: true,
+      status: 'synced',
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    const classification = classifyRedwoodIncident({
+      message,
+      jobType: 'default-test-sync',
+      phase: 'runtime',
+    })
+    const status = classification.kind === 'manual-review-required' ? 'manual-review' : 'failed'
+
+    payload.logger.error({
+      msg: '[redwood-default-test] Failed to sync Redwood donor default test',
+      clientId,
+      err: error,
+    })
+
+    await payload
+      .update({
+        collection: 'clients',
+        id: clientId,
+        data: {
+          redwoodDefaultTestSyncStatus: status,
+          redwoodDefaultTestLastAttemptAt: new Date().toISOString(),
+          redwoodDefaultTestLastError: message,
+        },
+        overrideAccess: true,
+      })
+      .catch(() => undefined)
+
+    if (classification.kind !== 'monitor-only') {
+      await upsertRedwoodIncidentAlert({
+        payload,
+        clientId,
+        jobType: 'default-test-sync',
+        kind: classification.kind,
+        title:
+          status === 'manual-review'
+            ? `Redwood default-test sync needs manual review for client ${clientId}`
+            : `Redwood default-test sync failed for client ${clientId}`,
+        message,
+        context: {
+          clientId,
+          error: message,
+        },
+        statusSnapshot: {
+          redwoodDefaultTestSyncStatus: status,
+        },
+      })
+    }
+
+    return {
+      success: false,
+      status,
+      error: message,
+      retryable: classification.retryable,
+    }
+  }
+}

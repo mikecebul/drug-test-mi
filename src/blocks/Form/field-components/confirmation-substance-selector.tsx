@@ -2,7 +2,15 @@
 
 import React from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from '@/components/ui/field'
 import { formatSubstance } from '@/lib/substances'
 
 interface ConfirmationSubstanceSelectorProps {
@@ -10,6 +18,7 @@ interface ConfirmationSubstanceSelectorProps {
   selectedSubstances: string[]
   onSelectionChange: (substances: string[]) => void
   error?: string
+  invalid?: boolean
 }
 
 export function ConfirmationSubstanceSelector({
@@ -17,6 +26,7 @@ export function ConfirmationSubstanceSelector({
   selectedSubstances,
   onSelectionChange,
   error,
+  invalid = false,
 }: ConfirmationSubstanceSelectorProps) {
   const toggleSubstance = (substance: string) => {
     if (selectedSubstances.includes(substance)) {
@@ -35,35 +45,28 @@ export function ConfirmationSubstanceSelector({
   }
 
   return (
-    <FieldSet className="border-muted bg-card space-y-3 rounded-md border p-4">
+    <FieldSet data-invalid={invalid} className="border-muted bg-card space-y-3 rounded-md border p-4">
       <div className="flex items-center justify-between">
         <FieldLegend variant="label">Select Substances for Confirmation</FieldLegend>
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={selectAll}
-            className="text-primary text-xs hover:underline"
-          >
+          <button type="button" onClick={selectAll} className="text-primary text-xs hover:underline">
             Select All
           </button>
           <span className="text-muted-foreground text-xs">|</span>
-          <button
-            type="button"
-            onClick={selectNone}
-            className="text-primary text-xs hover:underline"
-          >
+          <button type="button" onClick={selectNone} className="text-primary text-xs hover:underline">
             Clear
           </button>
         </div>
       </div>
 
       <FieldGroup className="grid grid-cols-2 gap-2">
-        {unexpectedPositives.map((substance) => (
+        {unexpectedPositives.map((substance, index) => (
           <Field key={substance} orientation="horizontal">
             <Checkbox
               id={`confirm-${substance}`}
               checked={selectedSubstances.includes(substance)}
               onCheckedChange={() => toggleSubstance(substance)}
+              aria-invalid={index === 0 ? invalid : undefined}
             />
             <FieldLabel htmlFor={`confirm-${substance}`} className="cursor-pointer text-sm font-normal">
               {formatSubstance(substance)}

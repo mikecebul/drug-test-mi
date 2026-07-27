@@ -18,6 +18,9 @@ export interface SimpleClient {
   dob?: string
   headshot?: string
   headshotId?: string
+  gender?: 'male' | 'female' | 'prefer-not-to-say'
+  referralType?: 'court' | 'employer' | 'self'
+  referralTitle?: string
   matchType?: ClientSearchMatchType
   matchReason?: ClientSearchMatchReason
   score?: number
@@ -50,6 +53,15 @@ function resolveRecommendedLabTestType(client: { referral?: unknown }): LabTestT
   return valueFromReferral || toLabTestType(extracted.recommendedTestTypeId)
 }
 
+function resolveReferralTitle(client: { referral?: unknown; referralType?: unknown }): string | undefined {
+  if (client.referralType === 'self') return 'Self'
+  const referral = client.referral
+  if (!referral || typeof referral !== 'object' || !('value' in referral)) return undefined
+  const value = referral.value
+  if (!value || typeof value !== 'object' || !('name' in value) || typeof value.name !== 'string') return undefined
+  return value.name
+}
+
 export async function getClientById(id: string): Promise<SimpleClient | null> {
   try {
     const client = await sdk.findByID({
@@ -65,6 +77,8 @@ export async function getClientById(id: string): Promise<SimpleClient | null> {
         dob: true,
         headshot: true,
         referral: true,
+        referralType: true,
+        gender: true,
         phone: true,
         updatedAt: true,
       },
@@ -93,6 +107,15 @@ export async function getClientById(id: string): Promise<SimpleClient | null> {
       phone: client.phone ?? undefined,
       headshot,
       headshotId,
+      gender:
+        client.gender === 'male' || client.gender === 'female' || client.gender === 'prefer-not-to-say'
+          ? client.gender
+          : undefined,
+      referralType:
+        client.referralType === 'court' || client.referralType === 'employer' || client.referralType === 'self'
+          ? client.referralType
+          : undefined,
+      referralTitle: resolveReferralTitle(client),
       updatedAt: client.updatedAt ?? undefined,
       recommendedTestTypeValue: resolveRecommendedLabTestType(client),
     }
@@ -137,6 +160,15 @@ export async function getClientByBookingId(bookingId: string): Promise<SimpleCli
       phone: client.phone ?? undefined,
       headshot,
       headshotId,
+      gender:
+        client.gender === 'male' || client.gender === 'female' || client.gender === 'prefer-not-to-say'
+          ? client.gender
+          : undefined,
+      referralType:
+        client.referralType === 'court' || client.referralType === 'employer' || client.referralType === 'self'
+          ? client.referralType
+          : undefined,
+      referralTitle: resolveReferralTitle(client),
       updatedAt: client.updatedAt ?? undefined,
       recommendedTestTypeValue: resolveRecommendedLabTestType(client),
     }
@@ -189,6 +221,15 @@ export async function getClientFromTestId(testId: string): Promise<SimpleClient 
       phone: client.phone ?? undefined,
       headshot,
       headshotId,
+      gender:
+        client.gender === 'male' || client.gender === 'female' || client.gender === 'prefer-not-to-say'
+          ? client.gender
+          : undefined,
+      referralType:
+        client.referralType === 'court' || client.referralType === 'employer' || client.referralType === 'self'
+          ? client.referralType
+          : undefined,
+      referralTitle: resolveReferralTitle(client),
       updatedAt: client.updatedAt ?? undefined,
     }
   } catch (err) {

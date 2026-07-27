@@ -12,8 +12,13 @@ import * as migration_20260525_000000_deactivate_15_panel_instant_test_type from
 import * as migration_20260526_000000_migrate_referrals_to_17_panel_instant from './20260526_000000_migrate_referrals_to_17_panel_instant'
 import * as migration_20260701_000000_migrate_test_type_relationships_to_config_values from './20260701_000000_migrate_test_type_relationships_to_config_values'
 import * as migration_20260709_000000_add_17_panel_sos_toxaccess_code from './20260709_000000_add_17_panel_sos_toxaccess_code'
+import * as migration_20260711_000000_deduplicate_job_runs from './20260711_000000_deduplicate_job_runs'
+import * as migration_20260712_000000_migrate_client_default_test_to_config_value from './20260712_000000_migrate_client_default_test_to_config_value'
 import * as migration_20260718_000000_backfill_client_search_fields from './20260718_000000_backfill_client_search_fields'
 import * as migration_20260719_000000_normalize_client_gender from './20260719_000000_normalize_client_gender'
+import * as migration_20260723_203006_increase_client_dobs_one_day from './20260723_203006_increase_client_dobs_one_day'
+import * as migration_20260723_205754_restore_client_dobs_after_render_fix from './20260723_205754_restore_client_dobs_after_render_fix'
+import * as migration_20260724_000000_clear_isaac_legacy_redwood_match from './20260724_000000_clear_isaac_legacy_redwood_match'
 
 export const migrations = [
   {
@@ -87,6 +92,16 @@ export const migrations = [
     name: '20260709_000000_add_17_panel_sos_toxaccess_code',
   },
   {
+    up: migration_20260711_000000_deduplicate_job_runs.up,
+    down: migration_20260711_000000_deduplicate_job_runs.down,
+    name: '20260711_000000_deduplicate_job_runs',
+  },
+  {
+    up: migration_20260712_000000_migrate_client_default_test_to_config_value.up,
+    down: migration_20260712_000000_migrate_client_default_test_to_config_value.down,
+    name: '20260712_000000_migrate_client_default_test_to_config_value',
+  },
+  {
     up: migration_20260718_000000_backfill_client_search_fields.up,
     down: migration_20260718_000000_backfill_client_search_fields.down,
     name: '20260718_000000_backfill_client_search_fields',
@@ -95,5 +110,20 @@ export const migrations = [
     up: migration_20260719_000000_normalize_client_gender.up,
     down: migration_20260719_000000_normalize_client_gender.down,
     name: '20260719_000000_normalize_client_gender',
+  },
+  {
+    up: migration_20260723_203006_increase_client_dobs_one_day.up,
+    down: migration_20260723_203006_increase_client_dobs_one_day.down,
+    name: '20260723_203006_increase_client_dobs_one_day',
+  },
+  {
+    up: migration_20260723_205754_restore_client_dobs_after_render_fix.up,
+    down: migration_20260723_205754_restore_client_dobs_after_render_fix.down,
+    name: '20260723_205754_restore_client_dobs_after_render_fix',
+  },
+  {
+    up: migration_20260724_000000_clear_isaac_legacy_redwood_match.up,
+    down: migration_20260724_000000_clear_isaac_legacy_redwood_match.down,
+    name: '20260724_000000_clear_isaac_legacy_redwood_match',
   },
 ]

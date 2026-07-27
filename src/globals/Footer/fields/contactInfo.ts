@@ -57,7 +57,7 @@ const contactInfo: ContactGroupType = ({ overrides = {} }: { overrides?: Partial
             name: 'email',
             label: 'Email',
             type: 'text',
-            defaultValue: 'mike@drugtestmi.com',
+            defaultValue: 'mike@midrugtest.com',
             admin: { width: '45%' },
           },
         ],

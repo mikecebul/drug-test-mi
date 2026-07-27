@@ -25,10 +25,10 @@ export function EmailPreviewModal({
 }: EmailPreviewModalProps) {
   return (
     <Drawer swipeDirection="right" open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DrawerContent className="bg-background max-h-dvh overflow-hidden shadow-2xl data-[swipe-direction=right]:w-[min(56rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
-        <DrawerHeader className="border-border shrink-0 border-b px-5 py-4 sm:px-6 sm:py-5">
+      <DrawerContent className="bg-background max-h-dvh overflow-hidden shadow-2xl data-[swipe-direction=right]:w-[min(896px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
+        <DrawerHeader className="border-border shrink-0 border-b">
           <div className="flex items-start justify-between gap-4">
-            <DrawerTitle className="flex items-center gap-2 text-2xl tracking-tight">
+            <DrawerTitle className="flex items-center gap-2">
               <Mail className="h-5 w-5" />
               Email Preview
             </DrawerTitle>

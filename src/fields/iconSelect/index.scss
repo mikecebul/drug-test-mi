@@ -1,0 +1,33 @@
+@layer payload-default {
+  .icon-select {
+    width: var(--icon-select-width, 100%);
+
+    &__option,
+    &__value {
+      display: flex;
+      min-width: 0;
+      align-items: center;
+      gap: calc(var(--base) * 0.4);
+    }
+
+    &__icon {
+      width: calc(var(--base) * 0.75);
+      height: calc(var(--base) * 0.75);
+      flex: 0 0 auto;
+      color: currentColor;
+      stroke-width: 1.75;
+    }
+
+    &__option-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .icon-select {
+      width: 100%;
+    }
+  }
+}

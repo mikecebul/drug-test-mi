@@ -4,6 +4,8 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import { headers } from 'next/headers'
 import { createAdminAlert } from '@/lib/admin-alerts'
+import { REDWOOD_SKIP_HEADSHOT_PUSH_CONTEXT_KEY } from '@/lib/redwood/context'
+import { queueRedwoodHeadshotUpload } from '@/lib/redwood/queue'
 
 interface UploadHeadshotResult {
   success: boolean
@@ -170,10 +172,27 @@ export async function uploadHeadshot(
       data: {
         headshot: mediaDoc.id,
       },
+      context: {
+        [REDWOOD_SKIP_HEADSHOT_PUSH_CONTEXT_KEY]: true,
+      },
       overrideAccess: true,
+      user,
     })
 
     const headshotId = String(mediaDoc.id)
+
+    try {
+      await queueRedwoodHeadshotUpload(clientId, String(user.id), payload)
+    } catch (queueError) {
+      payload.logger.error({
+        msg: '[uploadHeadshot] Headshot saved, but Redwood upload could not be queued',
+        clientId,
+        headshotId,
+        adminId: String(user.id),
+        err: queueError,
+      })
+    }
+
     let url = mediaDoc.thumbnailURL || mediaDoc.url || undefined
     if (!url) {
       try {

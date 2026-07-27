@@ -9,3 +9,21 @@ required = false
 default_tools_approval_mode = "auto"
 startup_timeout_sec = 10
 tool_timeout_sec = 60
+
+[mcp_servers.payload_preview]
+url = "https://preview.midrugtest.com/api/mcp"
+bearer_token_env_var = "PAYLOAD_PREVIEW_MCP_API_KEY"
+enabled = true
+required = false
+default_tools_approval_mode = "auto"
+startup_timeout_sec = 10
+tool_timeout_sec = 60
+
+[mcp_servers.payload_production]
+url = "https://www.midrugtest.com/api/mcp"
+bearer_token_env_var = "PAYLOAD_PRODUCTION_MCP_API_KEY"
+enabled = true
+required = false
+default_tools_approval_mode = "auto"
+startup_timeout_sec = 10
+tool_timeout_sec = 60

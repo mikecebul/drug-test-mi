@@ -288,7 +288,8 @@ export const LabScreenDataStep = withForm({
                       <div className="flex-1">
                         <span className="text-foreground font-medium">Accept Results</span>
                         <p className="text-muted-foreground mt-0.5 text-sm">
-                          Accept the screening results as final. Sample will be disposed.
+                          Accept as final. First-time unexpected failures are retained for 14 days if confirmation is
+                          requested later.
                         </p>
                       </div>
                     </Label>
@@ -326,13 +327,13 @@ export const LabScreenDataStep = withForm({
                         </p>
                       </div>
                     </Label>
-	                  </RadioGroup>
-	                  {requiresDecision && !confirmationDecisionValue && field.state.meta.errors.length === 0 && (
-	                    <p className="text-destructive text-sm">Must select an option</p>
-	                  )}
-	                  <FieldError errors={field.state.meta.errors} />
-	                </div>
-	              )}
+                  </RadioGroup>
+                  {requiresDecision && !confirmationDecisionValue && field.state.meta.errors.length === 0 && (
+                    <p className="text-destructive text-sm">Must select an option</p>
+                  )}
+                  <FieldError errors={field.state.meta.errors} />
+                </div>
+              )}
             </form.Field>
 
             {/* Substance selection when request-confirmation is chosen */}
@@ -340,7 +341,7 @@ export const LabScreenDataStep = withForm({
               <form.Field name="labScreenData.confirmationSubstances">
                 {(field) => (
                   <div className="mt-5">
-	                    <ConfirmationSubstanceSelector
+                    <ConfirmationSubstanceSelector
                       unexpectedPositives={preview?.unexpectedPositives ?? []}
                       selectedSubstances={confirmationSubstancesValue ?? []}
                       onSelectionChange={(substances) => {
@@ -351,14 +352,14 @@ export const LabScreenDataStep = withForm({
                         typeof field.state.meta.errors?.[0] === 'string'
                           ? field.state.meta.errors[0]
                           : (field.state.meta.errors?.[0] as { message?: string } | undefined)?.message
-	                      }
-	                    />
-	                    {!confirmationSubstancesValue?.length && field.state.meta.errors.length === 0 ? (
-	                      <p className="text-destructive mt-2 text-sm">
-	                        Please select at least one substance for confirmation testing
-	                      </p>
-	                    ) : null}
-	                  </div>
+                      }
+                    />
+                    {!confirmationSubstancesValue?.length && field.state.meta.errors.length === 0 ? (
+                      <p className="text-destructive mt-2 text-sm">
+                        Please select at least one substance for confirmation testing
+                      </p>
+                    ) : null}
+                  </div>
                 )}
               </form.Field>
             )}

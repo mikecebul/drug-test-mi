@@ -1,5 +1,7 @@
 import { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-mongodb'
 
+import { LEGACY_TEST_TYPES_COLLECTION } from '@/lib/legacy-test-types-collection'
+
 type CanonicalTestType = '11-panel-lab' | '15-panel-instant' | '17-panel-instant' | '17-panel-sos-lab' | 'etg-lab'
 
 type Recipient = {
@@ -369,7 +371,7 @@ export async function up({ payload }: MigrateUpArgs): Promise<void> {
   const testTypeValueById = new Map<string, CanonicalTestType>()
 
   const existingTestTypes = await payload.find({
-    collection: 'test-types',
+    collection: LEGACY_TEST_TYPES_COLLECTION,
     limit: 500,
     depth: 0,
     overrideAccess: true,
@@ -390,7 +392,7 @@ export async function up({ payload }: MigrateUpArgs): Promise<void> {
     if (testTypeIdByValue.has(entry.value)) continue
 
     const created = await payload.create({
-      collection: 'test-types',
+      collection: LEGACY_TEST_TYPES_COLLECTION,
       data: {
         value: entry.value,
         label: entry.label,
@@ -398,12 +400,13 @@ export async function up({ payload }: MigrateUpArgs): Promise<void> {
         category: entry.category,
         price: entry.price,
         isActive: true,
-      },
+      } as never,
       overrideAccess: true,
     })
 
-    testTypeIdByValue.set(entry.value, created.id)
-    testTypeValueById.set(String(created.id), entry.value)
+    const createdId = String((created as { id: unknown }).id)
+    testTypeIdByValue.set(entry.value, createdId)
+    testTypeValueById.set(createdId, entry.value)
     createdTestTypes++
   }
 

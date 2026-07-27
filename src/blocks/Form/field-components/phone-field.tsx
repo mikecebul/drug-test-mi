@@ -5,6 +5,7 @@ import { useFieldContext } from '../hooks/form-context'
 import { Input } from '@/components/ui/input'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { cn } from '@/utilities/cn'
+import { formatPhoneInput, formatPhoneNumber } from '@/lib/client-utils'
 
 export interface PhoneFieldUIProps {
   label?: string | null
@@ -29,9 +30,13 @@ export default function PhoneField({ label, colSpan, required }: PhoneFieldUIPro
           name={field.name}
           type="text"
           value={field.state.value ?? ''}
-          onBlur={() => field.handleBlur()}
-          onChange={(e) => field.handleChange(e.target.value)}
+          onBlur={() => {
+            field.handleChange(formatPhoneNumber(field.state.value ?? ''))
+            field.handleBlur()
+          }}
+          onChange={(e) => field.handleChange(formatPhoneInput(e.target.value))}
           autoComplete="tel"
+          inputMode="tel"
           aria-invalid={hasErrors || undefined}
         />
         <FieldError errors={errors} />

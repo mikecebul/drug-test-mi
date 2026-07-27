@@ -59,20 +59,28 @@ export async function createInstantTest(
   })
 
   try {
+    const medicationsForPersistence = medications.map((medication) => {
+      const { _isNew, _wasDiscontinued, _uiId, ...persistedMedication } = medication
+      return {
+        ...persistedMedication,
+        endDate: persistedMedication.status === 'active' ? null : persistedMedication.endDate,
+      }
+    })
+
     // 1. Update client medications if provided
-    if (medications.length > 0) {
+    if (medicationsForPersistence.length > 0) {
       payload.logger.info('[createInstantTest] Updating client medications...')
       await payload.update({
         collection: 'clients',
         id: testData.clientId,
-        data: { medications },
+        data: { medications: medicationsForPersistence },
         overrideAccess: true,
       })
       payload.logger.info('[createInstantTest] Medications updated')
     }
 
     // 2. Prepare medications snapshot for test (active medications only)
-    const medicationsAtTestTime: MedicationSnapshot[] = medications
+    const medicationsAtTestTime: MedicationSnapshot[] = medicationsForPersistence
       .filter((med) => med.status === 'active')
       .map((med) => ({
         medicationName: med.medicationName,

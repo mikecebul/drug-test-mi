@@ -1,6 +1,6 @@
-import { normalizeClientGender } from '@/lib/client-gender'
+import { getClientGenderBadgeClass, normalizeClientGender } from '@/lib/client-gender'
 
-export type GuidedScheduleStep = 'registration' | 'payment'
+export type GuidedScheduleStep = 'review'
 export type GuidedPaymentChoice = 'paid' | 'pre-paid' | 'still-owes'
 export { getCalcomBookingActionLinks } from '@/utilities/calcom-booking-action-links'
 
@@ -79,11 +79,7 @@ export function formatGuidedGender(value?: string | null) {
 }
 
 export function getGuidedGenderBadgeClass(value?: string | null) {
-  if (value === 'male')
-    return 'border-blue-600/40 bg-blue-50 text-blue-900 dark:border-blue-400/50 dark:bg-blue-500/20 dark:text-blue-100'
-  if (value === 'female')
-    return 'border-pink-600/40 bg-pink-50 text-pink-900 dark:border-pink-400/50 dark:bg-pink-500/20 dark:text-pink-100'
-  return 'border-border bg-muted text-muted-foreground'
+  return getClientGenderBadgeClass(value)
 }
 
 export function getGuidedPaymentChoice(
@@ -112,8 +108,8 @@ export function getGuidedPaymentLabel(booking: GuidedScheduleBooking) {
   return 'Unpaid'
 }
 
-export function getGuidedBookingNextStep(booking: GuidedScheduleBooking): GuidedScheduleStep {
-  return booking.needsRegistration || booking.needsTestType ? 'registration' : 'payment'
+export function getGuidedBookingNextStep(_booking: GuidedScheduleBooking): GuidedScheduleStep {
+  return 'review'
 }
 
 export function getGuidedScheduleHref(booking: GuidedScheduleBooking) {

@@ -61,29 +61,32 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await clickNext(page)
     await clickNext(page)
 
-    await expect(page.getByRole('heading', { name: 'Collection Details' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Confirm Details' })).toBeVisible()
 
-    await page.locator('#collection-date').fill('')
-    await page.locator('#collection-date').press('Tab')
+    const collectionDate = page.locator('#collection-date')
+    await expect(collectionDate).not.toBeEmpty()
+    await collectionDate.fill('')
+    await collectionDate.press('Tab')
     await clickNext(page)
     await expect(page.getByText('Collection date is required')).toBeVisible()
+    await expect(collectionDate).toBeFocused()
 
-    await page.locator('#collection-date').fill(isoDateTimeForInput('2026-01-07T23:11:00-05:00'))
-    await page.locator('#collection-date').press('Tab')
+    await collectionDate.fill(isoDateTimeForInput('2026-01-07T23:11:00-05:00'))
+    await collectionDate.press('Tab')
 
     await page.getByLabel(/Breathalyzer test was administered/i).check()
     await clickNext(page)
     await expect(page.getByText('Breathalyzer result is required')).toBeVisible()
+    await expect(page.locator('#breathalyzerResult')).toBeFocused()
 
     await page.locator('#breathalyzerResult').fill('0.000')
     await clickNext(page)
 
-    await expect(page.getByRole('heading', { name: 'Confirm Collection Details' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review Collection Notification' })).toBeVisible()
     await clickBack(page)
-    await expect(page.getByRole('heading', { name: 'Collection Details' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Confirm Details' })).toBeVisible()
     await clickNext(page)
 
-    await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Review Collection Notification' })).toBeVisible()
 
     await page.getByLabel(/Send referral notifications/i).uncheck()
@@ -99,6 +102,15 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await page.setViewportSize({ width: 1024, height: 768 })
     await selectClientFromSearchDialog(page, fixtures.clients.collectLab.fullName)
     await clickNext(page)
+    await expect(page.getByText('Verify Medications')).toBeVisible()
+    await clickNext(page)
+    await expect(page.getByRole('heading', { name: 'Confirm Details' })).toBeVisible()
+
+    await page
+      .getByRole('button', { name: new RegExp(`Edit ${fixtures.clients.collectLab.fullName}`, 'i') })
+      .click()
+    const clientEditor = page.getByRole('dialog', { name: 'Edit Client Details' })
+    await expect(clientEditor).toBeVisible()
 
     const portraitSvg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2400" viewBox="0 0 1600 2400">
@@ -108,7 +120,7 @@ test.describe('Wizard Collect Lab Workflow', () => {
       </svg>
     `
 
-    await page.getByLabel('Choose headshot image').setInputFiles({
+    await clientEditor.getByLabel('Choose headshot image').setInputFiles({
       name: 'portrait-headshot.svg',
       mimeType: 'image/svg+xml',
       buffer: Buffer.from(portraitSvg),
@@ -169,7 +181,6 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await page.locator('#collection-date').press('Tab')
     await clickNext(page)
 
-    await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Review Collection Notification' })).toBeVisible()
 
     await page.getByLabel(/Send referral notifications/i).check()

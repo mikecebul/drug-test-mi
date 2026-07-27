@@ -106,8 +106,8 @@ export interface Config {
     'private-media': PrivateMedia;
     admins: Admin;
     'admin-alerts': AdminAlert;
+    'job-runs': JobRun;
     technicians: Technician;
-    'test-types': TestType;
     courts: Court;
     employers: Employer;
     clients: Client;
@@ -133,8 +133,8 @@ export interface Config {
     clients: {
       drugTests: 'drug-tests';
       drugTestsWithBalance: 'drug-tests';
-      payments: 'payments';
       bookings: 'bookings';
+      payments: 'payments';
       privateDocuments: 'private-media';
     };
   };
@@ -147,8 +147,8 @@ export interface Config {
     'private-media': PrivateMediaSelect<false> | PrivateMediaSelect<true>;
     admins: AdminsSelect<false> | AdminsSelect<true>;
     'admin-alerts': AdminAlertsSelect<false> | AdminAlertsSelect<true>;
+    'job-runs': JobRunsSelect<false> | JobRunsSelect<true>;
     technicians: TechniciansSelect<false> | TechniciansSelect<true>;
-    'test-types': TestTypesSelect<false> | TestTypesSelect<true>;
     courts: CourtsSelect<false> | CourtsSelect<true>;
     employers: EmployersSelect<false> | EmployersSelect<true>;
     clients: ClientsSelect<false> | ClientsSelect<true>;
@@ -182,6 +182,8 @@ export interface Config {
   widgets: {
     'next-calcom-booking': NextCalcomBookingWidget;
     'admin-quick-book': AdminQuickBookWidget;
+    'active-jobs': ActiveJobsWidget;
+    'redwood-queue-probe': RedwoodQueueProbeWidget;
     'pending-drug-tests': PendingDrugTestsWidget;
     'admin-alerts': AdminAlertsWidget;
     collections: CollectionsWidget;
@@ -189,6 +191,13 @@ export interface Config {
   user: Admin | Client | PayloadMcpApiKey;
   jobs: {
     tasks: {
+      'redwood-diagnostics-probe': TaskRedwoodDiagnosticsProbe;
+      'redwood-import-client': TaskRedwoodImportClient;
+      'redwood-update-client': TaskRedwoodUpdateClient;
+      'redwood-inactivate-client': TaskRedwoodInactivateClient;
+      'redwood-queue-pending-client-updates-nightly': TaskRedwoodQueuePendingClientUpdatesNightly;
+      'redwood-upload-headshot': TaskRedwoodUploadHeadshot;
+      'redwood-sync-default-test': TaskRedwoodSyncDefaultTest;
       createCollectionExport: TaskCreateCollectionExport;
       createCollectionImport: TaskCreateCollectionImport;
       inline: {
@@ -1320,9 +1329,19 @@ export interface Client {
         value: string | Employer;
       } | null);
   /**
-   * Resolved from the selected court or employer preferred test type.
+   * Stored configured test type inherited from the selected court or employer referral.
    */
-  requiredTestType?: string | null;
+  defaultTestType?:
+    | (
+        | '17-panel-instant'
+        | '11-panel-lab'
+        | '11-panel-lab-no-etg'
+        | '8-panel-lab'
+        | '17-panel-sos-lab'
+        | 'etg-lab'
+        | '15-panel-instant'
+      )
+    | null;
   /**
    * Additional recipients for this client only. These do not modify the linked referral profile.
    */
@@ -1369,18 +1388,18 @@ export interface Client {
     totalDocs?: number;
   };
   /**
-   * Payment ledger records linked to this client.
-   */
-  payments?: {
-    docs?: (string | Payment)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
    * Bookings automatically linked to this client
    */
   bookings?: {
     docs?: (string | Booking)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Payments received, including the related drug test when available.
+   */
+  payments?: {
+    docs?: (string | Payment)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
@@ -1458,6 +1477,92 @@ export interface Client {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
+  /**
+   * Current Redwood sync state managed by the background worker.
+   */
+  redwoodSyncStatus?:
+    | ('not-queued' | 'queued' | 'matched-existing' | 'reactivated-existing' | 'synced' | 'failed' | 'manual-review')
+    | null;
+  /**
+   * ToxAccess donor ID used for direct collection links.
+   */
+  redwoodDonorId?: string | null;
+  /**
+   * ToxAccess account that currently owns the donor and controls account-level collection settings.
+   */
+  redwoodAccountNumber?: string | null;
+  /**
+   * Redwood call-in / check-in code synced back from the donor record.
+   */
+  redwoodCallInCode?: string | null;
+  /**
+   * Tracks batched Payload-to-Redwood client field updates.
+   */
+  redwoodClientUpdateStatus?: ('not-queued' | 'queued' | 'synced' | 'failed' | 'manual-review') | null;
+  /**
+   * Redwood-backed fields whose latest saved values have not been confirmed back into Redwood yet.
+   */
+  redwoodPendingSyncFields?: ('firstName' | 'middleInitial' | 'lastName' | 'dob' | 'gender' | 'phone')[] | null;
+  /**
+   * Timestamp of the most recent Redwood client update attempt.
+   */
+  redwoodClientUpdateLastAttemptAt?: string | null;
+  /**
+   * Most recent Redwood client update error message, if any.
+   */
+  redwoodClientUpdateLastError?: string | null;
+  /**
+   * Tracks website-to-Redwood headshot upload state.
+   */
+  redwoodHeadshotPushStatus?: ('not-queued' | 'queued' | 'synced' | 'failed' | 'manual-review') | null;
+  /**
+   * Timestamp of the most recent Redwood headshot upload attempt.
+   */
+  redwoodHeadshotPushLastAttemptAt?: string | null;
+  /**
+   * Most recent Redwood headshot upload error message, if any.
+   */
+  redwoodHeadshotPushLastError?: string | null;
+  /**
+   * Tracks Redwood donor default-test sync state.
+   */
+  redwoodDefaultTestSyncStatus?: ('not-queued' | 'queued' | 'skipped' | 'synced' | 'failed' | 'manual-review') | null;
+  /**
+   * Last Redwood default-test code managed by the website sync job.
+   */
+  redwoodDefaultTestSyncedCode?: string | null;
+  /**
+   * Timestamp of the most recent Redwood default-test sync attempt.
+   */
+  redwoodDefaultTestLastAttemptAt?: string | null;
+  /**
+   * Most recent Redwood default-test sync error message, if any.
+   */
+  redwoodDefaultTestLastError?: string | null;
+  /**
+   * Tracks website inactive-client sync to Redwood donor inactive status.
+   */
+  redwoodInactivationStatus?: ('not-queued' | 'queued' | 'synced' | 'failed' | 'manual-review') | null;
+  /**
+   * Timestamp of the most recent Redwood inactivation attempt.
+   */
+  redwoodInactivationLastAttemptAt?: string | null;
+  /**
+   * Most recent Redwood inactivation error message, if any.
+   */
+  redwoodInactivationLastError?: string | null;
+  /**
+   * Matched donor identifier from Redwood export.
+   */
+  redwoodMatchedDonorName?: string | null;
+  /**
+   * Timestamp of most recent Redwood worker attempt.
+   */
+  redwoodLastAttemptAt?: string | null;
+  /**
+   * Most recent Redwood worker error message, if any.
+   */
+  redwoodLastError?: string | null;
   /**
    * Internal notes about the client (not visible to client)
    */
@@ -2166,6 +2271,42 @@ export interface AdminAlert {
     | boolean
     | null;
   /**
+   * Client impacted by the alert, when applicable.
+   */
+  client?: (string | null) | Client;
+  /**
+   * Workflow or Redwood job type associated with this alert.
+   */
+  jobType?: ('import' | 'client-update' | 'headshot-upload' | 'default-test-sync' | 'client-inactivation') | null;
+  /**
+   * Stable incident key used to dedupe repeated Redwood failures.
+   */
+  dedupeKey?: string | null;
+  /**
+   * Latest Redwood status snapshot captured when the alert was last seen.
+   */
+  statusSnapshot?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * How many separate times this same incident has been observed.
+   */
+  attemptCount?: number | null;
+  /**
+   * When this incident was most recently observed.
+   */
+  lastSeenAt?: string | null;
+  /**
+   * Short operator guidance for triage and recovery.
+   */
+  recommendedAction?: string | null;
+  /**
    * Mark as resolved once the issue has been addressed
    */
   resolved?: boolean | null;
@@ -2181,6 +2322,57 @@ export interface AdminAlert {
    * Resolution notes or actions taken
    */
   notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Durable history for tracked background jobs and Redwood sync work.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "job-runs".
+ */
+export interface JobRun {
+  id: string;
+  taskLabel: string;
+  /**
+   * Payload job id used to correlate queue state with this history row.
+   */
+  jobId: string;
+  taskSlug: string;
+  queue: string;
+  status: 'queued' | 'running' | 'succeeded' | 'manual-review' | 'failed' | 'cancelled';
+  /**
+   * Underlying task result such as synced, skipped, or partial-success.
+   */
+  resultStatus?: string | null;
+  client?: (string | null) | Client;
+  requestedByAdmin?: (string | null) | Admin;
+  cancelledByAdmin?: (string | null) | Admin;
+  source?: string | null;
+  changedFieldsCsv?: string | null;
+  attemptCount?: number | null;
+  summary?: string | null;
+  errorMessage?: string | null;
+  inputSnapshot?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  outputSnapshot?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2207,45 +2399,6 @@ export interface Technician {
   };
   /**
    * Inactive technicians will not appear in scheduling
-   */
-  isActive?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Legacy collection kept for historical migrations only. Canonical test types now live in src/config/test-types.ts.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "test-types".
- */
-export interface TestType {
-  id: string;
-  /**
-   * Human-readable name (e.g., 15-Panel Instant).
-   */
-  label: string;
-  /**
-   * Canonical key used in code and workflow logic (e.g., 15-panel-instant).
-   */
-  value: string;
-  /**
-   * Optional display text for external scheduling tools like Cal.com.
-   */
-  bookingLabel?: string | null;
-  /**
-   * Helps filter test types in future workflows.
-   */
-  category?: ('instant' | 'lab') | null;
-  /**
-   * Standard client price in USD.
-   */
-  price: number;
-  /**
-   * Lab test code used when ordering this test in ToxAccess.
-   */
-  toxAccessCode?: string | null;
-  /**
-   * Inactive test types remain in history but are hidden from new selections.
    */
   isActive?: boolean | null;
   updatedAt: string;
@@ -2387,12 +2540,6 @@ export interface PayloadMcpApiKey {
   payments?: {
     /**
      * Allow clients to find payments.
-     */
-    find?: boolean | null;
-  };
-  testTypes?: {
-    /**
-     * Allow clients to find test-types.
      */
     find?: boolean | null;
   };
@@ -2538,7 +2685,17 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'createCollectionExport' | 'createCollectionImport';
+        taskSlug:
+          | 'inline'
+          | 'redwood-diagnostics-probe'
+          | 'redwood-import-client'
+          | 'redwood-update-client'
+          | 'redwood-inactivate-client'
+          | 'redwood-queue-pending-client-updates-nightly'
+          | 'redwood-upload-headshot'
+          | 'redwood-sync-default-test'
+          | 'createCollectionExport'
+          | 'createCollectionImport';
         taskID: string;
         input?:
           | {
@@ -2571,10 +2728,27 @@ export interface PayloadJob {
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'createCollectionExport' | 'createCollectionImport') | null;
+  taskSlug?:
+    | (
+        | 'inline'
+        | 'redwood-diagnostics-probe'
+        | 'redwood-import-client'
+        | 'redwood-update-client'
+        | 'redwood-inactivate-client'
+        | 'redwood-queue-pending-client-updates-nightly'
+        | 'redwood-upload-headshot'
+        | 'redwood-sync-default-test'
+        | 'createCollectionExport'
+        | 'createCollectionImport'
+      )
+    | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
+  /**
+   * Used for concurrency control. Jobs with the same key are subject to exclusive/supersedes rules.
+   */
+  concurrencyKey?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2618,12 +2792,12 @@ export interface PayloadLockedDocument {
         value: string | AdminAlert;
       } | null)
     | ({
-        relationTo: 'technicians';
-        value: string | Technician;
+        relationTo: 'job-runs';
+        value: string | JobRun;
       } | null)
     | ({
-        relationTo: 'test-types';
-        value: string | TestType;
+        relationTo: 'technicians';
+        value: string | Technician;
       } | null)
     | ({
         relationTo: 'courts';
@@ -3576,10 +3750,43 @@ export interface AdminAlertsSelect<T extends boolean = true> {
   alertType?: T;
   message?: T;
   context?: T;
+  client?: T;
+  jobType?: T;
+  dedupeKey?: T;
+  statusSnapshot?: T;
+  attemptCount?: T;
+  lastSeenAt?: T;
+  recommendedAction?: T;
   resolved?: T;
   resolvedAt?: T;
   resolvedBy?: T;
   notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "job-runs_select".
+ */
+export interface JobRunsSelect<T extends boolean = true> {
+  taskLabel?: T;
+  jobId?: T;
+  taskSlug?: T;
+  queue?: T;
+  status?: T;
+  resultStatus?: T;
+  client?: T;
+  requestedByAdmin?: T;
+  cancelledByAdmin?: T;
+  source?: T;
+  changedFieldsCsv?: T;
+  attemptCount?: T;
+  summary?: T;
+  errorMessage?: T;
+  inputSnapshot?: T;
+  outputSnapshot?: T;
+  startedAt?: T;
+  completedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3602,21 +3809,6 @@ export interface TechniciansSelect<T extends boolean = true> {
         weekdays?: T;
         weekends?: T;
       };
-  isActive?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "test-types_select".
- */
-export interface TestTypesSelect<T extends boolean = true> {
-  label?: T;
-  value?: T;
-  bookingLabel?: T;
-  category?: T;
-  price?: T;
-  toxAccessCode?: T;
   isActive?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -3687,7 +3879,7 @@ export interface ClientsSelect<T extends boolean = true> {
   preferredContactMethod?: T;
   referralType?: T;
   referral?: T;
-  requiredTestType?: T;
+  defaultTestType?: T;
   referralAdditionalRecipients?:
     | T
     | {
@@ -3709,8 +3901,8 @@ export interface ClientsSelect<T extends boolean = true> {
       };
   drugTests?: T;
   drugTestsWithBalance?: T;
-  payments?: T;
   bookings?: T;
+  payments?: T;
   medications?:
     | T
     | {
@@ -3725,6 +3917,27 @@ export interface ClientsSelect<T extends boolean = true> {
         id?: T;
       };
   privateDocuments?: T;
+  redwoodSyncStatus?: T;
+  redwoodDonorId?: T;
+  redwoodAccountNumber?: T;
+  redwoodCallInCode?: T;
+  redwoodClientUpdateStatus?: T;
+  redwoodPendingSyncFields?: T;
+  redwoodClientUpdateLastAttemptAt?: T;
+  redwoodClientUpdateLastError?: T;
+  redwoodHeadshotPushStatus?: T;
+  redwoodHeadshotPushLastAttemptAt?: T;
+  redwoodHeadshotPushLastError?: T;
+  redwoodDefaultTestSyncStatus?: T;
+  redwoodDefaultTestSyncedCode?: T;
+  redwoodDefaultTestLastAttemptAt?: T;
+  redwoodDefaultTestLastError?: T;
+  redwoodInactivationStatus?: T;
+  redwoodInactivationLastAttemptAt?: T;
+  redwoodInactivationLastError?: T;
+  redwoodMatchedDonorName?: T;
+  redwoodLastAttemptAt?: T;
+  redwoodLastError?: T;
   notes?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -3957,11 +4170,6 @@ export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
     | {
         find?: T;
       };
-  testTypes?:
-    | T
-    | {
-        find?: T;
-      };
   courts?:
     | T
     | {
@@ -4059,6 +4267,7 @@ export interface PayloadJobsSelect<T extends boolean = true> {
   queue?: T;
   waitUntil?: T;
   processing?: T;
+  concurrencyKey?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4267,6 +4476,26 @@ export interface AdminQuickBookWidget {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "active-jobs_widget".
+ */
+export interface ActiveJobsWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'medium' | 'large' | 'x-large' | 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "redwood-queue-probe_widget".
+ */
+export interface RedwoodQueueProbeWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'medium' | 'large' | 'x-large' | 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "pending-drug-tests_widget".
  */
 export interface PendingDrugTestsWidget {
@@ -4297,6 +4526,102 @@ export interface CollectionsWidget {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-diagnostics-probe".
+ */
+export interface TaskRedwoodDiagnosticsProbe {
+  input: {
+    probeId: string;
+    requestedByAdminId: string;
+    webHostname: string;
+  };
+  output: {
+    status: string;
+    probeId: string;
+    workerHostname: string;
+    processedAt: string;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-import-client".
+ */
+export interface TaskRedwoodImportClient {
+  input: {
+    clientId: string;
+    source: string;
+  };
+  output: {
+    status: string;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-update-client".
+ */
+export interface TaskRedwoodUpdateClient {
+  input: {
+    clientId: string;
+    changedFieldsCsv: string;
+    requestedByAdminId?: string | null;
+  };
+  output: {
+    status: string;
+    updatedFieldsCsv?: string | null;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-inactivate-client".
+ */
+export interface TaskRedwoodInactivateClient {
+  input: {
+    clientId: string;
+    requestedByAdminId?: string | null;
+  };
+  output: {
+    status: string;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-queue-pending-client-updates-nightly".
+ */
+export interface TaskRedwoodQueuePendingClientUpdatesNightly {
+  input?: unknown;
+  output: {
+    status: string;
+    queuedCount: string;
+    failedCount: string;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-upload-headshot".
+ */
+export interface TaskRedwoodUploadHeadshot {
+  input: {
+    clientId: string;
+    requestedByAdminId?: string | null;
+  };
+  output: {
+    status: string;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-sync-default-test".
+ */
+export interface TaskRedwoodSyncDefaultTest {
+  input: {
+    clientId: string;
+    previousSyncedCode?: string | null;
+  };
+  output: {
+    status: string;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TaskCreateCollectionExport".
  */
 export interface TaskCreateCollectionExport {
@@ -4313,8 +4638,8 @@ export interface TaskCreateCollectionExport {
       | 'private-media'
       | 'admins'
       | 'admin-alerts'
+      | 'job-runs'
       | 'technicians'
-      | 'test-types'
       | 'courts'
       | 'employers'
       | 'clients'
