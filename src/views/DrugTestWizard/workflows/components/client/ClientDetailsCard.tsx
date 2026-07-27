@@ -209,7 +209,7 @@ export function ClientDetailsCard({
             )}
           </div>
         </CardHeader>
-        <CardContent className="grid gap-4 p-4 pt-0 sm:grid-cols-[4rem_minmax(0,1fr)]">
+        <CardContent className="grid gap-y-4 p-4 pt-0 sm:grid-cols-[4rem_minmax(0,1fr)] sm:gap-x-6">
           <Avatar className="size-16 shrink-0">
             <AvatarImage src={client.headshot || undefined} alt={fullName} />
             <AvatarFallback className="text-xl">{initials}</AvatarFallback>
