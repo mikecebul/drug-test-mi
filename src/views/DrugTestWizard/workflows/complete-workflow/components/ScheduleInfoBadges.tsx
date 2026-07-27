@@ -10,8 +10,6 @@ type ScheduleInfoBadgesProps = {
   paymentLabel: string
 }
 
-const badgeClassName = 'w-[5.5rem] min-w-0 justify-center'
-
 export function ScheduleInfoBadges({
   gender,
   isCompleted = false,
@@ -25,10 +23,10 @@ export function ScheduleInfoBadges({
     <span className="flex flex-wrap items-center gap-2">
       <Badge
         variant="outline"
-        className={cn(badgeClassName, getGuidedGenderBadgeClass(gender), isCompleted && 'opacity-70')}
+        className={cn(getGuidedGenderBadgeClass(gender), isCompleted && 'opacity-70')}
         title={formatGuidedGender(gender)}
       >
-        <span className="truncate">{formatGuidedGender(gender)}</span>
+        {formatGuidedGender(gender)}
       </Badge>
       <Badge
         variant={
@@ -40,21 +38,13 @@ export function ScheduleInfoBadges({
                 ? 'outline'
                 : 'default'
         }
-        className={cn(badgeClassName, paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
+        className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
         title={statusLabel}
       >
-        <span className="truncate">{statusLabel}</span>
+        {statusLabel}
       </Badge>
-      {!isCompleted && needsRegistration && (
-        <Badge variant="secondary" className={badgeClassName}>
-          Register
-        </Badge>
-      )}
-      {!isCompleted && needsTestType && (
-        <Badge variant="secondary" className={badgeClassName}>
-          Set test
-        </Badge>
-      )}
+      {!isCompleted && needsRegistration && <Badge variant="secondary">Register</Badge>}
+      {!isCompleted && needsTestType && <Badge variant="secondary">Set test</Badge>}
     </span>
   )
 }
