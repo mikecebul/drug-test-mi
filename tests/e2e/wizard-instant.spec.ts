@@ -104,14 +104,27 @@ test.describe('Wizard Instant Workflow', () => {
     await medicationStatus.click()
     await page.getByRole('option', { name: 'Discontinued', exact: true }).click()
     await expect(endDate).toContainText('Select date')
+    await medicationStatus.click()
+    await page.getByRole('option', { name: 'Active', exact: true }).click()
+    await expect(endDate).toBeHidden()
+
+    const pageErrors: Error[] = []
+    page.on('pageerror', (error) => pageErrors.push(error))
 
     const addMedicationButton = page.getByRole('button', { name: 'Add Medication' })
     const newMedicationCards = page.getByRole('group', { name: 'Medication: New Medication', exact: true })
+    const newMedicationNames = newMedicationCards.getByPlaceholder('e.g., Ibuprofen')
 
     await addMedicationButton.click()
     await expect(newMedicationCards).toHaveCount(1)
     await addMedicationButton.click()
     await expect(newMedicationCards).toHaveCount(2)
+
+    await triggerNextValidation(page)
+    await expect(newMedicationNames.first()).toHaveAttribute('aria-invalid', 'true')
+    await expect(newMedicationNames.first()).toBeFocused()
+    await expect(page.getByText('Medication name is required')).toHaveCount(2)
+    expect(pageErrors.map((error) => error.message)).toEqual([])
   })
 
   test('validates upload and confirmation-decision branches, with back-forward navigation', async ({ page }) => {

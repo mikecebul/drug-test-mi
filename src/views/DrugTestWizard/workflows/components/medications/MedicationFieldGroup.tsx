@@ -150,20 +150,26 @@ export const MedicationFieldGroup = withFieldGroup({
                         type="button"
                         variant="outline"
                         className="border-success/50 bg-success/10 text-success hover:bg-success/20 hover:text-success"
-                        onClick={() =>
-                          field.insertValue(0, {
-                            medicationName: '',
-                            startDate: getTodayDateString(),
-                            endDate: '',
-                            status: 'active',
-                            detectedAs: [],
-                            requireConfirmation: false,
-                            notes: '',
-                            _isNew: true,
-                            _wasDiscontinued: false,
-                            _uiId: createMedicationUIId(),
-                          })
-                        }
+                        onClick={() => {
+                          // The active FormGroup validates the full medications array on submit.
+                          // Avoid validating shifted nested fields before React has remounted them.
+                          field.insertValue(
+                            0,
+                            {
+                              medicationName: '',
+                              startDate: getTodayDateString(),
+                              endDate: '',
+                              status: 'active',
+                              detectedAs: [],
+                              requireConfirmation: false,
+                              notes: '',
+                              _isNew: true,
+                              _wasDiscontinued: false,
+                              _uiId: createMedicationUIId(),
+                            },
+                            { dontValidate: true },
+                          )
+                        }}
                       >
                         <Plus className="size-5 stroke-[2.5]" />
                         Add Medication
