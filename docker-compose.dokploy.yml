@@ -1,6 +1,6 @@
 services:
   web:
-    image: mikecebul/drug-test-mi:branch-test
+    image: mikecebul/drug-test-mi:latest
     pull_policy: always
     restart: always
     ports:
@@ -11,7 +11,7 @@ services:
       - dokploy-network
 
   worker-redwood:
-    image: mikecebul/drug-test-mi:branch-test-worker
+    image: mikecebul/drug-test-mi:latest-worker
     pull_policy: always
     restart: always
     env_file:

@@ -7,9 +7,9 @@ const inventoryPath = path.join(root, 'env/production.env.example')
 const dockerfilePath = path.join(root, 'Dockerfile')
 const deployWorkflowPath = path.join(root, '.github/workflows/deploy.yml')
 
-const BUILD_AND_RUNTIME_HEADER = '# Build + runtime'
-const RUNTIME_ONLY_HEADER = '# Runtime only today'
-const EXCLUDED_HEADER = '# Not production app runtime secrets'
+const BUILD_AND_RUNTIME_HEADER = '# GitHub Docker build inputs'
+const RUNTIME_ONLY_HEADER = '# Runtime only in Dokploy today'
+const EXCLUDED_HEADER = '# GitHub deployment secrets; not production app runtime or Docker build inputs'
 
 function parseInventory(filePath) {
   const content = fs.readFileSync(filePath, 'utf8')
@@ -57,7 +57,9 @@ function parseDockerBuildSecrets(filePath) {
 
 function parseDeployWorkflowSecrets(filePath) {
   const content = fs.readFileSync(filePath, 'utf8')
-  const jobMatches = content.matchAll(/build-and-push-dockerfile-image-[\w-]+:[\s\S]*?secrets:\s*\|([\s\S]*?)(?:\n\s*\n|\n\s{2}[A-Za-z0-9_-]+:|\n$)/g)
+  const jobMatches = content.matchAll(
+    /build-and-push-dockerfile-image-[\w-]+:[\s\S]*?secrets:\s*\|([\s\S]*?)(?:\n\s*\n|\n\s{2}[A-Za-z0-9_-]+:|\n$)/g,
+  )
   const jobs = []
 
   for (const jobMatch of jobMatches) {
@@ -76,7 +78,9 @@ function parseDeployWorkflowSecrets(filePath) {
 }
 
 function diffSet(left, right) {
-  return Array.from(left).filter((item) => !right.has(item)).sort()
+  return Array.from(left)
+    .filter((item) => !right.has(item))
+    .sort()
 }
 
 function fail(message, details = []) {
@@ -120,7 +124,9 @@ workflowSecretsByJob.forEach((jobSecrets, index) => {
   }
 })
 
-const explicitlyDisallowedInDocker = Array.from(dockerSecrets).filter((key) => disallowedBuildSecrets.has(key)).sort()
+const explicitlyDisallowedInDocker = Array.from(dockerSecrets)
+  .filter((key) => disallowedBuildSecrets.has(key))
+  .sort()
 const explicitlyDisallowedInWorkflow = workflowSecretsByJob.flatMap((jobSecrets, index) =>
   Array.from(jobSecrets)
     .filter((key) => disallowedBuildSecrets.has(key))
@@ -133,7 +139,10 @@ if (explicitlyDisallowedInDocker.length > 0) {
 }
 
 if (explicitlyDisallowedInWorkflow.length > 0) {
-  fail('Deploy workflow includes runtime-only or excluded secrets in build secret blocks.', explicitlyDisallowedInWorkflow)
+  fail(
+    'Deploy workflow includes runtime-only or excluded secrets in build secret blocks.',
+    explicitlyDisallowedInWorkflow,
+  )
 }
 
 if (process.exitCode && process.exitCode !== 0) {

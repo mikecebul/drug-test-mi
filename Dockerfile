@@ -43,16 +43,7 @@ RUN --mount=type=secret,id=DATABASE_URI,env=DATABASE_URI \
   --mount=type=secret,id=NEXT_PUBLIC_UPLOAD_PREFIX,env=NEXT_PUBLIC_UPLOAD_PREFIX \
   --mount=type=secret,id=NEXT_SERVER_ACTIONS_ENCRYPTION_KEY,env=NEXT_SERVER_ACTIONS_ENCRYPTION_KEY \
   --mount=type=secret,id=PAYLOAD_SECRET,env=PAYLOAD_SECRET \
-  --mount=type=secret,id=PREVIEW_SECRET,env=PREVIEW_SECRET \
-  --mount=type=secret,id=RESEND_API_KEY,env=RESEND_API_KEY \
-  --mount=type=secret,id=S3_ACCESS_KEY_ID,env=S3_ACCESS_KEY_ID \
-  --mount=type=secret,id=S3_BUCKET,env=S3_BUCKET \
-  --mount=type=secret,id=S3_ENDPOINT,env=S3_ENDPOINT \
-  --mount=type=secret,id=S3_REGION,env=S3_REGION \
-  --mount=type=secret,id=S3_SECRET_ACCESS_KEY,env=S3_SECRET_ACCESS_KEY \
   --mount=type=secret,id=SENTRY_AUTH_TOKEN,env=SENTRY_AUTH_TOKEN \
-  --mount=type=secret,id=UNSPLASH_ACCESS_KEY,env=UNSPLASH_ACCESS_KEY \
-  --mount=type=secret,id=UNSPLASH_URL,env=UNSPLASH_URL \
   if [ -f pnpm-lock.yaml ]; then \
   pnpm run build; \
   else \
