@@ -97,12 +97,11 @@ import {
 } from './actions'
 import {
   doesGuidedBookingNameMatchClient,
-  formatGuidedGender,
   getGuidedBookingNextStep,
   getGuidedClientName,
-  getGuidedGenderBadgeClass,
   getGuidedPaymentLabel,
 } from './schedule-utils'
+import { ScheduleInfoBadges } from './components/ScheduleInfoBadges'
 import {
   buildGuidedPaymentAllocationPreview,
   compactPreviousPaymentAllocations,
@@ -979,7 +978,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   <div
                     key={booking.id}
                     className={cn(
-                      'border-border bg-card grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-lg border p-3 transition',
+                      'border-border bg-card grid w-full grid-cols-[minmax(0,1fr)_auto] rounded-lg border transition',
                       isCompleted ? 'border-border/60 bg-muted/40 text-muted-foreground' : 'hover:bg-muted/50',
                     )}
                   >
@@ -987,7 +986,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       type="button"
                       onClick={() => handleSelectBooking(booking)}
                       disabled={isCompleted}
-                      className="hover:text-foreground focus-visible:ring-ring flex min-w-0 items-center gap-3 rounded-md text-left transition focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default"
+                      className="hover:text-foreground focus-visible:ring-ring flex min-w-0 items-center gap-3 rounded-md p-3 pr-2 text-left transition focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default"
                     >
                       <Avatar className={cn('size-10 shrink-0', isCompleted && 'opacity-60 grayscale')}>
                         <AvatarImage src={booking.client?.headshot || undefined} alt={booking.attendeeName} />
@@ -999,27 +998,21 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                             .join('')}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="min-w-0 space-y-1">
-                        <span className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={cn(
-                              'block font-semibold',
-                              isCompleted && 'line-through decoration-current/60 decoration-1',
-                            )}
-                          >
-                            {booking.attendeeName}
-                          </span>
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              'shrink-0',
-                              getGuidedGenderBadgeClass(booking.client?.gender),
-                              isCompleted && 'opacity-70',
-                            )}
-                          >
-                            {formatGuidedGender(booking.client?.gender)}
-                          </Badge>
+                      <span className="flex min-w-0 flex-col gap-1">
+                        <span
+                          className={cn(
+                            'line-clamp-2 font-semibold',
+                            isCompleted && 'line-through decoration-current/60 decoration-1',
+                          )}
+                        >
+                          {booking.attendeeName}
                         </span>
+                        <ScheduleInfoBadges
+                          gender={booking.client?.gender}
+                          isCompleted={isCompleted}
+                          needsRegistration={needsRegistration}
+                          paymentLabel={paymentLabel}
+                        />
                         <span className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                           <span
                             className={cn(
@@ -1033,25 +1026,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                         </span>
                       </span>
                     </button>
-                    <div className="flex items-start gap-3">
-                      <div className="flex flex-col items-end gap-2">
-                        <Badge
-                          variant={
-                            isCompleted
-                              ? 'secondary'
-                              : paymentLabel === 'Paid' || paymentLabel === 'Pre-paid' || paymentLabel === 'Collected'
-                                ? 'success'
-                                : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
-                                  ? 'outline'
-                                  : 'default'
-                          }
-                          className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
-                        >
-                          {isCompleted && <CheckCircle2 data-icon="inline-start" />}
-                          {isCompleted ? 'Completed' : paymentLabel}
-                        </Badge>
-                        {needsRegistration && <Badge variant="secondary">Register</Badge>}
-                      </div>
+                    <div className="flex items-start p-3 pl-0">
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           render={
@@ -1111,12 +1086,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         </Card>
 
         <Card data-testid="guided-walk-in-card" className="overflow-hidden border-l-4 border-l-primary">
-          <CardHeader className="flex flex-col gap-3 space-y-0 p-4 sm:flex-row sm:items-center">
-            <div className="bg-muted text-foreground flex size-9 shrink-0 items-center justify-center rounded-md">
-              <UserPlus className="size-4" />
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <CardTitle className="text-lg">Walk-In Collection</CardTitle>
+          <CardHeader className="flex flex-col gap-3 space-y-0 p-4 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <div className="flex min-w-0 flex-col gap-1">
+              <div data-testid="guided-walk-in-title-row" className="flex items-center gap-2">
+                <div className="bg-muted text-foreground flex size-8 shrink-0 items-center justify-center rounded-md">
+                  <UserPlus className="size-4" />
+                </div>
+                <CardTitle className="text-lg">Walk-In Collection</CardTitle>
+              </div>
               <CardDescription>Add a client without an appointment to today&apos;s schedule.</CardDescription>
             </div>
             <Button

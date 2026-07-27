@@ -187,6 +187,7 @@ describe('dashboard widgets', () => {
     expect(markup).toContain('appointment options')
     expect(markup).toContain('lucide-ellipsis')
     expect(markup).toContain('grid-cols-[minmax(0,1fr)_auto]')
+    expect(markup).toContain('w-[5.5rem]')
     expect(markup).toContain('p-3')
     expect(markup).toContain('/admin/drug-test-upload?workflow=guided&amp;step=review&amp;bookingId=booking-1')
     expect(markup).toContain('/admin/drug-test-upload?workflow=guided&amp;step=review&amp;bookingId=booking-2')

@@ -1,18 +1,16 @@
 import Link from 'next/link'
 import type { WidgetServerProps } from 'payload'
-import { CalendarDays, CheckCircle2, Clock, Menu } from 'lucide-react'
+import { CalendarDays, Clock, Menu } from 'lucide-react'
 
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { APP_TIMEZONE } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
 import { getTodaysCollectionBookings } from '@/views/DrugTestWizard/workflows/complete-workflow/actions'
+import { ScheduleInfoBadges } from '@/views/DrugTestWizard/workflows/complete-workflow/components/ScheduleInfoBadges'
 import {
-  formatGuidedGender,
-  getGuidedGenderBadgeClass,
   getGuidedPaymentLabel,
   getGuidedScheduleHref,
 } from '@/views/DrugTestWizard/workflows/complete-workflow/schedule-utils'
@@ -42,14 +40,14 @@ function ScheduleRow({ booking }: { booking: Booking }) {
   return (
     <div
       className={cn(
-        'border-border bg-card grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-lg border p-3 text-left transition',
+        'border-border bg-card grid w-full grid-cols-[minmax(0,1fr)_auto] rounded-lg border text-left transition',
         isCompleted
           ? 'border-border/60 bg-muted/40 text-muted-foreground'
           : 'hover:bg-muted/50 focus-within:border-primary/40',
       )}
     >
       {isCompleted ? (
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3 p-3 pr-2">
           <Avatar className="size-10 shrink-0 opacity-60 grayscale">
             <AvatarImage src={booking.client?.headshot || undefined} alt={booking.attendeeName} />
             <AvatarFallback>
@@ -60,19 +58,12 @@ function ScheduleRow({ booking }: { booking: Booking }) {
                 .join('')}
             </AvatarFallback>
           </Avatar>
-          <div className="min-w-0">
-            <span className="flex flex-wrap items-center gap-2">
-              <span className="line-clamp-2 font-semibold line-through decoration-current/60 decoration-1">
-                {booking.attendeeName}
-              </span>
-              <Badge
-                variant="outline"
-                className={cn('shrink-0 opacity-70', getGuidedGenderBadgeClass(booking.client?.gender))}
-              >
-                {formatGuidedGender(booking.client?.gender)}
-              </Badge>
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="line-clamp-2 font-semibold line-through decoration-current/60 decoration-1">
+              {booking.attendeeName}
             </span>
-            <span className="text-muted-foreground mt-1 inline-flex items-center gap-1 text-sm line-through decoration-current/60 decoration-1">
+            <ScheduleInfoBadges gender={booking.client?.gender} isCompleted paymentLabel={paymentLabel} />
+            <span className="text-muted-foreground inline-flex items-center gap-1 text-sm line-through decoration-current/60 decoration-1">
               <Clock className="size-4" />
               {formatTime(booking.startTime)}
             </span>
@@ -82,7 +73,7 @@ function ScheduleRow({ booking }: { booking: Booking }) {
         <Link
           href={getGuidedScheduleHref(booking)}
           aria-label={`${workflowLabel} for ${booking.attendeeName}`}
-          className="focus-visible:ring-ring hover:text-foreground flex min-w-0 items-center gap-3 rounded-md transition focus-visible:ring-2 focus-visible:outline-none"
+          className="focus-visible:ring-ring hover:text-foreground flex min-w-0 items-center gap-3 rounded-md p-3 pr-2 text-left transition focus-visible:ring-2 focus-visible:outline-none"
         >
           <Avatar className="size-10 shrink-0">
             <AvatarImage src={booking.client?.headshot || undefined} alt={booking.attendeeName} />
@@ -94,14 +85,15 @@ function ScheduleRow({ booking }: { booking: Booking }) {
                 .join('')}
             </AvatarFallback>
           </Avatar>
-          <span className="min-w-0">
-            <span className="flex flex-wrap items-center gap-2">
-              <span className="line-clamp-2 font-semibold">{booking.attendeeName}</span>
-              <Badge variant="outline" className={cn('shrink-0', getGuidedGenderBadgeClass(booking.client?.gender))}>
-                {formatGuidedGender(booking.client?.gender)}
-              </Badge>
-            </span>
-            <span className="text-muted-foreground mt-1 inline-flex items-center gap-1 text-sm">
+          <span className="flex min-w-0 flex-col gap-1">
+            <span className="line-clamp-2 font-semibold">{booking.attendeeName}</span>
+            <ScheduleInfoBadges
+              gender={booking.client?.gender}
+              needsRegistration={needsRegistration}
+              needsTestType={needsTestType}
+              paymentLabel={paymentLabel}
+            />
+            <span className="text-muted-foreground inline-flex items-center gap-1 text-sm">
               <Clock className="size-4" />
               {formatTime(booking.startTime)}
             </span>
@@ -109,35 +101,15 @@ function ScheduleRow({ booking }: { booking: Booking }) {
         </Link>
       )}
 
-      <div className="flex items-start gap-2">
-        <div className="flex flex-col items-end gap-2">
-          <Badge
-            variant={
-              isCompleted
-                ? 'secondary'
-                : paymentLabel === 'Paid' || paymentLabel === 'Pre-paid' || paymentLabel === 'Collected'
-                  ? 'success'
-                  : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
-                    ? 'outline'
-                    : 'default'
-            }
-            className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
-          >
-            {isCompleted && <CheckCircle2 data-icon="inline-start" />}
-            {isCompleted ? 'Completed' : paymentLabel}
-          </Badge>
-          {!isCompleted && needsRegistration && <Badge variant="secondary">Register</Badge>}
-          {!isCompleted && needsTestType && <Badge variant="secondary">Set test</Badge>}
-        </div>
-
-        {!isCompleted && (
+      {!isCompleted && (
+        <div className="flex items-start p-3 pl-0">
           <ScheduleRowActions
             attendeeName={booking.attendeeName}
             cancelHref={cancelHref}
             rescheduleHref={rescheduleHref}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -41,6 +41,25 @@ async function expectNoHorizontalOverflow(page: Page) {
     .toBe(true)
 }
 
+async function expectFirstTwoBadgesAlignedAndEqual(page: Page, rowSelector: string) {
+  await expect
+    .poll(() =>
+      page.locator(rowSelector).evaluate((row) => {
+        const badges = Array.from(row.querySelectorAll<HTMLElement>('[data-slot="badge"]')).slice(0, 2)
+        if (badges.length !== 2) return Number.POSITIVE_INFINITY
+
+        const [first, second] = badges.map((badge) => badge.getBoundingClientRect())
+        return Math.max(
+          Math.abs(first.width - second.width),
+          Math.abs(first.height - second.height),
+          Math.abs(first.top - second.top),
+          Math.abs(second.left - first.right - 8),
+        )
+      }),
+    )
+    .toBeLessThanOrEqual(1)
+}
+
 async function verifyGuidedClientMismatch(page: Page) {
   const mismatchConfirmation = page.getByRole('checkbox', {
     name: /I verified .* is the person testing today/i,
@@ -208,7 +227,7 @@ test.describe("Wizard Today's Schedule", () => {
       .toBeLessThanOrEqual(1)
   })
 
-  test('keeps the dashboard schedule compact and usable on mobile and portrait iPad', async ({ page }) => {
+  test('keeps dashboard and guided schedule rows consistent on mobile and portrait iPad', async ({ page }) => {
     const viewports = [
       { width: 390, height: 844 },
       { width: 768, height: 1024 },
@@ -224,11 +243,20 @@ test.describe("Wizard Today's Schedule", () => {
         name: `Collect Test for ${scheduleFixtures.bookings.paidLinked.attendeeName}`,
       })
       const scheduleRow = workflowLink.locator('xpath=..')
+      const dashboardRowSelector = `[aria-label="Collect Test for ${scheduleFixtures.bookings.paidLinked.attendeeName}"]`
       await expect(workflowLink).toBeVisible()
       await expect(scheduleRow).toContainText('Pre-paid')
+      await expectFirstTwoBadgesAlignedAndEqual(page, dashboardRowSelector)
       await expect
         .poll(async () => (await scheduleRow.boundingBox())?.height ?? Number.POSITIVE_INFINITY)
         .toBeLessThanOrEqual(136)
+      await expect
+        .poll(async () => {
+          const [linkBox, rowBox] = await Promise.all([workflowLink.boundingBox(), scheduleRow.boundingBox()])
+          if (!linkBox || !rowBox) return Number.POSITIVE_INFINITY
+          return Math.abs(linkBox.height - rowBox.height)
+        })
+        .toBeLessThanOrEqual(2)
 
       const optionsButton = page.getByRole('button', {
         name: `${scheduleFixtures.bookings.paidLinked.attendeeName} appointment options`,
@@ -243,6 +271,47 @@ test.describe("Wizard Today's Schedule", () => {
       await expect(cancelOption).toHaveAttribute('href', /cal\.com\/booking\//)
       await page.keyboard.press('Escape')
 
+      await expectNoHorizontalOverflow(page)
+
+      await openGuidedSchedule(page)
+      const guidedRow = scheduleCard(page, scheduleFixtures.bookings.paidLinked.attendeeName)
+      const guidedButton = scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName)
+      await expectFirstTwoBadgesAlignedAndEqual(
+        page,
+        `button:has-text("${scheduleFixtures.bookings.paidLinked.attendeeName}")`,
+      )
+      await expect
+        .poll(async () => {
+          const [buttonBox, rowBox] = await Promise.all([guidedButton.boundingBox(), guidedRow.boundingBox()])
+          if (!buttonBox || !rowBox) return Number.POSITIVE_INFINITY
+          return Math.abs(buttonBox.height - rowBox.height)
+        })
+        .toBeLessThanOrEqual(2)
+
+      await expectNoHorizontalOverflow(page)
+    }
+  })
+
+  test('keeps the Walk-In icon and title aligned on mobile and portrait iPad', async ({ page }) => {
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 768, height: 1024 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await openGuidedSchedule(page)
+
+      const walkInTitleRow = page.getByTestId('guided-walk-in-title-row')
+      await expect(walkInTitleRow.getByRole('heading', { name: 'Walk-In Collection' })).toBeVisible()
+      await expect
+        .poll(async () => {
+          const [iconBox, titleBox] = await Promise.all([
+            walkInTitleRow.locator('svg').boundingBox(),
+            walkInTitleRow.getByRole('heading', { name: 'Walk-In Collection' }).boundingBox(),
+          ])
+          if (!iconBox || !titleBox) return Number.POSITIVE_INFINITY
+          return Math.abs(iconBox.y + iconBox.height / 2 - (titleBox.y + titleBox.height / 2))
+        })
+        .toBeLessThanOrEqual(1)
       await expectNoHorizontalOverflow(page)
     }
   })
