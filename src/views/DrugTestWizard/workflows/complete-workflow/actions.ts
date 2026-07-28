@@ -702,20 +702,17 @@ export async function ensureClientRedwoodProvisioning(
   testTypeValue: string,
 ): Promise<{
   error?: string
-  status?: GuidedRedwoodProvisioningStatus
   success: boolean
 }> {
-  const payload = await getAdminPayload()
-
   try {
     if (!isRedwoodAutomationEnabled()) {
       return {
         success: false,
         error: 'Redwood automation is disabled on this server.',
-        status: await loadClientRedwoodProvisioningStatus(payload, clientId, testTypeValue),
       }
     }
 
+    const payload = await getAdminPayload()
     await applyGuidedLabDefaultTest({
       clientId,
       payload,
@@ -730,13 +727,11 @@ export async function ensureClientRedwoodProvisioning(
 
     return {
       success: true,
-      status: await loadClientRedwoodProvisioningStatus(payload, clientId, testTypeValue),
     }
   } catch (error) {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to queue Redwood donor provisioning.',
-      status: await loadClientRedwoodProvisioningStatus(payload, clientId, testTypeValue).catch(() => undefined),
     }
   }
 }

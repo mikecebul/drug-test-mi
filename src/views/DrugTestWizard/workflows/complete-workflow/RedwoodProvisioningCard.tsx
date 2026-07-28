@@ -76,7 +76,7 @@ function getCardCopy(status?: GuidedRedwoodProvisioningStatus) {
 
 export function RedwoodProvisioningCard({ isLoading, status }: Props) {
   const deviceType = useDeviceType()
-  const useDesktopSite = deviceType !== 'desktop'
+  const useDesktopSite = deviceType === 'desktop'
   const donorNeedsManualSearch = redwoodDonorNeedsManualSearch(status) || (!status && !isLoading)
   const defaultTestNeedsHelp = redwoodDefaultTestNeedsHelp(status)
   const needsManualHelp = donorNeedsManualSearch || defaultTestNeedsHelp

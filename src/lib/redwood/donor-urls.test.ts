@@ -25,7 +25,7 @@ describe('Redwood donor URLs', () => {
     )
   })
 
-  it('uses the desktop donor record for guided collection on mobile and tablet devices', () => {
+  it('uses the desktop donor record on desktop devices', () => {
     expect(
       resolveGuidedToxAccessHref({
         donorId: '2714034',
@@ -35,7 +35,7 @@ describe('Redwood donor URLs', () => {
     ).toBe('https://toxaccess.redwoodtoxicology.com/Pages/User/Donor.aspx?donorid=2714034')
   })
 
-  it('uses desktop donor search for manual help on mobile and tablet devices', () => {
+  it('uses desktop donor search for manual help on desktop devices', () => {
     expect(
       resolveGuidedToxAccessHref({
         mobileHref: 'https://m.toxaccess.com/donors',
@@ -44,7 +44,7 @@ describe('Redwood donor URLs', () => {
     ).toBe(REDWOOD_DESKTOP_DONOR_SEARCH_URL)
   })
 
-  it('keeps the mobile collection app URL for desktop devices', () => {
+  it('keeps the mobile collection app URL on mobile and tablet devices', () => {
     const mobileHref = 'https://m.toxaccess.com/donors/2714034/collection/steps/1?isOnSite=false'
     expect(
       resolveGuidedToxAccessHref({
