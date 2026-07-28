@@ -41,7 +41,7 @@ async function expectNoHorizontalOverflow(page: Page) {
     .toBe(true)
 }
 
-async function expectFirstTwoBadgesAlignedAndEqual(page: Page, rowSelector: string) {
+async function expectFirstTwoBadgesUnclampedAndAdjacent(page: Page, rowSelector: string) {
   await expect
     .poll(() =>
       page.locator(rowSelector).evaluate((row) => {
@@ -50,10 +50,12 @@ async function expectFirstTwoBadgesAlignedAndEqual(page: Page, rowSelector: stri
 
         const [first, second] = badges.map((badge) => badge.getBoundingClientRect())
         return Math.max(
-          Math.abs(first.width - second.width),
           Math.abs(first.height - second.height),
           Math.abs(first.top - second.top),
           Math.abs(second.left - first.right - 8),
+          ...badges.map((badge) =>
+            Math.max(badge.scrollWidth - badge.clientWidth, badge.scrollHeight - badge.clientHeight),
+          ),
         )
       }),
     )
@@ -246,7 +248,7 @@ test.describe("Wizard Today's Schedule", () => {
       const dashboardRowSelector = `[aria-label="Collect Test for ${scheduleFixtures.bookings.paidLinked.attendeeName}"]`
       await expect(workflowLink).toBeVisible()
       await expect(scheduleRow).toContainText('Pre-paid')
-      await expectFirstTwoBadgesAlignedAndEqual(page, dashboardRowSelector)
+      await expectFirstTwoBadgesUnclampedAndAdjacent(page, dashboardRowSelector)
       await expect
         .poll(async () => (await scheduleRow.boundingBox())?.height ?? Number.POSITIVE_INFINITY)
         .toBeLessThanOrEqual(136)
@@ -276,7 +278,7 @@ test.describe("Wizard Today's Schedule", () => {
       await openGuidedSchedule(page)
       const guidedRow = scheduleCard(page, scheduleFixtures.bookings.paidLinked.attendeeName)
       const guidedButton = scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName)
-      await expectFirstTwoBadgesAlignedAndEqual(
+      await expectFirstTwoBadgesUnclampedAndAdjacent(
         page,
         `button:has-text("${scheduleFixtures.bookings.paidLinked.attendeeName}")`,
       )
