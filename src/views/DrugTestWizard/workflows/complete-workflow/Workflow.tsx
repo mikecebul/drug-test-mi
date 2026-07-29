@@ -304,6 +304,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     queryFn: getActiveCollectionTestTypes,
   })
   const [isPending, startTransition] = useTransition()
+  const [isPaymentPending, setIsPaymentPending] = useState(false)
   const redwoodProvisioningStartedForBooking = useRef<string | null>(null)
   const [walkInClientDrawerOpen, setWalkInClientDrawerOpen] = useState(false)
   const [bookingClientDrawerOpen, setBookingClientDrawerOpen] = useState(false)
@@ -332,6 +333,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     queryKey: ['guided', 'redwood-provisioning', selectedClientId, selectedTestTypeValue],
     queryFn: () => getClientRedwoodProvisioningStatus(selectedClientId || '', selectedTestTypeValue || ''),
     enabled: currentStep === 'toxaccess' && Boolean(selectedClientId && selectedTestTypeValue),
+    staleTime: 1500,
     refetchInterval: (query) => {
       const status = query.state.data
       if (!status || status.overallStatus === 'working') return 1500
@@ -341,11 +343,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const {
     data: outstandingPaymentBalances = [],
     isLoading: isLoadingOutstandingPaymentBalances,
+    isFetching: isFetchingOutstandingPaymentBalances,
     isError: hasOutstandingPaymentBalanceError,
   } = useQuery({
     queryKey: ['guided', 'outstanding-payment-balances', selectedClientId],
     queryFn: () => getClientOutstandingPaymentBalances(selectedClientId || ''),
-    enabled: currentStep === 'payment' && Boolean(selectedClientId),
+    enabled:
+      Boolean(selectedClientId) &&
+      (currentStep === 'review' || currentStep === 'registration' || currentStep === 'payment'),
     refetchOnMount: 'always',
   })
   const [paymentDraft, setPaymentDraft] = useState<ReturnType<typeof getPaymentDefaults> | null>(null)
@@ -560,7 +565,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     setWalkInRegistrationOpen(true)
   }
 
-  const handlePaymentNext = (confirmedNoPayment = false) => {
+  const handlePaymentNext = async (confirmedNoPayment = false) => {
     if (!selectedBooking?.testType) return
     const selectedTestType = selectedBooking.testType
     if (!selectedBooking.client?.id) {
@@ -576,7 +581,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       focusGuidedInvalidField()
       return
     }
-    if (isLoadingOutstandingPaymentBalances) {
+    if (isFetchingOutstandingPaymentBalances) {
       toast.error('Wait for the existing balances to finish loading.')
       return
     }
@@ -591,7 +596,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     const clientId = selectedBooking.client.id
 
     setNoPaymentDialogOpen(false)
-    startTransition(async () => {
+    setIsPaymentPending(true)
+    try {
       const result = await recordBookingPayment({
         bookingId: selectedBooking.id,
         amountReceived,
@@ -604,27 +610,25 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         return
       }
 
-      if (selectedBooking.client?.id) {
-        const provisioningResult = await ensureClientRedwoodProvisioning(
-          selectedBooking.client.id,
-          selectedTestType.value,
-        )
-        redwoodProvisioningStartedForBooking.current = `${selectedBooking.id}:${selectedBooking.client.id}:${selectedTestType.value}`
-        if (!provisioningResult.success && provisioningResult.error) {
-          toast.warning(provisioningResult.error)
-        }
+      const [provisioningResult] = await Promise.all([
+        ensureClientRedwoodProvisioning(clientId, selectedTestType.value),
+        refreshBookings(),
+      ])
+      redwoodProvisioningStartedForBooking.current = `${selectedBooking.id}:${clientId}:${selectedTestType.value}`
+      if (!provisioningResult.success && provisioningResult.error) {
+        toast.warning(provisioningResult.error)
       }
 
       setPaymentDraft(null)
       setShowAdditionalPayment(false)
-      await Promise.all([
-        refreshBookings(),
-        queryClient.invalidateQueries({
-          queryKey: ['guided', 'outstanding-payment-balances', clientId],
-        }),
-      ])
+      void queryClient.invalidateQueries({
+        queryKey: ['guided', 'outstanding-payment-balances', clientId],
+        refetchType: 'none',
+      })
       setQuery({ step: 'toxaccess', bookingId: selectedBooking.id })
-    })
+    } finally {
+      setIsPaymentPending(false)
+    }
   }
 
   const handleReviewNext = () => {
@@ -643,11 +647,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     setQuery({ step: 'payment', bookingId: selectedBooking.id })
   }
 
-  const handleUndoPayment = () => {
+  const handleUndoPayment = async () => {
     if (!selectedBooking?.client?.id) return
     const clientId = selectedBooking.client.id
 
-    startTransition(async () => {
+    setIsPaymentPending(true)
+    try {
       const result = await undoBookingPayment({ bookingId: selectedBooking.id })
       if (!result.success) {
         toast.error(result.error || 'Unable to undo this payment.')
@@ -663,7 +668,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         queryKey: ['guided', 'outstanding-payment-balances', clientId],
       })
       toast.success('Payment undone and balances restored')
-    })
+    } finally {
+      setIsPaymentPending(false)
+    }
   }
 
   const handleContinueToCollection = () => {
@@ -1317,9 +1324,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                         type="button"
                         variant="destructive"
                         onClick={handleUndoPayment}
-                        disabled={isPending}
+                        disabled={isPaymentPending}
                       >
-                        {isPending ? 'Undoing...' : 'Undo payment'}
+                        {isPaymentPending ? 'Undoing...' : 'Undo payment'}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -1821,7 +1828,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         ? Boolean(
             selectedBooking?.testType &&
             selectedBooking.client?.id &&
-            !isLoadingOutstandingPaymentBalances &&
+            !isFetchingOutstandingPaymentBalances &&
             !hasOutstandingPaymentBalanceError,
           )
         : currentStep === 'toxaccess'
@@ -1829,6 +1836,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           : false
 
   const backLabel = currentStep === 'schedule' ? 'Cancel' : 'Back'
+  const footerIsPending = currentStep === 'payment' ? isPaymentPending : isPending
+  const paymentBalancesAreLoading = currentStep === 'payment' && isFetchingOutstandingPaymentBalances
 
   return (
     <>
@@ -1840,7 +1849,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             type="button"
             onClick={goBackOneStep}
             variant="outline"
-            disabled={isPending}
+            disabled={footerIsPending}
             size="lg"
             data-testid="wizard-back-button"
           >
@@ -1858,14 +1867,19 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     ? () => handlePaymentNext()
                     : handleContinueToCollection
               }
-              disabled={!canGoNext || isPending}
+              disabled={!canGoNext || footerIsPending}
               size="lg"
               data-testid="wizard-next-button"
             >
-              {isPending ? (
+              {footerIsPending ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Processing...
+                </>
+              ) : paymentBalancesAreLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Loading payment details...
                 </>
               ) : (
                 <>
@@ -1896,7 +1910,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel variant="outline">Go back</AlertDialogCancel>
-            <AlertDialogAction type="button" onClick={() => handlePaymentNext(true)} disabled={isPending}>
+            <AlertDialogAction type="button" onClick={() => handlePaymentNext(true)} disabled={isPaymentPending}>
               Continue
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -1,10 +1,16 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { useDeviceType } from '@/hooks/use-device-type'
 import { deriveRedwoodProvisioningStatus } from '@/lib/redwood/provisioning'
 import { RedwoodProvisioningCard } from './RedwoodProvisioningCard'
 
+vi.mock('@/hooks/use-device-type', () => ({
+  useDeviceType: vi.fn(),
+}))
+
 type ProvisioningInput = Parameters<typeof deriveRedwoodProvisioningStatus>[0]
+const mockedUseDeviceType = vi.mocked(useDeviceType)
 
 function renderCard(input: ProvisioningInput) {
   return renderToStaticMarkup(<RedwoodProvisioningCard status={createStatus(input)} isLoading={false} />)
@@ -23,6 +29,10 @@ function createStatus(input: ProvisioningInput) {
 }
 
 describe('RedwoodProvisioningCard', () => {
+  beforeEach(() => {
+    mockedUseDeviceType.mockReturnValue('tablet')
+  })
+
   it('shows one concise status while automatic setup is working', () => {
     const markup = renderCard({
       automationEnabled: true,
@@ -55,10 +65,31 @@ describe('RedwoodProvisioningCard', () => {
     expect(markup).toContain('Ready for collection')
     expect(markup).toContain('Donor 2714034 is ready for collection in ToxAccess.')
     expect(markup).toContain('Link to ToxAccess')
-    expect(markup).toContain('/Pages/User/Donor.aspx?donorid=2714034')
+    expect(markup).toContain(
+      'https://m.toxaccess.com/donors/2714034/collection/steps/1?isOnSite=false',
+    )
+    expect(markup).not.toContain('toxaccess.redwoodtoxicology.com')
     expect(markup).not.toContain('Donor verified in ToxAccess')
     expect(markup).not.toContain('remaining headshot')
     expect(markup).not.toContain('Retry setup')
+  })
+
+  it('uses the desktop donor link on desktop devices', () => {
+    mockedUseDeviceType.mockReturnValue('desktop')
+
+    const markup = renderCard({
+      automationEnabled: true,
+      defaultTestRequired: true,
+      defaultTestStatus: 'synced',
+      donorId: '2714034',
+      headshotRequired: false,
+      syncStatus: 'synced',
+    })
+
+    expect(markup).toContain(
+      'https://toxaccess.redwoodtoxicology.com/Pages/User/Donor.aspx?donorid=2714034',
+    )
+    expect(markup).not.toContain('https://m.toxaccess.com')
   })
 
   it('keeps the ready state simple while optional headshot work continues', () => {
@@ -126,6 +157,8 @@ describe('RedwoodProvisioningCard', () => {
     expect(markup).toContain('(231) 373-6341')
     expect(markup).toContain('search for the donor manually')
     expect(markup).toContain('Open ToxAccess to search manually')
+    expect(markup).toContain('href="https://m.toxaccess.com/donors"')
+    expect(markup).not.toContain('toxaccess.redwoodtoxicology.com')
     expect(markup).not.toContain('ToxAccess timed out after retries.')
     expect(markup).not.toContain('Retry setup')
   })

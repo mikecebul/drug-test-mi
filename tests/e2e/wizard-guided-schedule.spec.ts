@@ -396,6 +396,44 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByTestId('client-identity-mismatch')).toBeHidden()
   })
 
+  test('keeps payment navigation responsive while balance details are loading', async ({ page }) => {
+    let releaseServerActions = () => {}
+    const serverActionsReleased = new Promise<void>((resolve) => {
+      releaseServerActions = resolve
+    })
+    let shouldDelayServerActions = true
+
+    await page.route('**/*', async (route) => {
+      const request = route.request()
+      if (shouldDelayServerActions && request.method() === 'POST' && request.headers()['next-action']) {
+        await serverActionsReleased
+      }
+      await route.continue()
+    })
+
+    try {
+      await scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
+      await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
+      await verifyGuidedClientMismatch(page)
+
+      await page.getByTestId('wizard-next-button').click()
+      await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
+
+      const nextButton = page.getByTestId('wizard-next-button')
+      const backButton = page.getByTestId('wizard-back-button')
+      await expect(nextButton).toBeDisabled()
+      await expect(nextButton).toContainText('Loading payment details...')
+      await expect(backButton).toBeEnabled()
+
+      await backButton.click()
+      await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
+    } finally {
+      shouldDelayServerActions = false
+      releaseServerActions()
+      await page.unrouteAll({ behavior: 'wait' })
+    }
+  })
+
   test('keeps controls interactive after repeatedly closing Quick Book', async ({ page }) => {
     const openMenuButton = page.getByRole('button', { name: 'Open menu' }).last()
     if (await openMenuButton.isVisible()) {
@@ -476,7 +514,7 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(undoPaymentButton.locator('svg')).toHaveCount(0)
     await undoPaymentButton.click()
 
-    await expect(page.getByRole('heading', { name: 'Collect payment' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
     await expect(page.getByText('$40 available')).toBeVisible()
     await expect(page.getByRole('spinbutton', { name: 'Credit to apply' })).toHaveValue('0')
 
