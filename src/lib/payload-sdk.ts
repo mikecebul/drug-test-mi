@@ -6,4 +6,7 @@ const sdkBaseURL = '/api'
 
 export const sdk = new PayloadSDK<Config>({
   baseURL: sdkBaseURL,
+  baseInit: {
+    credentials: 'include',
+  },
 })

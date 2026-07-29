@@ -158,6 +158,12 @@ async function recordExhaustedRedwoodJobAlert(args: {
 }
 
 export default buildConfig({
+  bin: [
+    {
+      key: 'redwood-worker',
+      scriptPath: path.resolve(dirname, 'lib/redwood/worker.ts'),
+    },
+  ],
   serverURL: baseUrl,
   admin: {
     autoLogin: adminAutoLogin,

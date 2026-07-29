@@ -397,16 +397,21 @@ test.describe("Wizard Today's Schedule", () => {
   })
 
   test('keeps payment navigation responsive while balance details are loading', async ({ page }) => {
-    let releaseServerActions = () => {}
-    const serverActionsReleased = new Promise<void>((resolve) => {
-      releaseServerActions = resolve
+    let releaseBalances = () => {}
+    const balancesReleased = new Promise<void>((resolve) => {
+      releaseBalances = resolve
     })
-    let shouldDelayServerActions = true
+    let shouldDelayBalances = true
 
-    await page.route('**/*', async (route) => {
+    await page.route('**/api/guided-workflow?*', async (route) => {
       const request = route.request()
-      if (shouldDelayServerActions && request.method() === 'POST' && request.headers()['next-action']) {
-        await serverActionsReleased
+      const url = new URL(request.url())
+      if (
+        shouldDelayBalances &&
+        request.method() === 'GET' &&
+        url.searchParams.get('resource') === 'outstanding-balances'
+      ) {
+        await balancesReleased
       }
       await route.continue()
     })
@@ -428,8 +433,8 @@ test.describe("Wizard Today's Schedule", () => {
       await backButton.click()
       await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
     } finally {
-      shouldDelayServerActions = false
-      releaseServerActions()
+      shouldDelayBalances = false
+      releaseBalances()
       await page.unrouteAll({ behavior: 'wait' })
     }
   })
@@ -512,7 +517,36 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(undoDialog.locator('[data-slot="alert-dialog-media"] svg')).toHaveCount(1)
     const undoPaymentButton = undoDialog.getByRole('button', { name: 'Undo payment' })
     await expect(undoPaymentButton.locator('svg')).toHaveCount(0)
+
+    let releaseUndoRequest = () => {}
+    const undoRequestReleased = new Promise<void>((resolve) => {
+      releaseUndoRequest = resolve
+    })
+    let undoRequestCount = 0
+    await page.route('**/api/guided-workflow', async (route) => {
+      const request = route.request()
+      const body = request.method() === 'POST' ? request.postDataJSON() : null
+      if (body?.operation === 'undo-payment') {
+        undoRequestCount += 1
+        await undoRequestReleased
+        await route.abort('connectionfailed')
+        return
+      }
+      await route.continue()
+    })
+
     await undoPaymentButton.click()
+    await expect(undoDialog.getByRole('button', { name: 'Undoing...' })).toBeDisabled()
+    await expect(undoDialog.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    expect(undoRequestCount).toBe(1)
+
+    releaseUndoRequest()
+    await expect(undoDialog.getByRole('button', { name: 'Undo payment' })).toBeEnabled()
+    await expect(undoDialog.getByRole('button', { name: 'Cancel' })).toBeEnabled()
+    await expect(undoDialog).toBeVisible()
+    await page.unroute('**/api/guided-workflow')
+
+    await undoDialog.getByRole('button', { name: 'Undo payment' }).click()
 
     await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
     await expect(page.getByText('$40 available')).toBeVisible()
@@ -521,6 +555,35 @@ test.describe("Wizard Today's Schedule", () => {
     await page.getByTestId('wizard-next-button').click()
     const noPaymentDialog = page.getByRole('alertdialog', { name: 'Continue without payment?' })
     await expect(noPaymentDialog).toContainText('outstanding balance of $40')
+
+    let releaseNoPaymentRequest = () => {}
+    const noPaymentRequestReleased = new Promise<void>((resolve) => {
+      releaseNoPaymentRequest = resolve
+    })
+    let noPaymentRequestCount = 0
+    await page.route('**/api/guided-workflow', async (route) => {
+      const request = route.request()
+      const body = request.method() === 'POST' ? request.postDataJSON() : null
+      if (body?.operation === 'record-payment') {
+        noPaymentRequestCount += 1
+        await noPaymentRequestReleased
+        await route.abort('connectionfailed')
+        return
+      }
+      await route.continue()
+    })
+
+    await noPaymentDialog.getByRole('button', { name: 'Continue', exact: true }).click()
+    await expect(noPaymentDialog.getByRole('button', { name: 'Continuing...' })).toBeDisabled()
+    await expect(noPaymentDialog.getByRole('button', { name: 'Go back' })).toBeDisabled()
+    expect(noPaymentRequestCount).toBe(1)
+
+    releaseNoPaymentRequest()
+    await expect(noPaymentDialog.getByRole('button', { name: 'Continue', exact: true })).toBeEnabled()
+    await expect(noPaymentDialog.getByRole('button', { name: 'Go back' })).toBeEnabled()
+    await expect(page.getByTestId('wizard-back-button')).toBeEnabled()
+    await page.unroute('**/api/guided-workflow')
+
     await noPaymentDialog.getByRole('button', { name: 'Continue', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()
   })

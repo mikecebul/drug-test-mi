@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs'
 import { toast } from 'sonner'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Ban,
   Banknote,
@@ -80,21 +80,11 @@ import type { ClientMatch } from '../../types'
 import { ClientDetailsCard } from '../components/client/ClientDetailsCard'
 import type { SimpleClient } from '../components/client/getClients'
 import {
-  cancelAndRefundGuidedBooking,
-  cancelGuidedBooking,
-  createWalkInBooking,
-  ensureClientRedwoodProvisioning,
-  getActiveCollectionTestTypes,
-  getClientOutstandingPaymentBalances,
-  getClientReferralProfile,
-  getClientRedwoodProvisioningStatus,
-  getTodaysCollectionBookings,
-  linkBookingToClient,
-  recordBookingPayment,
-  refreshBookingClientContext,
-  setBookingScheduledTestType,
-  undoBookingPayment,
-} from './actions'
+  guidedWorkflowApi,
+  type GuidedBooking,
+  type GuidedPaymentResult,
+  type GuidedUndoPaymentResult,
+} from './guided-workflow-api'
 import {
   doesGuidedBookingNameMatchClient,
   getGuidedBookingNextStep,
@@ -116,7 +106,7 @@ import { ReferralProfileDrawer } from '../components/emails/referrals/ReferralPr
 import { RedwoodProvisioningCard } from './RedwoodProvisioningCard'
 import { WalkInClientDrawer } from './WalkInClientDrawer'
 
-type Booking = Awaited<ReturnType<typeof getTodaysCollectionBookings>>[number]
+type Booking = GuidedBooking
 type TestType = NonNullable<Booking['testType']>
 type WorkflowStep = 'schedule' | 'review' | 'registration' | 'payment' | 'toxaccess'
 type ScheduleAction = 'cancel' | 'cancel-refund'
@@ -148,6 +138,10 @@ function formatPaymentDate(value: string) {
     year: 'numeric',
     timeZone: APP_TIMEZONE,
   }).format(new Date(value))
+}
+
+function createOperationId() {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 function getPaymentDefaults(booking: Booking | null) {
@@ -296,16 +290,20 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   })
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['guided', 'today-bookings'],
-    queryFn: () => getTodaysCollectionBookings(),
+    queryFn: ({ signal }) => guidedWorkflowApi.getTodayBookings(signal),
     refetchOnMount: 'always',
+    staleTime: 2_000,
   })
   const { data: testTypes = [] } = useQuery({
     queryKey: ['guided', 'test-types'],
-    queryFn: getActiveCollectionTestTypes,
+    queryFn: ({ signal }) => guidedWorkflowApi.getTestTypes(signal),
+    staleTime: Number.POSITIVE_INFINITY,
   })
-  const [isPending, startTransition] = useTransition()
-  const [isPaymentPending, setIsPaymentPending] = useState(false)
   const redwoodProvisioningStartedForBooking = useRef<string | null>(null)
+  const paymentRequestRef = useRef<Promise<GuidedPaymentResult> | null>(null)
+  const paymentOperationRef = useRef<{ fingerprint: string; id: string } | null>(null)
+  const undoPaymentRequestRef = useRef<Promise<GuidedUndoPaymentResult> | null>(null)
+  const undoPaymentOperationRef = useRef<{ bookingId: string; id: string } | null>(null)
   const [walkInClientDrawerOpen, setWalkInClientDrawerOpen] = useState(false)
   const [bookingClientDrawerOpen, setBookingClientDrawerOpen] = useState(false)
   const [walkInRegistrationOpen, setWalkInRegistrationOpen] = useState(false)
@@ -320,10 +318,17 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       ? `${selectedBooking.id}:${selectedClientId}:${selectedTestTypeValue}`
       : null
   const currentStep: WorkflowStep = query.step
+  const currentStepRef = useRef(currentStep)
+  const selectedBookingIdRef = useRef(selectedBooking?.id ?? null)
+  useEffect(() => {
+    currentStepRef.current = currentStep
+    selectedBookingIdRef.current = selectedBooking?.id ?? null
+  }, [currentStep, selectedBooking?.id])
   const { data: referralProfile = null, refetch: refetchReferralProfile } = useQuery({
     queryKey: ['guided', 'referral-profile', selectedClientId],
-    queryFn: () => getClientReferralProfile(selectedClientId || ''),
+    queryFn: ({ signal }) => guidedWorkflowApi.getReferralProfile(selectedClientId || '', signal),
     enabled: Boolean(selectedClientId),
+    staleTime: 30_000,
   })
   const {
     data: redwoodProvisioning,
@@ -331,12 +336,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     refetch: refetchRedwoodProvisioning,
   } = useQuery({
     queryKey: ['guided', 'redwood-provisioning', selectedClientId, selectedTestTypeValue],
-    queryFn: () => getClientRedwoodProvisioningStatus(selectedClientId || '', selectedTestTypeValue || ''),
+    queryFn: ({ signal }) =>
+      guidedWorkflowApi.getRedwoodStatus(selectedClientId || '', selectedTestTypeValue || '', signal),
     enabled: currentStep === 'toxaccess' && Boolean(selectedClientId && selectedTestTypeValue),
-    staleTime: 1500,
+    retry: false,
+    staleTime: 1_000,
     refetchInterval: (query) => {
       const status = query.state.data
-      if (!status || status.overallStatus === 'working') return 1500
+      if (!status || status.overallStatus === 'working') return 1_000
       return false
     },
   })
@@ -347,11 +354,13 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     isError: hasOutstandingPaymentBalanceError,
   } = useQuery({
     queryKey: ['guided', 'outstanding-payment-balances', selectedClientId],
-    queryFn: () => getClientOutstandingPaymentBalances(selectedClientId || ''),
+    queryFn: ({ signal }) => guidedWorkflowApi.getOutstandingBalances(selectedClientId || '', signal),
     enabled:
       Boolean(selectedClientId) &&
       (currentStep === 'review' || currentStep === 'registration' || currentStep === 'payment'),
     refetchOnMount: 'always',
+    retry: false,
+    staleTime: 5_000,
   })
   const [paymentDraft, setPaymentDraft] = useState<ReturnType<typeof getPaymentDefaults> | null>(null)
   const [showAdditionalPayment, setShowAdditionalPayment] = useState(false)
@@ -364,6 +373,41 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const [testTypeDrawerOpen, setTestTypeDrawerOpen] = useState(false)
   const [testTypeDrawerSelection, setTestTypeDrawerSelection] = useState('')
   const [scheduleAction, setScheduleAction] = useState<{ action: ScheduleAction; booking: Booking } | null>(null)
+  const scheduleActionMutation = useMutation({
+    mutationFn: (input: Parameters<typeof guidedWorkflowApi.cancelBooking>[0]) =>
+      guidedWorkflowApi.cancelBooking(input),
+    retry: false,
+  })
+  const linkClientMutation = useMutation({
+    mutationFn: (input: Parameters<typeof guidedWorkflowApi.linkClient>[0]) => guidedWorkflowApi.linkClient(input),
+    retry: false,
+  })
+  const testTypeMutation = useMutation({
+    mutationFn: (input: Parameters<typeof guidedWorkflowApi.setTestType>[0]) => guidedWorkflowApi.setTestType(input),
+    retry: false,
+  })
+  const walkInMutation = useMutation({
+    mutationFn: (input: Parameters<typeof guidedWorkflowApi.createWalkIn>[0]) => guidedWorkflowApi.createWalkIn(input),
+    retry: false,
+  })
+  const paymentMutation = useMutation({
+    mutationFn: (input: Parameters<typeof guidedWorkflowApi.recordPayment>[0]) =>
+      guidedWorkflowApi.recordPayment(input),
+    retry: false,
+  })
+  const undoPaymentMutation = useMutation({
+    mutationFn: (input: Parameters<typeof guidedWorkflowApi.undoPayment>[0]) => guidedWorkflowApi.undoPayment(input),
+    retry: false,
+  })
+  const continueMutation = useMutation({
+    mutationFn: (bookingId: string) => guidedWorkflowApi.getBookingContext(bookingId),
+    retry: false,
+  })
+  const { mutate: ensureRedwood } = useMutation({
+    mutationFn: (input: Parameters<typeof guidedWorkflowApi.ensureRedwood>[0]) =>
+      guidedWorkflowApi.ensureRedwood(input),
+    retry: false,
+  })
   const payment = paymentDraft ?? getPaymentDefaults(selectedBooking)
   const paymentAmountIsValid = isValidGuidedPaymentAmount(payment.amountReceived)
   const amountReceived = parseGuidedPaymentAmount(payment.amountReceived)
@@ -399,7 +443,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const refreshBookings = () =>
     queryClient.fetchQuery({
       queryKey: ['guided', 'today-bookings'],
-      queryFn: () => getTodaysCollectionBookings(),
+      queryFn: ({ signal }) => guidedWorkflowApi.getTodayBookings(signal),
+      staleTime: 0,
     })
   useEffect(() => {
     if (currentStep !== 'toxaccess' || !selectedClientId || !selectedTestTypeValue) return
@@ -407,13 +452,31 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     if (redwoodProvisioningStartedForBooking.current === redwoodProvisioningBookingKey) return
 
     redwoodProvisioningStartedForBooking.current = redwoodProvisioningBookingKey
-    void ensureClientRedwoodProvisioning(selectedClientId, selectedTestTypeValue).then((result) => {
-      if (!result.success && result.error) {
-        toast.error(result.error)
-      }
-      void refetchRedwoodProvisioning()
-    })
-  }, [currentStep, redwoodProvisioningBookingKey, refetchRedwoodProvisioning, selectedClientId, selectedTestTypeValue])
+    ensureRedwood(
+      {
+        clientId: selectedClientId,
+        testTypeValue: selectedTestTypeValue,
+      },
+      {
+        onError: (error) => {
+          toast.error(error instanceof Error ? error.message : 'ToxAccess setup could not be started.')
+        },
+        onSuccess: (result) => {
+          if (!result.success && result.error) {
+            toast.error(result.error)
+          }
+          void refetchRedwoodProvisioning()
+        },
+      },
+    )
+  }, [
+    currentStep,
+    ensureRedwood,
+    redwoodProvisioningBookingKey,
+    refetchRedwoodProvisioning,
+    selectedClientId,
+    selectedTestTypeValue,
+  ])
 
   const handleSelectBooking = (booking: Booking) => {
     setPaymentDraft(getPaymentDefaults(booking))
@@ -429,15 +492,15 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     window.open(href, '_blank', 'noopener,noreferrer')
   }
 
-  const handleConfirmScheduleAction = () => {
+  const handleConfirmScheduleAction = async () => {
     if (!scheduleAction) return
 
     const { action, booking } = scheduleAction
-    startTransition(async () => {
-      const result =
-        action === 'cancel-refund'
-          ? await cancelAndRefundGuidedBooking({ bookingId: booking.id })
-          : await cancelGuidedBooking({ bookingId: booking.id })
+    try {
+      const result = await scheduleActionMutation.mutateAsync({
+        action,
+        bookingId: booking.id,
+      })
 
       if (!result.success) {
         toast.error(
@@ -477,7 +540,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       if (query.bookingId === booking.id) {
         setQuery({ step: 'schedule', bookingId: null })
       }
-    })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Appointment action failed.')
+    }
   }
 
   const handleRegisterClient = () => {
@@ -493,11 +558,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     router.push(`/admin/drug-test-upload?${params.toString()}`)
   }
 
-  const handleUseExistingClient = (client: SimpleClient) => {
+  const handleUseExistingClient = async (client: SimpleClient) => {
     if (!selectedBooking) return
 
-    startTransition(async () => {
-      await linkBookingToClient(selectedBooking.id, client.id)
+    try {
+      await linkClientMutation.mutateAsync({
+        bookingId: selectedBooking.id,
+        clientId: client.id,
+      })
       setPaymentDraft(null)
       const refreshedBookings = await refreshBookings()
       const updatedBooking = refreshedBookings.find((booking) => booking.id === selectedBooking.id)
@@ -510,14 +578,22 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
       toast.success(`${client.fullName ?? `${client.firstName} ${client.lastName}`} linked to booking`)
       setQuery({ step: 'review', bookingId: selectedBooking.id })
-    })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Client could not be linked.')
+    }
   }
 
-  const handleSelectTestType = (testTypeId: string, options?: { closeDrawer?: boolean; nextStep?: WorkflowStep }) => {
+  const handleSelectTestType = async (
+    testTypeId: string,
+    options?: { closeDrawer?: boolean; nextStep?: WorkflowStep },
+  ) => {
     if (!selectedBooking) return
 
-    startTransition(async () => {
-      const result = await setBookingScheduledTestType(selectedBooking.id, testTypeId)
+    try {
+      const result = await testTypeMutation.mutateAsync({
+        bookingId: selectedBooking.id,
+        testTypeId,
+      })
 
       if (!result.success) {
         toast.error(result.error || 'Failed to set test type')
@@ -525,15 +601,37 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       }
 
       setTestTypeValidationErrorBookingId(null)
-      const refreshedBookings = await refreshBookings()
-      const updatedBooking = refreshedBookings.find((booking) => booking.id === selectedBooking.id)
+      const selectedTestType = testTypes.find((testType) => testType.id === testTypeId || testType.value === testTypeId)
+      queryClient.setQueryData<Booking[]>(['guided', 'today-bookings'], (current) =>
+        current?.map((booking) =>
+          booking.id === selectedBooking.id && selectedTestType
+            ? {
+                ...booking,
+                bookingTestType: selectedTestType,
+                needsTestType: false,
+                testType: selectedTestType,
+              }
+            : booking,
+        ),
+      )
+      const updatedBooking = selectedTestType
+        ? {
+            ...selectedBooking,
+            bookingTestType: selectedTestType,
+            needsTestType: false,
+            testType: selectedTestType,
+          }
+        : selectedBooking
       setPaymentDraft(updatedBooking ? getPaymentDefaults(updatedBooking) : null)
       if (options?.closeDrawer) {
         setTestTypeDrawerOpen(false)
       }
       toast.success('Appointment test updated')
       setQuery({ step: options?.nextStep ?? 'payment', bookingId: selectedBooking.id })
-    })
+      void refreshBookings()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to set test type.')
+    }
   }
 
   const openTestTypeDrawer = () => {
@@ -542,7 +640,13 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   }
 
   const handleCreateWalkInBooking = async (clientId: string, clientName: string) => {
-    const result = await createWalkInBooking({ clientId })
+    let result
+    try {
+      result = await walkInMutation.mutateAsync({ clientId })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to add the walk-in client.')
+      return false
+    }
 
     if (!result.success || !result.bookingId) {
       toast.error(result.error || 'Failed to add the walk-in client.')
@@ -566,8 +670,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   }
 
   const handlePaymentNext = async (confirmedNoPayment = false) => {
+    if (paymentRequestRef.current) return
     if (!selectedBooking?.testType) return
-    const selectedTestType = selectedBooking.testType
     if (!selectedBooking.client?.id) {
       toast.error('Select or register the client before recording payment.')
       return
@@ -594,40 +698,99 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       return
     }
     const clientId = selectedBooking.client.id
+    const allocationPreview = buildGuidedPaymentAllocationPreview({
+      previousBalances: outstandingPaymentBalances,
+      currentBalanceDue: payment.currentBalanceDue,
+      amountReceived,
+      clientCreditAvailable: selectedBooking.client.creditBalance ?? 0,
+      clientCreditApplied: creditToApply,
+    })
+    const fingerprint = JSON.stringify({
+      amountReceived,
+      bookingId: selectedBooking.id,
+      creditToApply,
+      method: payment.method,
+    })
+    if (!paymentOperationRef.current || paymentOperationRef.current.fingerprint !== fingerprint) {
+      paymentOperationRef.current = {
+        fingerprint,
+        id: createOperationId(),
+      }
+    }
+    const operationId = paymentOperationRef.current.id
+    const request = paymentMutation.mutateAsync({
+      bookingId: selectedBooking.id,
+      amountReceived,
+      creditApplied: creditToApply,
+      method: payment.method,
+      operationId,
+    })
+    paymentRequestRef.current = request
 
-    setNoPaymentDialogOpen(false)
-    setIsPaymentPending(true)
     try {
-      const result = await recordBookingPayment({
-        bookingId: selectedBooking.id,
-        amountReceived,
-        creditApplied: creditToApply,
-        method: payment.method,
-      })
+      const result = await request
 
       if (!result.success) {
+        paymentOperationRef.current = null
         toast.error(result.error || 'Failed to record payment')
         return
       }
 
-      const [provisioningResult] = await Promise.all([
-        ensureClientRedwoodProvisioning(clientId, selectedTestType.value),
-        refreshBookings(),
-      ])
-      redwoodProvisioningStartedForBooking.current = `${selectedBooking.id}:${clientId}:${selectedTestType.value}`
-      if (!provisioningResult.success && provisioningResult.error) {
-        toast.warning(provisioningResult.error)
-      }
+      paymentOperationRef.current = null
+      const previousAppliedAmount = allocationPreview.previousAllocations.reduce(
+        (total, allocation) => total + allocation.amountApplied,
+        0,
+      )
+      const guidedPaymentSummary =
+        amountReceived > 0 || creditToApply > 0
+          ? {
+              appliedToBookingAmount: allocationPreview.currentAmountApplied,
+              appliedToPreviousBalancesAmount: previousAppliedAmount,
+              collectedAt: result.payment?.collectedAt || new Date().toISOString(),
+              creditAppliedAmount: creditToApply,
+              creditCreatedAmount: allocationPreview.creditAmount,
+              method: payment.method,
+              newMoneyAmount: amountReceived,
+            }
+          : null
+      const nextClientCreditBalance = allocationPreview.clientCreditRemaining + allocationPreview.creditAmount
+
+      queryClient.setQueryData<Booking[]>(['guided', 'today-bookings'], (current) =>
+        current?.map((booking) =>
+          booking.id === selectedBooking.id
+            ? {
+                ...booking,
+                client: booking.client
+                  ? {
+                      ...booking.client,
+                      creditBalance: nextClientCreditBalance,
+                    }
+                  : booking.client,
+                guidedPaymentSummary,
+                guidedPaymentTotal: amountReceived,
+                payment: result.payment ?? booking.payment,
+              }
+            : booking,
+        ),
+      )
 
       setPaymentDraft(null)
       setShowAdditionalPayment(false)
+      setNoPaymentDialogOpen(false)
       void queryClient.invalidateQueries({
         queryKey: ['guided', 'outstanding-payment-balances', clientId],
-        refetchType: 'none',
       })
-      setQuery({ step: 'toxaccess', bookingId: selectedBooking.id })
+      if (currentStepRef.current === 'payment' && selectedBookingIdRef.current === selectedBooking.id) {
+        setQuery({ step: 'toxaccess', bookingId: selectedBooking.id })
+      }
+      void refreshBookings()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to record payment.')
+      void refreshBookings()
     } finally {
-      setIsPaymentPending(false)
+      if (paymentRequestRef.current === request) {
+        paymentRequestRef.current = null
+      }
     }
   }
 
@@ -648,58 +811,102 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   }
 
   const handleUndoPayment = async () => {
+    if (undoPaymentRequestRef.current) return
     if (!selectedBooking?.client?.id) return
     const clientId = selectedBooking.client.id
+    if (!undoPaymentOperationRef.current || undoPaymentOperationRef.current.bookingId !== selectedBooking.id) {
+      undoPaymentOperationRef.current = {
+        bookingId: selectedBooking.id,
+        id: createOperationId(),
+      }
+    }
+    const request = undoPaymentMutation.mutateAsync({
+      bookingId: selectedBooking.id,
+      operationId: undoPaymentOperationRef.current.id,
+    })
+    undoPaymentRequestRef.current = request
 
-    setIsPaymentPending(true)
     try {
-      const result = await undoBookingPayment({ bookingId: selectedBooking.id })
+      const result = await request
       if (!result.success) {
+        undoPaymentOperationRef.current = null
         toast.error(result.error || 'Unable to undo this payment.')
         return
       }
 
+      undoPaymentOperationRef.current = null
+      const recordedPayment = selectedBooking.guidedPaymentSummary
+      const restoredClientCredit = Math.max(
+        0,
+        (selectedBooking.client.creditBalance ?? 0) +
+          (recordedPayment?.creditAppliedAmount ?? 0) -
+          (recordedPayment?.creditCreatedAmount ?? 0),
+      )
+      const updatedBooking: Booking = {
+        ...selectedBooking,
+        client: {
+          ...selectedBooking.client,
+          creditBalance: restoredClientCredit,
+        },
+        guidedPaymentSummary: null,
+        guidedPaymentTotal: 0,
+        payment: 'payment' in result ? (result.payment ?? selectedBooking.payment) : selectedBooking.payment,
+      }
+      queryClient.setQueryData<Booking[]>(['guided', 'today-bookings'], (current) =>
+        current?.map((booking) => (booking.id === selectedBooking.id ? updatedBooking : booking)),
+      )
+
       setUndoPaymentDialogOpen(false)
       setShowAdditionalPayment(false)
-      const refreshedBookings = await refreshBookings()
-      const updatedBooking = refreshedBookings.find((booking) => booking.id === selectedBooking.id)
-      setPaymentDraft(updatedBooking ? getPaymentDefaults(updatedBooking) : null)
-      await queryClient.invalidateQueries({
+      setPaymentDraft(getPaymentDefaults(updatedBooking))
+      void queryClient.invalidateQueries({
         queryKey: ['guided', 'outstanding-payment-balances', clientId],
       })
+      void refreshBookings()
       toast.success('Payment undone and balances restored')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to undo this payment.')
+      void refreshBookings()
     } finally {
-      setIsPaymentPending(false)
+      if (undoPaymentRequestRef.current === request) {
+        undoPaymentRequestRef.current = null
+      }
     }
   }
 
-  const handleContinueToCollection = () => {
+  const handleContinueToCollection = async () => {
     if (!selectedBooking?.testType || !selectedBooking.client?.id) return
     if (!validateClientIdentity()) return
 
-    startTransition(async () => {
+    try {
       if (!redwoodProvisioning?.canContinue) {
         toast.warning('ToxAccess setup is not verified. Complete the collection manually if needed.')
       }
 
-      const context = await refreshBookingClientContext(selectedBooking.id)
+      const context = await continueMutation.mutateAsync(selectedBooking.id)
 
       if (context.needsRegistration || !context.clientId) {
+        if (currentStepRef.current !== 'toxaccess' || selectedBookingIdRef.current !== selectedBooking.id) return
         toast.error('Select or register the client before collection.')
-        await refreshBookings()
+        void refreshBookings()
         setQuery({ step: 'review', bookingId: selectedBooking.id })
         return
       }
 
       if (context.needsTestType || !context.testType) {
+        if (currentStepRef.current !== 'toxaccess' || selectedBookingIdRef.current !== selectedBooking.id) return
         toast.error('Select the test type for this appointment before collection.')
-        await refreshBookings()
+        void refreshBookings()
         setQuery({ step: 'review', bookingId: selectedBooking.id })
         return
       }
 
-      router.push(getCollectionRoute(context.testType, context.clientId, selectedBooking.id))
-    })
+      if (currentStepRef.current === 'toxaccess' && selectedBookingIdRef.current === selectedBooking.id) {
+        router.push(getCollectionRoute(context.testType, context.clientId, selectedBooking.id))
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Collection could not be started.')
+    }
   }
 
   const goBackOneStep = () => {
@@ -851,9 +1058,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           <div className="border-border bg-background/40 divide-border divide-y overflow-hidden rounded-lg border">
             {reviewRows.map((item) => {
               const showTestTypeError =
-                item.label === 'Booking test' &&
-                testTypeValidationErrorBookingId === booking.id &&
-                !booking.testType
+                item.label === 'Booking test' && testTypeValidationErrorBookingId === booking.id && !booking.testType
               const errorId = `booking-test-error-${booking.id}`
 
               return (
@@ -1092,7 +1297,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           </CardContent>
         </Card>
 
-        <Card data-testid="guided-walk-in-card" className="overflow-hidden border-l-4 border-l-primary">
+        <Card data-testid="guided-walk-in-card" className="border-l-primary overflow-hidden border-l-4">
           <CardHeader className="flex flex-col gap-3 space-y-0 p-4 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <div className="flex min-w-0 flex-col gap-1">
               <div data-testid="guided-walk-in-title-row" className="flex items-center gap-2">
@@ -1120,10 +1325,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           onOpenChange={setWalkInClientDrawerOpen}
           onRegister={handleOpenWalkInRegistration}
           onSelect={(client: SimpleClient) =>
-            handleCreateWalkInBooking(
-              client.id,
-              client.fullName || `${client.firstName} ${client.lastName}`,
-            )
+            handleCreateWalkInBooking(client.id, client.fullName || `${client.firstName} ${client.lastName}`)
           }
         />
         <RegisterClientDialog
@@ -1138,11 +1340,21 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               <DialogDescription>{actionCopy?.description}</DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setScheduleAction(null)} disabled={isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setScheduleAction(null)}
+                disabled={scheduleActionMutation.isPending}
+              >
                 Keep appointment
               </Button>
-              <Button type="button" variant="destructive" onClick={handleConfirmScheduleAction} disabled={isPending}>
-                {isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleConfirmScheduleAction}
+                disabled={scheduleActionMutation.isPending}
+              >
+                {scheduleActionMutation.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
                 {actionCopy?.confirmLabel}
               </Button>
             </DialogFooter>
@@ -1295,7 +1507,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     Add another payment
                   </Button>
                 )}
-                <AlertDialog open={undoPaymentDialogOpen} onOpenChange={setUndoPaymentDialogOpen}>
+                <AlertDialog
+                  open={undoPaymentDialogOpen}
+                  onOpenChange={(open) => {
+                    if (!undoPaymentMutation.isPending) setUndoPaymentDialogOpen(open)
+                  }}
+                >
                   <AlertDialogTrigger
                     render={
                       <Button type="button" variant="outline" className="flex-1">
@@ -1319,14 +1536,23 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel variant="outline">Cancel</AlertDialogCancel>
+                      <AlertDialogCancel variant="outline" disabled={undoPaymentMutation.isPending}>
+                        Cancel
+                      </AlertDialogCancel>
                       <AlertDialogAction
                         type="button"
                         variant="destructive"
                         onClick={handleUndoPayment}
-                        disabled={isPaymentPending}
+                        disabled={undoPaymentMutation.isPending}
                       >
-                        {isPaymentPending ? 'Undoing...' : 'Undo payment'}
+                        {undoPaymentMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 size-4 animate-spin" />
+                            Undoing...
+                          </>
+                        ) : (
+                          'Undo payment'
+                        )}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -1494,7 +1720,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       key={amount}
                       value={String(amount)}
                       aria-label={`Set amount received to ${currency.format(amount)}`}
-                      className="text-muted-foreground h-11 opacity-60 data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground data-pressed:opacity-100"
+                      className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-11 opacity-60 data-pressed:opacity-100"
                     >
                       {currency.format(amount)}
                       {amount > 0 && amount === allocationPreview.dueAfterCredit ? ' · Pay all' : ''}
@@ -1558,7 +1784,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     <ToggleGroupItem
                       value="cash"
                       aria-label="Cash payment method"
-                      className="text-muted-foreground h-12 px-3 opacity-60 data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground data-pressed:opacity-100"
+                      className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-12 px-3 opacity-60 data-pressed:opacity-100"
                     >
                       <Banknote />
                       Cash
@@ -1566,7 +1792,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     <ToggleGroupItem
                       value="card"
                       aria-label="Card payment method"
-                      className="text-muted-foreground h-12 px-3 opacity-60 data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground data-pressed:opacity-100"
+                      className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-12 px-3 opacity-60 data-pressed:opacity-100"
                     >
                       <CreditCard />
                       Card
@@ -1836,7 +2062,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           : false
 
   const backLabel = currentStep === 'schedule' ? 'Cancel' : 'Back'
-  const footerIsPending = currentStep === 'payment' ? isPaymentPending : isPending
+  const footerIsPending =
+    currentStep === 'payment'
+      ? paymentMutation.isPending
+      : currentStep === 'toxaccess'
+        ? continueMutation.isPending
+        : false
   const paymentBalancesAreLoading = currentStep === 'payment' && isFetchingOutstandingPaymentBalances
 
   return (
@@ -1845,14 +2076,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         {renderCurrentStep()}
 
         <div className="mt-6 flex items-center justify-between border-t pt-4">
-          <Button
-            type="button"
-            onClick={goBackOneStep}
-            variant="outline"
-            disabled={footerIsPending}
-            size="lg"
-            data-testid="wizard-back-button"
-          >
+          <Button type="button" onClick={goBackOneStep} variant="outline" size="lg" data-testid="wizard-back-button">
             <ChevronLeft className="mr-2 h-5 w-5" />
             {backLabel}
           </Button>
@@ -1896,7 +2120,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         </div>
       </div>
 
-      <AlertDialog open={noPaymentDialogOpen} onOpenChange={setNoPaymentDialogOpen}>
+      <AlertDialog
+        open={noPaymentDialogOpen}
+        onOpenChange={(open) => {
+          if (!paymentMutation.isPending) setNoPaymentDialogOpen(open)
+        }}
+      >
         <AlertDialogContent size="sm">
           <AlertDialogHeader>
             <AlertDialogMedia className="bg-destructive/10 text-destructive">
@@ -1909,9 +2138,22 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel variant="outline">Go back</AlertDialogCancel>
-            <AlertDialogAction type="button" onClick={() => handlePaymentNext(true)} disabled={isPaymentPending}>
-              Continue
+            <AlertDialogCancel variant="outline" disabled={paymentMutation.isPending}>
+              Go back
+            </AlertDialogCancel>
+            <AlertDialogAction
+              type="button"
+              onClick={() => handlePaymentNext(true)}
+              disabled={paymentMutation.isPending}
+            >
+              {paymentMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Continuing...
+                </>
+              ) : (
+                'Continue'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1989,12 +2231,17 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           </div>
 
           <DrawerFooter className="border-border border-t sm:flex-row sm:justify-end">
-            <Button type="button" variant="outline" onClick={() => setTestTypeDrawerOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTestTypeDrawerOpen(false)}
+              disabled={testTypeMutation.isPending}
+            >
               Cancel
             </Button>
             <Button
               type="button"
-              disabled={!testTypeDrawerSelection || isPending}
+              disabled={!testTypeDrawerSelection || testTypeMutation.isPending}
               onClick={() =>
                 handleSelectTestType(testTypeDrawerSelection, {
                   closeDrawer: true,
@@ -2002,7 +2249,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 })
               }
             >
-              {isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {testTypeMutation.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
               Save Test
             </Button>
           </DrawerFooter>
