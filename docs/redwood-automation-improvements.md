@@ -3,7 +3,11 @@
 ## Runtime requirements
 
 - Set `REDWOOD_AUTOMATION_ENABLED=true` only after the dedicated worker and credentials are deployed.
-- Run `pnpm worker:redwood` continuously. The guided workflow assumes the default two-second worker polling interval and normally reports donor readiness within 1–20 seconds when direct HTTP succeeds.
+- Run `pnpm worker:redwood` continuously. It keeps one Payload process alive, checks an idle queue every
+  `REDWOOD_WORKER_POLL_MS` milliseconds (one second by default), and drains follow-up work immediately after a job
+  succeeds. This avoids repeated Payload startup work and removes an extra polling delay between donor creation and
+  the required default-test sync. The guided workflow normally reports donor readiness within 1–20 seconds when
+  direct HTTP succeeds.
 - Run `pnpm worker:redwood:schedules` when nightly repair sweeps are enabled.
 - Keep Redwood credentials server-only. Never expose them through client props, logs, or admin alert context.
 - Keep `REDWOOD_ACCOUNT_NUMBER` in `REDWOOD_ALLOWED_ACCOUNT_NUMBERS`; mutations fail closed for other accounts.
@@ -19,7 +23,7 @@
 
 ## Guided collection behavior
 
-- The ToxAccess step polls verified donor/default-test/headshot status every 1.5 seconds while work is active.
+- The ToxAccess step polls verified donor/default-test/headshot status every second while work is active.
 - Physical collection remains blocked until the donor ID is verified and while an automatic required default-test sync is still running. A terminal default-test failure becomes a prominent manual warning so the operator can set it in ToxAccess and continue.
 - Headshot work is visible but does not block collection after donor/default-test readiness; a later capture still queues automatically.
 - Retryable jobs receive three retries (four total attempts). During retries the UI stays in a working state. Exhaustion creates or updates a deduplicated Admin Alert.

@@ -191,6 +191,24 @@ export const Bookings: CollectionConfig = {
           name: 'notes',
           type: 'textarea',
         },
+        {
+          name: 'workflowOperationId',
+          type: 'text',
+          admin: {
+            hidden: true,
+          },
+        },
+        {
+          name: 'workflowOperationType',
+          type: 'select',
+          options: [
+            { label: 'Record payment', value: 'record-payment' },
+            { label: 'Undo payment', value: 'undo-payment' },
+          ],
+          admin: {
+            hidden: true,
+          },
+        },
       ],
     },
     {

@@ -16,7 +16,6 @@ import {
   findConfiguredTestTypeByCalcomAnswer,
   getActiveTestTypes,
   mapTestTypeValue,
-  type GuidedTestType,
 } from '@/config/test-types'
 import { getCalcomBookingActionLinks, isPastScheduledBookingTime } from './schedule-utils'
 import {
@@ -39,10 +38,7 @@ import {
   queueRedwoodImportForClient,
 } from '@/lib/redwood/queue'
 import { deriveRedwoodProvisioningStatus, type RedwoodProvisioningStatus } from '@/lib/redwood/provisioning'
-import {
-  buildRedwoodCollectSpecimenUrl,
-  REDWOOD_MOBILE_DONORS_URL,
-} from '@/lib/redwood/donor-urls'
+import { buildRedwoodCollectSpecimenUrl, REDWOOD_MOBILE_DONORS_URL } from '@/lib/redwood/donor-urls'
 import { shouldQueueGuidedRedwoodDonor } from './redwood-provisioning-state'
 
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
@@ -265,44 +261,30 @@ function getPhoneFromCustomInputs(customInputs: unknown): string {
   return ''
 }
 
-async function getFirstDrugTestDate(payload: Payload, clientId: string | null | undefined) {
-  if (!clientId) return null
+async function getFirstDrugTestDates(payload: Payload, clientIds: string[]) {
+  const datesByClientId = new Map<string, string>()
+  if (clientIds.length === 0) return datesByClientId
 
   const result = await payload.find({
     collection: 'drug-tests',
     where: {
       relatedClient: {
-        equals: clientId,
+        in: clientIds,
       },
     },
     depth: 0,
-    limit: 1,
+    limit: 1000,
     sort: 'collectionDate',
     overrideAccess: true,
   })
 
-  return result.docs[0]?.collectionDate || null
-}
-
-async function persistCalcomScheduledTestType(payload: Payload, bookingId: string, testType: GuidedTestType | null) {
-  if (!testType?.value) return
-
-  try {
-    await payload.update({
-      collection: 'bookings',
-      id: bookingId,
-      data: {
-        scheduledTestType: testType.value,
-      },
-      overrideAccess: true,
-    })
-    revalidateBookingViews()
-  } catch (error) {
-    payload.logger.warn({
-      msg: `Failed to save Cal.com scheduled test type on booking ${bookingId}`,
-      err: error,
-    })
+  for (const test of result.docs) {
+    const clientId = getRelationshipId(test.relatedClient)
+    if (!clientId || datesByClientId.has(clientId)) continue
+    datesByClientId.set(clientId, test.collectionDate || test.createdAt)
   }
+
+  return datesByClientId
 }
 
 export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
@@ -339,13 +321,21 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
         },
       ],
     },
-    depth: 4,
+    depth: 2,
     limit: 100,
     sort: 'startTime',
     overrideAccess: true,
   })
 
   const bookingIds = result.docs.map((booking) => String(booking.id))
+  const clientIds = Array.from(
+    new Set(
+      result.docs
+        .map((booking) => getRelationshipId(booking.relatedClient))
+        .filter((clientId): clientId is string => Boolean(clientId)),
+    ),
+  )
+  const firstDrugTestDatesPromise = getFirstDrugTestDates(payload, clientIds)
   const guidedPaymentSummaries = new Map<
     string,
     {
@@ -431,14 +421,11 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
       const calcomTestType = getCalcomBookingTestType(booking)
       const bookingTestType = scheduledTestType ?? calcomTestType
 
-      if (!scheduledTestType && calcomTestType) {
-        await persistCalcomScheduledTestType(payload, booking.id as string, calcomTestType)
-      }
-
       const referralTestType = getPreferredTestType(referral)
       const testType = bookingTestType ?? referralTestType
       const referralType = client?.referralType as 'court' | 'employer' | 'self' | undefined
-      const firstDrugTestDate = await getFirstDrugTestDate(payload, client?.id as string | undefined)
+      const firstDrugTestDates = await firstDrugTestDatesPromise
+      const firstDrugTestDate = firstDrugTestDates.get(String(client?.id || '')) || null
       const headshot =
         client?.headshot && typeof client.headshot === 'object'
           ? client.headshot.thumbnailURL || client.headshot.url || null
@@ -512,54 +499,56 @@ async function loadClientRedwoodProvisioningStatus(
   clientId: string,
   testTypeValue?: string,
 ): Promise<GuidedRedwoodProvisioningStatus> {
-  const client = await payload.findByID({
-    collection: 'clients',
-    id: clientId,
-    depth: 1,
-    overrideAccess: true,
-  })
-  const importRuns = await payload.find({
-    collection: 'job-runs',
-    where: {
-      and: [
-        {
-          client: {
-            equals: clientId,
+  const [client, importRuns, payloadImportJobs] = await Promise.all([
+    payload.findByID({
+      collection: 'clients',
+      id: clientId,
+      depth: 1,
+      overrideAccess: true,
+    }),
+    payload.find({
+      collection: 'job-runs',
+      where: {
+        and: [
+          {
+            client: {
+              equals: clientId,
+            },
           },
-        },
-        {
-          taskSlug: {
-            equals: 'redwood-import-client',
+          {
+            taskSlug: {
+              equals: 'redwood-import-client',
+            },
           },
-        },
-      ],
-    },
-    sort: '-createdAt',
-    limit: 1,
-    depth: 0,
-    overrideAccess: true,
-  })
-  const payloadImportJobs = await payload.find({
-    collection: 'payload-jobs',
-    where: {
-      and: [
-        {
-          'input.clientId': {
-            equals: clientId,
+        ],
+      },
+      sort: '-createdAt',
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    }),
+    payload.find({
+      collection: 'payload-jobs',
+      where: {
+        and: [
+          {
+            'input.clientId': {
+              equals: clientId,
+            },
           },
-        },
-        {
-          taskSlug: {
-            equals: 'redwood-import-client',
+          {
+            taskSlug: {
+              equals: 'redwood-import-client',
+            },
           },
-        },
-      ],
-    },
-    sort: '-createdAt',
-    limit: 1,
-    depth: 0,
-    overrideAccess: true,
-  })
+        ],
+      },
+      sort: '-createdAt',
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    }),
+  ])
   const latestImportRun = importRuns.docs[0]
   const latestPayloadImportJob = payloadImportJobs.docs[0]
   const importRetriesExhausted =
@@ -613,12 +602,13 @@ async function loadClientRedwoodProvisioningStatus(
 export async function getClientRedwoodProvisioningStatus(
   clientId: string,
   testTypeValue: string,
+  req?: AdminPayloadRequest,
 ): Promise<GuidedRedwoodProvisioningStatus> {
   if (!clientId) {
     throw new Error('Client ID is required.')
   }
 
-  const payload = await getAdminPayload()
+  const payload = await getAdminPayload(req)
   return loadClientRedwoodProvisioningStatus(payload, clientId, testTypeValue)
 }
 
@@ -700,6 +690,7 @@ async function applyGuidedLabDefaultTest(args: {
 export async function ensureClientRedwoodProvisioning(
   clientId: string,
   testTypeValue: string,
+  req?: AdminPayloadRequest,
 ): Promise<{
   error?: string
   success: boolean
@@ -712,7 +703,7 @@ export async function ensureClientRedwoodProvisioning(
       }
     }
 
-    const payload = await getAdminPayload()
+    const payload = await getAdminPayload(req)
     await applyGuidedLabDefaultTest({
       clientId,
       payload,
@@ -767,10 +758,10 @@ export async function retryClientRedwoodProvisioning(clientId: string): Promise<
   }
 }
 
-export async function getClientOutstandingPaymentBalances(clientId: string) {
+export async function getClientOutstandingPaymentBalances(clientId: string, req?: AdminPayloadRequest) {
   if (!clientId) return []
 
-  const payload = await getAdminPayload()
+  const payload = await getAdminPayload(req)
   const result = await payload.find({
     collection: 'drug-tests',
     where: {
@@ -806,10 +797,10 @@ export async function getClientOutstandingPaymentBalances(clientId: string) {
     .filter((balance) => balance.balanceDue > 0)
 }
 
-export async function getClientReferralProfile(clientId: string) {
+export async function getClientReferralProfile(clientId: string, req?: AdminPayloadRequest) {
   if (!clientId) return null
 
-  const payload = await getAdminPayload()
+  const payload = await getAdminPayload(req)
   const client = await payload.findByID({
     collection: 'clients',
     id: clientId,
@@ -855,8 +846,8 @@ export async function getBookingRegistrationDefaults(bookingId: string) {
   }
 }
 
-export async function linkBookingToClient(bookingId: string, clientId: string) {
-  const payload = await getAdminPayload()
+export async function linkBookingToClient(bookingId: string, clientId: string, req?: AdminPayloadRequest) {
+  const payload = await getAdminPayload(req)
   await payload.update({
     collection: 'bookings',
     id: bookingId,
@@ -868,7 +859,7 @@ export async function linkBookingToClient(bookingId: string, clientId: string) {
   revalidateBookingViews()
 }
 
-export async function setBookingScheduledTestType(bookingId: string, testTypeId: string) {
+export async function setBookingScheduledTestType(bookingId: string, testTypeId: string, req?: AdminPayloadRequest) {
   if (!bookingId || !testTypeId) {
     return { success: false, error: 'Booking and test type are required.' }
   }
@@ -878,7 +869,7 @@ export async function setBookingScheduledTestType(bookingId: string, testTypeId:
     return { success: false, error: 'Select a valid test type.' }
   }
 
-  const payload = await getAdminPayload()
+  const payload = await getAdminPayload(req)
   const booking = await payload.findByID({
     collection: 'bookings',
     id: bookingId,
@@ -912,12 +903,12 @@ export async function setBookingScheduledTestType(bookingId: string, testTypeId:
   return { success: true }
 }
 
-export async function createWalkInBooking(input: { clientId: string }) {
+export async function createWalkInBooking(input: { clientId: string }, req?: AdminPayloadRequest) {
   if (!input.clientId) {
     return { success: false, error: 'Client is required.' }
   }
 
-  const payload = await getAdminPayload()
+  const payload = await getAdminPayload(req)
   const client = await payload.findByID({
     collection: 'clients',
     id: input.clientId,
@@ -971,12 +962,15 @@ export async function createWalkInBooking(input: { clientId: string }) {
   }
 }
 
-export async function cancelGuidedBooking(input: { bookingId: string }): Promise<ScheduleActionResult> {
+export async function cancelGuidedBooking(
+  input: { bookingId: string },
+  req?: AdminPayloadRequest,
+): Promise<ScheduleActionResult> {
   if (!input.bookingId) {
     return { success: false, error: 'Booking is required.' }
   }
 
-  const payload = await getAdminPayload()
+  const payload = await getAdminPayload(req)
   const booking = (await payload.findByID({
     collection: 'bookings',
     id: input.bookingId,
@@ -1010,7 +1004,10 @@ export async function cancelGuidedBooking(input: { bookingId: string }): Promise
   return { success: true, warning: cancelResult.warning }
 }
 
-export async function cancelAndRefundGuidedBooking(input: { bookingId: string }): Promise<ScheduleActionResult> {
+export async function cancelAndRefundGuidedBooking(
+  input: { bookingId: string },
+  req?: AdminPayloadRequest,
+): Promise<ScheduleActionResult> {
   if (!input.bookingId) {
     return { success: false, error: 'Booking is required.' }
   }
@@ -1019,7 +1016,7 @@ export async function cancelAndRefundGuidedBooking(input: { bookingId: string })
     return { success: false, error: 'Stripe secret key is not configured.' }
   }
 
-  const payload = await getAdminPayload()
+  const payload = await getAdminPayload(req)
   const booking = (await payload.findByID({
     collection: 'bookings',
     id: input.bookingId,
@@ -1132,13 +1129,17 @@ export async function cancelAndRefundGuidedBooking(input: { bookingId: string })
   }
 }
 
-export async function recordBookingPayment(input: {
-  bookingId: string
-  amountReceived: number
-  creditApplied?: number
-  method: Extract<PaymentMethod, 'cash' | 'card'>
-  notes?: string
-}) {
+export async function recordBookingPayment(
+  input: {
+    bookingId: string
+    amountReceived: number
+    creditApplied?: number
+    method: Extract<PaymentMethod, 'cash' | 'card'>
+    notes?: string
+    operationId?: string
+  },
+  req?: AdminPayloadRequest,
+) {
   if (!input.bookingId) {
     return { success: false, error: 'Booking is required.' }
   }
@@ -1156,7 +1157,8 @@ export async function recordBookingPayment(input: {
     return { success: false, error: 'Client credit applied must be zero or greater.' }
   }
 
-  const payload = await getAdminPayload()
+  const operationId = input.operationId?.trim() || null
+  const payload = await getAdminPayload(req)
   try {
     const payment = await withPayloadTransaction(payload, async (req) => {
       const existingBooking = await payload.findByID({
@@ -1166,6 +1168,14 @@ export async function recordBookingPayment(input: {
         overrideAccess: true,
         req,
       })
+      if (
+        operationId &&
+        existingBooking.payment?.workflowOperationId === operationId &&
+        existingBooking.payment.workflowOperationType === 'record-payment'
+      ) {
+        return existingBooking.payment
+      }
+
       const clientId = getRelationshipId(existingBooking.relatedClient)
       if (!clientId) {
         throw new Error('Select or register the client before recording payment.')
@@ -1252,6 +1262,12 @@ export async function recordBookingPayment(input: {
             status: bookingPaymentStatus,
             notes,
             collectedAt: new Date().toISOString(),
+            ...(operationId
+              ? {
+                  workflowOperationId: operationId,
+                  workflowOperationType: 'record-payment' as const,
+                }
+              : {}),
           },
         },
         depth: 0,
@@ -1276,12 +1292,16 @@ export async function recordBookingPayment(input: {
   }
 }
 
-export async function undoBookingPayment(input: { bookingId: string }) {
+export async function undoBookingPayment(
+  input: { bookingId: string; operationId?: string },
+  req?: AdminPayloadRequest,
+) {
   if (!input.bookingId) {
     return { success: false, error: 'Booking is required.' }
   }
 
-  const payload = await getAdminPayload()
+  const operationId = input.operationId?.trim() || null
+  const payload = await getAdminPayload(req)
 
   try {
     const result = await withPayloadTransaction(payload, async (req) => {
@@ -1294,6 +1314,18 @@ export async function undoBookingPayment(input: { bookingId: string }) {
       })
       if (booking.sampleCollection?.status === 'collected') {
         throw new Error('This payment cannot be undone after the sample has been collected.')
+      }
+
+      if (
+        operationId &&
+        booking.payment?.workflowOperationId === operationId &&
+        booking.payment.workflowOperationType === 'undo-payment'
+      ) {
+        return {
+          amountRemovedFromBooking: 0,
+          payment: booking.payment,
+          duplicate: true,
+        }
       }
 
       const clientId = getRelationshipId(booking.relatedClient)
@@ -1339,7 +1371,7 @@ export async function undoBookingPayment(input: { bookingId: string }) {
       )
       const balanceDue = Math.max(0, normalizeMoney(amountDue - nextAmountPaid))
 
-      await payload.update({
+      const updatedBooking = await payload.update({
         collection: 'bookings',
         id: input.bookingId,
         data: {
@@ -1350,6 +1382,12 @@ export async function undoBookingPayment(input: { bookingId: string }) {
             status: balanceDue <= 0 ? 'paid' : nextAmountPaid > 0 ? 'partial' : 'unpaid',
             method: nextAmountPaid > 0 ? existingPayment.method || 'not-paid' : 'not-paid',
             collectedAt: nextAmountPaid > 0 ? existingPayment.collectedAt : null,
+            ...(operationId
+              ? {
+                  workflowOperationId: operationId,
+                  workflowOperationType: 'undo-payment' as const,
+                }
+              : {}),
           },
         },
         depth: 0,
@@ -1360,6 +1398,7 @@ export async function undoBookingPayment(input: { bookingId: string }) {
       return {
         ...reversed,
         amountRemovedFromBooking,
+        payment: updatedBooking.payment,
       }
     })
 
@@ -1373,12 +1412,12 @@ export async function undoBookingPayment(input: { bookingId: string }) {
   }
 }
 
-export async function refreshBookingClientContext(bookingId: string) {
-  const payload = await getAdminPayload()
+export async function refreshBookingClientContext(bookingId: string, req?: AdminPayloadRequest) {
+  const payload = await getAdminPayload(req)
   const booking = await payload.findByID({
     collection: 'bookings',
     id: bookingId,
-    depth: 4,
+    depth: 2,
     overrideAccess: true,
   })
 

@@ -1194,6 +1194,8 @@ export interface Booking {
     status?: ('paid' | 'partial' | 'unpaid') | null;
     collectedAt?: string | null;
     notes?: string | null;
+    workflowOperationId?: string | null;
+    workflowOperationType?: ('record-payment' | 'undo-payment') | null;
   };
   /**
    * Tracks whether the scheduled specimen collection was completed in a workflow.
@@ -3377,6 +3379,8 @@ export interface BookingsSelect<T extends boolean = true> {
         status?: T;
         collectedAt?: T;
         notes?: T;
+        workflowOperationId?: T;
+        workflowOperationType?: T;
       };
   sampleCollection?:
     | T

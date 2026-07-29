@@ -26,7 +26,7 @@ import { formatDobInput } from '@/lib/date-utils'
 import { formatPhoneNumber } from '@/lib/client-utils'
 import { cn } from '@/utilities/cn'
 import { invalidateWizardClientDerivedData } from '../../../queries'
-import { getClientReferralProfile } from '../../complete-workflow/actions'
+import { guidedWorkflowApi } from '../../complete-workflow/guided-workflow-api'
 import { ReferralProfileDrawer } from '../emails/referrals/ReferralProfileDrawer'
 import { clientBasicsFieldsSchema, type ClientBasicsFormValues } from './client-basics-schema'
 import { HeadshotCaptureCard } from './HeadshotCaptureCard'
@@ -111,8 +111,9 @@ export function ClientDetailsCard({
   })
   const { data: referralProfile = null, refetch: refetchReferral } = useQuery({
     queryKey: ['client-details', 'referral', client.id],
-    queryFn: () => getClientReferralProfile(client.id),
+    queryFn: ({ signal }) => guidedWorkflowApi.getReferralProfile(client.id, signal),
     enabled: editable && (editorOpen || referralOpen),
+    staleTime: 30_000,
   })
 
   const fullName = useMemo(
