@@ -199,6 +199,13 @@ export function getCalcomRescheduleUid(payload: CalcomWebhookPayload['payload'])
   return payload.rescheduleUid || getNestedString(payload.metadata, ['rescheduleUid'])
 }
 
+export function isRandomTestingPlaceholder(payload: CalcomWebhookPayload['payload']) {
+  return (
+    getNestedString(payload.metadata, ['source']) === 'toxaccess-random-testing' &&
+    getNestedString(payload.metadata, ['kind']) === 'placeholder'
+  )
+}
+
 const scheduledTestResponseKeys = new Set(['test', 'testtype', 'test_type', 'scheduledtesttype', 'scheduled_test_type'])
 
 function normalizeResponseKey(value: string) {

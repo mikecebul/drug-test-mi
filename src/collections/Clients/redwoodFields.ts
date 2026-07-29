@@ -16,6 +16,9 @@ type ClientTab = {
 
 const denyRedwoodManagedFieldWrite: FieldAccess = () => false
 const allowAdminRedwoodFieldRead: FieldAccess = ({ req }) => req.user?.collection === 'admins'
+const allowAuthenticatedRedwoodFieldRead: FieldAccess = ({ req }) =>
+  req.user?.collection === 'admins' || req.user?.collection === 'clients'
+const allowAdminRandomTestingWrite: FieldAccess = ({ req }) => req.user?.collection === 'admins'
 
 /**
  * Redwood integration state is visible to admins but may only be written by
@@ -25,6 +28,11 @@ export const redwoodSystemFieldAccess = {
   create: denyRedwoodManagedFieldWrite,
   read: allowAdminRedwoodFieldRead,
   update: denyRedwoodManagedFieldWrite,
+}
+
+const clientVisibleRedwoodSystemFieldAccess = {
+  ...redwoodSystemFieldAccess,
+  read: allowAuthenticatedRedwoodFieldRead,
 }
 
 const redwoodStatusOptions = [
@@ -76,6 +84,72 @@ export const redwoodSyncTab: ClientTab = {
   description: 'Donor connection status in ToxAccess',
   fields: [
     {
+      name: 'randomTestingActive',
+      label: 'Random Testing',
+      type: 'checkbox',
+      defaultValue: false,
+      access: {
+        create: allowAdminRandomTestingWrite,
+        read: allowAuthenticatedRedwoodFieldRead,
+        update: allowAdminRandomTestingWrite,
+      },
+      admin: {
+        description:
+          'Assign this client a durable random-testing time. Clearing this keeps the client active and releases the slot.',
+      },
+    },
+    {
+      type: 'row',
+      fields: [
+        {
+          name: 'randomTestingWeekdayTime',
+          label: 'Weekday Time',
+          type: 'text',
+          access: clientVisibleRedwoodSystemFieldAccess,
+          admin: {
+            readOnly: true,
+            description: 'Default Monday-Friday appointment time.',
+            width: '33%',
+          },
+        },
+        {
+          name: 'randomTestingWeekendTime',
+          label: 'Weekend Time',
+          type: 'text',
+          access: clientVisibleRedwoodSystemFieldAccess,
+          admin: {
+            readOnly: true,
+            description: 'Default Saturday-Sunday appointment time.',
+            width: '33%',
+          },
+        },
+        {
+          name: 'randomTestingSlotIndex',
+          label: 'Slot',
+          type: 'number',
+          access: redwoodSystemFieldAccess,
+          admin: {
+            readOnly: true,
+            description: 'Zero-based assignment used to preserve ordering.',
+            width: '33%',
+          },
+        },
+      ],
+    },
+    {
+      name: 'randomTestingAssignedAt',
+      type: 'date',
+      access: redwoodSystemFieldAccess,
+      admin: {
+        readOnly: true,
+        date: {
+          pickerAppearance: 'dayAndTime',
+          displayFormat: 'MM/dd/yyyy HH:mm',
+        },
+        description: 'When this durable random-testing slot was assigned.',
+      },
+    },
+    {
       name: 'redwoodSyncStatus',
       type: 'select',
       access: redwoodSystemFieldAccess,
@@ -123,7 +197,7 @@ export const redwoodSyncTab: ClientTab = {
         {
           name: 'redwoodCallInCode',
           type: 'text',
-          access: redwoodSystemFieldAccess,
+          access: clientVisibleRedwoodSystemFieldAccess,
           admin: {
             readOnly: true,
             description: 'Redwood call-in / check-in code synced back from the donor record.',

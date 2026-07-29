@@ -20,9 +20,30 @@
 - **Depends on**: none
 - **Category**: direction
 - **Planned at**: commit `b9233d9`, 2026-07-27
-- **Current state**: Upcoming-hold design is ready; day-of replacement remains
-  blocked until a populated `ScheduledCollections.aspx` response can be
-  captured safely.
+- **Current state**: Implemented on `codex/toxaccess-schedule-sync`. The
+  populated day-of contract was captured safely on 2026-07-29, including the
+  hidden donor ID used for exact client matching.
+
+## Implementation outcome (2026-07-29)
+
+- `ScheduledCollections.aspx` exposes the donor ID directly in each row's
+  hidden `$DonorId` input; the integration does not click Print Label.
+- The populated row exposed a valid donor ID suitable for exact client
+  matching. Live donor details were intentionally excluded from fixtures and
+  repository documentation.
+- Admins can enroll a client in random testing. The client keeps a durable
+  ten-minute weekday/weekend slot until enrollment is cleared, at which point
+  the earliest slot is reusable without deactivating the client.
+- The client dashboard displays the synced call-in code, configured call-in
+  phone number, and assigned weekday/weekend times.
+- Monday's scheduled task creates metadata-tagged Cal.com holds from the
+  two-week aggregate page. The daily task replaces them with named bookings
+  from the day-of page, links by exact donor ID, writes the Payload booking
+  used by Today's Schedule, and cancels only the corresponding tagged hold.
+- Calendar placement reads Cal.com availability and date overrides, rounds to
+  the ten-minute grid, and deliberately creates conflicts as requested.
+- Cal.com hold webhooks are ignored so anonymous reservations never appear in
+  Today's Schedule.
 
 ## Live contract findings (2026-07-27)
 
@@ -198,17 +219,17 @@ const redwoodSessionConcurrency = {
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-|---|---|---|
-| Generate Payload types | `pnpm generate:types` | exit 0; `src/payload-types.ts` includes the new collection, fields, and task slugs |
-| Focused parser/sync tests | `pnpm exec vitest run src/lib/redwood/__tests__/schedule-pages.test.ts src/lib/redwood/__tests__/schedule-sync.test.ts src/utilities/__tests__/calcom-api.test.ts` | exit 0, all tests pass |
-| Webhook tests | `pnpm exec vitest run src/app/'(payload)'/api/webhooks/calcom/__tests__/calcomWebhook.test.ts src/app/'(payload)'/api/webhooks/calcom/__tests__/calcomRoute.test.ts` | exit 0, all tests pass |
-| Booking regression tests | `pnpm exec vitest run src/views/DrugTestWizard/workflows/complete-workflow/schedule-utils.test.ts src/collections/Payments/services/calcomBookingPayment.test.ts` | exit 0, all tests pass |
-| Integration suite | `pnpm test:integration:ci` | exit 0, all tests pass |
-| Typecheck | `pnpm exec tsc --noEmit --pretty false` | exit 0, no errors |
-| Lint | `pnpm exec eslint src/lib/redwood src/lib/jobs/jobRuns.ts src/collections/Bookings src/collections/ToxAccessScheduleReservations src/app/'(payload)'/api/webhooks/calcom src/utilities/calcom-api.ts src/payload.config.ts` | exit 0, no errors |
-| Production env inventory | `pnpm validate:production-env` | exit 0 |
-| Optional guided UI gate | `pnpm exec playwright test tests/e2e/wizard-guided-schedule.spec.ts` | exit 0 when the documented e2e services/env are available |
+| Purpose                   | Command                                                                                                                                                                                                                     | Expected on success                                                                |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Generate Payload types    | `pnpm generate:types`                                                                                                                                                                                                       | exit 0; `src/payload-types.ts` includes the new collection, fields, and task slugs |
+| Focused parser/sync tests | `pnpm exec vitest run src/lib/redwood/__tests__/schedule-pages.test.ts src/lib/redwood/__tests__/schedule-sync.test.ts src/utilities/__tests__/calcom-api.test.ts`                                                          | exit 0, all tests pass                                                             |
+| Webhook tests             | `pnpm exec vitest run src/app/'(payload)'/api/webhooks/calcom/__tests__/calcomWebhook.test.ts src/app/'(payload)'/api/webhooks/calcom/__tests__/calcomRoute.test.ts`                                                        | exit 0, all tests pass                                                             |
+| Booking regression tests  | `pnpm exec vitest run src/views/DrugTestWizard/workflows/complete-workflow/schedule-utils.test.ts src/collections/Payments/services/calcomBookingPayment.test.ts`                                                           | exit 0, all tests pass                                                             |
+| Integration suite         | `pnpm test:integration:ci`                                                                                                                                                                                                  | exit 0, all tests pass                                                             |
+| Typecheck                 | `pnpm exec tsc --noEmit --pretty false`                                                                                                                                                                                     | exit 0, no errors                                                                  |
+| Lint                      | `pnpm exec eslint src/lib/redwood src/lib/jobs/jobRuns.ts src/collections/Bookings src/collections/ToxAccessScheduleReservations src/app/'(payload)'/api/webhooks/calcom src/utilities/calcom-api.ts src/payload.config.ts` | exit 0, no errors                                                                  |
+| Production env inventory  | `pnpm validate:production-env`                                                                                                                                                                                              | exit 0                                                                             |
+| Optional guided UI gate   | `pnpm exec playwright test tests/e2e/wizard-guided-schedule.spec.ts`                                                                                                                                                        | exit 0 when the documented e2e services/env are available                          |
 
 Do not run a real ToxAccess or Cal.com mutation from an automated test. External
 contract checks must use a controlled test account/event type and explicit

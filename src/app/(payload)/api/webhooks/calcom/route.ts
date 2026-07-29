@@ -16,6 +16,7 @@ import {
   getCalcomRescheduleUid,
   getCalcomScheduledTestAnswerCandidates,
   handledCalcomBookingEvents,
+  isRandomTestingPlaceholder,
   verifyCalcomWebhookSignature,
 } from './calcomWebhook'
 
@@ -140,7 +141,31 @@ function buildResolvedCalcomBookingData(
     bookingData.scheduledTestType = scheduledTestType
   }
 
+  const toxaccessCollectionKey = getRecord(webhookData.payload.metadata)?.toxaccessCollectionKey
+  const toxaccessDonorId = getRecord(webhookData.payload.metadata)?.toxaccessDonorId
+  if (typeof toxaccessCollectionKey === 'string') bookingData.toxaccessCollectionKey = toxaccessCollectionKey
+  if (typeof toxaccessDonorId === 'string') bookingData.toxaccessDonorId = toxaccessDonorId
+
   return bookingData
+}
+
+async function linkToxaccessClient(payload: Payload, bookingData: CalcomBookingData) {
+  if (!bookingData.toxaccessDonorId || bookingData.relatedClient) return
+
+  const matches = await payload.find({
+    collection: 'clients',
+    where: {
+      redwoodDonorId: {
+        equals: bookingData.toxaccessDonorId,
+      },
+    },
+    depth: 0,
+    limit: 2,
+    overrideAccess: true,
+  })
+  if (matches.docs.length === 1 && matches.docs[0].randomTestingActive) {
+    bookingData.relatedClient = matches.docs[0].id
+  }
 }
 
 async function createOrUpdateBooking(
@@ -190,6 +215,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Event type not handled' }, { status: 200 })
     }
 
+    if (isRandomTestingPlaceholder(payload)) {
+      return NextResponse.json({ message: 'Random-testing calendar hold ignored' }, { status: 200 })
+    }
+
     const payloadClient = await getPayload({ config: configPromise })
     const uid = getCalcomBookingUid(payload)
     const numericId = getCalcomBookingNumericId(payload)
@@ -225,6 +254,7 @@ export async function POST(req: NextRequest) {
 
     const existingBooking = existingByRescheduleUid || existingByUid || existingByNumericId
     const bookingData = buildResolvedCalcomBookingData(webhookData, existingBooking?.payment, existingBooking)
+    await linkToxaccessClient(payloadClient, bookingData)
 
     if (triggerEvent === 'BOOKING_CANCELLED' || triggerEvent === 'BOOKING_REJECTED') {
       if (existingBooking) {

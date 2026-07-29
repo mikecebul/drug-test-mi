@@ -76,4 +76,27 @@ describe('DashboardView', () => {
     expect(markup).toContain('https://cal.com/reschedule/fallback-booking')
     expect(markup).toContain('https://cal.com/booking/fallback-booking?cancel=true')
   })
+
+  test('shows random-testing instructions, call-in code, and durable times for an assigned client', () => {
+    const markup = renderToStaticMarkup(
+      <DashboardView
+        data={createDashboardData({
+          client: {
+            ...createDashboardData().client,
+            randomTestingActive: true,
+            randomTestingWeekdayTime: '18:10',
+            randomTestingWeekendTime: '11:00',
+            redwoodCallInCode: '654321',
+          },
+          randomTestingCallInPhone: '(800) 555-0199',
+        })}
+      />,
+    )
+
+    expect(markup).toContain('Random Testing Check-In')
+    expect(markup).toContain('654321')
+    expect(markup).toContain('6:10 PM')
+    expect(markup).toContain('11:00 AM')
+    expect(markup).toContain('(800) 555-0199')
+  })
 })

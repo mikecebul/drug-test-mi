@@ -191,6 +191,7 @@ export default async function DashboardPage() {
       headshot: client.headshot,
     },
     client,
+    randomTestingCallInPhone: process.env.RANDOM_TESTING_CALL_IN_PHONE?.trim() || undefined,
     stats: {
       totalTests,
       compliantTests,
