@@ -97,4 +97,32 @@ describe('random-testing Cal.com event type', () => {
 
     await expect(getValidatedRandomTestingCalcomEventType()).rejects.toThrow('must be explicitly unpaid')
   })
+
+  test('accepts an event type when the list response omits its schedule ID', async () => {
+    process.env.RANDOM_TESTING_CALCOM_SCHEDULE_ID = '840279'
+    mockedGetCalcomEventType.mockResolvedValue({
+      id: 3684719,
+      lengthInMinutes: 10,
+      price: 0,
+    })
+
+    await expect(getValidatedRandomTestingCalcomEventType()).resolves.toMatchObject({
+      id: 3684719,
+      price: 0,
+    })
+  })
+
+  test('rejects a different schedule ID when Cal.com returns one', async () => {
+    process.env.RANDOM_TESTING_CALCOM_SCHEDULE_ID = '840279'
+    mockedGetCalcomEventType.mockResolvedValue({
+      id: 3684719,
+      lengthInMinutes: 10,
+      price: 0,
+      scheduleId: 123,
+    })
+
+    await expect(getValidatedRandomTestingCalcomEventType()).rejects.toThrow(
+      'uses schedule 123, not RANDOM_TESTING_CALCOM_SCHEDULE_ID 840279',
+    )
+  })
 })
