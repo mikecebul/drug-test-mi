@@ -89,6 +89,7 @@ describe('DashboardView', () => {
             redwoodCallInCode: '654321',
           },
           randomTestingCallInPhone: '(800) 555-0199',
+          randomTestingCheckInUrl: 'https://drugtestcheck.com',
         })}
       />,
     )
@@ -98,5 +99,7 @@ describe('DashboardView', () => {
     expect(markup).toContain('6:10 PM')
     expect(markup).toContain('11:00 AM')
     expect(markup).toContain('(800) 555-0199')
+    expect(markup).toContain('https://drugtestcheck.com')
+    expect(markup).toContain('/check-In-instruction-sheet.pdf')
   })
 })

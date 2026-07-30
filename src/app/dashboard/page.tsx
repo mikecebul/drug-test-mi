@@ -191,7 +191,8 @@ export default async function DashboardPage() {
       headshot: client.headshot,
     },
     client,
-    randomTestingCallInPhone: process.env.RANDOM_TESTING_CALL_IN_PHONE?.trim() || undefined,
+    randomTestingCallInPhone: process.env.RANDOM_TESTING_CALL_IN_PHONE?.trim() || '800-494-1250',
+    randomTestingCheckInUrl: process.env.RANDOM_TESTING_CHECK_IN_URL?.trim() || 'https://drugtestcheck.com',
     stats: {
       totalTests,
       compliantTests,

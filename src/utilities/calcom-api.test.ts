@@ -45,6 +45,9 @@ describe('Cal.com API helpers', () => {
     expect(JSON.parse(String(init.body))).toMatchObject({
       allowConflicts: true,
       allowBookingOutOfBounds: true,
+      bookingFieldsResponses: {
+        title: 'Example Donor',
+      },
       skipBookingLimits: true,
     })
   })

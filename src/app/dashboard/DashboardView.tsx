@@ -40,6 +40,7 @@ export type DashboardData = {
   }
   client: Client
   randomTestingCallInPhone?: string
+  randomTestingCheckInUrl?: string
   stats: {
     totalTests: number
     compliantTests: number
@@ -275,23 +276,50 @@ export function DashboardView({ data }: { data: DashboardData }) {
               </CardHeader>
               <CardContent className="grid gap-5 md:grid-cols-[minmax(0,1.4fr)_minmax(220px,0.6fr)]">
                 <div className="space-y-2">
-                  <p className="font-medium">Call each day and enter your personal call-in code.</p>
+                  <p className="font-medium">
+                    Call or visit DrugTestCheck.com each day and enter your personal call-in code.
+                  </p>
                   <p className="text-muted-foreground text-sm">
                     The recorded message will tell you whether you were selected. If selected, report at your assigned
                     time unless MI Drug Test gives you different instructions.
                   </p>
-                  {data.randomTestingCallInPhone ? (
-                    <a
-                      className="text-primary inline-flex font-semibold underline-offset-4 hover:underline"
-                      href={`tel:${data.randomTestingCallInPhone.replace(/[^\d+]/g, '')}`}
-                    >
-                      {data.randomTestingCallInPhone}
-                    </a>
-                  ) : (
+                  {!data.randomTestingCallInPhone && (
                     <p className="text-muted-foreground text-sm">
                       The call-in phone number has not been configured. Contact MI Drug Test for assistance.
                     </p>
                   )}
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {data.randomTestingCallInPhone && (
+                      <Button
+                        render={<a href={`tel:${data.randomTestingCallInPhone.replace(/[^\d+]/g, '')}`} />}
+                        nativeButton={false}
+                        size="sm"
+                      >
+                        <PhoneCall className="mr-2 h-4 w-4" />
+                        Call {data.randomTestingCallInPhone}
+                      </Button>
+                    )}
+                    {data.randomTestingCheckInUrl && (
+                      <Button
+                        render={<a href={data.randomTestingCheckInUrl} target="_blank" rel="noopener noreferrer" />}
+                        nativeButton={false}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Open DrugTestCheck.com
+                        <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <Button
+                      render={<a href="/check-In-instruction-sheet.pdf" target="_blank" rel="noopener noreferrer" />}
+                      nativeButton={false}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      Check-in instruction sheet
+                    </Button>
+                  </div>
                 </div>
                 <dl className="grid grid-cols-2 gap-3 text-sm">
                   <div className="bg-background rounded-md border p-3">

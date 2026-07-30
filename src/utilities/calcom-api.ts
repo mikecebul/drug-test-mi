@@ -141,6 +141,9 @@ export async function createCalcomBooking(input: {
     },
     body: JSON.stringify({
       ...input,
+      bookingFieldsResponses: {
+        title: input.attendee.name,
+      },
       allowConflicts: true,
       allowBookingOutOfBounds: true,
       skipBookingLimits: true,

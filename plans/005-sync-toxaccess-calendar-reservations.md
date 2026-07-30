@@ -35,7 +35,11 @@
   ten-minute weekday/weekend slot until enrollment is cleared, at which point
   the earliest slot is reusable without deactivating the client.
 - The client dashboard displays the synced call-in code, configured call-in
-  phone number, and assigned weekday/weekend times.
+  phone number, DrugTestCheck.com link, instruction-sheet PDF, and assigned
+  weekday/weekend times.
+- A dedicated hidden 10-minute `ToxAccess Random Testing` Cal.com event type
+  was created through API v2 as event type `6498470`. It uses default schedule
+  `840279` and the existing Google destination calendar.
 - Monday's scheduled task creates metadata-tagged Cal.com holds from the
   two-week aggregate page. The daily task replaces them with named bookings
   from the day-of page, links by exact donor ID, writes the Payload booking
@@ -486,8 +490,8 @@ All v2 requests must include:
   covered by tests.
 
 Schedule lookup and creation requests use one private event type from
-`REDWOOD_CALCOM_EVENT_TYPE_ID` and the server-only internal attendee address
-from `REDWOOD_CALCOM_ATTENDEE_EMAIL`.
+`RANDOM_TESTING_CALCOM_EVENT_TYPE_ID` and the server-only internal attendee
+address from `RANDOM_TESTING_CALCOM_ATTENDEE_EMAIL`.
 
 The schedule helper must call authenticated `GET /v2/schedules` with API
 version `2024-06-11`, select the schedule assigned to the dedicated hold event
@@ -759,8 +763,8 @@ Add these runtime variables to `.env.example` and
 REDWOOD_SCHEDULE_AUTOMATION_ENABLED=false
 REDWOOD_UPCOMING_SCHEDULE_URL=https://toxaccess.redwoodtoxicology.com/Pages/User/UpcomingScheduleCollection.aspx
 REDWOOD_SCHEDULED_COLLECTIONS_URL=https://toxaccess.redwoodtoxicology.com/Pages/User/ScheduledCollections.aspx
-REDWOOD_CALCOM_EVENT_TYPE_ID=
-REDWOOD_CALCOM_ATTENDEE_EMAIL=
+RANDOM_TESTING_CALCOM_EVENT_TYPE_ID=
+RANDOM_TESTING_CALCOM_ATTENDEE_EMAIL=
 REDWOOD_UPCOMING_SCHEDULE_CRON=0 11 * * 1
 REDWOOD_TODAY_SCHEDULE_CRON=0 10 * * *
 REDWOOD_SCHEDULE_HANDLER_CRON=0 * * * * *
