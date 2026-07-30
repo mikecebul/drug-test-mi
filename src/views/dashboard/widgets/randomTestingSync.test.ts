@@ -141,6 +141,62 @@ describe('random-testing dashboard controls', () => {
     )
   })
 
+  test('queues an immediate dashboard run when a future scheduled run already exists', async () => {
+    mocks.find.mockResolvedValue({
+      docs: [
+        {
+          id: 'scheduled-job',
+          completedAt: null,
+          hasError: false,
+          input: {},
+          waitUntil: '2026-08-03T10:05:00.000Z',
+        },
+      ],
+    })
+    mocks.jobsQueue.mockResolvedValue({ id: 'manual-job' })
+
+    const result = await queueRandomTestingSync('upcoming')
+
+    expect(result).toEqual({
+      success: true,
+      jobId: 'manual-job',
+      kind: 'upcoming',
+    })
+    expect(mocks.jobsQueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        task: 'redwood-sync-upcoming-random-testing',
+        queue: 'redwood',
+        input: expect.objectContaining({ source: 'admin-dashboard' }),
+      }),
+    )
+  })
+
+  test('deduplicates an active dashboard run of the same task', async () => {
+    mocks.find.mockResolvedValue({
+      docs: [
+        {
+          id: 'manual-job',
+          completedAt: null,
+          hasError: false,
+          input: {
+            requestedByAdminId: 'admin-1',
+            source: 'admin-dashboard',
+          },
+        },
+      ],
+    })
+
+    const result = await queueRandomTestingSync('today')
+
+    expect(result).toEqual({
+      success: true,
+      deduplicated: true,
+      jobId: 'manual-job',
+      kind: 'today',
+    })
+    expect(mocks.jobsQueue).not.toHaveBeenCalled()
+  })
+
   test('does not queue calendar writes while the kill switch is disabled', async () => {
     vi.stubEnv('RANDOM_TESTING_SCHEDULE_SYNC_ENABLED', 'false')
 
