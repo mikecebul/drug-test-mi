@@ -55,7 +55,7 @@ export type CalcomEventTypeRecord = {
   id: number
   lengthInMinutes?: number
   price?: number
-  scheduleId?: number
+  scheduleId?: number | null
   slug?: string
   title?: string
 }

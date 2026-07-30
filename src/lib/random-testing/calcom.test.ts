@@ -112,6 +112,22 @@ describe('random-testing Cal.com event type', () => {
     })
   })
 
+  test('accepts an event type when Cal.com returns a null schedule ID', async () => {
+    process.env.RANDOM_TESTING_CALCOM_SCHEDULE_ID = '840279'
+    mockedGetCalcomEventType.mockResolvedValue({
+      id: 3684719,
+      lengthInMinutes: 10,
+      price: 0,
+      scheduleId: null,
+    })
+
+    await expect(getValidatedRandomTestingCalcomEventType()).resolves.toMatchObject({
+      id: 3684719,
+      price: 0,
+      scheduleId: null,
+    })
+  })
+
   test('rejects a different schedule ID when Cal.com returns one', async () => {
     process.env.RANDOM_TESTING_CALCOM_SCHEDULE_ID = '840279'
     mockedGetCalcomEventType.mockResolvedValue({
