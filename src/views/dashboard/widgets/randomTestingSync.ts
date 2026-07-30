@@ -199,7 +199,15 @@ async function findActiveJob(payload: Payload, taskSlug: string): Promise<string
     depth: 0,
     overrideAccess: true,
   })
-  const active = jobs.docs.find((job) => !job.completedAt && job.hasError !== true)
+  const active = jobs.docs.find(
+    (job) =>
+      !job.completedAt &&
+      job.hasError !== true &&
+      typeof job.input === 'object' &&
+      job.input !== null &&
+      'source' in job.input &&
+      job.input.source === 'admin-dashboard',
+  )
   return active?.id ? String(active.id) : null
 }
 
