@@ -22,6 +22,7 @@ describe('dashboard widget layout config', () => {
       "slug: 'admin-quick-book'",
       "slug: 'active-jobs'",
       "slug: 'redwood-queue-probe'",
+      "slug: 'random-testing-sync'",
       "slug: 'pending-drug-tests'",
       "slug: 'admin-alerts'",
     ])
@@ -33,6 +34,7 @@ describe('dashboard widget layout config', () => {
       "widgetSlug: 'admin-quick-book'",
       "widgetSlug: 'active-jobs'",
       "widgetSlug: 'redwood-queue-probe'",
+      "widgetSlug: 'random-testing-sync'",
       "widgetSlug: 'pending-drug-tests'",
       "widgetSlug: 'admin-alerts'",
     ])
@@ -43,6 +45,7 @@ describe('dashboard widget layout config', () => {
     expect(source).toContain("widgetSlug: 'admin-quick-book',\n          width: 'medium'")
     expect(source).toContain("widgetSlug: 'active-jobs',\n          width: 'full'")
     expect(source).toContain("widgetSlug: 'redwood-queue-probe',\n          width: 'full'")
+    expect(source).toContain("widgetSlug: 'random-testing-sync',\n          width: 'full'")
     expect(source).toContain("widgetSlug: 'pending-drug-tests',\n          width: 'medium'")
     expect(source).toContain("widgetSlug: 'admin-alerts',\n          width: 'full'")
     assertTokenOrder(source, [
@@ -50,5 +53,10 @@ describe('dashboard widget layout config', () => {
       "'@/views/beforeNavLinks/QuickBookLink'",
       "'@/views/beforeNavLinks/DrugTestTrackerLink'",
     ])
+  })
+
+  test('does not register random-testing cron schedules while the write kill switch is disabled', () => {
+    expect(source).toContain('const randomTestingScheduleEnabled =')
+    expect(source).toContain('schedule: randomTestingScheduleEnabled')
   })
 })

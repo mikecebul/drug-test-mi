@@ -13,6 +13,8 @@ export const JOB_TASK_LABELS = {
   'redwood-sync-default-test': 'Default Test Sync',
   'redwood-update-client': 'Client Sync',
   'redwood-upload-headshot': 'Headshot Push',
+  'redwood-sync-upcoming-random-testing': 'Upcoming Random Testing Calendar Holds',
+  'redwood-sync-todays-random-testing': 'Today’s Random Testing Schedule',
 } as const
 
 export type JobRunStatus = 'cancelled' | 'failed' | 'manual-review' | 'queued' | 'running' | 'succeeded'
@@ -316,10 +318,7 @@ export async function recordQueuedJobRun(
   })
 }
 
-export async function recordRunningJobRun(
-  payload: Payload,
-  job: JobLike,
-): Promise<void> {
+export async function recordRunningJobRun(payload: Payload, job: JobLike): Promise<void> {
   const taskSlug = readString(job.taskSlug)
   if (!taskSlug || !isKnownJobTaskSlug(taskSlug)) {
     return

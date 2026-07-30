@@ -16,6 +16,8 @@ services:
     restart: always
     env_file:
       - .env
+    environment:
+      TZ: America/Detroit
     networks:
       - dokploy-network
 

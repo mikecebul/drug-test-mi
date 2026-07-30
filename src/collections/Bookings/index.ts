@@ -305,6 +305,25 @@ export const Bookings: CollectionConfig = {
         readOnly: true,
       },
     },
+    {
+      name: 'toxaccessCollectionKey',
+      type: 'text',
+      unique: true,
+      index: true,
+      admin: {
+        description: 'Idempotency key for a materialized ToxAccess scheduled collection.',
+        readOnly: true,
+      },
+    },
+    {
+      name: 'toxaccessDonorId',
+      type: 'text',
+      index: true,
+      admin: {
+        description: 'Exact ToxAccess donor ID used to link the scheduled collection to a client.',
+        readOnly: true,
+      },
+    },
   ],
   hooks: {
     afterChange: [syncClient],

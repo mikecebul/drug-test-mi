@@ -49,6 +49,21 @@ export async function drainRedwoodQueue(payload: Payload, limit: number) {
   }
 }
 
+export async function runRedwoodWorkerCycle(payload: Payload, limit: number) {
+  try {
+    await payload.jobs.handleSchedules({
+      queue: 'redwood',
+    })
+  } catch (error) {
+    payload.logger.error({
+      msg: '[redwood-worker] Schedule check failed; continuing with queued work',
+      err: error,
+      queue: 'redwood',
+    })
+  }
+  return drainRedwoodQueue(payload, limit)
+}
+
 function waitForNextPoll(delayMs: number, signal: AbortSignal) {
   return new Promise<void>((resolve) => {
     if (signal.aborted) {
@@ -97,7 +112,7 @@ export const script: BinScript = async (config) => {
   try {
     while (!stopController.signal.aborted) {
       try {
-        await drainRedwoodQueue(payload, batchLimit)
+        await runRedwoodWorkerCycle(payload, batchLimit)
       } catch (error) {
         payload.logger.error({
           msg: '[redwood-worker] Queue poll failed; retrying after the idle interval',
