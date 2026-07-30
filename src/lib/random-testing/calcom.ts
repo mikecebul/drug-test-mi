@@ -126,7 +126,7 @@ export async function getValidatedRandomTestingCalcomEventType(): Promise<Calcom
   if (
     Number.isInteger(configuredScheduleId) &&
     configuredScheduleId > 0 &&
-    eventType.scheduleId !== undefined &&
+    typeof eventType.scheduleId === 'number' &&
     eventType.scheduleId !== configuredScheduleId
   ) {
     throw new Error(
