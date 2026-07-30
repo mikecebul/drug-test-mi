@@ -40,6 +40,7 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URI=${DOCKER_DATABASE_URI:-mongodb://mongo:27017/cvx-junior-golf}
+      - TZ=America/Detroit
     env_file: .env
 
   # Ensure your DATABASE_URI uses 'mongo' as the hostname ie. mongodb://mongo/my-db-name

@@ -69,6 +69,8 @@ import { recordCompletedJobRun, recordRunningJobRun, type JobRunStatus } from '.
 import type { RedwoodClientUpdateField } from './lib/redwood/queue'
 import { hasExhaustedRedwoodRetries, REDWOOD_TASK_RETRIES } from './lib/redwood/config'
 import { upsertRedwoodIncidentAlert, type RedwoodJobType } from './lib/redwood/incidents'
+import { syncUpcomingRandomTestingPlaceholders } from './lib/random-testing/upcoming-schedule'
+import { syncTodaysScheduledCollections } from './lib/random-testing/todays-schedule'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -126,6 +128,8 @@ function getTrackedJobCompletionState(resultStatus: null | string | undefined): 
 const redwoodSessionConcurrency = {
   key: ({ queue }: { queue: string }) => `${queue}:redwood-session`,
 }
+
+const randomTestingScheduleEnabled = process.env.RANDOM_TESTING_SCHEDULE_SYNC_ENABLED?.trim().toLowerCase() === 'true'
 
 async function recordExhaustedRedwoodJobAlert(args: {
   clientId: string
@@ -227,6 +231,13 @@ export default buildConfig({
           maxWidth: 'full',
         },
         {
+          slug: 'random-testing-sync',
+          label: 'Random Testing Sync',
+          Component: '@/views/dashboard/widgets/RandomTestingSyncWidget',
+          minWidth: 'medium',
+          maxWidth: 'full',
+        },
+        {
           slug: 'pending-drug-tests',
           label: 'Pending Drug Tests',
           Component: '@/views/dashboard/widgets/PendingDrugTestsWidget',
@@ -256,6 +267,10 @@ export default buildConfig({
         },
         {
           widgetSlug: 'redwood-queue-probe',
+          width: 'full',
+        },
+        {
+          widgetSlug: 'random-testing-sync',
           width: 'full',
         },
         {
@@ -755,6 +770,103 @@ export default buildConfig({
               taskLabel: 'Redwood default-test sync',
             })
 
+            throw error
+          }
+        },
+      },
+      {
+        slug: 'redwood-sync-upcoming-random-testing',
+        concurrency: redwoodSessionConcurrency,
+        retries: 1,
+        schedule: randomTestingScheduleEnabled
+          ? [
+              {
+                cron: process.env.RANDOM_TESTING_UPCOMING_CRON || '0 5 6 * * 1',
+                queue: 'redwood',
+              },
+            ]
+          : [],
+        outputSchema: [
+          { name: 'status', type: 'text', required: true },
+          { name: 'created', type: 'text', required: true },
+          { name: 'cancelled', type: 'text', required: true },
+          { name: 'unchanged', type: 'text', required: true },
+          { name: 'updated', type: 'text', required: true },
+        ],
+        handler: async ({ job, req }) => {
+          await recordRunningJobRun(req.payload, job)
+          try {
+            const result = await syncUpcomingRandomTestingPlaceholders()
+            const output = {
+              status: 'completed',
+              created: String(result.created),
+              cancelled: String(result.cancelled),
+              unchanged: String(result.unchanged),
+              updated: String(result.updated),
+            }
+            await recordCompletedJobRun(req.payload, {
+              job,
+              output,
+              resultStatus: 'completed',
+              status: 'succeeded',
+              summary: `Created ${result.created}, moved ${result.updated}, cancelled ${result.cancelled}, and retained ${result.unchanged} random-testing holds.`,
+            })
+            return { output }
+          } catch (error) {
+            await recordCompletedJobRun(req.payload, {
+              job,
+              errorMessage: getErrorMessage(error),
+              resultStatus: 'failed',
+              status: 'failed',
+            })
+            throw error
+          }
+        },
+      },
+      {
+        slug: 'redwood-sync-todays-random-testing',
+        concurrency: redwoodSessionConcurrency,
+        retries: 1,
+        schedule: randomTestingScheduleEnabled
+          ? [
+              {
+                cron: process.env.RANDOM_TESTING_TODAY_CRON || '0 0 6 * * *',
+                queue: 'redwood',
+              },
+            ]
+          : [],
+        outputSchema: [
+          { name: 'status', type: 'text', required: true },
+          { name: 'processed', type: 'text', required: true },
+          { name: 'failed', type: 'text', required: true },
+        ],
+        handler: async ({ job, req }) => {
+          await recordRunningJobRun(req.payload, job)
+          try {
+            const result = await syncTodaysScheduledCollections(req.payload)
+            const failed = result.results.filter(
+              (item) => item.status !== 'materialized' && item.status !== 'already-booked',
+            ).length
+            const output = {
+              status: failed > 0 ? 'partial-success' : 'completed',
+              processed: String(result.results.length),
+              failed: String(failed),
+            }
+            await recordCompletedJobRun(req.payload, {
+              job,
+              output,
+              resultStatus: output.status,
+              status: failed > 0 ? 'manual-review' : 'succeeded',
+              summary: `Processed ${result.results.length} ToxAccess collections; ${failed} failed.`,
+            })
+            return { output }
+          } catch (error) {
+            await recordCompletedJobRun(req.payload, {
+              job,
+              errorMessage: getErrorMessage(error),
+              resultStatus: 'failed',
+              status: 'failed',
+            })
             throw error
           }
         },

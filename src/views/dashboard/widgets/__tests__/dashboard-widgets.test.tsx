@@ -7,6 +7,7 @@ import AdminQuickBookWidget from '@/views/dashboard/widgets/AdminQuickBookWidget
 import AdminAlertsWidget from '@/views/dashboard/widgets/AdminAlertsWidget'
 import NextCalcomBookingWidget from '@/views/dashboard/widgets/NextCalcomBookingWidget'
 import PendingDrugTestsWidget from '@/views/dashboard/widgets/PendingDrugTestsWidget'
+import RandomTestingSyncWidget from '@/views/dashboard/widgets/RandomTestingSyncWidget'
 import RedwoodQueueProbeWidget from '@/views/dashboard/widgets/RedwoodQueueProbeWidget'
 import TotalClientsWidget from '@/views/dashboard/widgets/TotalClientsWidget'
 import WizardEntryWidget from '@/views/dashboard/widgets/WizardEntryWidget'
@@ -28,6 +29,10 @@ vi.mock('@/views/dashboard/widgets/AdminQuickBookWidget.client', () => ({
 
 vi.mock('@/views/dashboard/widgets/RedwoodQueueProbeWidget.client', () => ({
   RedwoodQueueProbeWidgetClient: () => <div>Redwood Queue Probe Client</div>,
+}))
+
+vi.mock('@/views/dashboard/widgets/RandomTestingSyncWidget.client', () => ({
+  RandomTestingSyncWidgetClient: () => <div>Random Testing Sync Client</div>,
 }))
 
 vi.mock('@/views/DrugTestWizard/workflows/complete-workflow/actions', () => ({
@@ -77,6 +82,11 @@ describe('dashboard widgets', () => {
     const probeReq = createAdminReq()
     const probeMarkup = renderMarkup(RedwoodQueueProbeWidget(createWidgetProps(probeReq, 'redwood-queue-probe')))
 
+    const randomTestingReq = createAdminReq()
+    const randomTestingMarkup = renderMarkup(
+      RandomTestingSyncWidget(createWidgetProps(randomTestingReq, 'random-testing-sync')),
+    )
+
     const scheduleReq = createAdminReq()
     const scheduleMarkup = renderMarkup(
       await NextCalcomBookingWidget(createWidgetProps(scheduleReq, 'next-calcom-booking')),
@@ -97,6 +107,7 @@ describe('dashboard widgets', () => {
     expect(totalMarkup).toContain('bg-gradient-to-b')
     expect(quickBookMarkup).toContain('bg-gradient-to-b')
     expect(probeMarkup).toContain('bg-gradient-to-b')
+    expect(randomTestingMarkup).toContain('bg-gradient-to-b')
     expect(scheduleMarkup).toContain('bg-gradient-to-b')
     expect(pendingMarkup).toContain('bg-gradient-to-b')
     expect(alertsMarkup).toContain('bg-gradient-to-b')
@@ -109,6 +120,15 @@ describe('dashboard widgets', () => {
     expect(markup).toContain('Redwood Queue Probe')
     expect(markup).toContain('website can enqueue work')
     expect(markup).toContain('Redwood Queue Probe Client')
+  })
+
+  test('renders the random-testing sync controls for admins', () => {
+    const req = createAdminReq()
+    const markup = renderMarkup(RandomTestingSyncWidget(createWidgetProps(req, 'random-testing-sync')))
+
+    expect(markup).toContain('Random Testing Sync')
+    expect(markup).toContain('same jobs used by production cron')
+    expect(markup).toContain('Random Testing Sync Client')
   })
 
   test('renders dashboard register link in total clients widget', async () => {

@@ -16,6 +16,7 @@ import {
   FileText,
   Mail,
   Pill,
+  PhoneCall,
   Shield,
   TrendingUp,
   User,
@@ -26,6 +27,7 @@ import { CalPopupButton } from '@/components/cal-popup-button'
 import { buildCalConfig, getClientBookingCalLink } from '@/utilities/calcom-config'
 import type { Client } from '@/payload-types'
 import { getCalcomBookingActionLinks, type CalcomBookingActionLinks } from '@/utilities/calcom-booking-action-links'
+import { formatRandomTestingTime } from '@/lib/random-testing/slots'
 
 export type DashboardData = {
   user: {
@@ -37,6 +39,8 @@ export type DashboardData = {
     headshot?: any
   }
   client: Client
+  randomTestingCallInPhone?: string
+  randomTestingCheckInUrl?: string
   stats: {
     totalTests: number
     compliantTests: number
@@ -262,6 +266,83 @@ export function DashboardView({ data }: { data: DashboardData }) {
 
       <div className="px-6 lg:px-10 xl:px-12">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {data.client.randomTestingActive && (
+            <Card className="border-primary/30 bg-primary/5 md:col-span-2 lg:col-span-3">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <PhoneCall className="mr-2 h-5 w-5" />
+                  Random Testing Check-In
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-5 md:grid-cols-[minmax(0,1.4fr)_minmax(220px,0.6fr)]">
+                <div className="space-y-2">
+                  <p className="font-medium">
+                    Call or visit DrugTestCheck.com each day and enter your personal call-in code.
+                  </p>
+                  <p className="text-muted-foreground text-sm">
+                    The recorded message will tell you whether you were selected. If selected, report at your assigned
+                    time unless MI Drug Test gives you different instructions.
+                  </p>
+                  {!data.randomTestingCallInPhone && (
+                    <p className="text-muted-foreground text-sm">
+                      The call-in phone number has not been configured. Contact MI Drug Test for assistance.
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {data.randomTestingCallInPhone && (
+                      <Button
+                        render={<a href={`tel:${data.randomTestingCallInPhone.replace(/[^\d+]/g, '')}`} />}
+                        nativeButton={false}
+                        size="sm"
+                      >
+                        <PhoneCall className="mr-2 h-4 w-4" />
+                        Call {data.randomTestingCallInPhone}
+                      </Button>
+                    )}
+                    {data.randomTestingCheckInUrl && (
+                      <Button
+                        render={<a href={data.randomTestingCheckInUrl} target="_blank" rel="noopener noreferrer" />}
+                        nativeButton={false}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Open DrugTestCheck.com
+                        <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <Button
+                      render={<a href="/check-In-instruction-sheet.pdf" target="_blank" rel="noopener noreferrer" />}
+                      nativeButton={false}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      Check-in instruction sheet
+                    </Button>
+                  </div>
+                </div>
+                <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="bg-background rounded-md border p-3">
+                    <dt className="text-muted-foreground">Call-in code</dt>
+                    <dd className="mt-1 text-lg font-bold">{data.client.redwoodCallInCode || 'Pending sync'}</dd>
+                  </div>
+                  <div className="bg-background rounded-md border p-3">
+                    <dt className="text-muted-foreground">Weekdays</dt>
+                    <dd className="mt-1 font-semibold">
+                      {formatRandomTestingTime(data.client.randomTestingWeekdayTime) || 'Pending'}
+                    </dd>
+                  </div>
+                  <div className="bg-background col-span-2 rounded-md border p-3">
+                    <dt className="text-muted-foreground">Saturday and Sunday</dt>
+                    <dd className="mt-1 font-semibold">
+                      {formatRandomTestingTime(data.client.randomTestingWeekendTime) || 'Pending'}
+                    </dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Quick Actions */}
           <Card className="lg:order-1">
             <CardHeader>
@@ -321,11 +402,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
                       {nextAppointmentActions.rescheduleHref && (
                         <Button
                           render={
-                            <a
-                              href={nextAppointmentActions.rescheduleHref}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            />
+                            <a href={nextAppointmentActions.rescheduleHref} target="_blank" rel="noopener noreferrer" />
                           }
                           nativeButton={false}
                           variant="outline"
@@ -340,11 +417,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
                       {nextAppointmentActions.cancelHref && (
                         <Button
                           render={
-                            <a
-                              href={nextAppointmentActions.cancelHref}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            />
+                            <a href={nextAppointmentActions.cancelHref} target="_blank" rel="noopener noreferrer" />
                           }
                           nativeButton={false}
                           variant="outline"

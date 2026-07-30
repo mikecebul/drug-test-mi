@@ -12,6 +12,7 @@ import { queueRedwoodHeadshotPush } from './hooks/queueRedwoodHeadshotPush'
 import { requireRedwoodClientUpdateApproval } from './hooks/requireRedwoodClientUpdateApproval'
 import { syncDefaultTestTypeFromReferral } from './hooks/syncDefaultTestTypeFromReferral'
 import { logClientOperationError } from './hooks/logClientOperationError'
+import { assignRandomTestingSlot } from './hooks/assignRandomTestingSlot'
 import { redwoodDefaultTestTypeField, redwoodSyncTab } from './redwoodFields'
 import { adminClientSearchEndpoint } from './search/endpoint'
 import { buildClientSearchFields } from './search/normalize'
@@ -147,7 +148,7 @@ export const Clients: CollectionConfig = {
   hooks: {
     beforeValidate: [normalizeLegacyClientGender, populateClientSearchFields],
     afterError: [logClientOperationError],
-    beforeChange: [syncDefaultTestTypeFromReferral, requireRedwoodClientUpdateApproval],
+    beforeChange: [assignRandomTestingSlot, syncDefaultTestTypeFromReferral, requireRedwoodClientUpdateApproval],
     afterChange: [
       queueRedwoodClientProvisioningAfterChange,
       notifyNewRegistration,

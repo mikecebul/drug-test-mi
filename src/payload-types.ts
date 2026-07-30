@@ -172,11 +172,13 @@ export interface Config {
     header: Header;
     footer: Footer;
     'company-info': CompanyInfo;
+    'payload-jobs-stats': PayloadJobsStat;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
     'company-info': CompanyInfoSelect<false> | CompanyInfoSelect<true>;
+    'payload-jobs-stats': PayloadJobsStatsSelect<false> | PayloadJobsStatsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -184,6 +186,7 @@ export interface Config {
     'admin-quick-book': AdminQuickBookWidget;
     'active-jobs': ActiveJobsWidget;
     'redwood-queue-probe': RedwoodQueueProbeWidget;
+    'random-testing-sync': RandomTestingSyncWidget;
     'pending-drug-tests': PendingDrugTestsWidget;
     'admin-alerts': AdminAlertsWidget;
     collections: CollectionsWidget;
@@ -198,6 +201,8 @@ export interface Config {
       'redwood-queue-pending-client-updates-nightly': TaskRedwoodQueuePendingClientUpdatesNightly;
       'redwood-upload-headshot': TaskRedwoodUploadHeadshot;
       'redwood-sync-default-test': TaskRedwoodSyncDefaultTest;
+      'redwood-sync-upcoming-random-testing': TaskRedwoodSyncUpcomingRandomTesting;
+      'redwood-sync-todays-random-testing': TaskRedwoodSyncTodaysRandomTesting;
       createCollectionExport: TaskCreateCollectionExport;
       createCollectionImport: TaskCreateCollectionImport;
       inline: {
@@ -1251,6 +1256,14 @@ export interface Booking {
    * Whether this booking was created via Cal.com webhook
    */
   createdViaWebhook?: boolean | null;
+  /**
+   * Idempotency key for a materialized ToxAccess scheduled collection.
+   */
+  toxaccessCollectionKey?: string | null;
+  /**
+   * Exact ToxAccess donor ID used to link the scheduled collection to a client.
+   */
+  toxaccessDonorId?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1479,6 +1492,26 @@ export interface Client {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
+  /**
+   * Assign this client a durable random-testing time. Clearing this keeps the client active and releases the slot.
+   */
+  randomTestingActive?: boolean | null;
+  /**
+   * Default Monday-Friday appointment time.
+   */
+  randomTestingWeekdayTime?: string | null;
+  /**
+   * Default Saturday-Sunday appointment time.
+   */
+  randomTestingWeekendTime?: string | null;
+  /**
+   * Zero-based assignment used to preserve ordering.
+   */
+  randomTestingSlotIndex?: number | null;
+  /**
+   * When this durable random-testing slot was assigned.
+   */
+  randomTestingAssignedAt?: string | null;
   /**
    * Current Redwood sync state managed by the background worker.
    */
@@ -2696,6 +2729,8 @@ export interface PayloadJob {
           | 'redwood-queue-pending-client-updates-nightly'
           | 'redwood-upload-headshot'
           | 'redwood-sync-default-test'
+          | 'redwood-sync-upcoming-random-testing'
+          | 'redwood-sync-todays-random-testing'
           | 'createCollectionExport'
           | 'createCollectionImport';
         taskID: string;
@@ -2740,6 +2775,8 @@ export interface PayloadJob {
         | 'redwood-queue-pending-client-updates-nightly'
         | 'redwood-upload-headshot'
         | 'redwood-sync-default-test'
+        | 'redwood-sync-upcoming-random-testing'
+        | 'redwood-sync-todays-random-testing'
         | 'createCollectionExport'
         | 'createCollectionImport'
       )
@@ -2751,6 +2788,15 @@ export interface PayloadJob {
    * Used for concurrency control. Jobs with the same key are subject to exclusive/supersedes rules.
    */
   concurrencyKey?: string | null;
+  meta?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3398,6 +3444,8 @@ export interface BookingsSelect<T extends boolean = true> {
   customInputs?: T;
   webhookData?: T;
   createdViaWebhook?: T;
+  toxaccessCollectionKey?: T;
+  toxaccessDonorId?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3921,6 +3969,11 @@ export interface ClientsSelect<T extends boolean = true> {
         id?: T;
       };
   privateDocuments?: T;
+  randomTestingActive?: T;
+  randomTestingWeekdayTime?: T;
+  randomTestingWeekendTime?: T;
+  randomTestingSlotIndex?: T;
+  randomTestingAssignedAt?: T;
   redwoodSyncStatus?: T;
   redwoodDonorId?: T;
   redwoodAccountNumber?: T;
@@ -4272,6 +4325,7 @@ export interface PayloadJobsSelect<T extends boolean = true> {
   waitUntil?: T;
   processing?: T;
   concurrencyKey?: T;
+  meta?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4387,6 +4441,24 @@ export interface CompanyInfo {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-jobs-stats".
+ */
+export interface PayloadJobsStat {
+  id: string;
+  stats?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
 export interface HeaderSelect<T extends boolean = true> {
@@ -4460,6 +4532,16 @@ export interface CompanyInfoSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-jobs-stats_select".
+ */
+export interface PayloadJobsStatsSelect<T extends boolean = true> {
+  stats?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "next-calcom-booking_widget".
  */
 export interface NextCalcomBookingWidget {
@@ -4493,6 +4575,16 @@ export interface ActiveJobsWidget {
  * via the `definition` "redwood-queue-probe_widget".
  */
 export interface RedwoodQueueProbeWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'medium' | 'large' | 'x-large' | 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "random-testing-sync_widget".
+ */
+export interface RandomTestingSyncWidget {
   data?: {
     [k: string]: unknown;
   };
@@ -4622,6 +4714,32 @@ export interface TaskRedwoodSyncDefaultTest {
   };
   output: {
     status: string;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-sync-upcoming-random-testing".
+ */
+export interface TaskRedwoodSyncUpcomingRandomTesting {
+  input?: unknown;
+  output: {
+    status: string;
+    created: string;
+    cancelled: string;
+    unchanged: string;
+    updated: string;
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskRedwood-sync-todays-random-testing".
+ */
+export interface TaskRedwoodSyncTodaysRandomTesting {
+  input?: unknown;
+  output: {
+    status: string;
+    processed: string;
+    failed: string;
   };
 }
 /**

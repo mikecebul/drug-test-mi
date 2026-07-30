@@ -143,6 +143,28 @@ describe('Cal.com webhook route', () => {
     expect(payload.update).not.toHaveBeenCalled()
   })
 
+  test('ignores random-testing placeholders so they never enter Today’s Schedule', async () => {
+    const payload = createPayloadMock()
+    const response = await POST(
+      createRequest(
+        createWebhook({
+          payload: {
+            metadata: {
+              source: 'toxaccess-random-testing',
+              kind: 'placeholder',
+              randomTestingReservationKey: '2026-07-29:0',
+            },
+          },
+        }),
+      ),
+    )
+
+    expect(response.status).toBe(200)
+    expect(await json(response)).toMatchObject({ message: 'Random-testing calendar hold ignored' })
+    expect(payload.create).not.toHaveBeenCalled()
+    expect(payload.update).not.toHaveBeenCalled()
+  })
+
   test('resolves the Cal.com test answer into the booking scheduled test type', async () => {
     const payload = createPayloadMock()
 

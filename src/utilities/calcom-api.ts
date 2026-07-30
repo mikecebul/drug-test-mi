@@ -4,6 +4,12 @@ function getCalcomApiKey() {
   return process.env.CAL_API_KEY || process.env.CALCOM_API_KEY || null
 }
 
+function getRequiredCalcomApiKey() {
+  const apiKey = getCalcomApiKey()
+  if (!apiKey) throw new Error('Cal.com API key is not configured.')
+  return apiKey
+}
+
 async function getErrorMessage(response: Response) {
   const text = await response.text()
   if (!text) return response.statusText
@@ -17,6 +23,172 @@ async function getErrorMessage(response: Response) {
   }
 
   return text
+}
+
+async function parseCalcomResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response))
+  }
+
+  const body = (await response.json()) as { data?: T }
+  if (body.data === undefined) throw new Error('Cal.com returned an unexpected response.')
+  return body.data
+}
+
+export type CalcomBookingRecord = {
+  bookingFieldsResponses?: Record<string, unknown> | null
+  id: number
+  uid: string
+  title: string
+  start: string
+  end: string
+  location?: string | null
+  metadata?: Record<string, unknown> | null
+  attendees?: Array<{ email?: string; name?: string; phoneNumber?: string; timeZone?: string }>
+  hosts?: Array<{ email?: string; id?: number; name?: string; timeZone?: string }>
+  eventTypeId?: number
+  status?: string
+}
+
+export type CalcomEventTypeRecord = {
+  bookingUrl?: string
+  id: number
+  lengthInMinutes?: number
+  price?: number
+  scheduleId?: number
+  slug?: string
+  title?: string
+}
+
+type CalcomSchedule = {
+  id: number
+  isDefault?: boolean
+  timeZone?: string
+  availability?: Array<{
+    days?: Array<number | string>
+    endTime?: string
+    startTime?: string
+  }>
+  overrides?: Array<{
+    date?: string
+    endTime?: string | null
+    startTime?: string | null
+  }>
+  dateOverrides?: Array<{
+    date?: string
+    endTime?: string | null
+    startTime?: string | null
+  }>
+}
+
+export async function getCalcomSchedule(scheduleId?: number): Promise<CalcomSchedule> {
+  const apiKey = getRequiredCalcomApiKey()
+  const path = scheduleId ? `/schedules/${scheduleId}` : '/schedules/default'
+  const response = await fetch(`${CALCOM_API_BASE_URL}${path}`, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'cal-api-version': '2024-06-11',
+    },
+  })
+  return parseCalcomResponse<CalcomSchedule>(response)
+}
+
+export async function getCalcomEventType(input: {
+  eventSlug: string
+  eventTypeId: number
+  username: string
+}): Promise<CalcomEventTypeRecord> {
+  const apiKey = getRequiredCalcomApiKey()
+  const params = new URLSearchParams({
+    eventSlug: input.eventSlug,
+    username: input.username,
+  })
+  const response = await fetch(`${CALCOM_API_BASE_URL}/event-types?${params}`, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'cal-api-version': '2024-06-14',
+    },
+  })
+  const eventTypes = await parseCalcomResponse<CalcomEventTypeRecord[]>(response)
+  const eventType = eventTypes.find((candidate) => candidate.id === input.eventTypeId)
+  if (!eventType) {
+    throw new Error(`Cal.com event type ${input.eventTypeId} was not found at ${input.username}/${input.eventSlug}.`)
+  }
+  return eventType
+}
+
+export async function listCalcomBookings(input: {
+  afterStart: string
+  beforeEnd: string
+}): Promise<CalcomBookingRecord[]> {
+  const apiKey = getRequiredCalcomApiKey()
+  const bookings: CalcomBookingRecord[] = []
+  let cursor: string | null = null
+
+  for (let page = 0; page < 20; page += 1) {
+    const params = new URLSearchParams({
+      afterStart: input.afterStart,
+      beforeEnd: input.beforeEnd,
+      sortStart: 'asc',
+      limit: '100',
+    })
+    if (cursor) params.set('cursor', cursor)
+
+    const response = await fetch(`${CALCOM_API_BASE_URL}/bookings?${params}`, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'cal-api-version': '2026-05-01',
+      },
+    })
+    if (!response.ok) throw new Error(await getErrorMessage(response))
+    const body = (await response.json()) as {
+      data?: CalcomBookingRecord[]
+      pagination?: { hasMore?: boolean; nextCursor?: string | null }
+    }
+    if (!Array.isArray(body.data)) throw new Error('Cal.com returned an unexpected bookings response.')
+    bookings.push(...body.data)
+
+    if (!body.pagination?.hasMore) return bookings
+    cursor = body.pagination.nextCursor || null
+    if (!cursor) throw new Error('Cal.com indicated more booking pages without returning a cursor.')
+  }
+
+  throw new Error('Cal.com bookings pagination exceeded the 20-page safety limit.')
+}
+
+export async function createCalcomBooking(input: {
+  attendee: {
+    email: string
+    language?: string
+    name: string
+    phoneNumber?: string
+    timeZone: string
+  }
+  bookingFieldsResponses?: Record<string, unknown>
+  eventTypeId: number
+  metadata: Record<string, string>
+  start: string
+}): Promise<CalcomBookingRecord> {
+  const apiKey = getRequiredCalcomApiKey()
+  const response = await fetch(`${CALCOM_API_BASE_URL}/bookings`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'cal-api-version': '2026-02-25',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ...input,
+      bookingFieldsResponses: {
+        title: input.attendee.name,
+        ...input.bookingFieldsResponses,
+      },
+      allowConflicts: true,
+      allowBookingOutOfBounds: true,
+      skipBookingLimits: true,
+    }),
+  })
+  return parseCalcomResponse<CalcomBookingRecord>(response)
 }
 
 export async function cancelCalcomBooking(input: { bookingUid: string; cancellationReason?: string }) {
@@ -35,6 +207,7 @@ export async function cancelCalcomBooking(input: { bookingUid: string; cancellat
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
+        'cal-api-version': '2024-08-13',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
