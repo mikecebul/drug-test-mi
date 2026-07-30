@@ -45,6 +45,7 @@ describe('Google Calendar API helpers', () => {
     delete process.env.GOOGLE_CALENDAR_ID
     delete process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_EMAIL
     delete process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_PRIVATE_KEY
+    delete process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64
     delete process.env.GOOGLE_CALENDAR_IMPERSONATED_USER
   })
 
@@ -84,6 +85,32 @@ describe('Google Calendar API helpers', () => {
     })
     const [{ requestBody }] = googleMocks.insert.mock.calls[0]
     expect(requestBody).not.toHaveProperty('attendees')
+  })
+
+  test('accepts a base64-encoded private key for dotenv-compatible deployments', async () => {
+    delete process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_PRIVATE_KEY
+    process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64 = Buffer.from(
+      '-----BEGIN PRIVATE KEY-----\nencoded-key\n-----END PRIVATE KEY-----\n',
+    ).toString('base64')
+    googleMocks.insert.mockResolvedValue({
+      data: {
+        id: 'event-1',
+      },
+    })
+
+    await createGoogleCalendarEvent({
+      summary: 'Random Testing Hold 1',
+      start: '2026-08-03T22:00:00.000Z',
+      end: '2026-08-03T22:10:00.000Z',
+      timeZone: 'America/Detroit',
+      metadata: { source: 'toxaccess-random-testing' },
+    })
+
+    expect(googleMocks.jwt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: '-----BEGIN PRIVATE KEY-----\nencoded-key\n-----END PRIVATE KEY-----',
+      }),
+    )
   })
 
   test('walks event pagination and preserves private metadata', async () => {
