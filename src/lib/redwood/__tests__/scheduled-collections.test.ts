@@ -33,8 +33,27 @@ describe('parseScheduledCollectionsHtml', () => {
     ])
   })
 
+  test('returns an empty list for the ToxAccess no-records state', () => {
+    expect(
+      parseScheduledCollectionsHtml(`
+        <html>
+          <body>
+            <h1>Scheduled Collections</h1>
+            <div class="empty-data">No records to display.</div>
+          </body>
+        </html>
+      `),
+    ).toEqual([])
+  })
+
   test('fails closed when the expected table shape changes', () => {
     expect(() => parseScheduledCollectionsHtml('<table><tr><th>Name</th></tr></table>')).toThrow(
+      'table headers changed',
+    )
+  })
+
+  test('does not treat an unrelated no-records page as a valid empty schedule', () => {
+    expect(() => parseScheduledCollectionsHtml('<h1>Sign In</h1><p>No records to display.</p>')).toThrow(
       'table headers changed',
     )
   })
