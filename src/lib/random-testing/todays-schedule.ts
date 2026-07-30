@@ -30,6 +30,18 @@ export type TodaysScheduledCollectionPreview = RedwoodScheduledCollection & {
   status: 'already-booked' | 'client-not-random-testing' | 'duplicate-client-match' | 'ready' | 'unmatched-client'
 }
 
+type TodaysScheduledCollectionSyncResult = {
+  collectionDate: string
+  results: Array<{
+    bookingId?: string
+    calcomBookingUid?: string
+    collectionKey: string
+    error?: string
+    placeholderCancelled?: boolean
+    status: string
+  }>
+}
+
 function localDateString(now = new Date()): string {
   const date = TZDate.tz(APP_TIMEZONE, now)
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
@@ -255,13 +267,20 @@ function isActiveCalcomBooking(booking: CalcomBookingRecord): boolean {
   return !['cancelled', 'rejected'].includes(booking.status?.toLowerCase() || '')
 }
 
-export async function syncTodaysScheduledCollections(payload: Payload, now = new Date()) {
+export async function syncTodaysScheduledCollections(
+  payload: Payload,
+  now = new Date(),
+): Promise<TodaysScheduledCollectionSyncResult> {
   if (process.env.RANDOM_TESTING_SCHEDULE_SYNC_ENABLED !== 'true') {
     throw new Error('Random-testing schedule sync is disabled. Set RANDOM_TESTING_SCHEDULE_SYNC_ENABLED=true.')
   }
 
-  const preview = await previewTodaysScheduledCollections(payload, now)
   const collectionDate = localDateString(now)
+  const preview = await previewTodaysScheduledCollections(payload, now)
+  if (preview.length === 0) {
+    return { collectionDate, results: [] }
+  }
+
   const dayStart = localDateTimeToIso(collectionDate, 0, APP_TIMEZONE)
   const dayEnd = localDateTimeToIso(collectionDate, 24 * 60, APP_TIMEZONE)
   const [calendarEvents, calcomBookings] = await Promise.all([
@@ -277,14 +296,7 @@ export async function syncTodaysScheduledCollections(payload: Payload, now = new
   ])
   const readyCollections = preview.filter((collection) => collection.status === 'ready')
   const eventType = readyCollections.length > 0 ? await getValidatedRandomTestingCalcomEventType() : null
-  const results: Array<{
-    bookingId?: string
-    calcomBookingUid?: string
-    collectionKey: string
-    error?: string
-    placeholderCancelled?: boolean
-    status: string
-  }> = []
+  const results: TodaysScheduledCollectionSyncResult['results'] = []
 
   for (const [ordinal, collection] of preview.entries()) {
     const reservationKey = `${collectionDate}:${ordinal}`

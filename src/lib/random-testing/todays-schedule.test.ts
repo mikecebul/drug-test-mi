@@ -186,6 +186,24 @@ describe("today's random-testing schedule sync", () => {
     )
   })
 
+  test('succeeds without calling calendar services when ToxAccess has no testers today', async () => {
+    vi.mocked(fetchTodaysScheduledCollections).mockResolvedValue([])
+    const payload = createPayload()
+
+    await expect(
+      syncTodaysScheduledCollections(payload as never, new Date('2026-07-29T12:00:00.000Z')),
+    ).resolves.toEqual({
+      collectionDate: '2026-07-29',
+      results: [],
+    })
+
+    expect(payload.find).not.toHaveBeenCalled()
+    expect(listGoogleCalendarEvents).not.toHaveBeenCalled()
+    expect(listCalcomBookings).not.toHaveBeenCalled()
+    expect(createCalcomBooking).not.toHaveBeenCalled()
+    expect(deleteGoogleCalendarEvent).not.toHaveBeenCalled()
+  })
+
   test('reuses an existing matching Cal.com booking on retry', async () => {
     vi.mocked(listCalcomBookings).mockResolvedValue([calcomBooking])
     const payload = createPayload({

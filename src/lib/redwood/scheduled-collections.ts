@@ -28,6 +28,22 @@ function parseDonorId(rowHtml: string): string | null {
   return null
 }
 
+function hasExplicitEmptyState(html: string): boolean {
+  const text = stripRedwoodHtml(html)
+  const isScheduledCollectionsPage =
+    /\bscheduled collections\b/i.test(text) || /ScheduledCollections\.aspx/i.test(html)
+
+  if (!isScheduledCollectionsPage) {
+    return false
+  }
+
+  return [
+    /\bno scheduled collections(?:\s+(?:are\s+)?(?:available|found|to display))?\b/i,
+    /\bno (?:data|records|results)(?:\s+were)?\s+(?:available|found|to display)\b/i,
+    /\bthere are no (?:scheduled collections|data|records|results)\b/i,
+  ].some((pattern) => pattern.test(text))
+}
+
 export function parseScheduledCollectionsHtml(html: string): RedwoodScheduledCollection[] {
   const rows = Array.from(html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)).map((match) => match[0])
   const headerIndex = rows.findIndex((row) => {
@@ -41,6 +57,9 @@ export function parseScheduledCollectionsHtml(html: string): RedwoodScheduledCol
   })
 
   if (headerIndex < 0) {
+    if (hasExplicitEmptyState(html)) {
+      return []
+    }
     throw new Error('ToxAccess Scheduled Collections table headers changed or were not found.')
   }
 
