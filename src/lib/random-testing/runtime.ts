@@ -2,10 +2,12 @@ const REQUIRED_RANDOM_TESTING_SYNC_ENVS = [
   'CAL_API_KEY',
   'GOOGLE_CALENDAR_ID',
   'GOOGLE_CALENDAR_SERVICE_ACCOUNT_EMAIL',
-  'GOOGLE_CALENDAR_SERVICE_ACCOUNT_PRIVATE_KEY',
   'REDWOOD_PASSWORD',
   'REDWOOD_USERNAME',
 ] as const
+
+const GOOGLE_CALENDAR_PRIVATE_KEY_ENV =
+  'GOOGLE_CALENDAR_SERVICE_ACCOUNT_PRIVATE_KEY or GOOGLE_CALENDAR_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64'
 
 export type RandomTestingSyncRuntimeState = {
   configured: boolean
@@ -14,7 +16,15 @@ export type RandomTestingSyncRuntimeState = {
 }
 
 export function getRandomTestingSyncRuntimeState(): RandomTestingSyncRuntimeState {
-  const missing = REQUIRED_RANDOM_TESTING_SYNC_ENVS.filter((name) => !process.env[name]?.trim())
+  const missing: string[] = REQUIRED_RANDOM_TESTING_SYNC_ENVS.filter(
+    (name) => !process.env[name]?.trim(),
+  )
+  const hasGoogleCalendarPrivateKey = Boolean(
+    process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_PRIVATE_KEY?.trim() ||
+      process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64?.trim(),
+  )
+
+  if (!hasGoogleCalendarPrivateKey) missing.push(GOOGLE_CALENDAR_PRIVATE_KEY_ENV)
 
   return {
     configured: missing.length === 0,

@@ -39,6 +39,22 @@ function normalizePrivateKey(value: string): string {
   return value.replace(/\\n/g, '\n')
 }
 
+function getGoogleCalendarPrivateKey(): string {
+  const privateKey = process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_PRIVATE_KEY?.trim()
+  if (privateKey) return normalizePrivateKey(privateKey)
+
+  const encodedPrivateKey = requiredEnv('GOOGLE_CALENDAR_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64')
+  const decodedPrivateKey = Buffer.from(encodedPrivateKey, 'base64').toString('utf8').trim()
+
+  if (!decodedPrivateKey) {
+    throw new Error(
+      'GOOGLE_CALENDAR_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64 must contain a base64-encoded private key.',
+    )
+  }
+
+  return normalizePrivateKey(decodedPrivateKey)
+}
+
 export function getGoogleCalendarConfig(): GoogleCalendarConfig {
   const calendarId = requiredEnv('GOOGLE_CALENDAR_ID')
 
@@ -46,7 +62,7 @@ export function getGoogleCalendarConfig(): GoogleCalendarConfig {
     calendarId,
     clientEmail: requiredEnv('GOOGLE_CALENDAR_SERVICE_ACCOUNT_EMAIL'),
     impersonatedUser: process.env.GOOGLE_CALENDAR_IMPERSONATED_USER?.trim() || undefined,
-    privateKey: normalizePrivateKey(requiredEnv('GOOGLE_CALENDAR_SERVICE_ACCOUNT_PRIVATE_KEY')),
+    privateKey: getGoogleCalendarPrivateKey(),
   }
 }
 
