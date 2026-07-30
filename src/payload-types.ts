@@ -186,6 +186,7 @@ export interface Config {
     'admin-quick-book': AdminQuickBookWidget;
     'active-jobs': ActiveJobsWidget;
     'redwood-queue-probe': RedwoodQueueProbeWidget;
+    'random-testing-sync': RandomTestingSyncWidget;
     'pending-drug-tests': PendingDrugTestsWidget;
     'admin-alerts': AdminAlertsWidget;
     collections: CollectionsWidget;
@@ -1225,6 +1226,10 @@ export interface Booking {
    */
   calcomPaymentId?: string | null;
   eventTypeId?: number | null;
+  /**
+   * Google Calendar event ID for directly synchronized appointments.
+   */
+  googleCalendarEventId?: string | null;
   /**
    * Additional form responses from Cal.com
    */
@@ -3436,6 +3441,7 @@ export interface BookingsSelect<T extends boolean = true> {
   calcomRescheduledFromId?: T;
   calcomPaymentId?: T;
   eventTypeId?: T;
+  googleCalendarEventId?: T;
   customInputs?: T;
   webhookData?: T;
   createdViaWebhook?: T;
@@ -4570,6 +4576,16 @@ export interface ActiveJobsWidget {
  * via the `definition` "redwood-queue-probe_widget".
  */
 export interface RedwoodQueueProbeWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'medium' | 'large' | 'x-large' | 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "random-testing-sync_widget".
+ */
+export interface RandomTestingSyncWidget {
   data?: {
     [k: string]: unknown;
   };

@@ -265,6 +265,15 @@ export const Bookings: CollectionConfig = {
       type: 'number',
     },
     {
+      name: 'googleCalendarEventId',
+      type: 'text',
+      unique: true,
+      index: true,
+      admin: {
+        description: 'Google Calendar event ID for directly synchronized appointments.',
+      },
+    },
+    {
       name: 'customInputs',
       type: 'json',
       admin: {

@@ -88,18 +88,3 @@ export async function getRandomTestingStart(input: {
     timeZone,
   }
 }
-
-export function getRandomTestingCalcomConfig(): {
-  eventTypeId: number
-  placeholderEmail: string
-} {
-  const eventTypeId = Number(process.env.RANDOM_TESTING_CALCOM_EVENT_TYPE_ID)
-  const placeholderEmail = process.env.RANDOM_TESTING_CALCOM_ATTENDEE_EMAIL?.trim() || ''
-  if (!Number.isInteger(eventTypeId) || eventTypeId <= 0) {
-    throw new Error('RANDOM_TESTING_CALCOM_EVENT_TYPE_ID must be a valid Cal.com event type ID.')
-  }
-  if (!placeholderEmail) {
-    throw new Error('RANDOM_TESTING_CALCOM_ATTENDEE_EMAIL is required for calendar holds.')
-  }
-  return { eventTypeId, placeholderEmail }
-}

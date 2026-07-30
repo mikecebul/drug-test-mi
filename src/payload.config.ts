@@ -129,6 +129,8 @@ const redwoodSessionConcurrency = {
   key: ({ queue }: { queue: string }) => `${queue}:redwood-session`,
 }
 
+const randomTestingScheduleEnabled = process.env.RANDOM_TESTING_SCHEDULE_SYNC_ENABLED?.trim().toLowerCase() === 'true'
+
 async function recordExhaustedRedwoodJobAlert(args: {
   clientId: string
   error: unknown
@@ -223,6 +225,13 @@ export default buildConfig({
           maxWidth: 'full',
         },
         {
+          slug: 'random-testing-sync',
+          label: 'Random Testing Sync',
+          Component: '@/views/dashboard/widgets/RandomTestingSyncWidget',
+          minWidth: 'medium',
+          maxWidth: 'full',
+        },
+        {
           slug: 'pending-drug-tests',
           label: 'Pending Drug Tests',
           Component: '@/views/dashboard/widgets/PendingDrugTestsWidget',
@@ -252,6 +261,10 @@ export default buildConfig({
         },
         {
           widgetSlug: 'redwood-queue-probe',
+          width: 'full',
+        },
+        {
+          widgetSlug: 'random-testing-sync',
           width: 'full',
         },
         {
@@ -759,12 +772,14 @@ export default buildConfig({
         slug: 'redwood-sync-upcoming-random-testing',
         concurrency: redwoodSessionConcurrency,
         retries: 1,
-        schedule: [
-          {
-            cron: process.env.RANDOM_TESTING_UPCOMING_CRON || '0 5 6 * * 1',
-            queue: 'redwood',
-          },
-        ],
+        schedule: randomTestingScheduleEnabled
+          ? [
+              {
+                cron: process.env.RANDOM_TESTING_UPCOMING_CRON || '0 5 6 * * 1',
+                queue: 'redwood',
+              },
+            ]
+          : [],
         outputSchema: [
           { name: 'status', type: 'text', required: true },
           { name: 'created', type: 'text', required: true },
@@ -804,12 +819,14 @@ export default buildConfig({
         slug: 'redwood-sync-todays-random-testing',
         concurrency: redwoodSessionConcurrency,
         retries: 1,
-        schedule: [
-          {
-            cron: process.env.RANDOM_TESTING_TODAY_CRON || '0 0 6 * * *',
-            queue: 'redwood',
-          },
-        ],
+        schedule: randomTestingScheduleEnabled
+          ? [
+              {
+                cron: process.env.RANDOM_TESTING_TODAY_CRON || '0 0 6 * * *',
+                queue: 'redwood',
+              },
+            ]
+          : [],
         outputSchema: [
           { name: 'status', type: 'text', required: true },
           { name: 'processed', type: 'text', required: true },

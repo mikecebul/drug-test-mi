@@ -5,13 +5,16 @@ import { APP_TIMEZONE } from '@/lib/date-utils'
 import type { Client } from '@/payload-types'
 import { fetchTodaysScheduledCollections, type RedwoodScheduledCollection } from '@/lib/redwood/scheduled-collections'
 import {
-  cancelCalcomBooking,
-  createCalcomBooking,
-  listCalcomBookings,
-  type CalcomBookingRecord,
-} from '@/utilities/calcom-api'
+  createGoogleCalendarEvent,
+  deleteGoogleCalendarEvent,
+  getGoogleCalendarConfig,
+  listGoogleCalendarEvents,
+  updateGoogleCalendarEvent,
+  type GoogleCalendarEventInput,
+  type GoogleCalendarEventRecord,
+} from '@/utilities/google-calendar-api'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
-import { getRandomTestingCalcomConfig, getRandomTestingStart, localDateTimeToIso } from './calcom'
+import { getRandomTestingStart, localDateTimeToIso } from './calcom'
 
 const SOURCE = 'toxaccess-random-testing'
 
@@ -37,13 +40,9 @@ function localDateString(now = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-function metadataValue(booking: CalcomBookingRecord, name: string): string {
-  const value = booking.metadata?.[name]
+function metadataValue(event: GoogleCalendarEventRecord, name: string): string {
+  const value = event.metadata?.[name]
   return typeof value === 'string' ? value : ''
-}
-
-function isActiveCalcomBooking(booking: CalcomBookingRecord): boolean {
-  return booking.status !== 'cancelled' && booking.status !== 'rejected'
 }
 
 async function findMatchingClients(payload: Payload, donorIds: string[]): Promise<Map<string, MatchingClient[]>> {
@@ -133,37 +132,33 @@ export async function previewTodaysScheduledCollections(
 }
 
 function buildBookingData(input: {
-  booking: CalcomBookingRecord
+  calendarEvent: GoogleCalendarEventRecord
   client: MatchingClient
   collection: TodaysScheduledCollectionPreview
   end: string
   start: string
   timeZone: string
 }): RequiredDataFromCollectionSlug<'bookings'> {
-  const host = input.booking.hosts?.[0]
-  const attendee = input.booking.attendees?.[0]
+  const calendarConfig = getGoogleCalendarConfig()
   return {
     title: `Random Drug Test - ${input.collection.donorName}`,
     type: '10min',
     description: 'Created from today’s ToxAccess Scheduled Collections page.',
     additionalNotes: `ToxAccess donor ID: ${input.collection.donorId}`,
-    startTime: input.booking.start || input.start,
-    endTime: input.booking.end || input.end,
+    startTime: input.calendarEvent.start || input.start,
+    endTime: input.calendarEvent.end || input.end,
     status: 'confirmed',
     organizer: {
-      id: host?.id,
-      name: host?.name || 'MI Drug Test',
-      email: host?.email || process.env.RANDOM_TESTING_CALCOM_ATTENDEE_EMAIL || 'admin@midrugtest.com',
-      timeZone: host?.timeZone || input.timeZone,
+      name: calendarConfig.organizerName,
+      email: calendarConfig.organizerEmail,
+      timeZone: input.timeZone,
     },
-    attendeeName: attendee?.name || `${input.client.firstName} ${input.client.lastName}`,
-    attendeeEmail: attendee?.email || input.client.email,
+    attendeeName: `${input.client.firstName} ${input.client.lastName}`,
+    attendeeEmail: input.client.email,
     relatedClient: input.client.id,
     ...(input.client.defaultTestType ? { scheduledTestType: input.client.defaultTestType } : {}),
     location: 'MI Drug Test',
-    calcomBookingId: input.booking.uid,
-    calcomBookingNumericId: input.booking.id,
-    eventTypeId: input.booking.eventTypeId,
+    googleCalendarEventId: input.calendarEvent.id,
     customInputs: {
       source: SOURCE,
       toxaccessDonorId: input.collection.donorId,
@@ -171,7 +166,7 @@ function buildBookingData(input: {
     },
     webhookData: {
       source: SOURCE,
-      booking: input.booking,
+      calendarEvent: input.calendarEvent,
     },
     createdViaWebhook: false,
     toxaccessCollectionKey: input.collection.collectionKey,
@@ -180,7 +175,7 @@ function buildBookingData(input: {
 }
 
 async function ensurePayloadBooking(input: {
-  booking: CalcomBookingRecord
+  calendarEvent: GoogleCalendarEventRecord
   client: MatchingClient
   collection: TodaysScheduledCollectionPreview
   end: string
@@ -192,7 +187,7 @@ async function ensurePayloadBooking(input: {
     collection: 'bookings',
     where: {
       or: [
-        { calcomBookingId: { equals: input.booking.uid } },
+        { googleCalendarEventId: { equals: input.calendarEvent.id } },
         { toxaccessCollectionKey: { equals: input.collection.collectionKey } },
       ],
     },
@@ -220,6 +215,33 @@ async function ensurePayloadBooking(input: {
   return String(created.id)
 }
 
+function buildNamedCalendarEvent(input: {
+  collectionDate: string
+  collection: TodaysScheduledCollectionPreview
+  end: string
+  reservationKey: string
+  start: string
+  timeZone: string
+}): GoogleCalendarEventInput {
+  return {
+    summary: `Random Drug Test - ${input.collection.donorName}`,
+    description: `Created from ToxAccess Scheduled Collections.\nDonor ID: ${input.collection.donorId}`,
+    location: 'MI Drug Test',
+    start: input.start,
+    end: input.end,
+    timeZone: input.timeZone,
+    remindersUseDefault: true,
+    metadata: {
+      source: SOURCE,
+      kind: 'scheduled-collection',
+      randomTestingReservationKey: input.reservationKey,
+      toxaccessCollectionKey: input.collection.collectionKey,
+      toxaccessDonorId: input.collection.donorId,
+      collectionDate: input.collectionDate,
+    },
+  }
+}
+
 export async function syncTodaysScheduledCollections(payload: Payload, now = new Date()) {
   if (process.env.RANDOM_TESTING_SCHEDULE_SYNC_ENABLED !== 'true') {
     throw new Error('Random-testing schedule sync is disabled. Set RANDOM_TESTING_SCHEDULE_SYNC_ENABLED=true.')
@@ -229,37 +251,42 @@ export async function syncTodaysScheduledCollections(payload: Payload, now = new
   const collectionDate = localDateString(now)
   const dayStart = localDateTimeToIso(collectionDate, 0, APP_TIMEZONE)
   const dayEnd = localDateTimeToIso(collectionDate, 24 * 60, APP_TIMEZONE)
-  const calBookings = await listCalcomBookings({ afterStart: dayStart, beforeEnd: dayEnd })
-  const config = getRandomTestingCalcomConfig()
+  const calendarEvents = await listGoogleCalendarEvents({
+    timeMin: dayStart,
+    timeMax: dayEnd,
+    privateExtendedProperties: [`source=${SOURCE}`],
+  })
   const results: Array<{
     bookingId?: string
     collectionKey: string
     error?: string
     placeholderCancelled?: boolean
+    placeholderReplaced?: boolean
     status: string
   }> = []
 
   for (const [ordinal, collection] of preview.entries()) {
     const reservationKey = `${collectionDate}:${ordinal}`
-    const placeholder = calBookings.find(
-      (booking) =>
-        isActiveCalcomBooking(booking) &&
-        metadataValue(booking, 'source') === SOURCE &&
-        metadataValue(booking, 'kind') === 'placeholder' &&
-        metadataValue(booking, 'randomTestingReservationKey') === reservationKey,
+    const placeholder = calendarEvents.find(
+      (event) =>
+        metadataValue(event, 'source') === SOURCE &&
+        metadataValue(event, 'kind') === 'placeholder' &&
+        metadataValue(event, 'randomTestingReservationKey') === reservationKey,
     )
 
     if (collection.status === 'already-booked') {
       if (placeholder) {
-        const cancellation = await cancelCalcomBooking({
-          bookingUid: placeholder.uid,
-          cancellationReason: 'Named ToxAccess scheduled collection already exists.',
-        })
+        let error: string | undefined
+        try {
+          await deleteGoogleCalendarEvent(placeholder.id)
+        } catch (deleteError) {
+          error = deleteError instanceof Error ? deleteError.message : String(deleteError)
+        }
         results.push({
           collectionKey: collection.collectionKey,
-          error: cancellation.success ? undefined : cancellation.error,
-          placeholderCancelled: cancellation.success,
-          status: cancellation.success ? collection.status : 'existing-booking-placeholder-cancel-failed',
+          error,
+          placeholderCancelled: !error,
+          status: error ? 'existing-booking-placeholder-cancel-failed' : collection.status,
         })
       } else {
         results.push({ collectionKey: collection.collectionKey, status: collection.status })
@@ -291,33 +318,34 @@ export async function syncTodaysScheduledCollections(payload: Payload, now = new
         collectionDate,
         slotIndex: client.randomTestingSlotIndex,
       })
-      let actualBooking = calBookings.find(
-        (booking) =>
-          isActiveCalcomBooking(booking) &&
-          metadataValue(booking, 'toxaccessCollectionKey') === collection.collectionKey,
+      const eventInput = buildNamedCalendarEvent({
+        collection,
+        collectionDate,
+        reservationKey,
+        ...timing,
+      })
+      let actualCalendarEvent = calendarEvents.find(
+        (event) => metadataValue(event, 'toxaccessCollectionKey') === collection.collectionKey,
       )
-      if (!actualBooking) {
-        actualBooking = await createCalcomBooking({
-          attendee: {
-            name: `${client.firstName} ${client.lastName}`,
-            email: config.placeholderEmail,
-            timeZone: timing.timeZone,
-            language: 'en',
-          },
-          eventTypeId: config.eventTypeId,
-          start: timing.start,
-          metadata: {
-            source: SOURCE,
-            kind: 'scheduled-collection',
-            toxaccessCollectionKey: collection.collectionKey,
-            toxaccessDonorId: collection.donorId,
-          },
+      let placeholderReplaced = false
+      if (!actualCalendarEvent && placeholder) {
+        actualCalendarEvent = await updateGoogleCalendarEvent({
+          eventId: placeholder.id,
+          event: eventInput,
+        })
+        placeholderReplaced = true
+      } else if (!actualCalendarEvent) {
+        actualCalendarEvent = await createGoogleCalendarEvent(eventInput)
+      } else {
+        actualCalendarEvent = await updateGoogleCalendarEvent({
+          eventId: actualCalendarEvent.id,
+          event: eventInput,
         })
       }
 
       const bookingId = await ensurePayloadBooking({
         payload,
-        booking: actualBooking,
+        calendarEvent: actualCalendarEvent,
         client: client as MatchingClient,
         collection,
         ...timing,
@@ -326,15 +354,13 @@ export async function syncTodaysScheduledCollections(payload: Payload, now = new
       let status = 'materialized'
       let error: string | undefined
 
-      if (placeholder) {
-        const cancellation = await cancelCalcomBooking({
-          bookingUid: placeholder.uid,
-          cancellationReason: 'Replaced by today’s named ToxAccess scheduled collection.',
-        })
-        placeholderCancelled = cancellation.success
-        if (!cancellation.success) {
+      if (placeholder && !placeholderReplaced) {
+        try {
+          await deleteGoogleCalendarEvent(placeholder.id)
+          placeholderCancelled = true
+        } catch (deleteError) {
           status = 'materialized-placeholder-cancel-failed'
-          error = cancellation.error
+          error = deleteError instanceof Error ? deleteError.message : String(deleteError)
         }
       }
 
@@ -343,6 +369,7 @@ export async function syncTodaysScheduledCollections(payload: Payload, now = new
         collectionKey: collection.collectionKey,
         error,
         placeholderCancelled,
+        placeholderReplaced,
         status,
       })
     } catch (error) {

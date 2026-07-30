@@ -1,5 +1,12 @@
 # Plan 005: Reserve ToxAccess time in Google Calendar and replace it with day-of bookings
 
+> **Architecture update — July 29, 2026:** Placeholder and named random-testing
+> events now use the Google Calendar API directly. They have no attendees, so
+> they cannot generate attendee email. Cal.com remains the source of recurring
+> availability and date overrides only. The implementation and deployment
+> instructions in `docs/redwood-automation-improvements.md` supersede the older
+> Cal.com-booking design exploration retained below.
+
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and
@@ -742,11 +749,14 @@ Each handler must:
 
 Add both slugs/labels and summary cases to `JOB_TASK_LABELS` and its tests.
 
-The continuously polling `worker:redwood` remains unchanged. Ensure production
-also runs `worker:redwood:schedules` as a second service/process. Add a
-`worker-redwood-schedules` service to `docker-compose.yml` using the existing
-worker image/target and command override; it must not mount or expose secrets
-differently from `worker-redwood`.
+Use Payload's combined dedicated-worker command so one `worker:redwood` process
+both evaluates schedules and executes queued jobs:
+
+```sh
+payload jobs:run --queue redwood --cron "*/2 * * * * *" --handle-schedules
+```
+
+Do not add a second schedule-only worker or another container.
 
 **Verify**:
 
@@ -767,7 +777,7 @@ RANDOM_TESTING_CALCOM_EVENT_TYPE_ID=
 RANDOM_TESTING_CALCOM_ATTENDEE_EMAIL=
 REDWOOD_UPCOMING_SCHEDULE_CRON=0 11 * * 1
 REDWOOD_TODAY_SCHEDULE_CRON=0 10 * * *
-REDWOOD_SCHEDULE_HANDLER_CRON=0 * * * * *
+REDWOOD_WORKER_CRON=*/2 * * * * *
 ```
 
 Keep them runtime-only. Do not add them as Docker build secrets.

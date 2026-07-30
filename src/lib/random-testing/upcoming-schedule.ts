@@ -1,35 +1,50 @@
-import { cancelCalcomBooking, createCalcomBooking, listCalcomBookings } from '@/utilities/calcom-api'
 import { fetchUpcomingScheduledCollections } from '@/lib/redwood/upcoming-scheduled-collections'
 import { APP_TIMEZONE } from '@/lib/date-utils'
-import { getRandomTestingCalcomConfig, getRandomTestingStart, localDateTimeToIso } from './calcom'
+import {
+  createGoogleCalendarEvent,
+  deleteGoogleCalendarEvent,
+  listGoogleCalendarEvents,
+} from '@/utilities/google-calendar-api'
+import { getRandomTestingStart, localDateTimeToIso } from './calcom'
 
 const SOURCE = 'toxaccess-random-testing'
 
-function metadataValue(metadata: Record<string, unknown> | null | undefined, name: string): string {
+function metadataValue(metadata: Record<string, string> | null | undefined, name: string): string {
   const value = metadata?.[name]
   return typeof value === 'string' ? value : ''
 }
 
-function isActiveCalcomStatus(status: string | undefined): boolean {
-  return status !== 'cancelled' && status !== 'rejected'
+function localDateString(now: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now)
 }
 
-export async function syncUpcomingRandomTestingPlaceholders() {
+function addDateDays(date: string, days: number): string {
+  const value = new Date(`${date}T12:00:00.000Z`)
+  value.setUTCDate(value.getUTCDate() + days)
+  return value.toISOString().slice(0, 10)
+}
+
+export async function syncUpcomingRandomTestingPlaceholders(now = new Date()) {
   if (process.env.RANDOM_TESTING_SCHEDULE_SYNC_ENABLED !== 'true') {
     throw new Error('Random-testing schedule sync is disabled. Set RANDOM_TESTING_SCHEDULE_SYNC_ENABLED=true.')
   }
 
   const days = await fetchUpcomingScheduledCollections()
-  if (days.length === 0) return { created: 0, cancelled: 0, days: 0, unchanged: 0 }
-
-  const sortedDates = days.map((day) => day.collectionDate).sort()
+  const today = localDateString(now)
+  const sortedDates = [today, ...days.map((day) => day.collectionDate)].sort()
   const rangeStart = localDateTimeToIso(sortedDates[0], 0, APP_TIMEZONE)
-  const lastDate = new Date(`${sortedDates[sortedDates.length - 1]}T12:00:00.000Z`)
-  lastDate.setUTCDate(lastDate.getUTCDate() + 1)
-  const rangeEndDate = lastDate.toISOString().slice(0, 10)
+  const rangeEndDate = [addDateDays(today, 15), ...days.map((day) => addDateDays(day.collectionDate, 1))].sort().at(-1)!
   const rangeEnd = localDateTimeToIso(rangeEndDate, 0, APP_TIMEZONE)
-  const bookings = await listCalcomBookings({ afterStart: rangeStart, beforeEnd: rangeEnd })
-  const config = getRandomTestingCalcomConfig()
+  const events = await listGoogleCalendarEvents({
+    timeMin: rangeStart,
+    timeMax: rangeEnd,
+    privateExtendedProperties: [`source=${SOURCE}`, 'kind=placeholder'],
+  })
   const desiredKeys = new Set<string>()
   let created = 0
   let unchanged = 0
@@ -39,12 +54,11 @@ export async function syncUpcomingRandomTestingPlaceholders() {
     for (let ordinal = 0; ordinal < day.total; ordinal += 1) {
       const reservationKey = `${day.collectionDate}:${ordinal}`
       desiredKeys.add(reservationKey)
-      const existing = bookings.find(
-        (booking) =>
-          isActiveCalcomStatus(booking.status) &&
-          metadataValue(booking.metadata, 'source') === SOURCE &&
-          metadataValue(booking.metadata, 'kind') === 'placeholder' &&
-          metadataValue(booking.metadata, 'randomTestingReservationKey') === reservationKey,
+      const existing = events.find(
+        (event) =>
+          metadataValue(event.metadata, 'source') === SOURCE &&
+          metadataValue(event.metadata, 'kind') === 'placeholder' &&
+          metadataValue(event.metadata, 'randomTestingReservationKey') === reservationKey,
       )
       if (existing) {
         unchanged += 1
@@ -55,15 +69,12 @@ export async function syncUpcomingRandomTestingPlaceholders() {
         collectionDate: day.collectionDate,
         slotIndex: ordinal,
       })
-      await createCalcomBooking({
-        attendee: {
-          name: `Random Testing Hold ${ordinal + 1}`,
-          email: config.placeholderEmail,
-          timeZone: timing.timeZone,
-          language: 'en',
-        },
-        eventTypeId: config.eventTypeId,
+      await createGoogleCalendarEvent({
+        summary: `Random Testing Hold ${ordinal + 1}`,
+        description: 'Reserved from the ToxAccess upcoming random-testing schedule.',
         start: timing.start,
+        end: timing.end,
+        timeZone: timing.timeZone,
         metadata: {
           source: SOURCE,
           kind: 'placeholder',
@@ -75,23 +86,14 @@ export async function syncUpcomingRandomTestingPlaceholders() {
     }
   }
 
-  for (const booking of bookings) {
-    if (
-      !isActiveCalcomStatus(booking.status) ||
-      metadataValue(booking.metadata, 'source') !== SOURCE ||
-      metadataValue(booking.metadata, 'kind') !== 'placeholder'
-    ) {
+  for (const event of events) {
+    if (metadataValue(event.metadata, 'source') !== SOURCE || metadataValue(event.metadata, 'kind') !== 'placeholder') {
       continue
     }
-    const reservationKey = metadataValue(booking.metadata, 'randomTestingReservationKey')
-    const collectionDate = metadataValue(booking.metadata, 'collectionDate')
-    if (!days.some((day) => day.collectionDate === collectionDate) || desiredKeys.has(reservationKey)) continue
+    const reservationKey = metadataValue(event.metadata, 'randomTestingReservationKey')
+    if (desiredKeys.has(reservationKey)) continue
 
-    const result = await cancelCalcomBooking({
-      bookingUid: booking.uid,
-      cancellationReason: 'ToxAccess no longer reports this upcoming random-testing allocation.',
-    })
-    if (!result.success) throw new Error(result.error || `Failed to cancel Cal.com placeholder ${booking.uid}.`)
+    await deleteGoogleCalendarEvent(event.id)
     cancelled += 1
   }
 
