@@ -62,7 +62,11 @@ function ScheduleRow({ booking }: { booking: Booking }) {
             <span className="line-clamp-2 font-semibold line-through decoration-current/60 decoration-1">
               {booking.attendeeName}
             </span>
-            <ScheduleInfoBadges gender={booking.client?.gender} isCompleted paymentLabel={paymentLabel} />
+            <ScheduleInfoBadges
+              gender={booking.gender ?? booking.client?.gender}
+              isCompleted
+              paymentLabel={paymentLabel}
+            />
             <span className="text-muted-foreground inline-flex items-center gap-1 text-sm line-through decoration-current/60 decoration-1">
               <Clock className="size-4" />
               {formatTime(booking.startTime)}
@@ -88,7 +92,7 @@ function ScheduleRow({ booking }: { booking: Booking }) {
           <span className="flex min-w-0 flex-col gap-1">
             <span className="line-clamp-2 font-semibold">{booking.attendeeName}</span>
             <ScheduleInfoBadges
-              gender={booking.client?.gender}
+              gender={booking.gender ?? booking.client?.gender}
               needsRegistration={needsRegistration}
               needsTestType={needsTestType}
               paymentLabel={paymentLabel}

@@ -101,6 +101,7 @@ export function RegisterClientWorkflow({ onBack }: RegisterClientWorkflowProps) 
         if (defaults.firstName) form.setFieldValue('personalInfo.firstName', defaults.firstName)
         if (defaults.lastName) form.setFieldValue('personalInfo.lastName', defaults.lastName)
         if (defaults.email) form.setFieldValue('accountInfo.email', defaults.email)
+        if (defaults.gender) form.setFieldValue('personalInfo.gender', defaults.gender)
         if (defaults.phone) form.setFieldValue('personalInfo.phone', defaults.phone)
       })
       .catch((error) => {

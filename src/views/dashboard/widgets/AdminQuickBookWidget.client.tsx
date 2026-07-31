@@ -238,6 +238,9 @@ export function AdminQuickBookWidgetClient({
         email: client.email,
         test: selectedTestLabel,
       }
+      if (client.gender === 'male' || client.gender === 'female') {
+        config.gender = client.gender
+      }
 
       const formattedPhone = formatPhoneForCal(client.phone)
       if (formattedPhone) {
