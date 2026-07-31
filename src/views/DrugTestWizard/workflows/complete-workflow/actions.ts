@@ -5,6 +5,7 @@ import config from '@payload-config'
 import Stripe from 'stripe'
 import type { Booking as PayloadBooking, Client, Court, Employer, Payment } from '@/payload-types'
 import { APP_TIMEZONE, getAppTimezoneDayWindow } from '@/lib/date-utils'
+import { getBookingGenderFromInputs } from '@/lib/client-gender'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 import { getRecipients } from '@/collections/DrugTests/email/recipients'
 import { headers } from 'next/headers'
@@ -229,6 +230,16 @@ function getCalcomBookingTestType(booking: {
   return null
 }
 
+function getCalcomBookingGender(booking: { customInputs?: unknown; webhookData?: unknown }) {
+  const webhookPayload = getWebhookPayload(booking.webhookData)
+
+  return (
+    getBookingGenderFromInputs(webhookPayload.customInputs) ||
+    getBookingGenderFromInputs(webhookPayload.responses) ||
+    getBookingGenderFromInputs(booking.customInputs)
+  )
+}
+
 function getEffectiveBookingTestType(bookingTestType: unknown, referral: PopulatedReferral | null | undefined) {
   return mapTestTypeValue(bookingTestType) ?? getPreferredTestType(referral)
 }
@@ -431,6 +442,7 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
           ? client.headshot.thumbnailURL || client.headshot.url || null
           : null
       const headshotId = client?.headshot && typeof client.headshot === 'object' ? String(client.headshot.id) : null
+      const bookingGender = getCalcomBookingGender(booking)
 
       return {
         id: booking.id as string,
@@ -440,6 +452,10 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
         attendeeName: booking.attendeeName as string,
         attendeeEmail: booking.attendeeEmail as string,
         attendeePhone: getPhoneFromCustomInputs(booking.customInputs),
+        gender:
+          client?.gender === 'male' || client?.gender === 'female' || client?.gender === 'prefer-not-to-say'
+            ? client.gender
+            : bookingGender || null,
         calcomBookingId: booking.calcomBookingId as string | null | undefined,
         calcomActionLinks: getCalcomBookingActionLinks({
           calcomBookingId: booking.calcomBookingId as string | null | undefined,
@@ -842,6 +858,7 @@ export async function getBookingRegistrationDefaults(bookingId: string) {
     firstName,
     lastName,
     email: booking.attendeeEmail || '',
+    gender: getCalcomBookingGender(booking),
     phone: getPhoneFromCustomInputs(booking.customInputs),
   }
 }

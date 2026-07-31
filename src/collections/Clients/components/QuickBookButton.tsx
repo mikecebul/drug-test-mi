@@ -151,6 +151,7 @@ export default async function QuickBookButton({ id }: ServerComponentProps) {
       <QuickBookButtonClient
         clientName={name}
         clientEmail={email}
+        clientGender={client.gender || undefined}
         clientPhone={client.phone || undefined}
         recommendedTestTypeId={recommendation.recommendedTestTypeId}
         recommendedTestTypeValue={recommendation.recommendedTestTypeValue}

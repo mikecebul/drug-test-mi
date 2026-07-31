@@ -157,9 +157,8 @@ describe('dashboard widgets', () => {
         id: 'booking-1',
         attendeeName: 'Jamie Client',
         startTime: '2026-05-24T14:30:00.000Z',
-        client: {
-          gender: 'female',
-        },
+        gender: 'female',
+        client: null,
         payment: null,
         sampleCollection: null,
         needsRegistration: true,
@@ -173,6 +172,7 @@ describe('dashboard widgets', () => {
         id: 'booking-2',
         attendeeName: 'Morgan Ready',
         startTime: '2026-05-24T15:30:00.000Z',
+        gender: 'male',
         client: {
           gender: 'male',
         },
