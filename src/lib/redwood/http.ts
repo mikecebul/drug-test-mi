@@ -3,6 +3,30 @@ const REDWOOD_HTTP_USER_AGENT =
 
 type RedwoodFormEntry = [name: string, value: string]
 
+type RedwoodHtmlControl = {
+  attributes: Record<string, string>
+  index: number
+  name: string
+  tag: 'button' | 'input'
+  type: string
+  value: string
+}
+
+type RedwoodLoginForm = {
+  actionUrl: string
+  controls: RedwoodHtmlControl[]
+  entries: RedwoodFormEntry[]
+  passwordControl: RedwoodHtmlControl
+  submitControl: RedwoodHtmlControl
+  usernameControl: RedwoodHtmlControl
+}
+
+export type RedwoodLoginSubmission = {
+  actionUrl: string
+  entries: RedwoodFormEntry[]
+  submitName: string
+}
+
 export type RedwoodMultipartFile = {
   blob: Blob
   filename: string
@@ -17,11 +41,7 @@ export type RedwoodHttpAuth = {
 
 export type RedwoodHttpSession = {
   getText: (url: string) => Promise<{ response: Response; text: string }>
-  postFormData: (
-    url: string,
-    entries: RedwoodFormEntry[],
-    options?: { referer?: string },
-  ) => Promise<Response>
+  postFormData: (url: string, entries: RedwoodFormEntry[], options?: { referer?: string }) => Promise<Response>
   postMultipart: (
     url: string,
     entries: RedwoodFormEntry[],
@@ -30,11 +50,7 @@ export type RedwoodHttpSession = {
       referer?: string
     },
   ) => Promise<Response>
-  postUrlEncoded: (
-    url: string,
-    entries: RedwoodFormEntry[],
-    options?: { referer?: string },
-  ) => Promise<Response>
+  postUrlEncoded: (url: string, entries: RedwoodFormEntry[], options?: { referer?: string }) => Promise<Response>
 }
 
 export function decodeRedwoodHtmlEntity(value: string): string {
@@ -68,7 +84,15 @@ export function readRedwoodHtmlAttributes(tag: string): Record<string, string> {
 
   while ((match = attributeRegex.exec(tag))) {
     const name = match[1]?.toLowerCase()
-    if (!name || name === 'input' || name === 'select' || name === 'option' || name === 'textarea') {
+    if (
+      !name ||
+      name === 'button' ||
+      name === 'form' ||
+      name === 'input' ||
+      name === 'select' ||
+      name === 'option' ||
+      name === 'textarea'
+    ) {
       continue
     }
 
@@ -76,6 +100,246 @@ export function readRedwoodHtmlAttributes(tag: string): Record<string, string> {
   }
 
   return attributes
+}
+
+function readRedwoodHtmlControls(html: string): RedwoodHtmlControl[] {
+  const controls: RedwoodHtmlControl[] = []
+
+  for (const match of html.matchAll(/<input\b[^>]*>/gi)) {
+    const attributes = readRedwoodHtmlAttributes(match[0])
+    const name = attributes.name || ''
+    if (!name || 'disabled' in attributes) continue
+
+    controls.push({
+      attributes,
+      index: match.index,
+      name,
+      tag: 'input',
+      type: (attributes.type || 'text').toLowerCase(),
+      value: attributes.value || '',
+    })
+  }
+
+  for (const match of html.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/gi)) {
+    const openingTag = match[0].slice(0, match[0].indexOf('>') + 1)
+    const attributes = readRedwoodHtmlAttributes(openingTag)
+    const name = attributes.name || ''
+    if (!name || 'disabled' in attributes) continue
+
+    controls.push({
+      attributes,
+      index: match.index,
+      name,
+      tag: 'button',
+      type: (attributes.type || 'submit').toLowerCase(),
+      value: attributes.value || stripRedwoodHtml(match[1] || ''),
+    })
+  }
+
+  return controls.sort((left, right) => left.index - right.index)
+}
+
+function readRedwoodPasswordForm(
+  html: string,
+  pageUrl: string,
+): {
+  actionUrl: string
+  controls: RedwoodHtmlControl[]
+  html: string
+} {
+  const forms = Array.from(html.matchAll(/<form\b[^>]*>[\s\S]*?<\/form>/gi))
+
+  for (const formMatch of forms) {
+    const formHtml = formMatch[0]
+    const controls = readRedwoodHtmlControls(formHtml)
+    if (!controls.some((control) => control.tag === 'input' && control.type === 'password')) continue
+
+    const openingTag = formHtml.slice(0, formHtml.indexOf('>') + 1)
+    const action = readRedwoodHtmlAttributes(openingTag).action || pageUrl
+
+    return {
+      actionUrl: new URL(action, pageUrl).toString(),
+      controls,
+      html: formHtml,
+    }
+  }
+
+  throw new Error('Redwood login form did not contain a password input.')
+}
+
+function controlIdentity(control: RedwoodHtmlControl): string {
+  return `${control.name} ${control.attributes.id || ''} ${control.value}`.toLowerCase()
+}
+
+function chooseRedwoodUsernameControl(
+  controls: RedwoodHtmlControl[],
+  passwordControl: RedwoodHtmlControl,
+): RedwoodHtmlControl | null {
+  const candidates = controls.filter(
+    (control) =>
+      control.tag === 'input' && ['email', 'text'].includes(control.type) && control.index < passwordControl.index,
+  )
+
+  return (
+    candidates
+      .map((control, order) => {
+        const identity = controlIdentity(control)
+        const semanticScore = /user|email|login|account/.test(identity) ? 10_000 : 0
+        return {
+          control,
+          score: semanticScore + order,
+        }
+      })
+      .sort((left, right) => right.score - left.score)[0]?.control || null
+  )
+}
+
+function chooseRedwoodLoginSubmitControl(
+  controls: RedwoodHtmlControl[],
+  passwordControl: RedwoodHtmlControl,
+): RedwoodHtmlControl | null {
+  const candidates = controls.filter(
+    (control) =>
+      (control.tag === 'button' || ['image', 'submit'].includes(control.type)) && control.index > passwordControl.index,
+  )
+
+  return (
+    candidates
+      .map((control, order) => {
+        const identity = controlIdentity(control)
+        const semanticScore = /login|log in|sign.?in|authenticate|membership/.test(identity) ? 10_000 : 0
+        const negativeScore = /cancel|forgot|reset|\bno\b|logout|log out|sso/.test(identity) ? 20_000 : 0
+
+        return {
+          control,
+          score: semanticScore - negativeScore - order,
+        }
+      })
+      .sort((left, right) => right.score - left.score)[0]?.control || null
+  )
+}
+
+function buildRedwoodLoginForm(html: string, pageUrl: string): RedwoodLoginForm {
+  const form = readRedwoodPasswordForm(html, pageUrl)
+  const passwordControl = form.controls.find((control) => control.tag === 'input' && control.type === 'password')
+  if (!passwordControl) {
+    throw new Error('Redwood login form did not contain a password input.')
+  }
+
+  const usernameControl = chooseRedwoodUsernameControl(form.controls, passwordControl)
+  if (!usernameControl) {
+    throw new Error('Redwood login form did not contain a username input before the password input.')
+  }
+
+  const submitControl = chooseRedwoodLoginSubmitControl(form.controls, passwordControl)
+  if (!submitControl) {
+    throw new Error('Redwood login form did not contain a submit control after the password input.')
+  }
+
+  return {
+    actionUrl: form.actionUrl,
+    controls: form.controls,
+    entries: parseRedwoodFormEntries(form.html),
+    passwordControl,
+    submitControl,
+    usernameControl,
+  }
+}
+
+function setRedwoodLoginSupportingFields(
+  entries: RedwoodFormEntry[],
+  controls: RedwoodHtmlControl[],
+  username: string,
+): void {
+  for (const control of controls) {
+    if (control.tag !== 'input' || control.type !== 'hidden') continue
+
+    const identity = `${control.name} ${control.attributes.id || ''}`
+    if (/timezoneoffset/i.test(identity)) {
+      setRedwoodFormEntry(entries, control.name, '0')
+    } else if (/localtime/i.test(identity)) {
+      setRedwoodFormEntry(entries, control.name, new Date().toUTCString())
+    } else if (/username/i.test(identity)) {
+      setRedwoodFormEntry(entries, control.name, username)
+    }
+  }
+}
+
+export function buildRedwoodLoginSubmission(
+  html: string,
+  pageUrl: string,
+  credentials: Pick<RedwoodHttpAuth, 'password' | 'username'>,
+): RedwoodLoginSubmission {
+  const form = buildRedwoodLoginForm(html, pageUrl)
+  const entries = form.entries
+
+  setRedwoodFormEntry(entries, form.usernameControl.name, credentials.username)
+  setRedwoodFormEntry(entries, form.passwordControl.name, credentials.password)
+  setRedwoodFormEntry(entries, form.submitControl.name, form.submitControl.value)
+  setRedwoodLoginSupportingFields(entries, form.controls, credentials.username)
+
+  return {
+    actionUrl: form.actionUrl,
+    entries,
+    submitName: form.submitControl.name,
+  }
+}
+
+export function buildRedwoodLoginContinuationSubmission(
+  html: string,
+  pageUrl: string,
+  priorSubmitName: string,
+  username?: string,
+): RedwoodLoginSubmission | null {
+  const form = buildRedwoodLoginForm(html, pageUrl)
+  const candidates = form.controls.filter((control) => {
+    if (control.name === priorSubmitName || control.name === form.submitControl.name) return false
+    return control.tag === 'button' || ['image', 'submit'].includes(control.type)
+  })
+
+  const continuation = candidates
+    .map((control, order) => {
+      const identity = controlIdentity(control)
+      const semanticScore = /yes|continue|confirm|replace|proceed|session|popup/.test(identity) ? 10_000 : 0
+      const primaryScore = /primary/.test(control.attributes.class || '') ? 1_000 : 0
+      const negativeScore = /cancel|\bno\b|back|logout|log out/.test(identity) ? 20_000 : 0
+
+      return {
+        control,
+        score: semanticScore + primaryScore - negativeScore - order,
+      }
+    })
+    .sort((left, right) => right.score - left.score)[0]
+
+  if (!continuation || continuation.score < 0) {
+    return null
+  }
+
+  const entries = form.entries
+  setRedwoodFormEntry(entries, continuation.control.name, continuation.control.value)
+  if (username) {
+    setRedwoodLoginSupportingFields(entries, form.controls, username)
+  }
+
+  return {
+    actionUrl: form.actionUrl,
+    entries,
+    submitName: continuation.control.name,
+  }
+}
+
+export function redwoodHtmlContainsLoginForm(html: string): boolean {
+  try {
+    readRedwoodPasswordForm(html, 'https://redwood.invalid/')
+    return true
+  } catch {
+    return false
+  }
+}
+
+function readRedwoodPageTitle(html: string): string | null {
+  const title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1]
+  return title ? stripRedwoodHtml(title).slice(0, 120) : null
 }
 
 export function parseRedwoodFormEntries(html: string): RedwoodFormEntry[] {
@@ -276,28 +540,56 @@ export async function createRedwoodHttpSession(auth: RedwoodHttpAuth): Promise<R
   ): Promise<Response> => postMultipart(url, entries, options)
 
   const loginPage = await getText(auth.loginUrl)
-  const loginEntries = parseRedwoodFormEntries(loginPage.text)
-  setRedwoodFormEntry(loginEntries, '__EVENTTARGET', '')
-  setRedwoodFormEntry(loginEntries, '__EVENTARGUMENT', '')
-  setRedwoodFormEntry(loginEntries, 'ctl00$PageContent$Login1$UserName', auth.username)
-  setRedwoodFormEntry(loginEntries, 'ctl00$PageContent$Login1$Password', auth.password)
-  setRedwoodFormEntry(loginEntries, 'ctl00$PageContent$Login1$LoginButtonMembership', 'Login')
-  setRedwoodFormEntry(loginEntries, 'ctl00$PageContent$hfTimeZoneOffset', '0')
-  setRedwoodFormEntry(loginEntries, 'ctl00$PageContent$hfUserName', auth.username)
+  const loginSubmission = buildRedwoodLoginSubmission(loginPage.text, auth.loginUrl, auth)
 
-  const loginResponse = await postUrlEncoded(auth.loginUrl, loginEntries)
-  const loginLocation = loginResponse.headers.get('location')
-  if (loginLocation) {
-    await getText(new URL(loginLocation, auth.loginUrl).toString())
+  let loginResponse = await postUrlEncoded(loginSubmission.actionUrl, loginSubmission.entries, {
+    referer: auth.loginUrl,
+  })
+  let responseBody = ''
+
+  const finishRedirect = async (response: Response, requestUrl: string): Promise<boolean> => {
+    const location = response.headers.get('location')
+    if (response.status < 300 || response.status >= 400 || !location) return false
+
+    await getText(new URL(location, requestUrl).toString())
+    return true
   }
 
-  if (loginResponse.status !== 302) {
-    const body = await loginResponse.text().catch(() => '')
-    const message =
-      body.match(/This User Name has active another session[\s\S]*?help\./i)?.[0]?.replace(/\s+/g, ' ').trim() ||
-      body.match(/validation-summary-errors[\s\S]*?<\/[^>]+>/i)?.[0]?.replace(/<[^>]*>/g, ' ').trim() ||
-      `Unexpected Redwood login response status ${loginResponse.status}`
-    throw new Error(`Redwood HTTP login failed: ${message}`)
+  let authenticated = await finishRedirect(loginResponse, loginSubmission.actionUrl)
+  if (!authenticated) {
+    responseBody = await loginResponse.text().catch(() => '')
+    authenticated = loginResponse.ok && !redwoodHtmlContainsLoginForm(responseBody)
+  }
+
+  if (!authenticated && loginResponse.ok && redwoodHtmlContainsLoginForm(responseBody)) {
+    const continuation = buildRedwoodLoginContinuationSubmission(
+      responseBody,
+      loginResponse.url || loginSubmission.actionUrl,
+      loginSubmission.submitName,
+      auth.username,
+    )
+
+    if (continuation) {
+      loginResponse = await postUrlEncoded(continuation.actionUrl, continuation.entries, {
+        referer: loginResponse.url || loginSubmission.actionUrl,
+      })
+      authenticated = await finishRedirect(loginResponse, continuation.actionUrl)
+      if (!authenticated) {
+        responseBody = await loginResponse.text().catch(() => '')
+        authenticated = loginResponse.ok && !redwoodHtmlContainsLoginForm(responseBody)
+      }
+    }
+  }
+
+  if (!authenticated) {
+    const title = readRedwoodPageTitle(responseBody)
+    const pageDescription = title ? ` on page "${title}"` : ''
+    const loginFormDescription = redwoodHtmlContainsLoginForm(responseBody)
+      ? '; the login form was still present after submission'
+      : ''
+    throw new Error(
+      `Redwood HTTP login failed: unexpected response status ${loginResponse.status}${pageDescription}${loginFormDescription}.`,
+    )
   }
 
   return {
