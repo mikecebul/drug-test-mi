@@ -59,11 +59,18 @@ describe('Cal.com config helpers', () => {
   })
 
   test('builds client booking config with trimmed name, email, and formatted phone', async () => {
-    await expect(buildClientBookingCalConfig(createClient())).resolves.toMatchObject({
+    await expect(buildClientBookingCalConfig(createClient({ gender: 'female' }))).resolves.toMatchObject({
       name: 'Taylor Client',
       email: 'taylor@example.com',
       attendeePhoneNumber: '+12315551212',
+      gender: 'female',
     })
+  })
+
+  test('leaves gender unset when the client has no male or female value', async () => {
+    await expect(buildClientBookingCalConfig(createClient({ gender: 'prefer-not-to-say' }))).resolves.not.toHaveProperty(
+      'gender',
+    )
   })
 
   test('adds referral title and preferred booking label when populated', async () => {

@@ -2,10 +2,12 @@
 
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { QuickBookControl } from '@/components/quick-book/QuickBookControl.client'
+import type { ClientGender } from '@/lib/client-gender'
 
 interface QuickBookButtonClientProps {
   clientName: string
   clientEmail: string
+  clientGender?: ClientGender
   clientPhone?: string
   recommendedTestTypeId?: string
   recommendedTestTypeValue?: string
@@ -19,6 +21,7 @@ interface QuickBookButtonClientProps {
 export function QuickBookButtonClient({
   clientName,
   clientEmail,
+  clientGender,
   clientPhone,
   recommendedTestTypeId,
   recommendedTestTypeValue,
@@ -29,6 +32,7 @@ export function QuickBookButtonClient({
       <QuickBookControl
         clientName={clientName}
         clientEmail={clientEmail}
+        clientGender={clientGender}
         clientPhone={clientPhone}
         recommendedTestTypeId={recommendedTestTypeId}
         recommendedTestTypeValue={recommendedTestTypeValue}

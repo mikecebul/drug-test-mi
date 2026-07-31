@@ -10,9 +10,25 @@ import { getRandomTestingStart, localDateTimeToIso } from './calcom'
 
 const SOURCE = 'toxaccess-random-testing'
 
+type ObservationGender = 'female' | 'male' | 'unspecified'
+
+const OBSERVATION_GENDER_LABELS: Record<ObservationGender, string> = {
+  female: 'Female',
+  male: 'Male',
+  unspecified: 'Gender Unspecified',
+}
+
 function metadataValue(metadata: Record<string, string> | null | undefined, name: string): string {
   const value = metadata?.[name]
   return typeof value === 'string' ? value : ''
+}
+
+function observationGenders(day: { female: number; male: number; unspecified: number }): ObservationGender[] {
+  return [
+    ...Array<ObservationGender>(day.male).fill('male'),
+    ...Array<ObservationGender>(day.female).fill('female'),
+    ...Array<ObservationGender>(day.unspecified).fill('unspecified'),
+  ]
 }
 
 function localDateString(now: Date): string {
@@ -60,7 +76,8 @@ export async function syncUpcomingRandomTestingPlaceholders(now = new Date()) {
   let cancelled = 0
 
   for (const day of days) {
-    for (let ordinal = 0; ordinal < day.total; ordinal += 1) {
+    const genders = observationGenders(day)
+    for (const [ordinal, gender] of genders.entries()) {
       const reservationKey = `${day.collectionDate}:${ordinal}`
       desiredKeys.add(reservationKey)
       const existing = events.find(
@@ -73,9 +90,10 @@ export async function syncUpcomingRandomTestingPlaceholders(now = new Date()) {
         collectionDate: day.collectionDate,
         slotIndex: ordinal,
       })
+      const genderLabel = OBSERVATION_GENDER_LABELS[gender]
       const eventInput = {
-        summary: `Random Testing Hold ${ordinal + 1}`,
-        description: 'Reserved from the ToxAccess upcoming random-testing schedule.',
+        summary: `Random Testing Hold ${ordinal + 1} (${genderLabel})`,
+        description: `Observation gender: ${genderLabel}\nReserved from the ToxAccess upcoming random-testing schedule.`,
         start: timing.start,
         end: timing.end,
         timeZone: timing.timeZone,
@@ -84,12 +102,17 @@ export async function syncUpcomingRandomTestingPlaceholders(now = new Date()) {
           kind: 'placeholder',
           randomTestingReservationKey: reservationKey,
           collectionDate: day.collectionDate,
+          gender,
         },
       }
       if (!existing) {
         await createGoogleCalendarEvent(eventInput)
         created += 1
-      } else if (!isSameInstant(existing.start, timing.start) || !isSameInstant(existing.end, timing.end)) {
+      } else if (
+        !isSameInstant(existing.start, timing.start) ||
+        !isSameInstant(existing.end, timing.end) ||
+        metadataValue(existing.metadata, 'gender') !== gender
+      ) {
         await updateGoogleCalendarEvent({
           eventId: existing.id,
           event: eventInput,

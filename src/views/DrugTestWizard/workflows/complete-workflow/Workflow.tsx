@@ -1220,7 +1220,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                           {booking.attendeeName}
                         </span>
                         <ScheduleInfoBadges
-                          gender={booking.client?.gender}
+                          gender={booking.gender ?? booking.client?.gender}
                           isCompleted={isCompleted}
                           needsRegistration={needsRegistration}
                           paymentLabel={paymentLabel}
