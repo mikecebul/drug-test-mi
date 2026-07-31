@@ -77,6 +77,28 @@ describe('job run history helpers', () => {
     )
   })
 
+  it('records the admin who manually retried a queued job', async () => {
+    const payloadMock = createPayloadMock()
+
+    await recordQueuedJobRun(payloadMock as unknown as PayloadArg, {
+      input: {
+        clientId: 'client-1',
+        requestedByAdminId: 'original-admin',
+      },
+      jobId: 'job-retry',
+      requestedByAdminId: 'retrying-admin',
+      taskSlug: 'redwood-update-client',
+    })
+
+    expect(payloadMock.db.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          requestedByAdmin: 'retrying-admin',
+        }),
+      }),
+    )
+  })
+
   it('does not regress a later lifecycle state when queued persistence loses the insert race', async () => {
     const payloadMock = createPayloadMock()
     payloadMock.db.upsert.mockRejectedValueOnce(createJobIdUniqueError())

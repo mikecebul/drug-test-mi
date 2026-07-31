@@ -12,7 +12,7 @@ export const JobRuns: CollectionConfig = {
   admin: {
     group: 'Admin',
     useAsTitle: 'taskLabel',
-    defaultColumns: ['taskLabel', 'status', 'resultStatus', 'client', 'requestedByAdmin', 'completedAt'],
+    defaultColumns: ['taskLabel', 'status', 'resultStatus', 'client', 'requestedByAdmin', 'completedAt', 'retryJob'],
     description: 'Durable history for tracked background jobs and Redwood sync work.',
   },
   access: {
@@ -22,6 +22,18 @@ export const JobRuns: CollectionConfig = {
     delete: superAdmin,
   },
   fields: [
+    {
+      name: 'retryJob',
+      type: 'ui',
+      label: 'Actions',
+      admin: {
+        disableListColumn: false,
+        components: {
+          Cell: '@/collections/JobRuns/components/RetryJobCell.client',
+          Field: '@/collections/JobRuns/components/RetryJobCell.client#RetryJobField',
+        },
+      },
+    },
     {
       name: 'taskLabel',
       type: 'text',
