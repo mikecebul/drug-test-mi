@@ -46,6 +46,7 @@ export type JobRunRecord = {
   createdAt: string
   errorMessage?: null | string
   id: string
+  inputSnapshot?: JobRunSnapshot
   jobId: string
   outputSnapshot?: JobRunSnapshot
   queue: string
@@ -294,6 +295,7 @@ export async function recordQueuedJobRun(
     input?: unknown
     jobId: string
     queue?: string
+    requestedByAdminId?: string
     summary?: null | string
     taskSlug: string
   },
@@ -309,7 +311,7 @@ export async function recordQueuedJobRun(
     client: metadata.clientId,
     inputSnapshot: toSnapshot(args.input),
     queue: args.queue || 'default',
-    requestedByAdmin: metadata.requestedByAdminId,
+    requestedByAdmin: args.requestedByAdminId || metadata.requestedByAdminId,
     source: metadata.source,
     status: 'queued',
     summary: args.summary || buildQueuedSummary(args.taskSlug, metadata),
