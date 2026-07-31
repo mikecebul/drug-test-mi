@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { shouldQueueGuidedRedwoodDonor } from './redwood-provisioning-state'
+import {
+  hasReadyGuidedRedwoodDonor,
+  shouldQueueGuidedRedwoodDonor,
+  shouldTreatGuidedRedwoodImportAsFailed,
+} from './redwood-provisioning-state'
 
 describe('guided Redwood donor provisioning state', () => {
   it.each(['not-queued', 'failed', 'manual-review'] as const)(
@@ -32,6 +36,42 @@ describe('guided Redwood donor provisioning state', () => {
       shouldQueueGuidedRedwoodDonor({
         retryFailedDonor: true,
         syncStatus: 'queued',
+      }),
+    ).toBe(true)
+  })
+
+  it.each(['matched-existing', 'reactivated-existing', 'synced'] as const)(
+    'recognizes a donor ID with %s status as ready',
+    (syncStatus) => {
+      expect(
+        hasReadyGuidedRedwoodDonor({
+          donorId: '2797573',
+          syncStatus,
+        }),
+      ).toBe(true)
+    },
+  )
+
+  it('does not let an exhausted historical job override a donor that later synced successfully', () => {
+    expect(
+      shouldTreatGuidedRedwoodImportAsFailed({
+        donorId: '2797573',
+        importRetriesExhausted: true,
+        syncStatus: 'synced',
+      }),
+    ).toBe(false)
+  })
+
+  it.each([
+    { donorId: null, syncStatus: 'failed' as const },
+    { donorId: null, syncStatus: 'synced' as const },
+    { donorId: '2797573', syncStatus: 'failed' as const },
+  ])('keeps an exhausted import failure active until the donor is actually ready', ({ donorId, syncStatus }) => {
+    expect(
+      shouldTreatGuidedRedwoodImportAsFailed({
+        donorId,
+        importRetriesExhausted: true,
+        syncStatus,
       }),
     ).toBe(true)
   })

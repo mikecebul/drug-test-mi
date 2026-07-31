@@ -40,7 +40,11 @@ import {
 } from '@/lib/redwood/queue'
 import { deriveRedwoodProvisioningStatus, type RedwoodProvisioningStatus } from '@/lib/redwood/provisioning'
 import { buildRedwoodCollectSpecimenUrl, REDWOOD_MOBILE_DONORS_URL } from '@/lib/redwood/donor-urls'
-import { shouldQueueGuidedRedwoodDonor } from './redwood-provisioning-state'
+import {
+  hasReadyGuidedRedwoodDonor,
+  shouldQueueGuidedRedwoodDonor,
+  shouldTreatGuidedRedwoodImportAsFailed,
+} from './redwood-provisioning-state'
 
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type PaymentMethod = 'cash' | 'card' | 'credit' | 'not-paid' | 'pre-paid'
@@ -572,6 +576,11 @@ async function loadClientRedwoodProvisioningStatus(
     (latestImportRun?.status === 'failed' &&
       typeof latestImportRun.attemptCount === 'number' &&
       latestImportRun.attemptCount >= REDWOOD_TASK_RETRIES)
+  const unresolvedImportFailure = shouldTreatGuidedRedwoodImportAsFailed({
+    donorId: client.redwoodDonorId,
+    importRetriesExhausted,
+    syncStatus: client.redwoodSyncStatus,
+  })
   const defaultTestResolution = await resolveClientRedwoodEligibleDefaultTest({
     client,
     payload,
@@ -579,7 +588,7 @@ async function loadClientRedwoodProvisioningStatus(
   const defaultTestRequired = defaultTestResolution.kind === 'eligible' || defaultTestResolution.kind === 'error'
   const headshotRequired = Boolean(getRelationshipId(client.headshot))
   const lastError =
-    (importRetriesExhausted ? latestImportRun?.errorMessage : null) ||
+    (unresolvedImportFailure ? latestImportRun?.errorMessage : null) ||
     client.redwoodLastError ||
     client.redwoodDefaultTestLastError ||
     client.redwoodHeadshotPushLastError ||
@@ -597,7 +606,7 @@ async function loadClientRedwoodProvisioningStatus(
     headshotRequired,
     headshotStatus: client.redwoodHeadshotPushStatus,
     lastError,
-    syncStatus: importRetriesExhausted ? 'failed' : client.redwoodSyncStatus,
+    syncStatus: unresolvedImportFailure ? 'failed' : client.redwoodSyncStatus,
   })
   const collectionTestType = mapTestTypeValue(testTypeValue)
 
@@ -639,9 +648,10 @@ async function queueMissingRedwoodProvisioningWork(args: {
     depth: 1,
     overrideAccess: true,
   })
-  const donorReady =
-    Boolean(typeof client.redwoodDonorId === 'string' && client.redwoodDonorId.trim()) &&
-    ['matched-existing', 'reactivated-existing', 'synced'].includes(client.redwoodSyncStatus || '')
+  const donorReady = hasReadyGuidedRedwoodDonor({
+    donorId: client.redwoodDonorId,
+    syncStatus: client.redwoodSyncStatus,
+  })
 
   if (!donorReady) {
     const canQueueDonor = shouldQueueGuidedRedwoodDonor({
