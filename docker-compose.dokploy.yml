@@ -13,7 +13,7 @@ services:
         - node
         - -e
         - >-
-          fetch('http://127.0.0.1:3000/api/health', { signal: AbortSignal.timeout(5000) })
+          fetch('http://127.0.0.1:3000/api/health/ready', { signal: AbortSignal.timeout(5000) })
           .then((response) => { if (!response.ok) process.exit(1) })
           .catch(() => process.exit(1))
       interval: 30s
