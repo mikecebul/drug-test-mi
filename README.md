@@ -356,6 +356,18 @@ Important notes:
 - all required services (especially MongoDB) must be reachable during build/runtime
 - keep production env vars consistent across deploys/instances
 
+### Container health visibility
+
+The Dokploy Compose deployment exposes separate health signals for both application containers:
+
+- `/api/health/live` is a liveness signal that returns `200` when the Next.js process can serve requests. It does not initialize Payload or query MongoDB.
+- `web` calls the readiness signal at `/api/health/ready`, which returns `200` only after the running Payload process successfully pings MongoDB. It returns `503` without database connection details when the check fails. `/api/health` remains an alias for readiness for compatibility with existing monitors.
+- `worker-redwood` refreshes a heartbeat after its running Payload process successfully pings MongoDB. The container becomes unhealthy when that heartbeat is older than `REDWOOD_WORKER_HEALTH_MAX_AGE_MS` (default: two minutes).
+
+Readiness checks have a four-second total deadline inside the application and log only status transitions (failure and recovery). Docker allows five seconds for the HTTP request, checks every 30 seconds, and marks the web container unhealthy after three consecutive failures.
+
+Docker health status adds visibility in Dokploy, but `restart: always` only restarts a container after its process exits. Configure a Dokploy remediation or external uptime monitor if an unhealthy status should also trigger alerts or restarts.
+
 ### Stable Next.js Server Action IDs
 
 Set `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` at build/runtime and reuse the same value across deployments/instances.

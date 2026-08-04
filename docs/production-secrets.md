@@ -36,6 +36,7 @@ These are runtime-only Dokploy values and do not belong in GitHub build secrets:
 - Optional Google delegation: leave `GOOGLE_CALENDAR_IMPERSONATED_USER` empty when the calendar is shared directly with the service account
 - Client instructions: `RANDOM_TESTING_CALL_IN_PHONE` and `RANDOM_TESTING_CHECK_IN_URL`
 - Scheduling and kill switch: `RANDOM_TESTING_SCHEDULE_SYNC_ENABLED`, `RANDOM_TESTING_UPCOMING_CRON`, and `RANDOM_TESTING_TODAY_CRON`
-- Worker settings: `REDWOOD_WORKER_BATCH_LIMIT` and `REDWOOD_WORKER_POLL_MS`
+- Worker settings: `REDWOOD_WORKER_BATCH_LIMIT`, `REDWOOD_WORKER_POLL_MS`,
+  `REDWOOD_WORKER_HEARTBEAT_PATH`, and `REDWOOD_WORKER_HEALTH_MAX_AGE_MS`
 
 Keep the Google private key on one line with literal `\n` separators if the Dokploy editor stores dotenv text. Never paste the key into chat, logs, Git, or a client-exposed environment variable.
