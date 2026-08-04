@@ -288,6 +288,7 @@ export default async function DrugTestSummaryView({ doc, payload }: DocumentView
             {canAdjustConfirmationDecision && testId && (
               <UpdateConfirmationDecisionDialog
                 drugTestId={testId}
+                isLabTest={summary.isLabTest}
                 initialDecision={summary.confirmationProgress.decision}
                 initialConfirmationSubstances={confirmationSubstances}
                 unexpectedPositives={unexpectedPositives}

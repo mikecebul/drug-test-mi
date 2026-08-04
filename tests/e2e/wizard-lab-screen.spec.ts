@@ -143,6 +143,9 @@ test.describe('Wizard Lab Screen Workflow', () => {
     const decisionSection = hasDecisionSection(page)
 
     if (await decisionSection.isVisible().catch(() => false)) {
+      await expect(page.getByText('$45/substance.', { exact: false })).toBeVisible()
+      await expect(page.getByText('$30/substance.', { exact: false })).toHaveCount(0)
+
       await page.getByLabel(/Fentanyl/i).check()
       await expect(page.getByText('Must select an option')).toBeVisible()
 

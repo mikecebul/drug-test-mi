@@ -323,7 +323,7 @@ export const LabScreenDataStep = withForm({
                       <div className="flex-1">
                         <span className="text-foreground font-medium">Pending Decision</span>
                         <p className="text-muted-foreground mt-0.5 text-sm">
-                          Decision not yet made. Sample will be held for 30 days. $30/substance.
+                          Decision not yet made. Sample will be held for 30 days. $45/substance.
                         </p>
                       </div>
                     </Label>

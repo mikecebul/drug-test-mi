@@ -159,6 +159,8 @@ test.describe('Wizard Instant Workflow', () => {
     await expect(page.getByLabel(/^PCP$/i)).toBeChecked()
 
     await page.getByLabel(/Fentanyl/i).check()
+    await expect(page.getByText('$30/substance.', { exact: false })).toBeVisible()
+    await expect(page.getByText('$45/substance.', { exact: false })).toHaveCount(0)
     await triggerNextValidation(page)
     await expect(page.getByText('Must select an option')).toBeVisible()
 
