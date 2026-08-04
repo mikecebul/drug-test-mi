@@ -7,6 +7,19 @@ services:
       - 3000
     env_file:
       - .env
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:3000/api/health/ready', { signal: AbortSignal.timeout(5000) })
+          .then((response) => { if (!response.ok) process.exit(1) })
+          .catch(() => process.exit(1))
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks:
       - dokploy-network
 
@@ -18,6 +31,12 @@ services:
       - .env
     environment:
       TZ: America/Detroit
+    healthcheck:
+      test: ['CMD', 'node', 'scripts/check-redwood-worker-health.mjs']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     networks:
       - dokploy-network
 
