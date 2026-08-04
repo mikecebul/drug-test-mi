@@ -1,9 +1,14 @@
 import { getPayload, type BinScript, type Payload } from 'payload'
 
+import { recordRedwoodWorkerHeartbeat } from '@/lib/health/redwoodWorkerHeartbeat'
+import { withTimeout } from '@/lib/health/withTimeout'
+
 const DEFAULT_BATCH_LIMIT = 3
 const DEFAULT_POLL_MS = 1_000
 const MIN_POLL_MS = 250
 const MAX_POLL_MS = 60_000
+const WORKER_HEALTH_REFRESH_MS = 30_000
+const WORKER_HEALTH_TIMEOUT_MS = 5_000
 
 type QueueRunResult = Awaited<ReturnType<Payload['jobs']['run']>>
 
@@ -64,6 +69,21 @@ export async function runRedwoodWorkerCycle(payload: Payload, limit: number) {
   return drainRedwoodQueue(payload, limit)
 }
 
+export async function refreshRedwoodWorkerHealth(payload: Payload) {
+  const database = payload.db.connection.db
+
+  if (!database) {
+    throw new Error('MongoDB connection is not initialized')
+  }
+
+  await withTimeout(
+    database.admin().ping({ maxTimeMS: WORKER_HEALTH_TIMEOUT_MS - 1_000 }),
+    WORKER_HEALTH_TIMEOUT_MS,
+    'Redwood worker MongoDB health check timed out',
+  )
+  await recordRedwoodWorkerHeartbeat()
+}
+
 function waitForNextPoll(delayMs: number, signal: AbortSignal) {
   return new Promise<void>((resolve) => {
     if (signal.aborted) {
@@ -94,6 +114,24 @@ export const script: BinScript = async (config) => {
     max: MAX_POLL_MS,
   })
   const stopController = new AbortController()
+  let healthRefreshInProgress = false
+
+  const refreshHealth = async () => {
+    if (healthRefreshInProgress) return
+    healthRefreshInProgress = true
+
+    try {
+      await refreshRedwoodWorkerHealth(payload)
+    } catch (error) {
+      payload.logger.error({
+        msg: '[redwood-worker] Health refresh failed',
+        err: error,
+        queue: 'redwood',
+      })
+    } finally {
+      healthRefreshInProgress = false
+    }
+  }
 
   const stop = () => {
     stopController.abort()
@@ -108,6 +146,9 @@ export const script: BinScript = async (config) => {
     idlePollMs: pollMs,
     queue: 'redwood',
   })
+
+  await refreshHealth()
+  const healthRefreshInterval = setInterval(() => void refreshHealth(), WORKER_HEALTH_REFRESH_MS)
 
   try {
     while (!stopController.signal.aborted) {
@@ -125,6 +166,7 @@ export const script: BinScript = async (config) => {
       await waitForNextPoll(pollMs, stopController.signal)
     }
   } finally {
+    clearInterval(healthRefreshInterval)
     process.removeListener('SIGINT', stop)
     process.removeListener('SIGTERM', stop)
     await payload.destroy()

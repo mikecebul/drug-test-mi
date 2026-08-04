@@ -1,7 +1,15 @@
 import type { Payload } from 'payload'
 import { describe, expect, test, vi } from 'vitest'
 
-import { drainRedwoodQueue, runRedwoodWorkerCycle } from './worker'
+const mocks = vi.hoisted(() => ({
+  recordRedwoodWorkerHeartbeat: vi.fn(),
+}))
+
+vi.mock('@/lib/health/redwoodWorkerHeartbeat', () => ({
+  recordRedwoodWorkerHeartbeat: mocks.recordRedwoodWorkerHeartbeat,
+}))
+
+import { drainRedwoodQueue, refreshRedwoodWorkerHealth, runRedwoodWorkerCycle } from './worker'
 
 function createPayload(run: ReturnType<typeof vi.fn>, handleSchedules = vi.fn().mockResolvedValue({})) {
   return {
@@ -16,6 +24,22 @@ function createPayload(run: ReturnType<typeof vi.fn>, handleSchedules = vi.fn().
 }
 
 describe('Redwood queue worker', () => {
+  test('refreshes its heartbeat only after MongoDB responds', async () => {
+    const ping = vi.fn().mockResolvedValue({ ok: 1 })
+    const payload = {
+      db: {
+        connection: {
+          db: { admin: () => ({ ping }) },
+        },
+      },
+    } as unknown as Payload
+
+    await refreshRedwoodWorkerHealth(payload)
+
+    expect(ping).toHaveBeenCalledWith({ maxTimeMS: 4_000 })
+    expect(mocks.recordRedwoodWorkerHeartbeat).toHaveBeenCalledOnce()
+  })
+
   test('drains follow-up jobs without waiting for another idle poll', async () => {
     const run = vi
       .fn()
