@@ -62,3 +62,4 @@ Fast repo context for agents working in this codebase. Keep changes aligned with
 ## Build & Permissions
 - `pnpm build` runs `payload migrate` and requires local services (MongoDB, and SMTP if email flows are involved)
 - In sandboxed Codex sessions, build/network restrictions can cause `EPERM` failures; rerun with scoped build permission when needed
+- A sandboxed `gh auth status` can falsely report an invalid token when the macOS keyring is unavailable; retry it with scoped elevated permission before concluding that GitHub CLI authentication is inactive
