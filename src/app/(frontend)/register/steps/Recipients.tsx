@@ -51,27 +51,19 @@ export const RecipientsStep = withForm({
       <form.Field name="recipients.additionalReferralRecipients" mode="array">
         {(field) => {
           const rows = field.state.value || []
-          const referralScopeDescription =
-            requestedBy === 'court'
-              ? 'These recipients are for you and are separate from your selected court referral.'
-              : requestedBy === 'employer'
-                ? 'These recipients are for you and are separate from your selected employer referral.'
-                : 'These recipients are for you and are not linked to a court or employer referral.'
 
           return (
             <div className="space-y-4 rounded-lg border border-border p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-foreground text-sm font-medium">Additional recipients for you only</p>
-                  <p className="text-muted-foreground text-xs">{referralScopeDescription}</p>
-                </div>
+              <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <p className="text-muted-foreground text-sm">Add anyone else who should receive your results.</p>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
+                  className="w-full sm:w-auto"
                   onClick={() => field.pushValue({ name: '', email: '' }, { dontValidate: true })}
                 >
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus data-icon="inline-start" />
                   Add Recipient
                 </Button>
               </div>
@@ -117,18 +109,16 @@ export const RecipientsStep = withForm({
 
             return (
               <div className="space-y-4 rounded-lg border border-border p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-foreground text-sm font-medium">Additional recipients for the new employer</p>
-                    <p className="text-muted-foreground text-xs">Saved to the new employer referral profile.</p>
-                  </div>
+                <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <p className="text-muted-foreground text-sm">Add recipients for this employer’s referral profile.</p>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="w-full sm:w-auto"
                     onClick={() => field.pushValue({ name: '', email: '' }, { dontValidate: true })}
                   >
-                    <Plus className="mr-2 h-4 w-4" />
+                    <Plus data-icon="inline-start" />
                     Add Recipient
                   </Button>
                 </div>
@@ -175,18 +165,16 @@ export const RecipientsStep = withForm({
 
             return (
               <div className="space-y-4 rounded-lg border border-border p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-foreground text-sm font-medium">Additional recipients for the new court</p>
-                    <p className="text-muted-foreground text-xs">Saved to the new court referral profile.</p>
-                  </div>
+                <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <p className="text-muted-foreground text-sm">Add recipients for this court’s referral profile.</p>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="w-full sm:w-auto"
                     onClick={() => field.pushValue({ name: '', email: '' }, { dontValidate: true })}
                   >
-                    <Plus className="mr-2 h-4 w-4" />
+                    <Plus data-icon="inline-start" />
                     Add Recipient
                   </Button>
                 </div>
