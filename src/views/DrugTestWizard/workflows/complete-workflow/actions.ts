@@ -27,6 +27,15 @@ import {
 import { reversePostedPayments } from '@/collections/Payments/services/reversePayments'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
 import {
+  getGuidedTerminalPaymentStatus,
+  startGuidedTerminalPayment,
+} from '@/collections/Payments/services/stripeTerminal'
+import {
+  classifyPaymentReceipt,
+  resolveClientReceiptEmail,
+  sendClientPaymentReceipt,
+} from '@/collections/Payments/services/clientReceipt'
+import {
   findRefundableCalcomBookingPayment,
   syncCalcomPrepaidBookingPayment,
 } from '@/collections/Payments/services/calcomBookingPayment'
@@ -472,6 +481,7 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
               middleInitial: typeof client.middleInitial === 'string' ? client.middleInitial : null,
               lastName: client.lastName as string,
               email: client.email as string,
+              disableClientEmails: Boolean(client.disableClientEmails),
               dob: typeof client.dob === 'string' ? client.dob : null,
               gender: typeof client.gender === 'string' ? client.gender : null,
               phone: typeof client.phone === 'string' ? client.phone : null,
@@ -1164,6 +1174,7 @@ export async function recordBookingPayment(
     method: Extract<PaymentMethod, 'cash' | 'card'>
     notes?: string
     operationId?: string
+    sendReceipt?: boolean
   },
   req?: AdminPayloadRequest,
 ) {
@@ -1187,7 +1198,7 @@ export async function recordBookingPayment(
   const operationId = input.operationId?.trim() || null
   const payload = await getAdminPayload(req)
   try {
-    const payment = await withPayloadTransaction(payload, async (req) => {
+    const result = await withPayloadTransaction(payload, async (req) => {
       const existingBooking = await payload.findByID({
         collection: 'bookings',
         id: input.bookingId,
@@ -1200,7 +1211,7 @@ export async function recordBookingPayment(
         existingBooking.payment?.workflowOperationId === operationId &&
         existingBooking.payment.workflowOperationType === 'record-payment'
       ) {
-        return existingBooking.payment
+        return { payment: existingBooking.payment, receipt: null }
       }
 
       const clientId = getRelationshipId(existingBooking.relatedClient)
@@ -1210,6 +1221,13 @@ export async function recordBookingPayment(
 
       const client =
         typeof existingBooking.relatedClient === 'object' ? (existingBooking.relatedClient as PopulatedClient) : null
+      const receiptEmail = client ? resolveClientReceiptEmail(client) : null
+      const shouldSendReceipt = Boolean(
+        input.sendReceipt &&
+          input.method === 'cash' &&
+          receiptEmail &&
+          (normalizeMoney(input.amountReceived) > 0 || creditApplied > 0),
+      )
       const referral = await resolveReferral(payload, client)
       const testType =
         mapTestTypeValue(existingBooking.scheduledTestType) ??
@@ -1224,6 +1242,25 @@ export async function recordBookingPayment(
       const existingPayment = existingBooking.payment
       const existingAmountPaid = Math.min(normalizeMoney(existingPayment?.amountPaid), amountDue)
       const currentBookingBalance = Math.max(0, normalizeMoney(amountDue - existingAmountPaid))
+      const previousBalanceBefore = shouldSendReceipt
+        ? normalizeMoney(
+            (
+              await payload.find({
+                collection: 'drug-tests',
+                where: {
+                  and: [
+                    { relatedClient: { equals: clientId } },
+                    { 'payment.balanceDue': { greater_than: 0 } },
+                  ],
+                },
+                depth: 0,
+                limit: 1000,
+                overrideAccess: true,
+                req,
+              })
+            ).docs.reduce((total, test) => total + normalizeMoney(test.payment?.balanceDue), 0),
+          )
+        : 0
       const notes =
         typeof input.notes === 'string'
           ? input.notes.trim() || null
@@ -1233,6 +1270,9 @@ export async function recordBookingPayment(
 
       let creditAppliedToBooking = 0
       let moneyAppliedToBooking = 0
+      let creditPaymentRecord: Payment | null = null
+      let moneyPaymentRecord: Payment | null = null
+      let clientCreditUsed = 0
 
       if (creditApplied > 0) {
         const creditPayment = await applyAvailableClientCredit({
@@ -1246,6 +1286,8 @@ export async function recordBookingPayment(
         })
 
         creditAppliedToBooking = normalizeMoney(creditPayment?.payment.reservedForBookingAmount)
+        creditPaymentRecord = (creditPayment?.payment as Payment | undefined) || null
+        clientCreditUsed = normalizeMoney(creditPayment?.usedCredit)
       }
 
       if (input.amountReceived > 0) {
@@ -1262,6 +1304,7 @@ export async function recordBookingPayment(
         })
 
         moneyAppliedToBooking = normalizeMoney(ledgerPayment.reservedForBookingAmount)
+        moneyPaymentRecord = ledgerPayment as Payment
       }
 
       const amountAppliedToBooking = normalizeMoney(creditAppliedToBooking + moneyAppliedToBooking)
@@ -1278,6 +1321,7 @@ export async function recordBookingPayment(
               ? existingPayment.method
               : 'not-paid'
 
+      const collectedAt = new Date().toISOString()
       const booking = await payload.update({
         collection: 'bookings',
         id: input.bookingId,
@@ -1288,7 +1332,7 @@ export async function recordBookingPayment(
             method: bookingPaymentMethod,
             status: bookingPaymentStatus,
             notes,
-            collectedAt: new Date().toISOString(),
+            collectedAt,
             ...(operationId
               ? {
                   workflowOperationId: operationId,
@@ -1302,14 +1346,117 @@ export async function recordBookingPayment(
         req,
       })
 
-      return booking.payment
+      const receiptPayment = moneyPaymentRecord || creditPaymentRecord
+      if (!shouldSendReceipt || !receiptEmail || !client || !receiptPayment) {
+        return { payment: booking.payment, receipt: null }
+      }
+
+      const appliedToPreviousBalances = normalizeMoney(
+        normalizeMoney(creditPaymentRecord?.appliedAmount) + normalizeMoney(moneyPaymentRecord?.appliedAmount),
+      )
+      const appliedToToday = normalizeMoney(creditAppliedToBooking + moneyAppliedToBooking)
+      const creditAdded = normalizeMoney(moneyPaymentRecord?.creditAmount)
+      const remainingBalance = Math.max(
+        0,
+        normalizeMoney(previousBalanceBefore + currentBookingBalance - appliedToPreviousBalances - appliedToToday),
+      )
+      const clientCreditBalance = Math.max(
+        0,
+        normalizeMoney(normalizeMoney(client.creditBalance) - clientCreditUsed + creditAdded),
+      )
+      const receiptType = classifyPaymentReceipt({ creditAdded, remainingBalance })
+      const paymentMethod =
+        input.amountReceived > 0 && clientCreditUsed > 0
+          ? 'Cash and client credit'
+          : input.amountReceived > 0
+            ? 'Cash'
+            : 'Client credit'
+
+      return {
+        payment: booking.payment,
+        receipt: {
+          data: {
+            appliedToPreviousBalances,
+            appliedToToday,
+            cashReceived: normalizeMoney(input.amountReceived),
+            clientCreditApplied: clientCreditUsed,
+            clientCreditBalance,
+            clientName: [client.firstName, client.lastName].filter(Boolean).join(' ') || client.email,
+            collectedAt,
+            creditAdded,
+            paymentMethod,
+            receiptType,
+            remainingBalance,
+            testName: testType?.label || 'Drug test',
+          },
+          paymentId: String(receiptPayment.id),
+          receiptEmail,
+          receiptType,
+        },
+      }
     })
 
     revalidateBookingViews()
 
+    let receipt:
+      | { email: string; sent: true }
+      | { error: string; sent: false }
+      | null = null
+
+    if (result.receipt) {
+      try {
+        const delivery = await sendClientPaymentReceipt({
+          data: result.receipt.data,
+          payload,
+          receiptEmail: result.receipt.receiptEmail,
+        })
+        const sentAt = new Date().toISOString()
+
+        try {
+          await payload.update({
+            collection: 'payments',
+            id: result.receipt.paymentId,
+            data: {
+              receiptEmail: result.receipt.receiptEmail,
+              receiptEmailSentAt: sentAt,
+              receiptType: result.receipt.receiptType,
+              ...(operationId ? { workflowOperationId: operationId } : {}),
+            },
+            depth: 0,
+            overrideAccess: true,
+          })
+        } catch (error) {
+          payload.logger.warn({
+            msg: `Payment receipt sent but receipt history could not be updated for payment ${result.receipt.paymentId}`,
+            err: error instanceof Error ? error : new Error(String(error)),
+          })
+        }
+
+        payload.logger.info({
+          msg: 'Client payment receipt sent',
+          paymentId: result.receipt.paymentId,
+          receiptType: result.receipt.receiptType,
+          recipients: delivery.recipients,
+          originalRecipients: delivery.originalRecipients,
+          redirected: delivery.redirected,
+        })
+        receipt = { email: result.receipt.receiptEmail, sent: true }
+      } catch (error) {
+        payload.logger.warn({
+          msg: `Payment recorded but client receipt could not be sent for booking ${input.bookingId}`,
+          err: error instanceof Error ? error : new Error(String(error)),
+        })
+        receipt = {
+          error: 'Payment was recorded, but the email receipt could not be sent.',
+          sent: false,
+        }
+      }
+    }
+
     return {
       success: true,
-      payment,
+      payment: result.payment,
+      receipt,
     }
   } catch (error) {
     return {
@@ -1317,6 +1464,88 @@ export async function recordBookingPayment(
       error: error instanceof Error ? error.message : 'Unable to record this payment.',
     }
   }
+}
+
+export async function startBookingTerminalPayment(
+  input: {
+    amountReceived: number
+    bookingId: string
+    creditApplied?: number
+    operationId: string
+  },
+  req?: AdminPayloadRequest,
+) {
+  if (!input.bookingId) {
+    return { success: false as const, error: 'Booking is required.' }
+  }
+  if (!input.operationId?.trim()) {
+    return { success: false as const, error: 'Payment operation ID is required.' }
+  }
+
+  const amountReceived = normalizeMoney(input.amountReceived)
+  const creditApplied = normalizeMoney(input.creditApplied)
+  if (!Number.isFinite(input.amountReceived) || amountReceived <= 0) {
+    return { success: false as const, error: 'Terminal payment amount must be greater than zero.' }
+  }
+  if (!Number.isFinite(input.creditApplied ?? 0) || creditApplied < 0) {
+    return { success: false as const, error: 'Client credit applied must be zero or greater.' }
+  }
+
+  const payload = await getAdminPayload(req)
+  const booking = await payload.findByID({
+    collection: 'bookings',
+    id: input.bookingId,
+    depth: 4,
+    overrideAccess: true,
+  })
+  const clientId = getRelationshipId(booking.relatedClient)
+  const client = typeof booking.relatedClient === 'object' ? (booking.relatedClient as PopulatedClient) : null
+  if (!clientId || !client) {
+    return { success: false as const, error: 'Select or register the client before collecting payment.' }
+  }
+  const receiptEmail = resolveClientReceiptEmail(client)
+  if (!receiptEmail && !client.disableClientEmails) {
+    return { success: false as const, error: 'The client must have an email address for the payment receipt.' }
+  }
+
+  const referral = await resolveReferral(payload, client)
+  const testType =
+    mapTestTypeValue(booking.scheduledTestType) ?? getCalcomBookingTestType(booking) ?? getPreferredTestType(referral)
+  const amountDue = normalizeMoney(testType?.price ?? booking.payment?.amountDue)
+  if (amountDue <= 0) {
+    return { success: false as const, error: "Today's test does not have a valid payment amount." }
+  }
+
+  const existingAmountPaid = Math.min(normalizeMoney(booking.payment?.amountPaid), amountDue)
+  const bookingBalanceDue = Math.max(0, normalizeMoney(amountDue - existingAmountPaid))
+
+  return startGuidedTerminalPayment({
+    amount: amountReceived,
+    bookingAmountDue: amountDue,
+    bookingBalanceDue,
+    bookingId: input.bookingId,
+    clientId,
+    creditAmount: creditApplied,
+    operationId: input.operationId.trim(),
+    payload,
+    receiptEmail,
+  })
+}
+
+export async function getBookingTerminalPaymentStatus(
+  input: { bookingId?: string; paymentId?: string },
+  req?: AdminPayloadRequest,
+) {
+  if (!input.bookingId && !input.paymentId) {
+    throw new Error('Booking ID or payment ID is required.')
+  }
+
+  const payload = await getAdminPayload(req)
+  return getGuidedTerminalPaymentStatus({
+    bookingId: input.bookingId,
+    paymentId: input.paymentId,
+    payload,
+  })
 }
 
 export async function undoBookingPayment(

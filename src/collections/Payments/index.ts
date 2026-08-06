@@ -229,6 +229,46 @@ export const Payments: CollectionConfig = {
     },
     {
       type: 'collapsible',
+      label: 'Receipt',
+      admin: {
+        initCollapsed: true,
+        condition: (_, siblingData) => Boolean(siblingData?.receiptEmail || siblingData?.receiptEmailSentAt),
+      },
+      fields: [
+        {
+          name: 'receiptEmail',
+          type: 'email',
+          admin: {
+            readOnly: true,
+            description: 'Client email used for the payment receipt.',
+          },
+        },
+        {
+          name: 'receiptEmailSentAt',
+          type: 'date',
+          admin: {
+            readOnly: true,
+            date: {
+              pickerAppearance: 'dayAndTime',
+            },
+          },
+        },
+        {
+          name: 'receiptType',
+          type: 'select',
+          options: [
+            { label: 'Paid in full', value: 'paid-in-full' },
+            { label: 'Partial payment', value: 'partial' },
+            { label: 'Client credit added', value: 'credit-added' },
+          ],
+          admin: {
+            readOnly: true,
+          },
+        },
+      ],
+    },
+    {
+      type: 'collapsible',
       label: 'Stripe',
       admin: {
         initCollapsed: true,
@@ -244,6 +284,15 @@ export const Payments: CollectionConfig = {
           name: 'stripePaymentIntentId',
           type: 'text',
           index: true,
+        },
+        {
+          name: 'workflowOperationId',
+          type: 'text',
+          index: true,
+          admin: {
+            readOnly: true,
+            description: 'Idempotency key for a guided workflow payment request.',
+          },
         },
         {
           name: 'stripeCheckoutUrl',
@@ -262,6 +311,83 @@ export const Payments: CollectionConfig = {
           name: 'stripeRefundId',
           type: 'text',
           index: true,
+        },
+        {
+          name: 'stripeTerminalReaderId',
+          type: 'text',
+          index: true,
+          admin: {
+            readOnly: true,
+          },
+        },
+        {
+          name: 'stripeTerminalReaderLabel',
+          type: 'text',
+          admin: {
+            readOnly: true,
+          },
+        },
+        {
+          name: 'stripeTerminalLocationId',
+          type: 'text',
+          admin: {
+            readOnly: true,
+          },
+        },
+        {
+          name: 'stripeTerminalLocationName',
+          type: 'text',
+          admin: {
+            readOnly: true,
+          },
+        },
+        {
+          name: 'stripeTerminalStatus',
+          type: 'select',
+          options: [
+            { label: 'Pending', value: 'pending' },
+            { label: 'In progress', value: 'in-progress' },
+            { label: 'Succeeded', value: 'succeeded' },
+            { label: 'Failed', value: 'failed' },
+            { label: 'Cancelled', value: 'cancelled' },
+          ],
+          admin: {
+            readOnly: true,
+          },
+        },
+        {
+          name: 'stripeTerminalFailureMessage',
+          type: 'text',
+          admin: {
+            readOnly: true,
+          },
+        },
+        {
+          name: 'pendingCreditAmount',
+          type: 'number',
+          min: 0,
+          admin: {
+            readOnly: true,
+            step: 1,
+          },
+        },
+        {
+          name: 'pendingBookingAmountDue',
+          type: 'number',
+          min: 0,
+          admin: {
+            readOnly: true,
+            step: 1,
+          },
+        },
+        {
+          name: 'pendingBookingBalanceDue',
+          type: 'number',
+          min: 0,
+          admin: {
+            readOnly: true,
+            step: 1,
+          },
         },
       ],
     },

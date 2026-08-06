@@ -5,6 +5,7 @@ import type {
   cancelGuidedBooking,
   createWalkInBooking,
   ensureClientRedwoodProvisioning,
+  getBookingTerminalPaymentStatus,
   getActiveCollectionTestTypes,
   getClientOutstandingPaymentBalances,
   getClientReferralProfile,
@@ -13,6 +14,7 @@ import type {
   recordBookingPayment,
   refreshBookingClientContext,
   setBookingScheduledTestType,
+  startBookingTerminalPayment,
   undoBookingPayment,
 } from './actions'
 
@@ -30,6 +32,8 @@ export type GuidedScheduleActionResult =
   | Awaited<ReturnType<typeof cancelGuidedBooking>>
   | Awaited<ReturnType<typeof cancelAndRefundGuidedBooking>>
 export type GuidedPaymentResult = Awaited<ReturnType<typeof recordBookingPayment>>
+export type GuidedTerminalPaymentResult = Awaited<ReturnType<typeof startBookingTerminalPayment>>
+export type GuidedTerminalPaymentStatus = Awaited<ReturnType<typeof getBookingTerminalPaymentStatus>>
 export type GuidedUndoPaymentResult = Awaited<ReturnType<typeof undoBookingPayment>>
 
 export class GuidedWorkflowTimeoutError extends Error {
@@ -175,6 +179,17 @@ export const guidedWorkflowApi = {
     })
   },
 
+  getTerminalPaymentStatus(
+    input: { bookingId?: string; paymentId?: string },
+    signal?: AbortSignal,
+  ) {
+    return requestJSON<GuidedTerminalPaymentStatus>({
+      method: 'GET',
+      path: getPath('terminal-payment-status', input),
+      signal,
+    })
+  },
+
   getTodayBookings(signal?: AbortSignal) {
     return requestJSON<GuidedBooking[]>({
       method: 'GET',
@@ -195,6 +210,7 @@ export const guidedWorkflowApi = {
       method: 'card' | 'cash'
       notes?: string
       operationId: string
+      sendReceipt?: boolean
     },
     signal?: AbortSignal,
   ) {
@@ -203,6 +219,18 @@ export const guidedWorkflowApi = {
 
   setTestType(input: { bookingId: string; testTypeId: string }, signal?: AbortSignal) {
     return command<Awaited<ReturnType<typeof setBookingScheduledTestType>>>('set-test-type', input, signal)
+  },
+
+  startTerminalPayment(
+    input: {
+      amountReceived: number
+      bookingId: string
+      creditApplied?: number
+      operationId: string
+    },
+    signal?: AbortSignal,
+  ) {
+    return command<GuidedTerminalPaymentResult>('start-terminal-payment', input, signal)
   },
 
   undoPayment(input: { bookingId: string; operationId: string }, signal?: AbortSignal) {

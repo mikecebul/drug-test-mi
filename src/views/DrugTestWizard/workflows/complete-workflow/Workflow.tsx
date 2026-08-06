@@ -16,6 +16,7 @@ import {
   Clock,
   CreditCard,
   Ellipsis,
+  Mail,
   Pencil,
   Loader2,
   ClipboardList,
@@ -68,7 +69,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@/components/ui/input-group'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -83,6 +84,7 @@ import {
   guidedWorkflowApi,
   type GuidedBooking,
   type GuidedPaymentResult,
+  type GuidedTerminalPaymentResult,
   type GuidedUndoPaymentResult,
 } from './guided-workflow-api'
 import {
@@ -161,6 +163,7 @@ function getPaymentDefaults(booking: Booking | null) {
     amountReceived: '0',
     creditToApply: '0',
     method,
+    sendReceipt: Boolean(booking?.client?.email && !booking.client.disableClientEmails),
   }
 }
 
@@ -287,6 +290,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const [query, setQuery] = useQueryStates({
     step: parseAsStringLiteral(workflowSteps).withDefault('schedule'),
     bookingId: parseAsString,
+    terminalPaymentId: parseAsString,
   })
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['guided', 'today-bookings'],
@@ -301,6 +305,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   })
   const redwoodProvisioningStartedForBooking = useRef<string | null>(null)
   const paymentRequestRef = useRef<Promise<GuidedPaymentResult> | null>(null)
+  const terminalPaymentRequestRef = useRef<Promise<GuidedTerminalPaymentResult> | null>(null)
+  const completedTerminalPaymentRef = useRef<string | null>(null)
   const paymentOperationRef = useRef<{ fingerprint: string; id: string } | null>(null)
   const undoPaymentRequestRef = useRef<Promise<GuidedUndoPaymentResult> | null>(null)
   const undoPaymentOperationRef = useRef<{ bookingId: string; id: string } | null>(null)
@@ -395,6 +401,25 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       guidedWorkflowApi.recordPayment(input),
     retry: false,
   })
+  const terminalPaymentMutation = useMutation({
+    mutationFn: (input: Parameters<typeof guidedWorkflowApi.startTerminalPayment>[0]) =>
+      guidedWorkflowApi.startTerminalPayment(input),
+    retry: false,
+  })
+  const { data: terminalPaymentStatus = null } = useQuery({
+    queryKey: ['guided', 'terminal-payment-status', query.terminalPaymentId],
+    queryFn: ({ signal }) =>
+      guidedWorkflowApi.getTerminalPaymentStatus({ paymentId: query.terminalPaymentId || undefined }, signal),
+    enabled: currentStep === 'payment' && Boolean(query.terminalPaymentId),
+    retry: 3,
+    retryDelay: 1_000,
+    staleTime: 0,
+    refetchInterval: (query) => {
+      if (query.state.error) return 3_000
+      const status = query.state.data?.status
+      return status === 'pending' || status === 'in-progress' ? 1_500 : false
+    },
+  })
   const undoPaymentMutation = useMutation({
     mutationFn: (input: Parameters<typeof guidedWorkflowApi.undoPayment>[0]) => guidedWorkflowApi.undoPayment(input),
     retry: false,
@@ -422,6 +447,17 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     paymentTotalDue,
   )
   const paymentRecorded = Boolean(selectedBooking?.payment?.status)
+  const terminalPaymentIsActive =
+    Boolean(query.terminalPaymentId) &&
+    (!terminalPaymentStatus || terminalPaymentStatus.status === 'pending' || terminalPaymentStatus.status === 'in-progress')
+  const terminalPaymentFailed =
+    terminalPaymentStatus?.status === 'failed' || terminalPaymentStatus?.status === 'cancelled'
+  const clientReceiptEmail = selectedBooking?.client?.disableClientEmails
+    ? null
+    : selectedBooking?.client?.email || null
+  const terminalReceiptEmail = selectedBooking?.client?.disableClientEmails
+    ? null
+    : terminalPaymentStatus?.receiptEmail || clientReceiptEmail
   const selectedClientMismatchKey = selectedBooking ? getClientIdentityMismatchKey(selectedBooking) : null
   const clientIdentityIsVerified =
     !selectedClientMismatchKey || verifiedClientMismatchKeys.has(selectedClientMismatchKey)
@@ -446,6 +482,42 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       queryFn: ({ signal }) => guidedWorkflowApi.getTodayBookings(signal),
       staleTime: 0,
     })
+  useEffect(() => {
+    if (
+      terminalPaymentStatus?.status !== 'succeeded' ||
+      completedTerminalPaymentRef.current === terminalPaymentStatus.id
+    ) {
+      return
+    }
+
+    completedTerminalPaymentRef.current = terminalPaymentStatus.id
+    paymentOperationRef.current = null
+    terminalPaymentRequestRef.current = null
+    setPaymentDraft(null)
+    setShowAdditionalPayment(false)
+
+    toast.success(
+      terminalPaymentStatus.receiptEmail
+        ? `Payment approved. Stripe is sending the receipt to ${terminalPaymentStatus.receiptEmail}.`
+        : 'Terminal payment approved.',
+    )
+    void queryClient.invalidateQueries({
+      queryKey: ['guided', 'outstanding-payment-balances', selectedClientId],
+    })
+    void queryClient.fetchQuery({
+      queryKey: ['guided', 'today-bookings'],
+      queryFn: ({ signal }) => guidedWorkflowApi.getTodayBookings(signal),
+      staleTime: 0,
+    })
+
+    if (currentStepRef.current === 'payment' && selectedBookingIdRef.current === selectedBooking?.id) {
+      setQuery({
+        bookingId: selectedBooking.id,
+        step: 'toxaccess',
+        terminalPaymentId: null,
+      })
+    }
+  }, [queryClient, selectedBooking?.id, selectedClientId, setQuery, terminalPaymentStatus])
   useEffect(() => {
     if (currentStep !== 'toxaccess' || !selectedClientId || !selectedTestTypeValue) return
     if (!redwoodProvisioningBookingKey) return
@@ -484,6 +556,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     setQuery({
       bookingId: booking.id,
       step: getNextStep(booking),
+      terminalPaymentId: null,
     })
   }
 
@@ -710,6 +783,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       bookingId: selectedBooking.id,
       creditToApply,
       method: payment.method,
+      sendReceipt: clientReceiptEmail ? payment.sendReceipt : false,
     })
     if (!paymentOperationRef.current || paymentOperationRef.current.fingerprint !== fingerprint) {
       paymentOperationRef.current = {
@@ -724,6 +798,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       creditApplied: creditToApply,
       method: payment.method,
       operationId,
+      sendReceipt: clientReceiptEmail ? payment.sendReceipt : false,
     })
     paymentRequestRef.current = request
 
@@ -734,6 +809,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         paymentOperationRef.current = null
         toast.error(result.error || 'Failed to record payment')
         return
+      }
+
+      if (result.receipt?.sent) {
+        toast.success(`Receipt emailed to ${result.receipt.email}.`)
+      } else if (result.receipt && !result.receipt.sent) {
+        toast.warning(result.receipt.error)
       }
 
       paymentOperationRef.current = null
@@ -781,7 +862,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         queryKey: ['guided', 'outstanding-payment-balances', clientId],
       })
       if (currentStepRef.current === 'payment' && selectedBookingIdRef.current === selectedBooking.id) {
-        setQuery({ step: 'toxaccess', bookingId: selectedBooking.id })
+        setQuery({ step: 'toxaccess', bookingId: selectedBooking.id, terminalPaymentId: null })
       }
       void refreshBookings()
     } catch (error) {
@@ -790,6 +871,74 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     } finally {
       if (paymentRequestRef.current === request) {
         paymentRequestRef.current = null
+      }
+    }
+  }
+
+  const handleTerminalPayment = async () => {
+    if (terminalPaymentRequestRef.current || terminalPaymentMutation.isPending) return
+    if (!selectedBooking?.testType || !selectedBooking.client?.id) {
+      toast.error('Select or register the client before collecting payment.')
+      return
+    }
+    if (!validateClientIdentity()) return
+    if (!paymentAmountIsValid || amountReceived <= 0) {
+      focusGuidedInvalidField()
+      return
+    }
+    if (!creditAmountIsValid) {
+      focusGuidedInvalidField()
+      return
+    }
+    if (isFetchingOutstandingPaymentBalances) {
+      toast.error('Wait for the existing balances to finish loading.')
+      return
+    }
+    if (hasOutstandingPaymentBalanceError) {
+      toast.error('Existing balances could not be loaded. Refresh and try again.')
+      return
+    }
+
+    const fingerprint = JSON.stringify({
+      amountReceived,
+      bookingId: selectedBooking.id,
+      creditToApply,
+      method: 'terminal',
+    })
+    if (!paymentOperationRef.current || paymentOperationRef.current.fingerprint !== fingerprint) {
+      paymentOperationRef.current = {
+        fingerprint,
+        id: createOperationId(),
+      }
+    }
+
+    const request = terminalPaymentMutation.mutateAsync({
+      amountReceived,
+      bookingId: selectedBooking.id,
+      creditApplied: creditToApply,
+      operationId: paymentOperationRef.current.id,
+    })
+    terminalPaymentRequestRef.current = request
+
+    try {
+      const result = await request
+      if (!result.success) {
+        paymentOperationRef.current = null
+        if (result.payment?.id) {
+          setQuery({ terminalPaymentId: result.payment.id })
+        }
+        toast.error(result.error || 'The Terminal payment could not be started.')
+        return
+      }
+
+      setQuery({ terminalPaymentId: result.payment.id })
+      toast.info(`Payment sent to ${result.payment.readerLabel}. Waiting for the customer to tap or insert a card.`)
+    } catch (error) {
+      paymentOperationRef.current = null
+      toast.error(error instanceof Error ? error.message : 'The Terminal payment could not be started.')
+    } finally {
+      if (terminalPaymentRequestRef.current === request) {
+        terminalPaymentRequestRef.current = null
       }
     }
   }
@@ -1421,7 +1570,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         (selectedBooking.payment?.amountDue ?? selectedBooking.testType.price) -
           (selectedBooking.payment?.amountPaid ?? 0),
       )
-      const moneyMethod = recordedPayment.method === 'card' ? 'Card' : 'Cash'
+      const moneyMethod =
+        recordedPayment.method === 'stripe' ? 'Terminal card' : recordedPayment.method === 'card' ? 'Card' : 'Cash'
 
       return (
         <div className="flex flex-col gap-4">
@@ -1529,7 +1679,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       <AlertDialogTitle>Undo payment?</AlertDialogTitle>
                       <AlertDialogDescription>
                         {recordedPayment.newMoneyAmount > 0
-                          ? recordedPayment.method === 'card'
+                          ? recordedPayment.method === 'card' || recordedPayment.method === 'stripe'
                             ? 'Correct the record without refunding the card charge.'
                             : 'Remove this payment from the balance record.'
                           : 'Correct the record and restore the applied client credit.'}
@@ -1577,10 +1727,34 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               Collect payment
             </CardTitle>
             <CardDescription>
-              Review the balance, enter the amount received, then use the primary button below to record it.
+              Review the balance, then record cash or send a card payment to the Chx Desk Terminal.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5 p-4">
+            {terminalPaymentIsActive && (
+              <Alert>
+                <Loader2 className="animate-spin" />
+                <AlertTitle>Waiting for payment on {terminalPaymentStatus?.readerLabel || 'Chx Desk'}</AlertTitle>
+                <AlertDescription>
+                  Ask the client to tap, insert, or swipe their card. This page will continue automatically after Stripe
+                  confirms the payment.
+                  {terminalReceiptEmail && (
+                    <span className="mt-2 flex items-center gap-2">
+                      <Mail /> Receipt will be emailed to {terminalReceiptEmail}.
+                    </span>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+            {terminalPaymentFailed && terminalPaymentStatus && (
+              <Alert variant="destructive">
+                <TriangleAlert />
+                <AlertTitle>Terminal payment did not complete</AlertTitle>
+                <AlertDescription>
+                  {terminalPaymentStatus.failureMessage || 'Try the card again or choose another payment method.'}
+                </AlertDescription>
+              </Alert>
+            )}
             {hasOutstandingPaymentBalanceError ? (
               <Alert variant="destructive">
                 <TriangleAlert />
@@ -1645,6 +1819,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     type="button"
                     variant={creditToApply > 0 ? 'outline' : 'default'}
                     aria-pressed={creditToApply > 0}
+                    disabled={terminalPaymentIsActive}
                     onClick={() => {
                       const nextCredit = creditToApply > 0 ? 0 : maximumCredit
                       const creditIncrease = Math.max(0, nextCredit - creditToApply)
@@ -1671,6 +1846,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       max={maximumCredit}
                       step={1}
                       value={payment.creditToApply}
+                      disabled={terminalPaymentIsActive}
                       aria-invalid={!creditAmountIsValid || undefined}
                       onChange={(event) =>
                         setPaymentDraft((current) => ({
@@ -1703,6 +1879,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               {!isLoadingOutstandingPaymentBalances && !hasOutstandingPaymentBalanceError && (
                 <ToggleGroup
                   value={activeQuickAmount}
+                  disabled={terminalPaymentIsActive}
                   onValueChange={(values) => {
                     const value = values.at(-1)
                     if (value === undefined) return
@@ -1746,6 +1923,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       min={0}
                       step={1}
                       value={payment.amountReceived}
+                      disabled={terminalPaymentIsActive}
                       aria-invalid={!paymentAmountIsValid || undefined}
                       onChange={(event) =>
                         setPaymentDraft((current) => ({
@@ -1780,6 +1958,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     }}
                     className="bg-muted/30 h-12 w-full"
                     data-testid="payment-method-control"
+                    disabled={terminalPaymentIsActive}
                   >
                     <ToggleGroupItem
                       value="cash"
@@ -1793,13 +1972,45 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       value="card"
                       aria-label="Card payment method"
                       className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-12 px-3 opacity-60 data-pressed:opacity-100"
-                    >
-                      <CreditCard />
-                      Card
-                    </ToggleGroupItem>
-                  </ToggleGroup>
+                  >
+                    <CreditCard />
+                    Card · Chx Desk
+                  </ToggleGroupItem>
+                </ToggleGroup>
                 </Field>
               </FieldGroup>
+              {payment.method === 'card' && clientReceiptEmail && (
+                <p className="text-muted-foreground flex w-full items-center gap-2 text-sm">
+                  <Mail /> Email receipt sending to {clientReceiptEmail}
+                </p>
+              )}
+              {payment.method === 'cash' && (
+                <Field
+                  orientation="horizontal"
+                  data-disabled={!clientReceiptEmail || undefined}
+                  className="w-full"
+                >
+                  <Checkbox
+                    id="send-payment-receipt"
+                    checked={clientReceiptEmail ? payment.sendReceipt : false}
+                    disabled={!clientReceiptEmail}
+                    onCheckedChange={(checked) =>
+                      setPaymentDraft((current) => ({
+                        ...(current ?? payment),
+                        sendReceipt: checked === true,
+                      }))
+                    }
+                  />
+                  <FieldContent>
+                    <FieldLabel htmlFor="send-payment-receipt" className={cn(clientReceiptEmail && 'cursor-pointer')}>
+                      {clientReceiptEmail ? `Email receipt to ${clientReceiptEmail}` : 'Email receipt unavailable'}
+                    </FieldLabel>
+                    {!clientReceiptEmail && (
+                      <FieldDescription>Client emails are disabled for this profile.</FieldDescription>
+                    )}
+                  </FieldContent>
+                </Field>
+              )}
             </section>
 
             <div className="border-border overflow-hidden rounded-lg border">
@@ -2044,7 +2255,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       ? 'Continue to Payment'
       : currentStep === 'payment'
         ? amountReceived > 0 || creditToApply > 0
-          ? 'Record Payment & Continue'
+          ? payment.method === 'card' && amountReceived > 0
+            ? `Send ${currency.format(amountReceived)} to Chx Desk`
+            : 'Record Payment & Continue'
           : 'Continue to Collection Setup'
         : 'Continue Collection'
   const canGoNext =
@@ -2055,7 +2268,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             selectedBooking?.testType &&
             selectedBooking.client?.id &&
             !isFetchingOutstandingPaymentBalances &&
-            !hasOutstandingPaymentBalanceError,
+            !hasOutstandingPaymentBalanceError &&
+            !terminalPaymentIsActive,
           )
         : currentStep === 'toxaccess'
           ? Boolean(paymentRecorded && selectedBooking?.testType && selectedBooking.client?.id)
@@ -2064,7 +2278,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const backLabel = currentStep === 'schedule' ? 'Cancel' : 'Back'
   const footerIsPending =
     currentStep === 'payment'
-      ? paymentMutation.isPending
+      ? paymentMutation.isPending || terminalPaymentMutation.isPending
       : currentStep === 'toxaccess'
         ? continueMutation.isPending
         : false
@@ -2076,7 +2290,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         {renderCurrentStep()}
 
         <div className="mt-6 flex items-center justify-between border-t pt-4">
-          <Button type="button" onClick={goBackOneStep} variant="outline" size="lg" data-testid="wizard-back-button">
+          <Button
+            type="button"
+            onClick={goBackOneStep}
+            variant="outline"
+            size="lg"
+            data-testid="wizard-back-button"
+            disabled={terminalPaymentIsActive}
+          >
             <ChevronLeft className="mr-2 h-5 w-5" />
             {backLabel}
           </Button>
@@ -2088,16 +2309,23 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 currentStep === 'review' || currentStep === 'registration'
                   ? handleReviewNext
                   : currentStep === 'payment'
-                    ? () => handlePaymentNext()
+                    ? payment.method === 'card' && amountReceived > 0
+                      ? handleTerminalPayment
+                      : () => handlePaymentNext()
                     : handleContinueToCollection
               }
               disabled={!canGoNext || footerIsPending}
               size="lg"
               data-testid="wizard-next-button"
             >
-              {footerIsPending ? (
+              {terminalPaymentIsActive ? (
                 <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  <Loader2 data-icon="inline-start" className="animate-spin" />
+                  Waiting for Chx Desk...
+                </>
+              ) : footerIsPending ? (
+                <>
+                  <Loader2 data-icon="inline-start" className="animate-spin" />
                   Processing...
                 </>
               ) : paymentBalancesAreLoading ? (

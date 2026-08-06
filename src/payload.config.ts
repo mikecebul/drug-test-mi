@@ -48,6 +48,8 @@ import { PrivateMedia } from './collections/PrivateMedia'
 import { MediaBlock } from './blocks/MediaBlock/config'
 import { baseUrl } from './utilities/baseUrl'
 import { checkoutSessionCompleted } from './plugins/stripe/webhooks/checkoutSessionCompleted'
+import { paymentIntentPaymentFailed } from './plugins/stripe/webhooks/paymentIntentPaymentFailed'
+import { paymentIntentSucceeded } from './plugins/stripe/webhooks/paymentIntentSucceeded'
 import { Forms } from './collections/Forms'
 import { FormSubmissions } from './collections/FormSubmissions'
 import { Technicians } from './collections/Technicians'
@@ -1007,6 +1009,8 @@ export default buildConfig({
       stripeWebhooksEndpointSecret: process.env.STRIPE_WEBHOOKS_ENDPOINT_SECRET,
       webhooks: {
         'checkout.session.completed': checkoutSessionCompleted,
+        'payment_intent.payment_failed': paymentIntentPaymentFailed,
+        'payment_intent.succeeded': paymentIntentSucceeded,
       },
       logs: false,
     }),

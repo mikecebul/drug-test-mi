@@ -2209,11 +2209,30 @@ export interface Payment {
         id?: string | null;
       }[]
     | null;
+  /**
+   * Client email used for the payment receipt.
+   */
+  receiptEmail?: string | null;
+  receiptEmailSentAt?: string | null;
+  receiptType?: ('paid-in-full' | 'partial' | 'credit-added') | null;
   stripeCheckoutSessionId?: string | null;
   stripePaymentIntentId?: string | null;
+  /**
+   * Idempotency key for a guided workflow payment request.
+   */
+  workflowOperationId?: string | null;
   stripeCheckoutUrl?: string | null;
   paymentLinkEmailSentAt?: string | null;
   stripeRefundId?: string | null;
+  stripeTerminalReaderId?: string | null;
+  stripeTerminalReaderLabel?: string | null;
+  stripeTerminalLocationId?: string | null;
+  stripeTerminalLocationName?: string | null;
+  stripeTerminalStatus?: ('pending' | 'in-progress' | 'succeeded' | 'failed' | 'cancelled') | null;
+  stripeTerminalFailureMessage?: string | null;
+  pendingCreditAmount?: number | null;
+  pendingBookingAmountDue?: number | null;
+  pendingBookingBalanceDue?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -4117,11 +4136,24 @@ export interface PaymentsSelect<T extends boolean = true> {
         amount?: T;
         id?: T;
       };
+  receiptEmail?: T;
+  receiptEmailSentAt?: T;
+  receiptType?: T;
   stripeCheckoutSessionId?: T;
   stripePaymentIntentId?: T;
+  workflowOperationId?: T;
   stripeCheckoutUrl?: T;
   paymentLinkEmailSentAt?: T;
   stripeRefundId?: T;
+  stripeTerminalReaderId?: T;
+  stripeTerminalReaderLabel?: T;
+  stripeTerminalLocationId?: T;
+  stripeTerminalLocationName?: T;
+  stripeTerminalStatus?: T;
+  stripeTerminalFailureMessage?: T;
+  pendingCreditAmount?: T;
+  pendingBookingAmountDue?: T;
+  pendingBookingBalanceDue?: T;
   updatedAt?: T;
   createdAt?: T;
 }
