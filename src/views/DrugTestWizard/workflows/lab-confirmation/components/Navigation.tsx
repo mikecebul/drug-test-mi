@@ -45,7 +45,7 @@ export const LabConfirmationNavigation = withForm({
 
     return (
       <div
-        className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-20 -mx-2 mt-8 flex items-center justify-between gap-3 border-t px-2 py-4 backdrop-blur sm:-mx-4 sm:px-4"
+        className="mt-8 flex items-center justify-between gap-3 border-t pt-4"
         data-testid="wizard-navigation"
       >
         <Button type="button" variant="outline" onClick={handleBack} disabled={isBusy} data-testid="wizard-back-button">

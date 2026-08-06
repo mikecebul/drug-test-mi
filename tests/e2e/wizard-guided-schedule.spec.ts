@@ -229,7 +229,7 @@ test.describe("Wizard Today's Schedule", () => {
       .toBeLessThanOrEqual(1)
   })
 
-  test('keeps a partially reached Next button fully visible and honors the first click', async ({ page }) => {
+  test('keeps navigation in document flow and honors the first click once reached', async ({ page }) => {
     await page.setViewportSize({ width: 1200, height: 600 })
     await openGuidedSchedule(page)
 
@@ -245,6 +245,14 @@ test.describe("Wizard Today's Schedule", () => {
       window.scrollTo(0, naturalTop - window.innerHeight + rect.height / 2)
     })
 
+    await expect
+      .poll(async () => {
+        const box = await navigation.boundingBox()
+        return box ? box.y + box.height : 0
+      })
+      .toBeGreaterThan(600)
+
+    await navigation.scrollIntoViewIfNeeded()
     await expect
       .poll(async () => {
         const box = await navigation.boundingBox()

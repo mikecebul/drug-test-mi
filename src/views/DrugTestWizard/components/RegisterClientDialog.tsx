@@ -470,7 +470,7 @@ export function RegisterClientDialog({
                       <>
                         {renderStepContent()}
 
-                        <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-20 -mx-4 mt-6 flex justify-between gap-3 border-t px-4 py-4 backdrop-blur">
+                        <div className="mt-6 flex justify-between gap-3 border-t pt-4">
                           <Button
                             type="button"
                             variant="outline"

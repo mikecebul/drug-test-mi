@@ -109,8 +109,8 @@ export function ClientDetailsCard({
   const [editorOpen, setEditorOpen] = useState(false)
   const [referralOpen, setReferralOpen] = useState(false)
   const queryClient = useQueryClient()
-  const clientEditorFormRef = useRef<HTMLFormElement>(null)
   const clientUpdateControllerRef = useRef<AbortController | null>(null)
+  const clientEditorFormId = `client-details-form-${client.id}`
   const [headshotDraft, setHeadshotDraft] = useState({
     headshot: client.headshot || null,
     headshotId: client.headshotId || null,
@@ -154,7 +154,11 @@ export function ClientDetailsCard({
         onSubmit: clientBasicsFieldsSchema,
       },
       onSubmitInvalid: () => {
-        focusFirstInvalidFieldWithToast(clientEditorFormRef.current, 'client-details-invalid')
+        const formElement = document.getElementById(clientEditorFormId)
+        focusFirstInvalidFieldWithToast(
+          formElement instanceof HTMLFormElement ? formElement : null,
+          'client-details-invalid',
+        )
       },
       onSubmit: async ({ value }) => {
         try {
@@ -281,7 +285,7 @@ export function ClientDetailsCard({
             <DrawerDescription>Changes save to the client profile and sync with connected services.</DrawerDescription>
           </DrawerHeader>
           <form
-            ref={clientEditorFormRef}
+            id={clientEditorFormId}
             onSubmit={async (event) => {
               event.preventDefault()
               event.stopPropagation()
