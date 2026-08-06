@@ -1,4 +1,4 @@
-import { revalidatePath } from 'next/cache'
+import { revalidatePath } from 'next/cache.js'
 
 const BOOKING_VIEW_PATHS = ['/admin', '/admin/drug-test-upload', '/dashboard', '/dashboard/schedule'] as const
 

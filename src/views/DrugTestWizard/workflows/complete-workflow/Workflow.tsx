@@ -378,6 +378,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const [referralDrawerOpen, setReferralDrawerOpen] = useState(false)
   const [testTypeDrawerOpen, setTestTypeDrawerOpen] = useState(false)
   const [testTypeDrawerSelection, setTestTypeDrawerSelection] = useState('')
+  const [footerActionPending, setFooterActionPending] = useState(false)
   const [scheduleAction, setScheduleAction] = useState<{ action: ScheduleAction; booking: Booking } | null>(null)
   const scheduleActionMutation = useMutation({
     mutationFn: (input: Parameters<typeof guidedWorkflowApi.cancelBooking>[0]) =>
@@ -449,7 +450,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const paymentRecorded = Boolean(selectedBooking?.payment?.status)
   const terminalPaymentIsActive =
     Boolean(query.terminalPaymentId) &&
-    (!terminalPaymentStatus || terminalPaymentStatus.status === 'pending' || terminalPaymentStatus.status === 'in-progress')
+    (!terminalPaymentStatus ||
+      terminalPaymentStatus.status === 'pending' ||
+      terminalPaymentStatus.status === 'in-progress')
   const terminalPaymentFailed =
     terminalPaymentStatus?.status === 'failed' || terminalPaymentStatus?.status === 'cancelled'
   const clientReceiptEmail = selectedBooking?.client?.disableClientEmails
@@ -862,7 +865,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         queryKey: ['guided', 'outstanding-payment-balances', clientId],
       })
       if (currentStepRef.current === 'payment' && selectedBookingIdRef.current === selectedBooking.id) {
-        setQuery({ step: 'toxaccess', bookingId: selectedBooking.id, terminalPaymentId: null })
+        await setQuery({ step: 'toxaccess', bookingId: selectedBooking.id, terminalPaymentId: null })
       }
       void refreshBookings()
     } catch (error) {
@@ -931,7 +934,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         return
       }
 
-      setQuery({ terminalPaymentId: result.payment.id })
+      await setQuery({ terminalPaymentId: result.payment.id })
       toast.info(`Payment sent to ${result.payment.readerLabel}. Waiting for the customer to tap or insert a card.`)
     } catch (error) {
       paymentOperationRef.current = null
@@ -943,7 +946,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     }
   }
 
-  const handleReviewNext = () => {
+  const handleReviewNext = async () => {
     if (!selectedBooking?.client?.id) {
       setBookingClientDrawerOpen(true)
       return
@@ -956,7 +959,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     if (!validateClientIdentity()) return
 
     setPaymentDraft(getPaymentDefaults(selectedBooking))
-    setQuery({ step: 'payment', bookingId: selectedBooking.id })
+    await setQuery({ step: 'payment', bookingId: selectedBooking.id })
   }
 
   const handleUndoPayment = async () => {
@@ -1972,11 +1975,11 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       value="card"
                       aria-label="Card payment method"
                       className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-12 px-3 opacity-60 data-pressed:opacity-100"
-                  >
-                    <CreditCard />
-                    Card · Chx Desk
-                  </ToggleGroupItem>
-                </ToggleGroup>
+                    >
+                      <CreditCard />
+                      Card · Chx Desk
+                    </ToggleGroupItem>
+                  </ToggleGroup>
                 </Field>
               </FieldGroup>
               {payment.method === 'card' && clientReceiptEmail && (
@@ -1985,11 +1988,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 </p>
               )}
               {payment.method === 'cash' && (
-                <Field
-                  orientation="horizontal"
-                  data-disabled={!clientReceiptEmail || undefined}
-                  className="w-full"
-                >
+                <Field orientation="horizontal" data-disabled={!clientReceiptEmail || undefined} className="w-full">
                   <Checkbox
                     id="send-payment-receipt"
                     checked={clientReceiptEmail ? payment.sendReceipt : false}
@@ -2277,26 +2276,61 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
   const backLabel = currentStep === 'schedule' ? 'Cancel' : 'Back'
   const footerIsPending =
-    currentStep === 'payment'
+    footerActionPending ||
+    (currentStep === 'payment'
       ? paymentMutation.isPending || terminalPaymentMutation.isPending
       : currentStep === 'toxaccess'
         ? continueMutation.isPending
-        : false
+        : false)
   const paymentBalancesAreLoading = currentStep === 'payment' && isFetchingOutstandingPaymentBalances
+  const footerPendingLabel =
+    currentStep === 'review' || currentStep === 'registration'
+      ? 'Opening payment...'
+      : currentStep === 'payment'
+        ? payment.method === 'card' && amountReceived > 0
+          ? 'Sending to Chx Desk...'
+          : 'Processing payment...'
+        : 'Opening collection...'
+
+  const handleFooterNext = async () => {
+    if (footerActionPending) return
+
+    setFooterActionPending(true)
+    try {
+      if (currentStep === 'review' || currentStep === 'registration') {
+        await handleReviewNext()
+      } else if (currentStep === 'payment') {
+        if (payment.method === 'card' && amountReceived > 0) {
+          await handleTerminalPayment()
+        } else {
+          await handlePaymentNext()
+        }
+      } else {
+        await handleContinueToCollection()
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'The next step could not be opened.')
+    } finally {
+      setFooterActionPending(false)
+    }
+  }
 
   return (
     <>
       <div ref={guidedWorkflowRef} className="mx-auto flex w-full max-w-4xl flex-col px-2 pb-8 sm:px-4">
         {renderCurrentStep()}
 
-        <div className="mt-6 flex items-center justify-between border-t pt-4">
+        <div
+          className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-20 -mx-2 mt-6 flex items-center justify-between gap-3 border-t px-2 py-4 backdrop-blur sm:-mx-4 sm:px-4"
+          data-testid="wizard-navigation"
+        >
           <Button
             type="button"
             onClick={goBackOneStep}
             variant="outline"
             size="lg"
             data-testid="wizard-back-button"
-            disabled={terminalPaymentIsActive}
+            disabled={terminalPaymentIsActive || footerIsPending}
           >
             <ChevronLeft className="mr-2 h-5 w-5" />
             {backLabel}
@@ -2305,16 +2339,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           {currentStep !== 'schedule' && (
             <Button
               type="button"
-              onClick={
-                currentStep === 'review' || currentStep === 'registration'
-                  ? handleReviewNext
-                  : currentStep === 'payment'
-                    ? payment.method === 'card' && amountReceived > 0
-                      ? handleTerminalPayment
-                      : () => handlePaymentNext()
-                    : handleContinueToCollection
-              }
+              onClick={() => void handleFooterNext()}
               disabled={!canGoNext || footerIsPending}
+              aria-busy={footerIsPending || paymentBalancesAreLoading}
               size="lg"
               data-testid="wizard-next-button"
             >
@@ -2326,7 +2353,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               ) : footerIsPending ? (
                 <>
                   <Loader2 data-icon="inline-start" className="animate-spin" />
-                  Processing...
+                  {footerPendingLabel}
                 </>
               ) : paymentBalancesAreLoading ? (
                 <>

@@ -12,6 +12,7 @@ type WorkflowGroup = {
   state: {
     meta: {
       isSubmitting: boolean
+      isValidating: boolean
       canSubmit: boolean
       isValid: boolean
       submissionAttempts: number
@@ -33,6 +34,8 @@ export const CollectLabNavigation = withForm({
     const [bookingId] = useQueryState('bookingId', parseAsString)
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
+    const isValidating = useStore(form.store, (state) => state.isValidating)
+    const isBusy = isSubmitting || isValidating || group.state.meta.isSubmitting || group.state.meta.isValidating
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
@@ -47,12 +50,15 @@ export const CollectLabNavigation = withForm({
     }
 
     return (
-      <div className="mt-8 flex items-center justify-between border-t pt-4">
+      <div
+        className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-20 -mx-2 mt-8 flex items-center justify-between gap-3 border-t px-2 py-4 backdrop-blur sm:-mx-4 sm:px-4"
+        data-testid="wizard-navigation"
+      >
         <Button
           type="button"
           onClick={handleBack}
           variant="outline"
-          disabled={isSubmitting}
+          disabled={isBusy}
           size="lg"
           data-testid="wizard-back-button"
         >
@@ -63,14 +69,15 @@ export const CollectLabNavigation = withForm({
         <Button
           type="button"
           onClick={() => group.handleSubmit()}
-          disabled={isSubmitting || group.state.meta.isSubmitting}
+          disabled={isBusy}
+          aria-busy={isBusy}
           size="lg"
           data-testid="wizard-next-button"
         >
-          {isSubmitting ? (
+          {isBusy ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Processing...
+              {isLastStep ? 'Submitting...' : 'Checking...'}
             </>
           ) : (
             <>

@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { formOptions, useStore } from '@tanstack/react-form'
 import { AtSign, BriefcaseBusiness, CalendarDays, Loader2, Pencil, Phone, UserRound, UserX } from 'lucide-react'
 import { toast } from 'sonner'
@@ -24,13 +24,13 @@ import { Input } from '@/components/ui/input'
 import { formatClientGender, getClientGenderBadgeClass } from '@/lib/client-gender'
 import { formatDobInput } from '@/lib/date-utils'
 import { formatPhoneNumber } from '@/lib/client-utils'
+import { focusFirstInvalidFieldWithToast } from '@/lib/form-scroll-focus'
 import { cn } from '@/utilities/cn'
 import { invalidateWizardClientDerivedData } from '../../../queries'
 import { guidedWorkflowApi } from '../../complete-workflow/guided-workflow-api'
 import { ReferralProfileDrawer } from '../emails/referrals/ReferralProfileDrawer'
 import { clientBasicsFieldsSchema, type ClientBasicsFormValues } from './client-basics-schema'
 import { HeadshotCaptureCard } from './HeadshotCaptureCard'
-import { updateClientBasics } from './updateClientBasics'
 
 export type ClientDetailsValue = {
   id: string
@@ -63,6 +63,10 @@ function createClientDraft(client: ClientDetailsValue): ClientBasicsFormValues {
     phone: client.phone ? formatPhoneNumber(client.phone) : '',
     gender: client.gender || '',
   }
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === 'AbortError'
 }
 
 type ClientDetailsCardProps = {
@@ -105,6 +109,8 @@ export function ClientDetailsCard({
   const [editorOpen, setEditorOpen] = useState(false)
   const [referralOpen, setReferralOpen] = useState(false)
   const queryClient = useQueryClient()
+  const clientEditorFormRef = useRef<HTMLFormElement>(null)
+  const clientUpdateControllerRef = useRef<AbortController | null>(null)
   const [headshotDraft, setHeadshotDraft] = useState({
     headshot: client.headshot || null,
     headshotId: client.headshotId || null,
@@ -124,32 +130,57 @@ export function ClientDetailsCard({
   const referralLabel =
     referralProfile?.referralTitle || client.referralTitle || (client.referralType === 'self' ? 'Self' : 'Not set')
 
+  const clientUpdateMutation = useMutation({
+    mutationFn: async (input: ClientBasicsFormValues & { clientId: string }) => {
+      clientUpdateControllerRef.current?.abort()
+      const controller = new AbortController()
+      clientUpdateControllerRef.current = controller
+
+      try {
+        return await guidedWorkflowApi.updateClientBasics(input, controller.signal)
+      } finally {
+        if (clientUpdateControllerRef.current === controller) {
+          clientUpdateControllerRef.current = null
+        }
+      }
+    },
+    retry: false,
+  })
+
   const clientForm = useAppForm(
     formOptions({
       defaultValues: createClientDraft(client),
-      canSubmitWhenInvalid: true,
       validators: {
         onSubmit: clientBasicsFieldsSchema,
       },
+      onSubmitInvalid: () => {
+        focusFirstInvalidFieldWithToast(clientEditorFormRef.current, 'client-details-invalid')
+      },
       onSubmit: async ({ value }) => {
-        const result = await updateClientBasics({
-          clientId: client.id,
-          ...value,
-        })
+        try {
+          const result = await clientUpdateMutation.mutateAsync({
+            clientId: client.id,
+            ...value,
+          })
 
-        if (!result.success) {
-          toast.error(result.error)
-          return
+          if (!result.success) {
+            toast.error(result.error)
+            return
+          }
+
+          onClientUpdated?.(result.client)
+          invalidateWizardClientDerivedData(queryClient, { clientId: client.id })
+          setEditorOpen(false)
+          toast.success('Client details updated')
+        } catch (error) {
+          if (isAbortError(error)) return
+          toast.error(error instanceof Error ? error.message : 'Client details could not be updated.')
         }
-
-        onClientUpdated?.(result.client)
-        invalidateWizardClientDerivedData(queryClient, { clientId: client.id })
-        setEditorOpen(false)
-        toast.success('Client details updated')
       },
     }),
   )
-  const isPending = useStore(clientForm.store, (state) => state.isSubmitting)
+  const formIsBusy = useStore(clientForm.store, (state) => state.isSubmitting || state.isValidating)
+  const isPending = formIsBusy || clientUpdateMutation.isPending
   const draft = useStore(clientForm.store, (state) => state.values)
 
   const applyHeadshot = (url: string, docId: string) => {
@@ -159,12 +190,18 @@ export function ClientDetailsCard({
   }
 
   const handleEditorOpenChange = (nextOpen: boolean) => {
+    clientUpdateControllerRef.current?.abort()
+    clientUpdateMutation.reset()
+
     if (nextOpen) {
       clientForm.reset(createClientDraft(client))
       setHeadshotDraft({
         headshot: client.headshot || null,
         headshotId: client.headshotId || null,
       })
+    } else {
+      clientForm.reset(createClientDraft(client))
+      setReferralOpen(false)
     }
 
     setEditorOpen(nextOpen)
@@ -244,6 +281,7 @@ export function ClientDetailsCard({
             <DrawerDescription>Changes save to the client profile and sync with connected services.</DrawerDescription>
           </DrawerHeader>
           <form
+            ref={clientEditorFormRef}
             onSubmit={async (event) => {
               event.preventDefault()
               event.stopPropagation()
@@ -397,12 +435,12 @@ export function ClientDetailsCard({
               </FieldGroup>
             </div>
             <DrawerFooter className="border-border border-t sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => setEditorOpen(false)} disabled={isPending}>
+              <Button type="button" variant="outline" onClick={() => handleEditorOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending} aria-busy={isPending}>
                 {isPending && <Loader2 data-icon="inline-start" className="animate-spin" />}
-                Save Client
+                {isPending ? 'Saving client...' : 'Save Client'}
               </Button>
             </DrawerFooter>
           </form>
