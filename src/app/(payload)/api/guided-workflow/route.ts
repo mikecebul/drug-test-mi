@@ -8,6 +8,7 @@ import {
   cancelGuidedBooking,
   createWalkInBooking,
   ensureClientRedwoodProvisioning,
+  getBookingTerminalPaymentStatus,
   getActiveCollectionTestTypes,
   getClientOutstandingPaymentBalances,
   getClientReferralProfile,
@@ -17,8 +18,11 @@ import {
   recordBookingPayment,
   refreshBookingClientContext,
   setBookingScheduledTestType,
+  startBookingTerminalPayment,
   undoBookingPayment,
 } from '@/views/DrugTestWizard/workflows/complete-workflow/actions'
+import { clientBasicsUpdateSchema } from '@/views/DrugTestWizard/workflows/components/client/client-basics-schema'
+import { updateClientBasics } from '@/views/DrugTestWizard/workflows/components/client/updateClientBasics'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -56,6 +60,16 @@ const commandSchema = z.discriminatedUnion('operation', [
       method: z.enum(['cash', 'card']),
       notes: z.string().optional(),
       operationId,
+      sendReceipt: z.boolean().optional(),
+    }),
+  }),
+  z.object({
+    operation: z.literal('start-terminal-payment'),
+    input: z.object({
+      bookingId: requiredId,
+      amountReceived: z.number().finite().positive(),
+      creditApplied: z.number().finite().nonnegative().optional(),
+      operationId,
     }),
   }),
   z.object({
@@ -65,6 +79,10 @@ const commandSchema = z.discriminatedUnion('operation', [
   z.object({
     operation: z.literal('undo-payment'),
     input: z.object({ bookingId: requiredId, operationId }),
+  }),
+  z.object({
+    operation: z.literal('update-client-basics'),
+    input: clientBasicsUpdateSchema,
   }),
 ])
 
@@ -127,6 +145,16 @@ export async function GET(request: NextRequest) {
         return json(await getClientReferralProfile(requiredSearchParam(request, 'clientId'), adminRequest))
       case 'test-types':
         return json(await getActiveCollectionTestTypes())
+      case 'terminal-payment-status':
+        return json(
+          await getBookingTerminalPaymentStatus(
+            {
+              bookingId: request.nextUrl.searchParams.get('bookingId')?.trim() || undefined,
+              paymentId: request.nextUrl.searchParams.get('paymentId')?.trim() || undefined,
+            },
+            adminRequest,
+          ),
+        )
       case 'today-bookings':
         return json(await getTodaysCollectionBookings(adminRequest))
       default:
@@ -168,8 +196,12 @@ export async function POST(request: NextRequest) {
         return json(await recordBookingPayment(command.input, adminRequest))
       case 'set-test-type':
         return json(await setBookingScheduledTestType(command.input.bookingId, command.input.testTypeId, adminRequest))
+      case 'start-terminal-payment':
+        return json(await startBookingTerminalPayment(command.input, adminRequest))
       case 'undo-payment':
         return json(await undoBookingPayment(command.input, adminRequest))
+      case 'update-client-basics':
+        return json(await updateClientBasics(command.input, adminRequest))
     }
   } catch (error) {
     if (error instanceof z.ZodError) {

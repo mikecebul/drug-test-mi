@@ -463,48 +463,68 @@ export function RegisterClientDialog({
                   onGroupSubmit={currentStep < STEPS.length - 1 ? handleNext : handleSubmit}
                   onGroupSubmitInvalid={handleStepInvalid}
                 >
-                  {(group) => (
-                    <>
-                      {renderStepContent()}
+                  {(group) => {
+                    const groupIsBusy = isSubmitting || group.state.meta.isSubmitting || group.state.meta.isValidating
 
-                      <div className="mt-6 flex justify-between">
-                        <Button type="button" variant="outline" onClick={handlePrevious} disabled={currentStep === 0}>
-                          <ChevronLeft className="mr-1 h-4 w-4" />
-                          Back
-                        </Button>
+                    return (
+                      <>
+                        {renderStepContent()}
 
-                        {currentStep < STEPS.length - 1 ? (
+                        <div className="mt-6 flex justify-between gap-3 border-t pt-4">
                           <Button
                             type="button"
-                            onClick={() => group.handleSubmit()}
-                            disabled={group.state.meta.isSubmitting}
+                            variant="outline"
+                            onClick={handlePrevious}
+                            disabled={currentStep === 0 || groupIsBusy}
                           >
-                            Next
-                            <ChevronRight className="ml-1 h-4 w-4" />
+                            <ChevronLeft className="mr-1 h-4 w-4" />
+                            Back
                           </Button>
-                        ) : (
-                          <Button
-                            type="button"
-                            onClick={() => group.handleSubmit()}
-                            disabled={isSubmitting || group.state.meta.isSubmitting}
-                            className="min-w-35"
-                          >
-                            {isSubmitting || group.state.meta.isSubmitting ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Registering...
-                              </>
-                            ) : (
-                              <>
-                                <Check className="mr-2 h-4 w-4" />
-                                Register Client
-                              </>
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                    </>
-                  )}
+
+                          {currentStep < STEPS.length - 1 ? (
+                            <Button
+                              type="button"
+                              onClick={() => group.handleSubmit()}
+                              disabled={groupIsBusy}
+                              aria-busy={groupIsBusy}
+                            >
+                              {groupIsBusy ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Checking...
+                                </>
+                              ) : (
+                                <>
+                                  Next
+                                  <ChevronRight className="ml-1 h-4 w-4" />
+                                </>
+                              )}
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              onClick={() => group.handleSubmit()}
+                              disabled={groupIsBusy}
+                              aria-busy={groupIsBusy}
+                              className="min-w-35"
+                            >
+                              {groupIsBusy ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Registering...
+                                </>
+                              ) : (
+                                <>
+                                  <Check className="mr-2 h-4 w-4" />
+                                  Register Client
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </>
+                    )
+                  }}
                 </form.FormGroup>
               )}
             </form>

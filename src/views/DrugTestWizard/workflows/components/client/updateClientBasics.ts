@@ -1,8 +1,4 @@
-'use server'
-
-import config from '@payload-config'
-import { headers } from 'next/headers'
-import { getPayload } from 'payload'
+import type { PayloadRequest } from 'payload'
 
 import { formatDobForPayload } from '@/lib/date-utils'
 import { clientBasicsUpdateSchema } from './client-basics-schema'
@@ -19,6 +15,7 @@ export type UpdatedClientBasics = {
 }
 
 type UpdateClientBasicsResult = { success: true; client: UpdatedClientBasics } | { success: false; error: string }
+type AdminPayloadRequest = Pick<PayloadRequest, 'payload' | 'user'>
 
 function normalizePhone(value: string | undefined) {
   const digits = (value || '').replace(/\D/g, '')
@@ -32,7 +29,7 @@ function normalizePhone(value: string | undefined) {
   return normalized
 }
 
-export async function updateClientBasics(input: unknown): Promise<UpdateClientBasicsResult> {
+export async function updateClientBasics(input: unknown, req: AdminPayloadRequest): Promise<UpdateClientBasicsResult> {
   const parsed = clientBasicsUpdateSchema.safeParse(input)
   if (!parsed.success) {
     return {
@@ -41,8 +38,7 @@ export async function updateClientBasics(input: unknown): Promise<UpdateClientBa
     }
   }
 
-  const payload = await getPayload({ config })
-  const { user } = await payload.auth({ headers: await headers() })
+  const { payload, user } = req
 
   if (!user || user.collection !== 'admins') {
     return { success: false, error: 'Admin access is required.' }
