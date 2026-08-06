@@ -33,7 +33,7 @@ export default function MedicationDetectedAsField({ isLocked = false }: Medicati
         <FieldLabel>Detected As (on drug test)</FieldLabel>
         <div
           id={field.name}
-          className="border-border grid grid-cols-2 gap-2 rounded-md border p-3"
+          className="border-border grid grid-cols-1 gap-2 rounded-md border p-3 sm:grid-cols-2"
           tabIndex={-1}
           aria-invalid={hasErrors || undefined}
         >
@@ -42,7 +42,7 @@ export default function MedicationDetectedAsField({ isLocked = false }: Medicati
               key={substance.value}
               orientation="horizontal"
               className={cn(
-                'hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded p-1.5 text-sm transition-colors',
+                'hover:bg-muted/50 min-w-0 cursor-pointer items-start gap-2 rounded p-1.5 text-sm transition-colors',
                 isLocked && 'cursor-not-allowed opacity-50',
               )}
             >
@@ -52,7 +52,10 @@ export default function MedicationDetectedAsField({ isLocked = false }: Medicati
                 onCheckedChange={() => toggleSubstance(substance.value)}
                 disabled={isLocked}
               />
-              <FieldLabel htmlFor={`${field.name}-${substance.value}`} className="cursor-pointer text-sm font-normal">
+              <FieldLabel
+                htmlFor={`${field.name}-${substance.value}`}
+                className="min-w-0 cursor-pointer break-words text-sm font-normal"
+              >
                 {substance.label}
               </FieldLabel>
             </Field>
