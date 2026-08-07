@@ -1319,9 +1319,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     return (
       <div className="flex flex-col gap-4">
         {renderHeader('Today')}
-        <p className="text-muted-foreground max-w-2xl">
-          Select the scheduled client who is ready for collection. Review the appointment, then collect payment.
-        </p>
 
         <Card className="rounded-lg">
           <CardHeader className="p-4 pb-2">
@@ -1329,7 +1326,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               <CalendarDays className="size-5" />
               Today&apos;s Schedule
             </CardTitle>
-            <CardDescription>Name, time, gender, payment status, and registration status.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2 p-4 pt-0">
             {isLoading ? (
@@ -1422,7 +1418,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                             <DropdownMenuItem
                               disabled={isCompleted}
                               variant="destructive"
-                              closeOnClick={false}
                               onClick={() => setScheduleAction({ action: 'cancel', booking })}
                             >
                               <Ban className="size-4" />
@@ -1434,7 +1429,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                             <DropdownMenuItem
                               disabled={!canRefund}
                               variant="destructive"
-                              closeOnClick={false}
                               onClick={() => {
                                 if (canRefund) setScheduleAction({ action: 'cancel-refund', booking })
                               }}
@@ -2293,7 +2287,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
   return (
     <>
-      <div ref={guidedWorkflowRef} className="mx-auto flex w-full max-w-4xl flex-col px-2 pb-8 sm:px-4">
+      <div ref={guidedWorkflowRef} className="mx-auto flex w-full max-w-4xl flex-col px-2 pb-8 sm:px-4 md:px-0">
         {renderCurrentStep()}
 
         <div className="mt-6 flex items-center justify-between border-t pt-4">
