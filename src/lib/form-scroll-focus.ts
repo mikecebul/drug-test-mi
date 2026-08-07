@@ -91,7 +91,7 @@ export function useStepFocus<TStepKey>({
   containerRef,
   disabled = false,
   onStepChange,
-  scrollBehavior = 'smooth',
+  scrollBehavior = 'auto',
   skipInitialFocus = true,
   stepKey,
 }: UseStepFocusOptions<TStepKey>) {
@@ -108,9 +108,22 @@ export function useStepFocus<TStepKey>({
     }
 
     hasInitializedStepRef.current = true
-    const firstField = findFirstInteractiveField(containerRef.current)
 
-    window.scrollTo({ top: 0, behavior: scrollBehavior })
-    focusElementWithoutScroll(firstField)
+    // iPadOS can retain the previous input's focus and an in-progress native
+    // scroll animation after a React step swap. While WebKit considers that
+    // scroll active, taps may only stop the scroll instead of clicking the
+    // control underneath. Clear focus first, then use a non-animated scroll
+    // after the new step has completed layout.
+    const activeElement = document.activeElement
+    if (activeElement instanceof HTMLElement && activeElement !== document.body) {
+      activeElement.blur()
+    }
+
+    const frame = requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: scrollBehavior })
+      focusFirstInteractiveField(containerRef.current)
+    })
+
+    return () => cancelAnimationFrame(frame)
   }, [containerRef, disabled, onStepChange, scrollBehavior, skipInitialFocus, stepKey])
 }

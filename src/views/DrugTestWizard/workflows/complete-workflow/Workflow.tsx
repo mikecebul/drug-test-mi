@@ -74,7 +74,7 @@ import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { APP_TIMEZONE } from '@/lib/date-utils'
-import { focusFirstInvalidField } from '@/lib/form-scroll-focus'
+import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 import { cn } from '@/utilities/cn'
 import { RegisterClientDialog } from '../../components/RegisterClientDialog'
 import type { ClientMatch } from '../../types'
@@ -449,7 +449,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const paymentRecorded = Boolean(selectedBooking?.payment?.status)
   const terminalPaymentIsActive =
     Boolean(query.terminalPaymentId) &&
-    (!terminalPaymentStatus || terminalPaymentStatus.status === 'pending' || terminalPaymentStatus.status === 'in-progress')
+    (!terminalPaymentStatus ||
+      terminalPaymentStatus.status === 'pending' ||
+      terminalPaymentStatus.status === 'in-progress')
   const terminalPaymentFailed =
     terminalPaymentStatus?.status === 'failed' || terminalPaymentStatus?.status === 'cancelled'
   const clientReceiptEmail = selectedBooking?.client?.disableClientEmails
@@ -462,6 +464,11 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const clientIdentityIsVerified =
     !selectedClientMismatchKey || verifiedClientMismatchKeys.has(selectedClientMismatchKey)
   const guidedWorkflowRef = useRef<HTMLDivElement>(null)
+
+  useStepFocus({
+    containerRef: guidedWorkflowRef,
+    stepKey: currentStep,
+  })
 
   const focusGuidedInvalidField = () => {
     requestAnimationFrame(() => {

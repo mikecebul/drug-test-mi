@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { devices, expect, test, type Locator, type Page } from '@playwright/test'
 import { cleanupFixtures } from './helpers/cleanup'
 import { loginAdmin } from './helpers/auth'
 import { getE2EEnv } from './helpers/env'
@@ -38,6 +38,18 @@ async function openGuidedSchedule(page: Page) {
 async function expectNoHorizontalOverflow(page: Page) {
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth))
+    .toBe(true)
+}
+
+async function expectReceivesPointerAtCenter(locator: Locator) {
+  await expect
+    .poll(() =>
+      locator.evaluate((element) => {
+        const bounds = element.getBoundingClientRect()
+        const hitTarget = document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2)
+        return hitTarget === element || element.contains(hitTarget)
+      }),
+    )
     .toBe(true)
 }
 
@@ -178,55 +190,79 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(walkInCard).not.toContainText(fixtures.clients.instant.fullName)
   })
 
-  test('keeps schedule, review, and payment usable on a portrait iPad', async ({ page }) => {
-    await page.setViewportSize({ width: 768, height: 1024 })
+  test('keeps schedule, review, and payment usable with iPad touch input', async ({ browser }) => {
+    const context = await browser.newContext({ ...devices['iPad Pro 11'] })
+    const page = await context.newPage()
+
+    await loginAdmin(page, fixtures.admin)
     await openGuidedSchedule(page)
 
-    const walkInCard = page.getByTestId('guided-walk-in-card')
-    await expect(walkInCard.getByRole('button', { name: /Choose client/i })).toBeVisible()
-    await expectNoHorizontalOverflow(page)
+    try {
+      const walkInCard = page.getByTestId('guided-walk-in-card')
+      await expect(walkInCard.getByRole('button', { name: /Choose client/i })).toBeVisible()
+      await expectNoHorizontalOverflow(page)
 
-    await scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
-    await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Booking Information' })).toBeVisible()
-    await expect(page.getByTestId('wizard-next-button')).toBeVisible()
-    await expectNoHorizontalOverflow(page)
+      await scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName).tap()
+      await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Booking Information' })).toBeVisible()
+      await expect(page.getByTestId('wizard-next-button')).toBeVisible()
+      await expectNoHorizontalOverflow(page)
 
-    await verifyGuidedClientMismatch(page)
-    await clickNext(page)
-    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
-    await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toBeVisible()
-    await expect(page.getByTestId('wizard-next-button')).toBeVisible()
-    await expectNoHorizontalOverflow(page)
+      await page.getByRole('button', { name: `Edit ${fixtures.clients.instant.fullName}` }).tap()
+      const clientEditor = page.getByRole('dialog', { name: 'Edit Client Details' })
+      await expect(clientEditor).toBeVisible()
+      const saveClientButton = clientEditor.getByRole('button', { name: 'Save Client' })
+      await expect(clientEditor.locator('form')).not.toHaveAttribute('data-base-ui-swipe-ignore', '')
+      await expect(saveClientButton).toHaveAttribute('data-base-ui-swipe-ignore', '')
+      await expectReceivesPointerAtCenter(saveClientButton)
+      await saveClientButton.tap()
+      await expect(clientEditor).toBeHidden()
+      await expect(page.getByText('Client details updated')).toBeVisible()
 
-    const cashMethod = page.getByRole('button', { name: 'Cash payment method' })
-    const cardMethod = page.getByRole('button', { name: 'Card payment method' })
-    await expect(cashMethod).toHaveAttribute('aria-pressed', 'true')
-    await expect(cardMethod).toHaveAttribute('aria-pressed', 'false')
-    await expect(cashMethod).toHaveCSS('opacity', '1')
-    await expect(cardMethod).toHaveCSS('opacity', '0.6')
-    await cardMethod.click()
-    await expect(cardMethod).toHaveAttribute('aria-pressed', 'true')
-    await expect(cashMethod).toHaveAttribute('aria-pressed', 'false')
-    await expect(cardMethod).toHaveCSS('opacity', '1')
-    await expect(cashMethod).toHaveCSS('opacity', '0.6')
-    await expect
-      .poll(async () => {
-        const [amountBox, methodBox, cashBox, cardBox] = await Promise.all([
-          page.getByTestId('amount-received-control').boundingBox(),
-          page.getByTestId('payment-method-control').boundingBox(),
-          cashMethod.boundingBox(),
-          cardMethod.boundingBox(),
-        ])
-        if (!amountBox || !methodBox || !cashBox || !cardBox) return Number.POSITIVE_INFINITY
-        return Math.max(
-          Math.abs(amountBox.width - methodBox.width),
-          Math.abs(cashBox.width - cardBox.width),
-          Math.abs(amountBox.height - cashBox.height),
-          Math.abs(amountBox.height - cardBox.height),
-        )
+      const mismatchConfirmation = page.getByRole('checkbox', {
+        name: /I verified .* is the person testing today/i,
       })
-      .toBeLessThanOrEqual(1)
+      await mismatchConfirmation.tap()
+
+      const reviewNextButton = page.getByTestId('wizard-next-button')
+      await expectReceivesPointerAtCenter(reviewNextButton)
+      await reviewNextButton.tap()
+      await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
+      await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toBeVisible()
+      await expect(page.getByTestId('wizard-next-button')).toBeVisible()
+      await expectNoHorizontalOverflow(page)
+
+      const cashMethod = page.getByRole('button', { name: 'Cash payment method' })
+      const cardMethod = page.getByRole('button', { name: 'Card payment method' })
+      await expect(cashMethod).toHaveAttribute('aria-pressed', 'true')
+      await expect(cardMethod).toHaveAttribute('aria-pressed', 'false')
+      await expect(cashMethod).toHaveCSS('opacity', '1')
+      await expect(cardMethod).toHaveCSS('opacity', '0.6')
+      await cardMethod.tap()
+      await expect(cardMethod).toHaveAttribute('aria-pressed', 'true')
+      await expect(cashMethod).toHaveAttribute('aria-pressed', 'false')
+      await expect(cardMethod).toHaveCSS('opacity', '1')
+      await expect(cashMethod).toHaveCSS('opacity', '0.6')
+      await expect
+        .poll(async () => {
+          const [amountBox, methodBox, cashBox, cardBox] = await Promise.all([
+            page.getByTestId('amount-received-control').boundingBox(),
+            page.getByTestId('payment-method-control').boundingBox(),
+            cashMethod.boundingBox(),
+            cardMethod.boundingBox(),
+          ])
+          if (!amountBox || !methodBox || !cashBox || !cardBox) return Number.POSITIVE_INFINITY
+          return Math.max(
+            Math.abs(amountBox.width - methodBox.width),
+            Math.abs(cashBox.width - cardBox.width),
+            Math.abs(amountBox.height - cashBox.height),
+            Math.abs(amountBox.height - cardBox.height),
+          )
+        })
+        .toBeLessThanOrEqual(1)
+    } finally {
+      await context.close()
+    }
   })
 
   test('keeps dashboard and guided schedule rows consistent on mobile and portrait iPad', async ({ page }) => {

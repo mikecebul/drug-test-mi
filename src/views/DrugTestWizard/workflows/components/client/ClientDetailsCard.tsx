@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { formOptions, useStore } from '@tanstack/react-form'
 import { AtSign, BriefcaseBusiness, CalendarDays, Loader2, Pencil, Phone, UserRound, UserX } from 'lucide-react'
@@ -74,6 +74,8 @@ type ClientDetailsCardProps = {
   onChangeClient?: () => void
 }
 
+type ClientSaveStage = 'idle' | 'pressed' | 'validating' | 'saving' | 'slow' | 'interrupted'
+
 function Detail({
   icon: Icon,
   label,
@@ -104,6 +106,7 @@ export function ClientDetailsCard({
 }: ClientDetailsCardProps) {
   const [editorOpen, setEditorOpen] = useState(false)
   const [referralOpen, setReferralOpen] = useState(false)
+  const [saveStage, setSaveStage] = useState<ClientSaveStage>('idle')
   const queryClient = useQueryClient()
   const [headshotDraft, setHeadshotDraft] = useState({
     headshot: client.headshot || null,
@@ -132,12 +135,14 @@ export function ClientDetailsCard({
         onSubmit: clientBasicsFieldsSchema,
       },
       onSubmit: async ({ value }) => {
+        setSaveStage('saving')
         const result = await updateClientBasics({
           clientId: client.id,
           ...value,
         })
 
         if (!result.success) {
+          setSaveStage('idle')
           toast.error(result.error)
           return
         }
@@ -151,6 +156,32 @@ export function ClientDetailsCard({
   )
   const isPending = useStore(clientForm.store, (state) => state.isSubmitting)
   const draft = useStore(clientForm.store, (state) => state.values)
+  const saveIsBusy = isPending || saveStage === 'validating' || saveStage === 'saving' || saveStage === 'slow'
+
+  useEffect(() => {
+    if (saveStage !== 'pressed' && saveStage !== 'saving') return
+
+    const timeout = window.setTimeout(
+      () => setSaveStage(saveStage === 'pressed' ? 'interrupted' : 'slow'),
+      saveStage === 'pressed' ? 1_200 : 10_000,
+    )
+
+    return () => window.clearTimeout(timeout)
+  }, [saveStage])
+
+  const submitClientForm = async () => {
+    if (saveIsBusy) return
+
+    setSaveStage('validating')
+    try {
+      await clientForm.handleSubmit()
+    } catch (error) {
+      console.error('[client-details] Save failed before receiving a response', error)
+      toast.error(error instanceof Error ? error.message : 'Client details could not be updated.')
+    } finally {
+      setSaveStage('idle')
+    }
+  }
 
   const applyHeadshot = (url: string, docId: string) => {
     setHeadshotDraft({ headshot: url, headshotId: docId })
@@ -159,6 +190,8 @@ export function ClientDetailsCard({
   }
 
   const handleEditorOpenChange = (nextOpen: boolean) => {
+    setSaveStage('idle')
+
     if (nextOpen) {
       clientForm.reset(createClientDraft(client))
       setHeadshotDraft({
@@ -247,7 +280,7 @@ export function ClientDetailsCard({
             onSubmit={async (event) => {
               event.preventDefault()
               event.stopPropagation()
-              await clientForm.handleSubmit()
+              await submitClientForm()
             }}
             className="flex min-h-0 flex-1 flex-col"
           >
@@ -397,12 +430,40 @@ export function ClientDetailsCard({
               </FieldGroup>
             </div>
             <DrawerFooter className="border-border border-t sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => setEditorOpen(false)} disabled={isPending}>
+              <div className="text-muted-foreground min-h-5 flex-1 text-sm" role="status" aria-live="polite">
+                {saveStage === 'pressed' && 'Save selected...'}
+                {saveStage === 'validating' && 'Checking client details...'}
+                {saveStage === 'saving' && 'Saving client details...'}
+                {saveStage === 'slow' && 'Still waiting for the server to finish saving...'}
+                {saveStage === 'interrupted' && 'The browser interrupted that tap. Please tap Save again.'}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleEditorOpenChange(false)}
+                disabled={isPending}
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending && <Loader2 data-icon="inline-start" className="animate-spin" />}
-                Save Client
+              <Button
+                data-base-ui-swipe-ignore
+                type="button"
+                disabled={saveIsBusy}
+                aria-busy={saveIsBusy}
+                onPointerDown={() => {
+                  if (!saveIsBusy) setSaveStage('pressed')
+                }}
+                onPointerCancel={() => setSaveStage('interrupted')}
+                onClick={() => void submitClientForm()}
+              >
+                {saveIsBusy && <Loader2 data-icon="inline-start" className="animate-spin" />}
+                {saveStage === 'validating'
+                  ? 'Checking...'
+                  : saveStage === 'saving'
+                    ? 'Saving...'
+                    : saveStage === 'slow'
+                      ? 'Still saving...'
+                      : 'Save Client'}
               </Button>
             </DrawerFooter>
           </form>
