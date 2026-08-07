@@ -12,7 +12,6 @@ type WorkflowGroup = {
   state: {
     meta: {
       isSubmitting: boolean
-      isValidating: boolean
       canSubmit: boolean
       isValid: boolean
       submissionAttempts: number
@@ -29,14 +28,16 @@ export const InstantTestNavigation = withForm({
   },
 
   render: function Render({ form, onBack, group }) {
-    const [currentStep, setCurrentStep] = useQueryState('step', parseAsStringLiteral(steps).withDefault('upload'))
+    const [currentStep, setCurrentStep] = useQueryState(
+      'step',
+      parseAsStringLiteral(steps).withDefault('upload'),
+    )
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
-    const isValidating = useStore(form.store, (state) => state.isValidating)
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
-    const isBusy = isSubmitting || isValidating || group.state.meta.isSubmitting || group.state.meta.isValidating
+    const nextDisabled = isSubmitting || group.state.meta.isSubmitting
     const handleBack = () => {
       if (isFirstStep) {
         onBack()
@@ -47,15 +48,12 @@ export const InstantTestNavigation = withForm({
     }
 
     return (
-      <div
-        className="mt-8 flex items-center justify-between gap-3 border-t pt-4"
-        data-testid="wizard-navigation"
-      >
+      <div className="mt-8 flex items-center justify-between border-t pt-4">
         <Button
           type="button"
           onClick={handleBack}
           variant="outline"
-          disabled={isBusy}
+          disabled={isSubmitting}
           size="lg"
           data-testid="wizard-back-button"
         >
@@ -65,16 +63,15 @@ export const InstantTestNavigation = withForm({
 
         <Button
           type="button"
-          disabled={isBusy}
-          aria-busy={isBusy}
+          disabled={nextDisabled}
           size="lg"
           onClick={() => group.handleSubmit()}
           data-testid="wizard-next-button"
         >
-          {isBusy ? (
+          {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              {isLastStep ? 'Creating drug test...' : 'Checking...'}
+              Processing...
             </>
           ) : (
             <>

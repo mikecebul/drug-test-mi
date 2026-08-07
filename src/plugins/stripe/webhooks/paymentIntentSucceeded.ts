@@ -2,7 +2,6 @@ import type { StripeWebhookHandler } from '@payloadcms/plugin-stripe/types'
 import type Stripe from 'stripe'
 
 import { reconcileSucceededGuidedTerminalPayment } from '@/collections/Payments/services/stripeTerminal'
-import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 
 export const paymentIntentSucceeded: StripeWebhookHandler<{
   data: {
@@ -15,6 +14,7 @@ export const paymentIntentSucceeded: StripeWebhookHandler<{
   })
 
   if (reconciled) {
+    const { revalidateBookingViews } = await import('@/utilities/revalidateBookingViews')
     revalidateBookingViews()
   }
 }

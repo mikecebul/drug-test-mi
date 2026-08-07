@@ -12,7 +12,6 @@ type WorkflowGroup = {
   state: {
     meta: {
       isSubmitting: boolean
-      isValidating: boolean
       canSubmit: boolean
       isValid: boolean
       submissionAttempts: number
@@ -34,8 +33,6 @@ export const CollectLabNavigation = withForm({
     const [bookingId] = useQueryState('bookingId', parseAsString)
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
-    const isValidating = useStore(form.store, (state) => state.isValidating)
-    const isBusy = isSubmitting || isValidating || group.state.meta.isSubmitting || group.state.meta.isValidating
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
@@ -50,15 +47,12 @@ export const CollectLabNavigation = withForm({
     }
 
     return (
-      <div
-        className="mt-8 flex items-center justify-between gap-3 border-t pt-4"
-        data-testid="wizard-navigation"
-      >
+      <div className="mt-8 flex items-center justify-between border-t pt-4">
         <Button
           type="button"
           onClick={handleBack}
           variant="outline"
-          disabled={isBusy}
+          disabled={isSubmitting}
           size="lg"
           data-testid="wizard-back-button"
         >
@@ -69,15 +63,14 @@ export const CollectLabNavigation = withForm({
         <Button
           type="button"
           onClick={() => group.handleSubmit()}
-          disabled={isBusy}
-          aria-busy={isBusy}
+          disabled={isSubmitting || group.state.meta.isSubmitting}
           size="lg"
           data-testid="wizard-next-button"
         >
-          {isBusy ? (
+          {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              {isLastStep ? 'Submitting...' : 'Checking...'}
+              Processing...
             </>
           ) : (
             <>

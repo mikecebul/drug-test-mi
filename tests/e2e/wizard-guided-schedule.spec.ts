@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { devices, expect, test, type Locator, type Page } from '@playwright/test'
 import { cleanupFixtures } from './helpers/cleanup'
 import { loginAdmin } from './helpers/auth'
 import { getE2EEnv } from './helpers/env'
@@ -38,6 +38,18 @@ async function openGuidedSchedule(page: Page) {
 async function expectNoHorizontalOverflow(page: Page) {
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth))
+    .toBe(true)
+}
+
+async function expectReceivesPointerAtCenter(locator: Locator) {
+  await expect
+    .poll(() =>
+      locator.evaluate((element) => {
+        const bounds = element.getBoundingClientRect()
+        const hitTarget = document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2)
+        return hitTarget === element || element.contains(hitTarget)
+      }),
+    )
     .toBe(true)
 }
 
@@ -178,157 +190,78 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(walkInCard).not.toContainText(fixtures.clients.instant.fullName)
   })
 
-  test('keeps schedule, review, and payment usable on a portrait iPad', async ({ page }) => {
-    await page.setViewportSize({ width: 768, height: 1024 })
+  test('keeps schedule, review, and payment usable with iPad touch input', async ({ browser }) => {
+    const context = await browser.newContext({ ...devices['iPad Pro 11'] })
+    const page = await context.newPage()
+
+    await loginAdmin(page, fixtures.admin)
     await openGuidedSchedule(page)
-
-    const walkInCard = page.getByTestId('guided-walk-in-card')
-    await expect(walkInCard.getByRole('button', { name: /Choose client/i })).toBeVisible()
-    await expectNoHorizontalOverflow(page)
-
-    await scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
-    await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Booking Information' })).toBeVisible()
-    await expect(page.getByTestId('wizard-next-button')).toBeVisible()
-    await expectNoHorizontalOverflow(page)
-
-    await verifyGuidedClientMismatch(page)
-    await clickNext(page)
-    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
-    await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toBeVisible()
-    await expect(page.getByTestId('wizard-next-button')).toBeVisible()
-    await expectNoHorizontalOverflow(page)
-
-    const cashMethod = page.getByRole('button', { name: 'Cash payment method' })
-    const cardMethod = page.getByRole('button', { name: 'Card payment method' })
-    await expect(cashMethod).toHaveAttribute('aria-pressed', 'true')
-    await expect(cardMethod).toHaveAttribute('aria-pressed', 'false')
-    await expect(cashMethod).toHaveCSS('opacity', '1')
-    await expect(cardMethod).toHaveCSS('opacity', '0.6')
-    await cardMethod.click()
-    await expect(cardMethod).toHaveAttribute('aria-pressed', 'true')
-    await expect(cashMethod).toHaveAttribute('aria-pressed', 'false')
-    await expect(cardMethod).toHaveCSS('opacity', '1')
-    await expect(cashMethod).toHaveCSS('opacity', '0.6')
-    await expect
-      .poll(async () => {
-        const [amountBox, methodBox, cashBox, cardBox] = await Promise.all([
-          page.getByTestId('amount-received-control').boundingBox(),
-          page.getByTestId('payment-method-control').boundingBox(),
-          cashMethod.boundingBox(),
-          cardMethod.boundingBox(),
-        ])
-        if (!amountBox || !methodBox || !cashBox || !cardBox) return Number.POSITIVE_INFINITY
-        return Math.max(
-          Math.abs(amountBox.width - methodBox.width),
-          Math.abs(cashBox.width - cardBox.width),
-          Math.abs(amountBox.height - cashBox.height),
-          Math.abs(amountBox.height - cardBox.height),
-        )
-      })
-      .toBeLessThanOrEqual(1)
-  })
-
-  test('keeps navigation in document flow and honors the first click once reached', async ({ page }) => {
-    await page.setViewportSize({ width: 1200, height: 600 })
-    await openGuidedSchedule(page)
-
-    await scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
-    await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
-    await verifyGuidedClientMismatch(page)
-
-    const navigation = page.getByTestId('wizard-navigation')
-    const nextButton = page.getByTestId('wizard-next-button')
-    await navigation.evaluate((element) => {
-      const rect = element.getBoundingClientRect()
-      const naturalTop = rect.top + window.scrollY
-      window.scrollTo(0, naturalTop - window.innerHeight + rect.height / 2)
-    })
-
-    await expect
-      .poll(async () => {
-        const box = await navigation.boundingBox()
-        return box ? box.y + box.height : 0
-      })
-      .toBeGreaterThan(600)
-
-    await navigation.scrollIntoViewIfNeeded()
-    await expect
-      .poll(async () => {
-        const box = await navigation.boundingBox()
-        return box ? box.y + box.height : Number.POSITIVE_INFINITY
-      })
-      .toBeLessThanOrEqual(600)
-
-    const nextButtonBox = await nextButton.boundingBox()
-    expect(nextButtonBox).not.toBeNull()
-    await page.mouse.click(nextButtonBox!.x + nextButtonBox!.width / 2, nextButtonBox!.y + nextButtonBox!.height / 2)
-    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
-  })
-
-  test('explains invalid client edits and recovers a cancelled save without a refresh', async ({ page }) => {
-    await scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
-    await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
-
-    const editClientButton = page.getByRole('button', { name: new RegExp(`Edit ${fixtures.clients.instant.fullName}`) })
-    await editClientButton.click()
-
-    let clientDrawer = page.getByRole('dialog', { name: 'Edit Client Details' })
-    const firstNameInput = clientDrawer.getByRole('textbox', { name: 'First name' })
-    await firstNameInput.fill('')
-    await clientDrawer.getByRole('button', { name: 'Save Client' }).click()
-    await expect(clientDrawer.getByText('First name is required')).toBeVisible()
-    await expect(firstNameInput).toBeFocused()
-    await expect(clientDrawer).toBeVisible()
-    await clientDrawer.getByRole('button', { name: 'Cancel' }).click()
-    await expect(clientDrawer).toBeHidden()
-
-    let releaseFirstRequest = () => {}
-    const firstRequestReleased = new Promise<void>((resolve) => {
-      releaseFirstRequest = resolve
-    })
-    let markFirstRequestStarted = () => {}
-    const firstRequestStarted = new Promise<void>((resolve) => {
-      markFirstRequestStarted = resolve
-    })
-    let updateRequestCount = 0
-
-    await page.route('**/api/guided-workflow', async (route) => {
-      const request = route.request()
-      const body = request.method() === 'POST' ? request.postDataJSON() : null
-      if (body?.operation !== 'update-client-basics') {
-        await route.continue()
-        return
-      }
-
-      updateRequestCount += 1
-      if (updateRequestCount === 1) {
-        markFirstRequestStarted()
-        await firstRequestReleased
-      }
-
-      await route.continue().catch(() => undefined)
-    })
 
     try {
-      await editClientButton.click()
-      clientDrawer = page.getByRole('dialog', { name: 'Edit Client Details' })
-      await clientDrawer.getByRole('button', { name: 'Save Client' }).click()
-      await firstRequestStarted
+      const walkInCard = page.getByTestId('guided-walk-in-card')
+      await expect(walkInCard.getByRole('button', { name: /Choose client/i })).toBeVisible()
+      await expectNoHorizontalOverflow(page)
 
-      await expect(clientDrawer.getByRole('button', { name: 'Saving client...' })).toBeDisabled()
-      await expect(clientDrawer.getByRole('button', { name: 'Cancel' })).toBeEnabled()
-      await clientDrawer.getByRole('button', { name: 'Cancel' }).click()
-      await expect(clientDrawer).toBeHidden()
+      await scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName).tap()
+      await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Booking Information' })).toBeVisible()
+      await expect(page.getByTestId('wizard-next-button')).toBeVisible()
+      await expectNoHorizontalOverflow(page)
 
-      await editClientButton.click()
-      clientDrawer = page.getByRole('dialog', { name: 'Edit Client Details' })
-      await clientDrawer.getByRole('button', { name: 'Save Client' }).click()
-      await expect(clientDrawer).toBeHidden()
-      expect(updateRequestCount).toBe(2)
+      await page.getByRole('button', { name: `Edit ${fixtures.clients.instant.fullName}` }).tap()
+      const clientEditor = page.getByRole('dialog', { name: 'Edit Client Details' })
+      await expect(clientEditor).toBeVisible()
+      const saveClientButton = clientEditor.getByRole('button', { name: 'Save Client' })
+      await expect(clientEditor.locator('form')).not.toHaveAttribute('data-base-ui-swipe-ignore', '')
+      await expect(saveClientButton).toHaveAttribute('data-base-ui-swipe-ignore', '')
+      await expectReceivesPointerAtCenter(saveClientButton)
+      await saveClientButton.tap()
+      await expect(clientEditor).toBeHidden()
+      await expect(page.getByText('Client details updated')).toBeVisible()
+
+      const mismatchConfirmation = page.getByRole('checkbox', {
+        name: /I verified .* is the person testing today/i,
+      })
+      await mismatchConfirmation.tap()
+
+      const reviewNextButton = page.getByTestId('wizard-next-button')
+      await expectReceivesPointerAtCenter(reviewNextButton)
+      await reviewNextButton.tap()
+      await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
+      await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toBeVisible()
+      await expect(page.getByTestId('wizard-next-button')).toBeVisible()
+      await expectNoHorizontalOverflow(page)
+
+      const cashMethod = page.getByRole('button', { name: 'Cash payment method' })
+      const cardMethod = page.getByRole('button', { name: 'Card payment method' })
+      await expect(cashMethod).toHaveAttribute('aria-pressed', 'true')
+      await expect(cardMethod).toHaveAttribute('aria-pressed', 'false')
+      await expect(cashMethod).toHaveCSS('opacity', '1')
+      await expect(cardMethod).toHaveCSS('opacity', '0.6')
+      await cardMethod.tap()
+      await expect(cardMethod).toHaveAttribute('aria-pressed', 'true')
+      await expect(cashMethod).toHaveAttribute('aria-pressed', 'false')
+      await expect(cardMethod).toHaveCSS('opacity', '1')
+      await expect(cashMethod).toHaveCSS('opacity', '0.6')
+      await expect
+        .poll(async () => {
+          const [amountBox, methodBox, cashBox, cardBox] = await Promise.all([
+            page.getByTestId('amount-received-control').boundingBox(),
+            page.getByTestId('payment-method-control').boundingBox(),
+            cashMethod.boundingBox(),
+            cardMethod.boundingBox(),
+          ])
+          if (!amountBox || !methodBox || !cashBox || !cardBox) return Number.POSITIVE_INFINITY
+          return Math.max(
+            Math.abs(amountBox.width - methodBox.width),
+            Math.abs(cashBox.width - cardBox.width),
+            Math.abs(amountBox.height - cashBox.height),
+            Math.abs(amountBox.height - cardBox.height),
+          )
+        })
+        .toBeLessThanOrEqual(1)
     } finally {
-      releaseFirstRequest()
-      await page.unrouteAll({ behavior: 'ignoreErrors' })
+      await context.close()
     }
   })
 

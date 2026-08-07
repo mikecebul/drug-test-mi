@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { formOptions, useStore } from '@tanstack/react-form'
 import { AtSign, BriefcaseBusiness, CalendarDays, Loader2, Pencil, Phone, UserRound, UserX } from 'lucide-react'
 import { toast } from 'sonner'
@@ -24,13 +24,13 @@ import { Input } from '@/components/ui/input'
 import { formatClientGender, getClientGenderBadgeClass } from '@/lib/client-gender'
 import { formatDobInput } from '@/lib/date-utils'
 import { formatPhoneNumber } from '@/lib/client-utils'
-import { focusFirstInvalidFieldWithToast } from '@/lib/form-scroll-focus'
 import { cn } from '@/utilities/cn'
 import { invalidateWizardClientDerivedData } from '../../../queries'
 import { guidedWorkflowApi } from '../../complete-workflow/guided-workflow-api'
 import { ReferralProfileDrawer } from '../emails/referrals/ReferralProfileDrawer'
 import { clientBasicsFieldsSchema, type ClientBasicsFormValues } from './client-basics-schema'
 import { HeadshotCaptureCard } from './HeadshotCaptureCard'
+import { updateClientBasics } from './updateClientBasics'
 
 export type ClientDetailsValue = {
   id: string
@@ -65,10 +65,6 @@ function createClientDraft(client: ClientDetailsValue): ClientBasicsFormValues {
   }
 }
 
-function isAbortError(error: unknown) {
-  return error instanceof Error && error.name === 'AbortError'
-}
-
 type ClientDetailsCardProps = {
   client: ClientDetailsValue
   editable?: boolean
@@ -77,6 +73,8 @@ type ClientDetailsCardProps = {
   onClientUpdated?: (client: Partial<ClientDetailsValue>) => void
   onChangeClient?: () => void
 }
+
+type ClientSaveStage = 'idle' | 'pressed' | 'validating' | 'saving' | 'slow' | 'interrupted'
 
 function Detail({
   icon: Icon,
@@ -108,9 +106,8 @@ export function ClientDetailsCard({
 }: ClientDetailsCardProps) {
   const [editorOpen, setEditorOpen] = useState(false)
   const [referralOpen, setReferralOpen] = useState(false)
+  const [saveStage, setSaveStage] = useState<ClientSaveStage>('idle')
   const queryClient = useQueryClient()
-  const clientUpdateControllerRef = useRef<AbortController | null>(null)
-  const clientEditorFormId = `client-details-form-${client.id}`
   const [headshotDraft, setHeadshotDraft] = useState({
     headshot: client.headshot || null,
     headshotId: client.headshotId || null,
@@ -130,62 +127,61 @@ export function ClientDetailsCard({
   const referralLabel =
     referralProfile?.referralTitle || client.referralTitle || (client.referralType === 'self' ? 'Self' : 'Not set')
 
-  const clientUpdateMutation = useMutation({
-    mutationFn: async (input: ClientBasicsFormValues & { clientId: string }) => {
-      clientUpdateControllerRef.current?.abort()
-      const controller = new AbortController()
-      clientUpdateControllerRef.current = controller
-
-      try {
-        return await guidedWorkflowApi.updateClientBasics(input, controller.signal)
-      } finally {
-        if (clientUpdateControllerRef.current === controller) {
-          clientUpdateControllerRef.current = null
-        }
-      }
-    },
-    retry: false,
-  })
-
   const clientForm = useAppForm(
     formOptions({
       defaultValues: createClientDraft(client),
+      canSubmitWhenInvalid: true,
       validators: {
         onSubmit: clientBasicsFieldsSchema,
       },
-      onSubmitInvalid: () => {
-        const formElement = document.getElementById(clientEditorFormId)
-        focusFirstInvalidFieldWithToast(
-          formElement instanceof HTMLFormElement ? formElement : null,
-          'client-details-invalid',
-        )
-      },
       onSubmit: async ({ value }) => {
-        try {
-          const result = await clientUpdateMutation.mutateAsync({
-            clientId: client.id,
-            ...value,
-          })
+        setSaveStage('saving')
+        const result = await updateClientBasics({
+          clientId: client.id,
+          ...value,
+        })
 
-          if (!result.success) {
-            toast.error(result.error)
-            return
-          }
-
-          onClientUpdated?.(result.client)
-          invalidateWizardClientDerivedData(queryClient, { clientId: client.id })
-          setEditorOpen(false)
-          toast.success('Client details updated')
-        } catch (error) {
-          if (isAbortError(error)) return
-          toast.error(error instanceof Error ? error.message : 'Client details could not be updated.')
+        if (!result.success) {
+          setSaveStage('idle')
+          toast.error(result.error)
+          return
         }
+
+        onClientUpdated?.(result.client)
+        invalidateWizardClientDerivedData(queryClient, { clientId: client.id })
+        setEditorOpen(false)
+        toast.success('Client details updated')
       },
     }),
   )
-  const formIsBusy = useStore(clientForm.store, (state) => state.isSubmitting || state.isValidating)
-  const isPending = formIsBusy || clientUpdateMutation.isPending
+  const isPending = useStore(clientForm.store, (state) => state.isSubmitting)
   const draft = useStore(clientForm.store, (state) => state.values)
+  const saveIsBusy = isPending || saveStage === 'validating' || saveStage === 'saving' || saveStage === 'slow'
+
+  useEffect(() => {
+    if (saveStage !== 'pressed' && saveStage !== 'saving') return
+
+    const timeout = window.setTimeout(
+      () => setSaveStage(saveStage === 'pressed' ? 'interrupted' : 'slow'),
+      saveStage === 'pressed' ? 1_200 : 10_000,
+    )
+
+    return () => window.clearTimeout(timeout)
+  }, [saveStage])
+
+  const submitClientForm = async () => {
+    if (saveIsBusy) return
+
+    setSaveStage('validating')
+    try {
+      await clientForm.handleSubmit()
+    } catch (error) {
+      console.error('[client-details] Save failed before receiving a response', error)
+      toast.error(error instanceof Error ? error.message : 'Client details could not be updated.')
+    } finally {
+      setSaveStage('idle')
+    }
+  }
 
   const applyHeadshot = (url: string, docId: string) => {
     setHeadshotDraft({ headshot: url, headshotId: docId })
@@ -194,8 +190,7 @@ export function ClientDetailsCard({
   }
 
   const handleEditorOpenChange = (nextOpen: boolean) => {
-    clientUpdateControllerRef.current?.abort()
-    clientUpdateMutation.reset()
+    setSaveStage('idle')
 
     if (nextOpen) {
       clientForm.reset(createClientDraft(client))
@@ -203,9 +198,6 @@ export function ClientDetailsCard({
         headshot: client.headshot || null,
         headshotId: client.headshotId || null,
       })
-    } else {
-      clientForm.reset(createClientDraft(client))
-      setReferralOpen(false)
     }
 
     setEditorOpen(nextOpen)
@@ -285,11 +277,10 @@ export function ClientDetailsCard({
             <DrawerDescription>Changes save to the client profile and sync with connected services.</DrawerDescription>
           </DrawerHeader>
           <form
-            id={clientEditorFormId}
             onSubmit={async (event) => {
               event.preventDefault()
               event.stopPropagation()
-              await clientForm.handleSubmit()
+              await submitClientForm()
             }}
             className="flex min-h-0 flex-1 flex-col"
           >
@@ -439,12 +430,40 @@ export function ClientDetailsCard({
               </FieldGroup>
             </div>
             <DrawerFooter className="border-border border-t sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => handleEditorOpenChange(false)}>
+              <div className="text-muted-foreground min-h-5 flex-1 text-sm" role="status" aria-live="polite">
+                {saveStage === 'pressed' && 'Save selected...'}
+                {saveStage === 'validating' && 'Checking client details...'}
+                {saveStage === 'saving' && 'Saving client details...'}
+                {saveStage === 'slow' && 'Still waiting for the server to finish saving...'}
+                {saveStage === 'interrupted' && 'The browser interrupted that tap. Please tap Save again.'}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleEditorOpenChange(false)}
+                disabled={isPending}
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isPending} aria-busy={isPending}>
-                {isPending && <Loader2 data-icon="inline-start" className="animate-spin" />}
-                {isPending ? 'Saving client...' : 'Save Client'}
+              <Button
+                data-base-ui-swipe-ignore
+                type="button"
+                disabled={saveIsBusy}
+                aria-busy={saveIsBusy}
+                onPointerDown={() => {
+                  if (!saveIsBusy) setSaveStage('pressed')
+                }}
+                onPointerCancel={() => setSaveStage('interrupted')}
+                onClick={() => void submitClientForm()}
+              >
+                {saveIsBusy && <Loader2 data-icon="inline-start" className="animate-spin" />}
+                {saveStage === 'validating'
+                  ? 'Checking...'
+                  : saveStage === 'saving'
+                    ? 'Saving...'
+                    : saveStage === 'slow'
+                      ? 'Still saving...'
+                      : 'Save Client'}
               </Button>
             </DrawerFooter>
           </form>
