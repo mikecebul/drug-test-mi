@@ -2,7 +2,10 @@ import { getPayload, type Payload, type PayloadRequest } from 'payload'
 
 import { recordQueuedJobRun } from '@/lib/jobs/jobRuns'
 import { assertRedwoodMutationAllowed, getRedwoodAccountNumber } from '@/lib/redwood/config'
-import { REDWOOD_SKIP_PROVISIONING_QUEUE_CONTEXT_KEY } from '@/lib/redwood/context'
+import {
+  REDWOOD_SKIP_CLIENT_UPDATE_QUEUE_CONTEXT_KEY,
+  REDWOOD_SKIP_PROVISIONING_QUEUE_CONTEXT_KEY,
+} from '@/lib/redwood/context'
 import { upsertRedwoodIncidentAlert } from '@/lib/redwood/incidents'
 
 export type RedwoodQueueSource =
@@ -364,6 +367,12 @@ export async function queueRedwoodClientUpdate(
         redwoodClientUpdateStatus: 'queued',
         redwoodClientUpdateLastAttemptAt: new Date().toISOString(),
         redwoodClientUpdateLastError: null,
+      },
+      // This bookkeeping write can share the originating request context. Prevent it
+      // from being interpreted as another client edit and recursively queueing jobs.
+      context: {
+        ...(reqArg?.context || {}),
+        [REDWOOD_SKIP_CLIENT_UPDATE_QUEUE_CONTEXT_KEY]: true,
       },
       ...reqOption(reqArg),
       overrideAccess: true,

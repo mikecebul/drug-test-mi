@@ -180,7 +180,8 @@ test.describe("Wizard Today's Schedule", () => {
     const registrationDrawer = page.getByRole('dialog', { name: 'Register New Client' })
     await expect(registrationDrawer).toBeVisible()
     await expect(registrationDrawer).toContainText('Step 1 of 5: Personal Info')
-    await page.keyboard.press('Escape')
+    await expect(registrationDrawer.getByRole('button', { name: 'Cancel', exact: true })).toBeEnabled()
+    await registrationDrawer.getByRole('button', { name: 'Cancel', exact: true }).click()
     await expect(registrationDrawer).toBeHidden()
 
     await selectClientFromSearchDialog(page, fixtures.clients.instant.fullName)
@@ -213,11 +214,13 @@ test.describe("Wizard Today's Schedule", () => {
       await expect(clientEditor).toBeVisible()
       const saveClientButton = clientEditor.getByRole('button', { name: 'Save Client' })
       await expect(clientEditor.locator('form')).not.toHaveAttribute('data-base-ui-swipe-ignore', '')
-      await expect(saveClientButton).toHaveAttribute('data-base-ui-swipe-ignore', '')
+      await expect(saveClientButton).toHaveAttribute('data-base-ui-swipe-ignore', 'true')
       await expectReceivesPointerAtCenter(saveClientButton)
+      await clientEditor.getByLabel('Phone', { exact: true }).fill('2485550199')
       await saveClientButton.tap()
       await expect(clientEditor).toBeHidden()
       await expect(page.getByText('Client details updated')).toBeVisible()
+      await expect(page.getByText('(248) 555-0199', { exact: true })).toBeVisible()
 
       const mismatchConfirmation = page.getByRole('checkbox', {
         name: /I verified .* is the person testing today/i,

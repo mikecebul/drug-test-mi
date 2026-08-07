@@ -163,6 +163,8 @@ export function RegisterClientDialog({
   const handlePrevious = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1)
+    } else {
+      handleOpenChange(false)
     }
   }
 
@@ -468,9 +470,9 @@ export function RegisterClientDialog({
                       {renderStepContent()}
 
                       <div className="mt-6 flex justify-between">
-                        <Button type="button" variant="outline" onClick={handlePrevious} disabled={currentStep === 0}>
+                        <Button type="button" variant="outline" onClick={handlePrevious} disabled={isSubmitting}>
                           <ChevronLeft className="mr-1 h-4 w-4" />
-                          Back
+                          {currentStep === 0 ? 'Cancel' : 'Back'}
                         </Button>
 
                         {currentStep < STEPS.length - 1 ? (
