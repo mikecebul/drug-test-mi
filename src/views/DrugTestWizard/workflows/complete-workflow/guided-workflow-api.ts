@@ -17,8 +17,6 @@ import type {
   startBookingTerminalPayment,
   undoBookingPayment,
 } from './actions'
-import type { ClientBasicsFormValues } from '../components/client/client-basics-schema'
-import type { updateClientBasics } from '../components/client/updateClientBasics'
 
 const API_PATH = '/guided-workflow'
 const READ_TIMEOUT_MS = 30_000
@@ -37,7 +35,6 @@ export type GuidedPaymentResult = Awaited<ReturnType<typeof recordBookingPayment
 export type GuidedTerminalPaymentResult = Awaited<ReturnType<typeof startBookingTerminalPayment>>
 export type GuidedTerminalPaymentStatus = Awaited<ReturnType<typeof getBookingTerminalPaymentStatus>>
 export type GuidedUndoPaymentResult = Awaited<ReturnType<typeof undoBookingPayment>>
-export type GuidedClientUpdateResult = Awaited<ReturnType<typeof updateClientBasics>>
 
 export class GuidedWorkflowTimeoutError extends Error {
   constructor() {
@@ -182,7 +179,10 @@ export const guidedWorkflowApi = {
     })
   },
 
-  getTerminalPaymentStatus(input: { bookingId?: string; paymentId?: string }, signal?: AbortSignal) {
+  getTerminalPaymentStatus(
+    input: { bookingId?: string; paymentId?: string },
+    signal?: AbortSignal,
+  ) {
     return requestJSON<GuidedTerminalPaymentStatus>({
       method: 'GET',
       path: getPath('terminal-payment-status', input),
@@ -235,9 +235,5 @@ export const guidedWorkflowApi = {
 
   undoPayment(input: { bookingId: string; operationId: string }, signal?: AbortSignal) {
     return command<GuidedUndoPaymentResult>('undo-payment', input, signal)
-  },
-
-  updateClientBasics(input: ClientBasicsFormValues & { clientId: string }, signal?: AbortSignal) {
-    return command<GuidedClientUpdateResult>('update-client-basics', input, signal)
   },
 }

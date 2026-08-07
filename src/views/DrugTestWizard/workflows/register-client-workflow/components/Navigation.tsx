@@ -12,7 +12,6 @@ type WorkflowGroup = {
   state: {
     meta: {
       isSubmitting: boolean
-      isValidating: boolean
       canSubmit: boolean
       isValid: boolean
       submissionAttempts: number
@@ -30,11 +29,12 @@ export const RegisterClientNavigation = withForm({
 
   render: function Render({ form, onBack, group }) {
     // Read step from URL (single source of truth)
-    const [currentStep, setCurrentStep] = useQueryState('step', parseAsStringLiteral(steps).withDefault('personalInfo'))
+    const [currentStep, setCurrentStep] = useQueryState(
+      'step',
+      parseAsStringLiteral(steps).withDefault('personalInfo'),
+    )
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
-    const isValidating = useStore(form.store, (state) => state.isValidating)
-    const isBusy = isSubmitting || isValidating || group.state.meta.isSubmitting || group.state.meta.isValidating
 
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
@@ -52,15 +52,12 @@ export const RegisterClientNavigation = withForm({
     }
 
     return (
-      <div
-        className="mt-8 flex items-center justify-between gap-3 border-t pt-4"
-        data-testid="wizard-navigation"
-      >
+      <div className="mt-8 flex items-center justify-between border-t pt-4">
         <Button
           type="button"
           onClick={handleBack}
           variant="outline"
-          disabled={isBusy}
+          disabled={isSubmitting}
           size="lg"
           data-testid="wizard-back-button"
         >
@@ -71,15 +68,14 @@ export const RegisterClientNavigation = withForm({
         <Button
           type="button"
           onClick={() => group.handleSubmit()}
-          disabled={isBusy}
-          aria-busy={isBusy}
+          disabled={isSubmitting || group.state.meta.isSubmitting}
           size="lg"
           data-testid="wizard-next-button"
         >
-          {isBusy ? (
+          {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              {isLastStep ? 'Registering...' : 'Checking...'}
+              Validating...
             </>
           ) : (
             <>

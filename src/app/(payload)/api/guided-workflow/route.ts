@@ -21,8 +21,6 @@ import {
   startBookingTerminalPayment,
   undoBookingPayment,
 } from '@/views/DrugTestWizard/workflows/complete-workflow/actions'
-import { clientBasicsUpdateSchema } from '@/views/DrugTestWizard/workflows/components/client/client-basics-schema'
-import { updateClientBasics } from '@/views/DrugTestWizard/workflows/components/client/updateClientBasics'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -79,10 +77,6 @@ const commandSchema = z.discriminatedUnion('operation', [
   z.object({
     operation: z.literal('undo-payment'),
     input: z.object({ bookingId: requiredId, operationId }),
-  }),
-  z.object({
-    operation: z.literal('update-client-basics'),
-    input: clientBasicsUpdateSchema,
   }),
 ])
 
@@ -200,8 +194,6 @@ export async function POST(request: NextRequest) {
         return json(await startBookingTerminalPayment(command.input, adminRequest))
       case 'undo-payment':
         return json(await undoBookingPayment(command.input, adminRequest))
-      case 'update-client-basics':
-        return json(await updateClientBasics(command.input, adminRequest))
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
