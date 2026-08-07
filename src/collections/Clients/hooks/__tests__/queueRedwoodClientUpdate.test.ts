@@ -167,6 +167,35 @@ describe('queueRedwoodClientUpdateAfterChange', () => {
     expect(queueRedwoodClientUpdate).not.toHaveBeenCalled()
   })
 
+  it('does not reuse stale approved fields when a nested update only changes Redwood bookkeeping', async () => {
+    await queueRedwoodClientUpdateAfterChange({
+      doc: {
+        id: 'client-1',
+        phone: '248-555-1000',
+        redwoodClientUpdateStatus: 'queued',
+        redwoodSyncStatus: 'synced',
+      },
+      operation: 'update',
+      previousDoc: {
+        phone: '248-555-1000',
+        redwoodClientUpdateStatus: 'not-queued',
+        redwoodSyncStatus: 'synced',
+      },
+      req: {
+        context: {
+          [REDWOOD_APPROVED_CLIENT_UPDATE_FIELDS_CONTEXT_KEY]: ['phone'],
+        },
+        payload: {
+          logger: {
+            error: vi.fn(),
+          },
+        },
+      },
+    } as unknown as QueueHookArgs)
+
+    expect(queueRedwoodClientUpdate).not.toHaveBeenCalled()
+  })
+
   it('skips queueing when an instant test updates only client medications', async () => {
     await queueRedwoodClientUpdateAfterChange({
       doc: {

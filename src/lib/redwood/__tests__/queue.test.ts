@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Payload, PayloadRequest } from 'payload'
 
 vi.mock('@/lib/redwood/incidents', () => ({
   upsertRedwoodIncidentAlert: vi.fn().mockResolvedValue(undefined),
@@ -9,6 +10,10 @@ vi.mock('@/lib/jobs/jobRuns', () => ({
 }))
 
 import { recordQueuedJobRun } from '@/lib/jobs/jobRuns'
+import {
+  REDWOOD_APPROVED_CLIENT_UPDATE_FIELDS_CONTEXT_KEY,
+  REDWOOD_SKIP_CLIENT_UPDATE_QUEUE_CONTEXT_KEY,
+} from '@/lib/redwood/context'
 import {
   queueRedwoodClientInactivation,
   queueRedwoodClientUpdate,
@@ -150,6 +155,37 @@ describe('redwood queue helpers', () => {
         data: expect.objectContaining({
           redwoodClientUpdateStatus: 'queued',
         }),
+      }),
+    )
+  })
+
+  it('marks its internal client status update to skip recursive Redwood queueing', async () => {
+    const req = {
+      context: {
+        [REDWOOD_APPROVED_CLIENT_UPDATE_FIELDS_CONTEXT_KEY]: ['phone'],
+      },
+    } as unknown as PayloadRequest
+    const payloadMock = {
+      update: vi.fn().mockResolvedValue({ id: 'client-2' }),
+      jobs: {
+        queue: vi.fn().mockResolvedValue({ id: 'job-update-2' }),
+      },
+      logger: {
+        info: vi.fn(),
+      },
+    }
+
+    await queueRedwoodClientUpdate('client-2', ['phone'], 'admin-1', payloadMock as unknown as Payload, req)
+
+    expect(payloadMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'clients',
+        id: 'client-2',
+        context: expect.objectContaining({
+          [REDWOOD_APPROVED_CLIENT_UPDATE_FIELDS_CONTEXT_KEY]: ['phone'],
+          [REDWOOD_SKIP_CLIENT_UPDATE_QUEUE_CONTEXT_KEY]: true,
+        }),
+        req,
       }),
     )
   })

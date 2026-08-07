@@ -58,8 +58,16 @@ export const queueRedwoodClientUpdateAfterChange: CollectionAfterChangeHook = as
     return doc
   }
 
+  // Payload reuses req.context for nested Local API operations. Only honor approvals
+  // for fields that changed in this update so bookkeeping writes cannot requeue themselves.
+  const currentChangedFields = getChangedRedwoodClientUpdateFields(doc, previousDoc)
+  const approvedChangedFields = currentChangedFields.filter((field) => approvedFields.includes(field))
+  if (approvedChangedFields.length === 0) {
+    return doc
+  }
+
   const pendingFields = normalizePendingRedwoodClientUpdateFields(previousDoc?.[REDWOOD_PENDING_CLIENT_UPDATE_FIELDS])
-  const changedFields = Array.from(new Set([...approvedFields, ...pendingFields]))
+  const changedFields = Array.from(new Set([...approvedChangedFields, ...pendingFields]))
 
   if (changedFields.length === 0) {
     return doc
