@@ -12,6 +12,6 @@ describe('WizardContainer', () => {
     )
 
     expect(markup).toContain('px-4')
-    expect(markup).toContain('md:px-6')
+    expect(markup).toContain('md:px-10')
   })
 })

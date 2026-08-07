@@ -147,6 +147,7 @@ test.describe("Wizard Today's Schedule", () => {
       })
       .click()
     await page.getByRole('menuitem', { name: 'Cancel and refund' }).click()
+    await expect(page.getByRole('menu')).toBeHidden()
     const completedRefundDialog = page.getByRole('dialog', { name: 'Refund completed appointment' })
     await expect(completedRefundDialog).toContainText('collection stays completed')
     await expect(completedRefundDialog.getByRole('button', { name: 'Refund prepayment' })).toBeEnabled()
