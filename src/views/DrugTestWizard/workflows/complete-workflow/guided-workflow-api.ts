@@ -2,6 +2,7 @@ import { sdk } from '@/lib/payload-sdk'
 
 import type {
   cancelAndRefundGuidedBooking,
+  cancelBookingTerminalPayment,
   cancelGuidedBooking,
   createWalkInBooking,
   ensureClientRedwoodProvisioning,
@@ -33,6 +34,7 @@ export type GuidedScheduleActionResult =
   | Awaited<ReturnType<typeof cancelAndRefundGuidedBooking>>
 export type GuidedPaymentResult = Awaited<ReturnType<typeof recordBookingPayment>>
 export type GuidedTerminalPaymentResult = Awaited<ReturnType<typeof startBookingTerminalPayment>>
+export type GuidedTerminalPaymentCancelResult = Awaited<ReturnType<typeof cancelBookingTerminalPayment>>
 export type GuidedTerminalPaymentStatus = Awaited<ReturnType<typeof getBookingTerminalPaymentStatus>>
 export type GuidedUndoPaymentResult = Awaited<ReturnType<typeof undoBookingPayment>>
 
@@ -123,12 +125,30 @@ function command<T>(operation: string, input: Record<string, unknown>, signal?: 
 }
 
 export const guidedWorkflowApi = {
-  cancelBooking(input: { action: 'cancel' | 'cancel-refund'; bookingId: string }, signal?: AbortSignal) {
+  cancelBooking(
+    input: {
+      action: 'cancel' | 'cancel-refund'
+      bookingId: string
+      operationId?: string
+      refundAmount?: number
+    },
+    signal?: AbortSignal,
+  ) {
     return command<GuidedScheduleActionResult>(
       input.action === 'cancel-refund' ? 'cancel-refund-booking' : 'cancel-booking',
-      { bookingId: input.bookingId },
+      input.action === 'cancel-refund'
+        ? {
+            bookingId: input.bookingId,
+            operationId: input.operationId,
+            refundAmount: input.refundAmount,
+          }
+        : { bookingId: input.bookingId },
       signal,
     )
+  },
+
+  cancelTerminalPayment(input: { paymentId: string }, signal?: AbortSignal) {
+    return command<GuidedTerminalPaymentCancelResult>('cancel-terminal-payment', input, signal)
   },
 
   createWalkIn(input: { clientId: string }, signal?: AbortSignal) {

@@ -25,9 +25,10 @@ import {
   TriangleAlert,
   Undo2,
   UserPlus,
+  XCircle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -84,6 +85,7 @@ import {
   guidedWorkflowApi,
   type GuidedBooking,
   type GuidedPaymentResult,
+  type GuidedTerminalPaymentCancelResult,
   type GuidedTerminalPaymentResult,
   type GuidedUndoPaymentResult,
 } from './guided-workflow-api'
@@ -124,6 +126,12 @@ const currency = new Intl.NumberFormat('en-US', {
   currency: 'USD',
   maximumFractionDigits: 0,
 })
+const preciseCurrency = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
 
 function formatTime(value: string) {
   return new Intl.DateTimeFormat('en-US', {
@@ -144,6 +152,10 @@ function formatPaymentDate(value: string) {
 
 function createOperationId() {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function normalizeRefundInput(value: number) {
+  return Math.max(0, value).toFixed(2)
 }
 
 function getPaymentDefaults(booking: Booking | null) {
@@ -224,15 +236,15 @@ function getScheduleActionCopy(action: ScheduleAction, booking: Booking) {
     if (booking.sampleCollection?.status === 'collected') {
       return {
         title: 'Refund completed appointment',
-        description: `${booking.attendeeName}'s collection stays completed, and the full Stripe prepayment will be refunded.`,
-        confirmLabel: 'Refund prepayment',
+        description: `${booking.attendeeName}'s collection stays completed. The successful refund will reduce the recorded test price by the same amount.`,
+        confirmLabel: 'Refund payment',
       }
     }
 
     return {
       title: 'Cancel and refund appointment',
-      description: `${booking.attendeeName}'s appointment will be cancelled and the full Stripe prepayment will be refunded.`,
-      confirmLabel: 'Cancel and refund',
+      description: `${booking.attendeeName}'s appointment will be cancelled after Stripe confirms the refund.`,
+      confirmLabel: 'Refund and cancel',
     }
   }
 
@@ -306,6 +318,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const redwoodProvisioningStartedForBooking = useRef<string | null>(null)
   const paymentRequestRef = useRef<Promise<GuidedPaymentResult> | null>(null)
   const terminalPaymentRequestRef = useRef<Promise<GuidedTerminalPaymentResult> | null>(null)
+  const terminalPaymentCancelRequestRef = useRef<Promise<GuidedTerminalPaymentCancelResult> | null>(null)
   const completedTerminalPaymentRef = useRef<string | null>(null)
   const paymentOperationRef = useRef<{ fingerprint: string; id: string } | null>(null)
   const undoPaymentRequestRef = useRef<Promise<GuidedUndoPaymentResult> | null>(null)
@@ -379,6 +392,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const [testTypeDrawerOpen, setTestTypeDrawerOpen] = useState(false)
   const [testTypeDrawerSelection, setTestTypeDrawerSelection] = useState('')
   const [scheduleAction, setScheduleAction] = useState<{ action: ScheduleAction; booking: Booking } | null>(null)
+  const [refundAmount, setRefundAmount] = useState('')
+  const [refundOperationId, setRefundOperationId] = useState('')
   const scheduleActionMutation = useMutation({
     mutationFn: (input: Parameters<typeof guidedWorkflowApi.cancelBooking>[0]) =>
       guidedWorkflowApi.cancelBooking(input),
@@ -404,6 +419,11 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const terminalPaymentMutation = useMutation({
     mutationFn: (input: Parameters<typeof guidedWorkflowApi.startTerminalPayment>[0]) =>
       guidedWorkflowApi.startTerminalPayment(input),
+    retry: false,
+  })
+  const terminalPaymentCancelMutation = useMutation({
+    mutationFn: (input: Parameters<typeof guidedWorkflowApi.cancelTerminalPayment>[0]) =>
+      guidedWorkflowApi.cancelTerminalPayment(input),
     retry: false,
   })
   const { data: terminalPaymentStatus = null } = useQuery({
@@ -572,14 +592,37 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     window.open(href, '_blank', 'noopener,noreferrer')
   }
 
+  const openScheduleAction = (action: ScheduleAction, booking: Booking) => {
+    if (action === 'cancel-refund') {
+      setRefundAmount(normalizeRefundInput(booking.payment?.amountPaid ?? 0))
+      setRefundOperationId(createOperationId())
+    }
+    setScheduleAction({ action, booking })
+  }
+
   const handleConfirmScheduleAction = async () => {
     if (!scheduleAction) return
 
     const { action, booking } = scheduleAction
+    const parsedRefundAmount = Number(refundAmount)
+    if (
+      action === 'cancel-refund' &&
+      (!Number.isFinite(parsedRefundAmount) || parsedRefundAmount <= 0 || parsedRefundAmount > (booking.payment?.amountPaid ?? 0))
+    ) {
+      toast.error('Enter a refund amount within the available prepaid balance.')
+      return
+    }
+
     try {
       const result = await scheduleActionMutation.mutateAsync({
         action,
         bookingId: booking.id,
+        ...(action === 'cancel-refund'
+          ? {
+              operationId: refundOperationId || createOperationId(),
+              refundAmount: parsedRefundAmount,
+            }
+          : {}),
       })
 
       if (!result.success) {
@@ -588,7 +631,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           result.fallbackHref
             ? {
                 action: {
-                  label: 'Open Cal.com',
+                  label: result.fallbackHref.includes('stripe.com') ? 'Open Stripe' : 'Open Cal.com',
                   onClick: () => openExternalLink(result.fallbackHref),
                 },
               }
@@ -603,14 +646,18 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           result.fallbackHref
             ? {
                 action: {
-                  label: 'Open Cal.com',
+                  label: result.fallbackHref.includes('stripe.com') ? 'Open Stripe' : 'Open Cal.com',
                   onClick: () => openExternalLink(result.fallbackHref),
                 },
               }
             : undefined,
         )
       } else {
-        toast.success(action === 'cancel-refund' ? 'Appointment cancelled and refunded' : 'Appointment cancelled')
+        toast.success(
+          action === 'cancel-refund'
+            ? `Refunded ${preciseCurrency.format(result.refundedAmount ?? parsedRefundAmount)}.`
+            : 'Appointment cancelled',
+        )
       }
 
       setScheduleAction(null)
@@ -763,6 +810,10 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     }
     if (!creditAmountIsValid) {
       focusGuidedInvalidField()
+      return
+    }
+    if (payment.method === 'card' && amountReceived > 0) {
+      toast.error('Send the card payment to Chx Desk before continuing.')
       return
     }
     if (isFetchingOutstandingPaymentBalances) {
@@ -950,6 +1001,45 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     }
   }
 
+  const handleCancelTerminalPayment = async (options: { goBack?: boolean } = {}) => {
+    const paymentId = query.terminalPaymentId
+    if (!paymentId) {
+      if (options.goBack) {
+        setQuery({ step: 'review', terminalPaymentId: null })
+      }
+      return true
+    }
+    if (terminalPaymentCancelRequestRef.current || terminalPaymentCancelMutation.isPending) return false
+
+    const request = terminalPaymentCancelMutation.mutateAsync({ paymentId })
+    terminalPaymentCancelRequestRef.current = request
+
+    try {
+      const result = await request
+      if (!result.success) {
+        toast.error(result.error || 'The Terminal payment could not be cancelled.')
+        void queryClient.invalidateQueries({
+          queryKey: ['guided', 'terminal-payment-status', paymentId],
+        })
+        return false
+      }
+
+      paymentOperationRef.current = null
+      terminalPaymentRequestRef.current = null
+      queryClient.setQueryData(['guided', 'terminal-payment-status', paymentId], result.payment)
+      setQuery(options.goBack ? { step: 'review', terminalPaymentId: null } : { terminalPaymentId: null })
+      toast.success('Terminal payment cancelled')
+      return true
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'The Terminal payment could not be cancelled.')
+      return false
+    } finally {
+      if (terminalPaymentCancelRequestRef.current === request) {
+        terminalPaymentCancelRequestRef.current = null
+      }
+    }
+  }
+
   const handleReviewNext = () => {
     if (!selectedBooking?.client?.id) {
       setBookingClientDrawerOpen(true)
@@ -1065,7 +1155,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     }
   }
 
-  const goBackOneStep = () => {
+  const goBackOneStep = async () => {
     if (currentStep === 'schedule') {
       onBack()
       return
@@ -1077,7 +1167,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     }
 
     if (currentStep === 'payment') {
-      setQuery({ step: 'review' })
+      if (terminalPaymentIsActive) {
+        await handleCancelTerminalPayment({ goBack: true })
+        return
+      }
+
+      setQuery({ step: 'review', terminalPaymentId: null })
       return
     }
 
@@ -1418,7 +1513,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                             <DropdownMenuItem
                               disabled={isCompleted}
                               variant="destructive"
-                              onClick={() => setScheduleAction({ action: 'cancel', booking })}
+                              onClick={() => openScheduleAction('cancel', booking)}
                             >
                               <Ban className="size-4" />
                               Cancel
@@ -1430,7 +1525,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                               disabled={!canRefund}
                               variant="destructive"
                               onClick={() => {
-                                if (canRefund) setScheduleAction({ action: 'cancel-refund', booking })
+                                if (canRefund) openScheduleAction('cancel-refund', booking)
                               }}
                             >
                               <CreditCard className="size-4" />
@@ -1489,6 +1584,49 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               <DialogTitle>{actionCopy?.title}</DialogTitle>
               <DialogDescription>{actionCopy?.description}</DialogDescription>
             </DialogHeader>
+            {scheduleAction?.action === 'cancel-refund' && (
+              <Field
+                data-invalid={
+                  !Number.isFinite(Number(refundAmount)) ||
+                  Number(refundAmount) <= 0 ||
+                  Number(refundAmount) > (scheduleAction.booking.payment?.amountPaid ?? 0)
+                }
+              >
+                <FieldLabel htmlFor="guided-refund-amount">Refund amount</FieldLabel>
+                <InputGroup>
+                  <InputGroupAddon align="inline-start">
+                    <InputGroupText>$</InputGroupText>
+                  </InputGroupAddon>
+                  <InputGroupInput
+                    id="guided-refund-amount"
+                    type="number"
+                    min="0.01"
+                    max={scheduleAction.booking.payment?.amountPaid ?? 0}
+                    step="0.01"
+                    inputMode="decimal"
+                    value={refundAmount}
+                    onChange={(event) => setRefundAmount(event.target.value)}
+                    aria-invalid={
+                      !Number.isFinite(Number(refundAmount)) ||
+                      Number(refundAmount) <= 0 ||
+                      Number(refundAmount) > (scheduleAction.booking.payment?.amountPaid ?? 0)
+                    }
+                  />
+                </InputGroup>
+                <FieldDescription>
+                  Available to refund: {preciseCurrency.format(scheduleAction.booking.payment?.amountPaid ?? 0)}
+                </FieldDescription>
+                <FieldError
+                  errors={
+                    Number(refundAmount) > (scheduleAction.booking.payment?.amountPaid ?? 0)
+                      ? [{ message: 'Refund cannot exceed the available prepaid amount.' }]
+                      : Number(refundAmount) <= 0 || !Number.isFinite(Number(refundAmount))
+                        ? [{ message: 'Enter an amount greater than zero.' }]
+                        : undefined
+                  }
+                />
+              </Field>
+            )}
             <DialogFooter>
               <Button
                 type="button"
@@ -1502,10 +1640,18 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 type="button"
                 variant="destructive"
                 onClick={handleConfirmScheduleAction}
-                disabled={scheduleActionMutation.isPending}
+                disabled={
+                  scheduleActionMutation.isPending ||
+                  (scheduleAction?.action === 'cancel-refund' &&
+                    (!Number.isFinite(Number(refundAmount)) ||
+                      Number(refundAmount) <= 0 ||
+                      Number(refundAmount) > (scheduleAction.booking.payment?.amountPaid ?? 0)))
+                }
               >
                 {scheduleActionMutation.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
-                {actionCopy?.confirmLabel}
+                {scheduleAction?.action === 'cancel-refund' && Number(refundAmount) > 0
+                  ? `${actionCopy?.confirmLabel} ${preciseCurrency.format(Number(refundAmount))}`
+                  : actionCopy?.confirmLabel}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1733,7 +1879,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           </CardHeader>
           <CardContent className="flex flex-col gap-5 p-4">
             {terminalPaymentIsActive && (
-              <Alert>
+              <Alert variant="warning" className="sm:pr-56" data-testid="guided-terminal-payment-alert">
                 <Loader2 className="animate-spin" />
                 <AlertTitle>Waiting for payment on {terminalPaymentStatus?.readerLabel || 'Chx Desk'}</AlertTitle>
                 <AlertDescription>
@@ -1745,6 +1891,28 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     </span>
                   )}
                 </AlertDescription>
+                <AlertAction>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => void handleCancelTerminalPayment()}
+                    disabled={terminalPaymentCancelMutation.isPending}
+                    data-testid="cancel-terminal-payment-button"
+                  >
+                    {terminalPaymentCancelMutation.isPending ? (
+                      <>
+                        <Loader2 data-icon="inline-start" className="animate-spin" />
+                        Cancelling...
+                      </>
+                    ) : (
+                      <>
+                        <XCircle data-icon="inline-start" />
+                        Cancel terminal payment
+                      </>
+                    )}
+                  </Button>
+                </AlertAction>
               </Alert>
             )}
             {terminalPaymentFailed && terminalPaymentStatus && (
@@ -1973,11 +2141,11 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       value="card"
                       aria-label="Card payment method"
                       className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-12 px-3 opacity-60 data-pressed:opacity-100"
-                  >
-                    <CreditCard />
-                    Card · Chx Desk
-                  </ToggleGroupItem>
-                </ToggleGroup>
+                    >
+                      <CreditCard />
+                      Card · Chx Desk
+                    </ToggleGroupItem>
+                  </ToggleGroup>
                 </Field>
               </FieldGroup>
               {payment.method === 'card' && clientReceiptEmail && (
@@ -1986,11 +2154,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 </p>
               )}
               {payment.method === 'cash' && (
-                <Field
-                  orientation="horizontal"
-                  data-disabled={!clientReceiptEmail || undefined}
-                  className="w-full"
-                >
+                <Field orientation="horizontal" data-disabled={!clientReceiptEmail || undefined} className="w-full">
                   <Checkbox
                     id="send-payment-receipt"
                     checked={clientReceiptEmail ? payment.sendReceipt : false}
@@ -2011,6 +2175,59 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                     )}
                   </FieldContent>
                 </Field>
+              )}
+              {payment.method === 'card' && amountReceived > 0 && (
+                <>
+                  <Separator />
+                  <div
+                    className="bg-background flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+                    data-testid="guided-terminal-payment-action"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-md border">
+                        <CreditCard className="size-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="font-semibold">Card payment · Chx Desk</p>
+                        <p className="text-muted-foreground text-sm">
+                          Send {currency.format(amountReceived)} to the reader. The footer only moves through the form.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      className="w-full sm:w-auto"
+                      onClick={handleTerminalPayment}
+                      disabled={
+                        terminalPaymentIsActive ||
+                        terminalPaymentMutation.isPending ||
+                        terminalPaymentCancelMutation.isPending ||
+                        !paymentAmountIsValid ||
+                        !creditAmountIsValid ||
+                        isFetchingOutstandingPaymentBalances ||
+                        hasOutstandingPaymentBalanceError
+                      }
+                      data-testid="send-terminal-payment-button"
+                    >
+                      {terminalPaymentIsActive ? (
+                        <>
+                          <Loader2 data-icon="inline-start" className="animate-spin" />
+                          Waiting for card...
+                        </>
+                      ) : terminalPaymentMutation.isPending ? (
+                        <>
+                          <Loader2 data-icon="inline-start" className="animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard data-icon="inline-start" />
+                          Send {currency.format(amountReceived)} to Chx Desk
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </>
               )}
             </section>
 
@@ -2250,16 +2467,19 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const drawerCurrentPrice = selectedBooking?.testType?.price ?? null
   const drawerPriceDifference =
     selectedDrawerTestType && drawerCurrentPrice !== null ? selectedDrawerTestType.price - drawerCurrentPrice : 0
+  const cardPaymentRequiresTerminal = currentStep === 'payment' && payment.method === 'card' && amountReceived > 0
 
   const nextLabel =
     currentStep === 'review' || currentStep === 'registration'
       ? 'Continue to Payment'
       : currentStep === 'payment'
-        ? amountReceived > 0 || creditToApply > 0
-          ? payment.method === 'card' && amountReceived > 0
-            ? `Send ${currency.format(amountReceived)} to Chx Desk`
-            : 'Record Payment & Continue'
-          : 'Continue to Collection Setup'
+        ? cardPaymentRequiresTerminal
+          ? terminalPaymentIsActive
+            ? 'Payment pending'
+            : 'Send card payment above'
+          : amountReceived > 0 || creditToApply > 0
+            ? 'Record Payment & Continue'
+            : 'Continue to Collection Setup'
         : 'Continue Collection'
   const canGoNext =
     currentStep === 'review' || currentStep === 'registration'
@@ -2270,16 +2490,17 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             selectedBooking.client?.id &&
             !isFetchingOutstandingPaymentBalances &&
             !hasOutstandingPaymentBalanceError &&
-            !terminalPaymentIsActive,
+            !terminalPaymentIsActive &&
+            !cardPaymentRequiresTerminal,
           )
         : currentStep === 'toxaccess'
           ? Boolean(paymentRecorded && selectedBooking?.testType && selectedBooking.client?.id)
           : false
 
-  const backLabel = currentStep === 'schedule' ? 'Cancel' : 'Back'
+  const backLabel = currentStep === 'schedule' ? 'Cancel' : currentStep === 'payment' ? 'Back to Review' : 'Back'
   const footerIsPending =
     currentStep === 'payment'
-      ? paymentMutation.isPending || terminalPaymentMutation.isPending
+      ? paymentMutation.isPending || terminalPaymentMutation.isPending || terminalPaymentCancelMutation.isPending
       : currentStep === 'toxaccess'
         ? continueMutation.isPending
         : false
@@ -2290,18 +2511,27 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       <div ref={guidedWorkflowRef} className="mx-auto flex w-full max-w-4xl flex-col px-2 pb-8 sm:px-4 md:px-0">
         {renderCurrentStep()}
 
-        <div className="mt-6 flex items-center justify-between border-t pt-4">
-          <Button
-            type="button"
-            onClick={goBackOneStep}
-            variant="outline"
-            size="lg"
-            data-testid="wizard-back-button"
-            disabled={terminalPaymentIsActive}
-          >
-            <ChevronLeft className="mr-2 h-5 w-5" />
-            {backLabel}
-          </Button>
+        <div className="mt-6 flex items-start justify-between gap-4 border-t pt-4">
+          <div className="flex flex-col gap-1">
+            <Button
+              type="button"
+              onClick={() => void goBackOneStep()}
+              variant="outline"
+              size="lg"
+              data-testid="wizard-back-button"
+              disabled={terminalPaymentMutation.isPending || terminalPaymentCancelMutation.isPending}
+            >
+              {terminalPaymentCancelMutation.isPending ? (
+                <Loader2 data-icon="inline-start" className="animate-spin" />
+              ) : (
+                <ChevronLeft data-icon="inline-start" />
+              )}
+              {terminalPaymentCancelMutation.isPending ? 'Cancelling...' : backLabel}
+            </Button>
+            {currentStep === 'payment' && terminalPaymentIsActive && (
+              <p className="text-muted-foreground max-w-52 text-xs">Going back cancels the terminal payment.</p>
+            )}
+          </div>
 
           {currentStep !== 'schedule' && (
             <Button
@@ -2310,9 +2540,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 currentStep === 'review' || currentStep === 'registration'
                   ? handleReviewNext
                   : currentStep === 'payment'
-                    ? payment.method === 'card' && amountReceived > 0
-                      ? handleTerminalPayment
-                      : () => handlePaymentNext()
+                    ? () => handlePaymentNext()
                     : handleContinueToCollection
               }
               disabled={!canGoNext || footerIsPending}
@@ -2322,7 +2550,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               {terminalPaymentIsActive ? (
                 <>
                   <Loader2 data-icon="inline-start" className="animate-spin" />
-                  Waiting for Chx Desk...
+                  Payment pending
                 </>
               ) : footerIsPending ? (
                 <>

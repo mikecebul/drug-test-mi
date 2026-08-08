@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import {
   cancelAndRefundGuidedBooking,
+  cancelBookingTerminalPayment,
   cancelGuidedBooking,
   createWalkInBooking,
   ensureClientRedwoodProvisioning,
@@ -35,7 +36,11 @@ const commandSchema = z.discriminatedUnion('operation', [
   }),
   z.object({
     operation: z.literal('cancel-refund-booking'),
-    input: z.object({ bookingId: requiredId }),
+    input: z.object({
+      bookingId: requiredId,
+      operationId,
+      refundAmount: z.number().finite().positive(),
+    }),
   }),
   z.object({
     operation: z.literal('create-walk-in'),
@@ -69,6 +74,10 @@ const commandSchema = z.discriminatedUnion('operation', [
       creditApplied: z.number().finite().nonnegative().optional(),
       operationId,
     }),
+  }),
+  z.object({
+    operation: z.literal('cancel-terminal-payment'),
+    input: z.object({ paymentId: requiredId }),
   }),
   z.object({
     operation: z.literal('set-test-type'),
@@ -177,6 +186,8 @@ export async function POST(request: NextRequest) {
         return json(await cancelGuidedBooking(command.input, adminRequest))
       case 'cancel-refund-booking':
         return json(await cancelAndRefundGuidedBooking(command.input, adminRequest))
+      case 'cancel-terminal-payment':
+        return json(await cancelBookingTerminalPayment(command.input, adminRequest))
       case 'create-walk-in':
         return json(await createWalkInBooking(command.input, adminRequest))
       case 'ensure-redwood':

@@ -150,7 +150,8 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByRole('menu')).toBeHidden()
     const completedRefundDialog = page.getByRole('dialog', { name: 'Refund completed appointment' })
     await expect(completedRefundDialog).toContainText('collection stays completed')
-    await expect(completedRefundDialog.getByRole('button', { name: 'Refund prepayment' })).toBeEnabled()
+    await expect(completedRefundDialog.getByLabel('Refund amount')).toHaveValue(/\d+\.\d{2}/)
+    await expect(completedRefundDialog.getByRole('button', { name: /Refund payment \$/ })).toBeEnabled()
     await completedRefundDialog.getByRole('button', { name: 'Keep appointment' }).click()
 
     await expect(

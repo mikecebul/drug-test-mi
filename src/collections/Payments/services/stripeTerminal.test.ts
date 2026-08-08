@@ -9,6 +9,32 @@ const { applyAvailableClientCredit, applyIncomingPayment, getClientCreditBalance
   applyIncomingPayment: vi.fn(),
   getClientCreditBalance: vi.fn(),
 }))
+const { stripeClient } = vi.hoisted(() => ({
+  stripeClient: {
+    paymentIntents: {
+      cancel: vi.fn(),
+      create: vi.fn(),
+      retrieve: vi.fn(),
+    },
+    terminal: {
+      locations: {
+        list: vi.fn(),
+      },
+      readers: {
+        cancelAction: vi.fn(),
+        list: vi.fn(),
+        processPaymentIntent: vi.fn(),
+        retrieve: vi.fn(),
+      },
+    },
+  },
+}))
+
+vi.mock('stripe', () => ({
+  default: vi.fn(function StripeMock() {
+    return stripeClient
+  }),
+}))
 
 vi.mock('./applyPayment', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./applyPayment')>()
@@ -26,10 +52,12 @@ vi.mock('./withPayloadTransaction', () => ({
 
 import {
   buildGuidedTerminalPaymentIntentParams,
+  cancelGuidedTerminalPayment,
   findGuidedTerminalReader,
   markGuidedTerminalPaymentFailed,
   reconcileSucceededGuidedTerminalPayment,
   serializeGuidedTerminalPayment,
+  startGuidedTerminalPayment,
 } from './stripeTerminal'
 import { resolveClientReceiptEmail } from './clientReceipt'
 
@@ -150,6 +178,217 @@ describe('Stripe Terminal payment service', () => {
     })
   })
 
+  test('serializes a cancelled voided payment as cancelled instead of failed', () => {
+    expect(
+      serializeGuidedTerminalPayment(
+        payment({
+          status: 'voided',
+          stripeTerminalStatus: 'cancelled',
+          stripeTerminalFailureMessage: 'Terminal payment cancelled by the operator.',
+        }),
+      ),
+    ).toMatchObject({
+      failureMessage: 'Terminal payment cancelled by the operator.',
+      status: 'cancelled',
+    })
+  })
+
+  test('cancels the matching reader action and PaymentIntent before voiding the ledger payment', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_terminal')
+    stripeClient.terminal.readers.retrieve.mockResolvedValue({
+      id: 'tmr_chx',
+      label: 'Chx Desk',
+      action: {
+        status: 'in_progress',
+        type: 'process_payment_intent',
+        process_payment_intent: { payment_intent: 'pi_terminal' },
+      },
+    })
+    stripeClient.terminal.readers.cancelAction.mockResolvedValue({ id: 'tmr_chx', action: null })
+    stripeClient.paymentIntents.retrieve.mockResolvedValue({ id: 'pi_terminal', status: 'requires_payment_method' })
+    stripeClient.paymentIntents.cancel.mockResolvedValue({ id: 'pi_terminal', status: 'canceled' })
+    const update = vi.fn().mockResolvedValue(payment({ status: 'voided', stripeTerminalStatus: 'cancelled' }))
+    const payload = {
+      findByID: vi.fn().mockResolvedValue(payment()),
+      update,
+    } as unknown as Payload
+
+    const result = await cancelGuidedTerminalPayment({ payload, paymentId: 'payment-1' })
+
+    expect(result.success).toBe(true)
+    expect(stripeClient.terminal.readers.cancelAction).toHaveBeenCalledWith('tmr_chx')
+    expect(stripeClient.paymentIntents.cancel).toHaveBeenCalledWith('pi_terminal')
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'payments',
+        id: 'payment-1',
+        data: expect.objectContaining({ status: 'voided', stripeTerminalStatus: 'cancelled' }),
+      }),
+    )
+  })
+
+  test('clears an abandoned PaymentIntent when the physical reader reset removed its action', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_terminal')
+    stripeClient.terminal.readers.retrieve.mockResolvedValue({
+      id: 'tmr_chx',
+      label: 'Chx Desk',
+      action: null,
+    })
+    stripeClient.paymentIntents.retrieve.mockResolvedValue({ id: 'pi_terminal', status: 'requires_payment_method' })
+    stripeClient.paymentIntents.cancel.mockResolvedValue({ id: 'pi_terminal', status: 'canceled' })
+    const payload = {
+      findByID: vi.fn().mockResolvedValue(payment()),
+      update: vi.fn().mockResolvedValue(payment({ status: 'voided', stripeTerminalStatus: 'cancelled' })),
+    } as unknown as Payload
+
+    const result = await cancelGuidedTerminalPayment({ payload, paymentId: 'payment-1' })
+
+    expect(result.success).toBe(true)
+    expect(stripeClient.terminal.readers.cancelAction).not.toHaveBeenCalled()
+    expect(stripeClient.paymentIntents.cancel).toHaveBeenCalledWith('pi_terminal')
+  })
+
+  test('does not cancel an unrelated action that replaced the recorded payment on the reader', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_terminal')
+    stripeClient.terminal.readers.retrieve.mockResolvedValue({
+      id: 'tmr_chx',
+      label: 'Chx Desk',
+      action: {
+        status: 'in_progress',
+        type: 'process_payment_intent',
+        process_payment_intent: { payment_intent: 'pi_another_payment' },
+      },
+    })
+    const payload = {
+      findByID: vi.fn().mockResolvedValue(payment()),
+      update: vi.fn(),
+    } as unknown as Payload
+
+    const result = await cancelGuidedTerminalPayment({ payload, paymentId: 'payment-1' })
+
+    expect(result).toMatchObject({ success: false })
+    expect(stripeClient.terminal.readers.cancelAction).not.toHaveBeenCalled()
+    expect(stripeClient.paymentIntents.cancel).not.toHaveBeenCalled()
+    expect(payload.update).not.toHaveBeenCalled()
+  })
+
+  test('cleans up a stale payment from a physical reader reset before starting a retry', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_terminal')
+    const stalePayment = payment({ relatedBooking: 'booking-from-previous-screen' })
+    const retryPayment = payment({
+      id: 'payment-2',
+      stripePaymentIntentId: 'pi_retry',
+      workflowOperationId: 'operation-retry',
+    })
+    stripeClient.terminal.readers.retrieve.mockResolvedValue({
+      id: 'tmr_chx',
+      label: 'Chx Desk',
+      action: null,
+    })
+    stripeClient.paymentIntents.retrieve.mockResolvedValue({ id: 'pi_terminal', status: 'requires_payment_method' })
+    stripeClient.paymentIntents.cancel.mockResolvedValue({ id: 'pi_terminal', status: 'canceled' })
+    stripeClient.terminal.locations.list.mockReturnValue({
+      autoPagingToArray: vi.fn().mockResolvedValue([{ id: 'tml_vault', display_name: 'The Vault' }]),
+    })
+    stripeClient.terminal.readers.list.mockReturnValue({
+      autoPagingToArray: vi.fn().mockResolvedValue([{ id: 'tmr_chx', label: 'Chx Desk', location: 'tml_vault' }]),
+    })
+    stripeClient.paymentIntents.create.mockResolvedValue({ id: 'pi_retry', status: 'requires_payment_method' })
+    stripeClient.terminal.readers.processPaymentIntent.mockResolvedValue({
+      id: 'tmr_chx',
+      action: { status: 'in_progress', type: 'process_payment_intent' },
+    })
+    const update = vi.fn().mockImplementation(({ id, data }: { id: string; data: Partial<Payment> }) => {
+      if (id === 'payment-1') {
+        return Promise.resolve(payment({ ...data, status: 'voided', stripeTerminalStatus: 'cancelled' }))
+      }
+      return Promise.resolve({ ...retryPayment, ...data })
+    })
+    const payload = {
+      create: vi.fn().mockResolvedValue(retryPayment),
+      find: vi
+        .fn()
+        .mockResolvedValueOnce({ docs: [] })
+        .mockResolvedValueOnce({ docs: [stalePayment] }),
+      findByID: vi.fn().mockResolvedValueOnce(stalePayment).mockResolvedValueOnce(retryPayment),
+      update,
+    } as unknown as Payload
+
+    const result = await startGuidedTerminalPayment({
+      amount: 50,
+      bookingAmountDue: 50,
+      bookingBalanceDue: 50,
+      bookingId: 'booking-1',
+      clientId: 'client-1',
+      creditAmount: 0,
+      operationId: 'operation-retry',
+      payload,
+      receiptEmail: 'client@example.com',
+    })
+
+    expect(result).toMatchObject({ success: true, payment: { id: 'payment-2', status: 'in-progress' } })
+    expect(stripeClient.paymentIntents.cancel).toHaveBeenCalledWith('pi_terminal')
+    expect(stripeClient.paymentIntents.create).toHaveBeenCalledOnce()
+    expect(stripeClient.paymentIntents.cancel.mock.invocationCallOrder[0]).toBeLessThan(
+      stripeClient.paymentIntents.create.mock.invocationCallOrder[0]!,
+    )
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'payment-1',
+        data: expect.objectContaining({ status: 'voided', stripeTerminalStatus: 'cancelled' }),
+      }),
+    )
+    expect(payload.find).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          and: expect.arrayContaining([{ stripeTerminalReaderId: { equals: 'tmr_chx' } }]),
+        }),
+      }),
+    )
+  })
+
+  test('keeps the payment recoverable when the reader request has an ambiguous network failure', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_terminal')
+    const pendingPayment = payment({ stripeTerminalStatus: 'pending' })
+    stripeClient.terminal.locations.list.mockReturnValue({
+      autoPagingToArray: vi.fn().mockResolvedValue([{ id: 'tml_vault', display_name: 'The Vault' }]),
+    })
+    stripeClient.terminal.readers.list.mockReturnValue({
+      autoPagingToArray: vi.fn().mockResolvedValue([{ id: 'tmr_chx', label: 'Chx Desk', location: 'tml_vault' }]),
+    })
+    stripeClient.paymentIntents.create.mockResolvedValue({ id: 'pi_terminal', status: 'requires_payment_method' })
+    stripeClient.paymentIntents.retrieve.mockResolvedValue({ id: 'pi_terminal', status: 'requires_payment_method' })
+    stripeClient.terminal.readers.processPaymentIntent.mockRejectedValue(new Error('Connection reset'))
+    const update = vi.fn().mockImplementation(({ data }: { data: Partial<Payment> }) =>
+      Promise.resolve({ ...pendingPayment, ...data }),
+    )
+    const payload = {
+      create: vi.fn().mockResolvedValue(pendingPayment),
+      find: vi.fn().mockResolvedValue({ docs: [] }),
+      update,
+      logger: { warn: vi.fn() },
+    } as unknown as Payload
+
+    const result = await startGuidedTerminalPayment({
+      amount: 50,
+      bookingAmountDue: 50,
+      bookingBalanceDue: 50,
+      bookingId: 'booking-1',
+      clientId: 'client-1',
+      creditAmount: 0,
+      operationId: 'operation-ambiguous',
+      payload,
+      receiptEmail: 'client@example.com',
+    })
+
+    expect(result).toMatchObject({ success: true, payment: { id: 'payment-1', status: 'in-progress' } })
+    expect(stripeClient.paymentIntents.cancel).not.toHaveBeenCalled()
+    expect(update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'voided' }) }),
+    )
+  })
+
   test('posts and allocates only the exact succeeded Terminal PaymentIntent', async () => {
     const pendingPayment = payment()
     const booking = {
@@ -165,9 +404,11 @@ describe('Stripe Terminal payment service', () => {
       return Promise.resolve({ ...booking, ...data })
     })
     const payload = {
-      findByID: vi.fn().mockImplementation(({ collection }: { collection: string }) =>
-        Promise.resolve(collection === 'payments' ? pendingPayment : booking),
-      ),
+      findByID: vi
+        .fn()
+        .mockImplementation(({ collection }: { collection: string }) =>
+          Promise.resolve(collection === 'payments' ? pendingPayment : booking),
+        ),
       update,
       logger: { warn: vi.fn() },
     } as unknown as Payload
@@ -239,6 +480,55 @@ describe('Stripe Terminal payment service', () => {
     })
 
     expect(applyIncomingPayment).not.toHaveBeenCalled()
+  })
+
+  test('repairs a payment that was falsely voided before Stripe reported success', async () => {
+    const recoverablePayment = payment({
+      status: 'voided',
+      stripeTerminalStatus: 'failed',
+      stripeTerminalFailureMessage: 'Connection reset',
+      voidReason: 'Connection reset',
+    })
+    const booking = {
+      id: 'booking-1',
+      payment: { amountDue: 50, amountPaid: 0, status: 'unpaid' },
+    }
+    const update = vi.fn().mockImplementation(({ collection, data }: { collection: string; data: object }) =>
+      Promise.resolve(collection === 'payments' ? { ...recoverablePayment, ...data } : { ...booking, ...data }),
+    )
+    const payload = {
+      findByID: vi
+        .fn()
+        .mockImplementation(({ collection }: { collection: string }) =>
+          Promise.resolve(collection === 'payments' ? recoverablePayment : booking),
+        ),
+      update,
+      logger: { warn: vi.fn() },
+    } as unknown as Payload
+    getClientCreditBalance.mockResolvedValue(0)
+    applyIncomingPayment.mockResolvedValue({ reservedForBookingAmount: 50 })
+
+    await reconcileSucceededGuidedTerminalPayment({
+      payload,
+      paymentIntent: {
+        id: 'pi_terminal',
+        amount_received: 5000,
+        metadata: { integration: 'guided-terminal', paymentId: 'payment-1' },
+      } as unknown as Stripe.PaymentIntent,
+    })
+
+    expect(applyIncomingPayment).toHaveBeenCalledOnce()
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'payments',
+        id: 'payment-1',
+        data: expect.objectContaining({
+          stripeTerminalStatus: 'succeeded',
+          voidReason: null,
+          voidedAt: null,
+        }),
+      }),
+    )
   })
 
   test('voids a pending ledger entry when Stripe reports a failed PaymentIntent', async () => {

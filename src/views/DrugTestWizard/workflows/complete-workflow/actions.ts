@@ -27,6 +27,7 @@ import {
 import { reversePostedPayments } from '@/collections/Payments/services/reversePayments'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
 import {
+  cancelGuidedTerminalPayment,
   getGuidedTerminalPaymentStatus,
   startGuidedTerminalPayment,
 } from '@/collections/Payments/services/stripeTerminal'
@@ -49,6 +50,7 @@ import {
 } from '@/lib/redwood/queue'
 import { deriveRedwoodProvisioningStatus, type RedwoodProvisioningStatus } from '@/lib/redwood/provisioning'
 import { buildRedwoodCollectSpecimenUrl, REDWOOD_MOBILE_DONORS_URL } from '@/lib/redwood/donor-urls'
+import { getBookingPaymentAfterRefund } from './refund-state'
 import {
   hasReadyGuidedRedwoodDonor,
   shouldQueueGuidedRedwoodDonor,
@@ -72,6 +74,7 @@ type ScheduleActionResult = {
   warning?: string
   fallbackHref?: string | null
   refundedAmount?: number
+  refundStatus?: 'pending' | 'requires-action' | 'succeeded' | 'failed' | 'cancelled'
 }
 
 export type GuidedRedwoodProvisioningStatus = RedwoodProvisioningStatus & {
@@ -140,15 +143,71 @@ async function cancelCalcomBookingIfNeeded(booking: PayloadBooking): Promise<Sch
   }
 }
 
-function getBookingPaymentAfterRefund(booking: PayloadBooking) {
-  const existingPayment = booking.payment || {}
-  return {
-    ...existingPayment,
-    amountPaid: 0,
-    method: 'not-paid' as const,
-    status: 'unpaid' as const,
-    collectedAt: null,
-  }
+function getStoredStripeRefundStatus(status: Stripe.Refund['status']): NonNullable<Payment['stripeRefundStatus']> {
+  if (status === 'requires_action') return 'requires-action'
+  if (status === 'canceled') return 'cancelled'
+  if (status === 'succeeded' || status === 'failed' || status === 'pending') return status
+  return 'pending'
+}
+
+function getStripePaymentDashboardHref(paymentIntentId: string) {
+  return `https://dashboard.stripe.com/payments/${encodeURIComponent(paymentIntentId)}`
+}
+
+async function updateCollectedDrugTestAfterRefund(input: {
+  booking: PayloadBooking
+  payload: Payload
+  refundAmount: number
+  req: PayloadRequest
+}) {
+  if (input.booking.sampleCollection?.status !== 'collected') return
+
+  const linkedDrugTestId = getRelationshipId(input.booking.sampleCollection.drugTest)
+  const drugTests = linkedDrugTestId
+    ? [
+        await input.payload.findByID({
+          collection: 'drug-tests',
+          id: linkedDrugTestId,
+          depth: 0,
+          overrideAccess: true,
+          req: input.req,
+        }),
+      ]
+    : (
+        await input.payload.find({
+          collection: 'drug-tests',
+          where: { sourceBooking: { equals: input.booking.id } },
+          depth: 0,
+          limit: 1,
+          overrideAccess: true,
+          req: input.req,
+        })
+      ).docs
+  const drugTest = drugTests[0]
+  if (!drugTest?.payment) return
+
+  const amountDue = normalizeMoney(drugTest.payment.amountDue)
+  const amountPaid = normalizeMoney(drugTest.payment.amountPaid)
+  const nextAmountDue = Math.max(0, normalizeMoney(amountDue - input.refundAmount))
+  const nextAmountPaid = Math.max(0, normalizeMoney(amountPaid - input.refundAmount))
+  const balanceDue = Math.max(0, normalizeMoney(nextAmountDue - nextAmountPaid))
+
+  await input.payload.update({
+    collection: 'drug-tests',
+    id: drugTest.id,
+    data: {
+      payment: {
+        ...drugTest.payment,
+        amountDue: nextAmountDue,
+        amountPaid: nextAmountPaid,
+        balanceDue,
+        status: balanceDue <= 0 ? 'paid' : nextAmountPaid > 0 ? 'partial' : 'unpaid',
+      },
+    },
+    depth: 0,
+    overrideAccess: true,
+    req: input.req,
+  })
 }
 
 async function getRefundPaymentIntent(input: { stripe: Stripe; payment: Payment; booking: PayloadBooking }) {
@@ -165,6 +224,88 @@ async function getRefundPaymentIntent(input: { stripe: Stripe; payment: Payment;
   const session = await input.stripe.checkout.sessions.retrieve(input.payment.stripeCheckoutSessionId)
   const paymentIntent = session.payment_intent
   return typeof paymentIntent === 'string' ? paymentIntent : paymentIntent?.id || null
+}
+
+async function recordSucceededBookingRefund(input: {
+  bookingId: string
+  operationId: string
+  payload: Payload
+  refund: Stripe.Refund
+  stripePaymentId: string
+}) {
+  return withPayloadTransaction(input.payload, async (req) => {
+    const payment = (await input.payload.findByID({
+      collection: 'payments',
+      id: input.stripePaymentId,
+      depth: 0,
+      overrideAccess: true,
+      req,
+    })) as Payment
+
+    if (
+      payment.stripeRefundId === input.refund.id &&
+      payment.stripeRefundOperationId === input.operationId &&
+      payment.stripeRefundStatus === 'succeeded'
+    ) {
+      return { applied: false, refundedAmount: normalizeMoney(input.refund.amount / 100) }
+    }
+
+    const booking = (await input.payload.findByID({
+      collection: 'bookings',
+      id: input.bookingId,
+      depth: 0,
+      overrideAccess: true,
+      req,
+    })) as PayloadBooking
+    const priorRefundedAmount = normalizeMoney(payment.refundedAmount)
+    const remainingRefundableAmount = Math.max(0, normalizeMoney(payment.amount - priorRefundedAmount))
+    const refundedAmount = Math.min(remainingRefundableAmount, normalizeMoney(input.refund.amount / 100))
+
+    if (refundedAmount <= 0) {
+      return { applied: false, refundedAmount: 0 }
+    }
+
+    const totalRefundedAmount = normalizeMoney(priorRefundedAmount + refundedAmount)
+    const fullyRefunded = totalRefundedAmount >= normalizeMoney(payment.amount)
+    const refundedAt = new Date().toISOString()
+
+    await input.payload.update({
+      collection: 'payments',
+      id: payment.id,
+      data: {
+        status: fullyRefunded ? 'refunded' : 'posted',
+        refundedAt,
+        refundedAmount: totalRefundedAmount,
+        stripeRefundId: input.refund.id,
+        stripeRefundOperationId: input.operationId,
+        stripeRefundStatus: 'succeeded',
+        pendingRefundAmount: 0,
+      },
+      depth: 0,
+      overrideAccess: true,
+      req,
+    })
+
+    await updateCollectedDrugTestAfterRefund({
+      booking,
+      payload: input.payload,
+      refundAmount: refundedAmount,
+      req,
+    })
+
+    await input.payload.update({
+      collection: 'bookings',
+      id: input.bookingId,
+      data: {
+        payment: getBookingPaymentAfterRefund(booking, refundedAmount),
+      },
+      depth: 0,
+      overrideAccess: true,
+      req,
+    })
+
+    return { applied: true, refundedAmount }
+  })
 }
 
 async function getAdminPayload(req?: AdminPayloadRequest) {
@@ -1042,7 +1183,7 @@ export async function cancelGuidedBooking(
 }
 
 export async function cancelAndRefundGuidedBooking(
-  input: { bookingId: string },
+  input: { bookingId: string; operationId: string; refundAmount: number },
   req?: AdminPayloadRequest,
 ): Promise<ScheduleActionResult> {
   if (!input.bookingId) {
@@ -1051,6 +1192,15 @@ export async function cancelAndRefundGuidedBooking(
 
   if (!process.env.STRIPE_SECRET_KEY) {
     return { success: false, error: 'Stripe secret key is not configured.' }
+  }
+
+  if (!input.operationId?.trim()) {
+    return { success: false, error: 'A refund operation ID is required.' }
+  }
+
+  const requestedRefundAmount = normalizeMoney(input.refundAmount)
+  if (!Number.isFinite(input.refundAmount) || requestedRefundAmount <= 0) {
+    return { success: false, error: 'Refund amount must be greater than zero.' }
   }
 
   const payload = await getAdminPayload(req)
@@ -1077,6 +1227,21 @@ export async function cancelAndRefundGuidedBooking(
     return { success: false, error: 'No posted Stripe prepayment was found for this booking.' }
   }
 
+  const alreadyRefundedAmount = normalizeMoney(refundablePayment.refundedAmount)
+  const remainingRefundableAmount = Math.max(
+    0,
+    normalizeMoney(normalizeMoney(refundablePayment.amount) - alreadyRefundedAmount),
+  )
+  if (remainingRefundableAmount <= 0) {
+    return { success: false, error: 'This Stripe payment has already been fully refunded.' }
+  }
+  if (requestedRefundAmount > remainingRefundableAmount) {
+    return {
+      success: false,
+      error: `Refund amount cannot exceed $${remainingRefundableAmount.toFixed(2)}.`,
+    }
+  }
+
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {})
   let paymentIntentId: string | null = null
 
@@ -1098,71 +1263,133 @@ export async function cancelAndRefundGuidedBooking(
     return { success: false, error: 'No Stripe payment intent was found for this booking payment.' }
   }
 
-  const refundedAmount = normalizeMoney(refundablePayment.amount)
+  const stripeDashboardHref = getStripePaymentDashboardHref(paymentIntentId)
+  if (
+    refundablePayment.stripeRefundOperationId === input.operationId &&
+    refundablePayment.stripeRefundStatus === 'succeeded'
+  ) {
+    return {
+      success: true,
+      refundedAmount: requestedRefundAmount,
+      refundStatus: 'succeeded',
+    }
+  }
+
   let refund: Stripe.Refund
+  let refundOperationId = input.operationId
 
   try {
-    refund = await stripe.refunds.create(
-      {
-        payment_intent: paymentIntentId,
-        amount: Math.round(refundedAmount * 100),
-      },
-      {
-        idempotencyKey: `calcom-booking-refund-${input.bookingId}-${refundablePayment.id}`,
-      },
-    )
+    const unresolvedRefundStatus =
+      refundablePayment.stripeRefundStatus === 'pending' ||
+      refundablePayment.stripeRefundStatus === 'requires-action'
+    const isRetry =
+      refundablePayment.stripeRefundOperationId === input.operationId && Boolean(refundablePayment.stripeRefundId)
+
+    if ((unresolvedRefundStatus || isRetry) && refundablePayment.stripeRefundId) {
+      refundOperationId = refundablePayment.stripeRefundOperationId || input.operationId
+      refund = await stripe.refunds.retrieve(refundablePayment.stripeRefundId)
+    } else {
+      refund = await stripe.refunds.create(
+        {
+          payment_intent: paymentIntentId,
+          amount: Math.round(requestedRefundAmount * 100),
+          metadata: {
+            bookingId: input.bookingId,
+            integration: 'guided-booking-refund',
+            paymentId: String(refundablePayment.id),
+            workflowOperationId: input.operationId,
+          },
+        },
+        {
+          idempotencyKey: `guided-booking-refund-${refundablePayment.id}-${input.operationId}`,
+        },
+      )
+    }
   } catch (error) {
     return {
       success: false,
       error: error instanceof Error ? `Stripe refund failed: ${error.message}` : 'Stripe refund failed.',
+      fallbackHref: stripeDashboardHref,
     }
   }
 
+  const refundStatus = getStoredStripeRefundStatus(refund.status)
+  const refundAmount = normalizeMoney(refund.amount / 100)
   await payload.update({
     collection: 'payments',
     id: refundablePayment.id,
     data: {
-      status: 'refunded',
-      refundedAt: new Date().toISOString(),
-      refundedAmount,
       stripeRefundId: refund.id,
+      stripeRefundOperationId: refundOperationId,
+      stripeRefundStatus: refundStatus === 'succeeded' ? 'pending' : refundStatus,
+      pendingRefundAmount:
+        refundStatus === 'pending' || refundStatus === 'requires-action' || refundStatus === 'succeeded'
+          ? refundAmount
+          : 0,
     },
+    depth: 0,
     overrideAccess: true,
   })
 
-  const cancelResult = await cancelCalcomBookingIfNeeded(booking)
-  await payload.update({
-    collection: 'bookings',
-    id: input.bookingId,
-    data: {
-      ...(cancelResult.success ? { status: 'cancelled' as const } : {}),
-      payment: getBookingPaymentAfterRefund(booking),
-    },
-    overrideAccess: true,
+  if (refundStatus !== 'succeeded') {
+    const statusMessage =
+      refundStatus === 'failed' || refundStatus === 'cancelled'
+        ? `Stripe reports that the refund ${refundStatus}. No local payment balances were changed.`
+        : 'Stripe accepted the refund, but it has not completed. The appointment was not cancelled and local balances were not changed.'
+    return {
+      success: refundStatus === 'pending' || refundStatus === 'requires-action',
+      error: refundStatus === 'failed' || refundStatus === 'cancelled' ? statusMessage : undefined,
+      warning: refundStatus === 'pending' || refundStatus === 'requires-action' ? statusMessage : undefined,
+      fallbackHref: stripeDashboardHref,
+      refundedAmount: refundAmount,
+      refundStatus,
+    }
+  }
+
+  const recordedRefund = await recordSucceededBookingRefund({
+    bookingId: input.bookingId,
+    operationId: refundOperationId,
+    payload,
+    refund,
+    stripePaymentId: String(refundablePayment.id),
   })
+  const cancelResult = await cancelCalcomBookingIfNeeded(booking)
+
+  if (cancelResult.success) {
+    await payload.update({
+      collection: 'bookings',
+      id: input.bookingId,
+      data: { status: 'cancelled' },
+      depth: 0,
+      overrideAccess: true,
+    })
+  }
 
   revalidateBookingViews()
 
   if (cancelResult.success && cancelResult.warning) {
     return {
       success: true,
-      warning: `Refund issued. ${cancelResult.warning}`,
-      refundedAmount,
+      warning: `Refunded $${recordedRefund.refundedAmount.toFixed(2)}. ${cancelResult.warning}`,
+      refundedAmount: recordedRefund.refundedAmount,
+      refundStatus: 'succeeded',
     }
   }
 
   if (!cancelResult.success) {
     return {
       success: true,
-      warning: `Refund issued, but Cal.com cancellation still needs attention: ${cancelResult.error}`,
-      fallbackHref: cancelResult.fallbackHref,
-      refundedAmount,
+      warning: `Refunded $${recordedRefund.refundedAmount.toFixed(2)}, but Cal.com cancellation still needs attention: ${cancelResult.error}`,
+      fallbackHref: cancelResult.fallbackHref || stripeDashboardHref,
+      refundedAmount: recordedRefund.refundedAmount,
+      refundStatus: 'succeeded',
     }
   }
 
   return {
     success: true,
-    refundedAmount,
+    refundedAmount: recordedRefund.refundedAmount,
+    refundStatus: 'succeeded',
   }
 }
 
@@ -1529,6 +1756,18 @@ export async function startBookingTerminalPayment(
     operationId: input.operationId.trim(),
     payload,
     receiptEmail,
+  })
+}
+
+export async function cancelBookingTerminalPayment(input: { paymentId: string }, req?: AdminPayloadRequest) {
+  if (!input.paymentId?.trim()) {
+    return { success: false as const, error: 'Terminal payment is required.' }
+  }
+
+  const payload = await getAdminPayload(req)
+  return cancelGuidedTerminalPayment({
+    paymentId: input.paymentId.trim(),
+    payload,
   })
 }
 

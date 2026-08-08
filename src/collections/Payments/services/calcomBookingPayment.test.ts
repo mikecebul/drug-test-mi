@@ -139,6 +139,35 @@ describe('Cal.com booking payment ledger sync', () => {
     )
   })
 
+  test('preserves the gross ledger amount after a partial refund', async () => {
+    const partiallyRefundedPayment = {
+      id: 'payment-1',
+      amount: 35,
+      refundedAmount: 10,
+      method: 'stripe',
+      source: 'calcom',
+      status: 'posted',
+      relatedBooking: 'booking-1',
+    }
+    const payload = createMockPayload({ payments: [partiallyRefundedPayment] })
+
+    const result = await syncCalcomPrepaidBookingPayment({
+      payload: payload as unknown as Payload,
+      booking: createBooking({
+        payment: {
+          amountDue: 25,
+          amountPaid: 25,
+          method: 'pre-paid',
+          status: 'paid',
+        },
+      }),
+    })
+
+    expect(result).toBe(partiallyRefundedPayment)
+    expect(payload.update).not.toHaveBeenCalled()
+    expect(payload.create).not.toHaveBeenCalled()
+  })
+
   test('attaches existing booking payment records when a client is linked later', async () => {
     const payload = createMockPayload({
       payments: [
