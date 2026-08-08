@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CLIENT_GENDER_OPTIONS,
   formatClientGender,
+  getCalcomBookingGender,
   getBookingGenderFromInputs,
   normalizeBookingGender,
   normalizeClientGender,
@@ -26,6 +27,13 @@ describe('client gender options', () => {
     expect(normalizeBookingGender('F')).toBe('female')
     expect(normalizeBookingGender('Unknown')).toBeUndefined()
     expect(normalizeBookingGender('')).toBeUndefined()
+  })
+
+  it('maps client genders to the exact Cal.com radio option values', () => {
+    expect(getCalcomBookingGender('male')).toBe('Male')
+    expect(getCalcomBookingGender('female')).toBe('Female')
+    expect(getCalcomBookingGender('prefer-not-to-say')).toBeUndefined()
+    expect(getCalcomBookingGender('other')).toBeUndefined()
   })
 
   it('extracts gender from Cal.com response shapes and leaves blank responses unknown', () => {

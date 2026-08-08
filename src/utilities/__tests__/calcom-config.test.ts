@@ -63,7 +63,7 @@ describe('Cal.com config helpers', () => {
       name: 'Taylor Client',
       email: 'taylor@example.com',
       attendeePhoneNumber: '+12315551212',
-      gender: 'female',
+      gender: 'Female',
     })
   })
 

@@ -8,6 +8,13 @@ export const CLIENT_GENDER_OPTIONS: Array<{ label: string; value: ClientGender }
   { value: 'prefer-not-to-say', label: 'Prefer not to say' },
 ]
 
+const CALCOM_BOOKING_GENDER_VALUES = {
+  male: 'Male',
+  female: 'Female',
+} as const
+
+export type CalcomBookingGender = (typeof CALCOM_BOOKING_GENDER_VALUES)[keyof typeof CALCOM_BOOKING_GENDER_VALUES]
+
 /** Maps the retired `other` value to the single inclusive fallback option. */
 export function normalizeClientGender(value: unknown): ClientGender | undefined {
   if (value === 'other') return 'prefer-not-to-say'
@@ -21,6 +28,12 @@ export function normalizeBookingGender(value: unknown): Extract<ClientGender, 'f
   if (normalized === 'male' || normalized === 'm') return 'male'
   if (normalized === 'female' || normalized === 'f') return 'female'
   return undefined
+}
+
+/** Returns the exact option values expected by Cal.com’s gender radio question. */
+export function getCalcomBookingGender(value: unknown): CalcomBookingGender | undefined {
+  const gender = normalizeBookingGender(value)
+  return gender ? CALCOM_BOOKING_GENDER_VALUES[gender] : undefined
 }
 
 function readBookingFieldValue(value: unknown): unknown {

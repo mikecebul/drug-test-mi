@@ -1,6 +1,6 @@
 import type { Client } from '@/payload-types'
 import { getTestTypeBookingLabel } from '@/config/test-types'
-import { normalizeBookingGender } from '@/lib/client-gender'
+import { getCalcomBookingGender } from '@/lib/client-gender'
 import {
   FALLBACK_BOOKING_TEST_TYPES,
   formatPhoneForCal,
@@ -124,7 +124,7 @@ function buildBaseCalConfig(client: Client): CalBookingConfig {
     name: `${client.firstName.trim()} ${client.lastName.trim()}`,
     email: client.email.trim(),
   }
-  const gender = normalizeBookingGender(client.gender)
+  const gender = getCalcomBookingGender(client.gender)
   if (gender) {
     calConfig.gender = gender
   }
