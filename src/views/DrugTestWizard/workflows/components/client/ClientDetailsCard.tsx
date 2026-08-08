@@ -1,9 +1,19 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { formOptions, useStore } from '@tanstack/react-form'
-import { AtSign, BriefcaseBusiness, CalendarDays, Loader2, Pencil, Phone, UserRound, UserX } from 'lucide-react'
+import {
+  AtSign,
+  BriefcaseBusiness,
+  Camera,
+  CalendarDays,
+  Loader2,
+  Pencil,
+  Phone,
+  UserRound,
+  UserX,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAppForm } from '@/blocks/Form/hooks/form'
@@ -72,6 +82,7 @@ type ClientDetailsCardProps = {
   className?: string
   onClientUpdated?: (client: Partial<ClientDetailsValue>) => void
   onChangeClient?: () => void
+  onHeadshotCaptureReady?: (openEditor: (() => void) | null) => void
 }
 
 type ClientSaveStage = 'idle' | 'pressed' | 'validating' | 'saving' | 'slow' | 'interrupted'
@@ -103,6 +114,7 @@ export function ClientDetailsCard({
   className,
   onClientUpdated,
   onChangeClient,
+  onHeadshotCaptureReady,
 }: ClientDetailsCardProps) {
   const [editorOpen, setEditorOpen] = useState(false)
   const [referralOpen, setReferralOpen] = useState(false)
@@ -189,7 +201,7 @@ export function ClientDetailsCard({
     invalidateWizardClientDerivedData(queryClient, { clientId: client.id })
   }
 
-  const handleEditorOpenChange = (nextOpen: boolean) => {
+  const handleEditorOpenChange = useCallback((nextOpen: boolean) => {
     setSaveStage('idle')
 
     if (nextOpen) {
@@ -201,7 +213,16 @@ export function ClientDetailsCard({
     }
 
     setEditorOpen(nextOpen)
-  }
+  }, [client, clientForm])
+
+  const openHeadshotEditor = useCallback(() => {
+    handleEditorOpenChange(true)
+  }, [handleEditorOpenChange])
+
+  useEffect(() => {
+    onHeadshotCaptureReady?.(openHeadshotEditor)
+    return () => onHeadshotCaptureReady?.(null)
+  }, [onHeadshotCaptureReady, openHeadshotEditor])
 
   const previewData = referralProfile
     ? referralProfile
@@ -223,6 +244,17 @@ export function ClientDetailsCard({
             <CardTitle className="mt-1 text-lg">{fullName}</CardTitle>
           </div>
           <div className="flex flex-wrap justify-end gap-2">
+            {editable && !client.headshot && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleEditorOpenChange(true)}
+                data-testid="add-headshot-button"
+              >
+                <Camera className="size-4" />
+                Add headshot
+              </Button>
+            )}
             {onChangeClient && (
               <Button type="button" variant="outline" size="sm" onClick={onChangeClient}>
                 <UserX className="size-4" />

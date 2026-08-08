@@ -232,6 +232,9 @@ test.describe("Wizard Today's Schedule", () => {
       const reviewNextButton = page.getByTestId('wizard-next-button')
       await expectReceivesPointerAtCenter(reviewNextButton)
       await reviewNextButton.tap()
+      const noHeadshotDialog = page.getByRole('alertdialog', { name: 'Continue without a headshot?' })
+      await expect(noHeadshotDialog).toBeVisible()
+      await noHeadshotDialog.getByRole('button', { name: 'Continue', exact: true }).tap()
       await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
       await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toBeVisible()
       await expect(page.getByTestId('wizard-next-button')).toBeVisible()
@@ -437,6 +440,48 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByTestId('client-identity-mismatch')).toBeHidden()
   })
 
+  test('offers a headshot action and warns before continuing without one', async ({ page }) => {
+    await scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
+    await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
+    await expect(page.getByTestId('add-headshot-button')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Add headshot' }).click()
+    const clientEditor = page.getByRole('dialog', { name: 'Edit Client Details' })
+    await expect(clientEditor).toBeVisible()
+    await expect(clientEditor.getByRole('button', { name: 'Take Photo' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(clientEditor).toBeHidden()
+
+    await verifyGuidedClientMismatch(page)
+    const nextButton = page.getByTestId('wizard-next-button')
+    await nextButton.click()
+
+    const noHeadshotDialog = page.getByRole('alertdialog', { name: 'Continue without a headshot?' })
+    await expect(noHeadshotDialog).toBeVisible()
+    await expect(noHeadshotDialog).toContainText('No headshot is on file for this client.')
+    await expect(noHeadshotDialog.locator('[data-slot="alert-dialog-media"] svg')).toHaveCount(1)
+    await expect(noHeadshotDialog.getByRole('button', { name: 'Cancel' })).toBeVisible()
+    await expect(noHeadshotDialog.getByRole('button', { name: 'Continue', exact: true })).toBeVisible()
+    await expect(noHeadshotDialog.getByRole('button', { name: 'Capture headshot' })).toBeVisible()
+
+    await noHeadshotDialog.getByRole('button', { name: 'Capture headshot' }).click()
+    await expect(noHeadshotDialog).toBeHidden()
+    await expect(clientEditor).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(clientEditor).toBeHidden()
+
+    await nextButton.click()
+    await expect(noHeadshotDialog).toBeVisible()
+    await noHeadshotDialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(noHeadshotDialog).toBeHidden()
+    await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
+
+    await nextButton.click()
+    await expect(noHeadshotDialog).toBeVisible()
+    await noHeadshotDialog.getByRole('button', { name: 'Continue', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
+  })
+
   test('keeps payment navigation responsive while balance details are loading', async ({ page }) => {
     let releaseBalances = () => {}
     const balancesReleased = new Promise<void>((resolve) => {
@@ -463,6 +508,9 @@ test.describe("Wizard Today's Schedule", () => {
       await verifyGuidedClientMismatch(page)
 
       await page.getByTestId('wizard-next-button').click()
+      const noHeadshotDialog = page.getByRole('alertdialog', { name: 'Continue without a headshot?' })
+      await expect(noHeadshotDialog).toBeVisible()
+      await noHeadshotDialog.getByRole('button', { name: 'Continue', exact: true }).click()
       await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
 
       const nextButton = page.getByTestId('wizard-next-button')

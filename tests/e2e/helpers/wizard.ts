@@ -204,6 +204,7 @@ export async function clickNext(page: Page) {
   await nextButton.scrollIntoViewIfNeeded()
   const beforeUrl = page.url()
   const clickedButton = await nextButton.elementHandle()
+  const missingHeadshotDialog = page.getByRole('alertdialog', { name: 'Continue without a headshot?' })
 
   await nextButton.click({ timeout: 10_000 })
 
@@ -211,6 +212,10 @@ export async function clickNext(page: Page) {
     .poll(
       async () => {
         if (page.url() !== beforeUrl || (await hasVisibleValidationMessage(page))) {
+          return true
+        }
+
+        if (await missingHeadshotDialog.isVisible().catch(() => false)) {
           return true
         }
 
@@ -223,6 +228,10 @@ export async function clickNext(page: Page) {
       },
     )
     .toBe(true)
+
+  if (await missingHeadshotDialog.isVisible().catch(() => false)) {
+    await missingHeadshotDialog.getByRole('button', { name: 'Continue', exact: true }).click()
+  }
 }
 
 export async function triggerNextValidation(page: Page) {
