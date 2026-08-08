@@ -14,6 +14,7 @@ import { withPayloadTransaction } from './withPayloadTransaction'
 export const DEFAULT_STRIPE_TERMINAL_LOCATION_NAME = 'The Vault'
 export const DEFAULT_STRIPE_TERMINAL_READER_LABEL = 'Chx Desk'
 export const GUIDED_TERMINAL_INTEGRATION = 'guided-terminal'
+const GUIDED_TERMINAL_CANCEL_REASON = 'Terminal payment cancelled by the operator.'
 
 type TerminalPaymentState = 'pending' | 'in-progress' | 'succeeded' | 'failed' | 'cancelled'
 
@@ -32,8 +33,8 @@ function normalizeLookupValue(value: string) {
 
 function readTerminalStatus(payment: Payment): TerminalPaymentState {
   if (payment.status === 'posted' || payment.stripeTerminalStatus === 'succeeded') return 'succeeded'
-  if (payment.status === 'voided' || payment.stripeTerminalStatus === 'failed') return 'failed'
   if (payment.stripeTerminalStatus === 'cancelled') return 'cancelled'
+  if (payment.status === 'voided' || payment.stripeTerminalStatus === 'failed') return 'failed'
   if (payment.stripeTerminalStatus === 'in-progress') return 'in-progress'
   return 'pending'
 }
@@ -164,6 +165,64 @@ async function markPaymentFailed(input: {
   })
 }
 
+async function markPaymentCancelled(input: { payload: Payload; paymentId: string; req?: Partial<PayloadRequest> }) {
+  return input.payload.update({
+    collection: 'payments',
+    id: input.paymentId,
+    data: {
+      status: 'voided',
+      stripeTerminalStatus: 'cancelled',
+      stripeTerminalFailureMessage: GUIDED_TERMINAL_CANCEL_REASON,
+      voidReason: GUIDED_TERMINAL_CANCEL_REASON,
+    },
+    depth: 0,
+    overrideAccess: true,
+    req: input.req,
+  })
+}
+
+async function findActiveGuidedTerminalPayments(payload: Payload, bookingId: string) {
+  const result = await payload.find({
+    collection: 'payments',
+    where: {
+      and: [
+        {
+          relatedBooking: {
+            equals: bookingId,
+          },
+        },
+        {
+          source: {
+            equals: 'guided-workflow',
+          },
+        },
+        {
+          status: {
+            equals: 'pending',
+          },
+        },
+        {
+          stripeTerminalStatus: {
+            in: ['pending', 'in-progress'],
+          },
+        },
+      ],
+    },
+    depth: 0,
+    limit: 100,
+    sort: '-createdAt',
+    overrideAccess: true,
+  })
+
+  return result.docs as Payment[]
+}
+
+function readReaderPaymentIntentId(reader: Stripe.Terminal.Reader) {
+  const paymentIntent = reader.action?.process_payment_intent?.payment_intent
+  if (!paymentIntent) return null
+  return typeof paymentIntent === 'string' ? paymentIntent : paymentIntent.id
+}
+
 export async function startGuidedTerminalPayment(input: {
   amount: number
   bookingAmountDue: number
@@ -179,13 +238,34 @@ export async function startGuidedTerminalPayment(input: {
   if (existing) {
     const status = serializeGuidedTerminalPayment(existing)
     return status.status === 'failed' || status.status === 'cancelled'
-      ? { success: false as const, error: status.failureMessage || 'The Terminal payment did not complete.', payment: status }
+      ? {
+          success: false as const,
+          error: status.failureMessage || 'The Terminal payment did not complete.',
+          payment: status,
+        }
       : { success: true as const, payment: status }
   }
 
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim()
   if (!stripeSecretKey) {
     return { success: false as const, error: 'Stripe is not configured.' }
+  }
+
+  const stalePayments = await findActiveGuidedTerminalPayments(input.payload, input.bookingId)
+  for (const stalePayment of stalePayments) {
+    const cancellation = await cancelGuidedTerminalPayment({
+      payload: input.payload,
+      paymentId: String(stalePayment.id),
+    })
+    if (!cancellation.success) {
+      return {
+        success: false as const,
+        error:
+          cancellation.error ||
+          'A previous Terminal payment is still active. Cancel it before starting another payment.',
+        payment: cancellation.payment,
+      }
+    }
   }
 
   const stripe = new Stripe(stripeSecretKey, {})
@@ -352,6 +432,112 @@ export async function getGuidedTerminalPaymentStatus(input: {
   }
 
   return payment ? serializeGuidedTerminalPayment(payment) : null
+}
+
+export async function cancelGuidedTerminalPayment(input: { payload: Payload; paymentId: string }) {
+  let payment: Payment
+
+  try {
+    payment = (await input.payload.findByID({
+      collection: 'payments',
+      id: input.paymentId,
+      depth: 0,
+      overrideAccess: true,
+    })) as Payment
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : 'The Terminal payment could not be found.',
+    }
+  }
+
+  if (payment.source !== 'guided-workflow' || payment.method !== 'stripe') {
+    return { success: false as const, error: 'This payment is not a guided Terminal payment.' }
+  }
+
+  const currentStatus = serializeGuidedTerminalPayment(payment)
+  if (currentStatus.status === 'cancelled') {
+    return { success: true as const, payment: currentStatus }
+  }
+  if (currentStatus.status === 'succeeded') {
+    return {
+      success: false as const,
+      error: 'This Terminal payment has already completed and cannot be cancelled.',
+      payment: currentStatus,
+    }
+  }
+  if (currentStatus.status === 'failed') {
+    return {
+      success: false as const,
+      error: currentStatus.failureMessage || 'This Terminal payment has already failed.',
+      payment: currentStatus,
+    }
+  }
+
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim()
+  if (!stripeSecretKey) {
+    return { success: false as const, error: 'Stripe is not configured.', payment: currentStatus }
+  }
+
+  const stripe = new Stripe(stripeSecretKey, {})
+
+  try {
+    if (payment.stripeTerminalReaderId) {
+      const reader = await stripe.terminal.readers.retrieve(payment.stripeTerminalReaderId)
+      if ('deleted' in reader) {
+        throw new Error('The Stripe Terminal reader no longer exists.')
+      }
+
+      const actionPaymentIntentId = readReaderPaymentIntentId(reader)
+      if (reader.action?.status === 'in_progress') {
+        if (
+          reader.action.type !== 'process_payment_intent' ||
+          !actionPaymentIntentId ||
+          !payment.stripePaymentIntentId ||
+          actionPaymentIntentId !== payment.stripePaymentIntentId
+        ) {
+          throw new Error(
+            `${reader.label || DEFAULT_STRIPE_TERMINAL_READER_LABEL} is processing another action. Finish or cancel it before retrying this payment.`,
+          )
+        }
+
+        await stripe.terminal.readers.cancelAction(reader.id)
+      }
+    }
+
+    if (payment.stripePaymentIntentId) {
+      const paymentIntent = await stripe.paymentIntents.retrieve(payment.stripePaymentIntentId)
+      if (paymentIntent.status === 'succeeded' || paymentIntent.status === 'requires_capture') {
+        return {
+          success: false as const,
+          error: 'Stripe reports that this payment already completed and it cannot be cancelled.',
+          payment: currentStatus,
+        }
+      }
+      if (paymentIntent.status !== 'canceled') {
+        await stripe.paymentIntents.cancel(paymentIntent.id)
+      }
+    }
+
+    const cancelledPayment = (await markPaymentCancelled({
+      payload: input.payload,
+      paymentId: String(payment.id),
+    })) as Payment
+
+    return {
+      success: true as const,
+      payment: serializeGuidedTerminalPayment(cancelledPayment),
+    }
+  } catch (error) {
+    return {
+      success: false as const,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'The Terminal payment could not be cancelled. Wait for the reader to finish and try again.',
+      payment: currentStatus,
+    }
+  }
 }
 
 export async function reconcileSucceededGuidedTerminalPayment(input: {

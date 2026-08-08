@@ -27,6 +27,7 @@ import {
 import { reversePostedPayments } from '@/collections/Payments/services/reversePayments'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
 import {
+  cancelGuidedTerminalPayment,
   getGuidedTerminalPaymentStatus,
   startGuidedTerminalPayment,
 } from '@/collections/Payments/services/stripeTerminal'
@@ -1529,6 +1530,18 @@ export async function startBookingTerminalPayment(
     operationId: input.operationId.trim(),
     payload,
     receiptEmail,
+  })
+}
+
+export async function cancelBookingTerminalPayment(input: { paymentId: string }, req?: AdminPayloadRequest) {
+  if (!input.paymentId?.trim()) {
+    return { success: false as const, error: 'Terminal payment is required.' }
+  }
+
+  const payload = await getAdminPayload(req)
+  return cancelGuidedTerminalPayment({
+    paymentId: input.paymentId.trim(),
+    payload,
   })
 }
 
