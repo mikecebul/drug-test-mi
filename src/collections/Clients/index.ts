@@ -259,6 +259,9 @@ export const Clients: CollectionConfig = {
       label: 'Money Owed',
       defaultValue: 0,
       min: 0,
+      access: {
+        update: ({ req }) => req.user?.collection === 'admins' && req.user.role === 'superAdmin',
+      },
       admin: {
         description: 'Auto-calculated from drug tests with a remaining payment balance.',
         position: 'sidebar',
@@ -272,6 +275,9 @@ export const Clients: CollectionConfig = {
       label: 'Credit Balance',
       defaultValue: 0,
       min: 0,
+      access: {
+        update: ({ req }) => req.user?.collection === 'admins' && req.user.role === 'superAdmin',
+      },
       admin: {
         description: 'Client credit from overpayments that can be applied to future balances.',
         position: 'sidebar',

@@ -126,6 +126,12 @@ const currency = new Intl.NumberFormat('en-US', {
   currency: 'USD',
   maximumFractionDigits: 0,
 })
+const preciseCurrency = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
 
 function formatTime(value: string) {
   return new Intl.DateTimeFormat('en-US', {
@@ -146,6 +152,10 @@ function formatPaymentDate(value: string) {
 
 function createOperationId() {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function normalizeRefundInput(value: number) {
+  return Math.max(0, value).toFixed(2)
 }
 
 function getPaymentDefaults(booking: Booking | null) {
@@ -226,15 +236,15 @@ function getScheduleActionCopy(action: ScheduleAction, booking: Booking) {
     if (booking.sampleCollection?.status === 'collected') {
       return {
         title: 'Refund completed appointment',
-        description: `${booking.attendeeName}'s collection stays completed, and the full Stripe prepayment will be refunded.`,
-        confirmLabel: 'Refund prepayment',
+        description: `${booking.attendeeName}'s collection stays completed. The successful refund will reduce the recorded test price by the same amount.`,
+        confirmLabel: 'Refund payment',
       }
     }
 
     return {
       title: 'Cancel and refund appointment',
-      description: `${booking.attendeeName}'s appointment will be cancelled and the full Stripe prepayment will be refunded.`,
-      confirmLabel: 'Cancel and refund',
+      description: `${booking.attendeeName}'s appointment will be cancelled after Stripe confirms the refund.`,
+      confirmLabel: 'Refund and cancel',
     }
   }
 
@@ -382,6 +392,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const [testTypeDrawerOpen, setTestTypeDrawerOpen] = useState(false)
   const [testTypeDrawerSelection, setTestTypeDrawerSelection] = useState('')
   const [scheduleAction, setScheduleAction] = useState<{ action: ScheduleAction; booking: Booking } | null>(null)
+  const [refundAmount, setRefundAmount] = useState('')
+  const [refundOperationId, setRefundOperationId] = useState('')
   const scheduleActionMutation = useMutation({
     mutationFn: (input: Parameters<typeof guidedWorkflowApi.cancelBooking>[0]) =>
       guidedWorkflowApi.cancelBooking(input),
@@ -580,14 +592,37 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     window.open(href, '_blank', 'noopener,noreferrer')
   }
 
+  const openScheduleAction = (action: ScheduleAction, booking: Booking) => {
+    if (action === 'cancel-refund') {
+      setRefundAmount(normalizeRefundInput(booking.payment?.amountPaid ?? 0))
+      setRefundOperationId(createOperationId())
+    }
+    setScheduleAction({ action, booking })
+  }
+
   const handleConfirmScheduleAction = async () => {
     if (!scheduleAction) return
 
     const { action, booking } = scheduleAction
+    const parsedRefundAmount = Number(refundAmount)
+    if (
+      action === 'cancel-refund' &&
+      (!Number.isFinite(parsedRefundAmount) || parsedRefundAmount <= 0 || parsedRefundAmount > (booking.payment?.amountPaid ?? 0))
+    ) {
+      toast.error('Enter a refund amount within the available prepaid balance.')
+      return
+    }
+
     try {
       const result = await scheduleActionMutation.mutateAsync({
         action,
         bookingId: booking.id,
+        ...(action === 'cancel-refund'
+          ? {
+              operationId: refundOperationId || createOperationId(),
+              refundAmount: parsedRefundAmount,
+            }
+          : {}),
       })
 
       if (!result.success) {
@@ -596,7 +631,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           result.fallbackHref
             ? {
                 action: {
-                  label: 'Open Cal.com',
+                  label: result.fallbackHref.includes('stripe.com') ? 'Open Stripe' : 'Open Cal.com',
                   onClick: () => openExternalLink(result.fallbackHref),
                 },
               }
@@ -611,14 +646,18 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           result.fallbackHref
             ? {
                 action: {
-                  label: 'Open Cal.com',
+                  label: result.fallbackHref.includes('stripe.com') ? 'Open Stripe' : 'Open Cal.com',
                   onClick: () => openExternalLink(result.fallbackHref),
                 },
               }
             : undefined,
         )
       } else {
-        toast.success(action === 'cancel-refund' ? 'Appointment cancelled and refunded' : 'Appointment cancelled')
+        toast.success(
+          action === 'cancel-refund'
+            ? `Refunded ${preciseCurrency.format(result.refundedAmount ?? parsedRefundAmount)}.`
+            : 'Appointment cancelled',
+        )
       }
 
       setScheduleAction(null)
@@ -1474,7 +1513,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                             <DropdownMenuItem
                               disabled={isCompleted}
                               variant="destructive"
-                              onClick={() => setScheduleAction({ action: 'cancel', booking })}
+                              onClick={() => openScheduleAction('cancel', booking)}
                             >
                               <Ban className="size-4" />
                               Cancel
@@ -1486,7 +1525,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                               disabled={!canRefund}
                               variant="destructive"
                               onClick={() => {
-                                if (canRefund) setScheduleAction({ action: 'cancel-refund', booking })
+                                if (canRefund) openScheduleAction('cancel-refund', booking)
                               }}
                             >
                               <CreditCard className="size-4" />
@@ -1545,6 +1584,49 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               <DialogTitle>{actionCopy?.title}</DialogTitle>
               <DialogDescription>{actionCopy?.description}</DialogDescription>
             </DialogHeader>
+            {scheduleAction?.action === 'cancel-refund' && (
+              <Field
+                data-invalid={
+                  !Number.isFinite(Number(refundAmount)) ||
+                  Number(refundAmount) <= 0 ||
+                  Number(refundAmount) > (scheduleAction.booking.payment?.amountPaid ?? 0)
+                }
+              >
+                <FieldLabel htmlFor="guided-refund-amount">Refund amount</FieldLabel>
+                <InputGroup>
+                  <InputGroupAddon align="inline-start">
+                    <InputGroupText>$</InputGroupText>
+                  </InputGroupAddon>
+                  <InputGroupInput
+                    id="guided-refund-amount"
+                    type="number"
+                    min="0.01"
+                    max={scheduleAction.booking.payment?.amountPaid ?? 0}
+                    step="0.01"
+                    inputMode="decimal"
+                    value={refundAmount}
+                    onChange={(event) => setRefundAmount(event.target.value)}
+                    aria-invalid={
+                      !Number.isFinite(Number(refundAmount)) ||
+                      Number(refundAmount) <= 0 ||
+                      Number(refundAmount) > (scheduleAction.booking.payment?.amountPaid ?? 0)
+                    }
+                  />
+                </InputGroup>
+                <FieldDescription>
+                  Available to refund: {preciseCurrency.format(scheduleAction.booking.payment?.amountPaid ?? 0)}
+                </FieldDescription>
+                <FieldError
+                  errors={
+                    Number(refundAmount) > (scheduleAction.booking.payment?.amountPaid ?? 0)
+                      ? [{ message: 'Refund cannot exceed the available prepaid amount.' }]
+                      : Number(refundAmount) <= 0 || !Number.isFinite(Number(refundAmount))
+                        ? [{ message: 'Enter an amount greater than zero.' }]
+                        : undefined
+                  }
+                />
+              </Field>
+            )}
             <DialogFooter>
               <Button
                 type="button"
@@ -1558,10 +1640,18 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 type="button"
                 variant="destructive"
                 onClick={handleConfirmScheduleAction}
-                disabled={scheduleActionMutation.isPending}
+                disabled={
+                  scheduleActionMutation.isPending ||
+                  (scheduleAction?.action === 'cancel-refund' &&
+                    (!Number.isFinite(Number(refundAmount)) ||
+                      Number(refundAmount) <= 0 ||
+                      Number(refundAmount) > (scheduleAction.booking.payment?.amountPaid ?? 0)))
+                }
               >
                 {scheduleActionMutation.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
-                {actionCopy?.confirmLabel}
+                {scheduleAction?.action === 'cancel-refund' && Number(refundAmount) > 0
+                  ? `${actionCopy?.confirmLabel} ${preciseCurrency.format(Number(refundAmount))}`
+                  : actionCopy?.confirmLabel}
               </Button>
             </DialogFooter>
           </DialogContent>

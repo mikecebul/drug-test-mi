@@ -36,7 +36,11 @@ const commandSchema = z.discriminatedUnion('operation', [
   }),
   z.object({
     operation: z.literal('cancel-refund-booking'),
-    input: z.object({ bookingId: requiredId }),
+    input: z.object({
+      bookingId: requiredId,
+      operationId,
+      refundAmount: z.number().finite().positive(),
+    }),
   }),
   z.object({
     operation: z.literal('create-walk-in'),

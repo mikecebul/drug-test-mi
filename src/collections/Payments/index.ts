@@ -313,6 +313,38 @@ export const Payments: CollectionConfig = {
           index: true,
         },
         {
+          name: 'stripeRefundOperationId',
+          type: 'text',
+          index: true,
+          admin: {
+            readOnly: true,
+            description: 'Idempotency key for the most recent guided refund request.',
+          },
+        },
+        {
+          name: 'stripeRefundStatus',
+          type: 'select',
+          options: [
+            { label: 'Pending', value: 'pending' },
+            { label: 'Requires action', value: 'requires-action' },
+            { label: 'Succeeded', value: 'succeeded' },
+            { label: 'Failed', value: 'failed' },
+            { label: 'Cancelled', value: 'cancelled' },
+          ],
+          admin: {
+            readOnly: true,
+          },
+        },
+        {
+          name: 'pendingRefundAmount',
+          type: 'number',
+          min: 0,
+          admin: {
+            readOnly: true,
+            step: 1,
+          },
+        },
+        {
           name: 'stripeTerminalReaderId',
           type: 'text',
           index: true,

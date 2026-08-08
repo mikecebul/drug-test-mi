@@ -125,10 +125,24 @@ function command<T>(operation: string, input: Record<string, unknown>, signal?: 
 }
 
 export const guidedWorkflowApi = {
-  cancelBooking(input: { action: 'cancel' | 'cancel-refund'; bookingId: string }, signal?: AbortSignal) {
+  cancelBooking(
+    input: {
+      action: 'cancel' | 'cancel-refund'
+      bookingId: string
+      operationId?: string
+      refundAmount?: number
+    },
+    signal?: AbortSignal,
+  ) {
     return command<GuidedScheduleActionResult>(
       input.action === 'cancel-refund' ? 'cancel-refund-booking' : 'cancel-booking',
-      { bookingId: input.bookingId },
+      input.action === 'cancel-refund'
+        ? {
+            bookingId: input.bookingId,
+            operationId: input.operationId,
+            refundAmount: input.refundAmount,
+          }
+        : { bookingId: input.bookingId },
       signal,
     )
   },

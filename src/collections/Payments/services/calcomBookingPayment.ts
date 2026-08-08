@@ -214,6 +214,13 @@ export async function syncCalcomPrepaidBookingPayment(input: SyncCalcomPrepaidBo
     return existingPayment
   }
 
+  // Once a Stripe refund has been recorded, the ledger keeps the original gross
+  // payment amount and tracks refunds separately. Do not replace the gross amount
+  // with the booking's net amount on a later synchronization pass.
+  if (existingPayment && normalizeMoney(existingPayment.refundedAmount) > 0) {
+    return existingPayment
+  }
+
   const data = {
     ...(clientId ? { relatedClient: clientId } : {}),
     relatedBooking: bookingId,

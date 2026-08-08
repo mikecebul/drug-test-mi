@@ -181,14 +181,14 @@ async function markPaymentCancelled(input: { payload: Payload; paymentId: string
   })
 }
 
-async function findActiveGuidedTerminalPayments(payload: Payload, bookingId: string) {
+async function findActiveGuidedTerminalPayments(payload: Payload, readerId: string) {
   const result = await payload.find({
     collection: 'payments',
     where: {
       and: [
         {
-          relatedBooking: {
-            equals: bookingId,
+          stripeTerminalReaderId: {
+            equals: readerId,
           },
         },
         {
@@ -251,29 +251,30 @@ export async function startGuidedTerminalPayment(input: {
     return { success: false as const, error: 'Stripe is not configured.' }
   }
 
-  const stalePayments = await findActiveGuidedTerminalPayments(input.payload, input.bookingId)
-  for (const stalePayment of stalePayments) {
-    const cancellation = await cancelGuidedTerminalPayment({
-      payload: input.payload,
-      paymentId: String(stalePayment.id),
-    })
-    if (!cancellation.success) {
-      return {
-        success: false as const,
-        error:
-          cancellation.error ||
-          'A previous Terminal payment is still active. Cancel it before starting another payment.',
-        payment: cancellation.payment,
-      }
-    }
-  }
-
   const stripe = new Stripe(stripeSecretKey, {})
   let pendingPayment: Payment | null = null
   let paymentIntent: Stripe.PaymentIntent | null = null
+  let readerActionRequested = false
 
   try {
     const { location, reader } = await findGuidedTerminalReader(stripe)
+
+    const stalePayments = await findActiveGuidedTerminalPayments(input.payload, reader.id)
+    for (const stalePayment of stalePayments) {
+      const cancellation = await cancelGuidedTerminalPayment({
+        payload: input.payload,
+        paymentId: String(stalePayment.id),
+      })
+      if (!cancellation.success) {
+        return {
+          success: false as const,
+          error:
+            cancellation.error ||
+            'A previous Terminal payment is still active. Cancel it before starting another payment.',
+          payment: cancellation.payment,
+        }
+      }
+    }
 
     pendingPayment = (await input.payload.create({
       collection: 'payments',
@@ -326,6 +327,7 @@ export async function startGuidedTerminalPayment(input: {
       overrideAccess: true,
     })
 
+    readerActionRequested = true
     const processedReader = await stripe.terminal.readers.processPaymentIntent(reader.id, {
       payment_intent: paymentIntent.id,
     })
@@ -371,16 +373,61 @@ export async function startGuidedTerminalPayment(input: {
   } catch (error) {
     const failureMessage = error instanceof Error ? error.message : 'Unable to start the Terminal payment.'
 
+    if (pendingPayment && paymentIntent) {
+      const paymentIntentId = paymentIntent.id
+      const currentPaymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId).catch(() => null)
+
+      if (currentPaymentIntent?.status === 'succeeded') {
+        await reconcileSucceededGuidedTerminalPayment({
+          paymentIntent: currentPaymentIntent,
+          payload: input.payload,
+        })
+        const postedPayment = (await input.payload.findByID({
+          collection: 'payments',
+          id: pendingPayment.id,
+          depth: 0,
+          overrideAccess: true,
+        })) as Payment
+        return { success: true as const, payment: serializeGuidedTerminalPayment(postedPayment) }
+      }
+
+      if (readerActionRequested && currentPaymentIntent?.status !== 'canceled') {
+        const recoveringPayment = (await input.payload
+          .update({
+            collection: 'payments',
+            id: pendingPayment.id,
+            data: {
+              stripePaymentIntentId: paymentIntentId,
+              stripeTerminalStatus: 'in-progress',
+              stripeTerminalFailureMessage: null,
+            },
+            depth: 0,
+            overrideAccess: true,
+          })
+          .catch(() => ({
+            ...pendingPayment,
+            stripePaymentIntentId: paymentIntentId,
+            stripeTerminalStatus: 'in-progress' as const,
+          }))) as Payment
+
+        input.payload.logger.warn({
+          msg: `Terminal start response was interrupted for payment ${pendingPayment.id}; awaiting Stripe reconciliation`,
+          err: error instanceof Error ? error : new Error(String(error)),
+        })
+        return { success: true as const, payment: serializeGuidedTerminalPayment(recoveringPayment) }
+      }
+
+      if (currentPaymentIntent && currentPaymentIntent.status !== 'canceled') {
+        await stripe.paymentIntents.cancel(currentPaymentIntent.id).catch(() => undefined)
+      }
+    }
+
     if (pendingPayment) {
       await markPaymentFailed({
         failureMessage,
         payload: input.payload,
         paymentId: String(pendingPayment.id),
       }).catch(() => undefined)
-    }
-
-    if (paymentIntent && paymentIntent.status === 'requires_payment_method') {
-      await stripe.paymentIntents.cancel(paymentIntent.id).catch(() => undefined)
     }
 
     return { success: false as const, error: failureMessage }
@@ -559,7 +606,7 @@ export async function reconcileSucceededGuidedTerminalPayment(input: {
     })) as Payment
 
     if (payment.status === 'posted') return
-    if (payment.status === 'voided' || payment.status === 'refunded') {
+    if (payment.status === 'refunded' || (payment.status === 'voided' && payment.stripeTerminalStatus === 'succeeded')) {
       input.payload.logger.warn(`Ignoring succeeded Terminal PaymentIntent for ${payment.status} payment ${paymentId}`)
       return
     }
@@ -653,6 +700,8 @@ export async function reconcileSucceededGuidedTerminalPayment(input: {
       data: {
         stripeTerminalStatus: 'succeeded',
         stripeTerminalFailureMessage: null,
+        voidedAt: null,
+        voidReason: null,
       },
       depth: 0,
       overrideAccess: true,

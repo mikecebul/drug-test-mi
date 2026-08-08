@@ -2224,6 +2224,12 @@ export interface Payment {
   stripeCheckoutUrl?: string | null;
   paymentLinkEmailSentAt?: string | null;
   stripeRefundId?: string | null;
+  /**
+   * Idempotency key for the most recent guided refund request.
+   */
+  stripeRefundOperationId?: string | null;
+  stripeRefundStatus?: ('pending' | 'requires-action' | 'succeeded' | 'failed' | 'cancelled') | null;
+  pendingRefundAmount?: number | null;
   stripeTerminalReaderId?: string | null;
   stripeTerminalReaderLabel?: string | null;
   stripeTerminalLocationId?: string | null;
@@ -4145,6 +4151,9 @@ export interface PaymentsSelect<T extends boolean = true> {
   stripeCheckoutUrl?: T;
   paymentLinkEmailSentAt?: T;
   stripeRefundId?: T;
+  stripeRefundOperationId?: T;
+  stripeRefundStatus?: T;
+  pendingRefundAmount?: T;
   stripeTerminalReaderId?: T;
   stripeTerminalReaderLabel?: T;
   stripeTerminalLocationId?: T;

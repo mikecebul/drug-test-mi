@@ -274,7 +274,7 @@ describe('Stripe Terminal payment service', () => {
 
   test('cleans up a stale payment from a physical reader reset before starting a retry', async () => {
     vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_terminal')
-    const stalePayment = payment()
+    const stalePayment = payment({ relatedBooking: 'booking-from-previous-screen' })
     const retryPayment = payment({
       id: 'payment-2',
       stripePaymentIntentId: 'pi_retry',
@@ -337,6 +337,55 @@ describe('Stripe Terminal payment service', () => {
         id: 'payment-1',
         data: expect.objectContaining({ status: 'voided', stripeTerminalStatus: 'cancelled' }),
       }),
+    )
+    expect(payload.find).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          and: expect.arrayContaining([{ stripeTerminalReaderId: { equals: 'tmr_chx' } }]),
+        }),
+      }),
+    )
+  })
+
+  test('keeps the payment recoverable when the reader request has an ambiguous network failure', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_terminal')
+    const pendingPayment = payment({ stripeTerminalStatus: 'pending' })
+    stripeClient.terminal.locations.list.mockReturnValue({
+      autoPagingToArray: vi.fn().mockResolvedValue([{ id: 'tml_vault', display_name: 'The Vault' }]),
+    })
+    stripeClient.terminal.readers.list.mockReturnValue({
+      autoPagingToArray: vi.fn().mockResolvedValue([{ id: 'tmr_chx', label: 'Chx Desk', location: 'tml_vault' }]),
+    })
+    stripeClient.paymentIntents.create.mockResolvedValue({ id: 'pi_terminal', status: 'requires_payment_method' })
+    stripeClient.paymentIntents.retrieve.mockResolvedValue({ id: 'pi_terminal', status: 'requires_payment_method' })
+    stripeClient.terminal.readers.processPaymentIntent.mockRejectedValue(new Error('Connection reset'))
+    const update = vi.fn().mockImplementation(({ data }: { data: Partial<Payment> }) =>
+      Promise.resolve({ ...pendingPayment, ...data }),
+    )
+    const payload = {
+      create: vi.fn().mockResolvedValue(pendingPayment),
+      find: vi.fn().mockResolvedValue({ docs: [] }),
+      update,
+      logger: { warn: vi.fn() },
+    } as unknown as Payload
+
+    const result = await startGuidedTerminalPayment({
+      amount: 50,
+      bookingAmountDue: 50,
+      bookingBalanceDue: 50,
+      bookingId: 'booking-1',
+      clientId: 'client-1',
+      creditAmount: 0,
+      operationId: 'operation-ambiguous',
+      payload,
+      receiptEmail: 'client@example.com',
+    })
+
+    expect(result).toMatchObject({ success: true, payment: { id: 'payment-1', status: 'in-progress' } })
+    expect(stripeClient.paymentIntents.cancel).not.toHaveBeenCalled()
+    expect(update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'voided' }) }),
     )
   })
 
@@ -431,6 +480,55 @@ describe('Stripe Terminal payment service', () => {
     })
 
     expect(applyIncomingPayment).not.toHaveBeenCalled()
+  })
+
+  test('repairs a payment that was falsely voided before Stripe reported success', async () => {
+    const recoverablePayment = payment({
+      status: 'voided',
+      stripeTerminalStatus: 'failed',
+      stripeTerminalFailureMessage: 'Connection reset',
+      voidReason: 'Connection reset',
+    })
+    const booking = {
+      id: 'booking-1',
+      payment: { amountDue: 50, amountPaid: 0, status: 'unpaid' },
+    }
+    const update = vi.fn().mockImplementation(({ collection, data }: { collection: string; data: object }) =>
+      Promise.resolve(collection === 'payments' ? { ...recoverablePayment, ...data } : { ...booking, ...data }),
+    )
+    const payload = {
+      findByID: vi
+        .fn()
+        .mockImplementation(({ collection }: { collection: string }) =>
+          Promise.resolve(collection === 'payments' ? recoverablePayment : booking),
+        ),
+      update,
+      logger: { warn: vi.fn() },
+    } as unknown as Payload
+    getClientCreditBalance.mockResolvedValue(0)
+    applyIncomingPayment.mockResolvedValue({ reservedForBookingAmount: 50 })
+
+    await reconcileSucceededGuidedTerminalPayment({
+      payload,
+      paymentIntent: {
+        id: 'pi_terminal',
+        amount_received: 5000,
+        metadata: { integration: 'guided-terminal', paymentId: 'payment-1' },
+      } as unknown as Stripe.PaymentIntent,
+    })
+
+    expect(applyIncomingPayment).toHaveBeenCalledOnce()
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'payments',
+        id: 'payment-1',
+        data: expect.objectContaining({
+          stripeTerminalStatus: 'succeeded',
+          voidReason: null,
+          voidedAt: null,
+        }),
+      }),
+    )
   })
 
   test('voids a pending ledger entry when Stripe reports a failed PaymentIntent', async () => {
