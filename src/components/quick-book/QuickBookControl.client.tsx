@@ -7,7 +7,7 @@ import { Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/utilities/cn'
 import { FALLBACK_BOOKING_TEST_TYPES, formatPhoneForCal, type TestTypeBookingOption } from '@/lib/quick-book'
-import type { ClientGender } from '@/lib/client-gender'
+import { getCalcomBookingGender, type ClientGender } from '@/lib/client-gender'
 import { DRUG_TEST_CAL_LINK } from '@/utilities/calcom-config'
 
 type TestTypeOption = TestTypeBookingOption
@@ -79,8 +79,9 @@ export function QuickBookControl({
       test: selectedTestType.label,
       overlayCalendar: 'true',
     }
-    if (clientGender === 'male' || clientGender === 'female') {
-      config.gender = clientGender
+    const bookingGender = getCalcomBookingGender(clientGender)
+    if (bookingGender) {
+      config.gender = bookingGender
     }
 
     if (formattedPhone) {

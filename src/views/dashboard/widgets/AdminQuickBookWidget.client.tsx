@@ -17,6 +17,7 @@ import {
   type RecommendedTestType,
   type TestTypeBookingOption,
 } from '@/lib/quick-book'
+import { getCalcomBookingGender } from '@/lib/client-gender'
 import { sdk } from '@/lib/payload-sdk'
 import { DRUG_TEST_CAL_LINK, getAdminQuickBookCalLink } from '@/utilities/calcom-config'
 import { installCalModalStabilityPatch } from '@/utilities/calcom-modal-stability'
@@ -238,8 +239,9 @@ export function AdminQuickBookWidgetClient({
         email: client.email,
         test: selectedTestLabel,
       }
-      if (client.gender === 'male' || client.gender === 'female') {
-        config.gender = client.gender
+      const bookingGender = getCalcomBookingGender(client.gender)
+      if (bookingGender) {
+        config.gender = bookingGender
       }
 
       const formattedPhone = formatPhoneForCal(client.phone)
