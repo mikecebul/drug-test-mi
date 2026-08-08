@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Ban,
   Banknote,
+  Camera,
   CalendarClock,
   CalendarDays,
   CheckCircle2,
@@ -385,6 +386,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const [showAdditionalPayment, setShowAdditionalPayment] = useState(false)
   const [undoPaymentDialogOpen, setUndoPaymentDialogOpen] = useState(false)
   const [noPaymentDialogOpen, setNoPaymentDialogOpen] = useState(false)
+  const [noHeadshotDialogOpen, setNoHeadshotDialogOpen] = useState(false)
+  const headshotEditorRef = useRef<(() => void) | null>(null)
   const [verifiedClientMismatchKeys, setVerifiedClientMismatchKeys] = useState<Set<string>>(() => new Set())
   const [clientIdentityValidationErrorKey, setClientIdentityValidationErrorKey] = useState<string | null>(null)
   const [testTypeValidationErrorBookingId, setTestTypeValidationErrorBookingId] = useState<string | null>(null)
@@ -1040,7 +1043,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     }
   }
 
-  const handleReviewNext = () => {
+  const handleReviewNext = (confirmedNoHeadshot = false) => {
     if (!selectedBooking?.client?.id) {
       setBookingClientDrawerOpen(true)
       return
@@ -1051,6 +1054,10 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       return
     }
     if (!validateClientIdentity()) return
+    if (!confirmedNoHeadshot && !selectedBooking.client.headshot) {
+      setNoHeadshotDialogOpen(true)
+      return
+    }
 
     setPaymentDraft(getPaymentDefaults(selectedBooking))
     setQuery({ step: 'payment', bookingId: selectedBooking.id })
@@ -1373,8 +1380,25 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 referralTitle: selectedBooking.referral?.name || null,
               }}
               editable
+              onHeadshotCaptureReady={(openEditor) => {
+                headshotEditorRef.current = openEditor
+              }}
               onChangeClient={() => setBookingClientDrawerOpen(true)}
-              onClientUpdated={() => {
+              onClientUpdated={(updatedClient) => {
+                queryClient.setQueryData<Booking[]>(['guided', 'today-bookings'], (current) =>
+                  current?.map((booking) =>
+                    booking.id === selectedBooking.id && booking.client
+                      ? {
+                          ...booking,
+                          client: {
+                            ...booking.client,
+                            ...updatedClient,
+                            referralType: updatedClient.referralType ?? booking.client.referralType,
+                          },
+                        }
+                      : booking,
+                  ),
+                )
                 setPaymentDraft(null)
                 void refreshBookings()
                 void refetchReferralProfile()
@@ -2538,7 +2562,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               type="button"
               onClick={
                 currentStep === 'review' || currentStep === 'registration'
-                  ? handleReviewNext
+                  ? () => handleReviewNext()
                   : currentStep === 'payment'
                     ? () => handlePaymentNext()
                     : handleContinueToCollection
@@ -2611,6 +2635,41 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               ) : (
                 'Continue'
               )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={noHeadshotDialogOpen} onOpenChange={setNoHeadshotDialogOpen}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogMedia className="bg-destructive/10 text-destructive">
+              <TriangleAlert />
+            </AlertDialogMedia>
+            <AlertDialogTitle>Continue without a headshot?</AlertDialogTitle>
+            <AlertDialogDescription>No headshot is on file for this client.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel variant="outline">Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setNoHeadshotDialogOpen(false)
+                handleReviewNext(true)
+              }}
+            >
+              Continue
+            </Button>
+            <AlertDialogAction
+              type="button"
+              onClick={() => {
+                setNoHeadshotDialogOpen(false)
+                headshotEditorRef.current?.()
+              }}
+            >
+              <Camera className="size-4" />
+              Capture headshot
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
