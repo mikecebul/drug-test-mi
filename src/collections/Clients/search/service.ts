@@ -18,7 +18,16 @@ const SCAN_PAGE_SIZE = 500
 
 type SearchClient = Pick<
   Client,
-  'id' | 'firstName' | 'middleInitial' | 'lastName' | 'email' | 'dob' | 'phone' | 'headshot' | 'updatedAt'
+  | 'id'
+  | 'firstName'
+  | 'middleInitial'
+  | 'lastName'
+  | 'email'
+  | 'dob'
+  | 'phone'
+  | 'gender'
+  | 'headshot'
+  | 'updatedAt'
 > & {
   searchFirstName?: string | null
   searchMiddleInitial?: string | null
@@ -40,6 +49,7 @@ const searchSelect = {
   email: true,
   dob: true,
   phone: true,
+  gender: true,
   headshot: true,
   updatedAt: true,
   searchFirstName: true,
@@ -194,6 +204,7 @@ function toResult(
     email: client.email,
     dob: client.dob || undefined,
     phone: client.phone || undefined,
+    gender: client.gender || undefined,
     updatedAt: client.updatedAt || undefined,
     ...getHeadshot(client),
     matchType,

@@ -18,6 +18,7 @@ type SearchClient = {
   email: string
   dob: string | null
   phone: string | null
+  gender?: 'male' | 'female' | 'prefer-not-to-say' | null
   headshot: null
   updatedAt: string
 }
@@ -37,6 +38,7 @@ function createClient(id: string, overrides: Partial<SearchClient> = {}): Search
     email: `jane.${id}@example.com`,
     dob: '1988-11-30T00:00:00.000Z',
     phone: '(616) 222-9999',
+    gender: null,
     headshot: null,
     updatedAt: '2026-07-18T12:00:00.000Z',
     ...overrides,
@@ -97,6 +99,26 @@ describe('Fuse fallback ranking', () => {
 })
 
 describe('protected server-side client search', () => {
+  test('includes gender in results used by Quick Book', async () => {
+    const client = createClient('female', { gender: 'female' })
+    const payload = createSearchPayload(page([client]))
+
+    const result = await searchClientsForAdmin({
+      payload: payload as never,
+      req: { user: adminUser } as never,
+      input: { query: 'Jane Carter' },
+    })
+
+    expect(result.exactMatches).toEqual([
+      expect.objectContaining({ id: 'female', gender: 'female' }),
+    ])
+    expect(payload.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ gender: true }),
+      }),
+    )
+  })
+
   test('returns every duplicate exact-name match and does not choose one automatically', async () => {
     const firstJane = createClient('jane-1')
     const secondJane = createClient('jane-2', { email: 'other.jane@example.com' })

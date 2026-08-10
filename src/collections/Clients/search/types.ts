@@ -22,6 +22,7 @@ export interface ClientSearchResult {
   email: string
   dob?: string
   phone?: string
+  gender?: 'male' | 'female' | 'prefer-not-to-say'
   headshot?: string
   headshotId?: string
   updatedAt?: string
