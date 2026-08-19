@@ -1,8 +1,10 @@
 import { buildRedwoodDonorEditUrl } from '@/lib/redwood/donor-urls'
 import {
+  assertRedwoodDonorSaveResponse,
   createRedwoodHttpSession,
   getRedwoodFormEntry,
   parseRedwoodFormEntries,
+  readRedwoodHtmlAttributes,
   setRedwoodFormEntry,
 } from '@/lib/redwood/http'
 import {
@@ -13,12 +15,14 @@ import {
 import { formatDateForRedwood, mapGenderToRedwoodSex, normalizePhoneForRedwood } from '@/lib/redwood/client-fields'
 import { resolveRedwoodAuthEnv } from '@/lib/redwood/auth'
 import { getAllowedRedwoodAccountNumbers } from '@/lib/redwood/config'
+import { APP_TIMEZONE } from '@/lib/date-utils'
 import type { RedwoodClientUpdateField } from '@/lib/redwood/queue'
 import type { RedwoodDonorLookupClient } from '@/lib/redwood/donor-search'
 
 const DEFAULT_REDWOOD_DONOR_SEARCH_URL = 'https://toxaccess.redwoodtoxicology.com/Pages/User/DonorSearch.aspx'
 
 type RedwoodHttpUpdateClient = RedwoodDonorLookupClient & {
+  createdAt: string
   gender?: string | null
   id: string
   phone?: string | null
@@ -28,6 +32,67 @@ type RedwoodHttpUpdatePlanEntry = {
   expectedValue: string
   field: RedwoodClientUpdateField
   formName: string
+}
+
+const REDWOOD_INTAKE_DATE_FIELD = 'ctl00$PageContent$Donor$txtIntakeDate'
+
+function redwoodDateTimestamp(value: string): number | null {
+  if (!value.trim()) return null
+
+  try {
+    const formatted = formatDateForRedwood(value)
+    const match = formatted.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+    if (!match) return null
+
+    const [, month, day, year] = match
+    return Date.UTC(Number(year), Number(month) - 1, Number(day))
+  } catch {
+    return null
+  }
+}
+
+function formatClientRegistrationDateForRedwood(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid Payload client creation date: "${value}".`)
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone: APP_TIMEZONE,
+    year: 'numeric',
+  }).format(date)
+}
+
+export function resolveRedwoodIntakeDateRepair(args: {
+  clientCreatedAt: string
+  currentIntakeDate: string | undefined
+  expectedDob: string
+}): string | null {
+  const intakeTimestamp = redwoodDateTimestamp(args.currentIntakeDate || '')
+  const dobTimestamp = redwoodDateTimestamp(args.expectedDob)
+  const repairedIntakeDate = formatClientRegistrationDateForRedwood(args.clientCreatedAt)
+  const repairedTimestamp = redwoodDateTimestamp(repairedIntakeDate)
+  if (dobTimestamp === null || repairedTimestamp === null || repairedTimestamp < dobTimestamp) {
+    throw new Error('Payload client creation date cannot repair the invalid Redwood intake date for this DOB update.')
+  }
+
+  if (intakeTimestamp === repairedTimestamp) return null
+
+  return repairedIntakeDate
+}
+
+export function redwoodResponseHasValidationFailure(html: string, validatorId: string): boolean {
+  for (const match of html.matchAll(/<span\b[^>]*>/gi)) {
+    const attributes = readRedwoodHtmlAttributes(match[0])
+    if (attributes.id?.toLowerCase() !== validatorId.toLowerCase()) continue
+
+    if (!/display\s*:\s*none/i.test(attributes.style || '')) return true
+  }
+
+  const escapedValidatorId = validatorId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`${escapedValidatorId}\\.isvalid\\s*=\\s*["']false["']`, 'i').test(html)
 }
 
 function fieldValueForRedwood(client: RedwoodHttpUpdateClient, field: RedwoodClientUpdateField): string | null {
@@ -167,8 +232,16 @@ export async function updateRedwoodClientDetailsViaHttp(args: {
   const alreadySynced = plan.every(
     (entry) => normalizeSavedRedwoodValue(entry.field, getRedwoodFormEntry(editEntries, entry.formName)) === entry.expectedValue,
   )
+  const dobPlanEntry = plan.find((entry) => entry.field === 'dob')
+  const repairedIntakeDate = dobPlanEntry
+    ? resolveRedwoodIntakeDateRepair({
+        clientCreatedAt: client.createdAt,
+        currentIntakeDate: getRedwoodFormEntry(editEntries, REDWOOD_INTAKE_DATE_FIELD),
+        expectedDob: dobPlanEntry.expectedValue,
+      })
+    : null
 
-  if (alreadySynced) {
+  if (alreadySynced && !repairedIntakeDate) {
     return {
       accountNumber,
       callInCode: await readRedwoodCallInCodeViaHttp({ donorId, donorSearchUrl, session }),
@@ -180,13 +253,15 @@ export async function updateRedwoodClientDetailsViaHttp(args: {
   for (const entry of plan) {
     setRedwoodFormEntry(editEntries, entry.formName, entry.expectedValue)
   }
+  if (repairedIntakeDate) {
+    setRedwoodFormEntry(editEntries, REDWOOD_INTAKE_DATE_FIELD, repairedIntakeDate)
+  }
 
   setRedwoodFormEntry(editEntries, 'ctl00$PageContent$Donor$btnsave', 'Save')
   const saveResponse = await session.postFormData(editUrl, editEntries, { referer: editUrl })
-  const saveLocation = saveResponse.headers.get('location')
-  if (saveResponse.status !== 302 || !saveLocation || !/Donor\.aspx/i.test(saveLocation)) {
-    throw new Error(`Redwood donor direct HTTP save failed with status ${saveResponse.status}.`)
-  }
+  const saveHtmlPromise = saveResponse.clone().text().catch(() => '')
+  await assertRedwoodDonorSaveResponse(saveResponse, 'save')
+  const saveHtml = await saveHtmlPromise
 
   const verificationPage = await session.getText(editUrl)
   assertDonorEditPage(verificationPage.text, donorId)
@@ -196,6 +271,28 @@ export async function updateRedwoodClientDetailsViaHttp(args: {
     (entry) =>
       normalizeSavedRedwoodValue(entry.field, getRedwoodFormEntry(verificationEntries, entry.formName)) !== entry.expectedValue,
   )
+  const repairedIntakeDateFailed =
+    Boolean(repairedIntakeDate) &&
+    normalizeSavedRedwoodValue(
+      'dob',
+      getRedwoodFormEntry(verificationEntries, REDWOOD_INTAKE_DATE_FIELD),
+    ) !== repairedIntakeDate
+  const intakeValidationFailed = redwoodResponseHasValidationFailure(
+    saveHtml,
+    'PageContent_Donor_cvIntakeDate',
+  )
+
+  if ((failedFields.length > 0 || repairedIntakeDateFailed) && intakeValidationFailed) {
+    throw new Error(
+      `ToxAccess refused the donor update because Intake Date validation failed (submitted Intake Date: ${
+        repairedIntakeDate || getRedwoodFormEntry(editEntries, REDWOOD_INTAKE_DATE_FIELD) || 'blank'
+      }; submitted DOB: ${dobPlanEntry?.expectedValue || getRedwoodFormEntry(editEntries, 'ctl00$PageContent$Donor$txtDateofBirth') || 'blank'}).`,
+    )
+  }
+
+  if (repairedIntakeDateFailed) {
+    throw new Error('Redwood donor direct HTTP update could not verify the repaired intake date.')
+  }
 
   if (failedFields.length > 0) {
     throw new Error(

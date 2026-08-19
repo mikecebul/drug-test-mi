@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  assertRedwoodDonorSaveResponse,
   buildRedwoodLoginContinuationSubmission,
   buildRedwoodLoginSubmission,
   createRedwoodHttpSession,
   getRedwoodFormEntry,
   parseRedwoodFormEntries,
   redwoodHtmlContainsLoginForm,
+  setRedwoodPostbackSupportingFields,
   setRedwoodFormEntry,
 } from '@/lib/redwood/http'
 
@@ -57,6 +59,36 @@ afterEach(() => {
 })
 
 describe('redwood HTTP helpers', () => {
+  it('accepts both in-place and redirect donor save responses for read-back verification', async () => {
+    await expect(
+      assertRedwoodDonorSaveResponse(new Response('<html>Donor saved</html>', { status: 200 }), 'save'),
+    ).resolves.toBeUndefined()
+    await expect(
+      assertRedwoodDonorSaveResponse(
+        new Response(null, {
+          headers: { location: '/Pages/User/Donor.aspx?donorId=2714034' },
+          status: 302,
+        }),
+        'save',
+      ),
+    ).resolves.toBeUndefined()
+  })
+
+  it('rejects failed or unexpected donor save redirects', async () => {
+    await expect(
+      assertRedwoodDonorSaveResponse(new Response('<html>Server failure</html>', { status: 500 }), 'save'),
+    ).rejects.toThrow('Redwood donor direct HTTP save failed with status 500: Server failure')
+    await expect(
+      assertRedwoodDonorSaveResponse(
+        new Response(null, {
+          headers: { location: '/Pages/Public/Login.aspx' },
+          status: 302,
+        }),
+        'headshot save',
+      ),
+    ).rejects.toThrow('Redwood donor direct HTTP headshot save failed with status 302.')
+  })
+
   it('parses successful WebForms controls without submit buttons or unchecked radios', () => {
     const entries = parseRedwoodFormEntries(`
       <form enctype="multipart/form-data">
@@ -96,6 +128,20 @@ describe('redwood HTTP helpers', () => {
     ])
   })
 
+  it('fills the dynamic timezone fields that ToxAccess sets during browser form submission', () => {
+    const entries: [string, string][] = [
+      ['ctl00$hfLocalTime', ''],
+      ['ctl00$hfTimeZoneOffset', ''],
+      ['ctl00$PageContent$Donor$txtDateofBirth', '02/18/1978'],
+    ]
+
+    setRedwoodPostbackSupportingFields(entries)
+
+    expect(getRedwoodFormEntry(entries, 'ctl00$hfLocalTime')).toBeTruthy()
+    expect(getRedwoodFormEntry(entries, 'ctl00$hfTimeZoneOffset')).toBe(String(new Date().getTimezoneOffset()))
+    expect(getRedwoodFormEntry(entries, 'ctl00$PageContent$Donor$txtDateofBirth')).toBe('02/18/1978')
+  })
+
   it('discovers the current ToxAccess login controls instead of posting the retired button name', () => {
     const submission = buildRedwoodLoginSubmission(
       currentRedwoodLoginHtml,
@@ -113,7 +159,9 @@ describe('redwood HTTP helpers', () => {
     expect(getRedwoodFormEntry(submission.entries, 'ctl00$PageContent$Login1$BtnLoginMembership')).toBe('Login')
     expect(getRedwoodFormEntry(submission.entries, 'ctl00$PageContent$Login1$LoginButtonMembership')).toBeUndefined()
     expect(getRedwoodFormEntry(submission.entries, 'ctl00$PageContent$hfUserName')).toBe('worker-user')
-    expect(getRedwoodFormEntry(submission.entries, 'ctl00$PageContent$hfTimeZoneOffset')).toBe('0')
+    expect(getRedwoodFormEntry(submission.entries, 'ctl00$PageContent$hfTimeZoneOffset')).toBe(
+      String(new Date().getTimezoneOffset()),
+    )
   })
 
   it('falls back to control types and form order when ToxAccess renames controls and UI wording', () => {

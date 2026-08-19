@@ -174,6 +174,36 @@ describe('Redwood direct HTTP import workflow', () => {
     expect(queueRedwoodHeadshotUploadMock).toHaveBeenCalledWith('client-1', undefined, payloadMock)
   })
 
+  it('queues a headshot added while donor provisioning is in progress', async () => {
+    createRedwoodClientViaHttpMock.mockResolvedValue({
+      accountNumber: '310974',
+      callInCode: '123456',
+      donorId: '2714034',
+      matchedDonorName: null,
+      status: 'imported',
+    })
+    queueRedwoodHeadshotUploadMock.mockResolvedValue({ jobId: 'headshot-job-1' })
+    const payloadMock = createPayloadMock()
+    const initialClient = await payloadMock.findByID()
+    payloadMock.findByID.mockReset()
+    payloadMock.findByID
+      .mockResolvedValueOnce(initialClient)
+      .mockResolvedValueOnce({
+        ...initialClient,
+        headshot: 'media-added-during-provisioning',
+        redwoodHeadshotPushStatus: null,
+      })
+
+    await runRedwoodImportClientJob({
+      clientId: 'client-1',
+      payload: payloadMock as never,
+      source: 'frontend-registration',
+    })
+
+    expect(payloadMock.findByID).toHaveBeenCalledTimes(2)
+    expect(queueRedwoodHeadshotUploadMock).toHaveBeenCalledWith('client-1', undefined, payloadMock)
+  })
+
   it('queues removal of a stale managed default after donor verification', async () => {
     createRedwoodClientViaHttpMock.mockResolvedValue({
       accountNumber: '310974',

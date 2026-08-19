@@ -6,6 +6,7 @@ import sharp from 'sharp'
 import { fetchDocument, type FetchDocumentResult } from '@/collections/DrugTests/services/documentFetch'
 import { buildRedwoodDonorEditUrl } from '@/lib/redwood/donor-urls'
 import {
+  assertRedwoodDonorSaveResponse,
   createRedwoodHttpSession,
   parseRedwoodFormEntries,
   setRedwoodFormEntry,
@@ -117,10 +118,7 @@ export async function uploadClientHeadshotToRedwoodViaHttp(args: {
     files: [photoFile],
     referer: editUrl,
   })
-  const saveLocation = saveResponse.headers.get('location')
-  if (saveResponse.status !== 302 || !saveLocation || !/Donor\.aspx/i.test(saveLocation)) {
-    throw new Error(`Redwood donor direct HTTP headshot save failed with status ${saveResponse.status}.`)
-  }
+  await assertRedwoodDonorSaveResponse(saveResponse, 'headshot save')
 
   const verificationPage = await session.getText(editUrl)
   assertDonorEditPage(verificationPage.text, donorId)

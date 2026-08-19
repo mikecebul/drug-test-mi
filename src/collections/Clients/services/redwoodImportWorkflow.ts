@@ -83,18 +83,12 @@ async function queueRequiredDefaultTest(args: {
 }
 
 async function routeSuccessfulImport(args: {
-  client: Parameters<typeof resolveClientRedwoodEligibleDefaultTest>[0]['client'] & {
-    firstName: string
-    headshot?: unknown
-    lastName: string
-    redwoodHeadshotPushStatus?: unknown
-  }
   clientId: string
   payload: Payload
   result: RedwoodHttpImportedDonor
   source: string
 }): Promise<RedwoodImportResult> {
-  const { client, clientId, payload, result, source } = args
+  const { clientId, payload, result, source } = args
   const syncStatus =
     result.status === 'imported'
       ? 'synced'
@@ -112,6 +106,16 @@ async function routeSuccessfulImport(args: {
     redwoodLastError: null,
   })
 
+  // A headshot can be added while donor provisioning is still running. Read the
+  // client again after storing the donor ID so deferred post-registration work is
+  // based on the latest Payload state rather than the pre-provisioning snapshot.
+  const currentClient = await payload.findByID({
+    collection: 'clients',
+    id: clientId,
+    depth: 0,
+    overrideAccess: true,
+  })
+
   payload.logger.info({
     msg: '[redwood-import] Redwood donor is active and verified via direct HTTP',
     clientId,
@@ -124,12 +128,13 @@ async function routeSuccessfulImport(args: {
   })
 
   const headshotId =
-    typeof client.headshot === 'string'
-      ? client.headshot
-      : client.headshot && typeof client.headshot === 'object' && 'id' in client.headshot
-        ? String(client.headshot.id)
+    typeof currentClient.headshot === 'string'
+      ? currentClient.headshot
+      : currentClient.headshot && typeof currentClient.headshot === 'object' && 'id' in currentClient.headshot
+        ? String(currentClient.headshot.id)
         : ''
-  const headshotStatus = typeof client.redwoodHeadshotPushStatus === 'string' ? client.redwoodHeadshotPushStatus : ''
+  const headshotStatus =
+    typeof currentClient.redwoodHeadshotPushStatus === 'string' ? currentClient.redwoodHeadshotPushStatus : ''
   if (headshotId && !['queued', 'synced'].includes(headshotStatus)) {
     try {
       await queueRedwoodHeadshotUpload(clientId, undefined, payload)
@@ -143,7 +148,7 @@ async function routeSuccessfulImport(args: {
     }
   }
 
-  const defaultTestError = await queueRequiredDefaultTest({ client, clientId, payload, source })
+  const defaultTestError = await queueRequiredDefaultTest({ client: currentClient, clientId, payload, source })
   if (!defaultTestError) {
     return { status: syncStatus }
   }
@@ -222,7 +227,6 @@ export async function runRedwoodImportClientJob(args: {
     )
 
     return await routeSuccessfulImport({
-      client,
       clientId: String(client.id),
       payload,
       result,
