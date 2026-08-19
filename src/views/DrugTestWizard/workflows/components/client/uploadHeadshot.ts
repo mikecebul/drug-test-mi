@@ -41,14 +41,25 @@ function buildClientHeadshotAlt(client: {
   return 'Client headshot'
 }
 
+function extractRelationshipId(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value
+  if (value && typeof value === 'object' && 'id' in value) return String(value.id)
+  return null
+}
+
+function normalizeEmail(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
 export async function uploadHeadshot(
   clientId: string,
   headshotBuffer: number[],
   headshotMimetype: string,
   headshotName: string,
-  existingHeadshotId?: string | null,
+  expectedClientEmail: string,
 ): Promise<UploadHeadshotResult> {
   const payload = await getPayload({ config })
+  let existingHeadshotId: string | null = null
 
   try {
     const headersList = await headers()
@@ -59,7 +70,7 @@ export async function uploadHeadshot(
       payload.logger.error({
         msg: '[uploadHeadshot] Unauthorized upload attempt',
         clientId,
-        existingHeadshotId,
+        expectedClientEmail,
         userCollection: user?.collection,
       })
 
@@ -70,7 +81,7 @@ export async function uploadHeadshot(
         message: `Attempted headshot upload without admin authentication. Client: ${clientId}`,
         context: {
           clientId,
-          existingHeadshotId,
+          expectedClientEmail,
           userCollection: user?.collection,
           userId: user?.id,
         },
@@ -83,7 +94,14 @@ export async function uploadHeadshot(
       }
     }
 
-    if (!clientId || !headshotName || !headshotMimetype || !Array.isArray(headshotBuffer) || headshotBuffer.length === 0) {
+    if (
+      !clientId ||
+      !normalizeEmail(expectedClientEmail) ||
+      !headshotName ||
+      !headshotMimetype ||
+      !Array.isArray(headshotBuffer) ||
+      headshotBuffer.length === 0
+    ) {
       return {
         success: false,
         error: 'Missing required upload parameters',
@@ -122,6 +140,38 @@ export async function uploadHeadshot(
       depth: 0,
       overrideAccess: true,
     })
+    const actualClientEmail = normalizeEmail(client?.email)
+    if (actualClientEmail !== normalizeEmail(expectedClientEmail)) {
+      const errorMsg = 'The selected client changed before the headshot was saved. Reopen the client and try again.'
+
+      payload.logger.error({
+        msg: '[uploadHeadshot] Refused headshot upload because client identity did not match',
+        clientId,
+        expectedClientEmail,
+        actualClientEmail,
+        adminId: String(user.id),
+      })
+      await createAdminAlert(payload, {
+        severity: 'high',
+        alertType: 'data-integrity',
+        title: `Prevented headshot assignment to the wrong client ${clientId}`,
+        message: errorMsg,
+        context: {
+          clientId,
+          expectedClientEmail,
+          actualClientEmail,
+          adminId: String(user.id),
+        },
+      })
+
+      return {
+        success: false,
+        error: errorMsg,
+        errorCode: 'CLIENT_MISMATCH',
+      }
+    }
+
+    existingHeadshotId = extractRelationshipId(client?.headshot)
     const altText = buildClientHeadshotAlt(client ?? {})
 
     payload.logger.info({
@@ -166,7 +216,7 @@ export async function uploadHeadshot(
           overrideAccess: true,
         })
 
-    await payload.update({
+    const updatedClient = await payload.update({
       collection: 'clients',
       id: clientId,
       data: {
@@ -180,6 +230,12 @@ export async function uploadHeadshot(
     })
 
     const headshotId = String(mediaDoc.id)
+    const linkedHeadshotId = extractRelationshipId(updatedClient?.headshot)
+    if (linkedHeadshotId !== headshotId) {
+      throw new Error(
+        `Payload did not persist headshot ${headshotId} on client ${clientId}; saved relationship was ${linkedHeadshotId || 'empty'}.`,
+      )
+    }
 
     try {
       await queueRedwoodHeadshotUpload(clientId, String(user.id), payload)
@@ -208,8 +264,7 @@ export async function uploadHeadshot(
           msg: '[uploadHeadshot] Failed to re-fetch media URL after upload',
           clientId,
           headshotId,
-          refetchError:
-            refetchError instanceof Error ? refetchError.message : String(refetchError),
+          refetchError: refetchError instanceof Error ? refetchError.message : String(refetchError),
         })
       }
     }

@@ -63,6 +63,8 @@ describe('uploadHeadshot', () => {
     payloadMock.findByID.mockResolvedValue({
       id: 'client-1',
       firstName: 'John',
+      email: 'john@example.com',
+      headshot: null,
       middleInitial: 'Q',
       lastName: 'Public',
     })
@@ -71,7 +73,7 @@ describe('uploadHeadshot', () => {
   it('returns UNAUTHORIZED when caller is not an admin', async () => {
     payloadMock.auth.mockResolvedValue({ user: null })
 
-    const result = await uploadHeadshot('client-1', [1, 2, 3], 'image/jpeg', 'headshot.jpg')
+    const result = await uploadHeadshot('client-1', [1, 2, 3], 'image/jpeg', 'headshot.jpg', 'john@example.com')
 
     expect(result.success).toBe(false)
     expect(result.errorCode).toBe('UNAUTHORIZED')
@@ -79,7 +81,7 @@ describe('uploadHeadshot', () => {
   })
 
   it('returns INVALID_INPUT for missing parameters', async () => {
-    const result = await uploadHeadshot('', [], 'image/jpeg', '')
+    const result = await uploadHeadshot('', [], 'image/jpeg', '', '')
 
     expect(result.success).toBe(false)
     expect(result.errorCode).toBe('INVALID_INPUT')
@@ -90,7 +92,7 @@ describe('uploadHeadshot', () => {
   it('returns PAYLOAD_TOO_LARGE for oversized buffers', async () => {
     const oversizedBuffer = new Array(10 * 1024 * 1024 + 1) as number[]
 
-    const result = await uploadHeadshot('client-1', oversizedBuffer, 'image/jpeg', 'headshot.jpg')
+    const result = await uploadHeadshot('client-1', oversizedBuffer, 'image/jpeg', 'headshot.jpg', 'john@example.com')
 
     expect(result.success).toBe(false)
     expect(result.errorCode).toBe('PAYLOAD_TOO_LARGE')
@@ -99,12 +101,36 @@ describe('uploadHeadshot', () => {
   })
 
   it('returns INVALID_INPUT for invalid byte values in headshot buffer', async () => {
-    const result = await uploadHeadshot('client-1', [1, -2, 260], 'image/jpeg', 'headshot.jpg')
+    const result = await uploadHeadshot('client-1', [1, -2, 260], 'image/jpeg', 'headshot.jpg', 'john@example.com')
 
     expect(result.success).toBe(false)
     expect(result.errorCode).toBe('INVALID_INPUT')
     expect(payloadMock.create).not.toHaveBeenCalled()
     expect(payloadMock.update).not.toHaveBeenCalled()
+  })
+
+  it('refuses to save when the requested client ID does not match the rendered client identity', async () => {
+    const result = await uploadHeadshot(
+      'client-1',
+      [1, 2, 3],
+      'image/jpeg',
+      'headshot.jpg',
+      'different-client@example.com',
+    )
+
+    expect(result).toMatchObject({
+      success: false,
+      errorCode: 'CLIENT_MISMATCH',
+    })
+    expect(payloadMock.create).not.toHaveBeenCalled()
+    expect(payloadMock.update).not.toHaveBeenCalled()
+    expect(vi.mocked(createAdminAlert)).toHaveBeenCalledWith(
+      payloadMock,
+      expect.objectContaining({
+        alertType: 'data-integrity',
+        severity: 'high',
+      }),
+    )
   })
 
   it('creates a new private-media headshot and links it to the client', async () => {
@@ -113,9 +139,9 @@ describe('uploadHeadshot', () => {
       thumbnailURL: '/media/thumb.jpg',
       url: '/media/full.jpg',
     })
-    payloadMock.update.mockResolvedValue({ id: 'client-1' })
+    payloadMock.update.mockResolvedValue({ id: 'client-1', headshot: 'media-1' })
 
-    const result = await uploadHeadshot('client-1', [1, 2, 3], 'image/jpeg', 'headshot.jpg')
+    const result = await uploadHeadshot('client-1', [1, 2, 3], 'image/jpeg', 'headshot.jpg', 'john@example.com')
 
     expect(result).toEqual({
       success: true,
@@ -149,11 +175,13 @@ describe('uploadHeadshot', () => {
       thumbnailURL: null,
       url: null,
     })
-    payloadMock.update.mockResolvedValue({ id: 'client-1' })
+    payloadMock.update.mockResolvedValue({ id: 'client-1', headshot: 'media-2' })
     payloadMock.findByID
       .mockResolvedValueOnce({
         id: 'client-1',
+        email: 'john@example.com',
         firstName: 'John',
+        headshot: null,
         middleInitial: 'Q',
         lastName: 'Public',
       })
@@ -163,7 +191,7 @@ describe('uploadHeadshot', () => {
         url: '/media/refetched-full.jpg',
       })
 
-    const result = await uploadHeadshot('client-1', [1, 2, 3], 'image/jpeg', 'headshot.jpg')
+    const result = await uploadHeadshot('client-1', [1, 2, 3], 'image/jpeg', 'headshot.jpg', 'john@example.com')
 
     expect(result).toEqual({
       success: true,
@@ -179,22 +207,24 @@ describe('uploadHeadshot', () => {
     )
   })
 
-  it('updates an existing private-media headshot when existingHeadshotId is provided', async () => {
+  it('updates the private-media headshot currently linked to the verified client', async () => {
+    payloadMock.findByID.mockResolvedValueOnce({
+      id: 'client-1',
+      email: 'john@example.com',
+      firstName: 'John',
+      headshot: 'media-9',
+      middleInitial: 'Q',
+      lastName: 'Public',
+    })
     payloadMock.update
       .mockResolvedValueOnce({
         id: 'media-9',
         thumbnailURL: '/media/replaced-thumb.jpg',
         url: '/media/replaced.jpg',
       })
-      .mockResolvedValueOnce({ id: 'client-1' })
+      .mockResolvedValueOnce({ id: 'client-1', headshot: 'media-9' })
 
-    const result = await uploadHeadshot(
-      'client-1',
-      [1, 2, 3],
-      'image/jpeg',
-      'replacement.jpg',
-      'media-9',
-    )
+    const result = await uploadHeadshot('client-1', [1, 2, 3], 'image/jpeg', 'replacement.jpg', 'john@example.com')
 
     expect(result).toEqual({
       success: true,
@@ -232,10 +262,10 @@ describe('uploadHeadshot', () => {
       thumbnailURL: '/media/thumb.jpg',
       url: '/media/full.jpg',
     })
-    payloadMock.update.mockResolvedValue({ id: 'client-1' })
+    payloadMock.update.mockResolvedValue({ id: 'client-1', headshot: 'media-1' })
     vi.mocked(queueRedwoodHeadshotUpload).mockRejectedValueOnce(new Error('queue unavailable'))
 
-    const result = await uploadHeadshot('client-1', [1, 2, 3], 'image/jpeg', 'headshot.jpg')
+    const result = await uploadHeadshot('client-1', [1, 2, 3], 'image/jpeg', 'headshot.jpg', 'john@example.com')
 
     expect(result).toEqual({
       success: true,
@@ -251,10 +281,29 @@ describe('uploadHeadshot', () => {
     )
   })
 
+  it('does not report success when Payload fails to persist the client relationship', async () => {
+    payloadMock.create.mockResolvedValue({
+      id: 'media-1',
+      thumbnailURL: '/media/thumb.jpg',
+      url: '/media/full.jpg',
+    })
+    payloadMock.update.mockResolvedValue({ id: 'client-1', headshot: null })
+
+    const result = await uploadHeadshot('client-1', [1, 2, 3], 'image/jpeg', 'headshot.jpg', 'john@example.com')
+
+    expect(result).toMatchObject({
+      success: false,
+      errorCode: 'UPLOAD_FAILED',
+    })
+    expect(result.error).toContain('did not persist headshot media-1 on client client-1')
+    expect(queueRedwoodHeadshotUpload).not.toHaveBeenCalled()
+    expect(vi.mocked(createAdminAlert)).toHaveBeenCalledOnce()
+  })
+
   it('returns UPLOAD_FAILED and creates an admin alert when upload throws', async () => {
     payloadMock.create.mockRejectedValue(new Error('upload boom'))
 
-    const result = await uploadHeadshot('client-1', [1, 2, 3], 'image/jpeg', 'headshot.jpg')
+    const result = await uploadHeadshot('client-1', [1, 2, 3], 'image/jpeg', 'headshot.jpg', 'john@example.com')
 
     expect(result.success).toBe(false)
     expect(result.errorCode).toBe('UPLOAD_FAILED')
