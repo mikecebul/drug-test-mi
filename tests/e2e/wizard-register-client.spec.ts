@@ -200,4 +200,60 @@ test.describe('Wizard Register Client', () => {
     createdClientEmails.push(email)
     expect(await findClientByEmail(email)).not.toBeNull()
   })
+
+  test('saves an immediate post-registration headshot to the newly registered client', async ({ page }) => {
+    const email = uniqueEmail('wizard-immediate-headshot')
+    const uniqueSuffix = Date.now().toString(36)
+
+    await test.step('register the client', async () => {
+      await fillPersonalInfo(page, {
+        firstName: 'Headshot',
+        lastName: `Registrant${uniqueSuffix}`,
+        phone: '2485555656',
+      })
+      await clickNext(page)
+      await fillAccountInfo(page, email)
+      await clickNext(page)
+
+      await page.getByRole('radio', { name: /Self/i }).check()
+      await clickNext(page)
+      await clickNext(page)
+
+      await page.getByLabel(/I confirm the client has been informed and consents to testing/i).check()
+      await page.getByRole('button', { name: /Register Client/i }).click()
+
+      await expect(page.getByRole('heading', { name: 'Registration Complete' })).toBeVisible({ timeout: 20_000 })
+      createdClientEmails.push(email)
+    })
+
+    await test.step('capture and save the prompted headshot', async () => {
+      const portraitSvg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
+          <rect width="800" height="800" fill="#dbeafe" />
+          <circle cx="400" cy="270" r="150" fill="#2563eb" />
+          <rect x="175" y="445" width="450" height="300" rx="150" fill="#1e40af" />
+        </svg>
+      `
+
+      await page.getByLabel('Choose headshot image').setInputFiles({
+        name: 'new-client-headshot.svg',
+        mimeType: 'image/svg+xml',
+        buffer: Buffer.from(portraitSvg),
+      })
+
+      const cropDialog = page.getByRole('dialog', { name: 'Crop Headshot' })
+      await expect(cropDialog).toBeVisible()
+      await cropDialog.getByRole('button', { name: 'Apply Crop' }).click()
+      await expect(page.getByText('Headshot uploaded successfully')).toBeVisible({ timeout: 20_000 })
+    })
+
+    await test.step('verify Payload linked the media to that exact client', async () => {
+      await expect
+        .poll(async () => {
+          const client = await findClientByEmail(email)
+          return typeof client?.headshot === 'string' ? client.headshot : null
+        })
+        .not.toBeNull()
+    })
+  })
 })

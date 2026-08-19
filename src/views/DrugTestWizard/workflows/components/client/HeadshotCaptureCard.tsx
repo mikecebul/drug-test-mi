@@ -29,6 +29,7 @@ interface HeadshotCaptureCardProps {
     headshotId?: string | null
     phone?: string | null
   }
+  expectedClientEmail?: string
   onHeadshotLinked?: (url: string, docId: string) => void
 }
 
@@ -39,7 +40,11 @@ const PAYLOAD_TOO_LARGE_MESSAGE = 'Image too large after processing; retry with 
  * Client card with custom camera/upload + crop flow for iPad-friendly headshot updates.
  * The cropped image is uploaded immediately and linked to the client record.
  */
-export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptureCardProps) {
+export function HeadshotCaptureCard({
+  client,
+  expectedClientEmail = client.email,
+  onHeadshotLinked,
+}: HeadshotCaptureCardProps) {
   const [localHeadshot, setLocalHeadshot] = useState<{
     clientId: string
     id?: string
@@ -174,7 +179,7 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
         Array.from(new Uint8Array(arrayBuffer)),
         croppedFile.type,
         croppedFile.name,
-        currentHeadshotId,
+        expectedClientEmail,
       )
 
       if (!result.success || !result.id) {
@@ -213,6 +218,7 @@ export function HeadshotCaptureCard({ client, onHeadshotLinked }: HeadshotCaptur
     crop,
     completedCrop,
     currentHeadshotId,
+    expectedClientEmail,
     onHeadshotLinked,
     originalFileName,
     resetCropState,

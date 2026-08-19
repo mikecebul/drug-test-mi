@@ -329,6 +329,7 @@ export function ClientDetailsCard({
                   headshot: headshotDraft.headshot,
                   headshotId: headshotDraft.headshotId,
                 }}
+                expectedClientEmail={client.email}
                 onHeadshotLinked={applyHeadshot}
               />
 
