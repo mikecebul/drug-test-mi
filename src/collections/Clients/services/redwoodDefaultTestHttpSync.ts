@@ -1,5 +1,6 @@
 import { buildRedwoodDonorEditUrl } from '@/lib/redwood/donor-urls'
 import {
+  assertRedwoodDonorSaveResponse,
   createRedwoodHttpSession,
   getRedwoodFormEntry,
   parseRedwoodFormEntries,
@@ -327,13 +328,7 @@ export async function syncClientDefaultLabTestInRedwoodViaHttp(args: {
 
   setRedwoodFormEntry(plan.entries, REDWOOD_DONOR_SAVE_BUTTON, 'Save')
   const saveResponse = await session.postFormData(editUrl, plan.entries, { referer: editUrl })
-  const saveLocation = saveResponse.headers.get('location')
-  if (saveResponse.status !== 302 || !saveLocation || !/Donor\.aspx/i.test(saveLocation)) {
-    const body = await saveResponse.text().catch(() => '')
-    throw new Error(
-      `Redwood donor direct HTTP default-test save failed with status ${saveResponse.status}: ${stripRedwoodHtml(body).slice(0, 500)}`,
-    )
-  }
+  await assertRedwoodDonorSaveResponse(saveResponse, 'default-test save')
 
   const verificationPage = await session.getText(editUrl)
   assertDefaultTestEditPage(verificationPage.text, donorId)
@@ -389,13 +384,7 @@ export async function clearClientDefaultLabTestInRedwoodViaHttp(args: {
 
   setRedwoodFormEntry(plan.entries, REDWOOD_DONOR_SAVE_BUTTON, 'Save')
   const saveResponse = await session.postFormData(editUrl, plan.entries, { referer: editUrl })
-  const saveLocation = saveResponse.headers.get('location')
-  if (saveResponse.status !== 302 || !saveLocation || !/Donor\.aspx/i.test(saveLocation)) {
-    const body = await saveResponse.text().catch(() => '')
-    throw new Error(
-      `Redwood donor direct HTTP default-test clear failed with status ${saveResponse.status}: ${stripRedwoodHtml(body).slice(0, 500)}`,
-    )
-  }
+  await assertRedwoodDonorSaveResponse(saveResponse, 'default-test clear')
 
   const verificationPage = await session.getText(editUrl)
   assertDefaultTestEditPage(verificationPage.text, donorId)

@@ -70,6 +70,7 @@ export async function runRedwoodClientUpdateJob(
 
     const result = await updateRedwoodClientDetailsViaHttp({
       client: {
+        createdAt: client.createdAt,
         id: String(client.id),
         firstName: client.firstName,
         lastName: client.lastName,

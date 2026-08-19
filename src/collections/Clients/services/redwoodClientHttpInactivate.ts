@@ -1,10 +1,10 @@
 import { buildRedwoodDonorEditUrl } from '@/lib/redwood/donor-urls'
 import type { RedwoodDonorLookupClient } from '@/lib/redwood/donor-search'
 import {
+  assertRedwoodDonorSaveResponse,
   createRedwoodHttpSession,
   parseRedwoodFormEntries,
   setRedwoodFormEntry,
-  stripRedwoodHtml,
 } from '@/lib/redwood/http'
 import {
   assertRedwoodDonorAccountAllowed,
@@ -118,13 +118,7 @@ export async function setRedwoodClientActiveStatusViaHttp(args: {
 
   setRedwoodFormEntry(plan.entries, REDWOOD_DONOR_SAVE_BUTTON, 'Save')
   const saveResponse = await session.postFormData(editUrl, plan.entries, { referer: editUrl })
-  const saveLocation = saveResponse.headers.get('location')
-  if (saveResponse.status !== 302 || !saveLocation || !/Donor\.aspx/i.test(saveLocation)) {
-    const body = await saveResponse.text().catch(() => '')
-    throw new Error(
-      `Redwood donor direct HTTP active-status save failed with status ${saveResponse.status}: ${stripRedwoodHtml(body).slice(0, 500)}`,
-    )
-  }
+  await assertRedwoodDonorSaveResponse(saveResponse, 'active-status save')
 
   const verificationPage = await session.getText(editUrl)
   assertDonorEditPage(verificationPage.text, donorId)

@@ -77,6 +77,26 @@ export function stripRedwoodHtml(value: string): string {
   )
 }
 
+export async function assertRedwoodDonorSaveResponse(response: Response, operation: string): Promise<void> {
+  const location = response.headers.get('location')
+  const redirectedToDonorPage =
+    response.status >= 300 && response.status < 400 && Boolean(location && /Donor\.aspx/i.test(location))
+
+  // ToxAccess may either redirect after a successful WebForms postback or render
+  // the donor page in-place with a 2xx response. The caller must still verify the
+  // persisted state after either response shape.
+  if (response.ok || redirectedToDonorPage) {
+    await response.arrayBuffer().catch(() => undefined)
+    return
+  }
+
+  const body = await response.text().catch(() => '')
+  const summary = stripRedwoodHtml(body).slice(0, 500)
+  throw new Error(
+    `Redwood donor direct HTTP ${operation} failed with status ${response.status}${summary ? `: ${summary}` : '.'}`,
+  )
+}
+
 export function readRedwoodHtmlAttributes(tag: string): Record<string, string> {
   const attributes: Record<string, string> = {}
   const attributeRegex = /([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g
@@ -246,21 +266,28 @@ function buildRedwoodLoginForm(html: string, pageUrl: string): RedwoodLoginForm 
   }
 }
 
-function setRedwoodLoginSupportingFields(
+export function setRedwoodPostbackSupportingFields(
   entries: RedwoodFormEntry[],
-  controls: RedwoodHtmlControl[],
-  username: string,
+  options: {
+    controls?: RedwoodHtmlControl[]
+    username?: string
+  } = {},
 ): void {
-  for (const control of controls) {
-    if (control.tag !== 'input' || control.type !== 'hidden') continue
+  const now = new Date()
+  const controlsByName = new Map((options.controls || []).map((control) => [control.name, control]))
 
-    const identity = `${control.name} ${control.attributes.id || ''}`
+  for (const entry of entries) {
+    const [name] = entry
+    const control = controlsByName.get(name)
+    if (control && (control.tag !== 'input' || control.type !== 'hidden')) continue
+
+    const identity = `${name} ${control?.attributes.id || ''}`
     if (/timezoneoffset/i.test(identity)) {
-      setRedwoodFormEntry(entries, control.name, '0')
+      entry[1] = String(now.getTimezoneOffset())
     } else if (/localtime/i.test(identity)) {
-      setRedwoodFormEntry(entries, control.name, new Date().toUTCString())
-    } else if (/username/i.test(identity)) {
-      setRedwoodFormEntry(entries, control.name, username)
+      entry[1] = now.toString()
+    } else if (options.username && /username/i.test(identity)) {
+      entry[1] = options.username
     }
   }
 }
@@ -276,7 +303,10 @@ export function buildRedwoodLoginSubmission(
   setRedwoodFormEntry(entries, form.usernameControl.name, credentials.username)
   setRedwoodFormEntry(entries, form.passwordControl.name, credentials.password)
   setRedwoodFormEntry(entries, form.submitControl.name, form.submitControl.value)
-  setRedwoodLoginSupportingFields(entries, form.controls, credentials.username)
+  setRedwoodPostbackSupportingFields(entries, {
+    controls: form.controls,
+    username: credentials.username,
+  })
 
   return {
     actionUrl: form.actionUrl,
@@ -318,7 +348,10 @@ export function buildRedwoodLoginContinuationSubmission(
   const entries = form.entries
   setRedwoodFormEntry(entries, continuation.control.name, continuation.control.value)
   if (username) {
-    setRedwoodLoginSupportingFields(entries, form.controls, username)
+    setRedwoodPostbackSupportingFields(entries, {
+      controls: form.controls,
+      username,
+    })
   }
 
   return {
@@ -504,6 +537,7 @@ export async function createRedwoodHttpSession(auth: RedwoodHttpAuth): Promise<R
     entries: RedwoodFormEntry[],
     options?: { referer?: string },
   ): Promise<Response> => {
+    setRedwoodPostbackSupportingFields(entries)
     return await redwoodRequest(jar, url, {
       body: new URLSearchParams(entries),
       headers: {
@@ -523,6 +557,7 @@ export async function createRedwoodHttpSession(auth: RedwoodHttpAuth): Promise<R
       referer?: string
     },
   ): Promise<Response> => {
+    setRedwoodPostbackSupportingFields(entries)
     return await redwoodRequest(jar, url, {
       body: redwoodFormEntriesToFormData(entries, options?.files),
       headers: {
