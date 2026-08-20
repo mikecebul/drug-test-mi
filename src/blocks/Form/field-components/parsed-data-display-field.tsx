@@ -52,11 +52,27 @@ export default function ParsedDataDisplayField({ data, showRawText = true }: Par
         <ConfidenceIcon className="" />
         <AlertTitle className={confidence.titleColor}>
           Extracted with {data.confidence.toUpperCase()} Confidence
+          {typeof data.confidenceScore === 'number' ? ` (${data.confidenceScore}%)` : ''}
         </AlertTitle>
         <AlertDescription>
-          <p>Successfully extracted test data from the PDF. Please review the information below before proceeding.</p>
+          <p>Please review the extracted information before proceeding.</p>
+          {data.confidenceReasons && data.confidenceReasons.length > 0 && (
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {data.confidenceReasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          )}
         </AlertDescription>
       </Alert>
+
+      {data.parseWarnings?.map((warning) => (
+        <Alert key={warning} variant="warning">
+          <AlertTriangle />
+          <AlertTitle>Manual verification required</AlertTitle>
+          <AlertDescription>{warning}</AlertDescription>
+        </Alert>
+      ))}
 
       <Card>
         <CardHeader>
@@ -118,6 +134,11 @@ export default function ParsedDataDisplayField({ data, showRawText = true }: Par
                     ))}
                   </div>
                 </div>
+              ) : data.resultsComplete === false ? (
+                <Badge variant="warning" className="gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  Results Incomplete - Review PDF
+                </Badge>
               ) : (
                 <Badge variant="default" className="gap-1 bg-green-600">
                   <CheckCircle2 className="h-3 w-3" />

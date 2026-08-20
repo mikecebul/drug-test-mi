@@ -44,5 +44,11 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      // PDF parsing runs on the server, but the upload/server-action workflow
+      // still needs coverage against Safari's browser engine.
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
   ],
 })

@@ -19,7 +19,10 @@ import {
 let fixtures: FixtureContext
 
 async function ensureMatchSelected(page: Page) {
-  const headingPattern = new RegExp(`${fixtures.clients.labConfirm.firstName}\\s+.*${fixtures.clients.labConfirm.lastName}`, 'i')
+  const headingPattern = new RegExp(
+    `${fixtures.clients.labConfirm.firstName}\\s+.*${fixtures.clients.labConfirm.lastName}`,
+    'i',
+  )
   const candidateHeading = page.getByRole('heading', { name: headingPattern }).first()
   await expect(candidateHeading).toBeVisible({ timeout: 20_000 })
 
@@ -37,7 +40,7 @@ test.describe('Wizard Lab Confirmation Workflow', () => {
 
   test.beforeAll(async () => {
     fixtures = await seedFixtures()
-    const env = getE2EEnv()
+    const env = getE2EEnv({ pdfs: ['labScreen', 'labConfirm'] })
     if (env.enableMailpitAssertions) {
       await ensureMailpitReachable(env.mailpitApiBase)
     }
@@ -53,8 +56,10 @@ test.describe('Wizard Lab Confirmation Workflow', () => {
     await selectWorkflow(page, 'Enter Lab Confirmation Data')
   })
 
-  test('validates upload/match/confirmation-result-required branches with back-forward navigation', async ({ page }) => {
-    const env = getE2EEnv()
+  test('validates upload/match/confirmation-result-required branches with back-forward navigation', async ({
+    page,
+  }) => {
+    const env = getE2EEnv({ pdfs: ['labScreen'] })
 
     await clickNext(page)
     await expect(page.getByText('Please upload a PDF file')).toBeVisible()
@@ -86,14 +91,18 @@ test.describe('Wizard Lab Confirmation Workflow', () => {
     await expect(page.getByText('Enter Confirmation Results')).toBeVisible()
   })
 
-  test('submits lab-confirmation workflow, completes test, and verifies final-result emails with attachment', async ({ page }) => {
-    const env = getE2EEnv()
+  test('submits lab-confirmation workflow, completes test, and verifies final-result emails with attachment', async ({
+    page,
+  }) => {
+    const env = getE2EEnv({ pdfs: ['labConfirm'] })
 
     await uploadSinglePdf(page, env.pdfLabConfirmPath)
     await clickNext(page)
     await waitForExtractStepReady(page, {
       readyHeadings: [/Confirmation Data Extracted/i],
     })
+    await expect(page.getByText(/Extracted with (HIGH|MEDIUM) Confidence/i)).toBeVisible()
+    await expect(page.getByText(/Confirmed (Positive|Negative)/i).first()).toBeVisible()
     await clickNext(page)
     await ensureMatchSelected(page)
     await clickNext(page)
@@ -107,7 +116,9 @@ test.describe('Wizard Lab Confirmation Workflow', () => {
     const testStart = new Date()
     await page.getByRole('button', { name: /^Update Test Record$/i }).click()
 
-    await expect(page.getByRole('heading', { name: 'Drug Test Created Successfully!' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('heading', { name: 'Drug Test Created Successfully!' })).toBeVisible({
+      timeout: 30_000,
+    })
 
     const testId = await extractTestIdFromSuccess(page)
     fixtures.created.drugTestIds.push(testId)

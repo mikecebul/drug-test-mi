@@ -81,9 +81,7 @@ export const ExtractStep = withForm({
 
     // No data yet
     if (!extractedData) {
-      return (
-          <FieldGroupHeader title="No Data" description="No file uploaded. Please go back." />
-      )
+      return <FieldGroupHeader title="No Data" description="No file uploaded. Please go back." />
     }
 
     // Build ParsedPDFData object for display
@@ -94,6 +92,11 @@ export const ExtractStep = withForm({
       isDilute: extractedData.isDilute,
       rawText: extractedData.rawText,
       confidence: extractedData.confidence,
+      confidenceScore: extractedData.confidenceScore,
+      confidenceReasons: extractedData.confidenceReasons,
+      parseWarnings: extractedData.parseWarnings,
+      resultRowCount: extractedData.resultRowCount,
+      resultsComplete: extractedData.resultsComplete,
       extractedFields: extractedData.extractedFields,
       testType: extractedData.testType,
       hasConfirmation: extractedData.hasConfirmation,

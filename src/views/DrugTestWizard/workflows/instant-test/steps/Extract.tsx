@@ -129,6 +129,11 @@ export const ExtractStep = withForm({
       isDilute: extractedData.isDilute,
       rawText: extractedData.rawText,
       confidence: extractedData.confidence,
+      confidenceScore: extractedData.confidenceScore,
+      confidenceReasons: extractedData.confidenceReasons,
+      parseWarnings: extractedData.parseWarnings,
+      resultRowCount: extractedData.resultRowCount,
+      resultsComplete: extractedData.resultsComplete,
       extractedFields: extractedData.extractedFields,
       testType: extractedData.testType,
       hasConfirmation: extractedData.hasConfirmation,
@@ -239,6 +244,7 @@ export const ExtractStep = withForm({
               <Badge variant="outline" className="gap-2 px-3 py-1.5 text-sm">
                 <CheckCircle2 className="text-success size-4" />
                 Parsed with {parsedData.confidence} confidence
+                {typeof parsedData.confidenceScore === 'number' ? ` (${parsedData.confidenceScore}%)` : ''}
               </Badge>
             </div>
           </CardHeader>
@@ -275,6 +281,11 @@ export const ExtractStep = withForm({
                       ))}
                     </div>
                   </div>
+                ) : parsedData.resultsComplete === false ? (
+                  <Badge variant="warning" className="gap-2 px-3 py-1.5 text-base">
+                    <AlertTriangle className="size-4" />
+                    Results Incomplete - Review PDF
+                  </Badge>
                 ) : (
                   <Badge variant="success" className="gap-2 px-3 py-1.5 text-base">
                     <CheckCircle2 className="!size-5 shrink-0" />
@@ -298,6 +309,12 @@ export const ExtractStep = withForm({
             </div>
           </CardContent>
         </Card>
+        {parsedData.parseWarnings?.map((warning) => (
+          <Alert key={warning} variant="warning">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{warning}</AlertDescription>
+          </Alert>
+        ))}
       </div>
     )
   },

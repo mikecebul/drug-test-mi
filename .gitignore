@@ -39,5 +39,7 @@ test-results
 .playwright-cli
 .playright-cli
 output/
+.pdf-test-reports/
+.pdf-test-manifest.json
 .playwright-mcp/
 certificates/

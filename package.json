@@ -35,6 +35,7 @@
     "test:verify": "pnpm test",
     "test:gate": "pnpm test:integration:ci && pnpm test:e2e:smoke",
     "test:ui": "vitest --ui",
+    "audit:pdf-parsing": "tsx scripts/audit-pdf-parsing.ts",
     "validate:production-env": "node scripts/validate-production-env.mjs",
     "email": "email dev --dir src/emails --port 3001",
     "email:export": "email export --dir src/emails"
@@ -93,7 +94,7 @@
     "next-sitemap": "^4.2.3",
     "nuqs": "^2.8.6",
     "payload": "3.87.0",
-    "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "6.2.108",
     "plaiceholder": "^3.0.0",
     "react": "19.2.6",
     "react-day-picker": "9.11.1",
@@ -130,11 +131,12 @@
     "prettier-plugin-tailwindcss": "^0.7.2",
     "react-email": "5.2.8",
     "tailwindcss": "^4.1.13",
+    "tsx": "^4.23.12",
     "typescript": "6.0.3",
     "vitest": "^4.0.18"
   },
   "engines": {
-    "node": "^20.19.0 || ^22.13.0 || >=24.0.0",
+    "node": ">=22.13.0",
     "pnpm": "^9 || ^10 || ^11"
   },
   "packageManager": "pnpm@11.4.0"

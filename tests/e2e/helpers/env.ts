@@ -1,9 +1,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-const DEFAULT_INSTANT_PDF = '/Users/mikecebul/Documents/MI Drug Test/tests/17-panel-instant-all-neg.pdf'
-const DEFAULT_LAB_SCREEN_PDF = '/Users/mikecebul/Documents/Drug Tests/Tom Vachon/TV_Lab_1-7-26.pdf'
-const DEFAULT_LAB_CONFIRM_PDF = '/Users/mikecebul/Documents/Drug Tests/Tom Vachon/TV_Confirm_10-3-25.pdf'
+const DEFAULT_INSTANT_PDF = path.resolve(
+  process.cwd(),
+  'src/utilities/extractors/__tests__/fixtures/17-panel-instant/all-neg.pdf',
+)
 
 export type E2EEnv = {
   pdfInstantPath: string
@@ -71,13 +72,15 @@ function assertReadableFile(filePath: string, envName: string) {
   fs.accessSync(filePath, fs.constants.R_OK)
 }
 
-export function getE2EEnv(options?: { requirePdfs?: boolean }): E2EEnv {
+type PdfInput = 'instant' | 'labScreen' | 'labConfirm'
+
+export function getE2EEnv(options?: { requirePdfs?: boolean; pdfs?: PdfInput[] }): E2EEnv {
   ensureDotEnvLoaded()
 
   const env: E2EEnv = {
     pdfInstantPath: process.env.E2E_PDF_INSTANT_PATH || DEFAULT_INSTANT_PDF,
-    pdfLabScreenPath: process.env.E2E_PDF_LAB_SCREEN_PATH || DEFAULT_LAB_SCREEN_PDF,
-    pdfLabConfirmPath: process.env.E2E_PDF_LAB_CONFIRM_PATH || DEFAULT_LAB_CONFIRM_PDF,
+    pdfLabScreenPath: process.env.E2E_PDF_LAB_SCREEN_PATH || '',
+    pdfLabConfirmPath: process.env.E2E_PDF_LAB_CONFIRM_PATH || '',
     mailpitApiBase: process.env.E2E_MAILPIT_API_BASE || 'http://127.0.0.1:8025/api/v1',
     smtpWebBase: process.env.E2E_SMTP_WEB_BASE || 'http://127.0.0.1:8025',
     requireEmailTestModeFalse: parseBoolean(process.env.E2E_REQUIRE_EMAIL_TEST_MODE_FALSE, true),
@@ -85,13 +88,16 @@ export function getE2EEnv(options?: { requirePdfs?: boolean }): E2EEnv {
   }
 
   if (options?.requirePdfs !== false) {
-    assertReadableFile(env.pdfInstantPath, 'E2E_PDF_INSTANT_PATH')
-    assertReadableFile(env.pdfLabScreenPath, 'E2E_PDF_LAB_SCREEN_PATH')
-    assertReadableFile(env.pdfLabConfirmPath, 'E2E_PDF_LAB_CONFIRM_PATH')
+    const requiredPdfs = options?.pdfs ?? ['instant', 'labScreen', 'labConfirm']
+    if (requiredPdfs.includes('instant')) assertReadableFile(env.pdfInstantPath, 'E2E_PDF_INSTANT_PATH')
+    if (requiredPdfs.includes('labScreen')) assertReadableFile(env.pdfLabScreenPath, 'E2E_PDF_LAB_SCREEN_PATH')
+    if (requiredPdfs.includes('labConfirm')) assertReadableFile(env.pdfLabConfirmPath, 'E2E_PDF_LAB_CONFIRM_PATH')
   }
 
   if (env.requireEmailTestModeFalse && parseBoolean(process.env.EMAIL_TEST_MODE, false)) {
-    throw new Error('Unsafe email mode: EMAIL_TEST_MODE=true. Set EMAIL_TEST_MODE=false for mailbox recipient assertions.')
+    throw new Error(
+      'Unsafe email mode: EMAIL_TEST_MODE=true. Set EMAIL_TEST_MODE=false for mailbox recipient assertions.',
+    )
   }
 
   return env

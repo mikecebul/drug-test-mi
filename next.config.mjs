@@ -13,8 +13,8 @@ const nextConfig = {
     },
   },
   output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
-  // Required for pdf-parse to work correctly in Next.js
-  serverExternalPackages: ['pdf-parse', '@napi-rs/canvas'],
+  // PDF.js is server-only and dynamically loads its legacy worker/runtime files.
+  serverExternalPackages: ['pdfjs-dist', '@napi-rs/canvas'],
   images: {
     remotePatterns: [
       ...[

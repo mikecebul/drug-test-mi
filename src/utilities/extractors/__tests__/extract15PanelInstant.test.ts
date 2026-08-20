@@ -8,7 +8,8 @@ import { APP_TIMEZONE } from '@/lib/date-utils'
 
 // Fixture paths - can be overridden via environment variables for local testing
 const FIXTURES_DIR = path.join(__dirname, 'fixtures')
-const LOCAL_TEST_DIR = process.env.PDF_TEST_DIR || '/Users/mikecebul/Documents/Drug Tests'
+const LOCAL_INSTANT_SCREEN_PDF = process.env.INSTANT_SCREEN_PDF
+const LOCAL_INSTANT_MULTI_POSITIVE_PDF = process.env.INSTANT_MULTI_POSITIVE_PDF
 
 // Helper to check if fixture exists and get the buffer
 async function getTestPdf(
@@ -71,6 +72,10 @@ describe('extract15PanelInstant', () => {
     expect(result.testType).toBe('17-panel-instant')
     expect(result.donorName).toBe('Michael J Cebulski')
     expect(result.detectedSubstances).toEqual([])
+    expect(result.resultRowCount).toBe(17)
+    expect(result.resultsComplete).toBe(true)
+    expect(result.confidence).toBe('high')
+    expect(result.parseWarnings).toEqual([])
     expect(result.extractedFields).toContain('testType')
   })
 
@@ -89,13 +94,27 @@ describe('extract15PanelInstant', () => {
     expect(result.detectedSubstances).toEqual(expect.arrayContaining(['kratom', 'morphine']))
     expect(result.detectedSubstances).not.toContain('opiates')
     expect(result.detectedSubstances).not.toContain('6-mam')
+    expect(result.resultRowCount).toBe(17)
+    expect(result.resultsComplete).toBe(true)
+  })
+
+  test('extracts THC and EtG together from a local multi-positive production example', async () => {
+    const pdf = await getTestPdf('17-panel-instant/multi-positive.local.pdf', LOCAL_INSTANT_MULTI_POSITIVE_PDF)
+
+    if (pdf.skipped) {
+      console.log('Skipping: local instant THC/EtG multi-positive fixture not configured')
+      return
+    }
+
+    const result = await extract15PanelInstant(pdf.buffer)
+
+    expect(result.detectedSubstances).toEqual(expect.arrayContaining(['thc', 'etg']))
+    expect(result.resultsComplete).toBe(true)
+    expect(result.confidence).toBe('high')
   })
 
   test('should extract screening results from instant test PDF', async () => {
-    const pdf = await getTestPdf(
-      '15-panel-instant/screening.pdf',
-      path.join(LOCAL_TEST_DIR, 'Dennis Erfourth/DE_Instant_11-20-25.pdf'),
-    )
+    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
 
     if (pdf.skipped) {
       console.log('Skipping: 15-panel-instant screening fixture not found')
@@ -130,10 +149,7 @@ describe('extract15PanelInstant', () => {
   })
 
   test('should extract donor name correctly', async () => {
-    const pdf = await getTestPdf(
-      '15-panel-instant/screening.pdf',
-      path.join(LOCAL_TEST_DIR, 'Dennis Erfourth/DE_Instant_11-20-25.pdf'),
-    )
+    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
 
     if (pdf.skipped) {
       console.log('Skipping: 15-panel-instant screening fixture not found')
@@ -148,10 +164,7 @@ describe('extract15PanelInstant', () => {
   })
 
   test('should extract collection date correctly', async () => {
-    const pdf = await getTestPdf(
-      '15-panel-instant/screening.pdf',
-      path.join(LOCAL_TEST_DIR, 'Dennis Erfourth/DE_Instant_11-20-25.pdf'),
-    )
+    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
 
     if (pdf.skipped) {
       console.log('Skipping: 15-panel-instant screening fixture not found')
@@ -182,10 +195,7 @@ describe('extract15PanelInstant', () => {
   })
 
   test('should detect Presumptive Positive results', async () => {
-    const pdf = await getTestPdf(
-      '15-panel-instant/screening.pdf',
-      path.join(LOCAL_TEST_DIR, 'Dennis Erfourth/DE_Instant_11-20-25.pdf'),
-    )
+    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
 
     if (pdf.skipped) {
       console.log('Skipping: 15-panel-instant screening fixture not found')
@@ -200,10 +210,7 @@ describe('extract15PanelInstant', () => {
   })
 
   test('should not detect false positives from Negative results', async () => {
-    const pdf = await getTestPdf(
-      '15-panel-instant/screening.pdf',
-      path.join(LOCAL_TEST_DIR, 'Dennis Erfourth/DE_Instant_11-20-25.pdf'),
-    )
+    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
 
     if (pdf.skipped) {
       console.log('Skipping: 15-panel-instant screening fixture not found')
@@ -236,10 +243,7 @@ describe('extract15PanelInstant', () => {
   })
 
   test('should detect dilute samples', async () => {
-    const pdf = await getTestPdf(
-      '15-panel-instant/screening.pdf',
-      path.join(LOCAL_TEST_DIR, 'Dennis Erfourth/DE_Instant_11-20-25.pdf'),
-    )
+    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
 
     if (pdf.skipped) {
       console.log('Skipping: 15-panel-instant screening fixture not found')
@@ -257,10 +261,7 @@ describe('extract15PanelInstant', () => {
   })
 
   test('should set confidence score based on extracted fields', async () => {
-    const pdf = await getTestPdf(
-      '15-panel-instant/screening.pdf',
-      path.join(LOCAL_TEST_DIR, 'Dennis Erfourth/DE_Instant_11-20-25.pdf'),
-    )
+    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
 
     if (pdf.skipped) {
       console.log('Skipping: 15-panel-instant screening fixture not found')
@@ -284,10 +285,7 @@ describe('extract15PanelInstant', () => {
   })
 
   test('should include raw text in results', async () => {
-    const pdf = await getTestPdf(
-      '15-panel-instant/screening.pdf',
-      path.join(LOCAL_TEST_DIR, 'Dennis Erfourth/DE_Instant_11-20-25.pdf'),
-    )
+    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
 
     if (pdf.skipped) {
       console.log('Skipping: 15-panel-instant screening fixture not found')
@@ -307,10 +305,7 @@ describe('extract15PanelInstant', () => {
   })
 
   test('should handle substance name variations', async () => {
-    const pdf = await getTestPdf(
-      '15-panel-instant/screening.pdf',
-      path.join(LOCAL_TEST_DIR, 'Dennis Erfourth/DE_Instant_11-20-25.pdf'),
-    )
+    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
 
     if (pdf.skipped) {
       console.log('Skipping: 15-panel-instant screening fixture not found')
@@ -336,17 +331,16 @@ describe('extract15PanelInstant', () => {
       await extract15PanelInstant(emptyBuffer)
       // Should throw an error
       expect(true).toBe(false)
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Should throw with helpful error message
+      expect(error).toBeInstanceOf(Error)
+      if (!(error instanceof Error)) throw error
       expect(error.message).toContain('Failed to extract 15-panel instant test data')
     }
   })
 
   test('should track all extracted fields correctly', async () => {
-    const pdf = await getTestPdf(
-      '15-panel-instant/screening.pdf',
-      path.join(LOCAL_TEST_DIR, 'Dennis Erfourth/DE_Instant_11-20-25.pdf'),
-    )
+    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
 
     if (pdf.skipped) {
       console.log('Skipping: 15-panel-instant screening fixture not found')
@@ -362,15 +356,7 @@ describe('extract15PanelInstant', () => {
     expect(result.extractedFields.length).toBeGreaterThan(0)
 
     // All values should be valid field names
-    const validFields = [
-      'donorName',
-      'collectionDate',
-      'detectedSubstances',
-      'isDilute',
-      'dob',
-      'gender',
-      'testType',
-    ]
+    const validFields = ['donorName', 'collectionDate', 'detectedSubstances', 'isDilute', 'dob', 'gender', 'testType']
     for (const field of result.extractedFields) {
       expect(validFields).toContain(field)
     }

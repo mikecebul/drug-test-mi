@@ -1,6 +1,13 @@
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { TZDate } from '@date-fns/tz'
 import { FULL_NAME_PATTERN, normalizeExtractedDonorName } from './donorName'
+import {
+  extractPositionedPdfText,
+  findAnchoredLine,
+  findAnchoredValue,
+  normalizeSubstanceLabel,
+  type PositionedTextLine,
+} from './pdfText'
 
 /**
  * Extracted data from 15-panel instant test PDF
@@ -15,7 +22,113 @@ export interface Extracted15PanelData {
   isDilute: boolean
   rawText: string
   confidence: 'high' | 'medium' | 'low'
+  confidenceScore: number
+  confidenceReasons: string[]
+  parseWarnings: string[]
+  resultRowCount: number
+  resultsComplete: boolean
   extractedFields: string[]
+}
+
+const INSTANT_SUBSTANCE_ALIASES: Array<{ aliases: string[]; value: SubstanceValue }> = [
+  { aliases: ['6 monoacetylmorphine', '6 mam'], value: '6-mam' },
+  { aliases: ['methylenedioxymethamphetamine', 'mdma'], value: 'mdma' },
+  { aliases: ['methamphetamine'], value: 'methamphetamines' },
+  { aliases: ['amphetamines'], value: 'amphetamines' },
+  { aliases: ['benzodiazepines'], value: 'benzodiazepines' },
+  { aliases: ['buprenorphine'], value: 'buprenorphine' },
+  { aliases: ['barbiturates'], value: 'barbiturates' },
+  { aliases: ['cocaine'], value: 'cocaine' },
+  { aliases: ['etg', 'ethyl glucuronide'], value: 'etg' },
+  { aliases: ['fentanyl'], value: 'fentanyl' },
+  { aliases: ['kratom', 'mitragynine'], value: 'kratom' },
+  { aliases: ['methadone'], value: 'methadone' },
+  { aliases: ['morphine'], value: 'morphine' },
+  { aliases: ['opiates'], value: 'opiates' },
+  { aliases: ['oxycodone'], value: 'oxycodone' },
+  { aliases: ['phencyclidine', 'pcp'], value: 'pcp' },
+  { aliases: ['synthetic cannabinoids'], value: 'synthetic_cannabinoids' },
+  { aliases: ['thc', 'marijuana'], value: 'thc' },
+  { aliases: ['tramadol'], value: 'tramadol' },
+]
+
+function mapInstantSubstance(label: string): SubstanceValue | null {
+  const normalized = normalizeSubstanceLabel(label)
+  return (
+    INSTANT_SUBSTANCE_ALIASES.find(({ aliases }) => aliases.some((alias) => normalized.includes(alias)))?.value ?? null
+  )
+}
+
+function extractInstantScreenRows(lines: PositionedTextLine[]) {
+  const rows = new Map<SubstanceValue, 'negative' | 'positive'>()
+
+  for (const line of lines) {
+    const methodIndex = line.items.findIndex((item) => /^CIA$/i.test(item.text))
+    if (methodIndex < 0) continue
+
+    const resultIndex = line.items.findIndex(
+      (item, index) => index < methodIndex && /^(?:Negative|Presumptive Positive|Positive)$/i.test(item.text),
+    )
+    if (resultIndex <= 0) continue
+
+    const substance = mapInstantSubstance(
+      line.items
+        .slice(0, resultIndex)
+        .map((item) => item.text)
+        .join(' '),
+    )
+    if (!substance) continue
+
+    rows.set(substance, /positive/i.test(line.items[resultIndex].text) ? 'positive' : 'negative')
+  }
+
+  return rows
+}
+
+function calculateInstantConfidence(args: {
+  donorName: string | null
+  donorNameAnchored: boolean
+  collectionDate: string | null
+  collectionDateAnchored: boolean
+  dob: string | null
+  gender: string | null
+  resultRowCount: number
+  resultsComplete: boolean
+}) {
+  let score = 10 // Test type is always identified, with a conservative fallback.
+  const reasons: string[] = ['test type identified']
+
+  if (args.donorName) {
+    score += args.donorNameAnchored ? 25 : 15
+    reasons.push(
+      args.donorNameAnchored ? 'donor name anchored to its label' : 'donor name identified by layout fallback',
+    )
+  }
+  if (args.collectionDate) {
+    score += args.collectionDateAnchored ? 25 : 15
+    reasons.push(
+      args.collectionDateAnchored
+        ? 'collection date anchored to its label'
+        : 'collection date identified by layout fallback',
+    )
+  }
+  if (args.dob && args.gender) {
+    score += 5
+    reasons.push('DOB and sex anchored to their labels')
+  }
+  if (args.resultsComplete) {
+    score += 35
+    reasons.push(`${args.resultRowCount} screening rows matched by coordinates`)
+  } else if (args.resultRowCount > 0) {
+    score += 15
+    reasons.push(`only ${args.resultRowCount} screening rows matched by coordinates`)
+  }
+
+  return {
+    confidenceScore: Math.min(score, 100),
+    confidence: score >= 85 ? ('high' as const) : score >= 60 ? ('medium' as const) : ('low' as const),
+    confidenceReasons: reasons,
+  }
 }
 
 export function extractInstantDonorName(text: string): string | null {
@@ -37,7 +150,7 @@ export function extractInstantDonorName(text: string): string | null {
 }
 
 /**
- * Extract data from 15-panel instant test PDF using pdf-parse
+ * Extract data from an instant test PDF using positioned text from PDF.js.
  *
  * Expected PDF format:
  * - Donor Name: [Full Name]
@@ -49,16 +162,9 @@ export function extractInstantDonorName(text: string): string | null {
  * @returns Extracted data with confidence score
  */
 export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15PanelData> {
-  // Dynamically import pdf-parse to avoid build-time issues with canvas/browser APIs
-  const { CanvasFactory } = await import('pdf-parse/worker')
-  const { PDFParse } = await import('pdf-parse')
-
-  // Parse PDF using pdf-parse with CanvasFactory for Node.js compatibility
-  const parser = new PDFParse({ data: buffer, CanvasFactory })
-
   try {
-    const data = await parser.getText()
-    const text = data.text
+    const document = await extractPositionedPdfText(buffer)
+    const text = document.rawText
 
     // Initialize result object
     const result: Extracted15PanelData = {
@@ -71,30 +177,42 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
       isDilute: false,
       rawText: text,
       confidence: 'low',
+      confidenceScore: 0,
+      confidenceReasons: [],
+      parseWarnings: [],
+      resultRowCount: 0,
+      resultsComplete: false,
       extractedFields: [],
     }
 
     result.extractedFields.push('testType')
 
     // Extract donor name
-    // pdf-parse preserves layout: donor name appears after phone number or before "iCup" test description
+    // Older reports may omit the explicit donor label. Preserve the proven
+    // text-layout fallbacks for those variants after trying the row anchor.
     // Pattern: "Phone: (231)373-6341\nDennis D Erfourth"
 
-    result.donorName = extractInstantDonorName(text)
+    const anchoredDonorName = findAnchoredValue(document.lines, /^Donor Name:$/i)
+    result.donorName = anchoredDonorName
+      ? normalizeExtractedDonorName(anchoredDonorName)
+      : extractInstantDonorName(text)
     if (result.donorName) {
       result.extractedFields.push('donorName')
     }
 
     // Extract collection date
-    // pdf-parse shows: "Collected:\n...\nMike Cebulski\n06:27 PM\t11/20/2025"
-    // Pattern: time with tab separator then date
-    let collectedMatch = text.match(
-      /(\d{1,2}:\d{2}\s*(?:AM|PM))\s*[\t\n]\s*(\d{1,2}\/\d{1,2}\/\d{4})/i,
-    )
+    // Collection date and time must come from the same anchored report row.
+    const collectedLine = findAnchoredLine(document.lines, /^Collected:$/i)
+    const collectedText = collectedLine?.items
+      .slice(collectedLine.items.findIndex((item) => /^Collected:$/i.test(item.text)) + 1)
+      .map((item) => item.text)
+      .join(' ')
+    let collectedMatch = collectedText?.match(/(\d{1,2}\/\d{1,2}\/\d{4}).*?(\d{1,2}:\d{2}\s*(?:AM|PM))/i)
+    const collectionDateAnchored = Boolean(collectedMatch)
 
     if (collectedMatch) {
-      const timeStr = collectedMatch[1]
-      const dateStr = collectedMatch[2]
+      const dateStr = collectedMatch[1]
+      const timeStr = collectedMatch[2]
 
       // Parse as EST/EDT timezone
       const parsed = parseDateTimeInEST(dateStr, timeStr)
@@ -127,16 +245,21 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
     // The DOB and Sex labels are on separate lines, followed by their values
 
     // Strategy 1: Try combined pattern (DOB:Sex: followed by date and gender)
-    let dobSexMatch = text.match(
-      /DOB:\s*\n?\s*Sex:\s*\n?\s*(\d{1,2}\/\d{1,2}\/\d{4})\s*\n?\s*([MF])/i,
-    )
+    const anchoredDob = findAnchoredValue(document.lines, /^DOB:$/i, /^\d{1,2}\/\d{1,2}\/\d{4}$/)
+    const anchoredGender = findAnchoredValue(document.lines, /^Sex:$/i, /^[MF]$/i)
+    let dobSexMatch = text.match(/DOB:\s*\n?\s*Sex:\s*\n?\s*(\d{1,2}\/\d{1,2}\/\d{4})\s*\n?\s*([MF])/i)
 
     // Strategy 2: Try date+gender on same line (e.g., "03/13/1982M")
     if (!dobSexMatch) {
       dobSexMatch = text.match(/DOB:\s*\n?\s*Sex:\s*\n?\s*(\d{1,2}\/\d{1,2}\/\d{4})([MF])/i)
     }
 
-    if (dobSexMatch) {
+    if (anchoredDob || anchoredGender) {
+      result.dob = anchoredDob
+      result.gender = anchoredGender?.toUpperCase() ?? null
+      if (result.dob) result.extractedFields.push('dob')
+      if (result.gender) result.extractedFields.push('gender')
+    } else if (dobSexMatch) {
       result.dob = dobSexMatch[1]
       result.gender = dobSexMatch[2].toUpperCase()
       result.extractedFields.push('dob')
@@ -156,86 +279,45 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
       }
     }
 
-    // Check for dilute sample
-    // Pattern: look for "dilute" keyword (case-insensitive)
-    if (/dilute/i.test(text)) {
+    // Require a result phrase rather than a glossary/disclaimer mention.
+    if (/\b(?:specimen is dilute|dilute specimen)\b/i.test(text)) {
       result.isDilute = true
       result.extractedFields.push('isDilute')
     }
 
-    // Extract substance results
-    // Map PDF substance names to our system values
-    const substanceMapping: Record<string, SubstanceValue> = {
-      '6-Monoacetylmorphine': '6-mam',
-      '6-MAM': '6-mam',
-      Amphetamines: 'amphetamines',
-      Benzodiazepines: 'benzodiazepines',
-      Buprenorphine: 'buprenorphine',
-      Barbiturates: 'barbiturates',
-      Cocaine: 'cocaine',
-      EtG: 'etg',
-      Fentanyl: 'fentanyl',
-      'Kratom (Mitragynine)': 'kratom',
-      Kratom: 'kratom',
-      Methylenedioxymethamphetamine: 'mdma',
-      MDMA: 'mdma',
-      Methadone: 'methadone',
-      Methamphetamine: 'methamphetamines',
-      Morphine: 'morphine',
-      Opiates: 'opiates',
-      Oxycodone: 'oxycodone',
-      'Phencyclidine (PCP)': 'pcp',
-      PCP: 'pcp',
-      'Synthetic Cannabinoids': 'synthetic_cannabinoids',
-      THC: 'thc',
-      Tramadol: 'tramadol',
-    }
+    const screenRows = extractInstantScreenRows(document.lines)
+    result.resultRowCount = screenRows.size
+    const expectedRowCount = result.testType === '17-panel-instant' ? 17 : 15
+    result.resultsComplete = result.resultRowCount >= expectedRowCount
+    result.detectedSubstances = [...screenRows.entries()]
+      .filter(([, status]) => status === 'positive')
+      .map(([substance]) => substance)
 
-    // For each substance mapping, check if it's marked as positive in the PDF
-    // pdf-parse shows clean lines like: "Buprenorphine Presumptive Positive 10 ng/mL\tCIA"
-    for (const [pdfName, systemValue] of Object.entries(substanceMapping)) {
-      // Pattern: Substance name followed by result status
-      // Results can be: "Negative", "Presumptive Positive", or just "Positive"
-      const pattern = new RegExp(
-        `${escapeRegex(pdfName)}[^\\n]{0,100}?(Negative|Presumptive Positive|Positive)`,
-        'i',
-      )
-
-      const match = text.match(pattern)
-      if (match && match[1].toLowerCase().includes('positive')) {
-        if (!result.detectedSubstances.includes(systemValue)) {
-          result.detectedSubstances.push(systemValue)
-        }
-      }
-    }
-
-    if (result.detectedSubstances.length > 0) {
+    if (screenRows.size > 0) {
       result.extractedFields.push('detectedSubstances')
     }
 
-    // Determine confidence level
-    if (result.donorName && result.collectionDate) {
-      result.confidence = 'high'
-    } else if (result.donorName || result.collectionDate) {
-      result.confidence = 'medium'
+    if (!result.resultsComplete) {
+      result.parseWarnings.push(
+        `Only ${result.resultRowCount} of ${expectedRowCount} expected screening rows were identified; verify every result manually.`,
+      )
     }
+
+    const confidence = calculateInstantConfidence({
+      ...result,
+      donorNameAnchored: Boolean(anchoredDonorName),
+      collectionDateAnchored,
+    })
+    result.confidence = confidence.confidence
+    result.confidenceScore = confidence.confidenceScore
+    result.confidenceReasons = confidence.confidenceReasons
 
     return result
   } catch (error) {
     throw new Error(
       `Failed to extract 15-panel instant test data: ${error instanceof Error ? error.message : String(error)}`,
     )
-  } finally {
-    // Always destroy the parser to prevent memory leaks, even if an error occurs
-    await parser.destroy()
   }
-}
-
-/**
- * Escape special regex characters in a string
- */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 /**

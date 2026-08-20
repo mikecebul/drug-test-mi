@@ -8,7 +8,13 @@ import { APP_TIMEZONE } from '@/lib/date-utils'
 
 // Fixture paths - can be overridden via environment variables for local testing
 const FIXTURES_DIR = path.join(__dirname, 'fixtures')
-const LOCAL_TEST_DIR = process.env.PDF_TEST_DIR || '/Users/mikecebul/Documents/Drug Tests'
+const LOCAL_LAB_SCREEN_PDF = process.env.LAB_11_SCREEN_PDF
+const LOCAL_LAB_CONFIRMATION_PDF = process.env.LAB_11_CONFIRMATION_PDF
+const LOCAL_LAB_MULTI_POSITIVE_PDF = process.env.LAB_MULTI_POSITIVE_PDF
+const LOCAL_LAB_CONFIRMED_POSITIVE_PDF = process.env.LAB_CONFIRMED_POSITIVE_PDF
+const LOCAL_LAB_CONFIRMED_NEGATIVE_PDF = process.env.LAB_CONFIRMED_NEGATIVE_PDF
+const LOCAL_SOS_SCREEN_PDF = process.env.LAB_17_SOS_PDF
+const LOCAL_ETG_SCREEN_PDF = process.env.LAB_ETG_PDF
 
 // Helper to check if fixture exists and get the buffer
 async function getTestPdf(
@@ -51,10 +57,7 @@ describe('extractLabTest', () => {
 
   describe('11-panel-lab tests', () => {
     test('should extract screening results from 11-panel lab PDF', async () => {
-      const pdf = await getTestPdf(
-        '11-panel-lab/screening.pdf',
-        path.join(LOCAL_TEST_DIR, 'Tom Vachon/TV_Lab_11-19-25.pdf'),
-      )
+      const pdf = await getTestPdf('11-panel-lab/screening.pdf', LOCAL_LAB_SCREEN_PDF)
 
       if (pdf.skipped) {
         console.log('Skipping: 11-panel-lab screening fixture not found')
@@ -91,10 +94,7 @@ describe('extractLabTest', () => {
     })
 
     test('should extract confirmation results from 11-panel confirmation PDF', async () => {
-      const pdf = await getTestPdf(
-        '11-panel-lab/confirmation.pdf',
-        path.join(LOCAL_TEST_DIR, 'Tom Vachon/TV_Confirm_10-3-25.pdf'),
-      )
+      const pdf = await getTestPdf('11-panel-lab/confirmation.pdf', LOCAL_LAB_CONFIRMATION_PDF)
 
       if (pdf.skipped) {
         console.log('Skipping: 11-panel-lab confirmation fixture not found')
@@ -115,9 +115,7 @@ describe('extractLabTest', () => {
       const firstConfirm = result.confirmationResults![0]
       expect(firstConfirm).toHaveProperty('substance')
       expect(firstConfirm).toHaveProperty('result')
-      expect(['confirmed-positive', 'confirmed-negative', 'inconclusive']).toContain(
-        firstConfirm.result,
-      )
+      expect(['confirmed-positive', 'confirmed-negative', 'inconclusive']).toContain(firstConfirm.result)
 
       // Verify extracted fields includes confirmation
       if (result.confirmationResults && result.confirmationResults.length > 0) {
@@ -126,10 +124,7 @@ describe('extractLabTest', () => {
     })
 
     test('should detect dilute samples in 11-panel tests', async () => {
-      const pdf = await getTestPdf(
-        '11-panel-lab/screening.pdf',
-        path.join(LOCAL_TEST_DIR, 'Tom Vachon/TV_Lab_11-19-25.pdf'),
-      )
+      const pdf = await getTestPdf('11-panel-lab/screening.pdf', LOCAL_LAB_SCREEN_PDF)
 
       if (pdf.skipped) {
         console.log('Skipping: 11-panel-lab screening fixture not found')
@@ -148,10 +143,7 @@ describe('extractLabTest', () => {
     })
 
     test('should map Mitragynine to kratom in 11-panel tests', async () => {
-      const pdf = await getTestPdf(
-        '11-panel-lab/screening.pdf',
-        path.join(LOCAL_TEST_DIR, 'Tom Vachon/TV_Lab_11-19-25.pdf'),
-      )
+      const pdf = await getTestPdf('11-panel-lab/screening.pdf', LOCAL_LAB_SCREEN_PDF)
 
       if (pdf.skipped) {
         console.log('Skipping: 11-panel-lab screening fixture not found')
@@ -167,31 +159,62 @@ describe('extractLabTest', () => {
       // This is tested implicitly in the extractor code
     })
 
-    test('should extract positive EtG when Redwood marks the row with a footnote asterisk', async () => {
-      const pdf = await getTestPdf(
-        '11-panel-lab/positive-etg-buprenorphine.pdf',
-        '/Users/mikecebul/Documents/MI Drug Test/tests/11-panel-pos-etg-bup.pdf',
-      )
+    test('should extract THC and EtG from a local multi-positive production example', async () => {
+      const pdf = await getTestPdf('11-panel-lab/positive-etg-buprenorphine.pdf', LOCAL_LAB_MULTI_POSITIVE_PDF)
 
       if (pdf.skipped) {
-        console.log('Skipping: 11-panel positive EtG/Buprenorphine fixture not found')
+        console.log('Skipping: local lab THC/EtG multi-positive fixture not configured')
         return
       }
 
       const result = await extractLabTest(pdf.buffer)
 
       expect(result.testType).toBe('11-panel-lab')
-      expect(result.detectedSubstances).toContain('buprenorphine')
       expect(result.detectedSubstances).toContain('etg')
+      expect(result.detectedSubstances).toContain('thc')
+      expect(result.resultRowCount).toBe(10)
+      expect(result.resultsComplete).toBe(true)
+      expect(result.confidence).toBe('high')
+    })
+
+    test('maps a confirmed-positive THC analyte row to THC', async () => {
+      const pdf = await getTestPdf('11-panel-lab/confirmed-positive.local.pdf', LOCAL_LAB_CONFIRMED_POSITIVE_PDF)
+
+      if (pdf.skipped) {
+        console.log('Skipping: local confirmed-positive lab fixture not configured')
+        return
+      }
+
+      const result = await extractLabTest(pdf.buffer)
+
+      expect(result.hasConfirmation).toBe(true)
+      expect(result.confirmationResults).toContainEqual(
+        expect.objectContaining({ substance: 'thc', result: 'confirmed-positive' }),
+      )
+      expect(result.parseWarnings).toEqual([])
+    })
+
+    test('aggregates negative LC-MS/MS analytes into a confirmed-negative parent substance', async () => {
+      const pdf = await getTestPdf('11-panel-lab/confirmed-negative.local.pdf', LOCAL_LAB_CONFIRMED_NEGATIVE_PDF)
+
+      if (pdf.skipped) {
+        console.log('Skipping: local confirmed-negative lab fixture not configured')
+        return
+      }
+
+      const result = await extractLabTest(pdf.buffer)
+
+      expect(result.hasConfirmation).toBe(true)
+      expect(result.confirmationResults).toContainEqual(
+        expect.objectContaining({ substance: 'fentanyl', result: 'confirmed-negative' }),
+      )
+      expect(result.parseWarnings).toEqual([])
     })
   })
 
   describe('11-panel-lab-no-etg tests', () => {
     test('should detect B829 11-panel lab no EtG PDF and map ethanol separately from EtG', async () => {
-      const pdf = await getTestPdf(
-        '11-panel-lab-no-etg/screening.pdf',
-        process.env.NO_ETG_LAB_PDF,
-      )
+      const pdf = await getTestPdf('11-panel-lab-no-etg/screening.pdf', process.env.NO_ETG_LAB_PDF)
 
       if (pdf.skipped) {
         console.log('Skipping: 11-panel-lab-no-etg screening fixture not found')
@@ -213,10 +236,7 @@ describe('extractLabTest', () => {
 
   describe('17-panel-sos-lab tests', () => {
     test('should detect 17-panel SOS test type from PDF', async () => {
-      const pdf = await getTestPdf(
-        '17-panel-sos-lab/screening.pdf',
-        path.join(LOCAL_TEST_DIR, 'Chris Gibbs/CB_SOS_10-22-25.pdf'),
-      )
+      const pdf = await getTestPdf('17-panel-sos-lab/screening.pdf', LOCAL_SOS_SCREEN_PDF)
 
       if (pdf.skipped) {
         console.log('Skipping: 17-panel-sos-lab screening fixture not found')
@@ -247,10 +267,7 @@ describe('extractLabTest', () => {
     })
 
     test('should extract screening results from 17-panel SOS PDF', async () => {
-      const pdf = await getTestPdf(
-        '17-panel-sos-lab/screening.pdf',
-        path.join(LOCAL_TEST_DIR, 'Chris Gibbs/CB_SOS_10-22-25.pdf'),
-      )
+      const pdf = await getTestPdf('17-panel-sos-lab/screening.pdf', LOCAL_SOS_SCREEN_PDF)
 
       if (pdf.skipped) {
         console.log('Skipping: 17-panel-sos-lab screening fixture not found')
@@ -271,10 +288,7 @@ describe('extractLabTest', () => {
     })
 
     test('should handle 17-panel specific substances (MDMA, Barbiturates, PCP)', async () => {
-      const pdf = await getTestPdf(
-        '17-panel-sos-lab/screening.pdf',
-        path.join(LOCAL_TEST_DIR, 'Chris Gibbs/CB_SOS_10-22-25.pdf'),
-      )
+      const pdf = await getTestPdf('17-panel-sos-lab/screening.pdf', LOCAL_SOS_SCREEN_PDF)
 
       if (pdf.skipped) {
         console.log('Skipping: 17-panel-sos-lab screening fixture not found')
@@ -298,10 +312,7 @@ describe('extractLabTest', () => {
 
   describe('etg-lab tests', () => {
     test('should detect EtG test type from PDF', async () => {
-      const pdf = await getTestPdf(
-        'etg-lab/screening.pdf',
-        path.join(LOCAL_TEST_DIR, 'Todd Crawford/TC_Lab_10-24-25.pdf'),
-      )
+      const pdf = await getTestPdf('etg-lab/screening.pdf', LOCAL_ETG_SCREEN_PDF)
 
       if (pdf.skipped) {
         console.log('Skipping: etg-lab screening fixture not found')
@@ -332,10 +343,7 @@ describe('extractLabTest', () => {
     })
 
     test('should extract EtG screening results', async () => {
-      const pdf = await getTestPdf(
-        'etg-lab/screening.pdf',
-        path.join(LOCAL_TEST_DIR, 'Todd Crawford/TC_Lab_10-24-25.pdf'),
-      )
+      const pdf = await getTestPdf('etg-lab/screening.pdf', LOCAL_ETG_SCREEN_PDF)
 
       if (pdf.skipped) {
         console.log('Skipping: etg-lab screening fixture not found')
@@ -364,10 +372,7 @@ describe('extractLabTest', () => {
 
   describe('General functionality', () => {
     test('should set confidence score based on extracted fields', async () => {
-      const pdf = await getTestPdf(
-        '11-panel-lab/screening.pdf',
-        path.join(LOCAL_TEST_DIR, 'Tom Vachon/TV_Lab_11-19-25.pdf'),
-      )
+      const pdf = await getTestPdf('11-panel-lab/screening.pdf', LOCAL_LAB_SCREEN_PDF)
 
       if (pdf.skipped) {
         console.log('Skipping: 11-panel-lab screening fixture not found')
@@ -391,10 +396,7 @@ describe('extractLabTest', () => {
     })
 
     test('should extract collection date with time correctly', async () => {
-      const pdf = await getTestPdf(
-        '11-panel-lab/screening.pdf',
-        path.join(LOCAL_TEST_DIR, 'Tom Vachon/TV_Lab_11-19-25.pdf'),
-      )
+      const pdf = await getTestPdf('11-panel-lab/screening.pdf', LOCAL_LAB_SCREEN_PDF)
 
       if (pdf.skipped) {
         console.log('Skipping: 11-panel-lab screening fixture not found')
@@ -424,10 +426,7 @@ describe('extractLabTest', () => {
     })
 
     test('should handle screening + confirmation in same PDF', async () => {
-      const pdf = await getTestPdf(
-        '11-panel-lab/confirmation.pdf',
-        path.join(LOCAL_TEST_DIR, 'Tom Vachon/TV_Confirm_10-3-25.pdf'),
-      )
+      const pdf = await getTestPdf('11-panel-lab/confirmation.pdf', LOCAL_LAB_CONFIRMATION_PDF)
 
       if (pdf.skipped) {
         console.log('Skipping: 11-panel-lab confirmation fixture not found')
@@ -456,17 +455,16 @@ describe('extractLabTest', () => {
         await extractLabTest(emptyBuffer)
         // Should throw an error
         expect(true).toBe(false)
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Should throw with helpful error message
+        expect(error).toBeInstanceOf(Error)
+        if (!(error instanceof Error)) throw error
         expect(error.message).toContain('Failed to extract lab test data')
       }
     })
 
     test('should handle all confirmation result types', async () => {
-      const pdf = await getTestPdf(
-        '11-panel-lab/confirmation.pdf',
-        path.join(LOCAL_TEST_DIR, 'Tom Vachon/TV_Confirm_10-3-25.pdf'),
-      )
+      const pdf = await getTestPdf('11-panel-lab/confirmation.pdf', LOCAL_LAB_CONFIRMATION_PDF)
 
       if (pdf.skipped) {
         console.log('Skipping: 11-panel-lab confirmation fixture not found')
@@ -478,9 +476,7 @@ describe('extractLabTest', () => {
       if (result.hasConfirmation && result.confirmationResults) {
         result.confirmationResults.forEach((confirm) => {
           // Each result should be one of the valid types
-          expect(['confirmed-positive', 'confirmed-negative', 'inconclusive']).toContain(
-            confirm.result,
-          )
+          expect(['confirmed-positive', 'confirmed-negative', 'inconclusive']).toContain(confirm.result)
 
           // Each should have a substance
           expect(confirm.substance).toBeTruthy()
@@ -493,10 +489,7 @@ describe('extractLabTest', () => {
 
     test('should auto-detect test type correctly', async () => {
       // Test 11-panel detection
-      const lab11Pdf = await getTestPdf(
-        '11-panel-lab/screening.pdf',
-        path.join(LOCAL_TEST_DIR, 'Tom Vachon/TV_Lab_11-19-25.pdf'),
-      )
+      const lab11Pdf = await getTestPdf('11-panel-lab/screening.pdf', LOCAL_LAB_SCREEN_PDF)
 
       if (!lab11Pdf.skipped) {
         const lab11Result = await extractLabTest(lab11Pdf.buffer)
@@ -504,10 +497,7 @@ describe('extractLabTest', () => {
       }
 
       // Test 17-panel SOS detection
-      const sosPdf = await getTestPdf(
-        '17-panel-sos-lab/screening.pdf',
-        path.join(LOCAL_TEST_DIR, 'Chris Gibbs/CB_SOS_10-22-25.pdf'),
-      )
+      const sosPdf = await getTestPdf('17-panel-sos-lab/screening.pdf', LOCAL_SOS_SCREEN_PDF)
 
       if (!sosPdf.skipped) {
         const sosResult = await extractLabTest(sosPdf.buffer)
@@ -515,10 +505,7 @@ describe('extractLabTest', () => {
       }
 
       // Test EtG detection
-      const etgPdf = await getTestPdf(
-        'etg-lab/screening.pdf',
-        path.join(LOCAL_TEST_DIR, 'Todd Crawford/TC_Lab_10-24-25.pdf'),
-      )
+      const etgPdf = await getTestPdf('etg-lab/screening.pdf', LOCAL_ETG_SCREEN_PDF)
 
       if (!etgPdf.skipped) {
         const etgResult = await extractLabTest(etgPdf.buffer)

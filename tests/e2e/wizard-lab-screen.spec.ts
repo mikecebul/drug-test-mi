@@ -19,7 +19,10 @@ import {
 let fixtures: FixtureContext
 
 async function ensureMatchSelected(page: Page) {
-  const headingPattern = new RegExp(`${fixtures.clients.labScreen.firstName}\\s+.*${fixtures.clients.labScreen.lastName}`, 'i')
+  const headingPattern = new RegExp(
+    `${fixtures.clients.labScreen.firstName}\\s+.*${fixtures.clients.labScreen.lastName}`,
+    'i',
+  )
   const candidateHeading = page.getByRole('heading', { name: headingPattern }).first()
   await expect(candidateHeading).toBeVisible({ timeout: 20_000 })
 
@@ -64,7 +67,9 @@ async function ensureLabScreenDataReadyToAdvance(page: Page) {
   const nextButton = page.getByTestId('wizard-next-button')
 
   for (let i = 0; i < 20; i += 1) {
-    const decisionVisible = await hasDecisionSection(page).isVisible().catch(() => false)
+    const decisionVisible = await hasDecisionSection(page)
+      .isVisible()
+      .catch(() => false)
     if (decisionVisible) {
       await resolveConfirmationDecision(page)
       return
@@ -74,7 +79,9 @@ async function ensureLabScreenDataReadyToAdvance(page: Page) {
     if (!nextDisabled) {
       // Give async preview/validation a beat to settle before advancing.
       await page.waitForTimeout(200)
-      const decisionAfterSettle = await hasDecisionSection(page).isVisible().catch(() => false)
+      const decisionAfterSettle = await hasDecisionSection(page)
+        .isVisible()
+        .catch(() => false)
       const nextStillEnabled = await nextButton.isEnabled().catch(() => false)
       if (!decisionAfterSettle && nextStillEnabled) {
         return
@@ -84,13 +91,23 @@ async function ensureLabScreenDataReadyToAdvance(page: Page) {
     }
   }
 
-  if (await hasDecisionSection(page).isVisible().catch(() => false)) {
+  if (
+    await hasDecisionSection(page)
+      .isVisible()
+      .catch(() => false)
+  ) {
     await resolveConfirmationDecision(page)
     return
   }
 
   await triggerNextValidation(page)
-  const alertText = (await page.getByRole('alert').first().textContent().catch(() => null))?.trim()
+  const alertText = (
+    await page
+      .getByRole('alert')
+      .first()
+      .textContent()
+      .catch(() => null)
+  )?.trim()
   throw new Error(
     `Lab screen step stayed blocked before advancing${alertText ? `: ${alertText}` : ' without a visible validation alert'}`,
   )
@@ -101,7 +118,7 @@ test.describe('Wizard Lab Screen Workflow', () => {
 
   test.beforeAll(async () => {
     fixtures = await seedFixtures()
-    const env = getE2EEnv()
+    const env = getE2EEnv({ pdfs: ['labScreen'] })
     if (env.enableMailpitAssertions) {
       await ensureMailpitReachable(env.mailpitApiBase)
     }
@@ -118,7 +135,7 @@ test.describe('Wizard Lab Screen Workflow', () => {
   })
 
   test('validates upload and confirmation-decision flow with back-forward navigation', async ({ page }) => {
-    const env = getE2EEnv()
+    const env = getE2EEnv({ pdfs: ['labScreen'] })
 
     await clickNext(page)
     await expect(page.getByText('Please upload a PDF file')).toBeVisible()
@@ -128,6 +145,8 @@ test.describe('Wizard Lab Screen Workflow', () => {
     await waitForExtractStepReady(page, {
       readyHeadings: [/Extract Data/i],
     })
+    await expect(page.getByText(/Extracted with (HIGH|MEDIUM) Confidence/i)).toBeVisible()
+    await expect(page.getByText(/Results Incomplete/i)).toHaveCount(0)
     await clickNext(page)
 
     const matchRequiredAlert = page.getByText('Please select a pending test to continue')
@@ -172,8 +191,10 @@ test.describe('Wizard Lab Screen Workflow', () => {
     await expect(page.getByText('Review Screening Notification Emails')).toBeVisible()
   })
 
-  test('submits lab-screen workflow, updates seeded collected test, and verifies screened-stage email with attachment', async ({ page }) => {
-    const env = getE2EEnv()
+  test('submits lab-screen workflow, updates seeded collected test, and verifies screened-stage email with attachment', async ({
+    page,
+  }) => {
+    const env = getE2EEnv({ pdfs: ['labScreen'] })
 
     await uploadSinglePdf(page, env.pdfLabScreenPath)
     await clickNext(page)
@@ -193,7 +214,9 @@ test.describe('Wizard Lab Screen Workflow', () => {
     const testStart = new Date()
     await page.getByRole('button', { name: /^Update Test Record$/i }).click()
 
-    await expect(page.getByRole('heading', { name: 'Drug Test Created Successfully!' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('heading', { name: 'Drug Test Created Successfully!' })).toBeVisible({
+      timeout: 30_000,
+    })
 
     const testId = await extractTestIdFromSuccess(page)
     fixtures.created.drugTestIds.push(testId)

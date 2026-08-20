@@ -678,7 +678,7 @@ test.describe("Wizard Today's Schedule", () => {
   })
 
   test('carries a guided instant booking into the instant workflow', async ({ page }) => {
-    const env = getE2EEnv()
+    const env = getE2EEnv({ requirePdfs: false })
     const booking = scheduleFixtures.bookings.paidLinked
 
     await scheduleCardButton(page, booking.attendeeName).click()

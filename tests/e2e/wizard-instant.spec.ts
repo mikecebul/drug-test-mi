@@ -29,7 +29,7 @@ test.describe('Wizard Instant Workflow', () => {
 
   test.beforeAll(async () => {
     fixtures = await seedFixtures()
-    const env = getE2EEnv()
+    const env = getE2EEnv({ pdfs: ['instant'] })
     if (env.enableMailpitAssertions) {
       await ensureMailpitReachable(env.mailpitApiBase)
     }
@@ -48,13 +48,16 @@ test.describe('Wizard Instant Workflow', () => {
   test('reveals discontinued medication errors and animates consecutive additions on portrait iPad', async ({
     page,
   }) => {
-    const env = getE2EEnv()
+    const env = getE2EEnv({ pdfs: ['instant'] })
 
     await uploadSinglePdf(page, env.pdfInstantPath)
     await clickNext(page)
     await waitForExtractStepReady(page, {
       readyHeadings: [/Extract Data/i],
     })
+    await expect(page.getByText(/Parsed with high confidence \(100%\)/i)).toBeVisible()
+    await expect(page.getByText('All Negative', { exact: true })).toBeVisible()
+    await expect(page.getByText(/Results Incomplete/i)).toHaveCount(0)
     await clickNext(page)
 
     await expect(page.getByRole('heading', { name: /Choose a Client/i })).toBeVisible({ timeout: 30_000 })
@@ -128,7 +131,7 @@ test.describe('Wizard Instant Workflow', () => {
   })
 
   test('validates upload and confirmation-decision branches, with back-forward navigation', async ({ page }) => {
-    const env = getE2EEnv()
+    const env = getE2EEnv({ pdfs: ['instant'] })
 
     await clickNext(page)
     await expect(page.getByText('Please upload a PDF file')).toBeVisible()
@@ -186,7 +189,7 @@ test.describe('Wizard Instant Workflow', () => {
   })
 
   test('returns to report upload after a browser refresh', async ({ page }) => {
-    const env = getE2EEnv()
+    const env = getE2EEnv({ pdfs: ['instant'] })
 
     await uploadSinglePdf(page, env.pdfInstantPath)
     await clickNext(page)
@@ -215,7 +218,7 @@ test.describe('Wizard Instant Workflow', () => {
   })
 
   test('restores the instant report after the client-registration detour', async ({ page }) => {
-    const env = getE2EEnv()
+    const env = getE2EEnv({ pdfs: ['instant'] })
 
     await uploadSinglePdf(page, env.pdfInstantPath)
     await clickNext(page)
@@ -242,7 +245,7 @@ test.describe('Wizard Instant Workflow', () => {
   test('submits instant workflow, creates test, and verifies screened-stage emails with attachment', async ({
     page,
   }) => {
-    const env = getE2EEnv()
+    const env = getE2EEnv({ pdfs: ['instant'] })
     const testStart = new Date()
 
     await goToEmailsStepFromInstant(page, env.pdfInstantPath, fixtures.clients.instant.fullName)

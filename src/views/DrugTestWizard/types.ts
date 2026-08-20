@@ -57,6 +57,11 @@ export interface ParsedPDFData {
   isDilute: boolean
   rawText: string
   confidence: 'high' | 'medium' | 'low'
+  confidenceScore?: number
+  confidenceReasons?: string[]
+  parseWarnings?: string[]
+  resultRowCount?: number
+  resultsComplete?: boolean
   extractedFields: string[]
   // Lab-specific fields
   testType?: TestType
