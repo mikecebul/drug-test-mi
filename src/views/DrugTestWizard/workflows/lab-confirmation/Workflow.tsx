@@ -28,6 +28,7 @@ import {
 import { extractPdfQueryKey } from '../../queries'
 import type { ExtractedPdfData } from '../../queries'
 import { focusFirstInvalidFieldWithToast, useStepFocus } from '@/lib/form-scroll-focus'
+import { materializeBrowserFile } from '../../utils/materializeBrowserFile'
 
 interface LabConfirmationWorkflowProps {
   onBack: () => void
@@ -53,8 +54,12 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
       try {
         const queryKey = extractPdfQueryKey(value.upload.file, 'enter-lab-confirmation')
         const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
+        const uploadFile = await materializeBrowserFile(value.upload.file)
 
-        const result = await updateLabConfirmationWithEmailReview(value, extractedData)
+        const result = await updateLabConfirmationWithEmailReview(
+          { ...value, upload: { ...value.upload, file: uploadFile } },
+          extractedData,
+        )
 
         if (result.success && result.testId) {
           setCompletedTestId(result.testId)

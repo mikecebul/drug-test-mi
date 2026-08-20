@@ -13,6 +13,7 @@ import { fetchPendingTests } from './workflows/lab-screen/components/fetchPendin
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import type { ParsedPDFData, WizardType } from './types'
 import type { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
+import { materializeBrowserFile } from './utils/materializeBrowserFile'
 
 // Minimal medication interface that both FormMedications and MedicationSnapshot satisfy
 type MedicationInput = {
@@ -367,8 +368,9 @@ export const extractPdfQueryKey = (file: File | null | undefined, wizardType: Wi
 
 // Shared query function for PDF extraction
 const extractPdfQueryFn = async (file: File, wizardType: WizardType) => {
+  const uploadFile = await materializeBrowserFile(file)
   const formData = new FormData()
-  formData.append('file', file)
+  formData.append('file', uploadFile)
 
   const result = await extractPdfData(formData, wizardType)
 
@@ -395,7 +397,7 @@ export function useExtractPdfQuery(file: File | null | undefined, wizardType: Wi
     },
     enabled: Boolean(file), // Only run when file exists
     staleTime: Infinity, // Extracted data never goes stale (file content won't change)
-    retry: 1, // Only retry once on failure
+    retry: false,
   })
 }
 
@@ -412,5 +414,6 @@ export function prefetchExtractPdf(
     queryKey: extractPdfQueryKey(file, wizardType),
     queryFn: () => extractPdfQueryFn(file, wizardType),
     staleTime: Infinity,
+    retry: false,
   })
 }
