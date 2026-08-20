@@ -98,6 +98,10 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Fail the image build if Next's standalone tracer drops either runtime piece
+# PDF.js needs before it can parse any report.
+RUN node -e "const canvas = require('@napi-rs/canvas'); require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs'); if (!canvas.DOMMatrix || !canvas.Path2D) process.exit(1)"
+
 USER nextjs
 
 EXPOSE 3000

@@ -71,6 +71,10 @@ The audit prints aggregate counts only. It never prints donor names, report text
 
 PDF.js executes in the server action, so parsing output is browser-independent. Browser tests still cover the upload and server-action boundary in Chromium and WebKit because Safari differs in file input, multipart request, and response handling. Playwright WebKit is regression coverage, not a substitute for a final smoke test in real Safari.
 
+## Production runtime
+
+PDF.js 6 requires `DOMMatrix` and `Path2D` while its legacy module initializes in Node. The extractor loads those APIs from the direct production dependency `@napi-rs/canvas` before importing PDF.js. It also preloads PDF.js' in-process worker so Next's standalone output tracer includes `pdf.worker.mjs`. The Docker build validates that both runtime pieces survived tracing and fails before deployment if either is missing.
+
 ## Remaining limits
 
 - Scanned/image-only PDFs require OCR and intentionally return incomplete/low-confidence results.

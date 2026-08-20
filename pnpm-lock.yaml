@@ -35,6 +35,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.6)
+      '@napi-rs/canvas':
+        specifier: 1.0.7
+        version: 1.0.7
       '@payloadcms/admin-bar':
         specifier: 3.87.0
         version: 3.87.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -9965,7 +9968,6 @@ snapshots:
       '@napi-rs/canvas-linux-x64-musl': 1.0.7
       '@napi-rs/canvas-win32-arm64-msvc': 1.0.7
       '@napi-rs/canvas-win32-x64-msvc': 1.0.7
-    optional: true
 
   '@napi-rs/wasm-runtime@0.2.12':
     dependencies:

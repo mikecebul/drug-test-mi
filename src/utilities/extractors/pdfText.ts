@@ -28,6 +28,33 @@ const normalizeText = (value: string) =>
     .replace(/\s+/g, ' ')
     .trim()
 
+let pdfJsModulePromise: Promise<typeof import('pdfjs-dist/legacy/build/pdf.mjs')> | undefined
+
+async function loadPdfJs() {
+  if (!pdfJsModulePromise) {
+    pdfJsModulePromise = (async () => {
+      // PDF.js 6 uses these geometry APIs during module initialization, even
+      // for text-only extraction. Node does not provide them. Importing the
+      // canvas package directly also makes Next standalone output trace and
+      // copy the native runtime instead of dropping PDF.js' optional dependency.
+      const canvas = await import('@napi-rs/canvas')
+      globalThis.DOMMatrix ??= canvas.DOMMatrix as unknown as typeof DOMMatrix
+      globalThis.Path2D ??= canvas.Path2D as unknown as typeof Path2D
+
+      // Node uses PDF.js' in-process ("fake") worker. Preloading it registers
+      // WorkerMessageHandler on globalThis and, importantly, gives Next's
+      // standalone tracer a static import to retain in the production image.
+      // Otherwise PDF.js resolves ./pdf.worker.mjs at runtime after that file
+      // has already been omitted from the deployment artifact.
+      await import('pdfjs-dist/legacy/build/pdf.worker.mjs')
+
+      return import('pdfjs-dist/legacy/build/pdf.mjs')
+    })()
+  }
+
+  return pdfJsModulePromise
+}
+
 function isTextItem(item: unknown): item is TextItem {
   return Boolean(item && typeof item === 'object' && 'str' in item && 'transform' in item)
 }
@@ -79,7 +106,7 @@ function groupIntoLines(items: PositionedTextItem[]): PositionedTextLine[] {
  * assumptions and matches the compatibility path used for Safari-facing uploads.
  */
 export async function extractPositionedPdfText(buffer: Buffer): Promise<PositionedPdfText> {
-  const { getDocument, VerbosityLevel } = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const { getDocument, VerbosityLevel } = await loadPdfJs()
   const loadingTask = getDocument({
     data: new Uint8Array(buffer),
     stopAtErrors: false,
