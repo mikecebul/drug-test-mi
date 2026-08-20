@@ -67,15 +67,25 @@ RUN \
 # Sentry's Payload admin integration expects this package to be present.
 RUN node -e "require.resolve('require-in-the-middle')"
 
-FROM worker-deps AS worker
+FROM base AS worker
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_OPTIONS=--no-deprecation
+
+RUN apk add --no-cache ca-certificates libc6-compat
+
+# Copy only the runnable dependency tree into a clean stage. Inheriting from
+# worker-deps also retained pnpm/Corepack download caches, which added hundreds
+# of megabytes to every worker deployment without being used at runtime.
+COPY --from=worker-deps /app/node_modules ./node_modules
 
 COPY . .
 
-CMD ["pnpm", "worker:redwood"]
+RUN node -e "require.resolve('payload')"
+
+CMD ["./node_modules/.bin/payload", "redwood-worker"]
 
 # Production image, copy all the files and run next
 FROM base AS runner
