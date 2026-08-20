@@ -135,8 +135,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright browser
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
 
       - name: Wait for MongoDB port
         run: |
@@ -179,7 +179,9 @@ jobs:
           exit 1
 
       - name: Run UI smoke tests
-        run: pnpm test:e2e:smoke
+        run: |
+          pnpm test:e2e:smoke
+          pnpm test:e2e:pdf-browser
 
       - name: Print app log on failure
         if: failure()

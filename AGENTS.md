@@ -59,6 +59,12 @@ Fast repo context for agents working in this codebase. Keep changes aligned with
 - Derive new colors/spacing from existing CSS variables / Tailwind tokens
 - For new blocks, update both renderer and Pages collection configuration
 
+### Git and Pull Requests
+
+- **Never push directly to `main` (or any default/protected branch).** This rule applies even when a request uses informal language such as “ship,” “yeet,” or “send it.”
+- Put every change on a feature branch, push that branch, and open a pull request so required CI and review checks run before merge.
+- Do not bypass, disable, or work around branch protection or required checks. If the requested Git action is ambiguous, stop and confirm the intended branch/PR workflow before pushing.
+
 ## Build & Permissions
 - `pnpm build` runs `payload migrate` and requires local services (MongoDB, and SMTP if email flows are involved)
 - In sandboxed Codex sessions, build/network restrictions can cause `EPERM` failures; rerun with scoped build permission when needed
