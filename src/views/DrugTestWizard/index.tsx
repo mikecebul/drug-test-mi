@@ -9,6 +9,7 @@ import { WizardContainer } from './components/main-wizard/WizardContainer'
 import { redirect } from 'next/navigation'
 import { Toaster } from '@/components/ui/sonner'
 import { ResetFormButton } from './components/main-wizard/ResetFormButton'
+import { WizardSessionGuard } from './components/main-wizard/WizardSessionGuard'
 
 export default function DrugTestWizard({ initPageResult, params, searchParams }: AdminViewServerProps) {
   const navItem = [
@@ -39,7 +40,9 @@ export default function DrugTestWizard({ initPageResult, params, searchParams }:
         <ShadcnWrapper>
           <WizardContainer>
             <div className="relative">
-              <DrugTestWizardClient />
+              <WizardSessionGuard>
+                <DrugTestWizardClient />
+              </WizardSessionGuard>
               <ResetFormButton />
             </div>
           </WizardContainer>
