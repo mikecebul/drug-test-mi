@@ -45,7 +45,7 @@ test.describe('Wizard Instant Workflow', () => {
     await selectWorkflow(page, 'Screen Instant Test')
   })
 
-  test('reveals discontinued medication errors and animates consecutive additions on portrait iPad', async ({
+  test('@pdf-browser reveals discontinued medication errors and animates consecutive additions on portrait iPad', async ({
     page,
   }) => {
     const env = getE2EEnv({ pdfs: ['instant'] })

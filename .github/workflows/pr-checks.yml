@@ -179,7 +179,9 @@ jobs:
           exit 1
 
       - name: Run UI smoke tests
-        run: pnpm test:e2e:smoke
+        run: |
+          pnpm test:e2e:smoke
+          pnpm test:e2e:pdf-browser
 
       - name: Print app log on failure
         if: failure()
