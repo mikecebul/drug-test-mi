@@ -28,6 +28,7 @@ import {
 import { extractPdfQueryKey } from '../../queries'
 import type { ExtractedPdfData } from '../../queries'
 import { focusFirstInvalidFieldWithToast, useStepFocus } from '@/lib/form-scroll-focus'
+import { materializeBrowserFile } from '../../utils/materializeBrowserFile'
 
 interface LabScreenWorkflowProps {
   onBack: () => void
@@ -53,8 +54,12 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
       try {
         const queryKey = extractPdfQueryKey(value.upload.file, 'enter-lab-screen')
         const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
+        const uploadFile = await materializeBrowserFile(value.upload.file)
 
-        const result = await updateLabScreenWithEmailReview(value, extractedData)
+        const result = await updateLabScreenWithEmailReview(
+          { ...value, upload: { ...value.upload, file: uploadFile } },
+          extractedData,
+        )
 
         if (result.success && result.testId) {
           setCompletedTestId(result.testId)

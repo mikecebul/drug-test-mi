@@ -35,6 +35,7 @@ import { getClientByBookingId, getClientById } from '../components/client/getCli
 import { getFileFromStorage, clearFileStorage, hasStoredFile, saveFileToStorage } from './utils/fileStorage'
 import { focusFirstInvalidFieldWithToast, useStepFocus } from '@/lib/form-scroll-focus'
 import { getReportClientMatch, getReportClientMismatchKey } from './utils/reportClientMatch'
+import { materializeBrowserFile } from '../../utils/materializeBrowserFile'
 
 interface InstantTestWorkflowProps {
   onBack: () => void
@@ -102,12 +103,13 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
 
         // Convert File to buffer array
         console.log(`[InstantTest] Converting file to array buffer...`)
-        const arrayBuffer = await value.upload.file.arrayBuffer()
+        const uploadFile = await materializeBrowserFile(value.upload.file)
+        const arrayBuffer = await uploadFile.arrayBuffer()
         const pdfBuffer = Array.from(new Uint8Array(arrayBuffer))
         console.log(`[InstantTest] Buffer conversion complete`)
 
         // Log payload sizes for debugging
-        const originalSizeMB = (value.upload.file.size / 1024 / 1024).toFixed(2)
+        const originalSizeMB = (uploadFile.size / 1024 / 1024).toFixed(2)
         const bufferSizeMB = (arrayBuffer.byteLength / 1024 / 1024).toFixed(2)
         const jsonSizeMB = (JSON.stringify(pdfBuffer).length / 1024 / 1024).toFixed(2)
         console.log(
@@ -127,7 +129,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
             breathalyzerTaken: value.verifyData.breathalyzerTaken,
             breathalyzerResult: value.verifyData.breathalyzerResult ?? null,
             pdfBuffer,
-            pdfFilename: value.upload.file.name,
+            pdfFilename: uploadFile.name,
             hasConfirmation: extractedData?.hasConfirmation,
             confirmationResults: extractedData?.confirmationResults,
             confirmationDecision: value.verifyData.confirmationDecision ?? null,
