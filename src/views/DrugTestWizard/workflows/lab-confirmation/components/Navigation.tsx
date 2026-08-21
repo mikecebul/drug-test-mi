@@ -5,6 +5,7 @@ import { useStore } from '@tanstack/react-form'
 import { parseAsStringLiteral, useQueryState } from 'nuqs'
 import { Button } from '@/components/ui/button'
 import { labConfirmationFormOpts, steps } from '../shared-form'
+import { useWizardSession } from '@/views/DrugTestWizard/components/main-wizard/WizardSessionGuard'
 
 type WorkflowGroup = {
   state: {
@@ -23,6 +24,7 @@ export const LabConfirmationNavigation = withForm({
   props: { onBack: (): void => {}, group: undefined as unknown as WorkflowGroup },
 
   render: function Render({ form, onBack, group }) {
+    const { isCheckingSession, requireActiveSession } = useWizardSession()
     const [currentStep, setCurrentStep] = useQueryState(
       'step',
       parseAsStringLiteral(steps).withDefault('upload'),
@@ -41,6 +43,10 @@ export const LabConfirmationNavigation = withForm({
         setCurrentStep(steps[currentStepIndex - 1], { history: 'push' })
       }
     }
+    const handleNext = async () => {
+      if (!(await requireActiveSession())) return
+      await group.handleSubmit()
+    }
 
     return (
       <div className="flex justify-between">
@@ -49,8 +55,8 @@ export const LabConfirmationNavigation = withForm({
         </Button>
         <Button
           type="button"
-          onClick={() => group.handleSubmit()}
-          disabled={isSubmitting || group.state.meta.isSubmitting}
+          onClick={() => void handleNext()}
+          disabled={isSubmitting || group.state.meta.isSubmitting || isCheckingSession}
           data-testid="wizard-next-button"
         >
           {isLastStep ? 'Update Test Record' : 'Next'}

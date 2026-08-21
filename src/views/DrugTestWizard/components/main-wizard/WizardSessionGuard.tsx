@@ -1,11 +1,9 @@
 'use client'
 
-import { useAuth } from '@payloadcms/ui'
-import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
-import type { Admin } from '@/payload-types'
 import { AdminSessionExpiredError, refreshAdminSession } from '@/lib/auth/admin-session'
 
 function getLoginURL() {
@@ -13,11 +11,23 @@ function getLoginURL() {
   return `/admin/login?redirect=${encodeURIComponent(currentURL)}`
 }
 
+type WizardSessionContextValue = {
+  isCheckingSession: boolean
+  requireActiveSession: () => Promise<boolean>
+}
+
+const WizardSessionContext = createContext<WizardSessionContextValue | null>(null)
+
+export function useWizardSession() {
+  const context = useContext(WizardSessionContext)
+  if (!context) {
+    throw new Error('useWizardSession must be used within WizardSessionGuard')
+  }
+  return context
+}
+
 export function WizardSessionGuard({ children }: { children: ReactNode }) {
-  const { setUser } = useAuth<Admin>()
   const refreshPromiseRef = useRef<Promise<boolean> | null>(null)
-  const pendingNextTargetRef = useRef<HTMLElement | null>(null)
-  const replayTargetRef = useRef<HTMLElement | null>(null)
   const [isChecking, setIsChecking] = useState(false)
 
   const verifySession = useCallback(
@@ -26,10 +36,7 @@ export function WizardSessionGuard({ children }: { children: ReactNode }) {
 
       setIsChecking(true)
       const refreshPromise = refreshAdminSession()
-        .then((session) => {
-          setUser(session)
-          return true
-        })
+        .then(() => true)
         .catch((error: unknown) => {
           if (error instanceof AdminSessionExpiredError) {
             window.location.assign(getLoginURL())
@@ -54,7 +61,13 @@ export function WizardSessionGuard({ children }: { children: ReactNode }) {
       refreshPromiseRef.current = refreshPromise
       return refreshPromise
     },
-    [setUser],
+    [],
+  )
+
+  const requireActiveSession = useCallback(() => verifySession(true), [verifySession])
+  const contextValue = useMemo(
+    () => ({ isCheckingSession: isChecking, requireActiveSession }),
+    [isChecking, requireActiveSession],
   )
 
   useEffect(() => {
@@ -75,43 +88,9 @@ export function WizardSessionGuard({ children }: { children: ReactNode }) {
     }
   }, [verifySession])
 
-  const handleClickCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
-    const eventTarget = event.target
-    if (!(eventTarget instanceof Element)) return
-
-    const nextButton = eventTarget.closest<HTMLElement>('[data-testid="wizard-next-button"]')
-    if (!nextButton || !event.currentTarget.contains(nextButton)) return
-
-    if (replayTargetRef.current === nextButton) {
-      replayTargetRef.current = null
-      return
-    }
-
-    event.preventDefault()
-    event.stopPropagation()
-
-    // Queue one forward action while verification is in progress. This also
-    // prevents a double click from replaying the workflow action more than once.
-    if (pendingNextTargetRef.current) return
-    pendingNextTargetRef.current = nextButton
-
-    void verifySession(true)
-      .then((isAuthenticated) => {
-        if (!isAuthenticated || !nextButton.isConnected || nextButton.matches(':disabled')) return
-
-        replayTargetRef.current = nextButton
-        nextButton.click()
-      })
-      .finally(() => {
-        if (pendingNextTargetRef.current === nextButton) {
-          pendingNextTargetRef.current = null
-        }
-      })
-  }
-
   return (
-    <div aria-busy={isChecking} onClickCapture={handleClickCapture}>
-      {children}
-    </div>
+    <WizardSessionContext.Provider value={contextValue}>
+      <div aria-busy={isChecking}>{children}</div>
+    </WizardSessionContext.Provider>
   )
 }

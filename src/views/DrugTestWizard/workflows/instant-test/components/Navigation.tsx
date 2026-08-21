@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, Check, Loader2 } from 'lucide-react'
 import { instantTestFormOpts } from '../shared-form'
 import { steps } from '../validators'
+import { useWizardSession } from '@/views/DrugTestWizard/components/main-wizard/WizardSessionGuard'
 
 type WorkflowGroup = {
   state: {
@@ -28,6 +29,7 @@ export const InstantTestNavigation = withForm({
   },
 
   render: function Render({ form, onBack, group }) {
+    const { isCheckingSession, requireActiveSession } = useWizardSession()
     const [currentStep, setCurrentStep] = useQueryState(
       'step',
       parseAsStringLiteral(steps).withDefault('upload'),
@@ -37,7 +39,7 @@ export const InstantTestNavigation = withForm({
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
-    const nextDisabled = isSubmitting || group.state.meta.isSubmitting
+    const nextDisabled = isSubmitting || group.state.meta.isSubmitting || isCheckingSession
     const handleBack = () => {
       if (isFirstStep) {
         onBack()
@@ -45,6 +47,10 @@ export const InstantTestNavigation = withForm({
         const prevStep = steps[currentIndex - 1]
         setCurrentStep(prevStep, { history: 'push' })
       }
+    }
+    const handleNext = async () => {
+      if (!(await requireActiveSession())) return
+      await group.handleSubmit()
     }
 
     return (
@@ -65,10 +71,10 @@ export const InstantTestNavigation = withForm({
           type="button"
           disabled={nextDisabled}
           size="lg"
-          onClick={() => group.handleSubmit()}
+          onClick={() => void handleNext()}
           data-testid="wizard-next-button"
         >
-          {isSubmitting ? (
+          {isSubmitting || isCheckingSession ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Processing...
