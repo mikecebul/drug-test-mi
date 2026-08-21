@@ -7,6 +7,7 @@ import { useStore } from '@tanstack/react-form'
 import { useQueryState, parseAsStringLiteral } from 'nuqs'
 import { steps } from '../validators'
 import { registerClientFormOpts } from '../shared-form'
+import { useWizardSession } from '@/views/DrugTestWizard/components/main-wizard/WizardSessionGuard'
 
 type WorkflowGroup = {
   state: {
@@ -28,6 +29,7 @@ export const RegisterClientNavigation = withForm({
   },
 
   render: function Render({ form, onBack, group }) {
+    const { isCheckingSession, requireActiveSession } = useWizardSession()
     // Read step from URL (single source of truth)
     const [currentStep, setCurrentStep] = useQueryState(
       'step',
@@ -50,6 +52,10 @@ export const RegisterClientNavigation = withForm({
         }
       }
     }
+    const handleNext = async () => {
+      if (!(await requireActiveSession())) return
+      await group.handleSubmit()
+    }
 
     return (
       <div className="mt-8 flex items-center justify-between border-t pt-4">
@@ -67,12 +73,12 @@ export const RegisterClientNavigation = withForm({
 
         <Button
           type="button"
-          onClick={() => group.handleSubmit()}
-          disabled={isSubmitting || group.state.meta.isSubmitting}
+          onClick={() => void handleNext()}
+          disabled={isSubmitting || group.state.meta.isSubmitting || isCheckingSession}
           size="lg"
           data-testid="wizard-next-button"
         >
-          {isSubmitting ? (
+          {isSubmitting || isCheckingSession ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Validating...

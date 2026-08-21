@@ -7,6 +7,7 @@ import { useStore } from '@tanstack/react-form'
 import { useQueryState, parseAsString, parseAsStringLiteral } from 'nuqs'
 import { steps } from '../validators'
 import { collectLabFormOpts } from '../shared-form'
+import { useWizardSession } from '@/views/DrugTestWizard/components/main-wizard/WizardSessionGuard'
 
 type WorkflowGroup = {
   state: {
@@ -28,6 +29,7 @@ export const CollectLabNavigation = withForm({
   },
 
   render: function Render({ form, onBack, group }) {
+    const { isCheckingSession, requireActiveSession } = useWizardSession()
     // Read step from URL (single source of truth)
     const [currentStep, setCurrentStep] = useQueryState('step', parseAsStringLiteral(steps).withDefault('client'))
     const [bookingId] = useQueryState('bookingId', parseAsString)
@@ -44,6 +46,10 @@ export const CollectLabNavigation = withForm({
         const prevStep = steps[currentIndex - 1]
         setCurrentStep(prevStep, { history: 'push' })
       }
+    }
+    const handleNext = async () => {
+      if (!(await requireActiveSession())) return
+      await group.handleSubmit()
     }
 
     return (
@@ -62,12 +68,12 @@ export const CollectLabNavigation = withForm({
 
         <Button
           type="button"
-          onClick={() => group.handleSubmit()}
-          disabled={isSubmitting || group.state.meta.isSubmitting}
+          onClick={() => void handleNext()}
+          disabled={isSubmitting || group.state.meta.isSubmitting || isCheckingSession}
           size="lg"
           data-testid="wizard-next-button"
         >
-          {isSubmitting ? (
+          {isSubmitting || isCheckingSession ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Processing...

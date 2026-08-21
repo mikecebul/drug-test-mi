@@ -110,6 +110,7 @@ import {
 import { ReferralProfileDrawer } from '../components/emails/referrals/ReferralProfileDrawer'
 import { RedwoodProvisioningCard } from './RedwoodProvisioningCard'
 import { WalkInClientDrawer } from './WalkInClientDrawer'
+import { useWizardSession } from '../../components/main-wizard/WizardSessionGuard'
 
 type Booking = GuidedBooking
 type TestType = NonNullable<Booking['testType']>
@@ -300,6 +301,7 @@ function getNextStep(booking: Booking): WorkflowStep {
 export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const { isCheckingSession, requireActiveSession } = useWizardSession()
   const [query, setQuery] = useQueryStates({
     step: parseAsStringLiteral(workflowSteps).withDefault('schedule'),
     bookingId: parseAsString,
@@ -2529,6 +2531,21 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         ? continueMutation.isPending
         : false
   const paymentBalancesAreLoading = currentStep === 'payment' && isFetchingOutstandingPaymentBalances
+  const handlePrimaryNext = async () => {
+    if (!(await requireActiveSession())) return
+
+    if (currentStep === 'review' || currentStep === 'registration') {
+      handleReviewNext()
+      return
+    }
+
+    if (currentStep === 'payment') {
+      await handlePaymentNext()
+      return
+    }
+
+    await handleContinueToCollection()
+  }
 
   return (
     <>
@@ -2560,14 +2577,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           {currentStep !== 'schedule' && (
             <Button
               type="button"
-              onClick={
-                currentStep === 'review' || currentStep === 'registration'
-                  ? () => handleReviewNext()
-                  : currentStep === 'payment'
-                    ? () => handlePaymentNext()
-                    : handleContinueToCollection
-              }
-              disabled={!canGoNext || footerIsPending}
+              onClick={() => void handlePrimaryNext()}
+              disabled={!canGoNext || footerIsPending || isCheckingSession}
               size="lg"
               data-testid="wizard-next-button"
             >
@@ -2576,7 +2587,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   <Loader2 data-icon="inline-start" className="animate-spin" />
                   Payment pending
                 </>
-              ) : footerIsPending ? (
+              ) : footerIsPending || isCheckingSession ? (
                 <>
                   <Loader2 data-icon="inline-start" className="animate-spin" />
                   Processing...

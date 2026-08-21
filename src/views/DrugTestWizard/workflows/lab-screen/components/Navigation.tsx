@@ -5,6 +5,7 @@ import { useStore } from '@tanstack/react-form'
 import { parseAsStringLiteral, useQueryState } from 'nuqs'
 import { Button } from '@/components/ui/button'
 import { labScreenFormOpts, steps } from '../shared-form'
+import { useWizardSession } from '@/views/DrugTestWizard/components/main-wizard/WizardSessionGuard'
 
 type WorkflowGroup = {
   state: {
@@ -23,6 +24,7 @@ export const LabScreenNavigation = withForm({
   props: { onBack: (): void => {}, group: undefined as unknown as WorkflowGroup },
 
   render: function Render({ form, onBack, group }) {
+    const { isCheckingSession, requireActiveSession } = useWizardSession()
     const [currentStep, setCurrentStep] = useQueryState(
       'step',
       parseAsStringLiteral(steps).withDefault('upload'),
@@ -32,13 +34,17 @@ export const LabScreenNavigation = withForm({
     const currentStepIndex = steps.indexOf(currentStep)
     const isFirstStep = currentStepIndex === 0
     const isLastStep = currentStepIndex === steps.length - 1
-    const nextDisabled = isSubmitting || group.state.meta.isSubmitting
+    const nextDisabled = isSubmitting || group.state.meta.isSubmitting || isCheckingSession
     const handleBack = () => {
       if (isFirstStep) {
         onBack()
       } else {
         setCurrentStep(steps[currentStepIndex - 1], { history: 'push' })
       }
+    }
+    const handleNext = async () => {
+      if (!(await requireActiveSession())) return
+      await group.handleSubmit()
     }
 
     return (
@@ -48,7 +54,7 @@ export const LabScreenNavigation = withForm({
         </Button>
         <Button
           type="button"
-          onClick={() => group.handleSubmit()}
+          onClick={() => void handleNext()}
           disabled={nextDisabled}
           data-testid="wizard-next-button"
         >

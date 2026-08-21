@@ -8,6 +8,7 @@ import { superAdmin } from '@/access/superAdmin'
 import { adminOrSelf } from '@/access/adminOrSelf'
 import { anyone } from '@/access/anyone'
 import { checkRole } from '@/access/checkRole'
+import { ADMIN_SESSION_DURATION_SECONDS } from '@/lib/auth/admin-session'
 
 const Admins: CollectionConfig = {
   slug: 'admins',
@@ -28,7 +29,9 @@ const Admins: CollectionConfig = {
     group: 'Admin',
     useAsTitle: 'name',
   },
-  auth: {},
+  auth: {
+    tokenExpiration: ADMIN_SESSION_DURATION_SECONDS,
+  },
   fields: [
     {
       name: 'name',
