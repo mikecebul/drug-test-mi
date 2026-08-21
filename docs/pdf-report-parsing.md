@@ -9,7 +9,8 @@ Flattened PDF text does not preserve table relationships. On Redwood reports, a 
 `pdfText.ts` retains each text item's page, x/y origin, width, and height. Items with the same page and baseline are reconstructed into a row and ordered by x-coordinate. The report parsers then use stable column anchors:
 
 - Instant reports: the `CIA` method cell anchors a row; the result is the status cell to its left and the substance is the leftmost cell.
-- Lab screens: the `EIA` method cell anchors a row; the next cell is the cutoff and the following cell is the screen result.
+- Lab screens: the `EIA` method cell anchors most rows, while B829 Alcohol (Ethanol) uses `EA`; the next cell is the cutoff and the following cell is the screen result.
+- Specimen validity: the `Colorimetric` method cell anchors the creatinine row; the next cell is the reference range and the following cell is the measured result.
 - Lab confirmations: an exact `LC/MS/MS` method cell anchors a row; the next cell is the cutoff and the following cell is the confirmation result.
 
 Requiring a complete same-row structure prevents footer definitions such as “LC-MS/MS - Liquid Chromatography Tandem Mass Spectrometry” from being treated as test results.
@@ -32,10 +33,11 @@ Confidence is evidence-based rather than “name and date were found.” The sco
 - Donor name anchored to its report label: 25 points
 - Collection timestamp anchored to its report label: 25 points
 - Expected screening rows reconstructed from method/result columns: 30-35 points
+- Creatinine specimen-validity row reconstructed from method/result columns: 10 points for lab reports
 - Confirmation analyte rows reconstructed from method/result columns: 5 points for lab reports
 - Instant DOB and sex anchors: 5 points
 
-Scores of 85 or more are high, 60-84 are medium, and lower scores are low. Missing result rows generate a visible manual-review warning. The UI must not display “All Negative” when `resultsComplete` is false.
+Scores of 85 or more are high, 60-84 are medium, and lower scores are low. A complete lab screen with anchored identity fields and its creatinine result reaches 100. Missing result rows are capped below high confidence, generate a visible manual-review warning, and prevent the UI from displaying “All Negative.”
 
 Label-anchored identity fields receive more weight than compatibility fallbacks. Any LC-MS/MS row with an unmapped analyte or unrecognized result prevents a high-confidence confirmation parse.
 

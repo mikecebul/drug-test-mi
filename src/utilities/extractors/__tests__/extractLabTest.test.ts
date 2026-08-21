@@ -1,5 +1,12 @@
 import { describe, test, expect } from 'vitest'
-import { extractLabDonorName, extractLabTest } from '../extractLabTest'
+import {
+  calculateLabConfidence,
+  extractLabDonorName,
+  extractLabTest,
+  parseCreatinineResult,
+  parseScreenRows,
+} from '../extractLabTest'
+import type { PositionedTextLine } from '../pdfText'
 import fs from 'fs/promises'
 import path from 'path'
 import { format } from 'date-fns'
@@ -46,6 +53,22 @@ function assertCollectionDateString(dateString: string): Date {
   const date = new Date(dateString)
   expect(Number.isNaN(date.getTime())).toBe(false)
   return date
+}
+
+function makePositionedLine(items: string[]): PositionedTextLine {
+  return {
+    page: 1,
+    y: 100,
+    text: items.join('\t'),
+    items: items.map((text, index) => ({
+      text,
+      x: index * 100,
+      y: 100,
+      width: 80,
+      height: 10,
+      page: 1,
+    })),
+  }
 }
 
 describe('extractLabTest', () => {
@@ -213,6 +236,52 @@ describe('extractLabTest', () => {
   })
 
   describe('11-panel-lab-no-etg tests', () => {
+    test('matches B829 alcohol with its EA method and parses the creatinine validity row', () => {
+      const lines = [
+        makePositionedLine(['Alcohol (Ethanol)', 'EA', '0.04 g/dL', 'Negative']),
+        makePositionedLine(['Amphetamines 500', 'EIA', '500 ng/mL', 'Negative']),
+        makePositionedLine(['Creatinine', 'Colorimetric', '≥20 mg/dL', '144.2 mg/dL']),
+      ]
+
+      const screen = parseScreenRows(lines)
+      const creatinine = parseCreatinineResult(lines)
+
+      expect(screen.parsedRowCount).toBe(2)
+      expect(screen.rows.get('alcohol')).toBe('negative')
+      expect(creatinine).toEqual({ valueMgDl: 144.2, isDilute: false })
+    })
+
+    test('gives a complete lab screen full confidence when creatinine is also matched', () => {
+      const result = calculateLabConfidence({
+        donorName: 'Sample Donor',
+        donorNameAnchored: true,
+        collectionDate: '2026-08-15T15:31:00.000Z',
+        resultRowCount: 10,
+        resultsComplete: true,
+        creatinineResultFound: true,
+        confirmationRowCount: 0,
+      })
+
+      expect(result.confidenceScore).toBe(100)
+      expect(result.confidence).toBe('high')
+      expect(result.confidenceReasons).toContain('creatinine specimen-validity row matched by method and coordinates')
+    })
+
+    test('keeps an incomplete screen below high confidence even when creatinine is matched', () => {
+      const result = calculateLabConfidence({
+        donorName: 'Sample Donor',
+        donorNameAnchored: true,
+        collectionDate: '2026-08-15T15:31:00.000Z',
+        resultRowCount: 9,
+        resultsComplete: false,
+        creatinineResultFound: true,
+        confirmationRowCount: 0,
+      })
+
+      expect(result.confidenceScore).toBe(84)
+      expect(result.confidence).toBe('medium')
+    })
+
     test('should detect B829 11-panel lab no EtG PDF and map ethanol separately from EtG', async () => {
       const pdf = await getTestPdf('11-panel-lab-no-etg/screening.pdf', process.env.NO_ETG_LAB_PDF)
 
@@ -225,6 +294,10 @@ describe('extractLabTest', () => {
 
       expect(result.testType).toBe('11-panel-lab-no-etg')
       expect(result.detectedSubstances).not.toContain('etg')
+      expect(result.resultRowCount).toBe(10)
+      expect(result.resultsComplete).toBe(true)
+      expect(result.confidenceScore).toBe(100)
+      expect(result.parseWarnings).toEqual([])
 
       if (/Alcohol \(Ethanol\)\*?\s+Screened Positive/i.test(result.rawText)) {
         expect(result.detectedSubstances).toContain('alcohol')

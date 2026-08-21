@@ -51,7 +51,7 @@ const LAB_NAME_FALSE_POSITIVES = [
 const LAB_SUBSTANCE_ALIASES: Array<{ aliases: string[]; value: SubstanceValue }> = [
   { aliases: ['thc cooh', 'thc', 'marijuana', 'cannabinoids'], value: 'thc' },
   { aliases: ['ethyl glucuronide', 'etg'], value: 'etg' },
-  { aliases: ['alcohol ethanol', 'ethanol'], value: 'alcohol' },
+  { aliases: ['alcohol ethanol', 'alcohol', 'ethanol'], value: 'alcohol' },
   { aliases: ['methylenedioxymethamphetamine', 'mdma'], value: 'mdma' },
   { aliases: ['methamphetamine', 'amphetamine', 'amphetamines 500'], value: 'amphetamines' },
   { aliases: ['benzodiazepines'], value: 'benzodiazepines' },
@@ -143,9 +143,11 @@ function extractMethodRows(lines: PositionedTextLine[], methodPattern: RegExp): 
   return rows
 }
 
-function parseScreenRows(lines: PositionedTextLine[]) {
+export function parseScreenRows(lines: PositionedTextLine[]) {
   const rows = new Map<SubstanceValue, 'negative' | 'positive'>()
-  const methodRows = extractMethodRows(lines, /^EIA$/i)
+  // Redwood uses EA (Enzyme Assay) for the B829 Alcohol (Ethanol) row and
+  // EIA for the remaining immunoassay rows.
+  const methodRows = extractMethodRows(lines, /^(?:EA|EIA)$/i)
   let parsedRowCount = 0
 
   for (const row of methodRows) {
@@ -160,6 +162,38 @@ function parseScreenRows(lines: PositionedTextLine[]) {
   }
 
   return { rows, methodRows, parsedRowCount }
+}
+
+export function parseCreatinineResult(lines: PositionedTextLine[]) {
+  for (const line of lines) {
+    const methodIndex = line.items.findIndex((item) => /^Colorimetric$/i.test(item.text))
+    if (methodIndex <= 0) continue
+
+    const label = normalizeSubstanceLabel(
+      line.items
+        .slice(0, methodIndex)
+        .map((item) => item.text)
+        .join(' '),
+    )
+    if (label !== 'creatinine') continue
+
+    // The cell immediately after the method is the reference range. The
+    // remaining cell(s) contain the measured result.
+    const resultText = line.items
+      .slice(methodIndex + 2)
+      .map((item) => item.text)
+      .join(' ')
+    const resultMatch = resultText.match(/([<≤]?)\s*(\d+(?:\.\d+)?)\s*mg\s*\/\s*dL/i)
+    if (!resultMatch) continue
+
+    const valueMgDl = Number.parseFloat(resultMatch[2])
+    return {
+      valueMgDl,
+      isDilute: Boolean(resultMatch[1]) || valueMgDl < 20,
+    }
+  }
+
+  return null
 }
 
 function parseConfirmationResult(value: string): ConfirmationResult | null {
@@ -199,12 +233,13 @@ function parseConfirmationRows(lines: PositionedTextLine[]) {
   return { confirmationResults, methodRows, parsedRowCount }
 }
 
-function calculateLabConfidence(args: {
+export function calculateLabConfidence(args: {
   donorName: string | null
   donorNameAnchored: boolean
   collectionDate: string | null
   resultRowCount: number
   resultsComplete: boolean
+  creatinineResultFound: boolean
   confirmationRowCount: number
 }) {
   let score = 10
@@ -227,14 +262,23 @@ function calculateLabConfidence(args: {
     score += 15
     reasons.push(`only ${args.resultRowCount} screening rows matched by method and coordinates`)
   }
+  if (args.creatinineResultFound) {
+    score += 10
+    reasons.push('creatinine specimen-validity row matched by method and coordinates')
+  }
   if (args.confirmationRowCount > 0) {
     score += 5
     reasons.push(`${args.confirmationRowCount} confirmation analyte rows matched by coordinates`)
   }
 
+  // A missing screening row always requires manual review, even when every
+  // identity and specimen-validity field was extracted successfully.
+  const confidenceScore = args.resultsComplete ? Math.min(score, 100) : Math.min(score, 84)
+
   return {
-    confidenceScore: Math.min(score, 100),
-    confidence: score >= 85 ? ('high' as const) : score >= 60 ? ('medium' as const) : ('low' as const),
+    confidenceScore,
+    confidence:
+      confidenceScore >= 85 ? ('high' as const) : confidenceScore >= 60 ? ('medium' as const) : ('low' as const),
     confidenceReasons: reasons,
   }
 }
@@ -260,6 +304,7 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
       : null
 
     const screenData = parseScreenRows(document.lines)
+    const creatinineResult = parseCreatinineResult(document.lines)
     const confirmationData = parseConfirmationRows(document.lines)
     const resultRowCount = screenData.parsedRowCount
     const resultsComplete = resultRowCount >= expectedRowCount
@@ -297,6 +342,7 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
       collectionDate,
       resultRowCount,
       resultsComplete,
+      creatinineResultFound: Boolean(creatinineResult),
       confirmationRowCount: confirmationData.methodRows.length,
     })
     if (parseWarnings.some((warning) => /confirmed positive/i.test(warning))) {
@@ -307,7 +353,7 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
       confidence.confidence = 'medium'
     }
 
-    const isDilute = /\b(?:specimen is dilute|dilute specimen)\b/i.test(text)
+    const isDilute = creatinineResult?.isDilute === true || /\b(?:specimen is dilute|dilute specimen)\b/i.test(text)
     const extractedFields: string[] = ['testType']
     if (donorName) extractedFields.push('donorName')
     if (collectionDate) extractedFields.push('collectionDate')
