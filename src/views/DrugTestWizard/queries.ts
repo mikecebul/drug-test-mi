@@ -149,11 +149,11 @@ export function useComputeTestResultPreviewQuery(
 /**
  * Query hook for fetching pending drug tests
  */
-export function useFetchPendingTestsQuery(filterStatus?: string[]) {
+export function useFetchPendingTestsQuery(filterStatus?: string[], confirmationDecision?: string) {
   return useQuery({
-    queryKey: ['pending-tests', filterStatus],
+    queryKey: ['pending-tests', filterStatus, confirmationDecision],
     queryFn: async () => {
-      const result = await fetchPendingTests(filterStatus)
+      const result = await fetchPendingTests(filterStatus, confirmationDecision)
       if (!result.success) {
         throw new Error(result.error)
       }
