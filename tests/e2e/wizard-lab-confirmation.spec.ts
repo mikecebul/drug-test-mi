@@ -91,9 +91,7 @@ test.describe('Wizard Lab Confirmation Workflow', () => {
     await expect(page.getByText('Enter Confirmation Results')).toBeVisible()
   })
 
-  test('submits lab-confirmation workflow, completes test, and verifies final-result emails with attachment', async ({
-    page,
-  }) => {
+  test('adds a confirmation report before payment and preserves the outstanding balance', async ({ page }) => {
     const env = getE2EEnv({ pdfs: ['labConfirm'] })
 
     await uploadSinglePdf(page, env.pdfLabConfirmPath)
@@ -129,6 +127,15 @@ test.describe('Wizard Lab Confirmation Workflow', () => {
 
     const refreshed = await getDrugTestById(testId)
     expect((refreshed.confirmationResults || []).length).toBeGreaterThan(0)
+    expect(refreshed.confirmationDocument).toBeTruthy()
+    expect(refreshed.payment).toMatchObject({
+      status: 'unpaid',
+      amountDue: 45,
+      amountPaid: 0,
+      balanceDue: 45,
+      confirmationFeeDue: 45,
+      confirmationPaymentBypassed: false,
+    })
 
     const expectedSubject = `Final Drug Test Results - ${fixtures.clients.labConfirm.firstName} ${fixtures.clients.labConfirm.lastName}`
 

@@ -2,7 +2,7 @@
 
 import { sdk } from '@/lib/payload-sdk'
 
-export async function fetchPendingTests(filterStatus?: string[]): Promise<
+export async function fetchPendingTests(filterStatus?: string[], confirmationDecision?: string): Promise<
   | {
       success: true
       tests: {
@@ -34,6 +34,12 @@ export async function fetchPendingTests(filterStatus?: string[]): Promise<
         screeningStatus: {
           in: ['collected', 'screened', 'confirmation-pending'],
         },
+      }
+    }
+
+    if (confirmationDecision) {
+      whereClause.confirmationDecision = {
+        equals: confirmationDecision,
       }
     }
 

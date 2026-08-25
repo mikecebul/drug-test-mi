@@ -26,8 +26,13 @@ export const MatchCollectionStep = withForm({
     const uploadedFile = useStore(form.store, (state) => state.values.upload.file)
     const { data: extractData } = useExtractPdfQuery(uploadedFile, 'enter-lab-confirmation')
 
-    // Fetch pending tests - for confirmation workflow, we need tests with status 'confirmation-pending'
-    const { data: pendingTests, isLoading, error: queryError } = useFetchPendingTestsQuery(['confirmation-pending'])
+    // Payment-gated confirmations remain screened until payment is received or bypassed.
+    // Keep them selectable so a received lab report can be recorded while the balance stays due.
+    const {
+      data: pendingTests,
+      isLoading,
+      error: queryError,
+    } = useFetchPendingTestsQuery(['screened', 'confirmation-pending'], 'request-confirmation')
 
     // Restore previous selection or auto-match if we have extracted data
     useEffect(() => {
