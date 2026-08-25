@@ -341,7 +341,7 @@ async function createSeedDrugTests(payload: any, clients: FixtureContext['client
       confirmationSubstances: ['fentanyl'],
       payment: {
         status: 'unpaid',
-        method: 'not-paid',
+        method: 'unknown',
         amountDue: 45,
         amountPaid: 0,
         balanceDue: 45,
