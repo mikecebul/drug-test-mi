@@ -362,7 +362,9 @@ The Dokploy Compose deployment exposes separate health signals for both applicat
 
 - `/api/health/live` is a liveness signal that returns `200` when the Next.js process can serve requests. It does not initialize Payload or query MongoDB.
 - `web` calls the readiness signal at `/api/health/ready`, which returns `200` only after the running Payload process successfully pings MongoDB. It returns `503` without database connection details when the check fails. `/api/health` remains an alias for readiness for compatibility with existing monitors.
-- `worker-redwood` refreshes a heartbeat after its running Payload process successfully pings MongoDB. The container becomes unhealthy when that heartbeat is older than `REDWOOD_WORKER_HEALTH_MAX_AGE_MS` (default: two minutes).
+- `worker-redwood` refreshes a heartbeat after it completes a queue query successfully. The container becomes unhealthy when that heartbeat is older than `REDWOOD_WORKER_HEALTH_MAX_AGE_MS` (default: two minutes).
+- `worker-redwood` is a one-shot batch invoked every five seconds by Payload's protected cron runner. Payload skips overlapping ticks while a previous tick is active; follow-up work is picked up on the next tick, and the Dokploy container is capped at one CPU so a worker regression cannot consume both host cores.
+- A completed worker tick updates its heartbeat after querying the queue, so a stuck tick becomes unhealthy without adding a separate MongoDB health query. Web readiness pings use driver deadlines and abort their underlying operation when the application deadline expires.
 
 Readiness checks have a four-second total deadline inside the application and log only status transitions (failure and recovery). Docker allows five seconds for the HTTP request, checks every 30 seconds, and marks the web container unhealthy after three consecutive failures.
 
