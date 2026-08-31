@@ -38,7 +38,7 @@ describe('health API', () => {
     expect(response.status).toBe(200)
     expect(response.headers.get('Cache-Control')).toBe('no-store')
     expect(mocks.command).toHaveBeenCalledWith(
-      { maxTimeMS: 3_000, ping: 1 },
+      { ping: 1, maxTimeMS: 3_000 },
       {
         signal: expect.any(AbortSignal),
         timeoutMS: 3_000,

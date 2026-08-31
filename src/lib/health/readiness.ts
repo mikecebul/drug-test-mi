@@ -73,7 +73,7 @@ export async function createReadinessResponse() {
 
     await withTimeout(
       database.command(
-        { maxTimeMS: Math.min(MONGODB_MAX_TIME_MS, remainingMs), ping: 1 },
+        { ping: 1, maxTimeMS: Math.min(MONGODB_MAX_TIME_MS, remainingMs) },
         {
           signal: pingController.signal,
           timeoutMS: Math.min(MONGODB_MAX_TIME_MS, remainingMs),
