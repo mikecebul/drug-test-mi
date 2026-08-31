@@ -69,11 +69,19 @@ export async function createReadinessResponse() {
     }
 
     const remainingMs = remainingTime(deadline)
+    const pingController = new AbortController()
 
     await withTimeout(
-      database.admin().ping({ maxTimeMS: Math.min(MONGODB_MAX_TIME_MS, remainingMs) }),
+      database.command(
+        { ping: 1, maxTimeMS: Math.min(MONGODB_MAX_TIME_MS, remainingMs) },
+        {
+          signal: pingController.signal,
+          timeoutMS: Math.min(MONGODB_MAX_TIME_MS, remainingMs),
+        },
+      ),
       remainingMs,
       'MongoDB health check timed out',
+      { onTimeout: () => pingController.abort() },
     )
 
     recordStatusTransition('ok', payload)

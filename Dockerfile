@@ -85,7 +85,9 @@ COPY . .
 
 RUN node -e "require.resolve('payload')"
 
-CMD ["./node_modules/.bin/payload", "redwood-worker"]
+# Payload's cron wrapper uses overlap protection, so a slow or stuck tick cannot
+# start another queue query behind it.
+CMD ["./node_modules/.bin/payload", "redwood-worker", "--cron", "*/5 * * * * *"]
 
 # Production image, copy all the files and run next
 FROM base AS runner

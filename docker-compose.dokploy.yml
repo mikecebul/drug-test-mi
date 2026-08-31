@@ -27,6 +27,8 @@ services:
     image: mikecebul/drug-test-mi:latest-worker
     pull_policy: always
     restart: always
+    # Preserve one host CPU for the web app if a worker or database query regresses.
+    cpus: 1.0
     env_file:
       - .env
     environment:

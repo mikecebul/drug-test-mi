@@ -1,14 +1,8 @@
 import { getPayload, type BinScript, type Payload } from 'payload'
 
 import { recordRedwoodWorkerHeartbeat } from '@/lib/health/redwoodWorkerHeartbeat'
-import { withTimeout } from '@/lib/health/withTimeout'
 
 const DEFAULT_BATCH_LIMIT = 3
-const DEFAULT_POLL_MS = 1_000
-const MIN_POLL_MS = 250
-const MAX_POLL_MS = 60_000
-const WORKER_HEALTH_REFRESH_MS = 30_000
-const WORKER_HEALTH_TIMEOUT_MS = 5_000
 
 type QueueRunResult = Awaited<ReturnType<Payload['jobs']['run']>>
 
@@ -30,28 +24,25 @@ function retryNeedsBackoff(result: QueueRunResult) {
   return 'remainingJobsFromQueried' in result && result.remainingJobsFromQueried > 0
 }
 
-export async function drainRedwoodQueue(payload: Payload, limit: number) {
-  let runs = 0
+export async function runRedwoodQueueBatch(payload: Payload, limit: number) {
+  // Run one bounded batch per poll. Previously this function kept calling
+  // Payload until it reported an empty queue. A stale/ambiguous queue result
+  // could therefore become a tight database-read loop and monopolize the host.
+  // Follow-up jobs are picked up by the next protected cron tick (at most five
+  // seconds later with the production command).
+  const result = await payload.jobs.run({
+    limit,
+    overrideAccess: true,
+    queue: 'redwood',
+  })
 
-  while (true) {
-    const result = await payload.jobs.run({
-      limit,
-      overrideAccess: true,
-      queue: 'redwood',
-    })
-
-    if (noJobsRemain(result)) {
-      return { retryNeedsBackoff: false, runs }
-    }
-
-    runs += 1
-
-    // A failed job may be immediately eligible for a retry. Give the external
-    // service a short backoff instead of exhausting all retries in one burst.
-    if (retryNeedsBackoff(result)) {
-      return { retryNeedsBackoff: true, runs }
-    }
+  if (noJobsRemain(result)) {
+    return { retryNeedsBackoff: false, runs: 0 }
   }
+
+  // A failed job may be immediately eligible for a retry. Returning to the
+  // poll interval prevents all retries from being exhausted in one burst.
+  return { retryNeedsBackoff: retryNeedsBackoff(result), runs: 1 }
 }
 
 export async function runRedwoodWorkerCycle(payload: Payload, limit: number) {
@@ -66,41 +57,7 @@ export async function runRedwoodWorkerCycle(payload: Payload, limit: number) {
       queue: 'redwood',
     })
   }
-  return drainRedwoodQueue(payload, limit)
-}
-
-export async function refreshRedwoodWorkerHealth(payload: Payload) {
-  const database = payload.db.connection.db
-
-  if (!database) {
-    throw new Error('MongoDB connection is not initialized')
-  }
-
-  await withTimeout(
-    database.admin().ping({ maxTimeMS: WORKER_HEALTH_TIMEOUT_MS - 1_000 }),
-    WORKER_HEALTH_TIMEOUT_MS,
-    'Redwood worker MongoDB health check timed out',
-  )
-  await recordRedwoodWorkerHeartbeat()
-}
-
-function waitForNextPoll(delayMs: number, signal: AbortSignal) {
-  return new Promise<void>((resolve) => {
-    if (signal.aborted) {
-      resolve()
-      return
-    }
-
-    const timeoutId = setTimeout(finish, delayMs)
-
-    function finish() {
-      clearTimeout(timeoutId)
-      signal.removeEventListener('abort', finish)
-      resolve()
-    }
-
-    signal.addEventListener('abort', finish, { once: true })
-  })
+  return runRedwoodQueueBatch(payload, limit)
 }
 
 export const script: BinScript = async (config) => {
@@ -109,66 +66,18 @@ export const script: BinScript = async (config) => {
     min: 1,
     max: 100,
   })
-  const pollMs = readInteger('REDWOOD_WORKER_POLL_MS', DEFAULT_POLL_MS, {
-    min: MIN_POLL_MS,
-    max: MAX_POLL_MS,
-  })
-  const stopController = new AbortController()
-  let healthRefreshInProgress = false
-
-  const refreshHealth = async () => {
-    if (healthRefreshInProgress) return
-    healthRefreshInProgress = true
-
-    try {
-      await refreshRedwoodWorkerHealth(payload)
-    } catch (error) {
-      payload.logger.error({
-        msg: '[redwood-worker] Health refresh failed',
-        err: error,
-        queue: 'redwood',
-      })
-    } finally {
-      healthRefreshInProgress = false
-    }
-  }
-
-  const stop = () => {
-    stopController.abort()
-  }
-
-  process.once('SIGINT', stop)
-  process.once('SIGTERM', stop)
-
-  payload.logger.info({
-    msg: '[redwood-worker] Started long-lived queue worker',
-    batchLimit,
-    idlePollMs: pollMs,
-    queue: 'redwood',
-  })
-
-  await refreshHealth()
-  const healthRefreshInterval = setInterval(() => void refreshHealth(), WORKER_HEALTH_REFRESH_MS)
 
   try {
-    while (!stopController.signal.aborted) {
-      try {
-        await runRedwoodWorkerCycle(payload, batchLimit)
-      } catch (error) {
-        payload.logger.error({
-          msg: '[redwood-worker] Queue poll failed; retrying after the idle interval',
-          err: error,
-          idlePollMs: pollMs,
-          queue: 'redwood',
-        })
-      }
-
-      await waitForNextPoll(pollMs, stopController.signal)
-    }
-  } finally {
-    clearInterval(healthRefreshInterval)
-    process.removeListener('SIGINT', stop)
-    process.removeListener('SIGTERM', stop)
-    await payload.destroy()
+    await runRedwoodWorkerCycle(payload, batchLimit)
+    // A completed queue query proves that this protected cron tick reached
+    // Payload and MongoDB. The container probe detects a stuck tick when this
+    // heartbeat stops advancing.
+    await recordRedwoodWorkerHeartbeat()
+  } catch (error) {
+    payload.logger.error({
+      msg: '[redwood-worker] Worker tick failed; retrying on the next Payload cron tick',
+      err: error,
+      queue: 'redwood',
+    })
   }
 }

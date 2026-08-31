@@ -1,15 +1,21 @@
 import type { Payload } from 'payload'
-import { describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  getPayload: vi.fn(),
   recordRedwoodWorkerHeartbeat: vi.fn(),
+}))
+
+vi.mock('payload', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('payload')>()),
+  getPayload: mocks.getPayload,
 }))
 
 vi.mock('@/lib/health/redwoodWorkerHeartbeat', () => ({
   recordRedwoodWorkerHeartbeat: mocks.recordRedwoodWorkerHeartbeat,
 }))
 
-import { drainRedwoodQueue, refreshRedwoodWorkerHealth, runRedwoodWorkerCycle } from './worker'
+import { runRedwoodQueueBatch, runRedwoodWorkerCycle, script } from './worker'
 
 function createPayload(run: ReturnType<typeof vi.fn>, handleSchedules = vi.fn().mockResolvedValue({})) {
   return {
@@ -24,34 +30,47 @@ function createPayload(run: ReturnType<typeof vi.fn>, handleSchedules = vi.fn().
 }
 
 describe('Redwood queue worker', () => {
-  test('refreshes its heartbeat only after MongoDB responds', async () => {
-    const ping = vi.fn().mockResolvedValue({ ok: 1 })
-    const payload = {
-      db: {
-        connection: {
-          db: { admin: () => ({ ping }) },
-        },
-      },
-    } as unknown as Payload
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
 
-    await refreshRedwoodWorkerHealth(payload)
+  test('records a heartbeat only after a protected cron tick completes', async () => {
+    const run = vi.fn().mockResolvedValue({ noJobsRemaining: true, remainingJobsFromQueried: 0 })
+    const payload = createPayload(run)
+    mocks.getPayload.mockResolvedValue(payload)
 
-    expect(ping).toHaveBeenCalledWith({ maxTimeMS: 4_000 })
+    await script({} as Parameters<typeof script>[0])
+
+    expect(run).toHaveBeenCalledOnce()
     expect(mocks.recordRedwoodWorkerHeartbeat).toHaveBeenCalledOnce()
   })
 
-  test('drains follow-up jobs without waiting for another idle poll', async () => {
-    const run = vi
-      .fn()
-      .mockResolvedValueOnce({ jobStatus: { donor: { status: 'success' } }, remainingJobsFromQueried: 0 })
-      .mockResolvedValueOnce({ jobStatus: { defaultTest: { status: 'success' } }, remainingJobsFromQueried: 0 })
-      .mockResolvedValueOnce({ noJobsRemaining: true, remainingJobsFromQueried: 0 })
+  test('does not advance the heartbeat when the queue query fails', async () => {
+    const run = vi.fn().mockRejectedValue(new Error('database unavailable'))
+    const payload = createPayload(run)
+    mocks.getPayload.mockResolvedValue(payload)
 
-    const result = await drainRedwoodQueue(createPayload(run), 3)
+    await script({} as Parameters<typeof script>[0])
 
-    expect(result).toEqual({ retryNeedsBackoff: false, runs: 2 })
-    expect(run).toHaveBeenCalledTimes(3)
-    expect(run).toHaveBeenNthCalledWith(1, {
+    expect(mocks.recordRedwoodWorkerHeartbeat).not.toHaveBeenCalled()
+    expect(payload.logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        msg: expect.stringContaining('next Payload cron tick'),
+      }),
+    )
+  })
+
+  test('runs at most one bounded batch per tick even when Payload reports completed work', async () => {
+    const run = vi.fn().mockResolvedValue({
+      jobStatus: { donor: { status: 'success' } },
+      remainingJobsFromQueried: 0,
+    })
+
+    const result = await runRedwoodQueueBatch(createPayload(run), 3)
+
+    expect(result).toEqual({ retryNeedsBackoff: false, runs: 1 })
+    expect(run).toHaveBeenCalledOnce()
+    expect(run).toHaveBeenCalledWith({
       limit: 3,
       overrideAccess: true,
       queue: 'redwood',
@@ -64,10 +83,19 @@ describe('Redwood queue worker', () => {
       remainingJobsFromQueried: 1,
     })
 
-    const result = await drainRedwoodQueue(createPayload(run), 3)
+    const result = await runRedwoodQueueBatch(createPayload(run), 3)
 
     expect(result).toEqual({ retryNeedsBackoff: true, runs: 1 })
     expect(run).toHaveBeenCalledTimes(1)
+  })
+
+  test('reports an idle tick without running another query', async () => {
+    const run = vi.fn().mockResolvedValue({ noJobsRemaining: true, remainingJobsFromQueried: 0 })
+
+    const result = await runRedwoodQueueBatch(createPayload(run), 3)
+
+    expect(result).toEqual({ retryNeedsBackoff: false, runs: 0 })
+    expect(run).toHaveBeenCalledOnce()
   })
 
   test('handles recurring schedules before draining the same queue', async () => {
