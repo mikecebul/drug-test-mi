@@ -1,0 +1,86 @@
+name: Merge scheduled pull request
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+      timezone: America/Detroit
+  workflow_dispatch:
+
+concurrency:
+  group: scheduled-pr-merge
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  checks: read
+  contents: write
+  pull-requests: write
+  statuses: read
+
+jobs:
+  merge:
+    name: Merge one ready PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge the oldest ready labeled PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          MERGE_LABEL: merge-at-4am
+        shell: bash
+        run: |
+          mapfile -t pull_requests < <(
+            gh pr list \
+              --repo "$GH_REPO" \
+              --state open \
+              --label "$MERGE_LABEL" \
+              --limit 100 \
+              --json number,createdAt \
+              --jq 'sort_by(.createdAt) | .[].number'
+          )
+
+          if (( ${#pull_requests[@]} == 0 )); then
+            echo "No open pull requests have the '$MERGE_LABEL' label."
+            exit 0
+          fi
+
+          for pull_request in "${pull_requests[@]}"; do
+            is_draft="$(
+              gh pr view "$pull_request" \
+                --repo "$GH_REPO" \
+                --json isDraft \
+                --jq '.isDraft'
+            )"
+
+            if [[ "$is_draft" == "true" ]]; then
+              echo "Skipping PR #$pull_request because it is a draft."
+              continue
+            fi
+
+            if ! gh pr checks "$pull_request" --repo "$GH_REPO"; then
+              echo "Skipping PR #$pull_request because one or more checks are pending or failing."
+              continue
+            fi
+
+            merge_state="$(
+              gh pr view "$pull_request" \
+                --repo "$GH_REPO" \
+                --json mergeStateStatus \
+                --jq '.mergeStateStatus'
+            )"
+
+            if [[ "$merge_state" != "CLEAN" ]]; then
+              echo "Skipping PR #$pull_request because its merge state is $merge_state."
+              continue
+            fi
+
+            echo "Merging PR #$pull_request with the '$MERGE_LABEL' label."
+            gh pr merge "$pull_request" --repo "$GH_REPO" --merge
+
+            # Push workflows triggered by GITHUB_TOKEN are suppressed by GitHub.
+            # Dispatch production explicitly so the merge still deploys.
+            gh workflow run deploy.yml --repo "$GH_REPO" --ref main
+            exit 0
+          done
+
+          echo "No labeled pull request is currently ready to merge."
