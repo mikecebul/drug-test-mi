@@ -253,6 +253,42 @@ describe('dashboard widgets', () => {
     expect(markup).not.toContain('https://cal.com/booking/completed?cancel=true')
   })
 
+  test('renders pending-payment bookings as held rows with recovery actions', async () => {
+    const req = createAdminReq()
+    mockGetTodaysCollectionBookings.mockResolvedValue([
+      {
+        id: 'booking-pending-payment',
+        attendeeName: 'Pat Pending',
+        startTime: '2026-05-24T15:30:00.000Z',
+        client: { gender: 'female' },
+        calcomBookingId: 'pending',
+        calcomPaymentId: 'pi_pending',
+        createdViaWebhook: true,
+        payment: { status: 'unpaid', method: 'card', amountDue: 35, amountPaid: 0 },
+        paymentRecoveryStatus: 'pending',
+        canAcceptPendingPayment: true,
+        canReschedulePendingPayment: true,
+        sampleCollection: null,
+        needsRegistration: false,
+        needsTestType: false,
+        calcomActionLinks: {
+          cancelHref: 'https://cal.com/booking/pending?cancel=true',
+          rescheduleHref: 'https://cal.com/reschedule/pending',
+        },
+      },
+    ])
+
+    const markup = renderMarkup(await NextCalcomBookingWidget(createWidgetProps(req, 'next-calcom-booking')))
+
+    expect(markup).toContain('Payment pending')
+    expect(markup).toContain('Payment pending for Pat Pending')
+    expect(markup).toContain('Pat Pending pending payment options')
+    expect(markup).toContain('bg-muted/40')
+    expect(markup).toContain('grayscale')
+    expect(markup).not.toContain('bookingId=booking-pending-payment')
+    expect(markup).not.toContain('https://cal.com/reschedule/pending')
+  })
+
   test('describes the wizard widget as manual collection and lab result work', () => {
     const req = createAdminReq()
     const markup = renderMarkup(WizardEntryWidget(createWidgetProps(req, 'wizard-entry')))
@@ -374,5 +410,26 @@ describe('dashboard widgets', () => {
     const markup = renderMarkup(await AdminAlertsWidget(createWidgetProps(req, 'admin-alerts')))
 
     expect(markup).toContain('Bookings need test type review')
+  })
+
+  test('admin alerts separately monitor pending and partial Cal.com payments', async () => {
+    const req = createAdminReq()
+    mockGetTodaysCollectionBookings.mockResolvedValue([
+      {
+        id: 'booking-pending',
+        paymentRecoveryStatus: 'pending',
+        needsTestType: false,
+      },
+      {
+        id: 'booking-partial',
+        paymentRecoveryStatus: 'partial',
+        needsTestType: false,
+      },
+    ])
+
+    const markup = renderMarkup(await AdminAlertsWidget(createWidgetProps(req, 'admin-alerts')))
+
+    expect(markup).toContain('Pending payments need a decision')
+    expect(markup).toContain('Partial payments need review')
   })
 })

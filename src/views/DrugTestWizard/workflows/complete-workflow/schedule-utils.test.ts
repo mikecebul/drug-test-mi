@@ -4,6 +4,7 @@ import {
   doesGuidedBookingNameMatchClient,
   formatGuidedGender,
   getCalcomBookingActionLinks,
+  getCalcomPaymentRecoveryStatus,
   getGuidedClientName,
   getGuidedGenderBadgeClass,
   getGuidedPaymentChoice,
@@ -113,6 +114,70 @@ describe('guided schedule payment helpers', () => {
         payment: null,
       }),
     ).toBe('Unpaid')
+  })
+
+  test('identifies an abandoned Cal.com card checkout as a pending payment hold', () => {
+    const booking = {
+      id: 'booking-pending-payment',
+      needsRegistration: false,
+      needsTestType: false,
+      calcomBookingId: 'cal-pending',
+      calcomPaymentId: 'pi_pending',
+      createdViaWebhook: true,
+      payment: {
+        status: 'unpaid',
+        method: 'card',
+        amountDue: 35,
+        amountPaid: 0,
+      },
+      webhookData: { triggerEvent: 'BOOKING_PAYMENT_INITIATED' },
+    }
+
+    expect(getCalcomPaymentRecoveryStatus(booking)).toBe('pending')
+    expect(getGuidedPaymentLabel(booking)).toBe('Payment pending')
+  })
+
+  test('routes partial Cal.com payments to manual review', () => {
+    const booking = {
+      id: 'booking-partial-payment',
+      needsRegistration: false,
+      needsTestType: false,
+      calcomBookingId: 'cal-partial',
+      createdViaWebhook: true,
+      payment: {
+        status: 'partial',
+        method: 'card',
+        amountDue: 35,
+        amountPaid: 10,
+      },
+    }
+
+    expect(getCalcomPaymentRecoveryStatus(booking)).toBe('partial')
+    expect(getGuidedPaymentLabel(booking)).toBe('Payment review')
+  })
+
+  test('does not mistake manual unpaid, free, or fully paid bookings for payment holds', () => {
+    expect(
+      getCalcomPaymentRecoveryStatus({
+        calcomBookingId: 'manual-unpaid',
+        createdViaWebhook: false,
+        payment: { status: 'unpaid', method: 'not-paid', amountDue: 35, amountPaid: 0 },
+      }),
+    ).toBeNull()
+    expect(
+      getCalcomPaymentRecoveryStatus({
+        calcomBookingId: 'free-booking',
+        createdViaWebhook: true,
+        payment: { status: 'unpaid', method: 'card', amountDue: 0, amountPaid: 0 },
+      }),
+    ).toBeNull()
+    expect(
+      getCalcomPaymentRecoveryStatus({
+        calcomBookingId: 'paid-booking',
+        createdViaWebhook: true,
+        payment: { status: 'paid', method: 'pre-paid', amountDue: 35, amountPaid: 35 },
+      }),
+    ).toBeNull()
   })
 
   test('uses light-mode-safe gender badge classes', () => {

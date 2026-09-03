@@ -17,6 +17,7 @@ import {
   getTodaysCollectionBookings,
   linkBookingToClient,
   recordBookingPayment,
+  recoverPendingPaymentBooking,
   refreshBookingClientContext,
   setBookingScheduledTestType,
   startBookingTerminalPayment,
@@ -53,6 +54,10 @@ const commandSchema = z.discriminatedUnion('operation', [
   z.object({
     operation: z.literal('link-client'),
     input: z.object({ bookingId: requiredId, clientId: requiredId }),
+  }),
+  z.object({
+    operation: z.literal('recover-pending-payment'),
+    input: z.object({ bookingId: requiredId, action: z.enum(['accept', 'cancel', 'reschedule']) }),
   }),
   z.object({
     operation: z.literal('record-payment'),
@@ -199,6 +204,8 @@ export async function POST(request: NextRequest) {
         return json({ success: true })
       case 'record-payment':
         return json(await recordBookingPayment(command.input, adminRequest))
+      case 'recover-pending-payment':
+        return json(await recoverPendingPaymentBooking(command.input, adminRequest))
       case 'set-test-type':
         return json(await setBookingScheduledTestType(command.input.bookingId, command.input.testTypeId, adminRequest))
       case 'start-terminal-payment':

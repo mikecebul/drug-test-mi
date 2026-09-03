@@ -34,9 +34,13 @@ export function ScheduleInfoBadges({
             ? 'secondary'
             : paymentLabel === 'Paid' || paymentLabel === 'Pre-paid' || paymentLabel === 'Collected'
               ? 'success'
-              : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
-                ? 'outline'
-                : 'default'
+              : paymentLabel === 'Payment pending'
+                ? 'warning'
+                : paymentLabel === 'Payment review'
+                  ? 'destructive'
+                  : paymentLabel === 'Unpaid' || paymentLabel === 'Still owes'
+                    ? 'outline'
+                    : 'default'
         }
         className={cn(paymentLabel === 'Still owes' && 'border-destructive text-destructive')}
         title={statusLabel}

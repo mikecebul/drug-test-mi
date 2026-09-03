@@ -57,7 +57,10 @@ export type GuidedScheduleBooking = {
   id: string
   needsRegistration: boolean
   needsTestType: boolean
+  status?: string | null
+  createdViaWebhook?: boolean | null
   calcomBookingId?: string | null
+  calcomPaymentId?: string | null
   webhookData?: unknown
   sampleCollection?: {
     status?: string | null
@@ -68,6 +71,48 @@ export type GuidedScheduleBooking = {
     amountDue?: number | null
     amountPaid?: number | null
   } | null
+}
+
+export type CalcomPaymentRecoveryStatus = 'pending' | 'partial' | null
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+}
+
+function getWebhookTrigger(webhookData: unknown) {
+  const trigger = asRecord(webhookData)?.triggerEvent
+  return typeof trigger === 'string' ? trigger : null
+}
+
+/**
+ * Distinguishes an abandoned Cal.com checkout from an intentional unpaid
+ * appointment. The positive amount and Cal.com/card origin are both required,
+ * so staff-created and random-testing appointments remain normal schedule rows.
+ */
+export function getCalcomPaymentRecoveryStatus(
+  booking: Pick<
+    GuidedScheduleBooking,
+    'calcomBookingId' | 'calcomPaymentId' | 'createdViaWebhook' | 'payment' | 'status' | 'webhookData'
+  >,
+): CalcomPaymentRecoveryStatus {
+  const amountDue = typeof booking.payment?.amountDue === 'number' ? booking.payment.amountDue : 0
+  const amountPaid = typeof booking.payment?.amountPaid === 'number' ? booking.payment.amountPaid : 0
+  if (amountDue <= 0 || amountPaid >= amountDue || booking.payment?.status === 'paid') return null
+
+  const trigger = getWebhookTrigger(booking.webhookData)
+  const isCalcomCardAttempt = Boolean(
+    booking.calcomBookingId &&
+    booking.payment?.method === 'card' &&
+    (booking.createdViaWebhook ||
+      booking.calcomPaymentId ||
+      booking.status === 'pending' ||
+      trigger === 'BOOKING_PAYMENT_INITIATED'),
+  )
+  if (!isCalcomCardAttempt) return null
+
+  if (amountPaid > 0 || booking.payment?.status === 'partial') return 'partial'
+  if (booking.payment?.status === 'unpaid') return 'pending'
+  return null
 }
 
 export function formatGuidedGender(value?: string | null) {
@@ -101,6 +146,9 @@ export function getGuidedPaymentChoice(
 
 export function getGuidedPaymentLabel(booking: GuidedScheduleBooking) {
   if (booking.sampleCollection?.status === 'collected') return 'Collected'
+  const recoveryStatus = getCalcomPaymentRecoveryStatus(booking)
+  if (recoveryStatus === 'pending') return 'Payment pending'
+  if (recoveryStatus === 'partial') return 'Payment review'
   const choice = getGuidedPaymentChoice(booking.payment)
   if (choice === 'pre-paid') return 'Pre-paid'
   if (choice === 'still-owes') return 'Still owes'

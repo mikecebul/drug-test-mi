@@ -97,6 +97,7 @@ import {
   getGuidedPaymentLabel,
 } from './schedule-utils'
 import { ScheduleInfoBadges } from './components/ScheduleInfoBadges'
+import { PendingPaymentRecoveryActions } from './components/PendingPaymentRecoveryActions'
 import {
   buildGuidedPaymentAllocationPreview,
   compactPreviousPaymentAllocations,
@@ -1459,21 +1460,27 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                 const needsRegistration = booking.needsRegistration
                 const canRefund = canRefundPrepaidBooking(booking)
                 const isCompleted = booking.sampleCollection?.status === 'collected'
+                const paymentRecoveryStatus = booking.paymentRecoveryStatus
+                const isPaymentHold = paymentRecoveryStatus === 'pending' || paymentRecoveryStatus === 'partial'
                 return (
                   <div
                     key={booking.id}
                     className={cn(
                       'border-border bg-card grid w-full grid-cols-[minmax(0,1fr)_auto] rounded-lg border transition',
-                      isCompleted ? 'border-border/60 bg-muted/40 text-muted-foreground' : 'hover:bg-muted/50',
+                      isCompleted || isPaymentHold
+                        ? 'border-border/60 bg-muted/40 text-muted-foreground'
+                        : 'hover:bg-muted/50',
                     )}
                   >
                     <button
                       type="button"
                       onClick={() => handleSelectBooking(booking)}
-                      disabled={isCompleted}
+                      disabled={isCompleted || isPaymentHold}
                       className="hover:text-foreground focus-visible:ring-ring flex min-w-0 items-center gap-3 rounded-md p-3 pr-2 text-left transition focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default"
                     >
-                      <Avatar className={cn('size-10 shrink-0', isCompleted && 'opacity-60 grayscale')}>
+                      <Avatar
+                        className={cn('size-10 shrink-0', (isCompleted || isPaymentHold) && 'opacity-60 grayscale')}
+                      >
                         <AvatarImage src={booking.client?.headshot || undefined} alt={booking.attendeeName} />
                         <AvatarFallback>
                           {booking.attendeeName
@@ -1512,54 +1519,67 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       </span>
                     </button>
                     <div className="flex items-start p-3 pl-0">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="-mt-2 -mr-2"
-                              aria-label={`${booking.attendeeName} appointment options`}
-                            />
-                          }
-                        >
-                          <Ellipsis className="size-5" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-52">
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem
-                              disabled={isCompleted || !booking.calcomActionLinks?.rescheduleHref}
-                              closeOnClick={false}
-                              onClick={() => openExternalLink(booking.calcomActionLinks?.rescheduleHref)}
-                            >
-                              <CalendarClock className="size-4" />
-                              Reschedule
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              disabled={isCompleted}
-                              variant="destructive"
-                              onClick={() => openScheduleAction('cancel', booking)}
-                            >
-                              <Ban className="size-4" />
-                              Cancel
-                            </DropdownMenuItem>
-                          </DropdownMenuGroup>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem
-                              disabled={!canRefund}
-                              variant="destructive"
-                              onClick={() => {
-                                if (canRefund) openScheduleAction('cancel-refund', booking)
-                              }}
-                            >
-                              <CreditCard className="size-4" />
-                              Cancel and refund
-                            </DropdownMenuItem>
-                          </DropdownMenuGroup>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {isPaymentHold ? (
+                        <PendingPaymentRecoveryActions
+                          attendeeName={booking.attendeeName}
+                          bookingId={booking.id}
+                          canAccept={booking.canAcceptPendingPayment}
+                          canReschedule={booking.canReschedulePendingPayment}
+                          requiresPaymentReview={paymentRecoveryStatus === 'partial'}
+                          onCompleted={async () => {
+                            await refreshBookings()
+                          }}
+                        />
+                      ) : (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="-mt-2 -mr-2"
+                                aria-label={`${booking.attendeeName} appointment options`}
+                              />
+                            }
+                          >
+                            <Ellipsis className="size-5" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            <DropdownMenuGroup>
+                              <DropdownMenuItem
+                                disabled={isCompleted || !booking.calcomActionLinks?.rescheduleHref}
+                                closeOnClick={false}
+                                onClick={() => openExternalLink(booking.calcomActionLinks?.rescheduleHref)}
+                              >
+                                <CalendarClock className="size-4" />
+                                Reschedule
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                disabled={isCompleted}
+                                variant="destructive"
+                                onClick={() => openScheduleAction('cancel', booking)}
+                              >
+                                <Ban className="size-4" />
+                                Cancel
+                              </DropdownMenuItem>
+                            </DropdownMenuGroup>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuGroup>
+                              <DropdownMenuItem
+                                disabled={!canRefund}
+                                variant="destructive"
+                                onClick={() => {
+                                  if (canRefund) openScheduleAction('cancel-refund', booking)
+                                }}
+                              >
+                                <CreditCard className="size-4" />
+                                Cancel and refund
+                              </DropdownMenuItem>
+                            </DropdownMenuGroup>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   </div>
                 )

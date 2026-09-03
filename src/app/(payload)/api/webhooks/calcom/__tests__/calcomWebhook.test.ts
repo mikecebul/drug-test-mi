@@ -116,6 +116,29 @@ describe('Cal.com webhook helpers', () => {
     })
   })
 
+  test('keeps the Stripe intent id when Cal.com also sends its numeric payment id', () => {
+    const webhook = createWebhook({
+      triggerEvent: 'BOOKING_PAYMENT_INITIATED',
+      payload: {
+        price: 3500,
+        paymentId: 98765,
+        metadata: {
+          externalId: 'pi_pending_123',
+        },
+      },
+    })
+
+    const bookingData = buildCalcomBookingData(webhook)
+
+    expect(bookingData.calcomPaymentId).toBe('pi_pending_123')
+    expect(bookingData.payment).toMatchObject({
+      amountDue: 35,
+      amountPaid: 0,
+      method: 'card',
+      status: 'unpaid',
+    })
+  })
+
   test('preserves an existing booking schedule when payment payload has no appointment times', () => {
     const webhook = createWebhook({
       triggerEvent: 'BOOKING_PAID',
