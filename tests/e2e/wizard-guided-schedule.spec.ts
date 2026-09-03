@@ -162,6 +162,81 @@ test.describe("Wizard Today's Schedule", () => {
     ).toHaveCount(0)
   })
 
+  test('warns before each destructive pending-payment recovery action', async ({ page }) => {
+    const attendeeName = `${fixtures.runId} Pending Payment`
+    await page.route('**/api/guided-workflow?*', async (route) => {
+      const request = route.request()
+      const url = new URL(request.url())
+      if (request.method() !== 'GET' || url.searchParams.get('resource') !== 'today-bookings') {
+        await route.continue()
+        return
+      }
+
+      await route.fulfill({
+        contentType: 'application/json',
+        json: [
+          {
+            id: 'pending-payment-booking',
+            attendeeName,
+            attendeeEmail: fixtures.clients.instant.email,
+            startTime: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+            endTime: new Date(Date.now() + 70 * 60 * 1000).toISOString(),
+            calcomBookingId: 'cal-pending-payment',
+            calcomPaymentId: 'pi_pending_payment',
+            createdViaWebhook: true,
+            client: {
+              id: fixtures.clients.instant.id,
+              firstName: fixtures.clients.instant.firstName,
+              lastName: fixtures.clients.instant.lastName,
+              email: fixtures.clients.instant.email,
+              gender: 'male',
+            },
+            payment: { amountDue: 35, amountPaid: 0, method: 'card', status: 'unpaid' },
+            paymentRecoveryStatus: 'pending',
+            canAcceptPendingPayment: true,
+            canReschedulePendingPayment: true,
+            needsRegistration: false,
+            needsTestType: false,
+            sampleCollection: null,
+            webhookData: { triggerEvent: 'BOOKING_PAYMENT_INITIATED' },
+          },
+        ],
+      })
+    })
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(page.getByText('Loading appointments...')).toBeHidden({ timeout: 30_000 })
+
+    const pendingCard = scheduleCard(page, attendeeName)
+    await expect(pendingCard).toContainText('Payment pending')
+    await expect(scheduleCardButton(page, attendeeName)).toBeDisabled()
+
+    const openPendingOptions = async () => {
+      await page.getByRole('button', { name: `${attendeeName} pending payment options` }).click()
+    }
+
+    await openPendingOptions()
+    await page.getByRole('menuitem', { name: 'Accept as unpaid' }).click()
+    const acceptDialog = page.getByRole('alertdialog', { name: 'Accept as an unpaid appointment?' })
+    await expect(acceptDialog).toContainText('creates a new unpaid appointment')
+    await expect(acceptDialog).toContainText('cancels the pending-payment appointment')
+    await expect(acceptDialog).toContainText('cancellation and confirmation notifications')
+    await acceptDialog.getByRole('button', { name: 'Go back' }).click()
+
+    await openPendingOptions()
+    await page.getByRole('menuitem', { name: 'Reschedule as unpaid' }).click()
+    const rescheduleDialog = page.getByRole('alertdialog', { name: 'Replace and reschedule this appointment?' })
+    await expect(rescheduleDialog).toContainText('If Cal.com is closed')
+    await rescheduleDialog.getByRole('button', { name: 'Go back' }).click()
+
+    await openPendingOptions()
+    await page.getByRole('menuitem', { name: 'Cancel' }).click()
+    const cancelDialog = page.getByRole('alertdialog', { name: 'Cancel pending-payment appointment?' })
+    await expect(cancelDialog).toContainText("removes it from today's schedule")
+    await cancelDialog.getByRole('button', { name: 'Go back' }).click()
+
+    await page.unrouteAll({ behavior: 'wait' })
+  })
+
   test('chooses or registers a walk-in client from one drawer', async ({ page }) => {
     const walkInCard = page.getByTestId('guided-walk-in-card')
     await expect(walkInCard.getByRole('heading', { name: 'Walk-In Collection' })).toBeVisible()

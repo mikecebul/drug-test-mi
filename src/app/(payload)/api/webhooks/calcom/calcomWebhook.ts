@@ -75,7 +75,7 @@ export interface CalcomWebhookPayload {
     eventTypeId?: number
     price?: number | string
     currency?: string
-    paymentId?: string
+    paymentId?: string | number
     payment?: Record<string, unknown>
     metadata?: Record<string, unknown>
     bookerUrl?: string
@@ -285,14 +285,18 @@ export function getCalcomScheduledTestAnswerCandidates(payload: CalcomWebhookPay
 }
 
 function getCalcomPaymentId(payload: CalcomWebhookPayload['payload']) {
-  return (
+  const externalId = getNestedString(payload.metadata, ['externalId'])
+  if (externalId?.startsWith('pi_') || externalId?.startsWith('cs_')) return externalId
+
+  const paymentId =
     payload.paymentId ||
     getNestedString(payload.payment, ['id']) ||
     getNestedString(payload.payment, ['paymentId']) ||
     getNestedString(payload.payment, ['stripePaymentIntentId']) ||
     getNestedString(payload.payment, ['stripeChargeId']) ||
     getNestedString(payload.metadata, ['paymentId'])
-  )
+
+  return typeof paymentId === 'number' ? String(paymentId) : paymentId
 }
 
 function getNumberLike(value: unknown) {

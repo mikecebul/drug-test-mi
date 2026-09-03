@@ -13,12 +13,12 @@ import {
   getCalcomScheduledTestAnswerCandidates,
   type CalcomWebhookPayload,
 } from '@/app/(payload)/api/webhooks/calcom/calcomWebhook'
+import { findConfiguredTestTypeByCalcomAnswer, getActiveTestTypes, mapTestTypeValue } from '@/config/test-types'
 import {
-  findConfiguredTestTypeByCalcomAnswer,
-  getActiveTestTypes,
-  mapTestTypeValue,
-} from '@/config/test-types'
-import { getCalcomBookingActionLinks, isPastScheduledBookingTime } from './schedule-utils'
+  getCalcomBookingActionLinks,
+  getCalcomPaymentRecoveryStatus,
+  isPastScheduledBookingTime,
+} from './schedule-utils'
 import {
   applyAvailableClientCredit,
   applyIncomingPayment,
@@ -56,6 +56,11 @@ import {
   shouldQueueGuidedRedwoodDonor,
   shouldTreatGuidedRedwoodImportAsFailed,
 } from './redwood-provisioning-state'
+import {
+  recoverPendingPaymentBooking as recoverPendingPaymentBookingWithPayload,
+  type PendingPaymentRecoveryAction,
+  type PendingPaymentRecoveryResult,
+} from './pending-payment-recovery'
 
 type PaymentStatus = 'paid' | 'partial' | 'unpaid'
 type PaymentMethod = 'cash' | 'card' | 'credit' | 'not-paid' | 'pre-paid'
@@ -597,9 +602,11 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
           : null
       const headshotId = client?.headshot && typeof client.headshot === 'object' ? String(client.headshot.id) : null
       const bookingGender = getCalcomBookingGender(booking)
+      const paymentRecoveryStatus = getCalcomPaymentRecoveryStatus(booking)
 
       return {
         id: booking.id as string,
+        status: booking.status,
         title: booking.title as string,
         startTime: booking.startTime as string,
         endTime: booking.endTime as string,
@@ -611,6 +618,9 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
             ? client.gender
             : bookingGender || null,
         calcomBookingId: booking.calcomBookingId as string | null | undefined,
+        calcomPaymentId: booking.calcomPaymentId as string | null | undefined,
+        createdViaWebhook: Boolean(booking.createdViaWebhook),
+        webhookData: booking.webhookData,
         calcomActionLinks: getCalcomBookingActionLinks({
           calcomBookingId: booking.calcomBookingId as string | null | undefined,
           webhookData: booking.webhookData,
@@ -656,9 +666,29 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
         sampleCollection: booking.sampleCollection || null,
         needsRegistration: !client,
         needsTestType: Boolean(client && !testType),
+        paymentRecoveryStatus,
+        canAcceptPendingPayment:
+          paymentRecoveryStatus === 'pending' && Boolean(client) && !isPastScheduledBookingTime(booking.startTime),
+        canReschedulePendingPayment: paymentRecoveryStatus === 'pending' && Boolean(client),
       }
     }),
   )
+}
+
+export async function recoverPendingPaymentBooking(
+  input: { action: PendingPaymentRecoveryAction; bookingId: string },
+  req?: AdminPayloadRequest,
+): Promise<PendingPaymentRecoveryResult> {
+  if (!input.bookingId) return { success: false, error: 'Booking is required.' }
+
+  const payload = await getAdminPayload(req)
+  const result = await recoverPendingPaymentBookingWithPayload({
+    action: input.action,
+    bookingId: input.bookingId,
+    payload,
+  })
+  revalidateBookingViews()
+  return result
 }
 
 export async function getActiveCollectionTestTypes() {

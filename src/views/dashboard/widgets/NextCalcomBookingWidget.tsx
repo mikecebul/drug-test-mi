@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { APP_TIMEZONE } from '@/lib/date-utils'
 import { cn } from '@/utilities/cn'
 import { getTodaysCollectionBookings } from '@/views/DrugTestWizard/workflows/complete-workflow/actions'
+import { PendingPaymentRecoveryActions } from '@/views/DrugTestWizard/workflows/complete-workflow/components/PendingPaymentRecoveryActions'
 import { ScheduleInfoBadges } from '@/views/DrugTestWizard/workflows/complete-workflow/components/ScheduleInfoBadges'
 import {
   getGuidedPaymentLabel,
@@ -31,6 +32,8 @@ function ScheduleRow({ booking }: { booking: Booking }) {
   const isCompleted = booking.sampleCollection?.status === 'collected'
   const needsRegistration = booking.needsRegistration
   const needsTestType = booking.needsTestType
+  const paymentRecoveryStatus = booking.paymentRecoveryStatus
+  const isPaymentHold = paymentRecoveryStatus === 'pending' || paymentRecoveryStatus === 'partial'
   const workflowLabel = needsRegistration || needsTestType ? 'Review & Start' : 'Collect Test'
   const { cancelHref, rescheduleHref } = booking.calcomActionLinks ?? {
     cancelHref: null,
@@ -43,7 +46,9 @@ function ScheduleRow({ booking }: { booking: Booking }) {
         'border-border bg-card grid w-full grid-cols-[minmax(0,1fr)_auto] rounded-lg border text-left transition',
         isCompleted
           ? 'border-border/60 bg-muted/40 text-muted-foreground'
-          : 'hover:bg-muted/50 focus-within:border-primary/40',
+          : isPaymentHold
+            ? 'border-border/60 bg-muted/40 text-muted-foreground'
+            : 'hover:bg-muted/50 focus-within:border-primary/40',
       )}
     >
       {isCompleted ? (
@@ -68,6 +73,35 @@ function ScheduleRow({ booking }: { booking: Booking }) {
               paymentLabel={paymentLabel}
             />
             <span className="text-muted-foreground inline-flex items-center gap-1 text-sm line-through decoration-current/60 decoration-1">
+              <Clock className="size-4" />
+              {formatTime(booking.startTime)}
+            </span>
+          </div>
+        </div>
+      ) : isPaymentHold ? (
+        <div
+          className="flex min-w-0 items-center gap-3 p-3 pr-2"
+          aria-label={`${paymentLabel} for ${booking.attendeeName}`}
+        >
+          <Avatar className="size-10 shrink-0 opacity-70 grayscale">
+            <AvatarImage src={booking.client?.headshot || undefined} alt={booking.attendeeName} />
+            <AvatarFallback>
+              {booking.attendeeName
+                .split(/\s+/)
+                .slice(0, 2)
+                .map((part) => part.charAt(0))
+                .join('')}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="line-clamp-2 font-semibold">{booking.attendeeName}</span>
+            <ScheduleInfoBadges
+              gender={booking.gender ?? booking.client?.gender}
+              needsRegistration={needsRegistration}
+              needsTestType={needsTestType}
+              paymentLabel={paymentLabel}
+            />
+            <span className="text-muted-foreground inline-flex items-center gap-1 text-sm">
               <Clock className="size-4" />
               {formatTime(booking.startTime)}
             </span>
@@ -107,11 +141,21 @@ function ScheduleRow({ booking }: { booking: Booking }) {
 
       {!isCompleted && (
         <div className="flex items-start p-3 pl-0">
-          <ScheduleRowActions
-            attendeeName={booking.attendeeName}
-            cancelHref={cancelHref}
-            rescheduleHref={rescheduleHref}
-          />
+          {isPaymentHold ? (
+            <PendingPaymentRecoveryActions
+              attendeeName={booking.attendeeName}
+              bookingId={booking.id}
+              canAccept={booking.canAcceptPendingPayment}
+              canReschedule={booking.canReschedulePendingPayment}
+              requiresPaymentReview={paymentRecoveryStatus === 'partial'}
+            />
+          ) : (
+            <ScheduleRowActions
+              attendeeName={booking.attendeeName}
+              cancelHref={cancelHref}
+              rescheduleHref={rescheduleHref}
+            />
+          )}
         </div>
       )}
     </div>

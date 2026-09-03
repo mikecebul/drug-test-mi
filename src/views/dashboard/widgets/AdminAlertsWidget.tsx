@@ -26,6 +26,26 @@ export default async function AdminAlertsWidget({ req }: WidgetServerProps) {
   try {
     const bookings = await getTodaysCollectionBookings(req)
     const missingTestTypeCount = bookings.filter((booking) => booking.needsTestType).length
+    const pendingPaymentCount = bookings.filter((booking) => booking.paymentRecoveryStatus === 'pending').length
+    const partialPaymentCount = bookings.filter((booking) => booking.paymentRecoveryStatus === 'partial').length
+
+    if (partialPaymentCount > 0) {
+      alerts.push({
+        href: '/admin/drug-test-upload?workflow=guided&step=schedule',
+        label: 'Partial payments need review',
+        tone: 'warning',
+        value: `${partialPaymentCount}`,
+      })
+    }
+
+    if (pendingPaymentCount > 0) {
+      alerts.push({
+        href: '/admin/drug-test-upload?workflow=guided&step=schedule',
+        label: 'Pending payments need a decision',
+        tone: 'warning',
+        value: `${pendingPaymentCount}`,
+      })
+    }
 
     if (missingTestTypeCount > 0) {
       alerts.push({

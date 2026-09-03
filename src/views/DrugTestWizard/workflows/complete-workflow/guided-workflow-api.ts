@@ -13,6 +13,7 @@ import type {
   getClientRedwoodProvisioningStatus,
   getTodaysCollectionBookings,
   recordBookingPayment,
+  recoverPendingPaymentBooking,
   refreshBookingClientContext,
   setBookingScheduledTestType,
   startBookingTerminalPayment,
@@ -32,6 +33,7 @@ export type GuidedBookingContext = Awaited<ReturnType<typeof refreshBookingClien
 export type GuidedScheduleActionResult =
   | Awaited<ReturnType<typeof cancelGuidedBooking>>
   | Awaited<ReturnType<typeof cancelAndRefundGuidedBooking>>
+export type GuidedPendingPaymentRecoveryResult = Awaited<ReturnType<typeof recoverPendingPaymentBooking>>
 export type GuidedPaymentResult = Awaited<ReturnType<typeof recordBookingPayment>>
 export type GuidedTerminalPaymentResult = Awaited<ReturnType<typeof startBookingTerminalPayment>>
 export type GuidedTerminalPaymentCancelResult = Awaited<ReturnType<typeof cancelBookingTerminalPayment>>
@@ -235,6 +237,13 @@ export const guidedWorkflowApi = {
     signal?: AbortSignal,
   ) {
     return command<GuidedPaymentResult>('record-payment', input, signal)
+  },
+
+  recoverPendingPayment(
+    input: { action: 'accept' | 'cancel' | 'reschedule'; bookingId: string },
+    signal?: AbortSignal,
+  ) {
+    return command<GuidedPendingPaymentRecoveryResult>('recover-pending-payment', input, signal)
   },
 
   setTestType(input: { bookingId: string; testTypeId: string }, signal?: AbortSignal) {
