@@ -233,7 +233,6 @@ export async function sendReferralInvoice(
           invoice: stripeInvoiceId,
           currency: 'usd',
           amount: cents(item.amount),
-          quantity: 1,
           discountable: false,
           description: `${item.testType} — ${item.clientName} (${collectionDateInDetroit(item.collectionDate)})`.slice(
             0,
@@ -241,7 +240,7 @@ export async function sendReferralInvoice(
           ),
           metadata: { drugTestId: idOf(item.drugTest) || '' },
         },
-        { idempotencyKey: `referral-invoice-item:${invoice.id}:${idOf(item.drugTest)}` },
+        { idempotencyKey: `referral-invoice-item:v2:${invoice.id}:${idOf(item.drugTest)}` },
       )
     }
     stripeInvoice = await stripe.invoices.finalizeInvoice(

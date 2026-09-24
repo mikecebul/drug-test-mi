@@ -134,10 +134,40 @@ describe('monthly referral invoicing', () => {
       expect.objectContaining({ amount: 2000, description: '11-Panel Lab — Jane Doe (2026-08-12)' }),
       expect.anything(),
     )
+    for (const [parameters, options] of stripe.invoiceItems.create.mock.calls) {
+      expect(parameters).not.toHaveProperty('quantity')
+      expect(options.idempotencyKey).toMatch(/^referral-invoice-item:v2:/)
+    }
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({ collection: 'referral-invoices', data: expect.objectContaining({ status: 'sent' }) }),
     )
     await sendReferralInvoice(payload, 'courts', 'court-1', '2026-08', stripe as unknown as Stripe)
     expect(stripe.invoices.create).toHaveBeenCalledTimes(1)
+  })
+
+  it('resumes the existing draft after an invoice item request fails', async () => {
+    const { payload, create } = mockPayload()
+    const stripe = {
+      customers: { create: vi.fn().mockResolvedValue({ id: 'cus_1' }), update: vi.fn() },
+      invoices: {
+        create: vi.fn().mockResolvedValue({ id: 'in_1', status: 'draft' }),
+        retrieve: vi.fn().mockResolvedValue({ id: 'in_1', status: 'draft' }),
+        finalizeInvoice: vi.fn().mockResolvedValue({ id: 'in_1', status: 'open' }),
+        sendInvoice: vi.fn().mockResolvedValue({ id: 'in_1', status: 'open' }),
+      },
+      invoiceItems: {
+        create: vi.fn().mockRejectedValueOnce(new Error('Stripe request failed')).mockResolvedValue({ id: 'ii_1' }),
+      },
+    }
+    await expect(
+      sendReferralInvoice(payload, 'courts', 'court-1', '2026-08', stripe as unknown as Stripe),
+    ).rejects.toThrow('Stripe request failed')
+    const result = await sendReferralInvoice(payload, 'courts', 'court-1', '2026-08', stripe as unknown as Stripe)
+    expect(result.status).toBe('sent')
+    expect(create).toHaveBeenCalledTimes(1)
+    expect(stripe.invoices.create).toHaveBeenCalledTimes(1)
+    expect(stripe.invoices.retrieve).toHaveBeenCalledWith('in_1')
+    expect(stripe.invoiceItems.create).toHaveBeenCalledTimes(3)
+    expect(stripe.invoiceItems.create.mock.calls[1][0]).not.toHaveProperty('quantity')
   })
 })
