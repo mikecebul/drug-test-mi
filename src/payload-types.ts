@@ -110,6 +110,7 @@ export interface Config {
     technicians: Technician;
     courts: Court;
     employers: Employer;
+    'referral-invoices': ReferralInvoice;
     clients: Client;
     'drug-tests': DrugTest;
     payments: Payment;
@@ -151,6 +152,7 @@ export interface Config {
     technicians: TechniciansSelect<false> | TechniciansSelect<true>;
     courts: CourtsSelect<false> | CourtsSelect<true>;
     employers: EmployersSelect<false> | EmployersSelect<true>;
+    'referral-invoices': ReferralInvoicesSelect<false> | ReferralInvoicesSelect<true>;
     clients: ClientsSelect<false> | ClientsSelect<true>;
     'drug-tests': DrugTestsSelect<false> | DrugTestsSelect<true>;
     payments: PaymentsSelect<false> | PaymentsSelect<true>;
@@ -194,6 +196,7 @@ export interface Config {
   user: Admin | Client | PayloadMcpApiKey;
   jobs: {
     tasks: {
+      'send-monthly-referral-invoices': TaskSendMonthlyReferralInvoices;
       'redwood-diagnostics-probe': TaskRedwoodDiagnosticsProbe;
       'redwood-import-client': TaskRedwoodImportClient;
       'redwood-update-client': TaskRedwoodUpdateClient;
@@ -1693,6 +1696,18 @@ export interface Court {
    * Inactive courts are hidden from quick-select dropdowns, but remain usable for linked clients and email delivery.
    */
   isActive?: boolean | null;
+  /**
+   * Send this referral monthly Stripe invoices for its clients’ unpaid drug tests.
+   */
+  isBillable?: boolean | null;
+  /**
+   * Stripe sends invoices to this address. This is separate from result notification contacts.
+   */
+  billingEmail?: string | null;
+  /**
+   * Stripe customer linked to this referral.
+   */
+  stripeCustomerId?: string | null;
   clients?: {
     docs?: (string | Client)[];
     hasNextPage?: boolean;
@@ -1731,6 +1746,18 @@ export interface Employer {
    * Inactive employers are hidden from quick-select dropdowns, but remain usable for linked clients and email delivery.
    */
   isActive?: boolean | null;
+  /**
+   * Send this referral monthly Stripe invoices for its clients’ unpaid drug tests.
+   */
+  isBillable?: boolean | null;
+  /**
+   * Stripe sends invoices to this address. This is separate from result notification contacts.
+   */
+  billingEmail?: string | null;
+  /**
+   * Stripe customer linked to this referral.
+   */
+  stripeCustomerId?: string | null;
   clients?: {
     docs?: (string | Client)[];
     hasNextPage?: boolean;
@@ -2173,7 +2200,14 @@ export interface Payment {
    */
   amount: number;
   method: 'cash' | 'card' | 'stripe' | 'pre-paid' | 'credit' | 'unknown';
-  source: 'guided-workflow' | 'test-tracker' | 'stripe-checkout' | 'calcom' | 'credit-application' | 'manual';
+  source:
+    | 'guided-workflow'
+    | 'test-tracker'
+    | 'stripe-checkout'
+    | 'referral-invoice'
+    | 'calcom'
+    | 'credit-application'
+    | 'manual';
   /**
    * Only posted payments count toward balances. Voided and refunded records stay for audit history.
    */
@@ -2216,6 +2250,7 @@ export interface Payment {
   receiptEmailSentAt?: string | null;
   receiptType?: ('paid-in-full' | 'partial' | 'credit-added') | null;
   stripeCheckoutSessionId?: string | null;
+  stripeInvoiceId?: string | null;
   stripePaymentIntentId?: string | null;
   /**
    * Idempotency key for a guided workflow payment request.
@@ -2461,6 +2496,49 @@ export interface Technician {
    * Inactive technicians will not appear in scheduling
    */
   isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Monthly Stripe invoices sent to billable court and employer referrals.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "referral-invoices".
+ */
+export interface ReferralInvoice {
+  id: string;
+  billingKey: string;
+  billingMonth: string;
+  referral:
+    | {
+        relationTo: 'courts';
+        value: string | Court;
+      }
+    | {
+        relationTo: 'employers';
+        value: string | Employer;
+      };
+  billingEmail: string;
+  amount: number;
+  /**
+   * Amount paid to Stripe after a test was paid elsewhere. Review for a referral refund or credit.
+   */
+  unappliedAmount?: number | null;
+  status: 'preparing' | 'sent' | 'paid';
+  stripeCustomerId?: string | null;
+  stripeInvoiceId?: string | null;
+  hostedInvoiceUrl?: string | null;
+  sentAt?: string | null;
+  paidAt?: string | null;
+  items: {
+    drugTest: string | DrugTest;
+    client: string | Client;
+    clientName: string;
+    collectionDate: string;
+    testType: string;
+    amount: number;
+    id?: string | null;
+  }[];
   updatedAt: string;
   createdAt: string;
 }
@@ -2747,6 +2825,7 @@ export interface PayloadJob {
         completedAt: string;
         taskSlug:
           | 'inline'
+          | 'send-monthly-referral-invoices'
           | 'redwood-diagnostics-probe'
           | 'redwood-import-client'
           | 'redwood-update-client'
@@ -2793,6 +2872,7 @@ export interface PayloadJob {
   taskSlug?:
     | (
         | 'inline'
+        | 'send-monthly-referral-invoices'
         | 'redwood-diagnostics-probe'
         | 'redwood-import-client'
         | 'redwood-update-client'
@@ -2879,6 +2959,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'employers';
         value: string | Employer;
+      } | null)
+    | ({
+        relationTo: 'referral-invoices';
+        value: string | ReferralInvoice;
       } | null)
     | ({
         relationTo: 'clients';
@@ -3905,6 +3989,9 @@ export interface CourtsSelect<T extends boolean = true> {
       };
   preferredTestType?: T;
   isActive?: T;
+  isBillable?: T;
+  billingEmail?: T;
+  stripeCustomerId?: T;
   clients?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -3924,7 +4011,41 @@ export interface EmployersSelect<T extends boolean = true> {
       };
   preferredTestType?: T;
   isActive?: T;
+  isBillable?: T;
+  billingEmail?: T;
+  stripeCustomerId?: T;
   clients?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "referral-invoices_select".
+ */
+export interface ReferralInvoicesSelect<T extends boolean = true> {
+  billingKey?: T;
+  billingMonth?: T;
+  referral?: T;
+  billingEmail?: T;
+  amount?: T;
+  unappliedAmount?: T;
+  status?: T;
+  stripeCustomerId?: T;
+  stripeInvoiceId?: T;
+  hostedInvoiceUrl?: T;
+  sentAt?: T;
+  paidAt?: T;
+  items?:
+    | T
+    | {
+        drugTest?: T;
+        client?: T;
+        clientName?: T;
+        collectionDate?: T;
+        testType?: T;
+        amount?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4146,6 +4267,7 @@ export interface PaymentsSelect<T extends boolean = true> {
   receiptEmailSentAt?: T;
   receiptType?: T;
   stripeCheckoutSessionId?: T;
+  stripeInvoiceId?: T;
   stripePaymentIntentId?: T;
   workflowOperationId?: T;
   stripeCheckoutUrl?: T;
@@ -4663,6 +4785,14 @@ export interface CollectionsWidget {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskSend-monthly-referral-invoices".
+ */
+export interface TaskSendMonthlyReferralInvoices {
+  input?: unknown;
+  output?: unknown;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TaskRedwood-diagnostics-probe".
  */
 export interface TaskRedwoodDiagnosticsProbe {
@@ -4805,6 +4935,7 @@ export interface TaskCreateCollectionExport {
       | 'technicians'
       | 'courts'
       | 'employers'
+      | 'referral-invoices'
       | 'clients'
       | 'drug-tests'
       | 'payments'

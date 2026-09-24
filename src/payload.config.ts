@@ -50,6 +50,7 @@ import { baseUrl } from './utilities/baseUrl'
 import { checkoutSessionCompleted } from './plugins/stripe/webhooks/checkoutSessionCompleted'
 import { paymentIntentPaymentFailed } from './plugins/stripe/webhooks/paymentIntentPaymentFailed'
 import { paymentIntentSucceeded } from './plugins/stripe/webhooks/paymentIntentSucceeded'
+import { invoicePaid } from './plugins/stripe/webhooks/invoicePaid'
 import { Forms } from './collections/Forms'
 import { FormSubmissions } from './collections/FormSubmissions'
 import { Technicians } from './collections/Technicians'
@@ -61,6 +62,9 @@ import { AdminAlerts } from './collections/AdminAlerts'
 import { JobRuns } from './collections/JobRuns'
 import { Employers } from './collections/Employers'
 import { Courts } from './collections/Courts'
+import { ReferralInvoices } from './collections/ReferralInvoices'
+import { previousBillingMonth, sendMonthlyReferralInvoices } from './lib/referral-invoices'
+import Stripe from 'stripe'
 import { runRedwoodImportClientJob } from './collections/Clients/services/redwoodImportWorkflow'
 import { runRedwoodClientInactivationJob } from './collections/Clients/services/redwoodClientInactivation'
 import { runRedwoodClientUpdateJob } from './collections/Clients/services/redwoodClientUpdate'
@@ -181,6 +185,7 @@ export default buildConfig({
         '@/views/beforeNavLinks/DrugTestCollectorLink',
         '@/views/beforeNavLinks/QuickBookLink',
         '@/views/beforeNavLinks/DrugTestTrackerLink',
+        '@/views/beforeNavLinks/ReferralBillingLink',
       ],
       afterNavLinks: ['@/views/afterNavLinks/LinkToAnalyticsDefaultRootView'],
       graphics: {
@@ -188,6 +193,10 @@ export default buildConfig({
         Logo: '@/components/Logo/Graphic',
       },
       views: {
+        ReferralBilling: {
+          Component: '@/views/ReferralBilling',
+          path: '/referral-billing',
+        },
         CustomRootView: {
           Component: '@/views/Analytics',
           path: '/analytics',
@@ -380,6 +389,7 @@ export default buildConfig({
     Technicians,
     Courts,
     Employers,
+    ReferralInvoices,
     Clients,
     DrugTests,
     Payments,
@@ -411,6 +421,20 @@ export default buildConfig({
   jobs: {
     enableConcurrencyControl: true,
     tasks: [
+      {
+        slug: 'send-monthly-referral-invoices',
+        retries: 1,
+        schedule: process.env.STRIPE_SECRET_KEY ? [{ cron: '0 0 14 1 * *', queue: 'redwood' }] : [],
+        handler: async ({ req }) => {
+          const key = process.env.STRIPE_SECRET_KEY
+          if (!key) throw new Error('Stripe is not configured.')
+          const month = previousBillingMonth()
+          const results = await sendMonthlyReferralInvoices(req.payload, month, new Stripe(key, {}))
+          const failed = results.filter((result) => result.status === 'failed')
+          if (failed.length) throw new Error(`${failed.length} referral invoices failed for ${month}.`)
+          return { output: { month, invoices: results.length } }
+        },
+      },
       {
         slug: 'redwood-diagnostics-probe',
         retries: 0,
@@ -1008,6 +1032,7 @@ export default buildConfig({
       stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
       stripeWebhooksEndpointSecret: process.env.STRIPE_WEBHOOKS_ENDPOINT_SECRET,
       webhooks: {
+        'invoice.paid': invoicePaid,
         'checkout.session.completed': checkoutSessionCompleted,
         'payment_intent.payment_failed': paymentIntentPaymentFailed,
         'payment_intent.succeeded': paymentIntentSucceeded,

@@ -8,6 +8,7 @@ export type PaymentSource =
   | 'guided-workflow'
   | 'test-tracker'
   | 'stripe-checkout'
+  | 'referral-invoice'
   | 'calcom'
   | 'credit-application'
   | 'manual'

@@ -83,6 +83,7 @@ export const Payments: CollectionConfig = {
         { label: 'Guided Workflow', value: 'guided-workflow' },
         { label: 'Drug Test Tracker', value: 'test-tracker' },
         { label: 'Stripe Checkout', value: 'stripe-checkout' },
+        { label: 'Referral Invoice', value: 'referral-invoice' },
         { label: 'Cal.com', value: 'calcom' },
         { label: 'Credit Application', value: 'credit-application' },
         { label: 'Manual', value: 'manual' },
@@ -279,6 +280,12 @@ export const Payments: CollectionConfig = {
           name: 'stripeCheckoutSessionId',
           type: 'text',
           index: true,
+        },
+        {
+          name: 'stripeInvoiceId',
+          type: 'text',
+          index: true,
+          admin: { readOnly: true },
         },
         {
           name: 'stripePaymentIntentId',

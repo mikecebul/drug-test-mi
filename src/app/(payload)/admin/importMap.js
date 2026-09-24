@@ -52,8 +52,10 @@ import { default as default_f23981c7c14f3125f7b78fced0c90565 } from '@/views/aft
 import { default as default_097833d478bca303d2dce6febf359669 } from '@/views/beforeNavLinks/DrugTestCollectorLink'
 import { default as default_8331dd52841b839972744131b323247b } from '@/views/beforeNavLinks/QuickBookLink'
 import { default as default_ecb6141ba55c46753b7e0292674e17e1 } from '@/views/beforeNavLinks/DrugTestTrackerLink'
+import { default as default_3da75b5b33890258a17d0ac02103d516 } from '@/views/beforeNavLinks/ReferralBillingLink'
 import { ImportExportProvider as ImportExportProvider_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
+import { default as default_5b15bbc11068c744f1566d4e8e7e2b0a } from '@/views/ReferralBilling'
 import { default as default_af05419e5157afdd5ccd30100f9c9f64 } from '@/views/Analytics'
 import { default as default_fb357f89b63991d343cdc6c077a34fcf } from '@/views/DrugTestTracker'
 import { default as default_466983afdb665bae58ae3399f538723f } from '@/views/DrugTestWizard'
@@ -122,8 +124,10 @@ export const importMap = {
   "@/views/beforeNavLinks/DrugTestCollectorLink#default": default_097833d478bca303d2dce6febf359669,
   "@/views/beforeNavLinks/QuickBookLink#default": default_8331dd52841b839972744131b323247b,
   "@/views/beforeNavLinks/DrugTestTrackerLink#default": default_ecb6141ba55c46753b7e0292674e17e1,
+  "@/views/beforeNavLinks/ReferralBillingLink#default": default_3da75b5b33890258a17d0ac02103d516,
   "@payloadcms/plugin-import-export/rsc#ImportExportProvider": ImportExportProvider_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
+  "@/views/ReferralBilling#default": default_5b15bbc11068c744f1566d4e8e7e2b0a,
   "@/views/Analytics#default": default_af05419e5157afdd5ccd30100f9c9f64,
   "@/views/DrugTestTracker#default": default_fb357f89b63991d343cdc6c077a34fcf,
   "@/views/DrugTestWizard#default": default_466983afdb665bae58ae3399f538723f,
