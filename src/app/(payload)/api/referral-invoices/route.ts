@@ -7,6 +7,7 @@ import {
   currentBillingMonth,
   previewReferralInvoice,
   previousBillingMonth,
+  replaceReferralInvoice,
   sendReferralInvoice,
 } from '@/lib/referral-invoices'
 
@@ -20,6 +21,7 @@ const inputSchema = z.object({
     .string()
     .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
     .optional(),
+  action: z.enum(['email', 'replace']).optional(),
 })
 
 async function authorize(request: NextRequest) {
@@ -60,13 +62,25 @@ export async function POST(request: NextRequest) {
   const key = process.env.STRIPE_SECRET_KEY
   if (!key) return json({ error: 'Stripe is not configured.' }, 503)
   try {
+    const stripe = new Stripe(key, {})
+    if (input.data.action === 'replace') {
+      return json(
+        await replaceReferralInvoice(
+          payload,
+          input.data.relationTo,
+          input.data.referralId,
+          input.data.month || previousBillingMonth(),
+          stripe,
+        ),
+      )
+    }
     return json(
       await sendReferralInvoice(
         payload,
         input.data.relationTo,
         input.data.referralId,
         input.data.month || previousBillingMonth(),
-        new Stripe(key, {}),
+        stripe,
         { emailExisting: true },
       ),
     )

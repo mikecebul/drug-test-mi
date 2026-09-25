@@ -43,7 +43,13 @@ async function findExistingInvoice(payload: Payload, billingKey: string) {
   return result.docs[0] || null
 }
 
-async function eligibleItems(payload: Payload, relationTo: ReferralCollection, referralId: string, cutoff: string) {
+async function eligibleItems(
+  payload: Payload,
+  relationTo: ReferralCollection,
+  referralId: string,
+  cutoff: string,
+  excludeInvoiceId?: string,
+) {
   const clients = (await findAll((page) =>
     payload.find({
       collection: 'clients',
@@ -88,7 +94,9 @@ async function eligibleItems(payload: Payload, relationTo: ReferralCollection, r
     }),
   )
   const alreadyInvoiced = new Set(
-    priorInvoices.flatMap((invoice) => invoice.items?.map((item) => idOf(item.drugTest)) || []),
+    priorInvoices
+      .filter((invoice) => invoice.status !== 'void' && String(invoice.id) !== excludeInvoiceId)
+      .flatMap((invoice) => invoice.items?.map((item) => idOf(item.drugTest)) || []),
   )
 
   return tests.flatMap((test): InvoiceItem[] => {
@@ -124,6 +132,10 @@ export async function previewReferralInvoice(
   const billingKey = `${relationTo}:${referralId}:${month}`
   const existing = await findExistingInvoice(payload, billingKey)
   const items = existing?.items || (await eligibleItems(payload, relationTo, referralId, cutoff))
+  const replacementItems =
+    existing?.status === 'sent'
+      ? await eligibleItems(payload, relationTo, referralId, cutoff, String(existing.id))
+      : null
   return {
     referral: {
       id: String(referral.id),
@@ -140,7 +152,14 @@ export async function previewReferralInvoice(
     hostedInvoiceUrl: existing?.hostedInvoiceUrl || null,
     invoicePdfUrl: existing?.invoicePdfUrl || null,
     emailSentAt: existing?.emailSentAt || null,
+    replacesInvoiceNumber: existing?.replacesInvoiceNumber || null,
     upcoming: month === currentMonth && !existing,
+    replacement: replacementItems
+      ? {
+          items: replacementItems,
+          amount: replacementItems.reduce((total, item) => total + cents(item.amount), 0) / 100,
+        }
+      : null,
   }
 }
 
@@ -168,6 +187,7 @@ async function emailReferralInvoice(
     invoiceNumber: stripeInvoice.number,
     dueDate: stripeInvoice.due_date,
     paymentUrl: stripeInvoice.hosted_invoice_url || null,
+    replacesInvoiceNumber: invoice.replacesInvoiceNumber || null,
   })
   const recipients = resolveOutboundNotificationRecipients([invoice.billingEmail])
   await payload.sendEmail({
@@ -198,7 +218,7 @@ export async function sendReferralInvoice(
   referralId: string,
   month: string,
   stripe: Stripe,
-  options: { emailExisting?: boolean } = {},
+  options: { emailExisting?: boolean; replacesInvoiceId?: string; replacesInvoiceNumber?: string } = {},
 ) {
   billingPeriodEnd(month)
   const preview = await previewReferralInvoice(payload, relationTo, referralId, month)
@@ -244,6 +264,8 @@ export async function sendReferralInvoice(
           amount: preview.amount,
           status: 'preparing',
           items: preview.items,
+          replacesInvoice: options.replacesInvoiceId,
+          replacesInvoiceNumber: options.replacesInvoiceNumber,
         },
       })
     } catch (error) {
@@ -281,9 +303,16 @@ export async function sendReferralInvoice(
           default_tax_rates: [],
           pending_invoice_items_behavior: 'exclude',
           footer: REFERRAL_CHECK_FOOTER,
+          ...(invoice.replacesInvoiceNumber
+            ? { description: `Replaces invoice ${invoice.replacesInvoiceNumber}` }
+            : {}),
           metadata: { referralInvoiceId: String(invoice.id), billingKey: preview.billingKey },
         },
-        { idempotencyKey: `referral-invoice:${preview.billingKey}` },
+        {
+          idempotencyKey: invoice.replacesInvoice
+            ? `referral-invoice:${invoice.id}`
+            : `referral-invoice:${preview.billingKey}`,
+        },
       )
 
   if (!invoice.stripeInvoiceId) {
@@ -346,6 +375,59 @@ export async function sendReferralInvoice(
   }
   await emailReferralInvoice(payload, invoice, referral.name, stripeInvoice)
   return { status: 'sent' as const, billingKey: preview.billingKey, stripeInvoiceId: stripeInvoice.id }
+}
+
+/** Replace a finalized, unpaid invoice with a fresh snapshot of the referral's current balances. */
+export async function replaceReferralInvoice(
+  payload: Payload,
+  relationTo: ReferralCollection,
+  referralId: string,
+  month: string,
+  stripe: Stripe,
+) {
+  billingPeriodEnd(month)
+  const billingKey = `${relationTo}:${referralId}:${month}`
+  const invoice = await findExistingInvoice(payload, billingKey)
+  if (!invoice || invoice.status !== 'sent' || !invoice.stripeInvoiceId)
+    throw new Error('Only an existing unpaid referral invoice can be replaced.')
+
+  const preview = await previewReferralInvoice(payload, relationTo, referralId, month)
+  if (!preview.referral.isBillable || !preview.referral.billingEmail)
+    throw new Error('Referral monthly billing and billing email are required.')
+  if (!preview.replacement?.items.length)
+    throw new Error('No unpaid tests remain for a replacement invoice. The existing invoice was not changed.')
+  if (preview.replacement.items.length > STRIPE_ITEM_LIMIT)
+    throw new Error('More than 250 tests need invoicing; contact an administrator to split the invoice.')
+
+  const stripeInvoice = await stripe.invoices.retrieve(invoice.stripeInvoiceId)
+  if (stripeInvoice.status !== 'open' && stripeInvoice.status !== 'void')
+    throw new Error(`Stripe invoice ${stripeInvoice.id} is ${stripeInvoice.status} and cannot be replaced.`)
+  if ((stripeInvoice.amount_paid || 0) > 0)
+    throw new Error('This invoice has a payment or partial payment and cannot be replaced.')
+
+  if (stripeInvoice.status === 'open') {
+    const voided = await stripe.invoices.voidInvoice(
+      invoice.stripeInvoiceId,
+      {},
+      {
+        idempotencyKey: `referral-void:${invoice.id}`,
+      },
+    )
+    if (voided.status !== 'void') throw new Error('Stripe did not void the previous invoice.')
+  }
+  await payload.update({
+    collection: 'referral-invoices',
+    id: invoice.id,
+    data: {
+      status: 'void',
+      billingKey: `${billingKey}:void:${invoice.id}`,
+      voidedAt: new Date().toISOString(),
+    },
+  })
+  return sendReferralInvoice(payload, relationTo, referralId, month, stripe, {
+    replacesInvoiceId: String(invoice.id),
+    replacesInvoiceNumber: stripeInvoice.number || stripeInvoice.id,
+  })
 }
 
 export async function sendMonthlyReferralInvoices(payload: Payload, month: string, stripe: Stripe) {

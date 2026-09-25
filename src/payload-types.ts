@@ -2524,14 +2524,17 @@ export interface ReferralInvoice {
    * Amount paid to Stripe after a test was paid elsewhere. Review for a referral refund or credit.
    */
   unappliedAmount?: number | null;
-  status: 'preparing' | 'sent' | 'paid';
+  status: 'preparing' | 'sent' | 'paid' | 'void';
   stripeCustomerId?: string | null;
   stripeInvoiceId?: string | null;
+  replacesInvoice?: (string | null) | ReferralInvoice;
+  replacesInvoiceNumber?: string | null;
   hostedInvoiceUrl?: string | null;
   invoicePdfUrl?: string | null;
   sentAt?: string | null;
   emailSentAt?: string | null;
   paidAt?: string | null;
+  voidedAt?: string | null;
   items: {
     drugTest: string | DrugTest;
     client: string | Client;
@@ -4034,11 +4037,14 @@ export interface ReferralInvoicesSelect<T extends boolean = true> {
   status?: T;
   stripeCustomerId?: T;
   stripeInvoiceId?: T;
+  replacesInvoice?: T;
+  replacesInvoiceNumber?: T;
   hostedInvoiceUrl?: T;
   invoicePdfUrl?: T;
   sentAt?: T;
   emailSentAt?: T;
   paidAt?: T;
+  voidedAt?: T;
   items?:
     | T
     | {

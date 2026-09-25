@@ -11,6 +11,7 @@ type InvoiceEmailData = {
   invoiceNumber: string | null
   dueDate: number | null
   paymentUrl: string | null
+  replacesInvoiceNumber: string | null
 }
 
 const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
@@ -24,7 +25,11 @@ export async function buildReferralInvoiceEmail(data: InvoiceEmailData) {
         new Date(data.dueDate * 1000),
       )
     : null
-  const subject = `MI Drug Test invoice ${data.invoiceNumber || ''} — ${monthLabel}`.replace(/\s+—/, ' —')
+  const subject =
+    `MI Drug Test ${data.replacesInvoiceNumber ? 'replacement ' : ''}invoice ${data.invoiceNumber || ''} — ${monthLabel}`.replace(
+      /\s+—/,
+      ' —',
+    )
   const html = await render(
     <Html>
       <Head />
@@ -51,6 +56,12 @@ export async function buildReferralInvoiceEmail(data: InvoiceEmailData) {
               Your invoice for {currency.format(data.amount)} is attached as a PDF. You can print it for your records or
               to process a check payment.
             </Text>
+            {data.replacesInvoiceNumber && (
+              <Text>
+                This replaces invoice {data.replacesInvoiceNumber}. Please disregard the earlier invoice and use this
+                one for payment.
+              </Text>
+            )}
             {data.invoiceNumber && <Text>Invoice number: {data.invoiceNumber}</Text>}
             {dueDate && <Text>Payment due: {dueDate}</Text>}
             {data.paymentUrl && (

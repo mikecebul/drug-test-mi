@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import { collectionDateInDetroit, currentBillingMonth } from '@/lib/referral-invoices/date'
 
 type Referral = { id: string; name: string; relationTo: 'courts' | 'employers'; billingEmail: string }
@@ -19,10 +20,42 @@ type Preview = {
   hostedInvoiceUrl: string | null
   invoicePdfUrl: string | null
   emailSentAt: string | null
+  replacesInvoiceNumber: string | null
   upcoming: boolean
+  replacement: {
+    items: Array<{ clientName: string; collectionDate: string; testType: string; amount: number }>
+    amount: number
+  } | null
 }
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+
+function InvoiceItemsTable({ items }: { items: Preview['items'] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b text-left">
+            <th className="py-2">Client</th>
+            <th>Date</th>
+            <th>Test</th>
+            <th className="text-right">Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, index) => (
+            <tr key={index} className="border-b">
+              <td className="py-2">{item.clientName}</td>
+              <td>{collectionDateInDetroit(item.collectionDate)}</td>
+              <td>{item.testType}</td>
+              <td className="text-right">{money.format(item.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) {
   const [selected, setSelected] = useState(0)
@@ -31,6 +64,7 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
+  const [replacing, setReplacing] = useState(false)
   const referral = referrals[selected]
 
   async function loadPreview(target: Referral, billingMonth: string) {
@@ -78,7 +112,7 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
   }, [referral, month])
 
   async function send() {
-    if (!referral || !preview || sending) return
+    if (!referral || !preview || sending || replacing) return
     setSending(true)
     setError('')
     try {
@@ -94,6 +128,32 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
       setError(cause instanceof Error ? cause.message : 'Unable to send invoice.')
     } finally {
       setSending(false)
+    }
+  }
+
+  async function replace() {
+    if (!referral || !preview?.replacement?.items.length || sending || replacing) return
+    if (
+      !window.confirm(
+        'Void the current unpaid Stripe invoice and email a new PDF with the tests shown below? The old payment link will stop working.',
+      )
+    )
+      return
+    setReplacing(true)
+    setError('')
+    try {
+      const response = await fetch('/api/referral-invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ relationTo: referral.relationTo, referralId: referral.id, month, action: 'replace' }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Unable to replace invoice.')
+      await loadPreview(referral, month)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to replace invoice.')
+    } finally {
+      setReplacing(false)
     }
   }
 
@@ -176,6 +236,9 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
                       PDF emailed {new Date(preview.emailSentAt).toLocaleString()}.
                     </p>
                   )}
+                  {preview.replacesInvoiceNumber && (
+                    <p className="text-muted-foreground text-sm">Replaces invoice {preview.replacesInvoiceNumber}.</p>
+                  )}
                   {preview.unappliedAmount > 0 && (
                     <p role="alert" className="text-destructive text-sm">
                       {money.format(preview.unappliedAmount)} was paid after the client balance changed. Review a refund
@@ -185,28 +248,7 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
                 </CardHeader>
                 <CardContent>
                   {preview.items.length ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b text-left">
-                            <th className="py-2">Client</th>
-                            <th>Date</th>
-                            <th>Test</th>
-                            <th className="text-right">Balance</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {preview.items.map((item, index) => (
-                            <tr key={index} className="border-b">
-                              <td className="py-2">{item.clientName}</td>
-                              <td>{collectionDateInDetroit(item.collectionDate)}</td>
-                              <td>{item.testType}</td>
-                              <td className="text-right">{money.format(item.amount)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    <InvoiceItemsTable items={preview.items} />
                   ) : (
                     <p className="text-muted-foreground text-sm">No uninvoiced balances for this period.</p>
                   )}
@@ -239,6 +281,7 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
                           preview.status !== 'preparing' &&
                           !(preview.status === 'sent' && !preview.emailSentAt)) ||
                         sending ||
+                        replacing ||
                         !preview.referral.billingEmail
                       }
                     >
@@ -249,6 +292,35 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
                     <p className="text-muted-foreground mt-3 text-right text-sm">
                       This total may change before the month closes. It can be invoiced next month.
                     </p>
+                  )}
+                  {preview.replacement && (
+                    <section className="mt-8" aria-label="Replacement invoice preview">
+                      <Separator className="mb-6" />
+                      <h3 className="text-lg font-semibold">Replacement preview</h3>
+                      <p className="text-muted-foreground mt-1 mb-3 text-sm">
+                        Current unpaid balances through {month}, including tests added after the original invoice.
+                        Replacing voids the old Stripe invoice and emails a new printable PDF.
+                      </p>
+                      {preview.replacement.items.length ? (
+                        <InvoiceItemsTable items={preview.replacement.items} />
+                      ) : (
+                        <p className="text-muted-foreground text-sm">No unpaid tests remain for a replacement.</p>
+                      )}
+                      <p className="mt-4 text-right font-semibold">
+                        Replacement total: {money.format(preview.replacement.amount)}
+                      </p>
+                      <div className="mt-4 flex justify-end">
+                        <Button
+                          variant="outline"
+                          onClick={replace}
+                          disabled={
+                            !preview.replacement.items.length || replacing || sending || !preview.referral.billingEmail
+                          }
+                        >
+                          {replacing ? 'Replacing…' : 'Void and email replacement'}
+                        </Button>
+                      </div>
+                    </section>
                   )}
                 </CardContent>
               </Card>
