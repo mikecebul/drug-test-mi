@@ -26,6 +26,7 @@ import { getBalanceDue, getTestStage, shouldStayInTracker } from './DrugTestTrac
 
 export interface DrugTest {
   id: string
+  billedToReferral?: boolean
   relatedClient: {
     id: string
     firstName: string
@@ -82,6 +83,7 @@ const currency = new Intl.NumberFormat('en-US', {
 function getPaymentStatusLabel(test: DrugTest) {
   const balanceDue = getBalanceDue(test)
   if (balanceDue <= 0) return 'Paid'
+  if (test.payment?.status === 'invoiced') return 'Invoiced'
   if (test.payment?.status === 'partial') return 'Partial'
   return 'Unpaid'
 }
@@ -359,7 +361,15 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
                         <div>
                           <span className="text-muted-foreground text-xs font-medium md:text-sm">Payment:</span>
                           <div className="mt-1 flex flex-wrap items-center gap-2">
-                            <Badge variant={getBalanceDue(test) > 0 ? 'destructive' : 'secondary'}>
+                            <Badge
+                              variant={
+                                getBalanceDue(test) <= 0
+                                  ? 'secondary'
+                                  : test.payment?.status === 'invoiced'
+                                    ? 'warning'
+                                    : 'destructive'
+                              }
+                            >
                               {getPaymentStatusLabel(test)}
                             </Badge>
                             <span className="text-sm md:text-base">
@@ -404,7 +414,7 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
                           />
                         </>
                       )}
-                      {getBalanceDue(test) > 0 && (
+                      {getBalanceDue(test) > 0 && !test.billedToReferral && test.payment?.status !== 'invoiced' && (
                         <>
                           <RecordPaymentDialog
                             disabled={Boolean(updatingTests[test.id])}
@@ -421,6 +431,15 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
                             {updatingTests[test.id] ? 'Sending...' : 'Send Stripe Link'}
                           </Button>
                         </>
+                      )}
+                      {getBalanceDue(test) > 0 && (test.billedToReferral || test.payment?.status === 'invoiced') && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => window.open('/admin/referral-billing', '_blank')}
+                        >
+                          Manage referral invoice
+                        </Button>
                       )}
                       <Button
                         size="sm"
@@ -497,9 +516,7 @@ function RequestConfirmationDialog({
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={handleOpenChange}>
       <DrawerTrigger
-        render={
-          <Button size="sm" variant="secondary" disabled={disabled || unexpectedPositives.length === 0} />
-        }
+        render={<Button size="sm" variant="secondary" disabled={disabled || unexpectedPositives.length === 0} />}
       >
         Request Confirmation
       </DrawerTrigger>
@@ -601,9 +618,7 @@ function RecordPaymentDialog({
 
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={handleOpenChange}>
-      <DrawerTrigger render={<Button size="sm" disabled={disabled} />}>
-        Record Payment
-      </DrawerTrigger>
+      <DrawerTrigger render={<Button size="sm" disabled={disabled} />}>Record Payment</DrawerTrigger>
       <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(544px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
         <DrawerHeader className="border-border border-b">
           <DrawerTitle>Record Payment</DrawerTitle>

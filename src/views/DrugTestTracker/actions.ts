@@ -13,6 +13,7 @@ import {
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { baseUrl } from '@/utilities/baseUrl'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
+import { isClientBilledToReferral } from '@/lib/referral-invoices/payer'
 
 function getRelationshipId(value: unknown): string | null {
   if (typeof value === 'string' || typeof value === 'number') return String(value)
@@ -97,7 +98,12 @@ async function fetchTrackerTest(payload: Awaited<ReturnType<typeof getPayload>>,
     overrideAccess: true,
   })
 
-  return toTrackerTest(test)
+  const result = toTrackerTest(test)
+  const clientId = getRelationshipId(test.relatedClient)
+  return {
+    ...result,
+    billedToReferral: clientId ? await isClientBilledToReferral(payload, clientId) : false,
+  }
 }
 
 async function fetchTrackerTests(payload: Awaited<ReturnType<typeof getPayload>>) {
@@ -123,7 +129,19 @@ async function fetchTrackerTests(payload: Awaited<ReturnType<typeof getPayload>>
     overrideAccess: true,
   })
 
-  return result.docs.map(toTrackerTest)
+  const payerByClient = new Map<string, Promise<boolean>>()
+  return Promise.all(
+    result.docs.map(async (test) => {
+      const clientId = getRelationshipId(test.relatedClient)
+      if (clientId && !payerByClient.has(clientId)) {
+        payerByClient.set(clientId, isClientBilledToReferral(payload, clientId))
+      }
+      return {
+        ...toTrackerTest(test),
+        billedToReferral: clientId ? await payerByClient.get(clientId) : false,
+      }
+    }),
+  )
 }
 
 async function voidPendingPayment(payload: Awaited<ReturnType<typeof getPayload>>, paymentId: string | number) {
@@ -182,6 +200,13 @@ export async function recordDrugTestPayment(input: {
       if (!clientId) {
         throw new Error('Unable to identify the client for this test.')
       }
+      if (
+        test.payment?.status === 'invoiced' ||
+        test.payment?.referralInvoice ||
+        (await isClientBilledToReferral(payload, clientId, req))
+      ) {
+        throw new Error('This test is billed to a referral. Record payment on its referral invoice.')
+      }
 
       await applyIncomingPayment({
         payload,
@@ -235,6 +260,10 @@ export async function requestDrugTestConfirmation(input: {
       if (!clientId) {
         throw new Error('Unable to identify the client for this test.')
       }
+      const billedToReferral =
+        test.payment?.status === 'invoiced' ||
+        Boolean(test.payment?.referralInvoice) ||
+        (await isClientBilledToReferral(payload, clientId, req))
 
       const feePerSubstance = test.testType === '17-panel-instant' || test.testType === '15-panel-instant' ? 30 : 45
       const confirmationFeeDue = feePerSubstance * input.confirmationSubstances.length
@@ -255,7 +284,14 @@ export async function requestDrugTestConfirmation(input: {
           confirmationSubstances: input.confirmationSubstances as SubstanceValue[],
           payment: {
             ...currentPayment,
-            status: nextBalanceDue <= 0 ? 'paid' : currentAmountPaid > 0 ? 'partial' : 'unpaid',
+            status:
+              nextBalanceDue <= 0
+                ? 'paid'
+                : test.payment?.status === 'invoiced'
+                  ? 'invoiced'
+                  : currentAmountPaid > 0
+                    ? 'partial'
+                    : 'unpaid',
             amountDue: nextAmountDue,
             amountPaid: currentAmountPaid,
             balanceDue: nextBalanceDue,
@@ -268,12 +304,14 @@ export async function requestDrugTestConfirmation(input: {
         req,
       })
 
-      await applyAvailableClientCredit({
-        payload,
-        clientId,
-        relatedDrugTest: input.testId,
-        req,
-      })
+      if (!billedToReferral) {
+        await applyAvailableClientCredit({
+          payload,
+          clientId,
+          relatedDrugTest: input.testId,
+          req,
+        })
+      }
     })
   } catch (error) {
     return {
@@ -311,6 +349,13 @@ export async function sendDrugTestStripePaymentLink(testId: string) {
 
   if (!client || !clientId) {
     return { success: false, error: 'Unable to identify the client for this test.' }
+  }
+  if (
+    test.payment?.status === 'invoiced' ||
+    test.payment?.referralInvoice ||
+    (await isClientBilledToReferral(payload, clientId))
+  ) {
+    return { success: false, error: 'This test is billed to a referral. Use its referral invoice for payment.' }
   }
 
   if (!client.email) {

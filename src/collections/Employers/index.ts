@@ -4,6 +4,7 @@ import { anyone } from '@/access/anyone'
 import { superAdmin } from '@/access/superAdmin'
 import { testTypeSelectOptions } from '@/config/test-types'
 import { syncLinkedClientDefaultTestsFromReferral } from '@/collections/Clients/hooks/syncLinkedClientDefaultTestsFromReferral'
+import { referralBillingFields } from '@/fields/referralBilling'
 
 export const Employers: CollectionConfig = {
   slug: 'employers',
@@ -88,6 +89,7 @@ export const Employers: CollectionConfig = {
           'Inactive employers are hidden from quick-select dropdowns, but remain usable for linked clients and email delivery.',
       },
     },
+    ...referralBillingFields,
     {
       name: 'clients',
       type: 'join',

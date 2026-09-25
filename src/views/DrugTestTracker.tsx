@@ -4,6 +4,7 @@ import { Gutter, SetStepNav } from '@payloadcms/ui'
 import type { AdminViewServerProps } from 'payload'
 import { DrugTestTrackerClient, type DrugTest } from './DrugTestTrackerClient'
 import { redirect } from 'next/dist/client/components/navigation'
+import { isClientBilledToReferral } from '@/lib/referral-invoices/payer'
 
 type TrackerLoadResult = {
   error: string | null
@@ -139,10 +140,20 @@ async function loadTrackerDrugTests(
       overrideAccess: false,
     })
 
-    return {
-      error: null,
-      tests: result.docs.map(toTrackerTest).filter((test): test is DrugTest => Boolean(test)),
-    }
+    const payerByClient = new Map<string, Promise<boolean>>()
+    const tests = await Promise.all(
+      result.docs.map(async (doc) => {
+        const test = toTrackerTest(doc)
+        if (!test) return null
+        const clientId = test.relatedClient.id
+        if (!clientId) return { ...test, billedToReferral: false }
+        if (!payerByClient.has(clientId)) {
+          payerByClient.set(clientId, isClientBilledToReferral(initPageResult.req.payload, clientId))
+        }
+        return { ...test, billedToReferral: (await payerByClient.get(clientId)) || false }
+      }),
+    )
+    return { error: null, tests: tests.filter((test): test is NonNullable<typeof test> => test !== null) }
   } catch (error) {
     initPageResult.req.payload.logger.error({ err: error, msg: 'Failed to load drug test tracker records' })
 

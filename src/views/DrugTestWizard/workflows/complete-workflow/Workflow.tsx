@@ -461,9 +461,10 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   })
   const payment = paymentDraft ?? getPaymentDefaults(selectedBooking)
   const paymentAmountIsValid = isValidGuidedPaymentAmount(payment.amountReceived)
-  const amountReceived = parseGuidedPaymentAmount(payment.amountReceived)
-  const creditToApply = parseGuidedPaymentAmount(payment.creditToApply)
-  const paymentTotalDue = outstandingPaymentBalances.reduce(
+  const amountReceived = selectedBooking?.referral?.isBillable ? 0 : parseGuidedPaymentAmount(payment.amountReceived)
+  const creditToApply = selectedBooking?.referral?.isBillable ? 0 : parseGuidedPaymentAmount(payment.creditToApply)
+  const clientPayableBalances = outstandingPaymentBalances.filter((balance) => balance.billingState !== 'invoiced')
+  const paymentTotalDue = clientPayableBalances.reduce(
     (total, balance) => total + balance.balanceDue,
     payment.currentBalanceDue,
   )
@@ -613,7 +614,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     const parsedRefundAmount = Number(refundAmount)
     if (
       action === 'cancel-refund' &&
-      (!Number.isFinite(parsedRefundAmount) || parsedRefundAmount <= 0 || parsedRefundAmount > (booking.payment?.amountPaid ?? 0))
+      (!Number.isFinite(parsedRefundAmount) ||
+        parsedRefundAmount <= 0 ||
+        parsedRefundAmount > (booking.payment?.amountPaid ?? 0))
     ) {
       toast.error('Enter a refund amount within the available prepaid balance.')
       return
@@ -830,13 +833,19 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       toast.error('Existing balances could not be loaded. Refresh and try again.')
       return
     }
-    if (amountReceived === 0 && creditToApply === 0 && paymentTotalDue > 0 && !confirmedNoPayment) {
+    if (
+      amountReceived === 0 &&
+      creditToApply === 0 &&
+      paymentTotalDue > 0 &&
+      !selectedBooking.referral?.isBillable &&
+      !confirmedNoPayment
+    ) {
       setNoPaymentDialogOpen(true)
       return
     }
     const clientId = selectedBooking.client.id
     const allocationPreview = buildGuidedPaymentAllocationPreview({
-      previousBalances: outstandingPaymentBalances,
+      previousBalances: clientPayableBalances,
       currentBalanceDue: payment.currentBalanceDue,
       amountReceived,
       clientCreditAvailable: selectedBooking.client.creditBalance ?? 0,
@@ -1741,7 +1750,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       recordedPayment && (recordedPayment.newMoneyAmount > 0 || recordedPayment.creditAppliedAmount > 0),
     )
     const allocationPreview = buildGuidedPaymentAllocationPreview({
-      previousBalances: outstandingPaymentBalances,
+      previousBalances: clientPayableBalances,
       currentBalanceDue: payment.currentBalanceDue,
       amountReceived,
       clientCreditAvailable: clientCreditBalance,
@@ -1755,6 +1764,66 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     const activeQuickAmount = quickAmounts.includes(amountReceived) ? [String(amountReceived)] : []
     const maximumCredit = getGuidedCreditMaximum(clientCreditBalance, allocationPreview.totalDue)
     const futureCreditBalance = allocationPreview.clientCreditRemaining + allocationPreview.creditAmount
+
+    if (selectedBooking.referral?.isBillable && !hasRecordedPayment) {
+      const previousTotal = outstandingPaymentBalances.reduce((sum, balance) => sum + balance.balanceDue, 0)
+      return (
+        <div className="flex flex-col gap-4" data-testid="guided-referral-billing">
+          {renderHeader('Payment', 'Referral billing')}
+          <Card className="rounded-lg">
+            <CardHeader className="border-b p-4">
+              <CardTitle>Billed to {selectedBooking.referral.name}</CardTitle>
+              <CardDescription>
+                This referral pays for the client&apos;s tests. Collect no payment from the client here; unpaid tests
+                are added to the referral&apos;s monthly invoice. A test is marked paid when the invoice is paid.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5 p-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-lg border p-3">
+                  <p className="text-muted-foreground text-sm">Previous tests</p>
+                  <p className="text-xl font-semibold">{currency.format(previousTotal)}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-muted-foreground text-sm">Today&apos;s test</p>
+                  <p className="text-xl font-semibold">{currency.format(payment.currentBalanceDue)}</p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-muted-foreground text-sm">Due from client today</p>
+                  <p className="text-xl font-semibold">{currency.format(0)}</p>
+                </div>
+              </div>
+              <div className="divide-y rounded-lg border">
+                {outstandingPaymentBalances.map((balance) => (
+                  <div key={balance.id} className="flex items-center justify-between gap-3 p-3">
+                    <div>
+                      <p className="font-medium">
+                        {formatPaymentDate(balance.collectionDate)} · {balance.testTypeLabel}
+                      </p>
+                      <p className="text-muted-foreground text-sm">
+                        {currency.format(balance.balanceDue)} owed by referral
+                      </p>
+                    </div>
+                    <Badge variant={balance.billingState === 'invoiced' ? 'warning' : 'outline'}>
+                      {balance.billingState === 'invoiced' ? 'Invoiced' : 'Unpaid'}
+                    </Badge>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between gap-3 p-3">
+                  <div>
+                    <p className="font-medium">Today · {selectedBooking.testType.label}</p>
+                    <p className="text-muted-foreground text-sm">
+                      {currency.format(payment.currentBalanceDue)} owed by referral
+                    </p>
+                  </div>
+                  <Badge variant="outline">Unpaid</Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )
+    }
 
     if (hasRecordedPayment && recordedPayment && !showAdditionalPayment) {
       const totalRecorded = recordedPayment.newMoneyAmount + recordedPayment.creditAppliedAmount
