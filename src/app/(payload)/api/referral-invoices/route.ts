@@ -3,7 +3,12 @@ import { getPayload } from 'payload'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
-import { previewReferralInvoice, previousBillingMonth, sendReferralInvoice } from '@/lib/referral-invoices'
+import {
+  currentBillingMonth,
+  previewReferralInvoice,
+  previousBillingMonth,
+  sendReferralInvoice,
+} from '@/lib/referral-invoices'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -39,7 +44,7 @@ export async function GET(request: NextRequest) {
         payload,
         input.data.relationTo,
         input.data.referralId,
-        input.data.month || previousBillingMonth(),
+        input.data.month || currentBillingMonth(),
       ),
     )
   } catch (error) {
@@ -62,6 +67,7 @@ export async function POST(request: NextRequest) {
         input.data.referralId,
         input.data.month || previousBillingMonth(),
         new Stripe(key, {}),
+        { emailExisting: true },
       ),
     )
   } catch (error) {

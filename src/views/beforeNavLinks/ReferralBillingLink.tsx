@@ -5,6 +5,7 @@ import { useAuth } from '@payloadcms/ui'
 import Link from 'next/link'
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { Button } from '@/components/ui/button'
+import { CircleDollarSign } from 'lucide-react'
 
 export default function ReferralBillingLink() {
   const { user } = useAuth()
@@ -17,6 +18,7 @@ export default function ReferralBillingLink() {
         variant="secondary"
         className="w-full min-w-0 justify-start"
       >
+        <CircleDollarSign data-icon="inline-start" />
         Referral Billing
       </Button>
     </ShadcnWrapper>

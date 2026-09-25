@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { collectionDateInDetroit, previousBillingMonth } from '@/lib/referral-invoices/date'
+import { collectionDateInDetroit, currentBillingMonth } from '@/lib/referral-invoices/date'
 
 type Referral = { id: string; name: string; relationTo: 'courts' | 'employers'; billingEmail: string }
 type Preview = {
@@ -17,13 +17,16 @@ type Preview = {
   unappliedAmount: number
   status: string
   hostedInvoiceUrl: string | null
+  invoicePdfUrl: string | null
+  emailSentAt: string | null
+  upcoming: boolean
 }
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
 export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) {
   const [selected, setSelected] = useState(0)
-  const [month, setMonth] = useState(previousBillingMonth())
+  const [month, setMonth] = useState(currentBillingMonth())
   const [preview, setPreview] = useState<Preview | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -99,8 +102,8 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
       <div className="mb-6">
         <h1 className="text-2xl font-semibold">Referral billing</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Review unpaid drug tests and send a Stripe invoice. Monthly invoices are also sent automatically on the first
-          of each month.
+          Preview upcoming billing for this month. Completed-month invoices are emailed with a printable PDF on the
+          first of the following month, or you can email them here.
         </p>
       </div>
       {referrals.length === 0 ? (
@@ -139,7 +142,7 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
                 id="month"
                 className="mt-2"
                 type="month"
-                max={previousBillingMonth()}
+                max={currentBillingMonth()}
                 value={month}
                 onChange={(event) => {
                   setPreview(null)
@@ -162,11 +165,17 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
               <Card>
                 <CardHeader>
                   <CardTitle>
-                    {referral.name} · {month}
+                    {referral.name} · {month} {preview.upcoming ? '· Upcoming billing' : ''}
                   </CardTitle>
                   <p className="text-muted-foreground text-sm">
-                    To: {preview.referral.billingEmail || 'No billing email'} · Status: {preview.status}
+                    To: {preview.referral.billingEmail || 'No billing email'} · Status:{' '}
+                    {preview.upcoming ? 'Preview through today' : preview.status}
                   </p>
+                  {preview.emailSentAt && (
+                    <p className="text-muted-foreground text-sm">
+                      PDF emailed {new Date(preview.emailSentAt).toLocaleString()}.
+                    </p>
+                  )}
                   {preview.unappliedAmount > 0 && (
                     <p role="alert" className="text-destructive text-sm">
                       {money.format(preview.unappliedAmount)} was paid after the client balance changed. Review a refund
@@ -209,21 +218,38 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
                         render={<a href={preview.hostedInvoiceUrl} target="_blank" rel="noreferrer" />}
                         nativeButton={false}
                       >
-                        View Stripe invoice
+                        View or pay online
+                      </Button>
+                    )}
+                    {preview.invoicePdfUrl && (
+                      <Button
+                        variant="outline"
+                        render={<a href={preview.invoicePdfUrl} target="_blank" rel="noreferrer" />}
+                        nativeButton={false}
+                      >
+                        View PDF
                       </Button>
                     )}
                     <Button
                       onClick={send}
                       disabled={
                         !preview.items.length ||
-                        (preview.status !== 'new' && preview.status !== 'preparing') ||
+                        preview.upcoming ||
+                        (preview.status !== 'new' &&
+                          preview.status !== 'preparing' &&
+                          !(preview.status === 'sent' && !preview.emailSentAt)) ||
                         sending ||
-                        !referral.billingEmail
+                        !preview.referral.billingEmail
                       }
                     >
-                      {sending ? 'Sending…' : 'Send invoice'}
+                      {sending ? 'Emailing…' : preview.status === 'sent' ? 'Email PDF' : 'Email invoice PDF'}
                     </Button>
                   </div>
+                  {preview.upcoming && (
+                    <p className="text-muted-foreground mt-3 text-right text-sm">
+                      This total may change before the month closes. It can be invoiced next month.
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             )

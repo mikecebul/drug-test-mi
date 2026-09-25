@@ -2528,7 +2528,9 @@ export interface ReferralInvoice {
   stripeCustomerId?: string | null;
   stripeInvoiceId?: string | null;
   hostedInvoiceUrl?: string | null;
+  invoicePdfUrl?: string | null;
   sentAt?: string | null;
+  emailSentAt?: string | null;
   paidAt?: string | null;
   items: {
     drugTest: string | DrugTest;
@@ -4033,7 +4035,9 @@ export interface ReferralInvoicesSelect<T extends boolean = true> {
   stripeCustomerId?: T;
   stripeInvoiceId?: T;
   hostedInvoiceUrl?: T;
+  invoicePdfUrl?: T;
   sentAt?: T;
+  emailSentAt?: T;
   paidAt?: T;
   items?:
     | T

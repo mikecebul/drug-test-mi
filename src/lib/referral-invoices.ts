@@ -2,8 +2,10 @@ import Stripe from 'stripe'
 import type { Payload } from 'payload'
 import type { Client, Court, DrugTest, Employer, ReferralInvoice } from '@/payload-types'
 import { getTestTypeLabel } from '@/config/test-types'
-import { billingPeriodEnd, collectionDateInDetroit } from '@/lib/referral-invoices/date'
-export { previousBillingMonth } from '@/lib/referral-invoices/date'
+import { buildReferralInvoiceEmail, REFERRAL_CHECK_FOOTER } from '@/emails/payments/ReferralInvoiceEmail'
+import { prefixNonLiveEmailSubject, resolveOutboundNotificationRecipients } from '@/lib/email-safety'
+import { billingPeriodEnd, collectionDateInDetroit, currentBillingMonth } from '@/lib/referral-invoices/date'
+export { currentBillingMonth, previousBillingMonth } from '@/lib/referral-invoices/date'
 
 export type ReferralCollection = 'courts' | 'employers'
 type Referral = Court | Employer
@@ -31,13 +33,6 @@ function cents(amount: number) {
   return Math.round(amount * 100)
 }
 
-function memo(items: InvoiceItem[], month: string) {
-  const lines = items.map((item) => `${item.clientName} — ${collectionDateInDetroit(item.collectionDate)}`)
-  const full = `${month} drug tests\n${lines.join('\n')}`
-  if (full.length <= 450) return full
-  return `${full.slice(0, 405).trimEnd()}\nSee line items for all client names and dates.`
-}
-
 async function findExistingInvoice(payload: Payload, billingKey: string) {
   const result = await payload.find({
     collection: 'referral-invoices',
@@ -48,7 +43,7 @@ async function findExistingInvoice(payload: Payload, billingKey: string) {
   return result.docs[0] || null
 }
 
-async function eligibleItems(payload: Payload, relationTo: ReferralCollection, referralId: string, month: string) {
+async function eligibleItems(payload: Payload, relationTo: ReferralCollection, referralId: string, cutoff: string) {
   const clients = (await findAll((page) =>
     payload.find({
       collection: 'clients',
@@ -72,7 +67,7 @@ async function eligibleItems(payload: Payload, relationTo: ReferralCollection, r
             and: [
               { relatedClient: { in: ids } },
               { 'payment.balanceDue': { greater_than: 0 } },
-              { collectionDate: { less_than: billingPeriodEnd(month) } },
+              { collectionDate: { less_than: cutoff } },
             ],
           },
           depth: 0,
@@ -121,11 +116,14 @@ export async function previewReferralInvoice(
   referralId: string,
   month: string,
 ) {
-  billingPeriodEnd(month)
+  const currentMonth = currentBillingMonth()
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || month > currentMonth)
+    throw new Error('Choose the current or an earlier billing month in YYYY-MM format.')
+  const cutoff = month === currentMonth ? new Date().toISOString() : billingPeriodEnd(month)
   const referral = (await payload.findByID({ collection: relationTo, id: referralId, depth: 0 })) as Referral
   const billingKey = `${relationTo}:${referralId}:${month}`
   const existing = await findExistingInvoice(payload, billingKey)
-  const items = existing?.items || (await eligibleItems(payload, relationTo, referralId, month))
+  const items = existing?.items || (await eligibleItems(payload, relationTo, referralId, cutoff))
   return {
     referral: {
       id: String(referral.id),
@@ -140,7 +138,66 @@ export async function previewReferralInvoice(
     status: existing?.status || 'new',
     unappliedAmount: existing?.unappliedAmount || 0,
     hostedInvoiceUrl: existing?.hostedInvoiceUrl || null,
+    invoicePdfUrl: existing?.invoicePdfUrl || null,
+    emailSentAt: existing?.emailSentAt || null,
+    upcoming: month === currentMonth && !existing,
   }
+}
+
+async function emailReferralInvoice(
+  payload: Payload,
+  invoice: ReferralInvoice,
+  referralName: string,
+  stripeInvoice: Stripe.Invoice,
+  stripe: Stripe,
+) {
+  if (!stripeInvoice.id) throw new Error('Stripe did not return an invoice ID.')
+  const duplicateMemo = stripeInvoice.description?.startsWith(`${invoice.billingMonth} drug tests\n`)
+  if (stripeInvoice.footer !== REFERRAL_CHECK_FOOTER || duplicateMemo) {
+    stripeInvoice = await stripe.invoices.update(stripeInvoice.id, {
+      footer: REFERRAL_CHECK_FOOTER,
+      ...(duplicateMemo ? { description: '' } : {}),
+    })
+  }
+  const pdfUrl = stripeInvoice.invoice_pdf
+  if (!pdfUrl) throw new Error('Stripe has not generated the invoice PDF yet. Retry sending shortly.')
+  const url = new URL(pdfUrl)
+  if (url.protocol !== 'https:' || !url.hostname.endsWith('.stripe.com'))
+    throw new Error('Stripe returned an unexpected invoice PDF URL.')
+  const response = await fetch(pdfUrl)
+  if (!response.ok) throw new Error(`Unable to download the Stripe invoice PDF (${response.status}).`)
+  const bytes = Buffer.from(await response.arrayBuffer())
+  if (bytes.length > 15_000_000 || bytes.subarray(0, 5).toString() !== '%PDF-')
+    throw new Error('Stripe returned an invalid or oversized invoice PDF.')
+  const email = await buildReferralInvoiceEmail({
+    referralName,
+    month: invoice.billingMonth,
+    amount: invoice.amount,
+    invoiceNumber: stripeInvoice.number,
+    dueDate: stripeInvoice.due_date,
+    paymentUrl: stripeInvoice.hosted_invoice_url || null,
+  })
+  const recipients = resolveOutboundNotificationRecipients([invoice.billingEmail])
+  await payload.sendEmail({
+    to: recipients.recipients,
+    from: payload.email.defaultFromAddress,
+    subject: prefixNonLiveEmailSubject(email.subject),
+    html: email.html,
+    attachments: [
+      { filename: `MI-Drug-Test-invoice-${stripeInvoice.id}.pdf`, content: bytes, contentType: 'application/pdf' },
+    ],
+  })
+  await payload.update({
+    collection: 'referral-invoices',
+    id: invoice.id,
+    data: {
+      status: stripeInvoice.status === 'paid' ? 'paid' : 'sent',
+      hostedInvoiceUrl: stripeInvoice.hosted_invoice_url || undefined,
+      invoicePdfUrl: pdfUrl,
+      sentAt: invoice.sentAt || new Date().toISOString(),
+      emailSentAt: new Date().toISOString(),
+    },
+  })
 }
 
 export async function sendReferralInvoice(
@@ -149,17 +206,40 @@ export async function sendReferralInvoice(
   referralId: string,
   month: string,
   stripe: Stripe,
+  options: { emailExisting?: boolean } = {},
 ) {
+  billingPeriodEnd(month)
   const preview = await previewReferralInvoice(payload, relationTo, referralId, month)
   if (!preview.referral.isBillable || !preview.referral.billingEmail)
     throw new Error('Referral monthly billing and billing email are required.')
   if (preview.items.length === 0) return { status: 'empty' as const, billingKey: preview.billingKey }
   if (preview.items.length > STRIPE_ITEM_LIMIT)
     throw new Error('More than 250 tests need invoicing; contact an administrator to split the invoice.')
-  if (preview.status === 'sent' || preview.status === 'paid')
+  if (preview.status === 'paid' || (preview.status === 'sent' && (!options.emailExisting || preview.emailSentAt)))
     return { status: preview.status, billingKey: preview.billingKey }
 
   let invoice = await findExistingInvoice(payload, preview.billingKey)
+  if (invoice?.status === 'sent') {
+    if (!invoice.stripeInvoiceId) throw new Error('The existing invoice has no Stripe invoice ID.')
+    const stripeInvoice = await stripe.invoices.retrieve(invoice.stripeInvoiceId)
+    if (stripeInvoice.status === 'paid') {
+      await payload.update({
+        collection: 'referral-invoices',
+        id: invoice.id,
+        data: {
+          status: 'paid',
+          paidAt: stripeInvoice.status_transitions?.paid_at
+            ? new Date(stripeInvoice.status_transitions.paid_at * 1000).toISOString()
+            : new Date().toISOString(),
+        },
+      })
+      return { status: 'paid' as const, billingKey: preview.billingKey, stripeInvoiceId: stripeInvoice.id }
+    }
+    if (stripeInvoice.status !== 'open')
+      throw new Error(`Stripe invoice ${stripeInvoice.id} is ${stripeInvoice.status}.`)
+    await emailReferralInvoice(payload, invoice, preview.referral.name, stripeInvoice, stripe)
+    return { status: 'sent' as const, billingKey: preview.billingKey, stripeInvoiceId: stripeInvoice.id }
+  }
   if (!invoice) {
     try {
       invoice = await payload.create({
@@ -208,7 +288,7 @@ export async function sendReferralInvoice(
           automatic_tax: { enabled: false },
           default_tax_rates: [],
           pending_invoice_items_behavior: 'exclude',
-          description: memo(invoice.items!, month),
+          footer: REFERRAL_CHECK_FOOTER,
           metadata: { referralInvoiceId: String(invoice.id), billingKey: preview.billingKey },
         },
         { idempotencyKey: `referral-invoice:${preview.billingKey}` },
@@ -250,24 +330,22 @@ export async function sendReferralInvoice(
     )
   }
   if (stripeInvoice.status !== 'open' && stripeInvoice.status !== 'paid') {
-    throw new Error(`Stripe invoice ${stripeInvoice.id} is ${stripeInvoice.status}; it was not sent.`)
+    throw new Error(`Stripe invoice ${stripeInvoice.id} is ${stripeInvoice.status}; it cannot be emailed.`)
   }
-  if (stripeInvoice.status === 'open') {
-    stripeInvoice = await stripe.invoices.sendInvoice(
-      stripeInvoiceId,
-      {},
-      { idempotencyKey: `referral-send:${invoice.id}` },
-    )
+  if (stripeInvoice.status === 'paid') {
+    await payload.update({
+      collection: 'referral-invoices',
+      id: invoice.id,
+      data: {
+        status: 'paid',
+        paidAt: stripeInvoice.status_transitions?.paid_at
+          ? new Date(stripeInvoice.status_transitions.paid_at * 1000).toISOString()
+          : new Date().toISOString(),
+      },
+    })
+    return { status: 'paid' as const, billingKey: preview.billingKey, stripeInvoiceId: stripeInvoice.id }
   }
-  await payload.update({
-    collection: 'referral-invoices',
-    id: invoice.id,
-    data: {
-      status: stripeInvoice.status === 'paid' ? 'paid' : 'sent',
-      hostedInvoiceUrl: stripeInvoice.hosted_invoice_url || undefined,
-      sentAt: new Date().toISOString(),
-    },
-  })
+  await emailReferralInvoice(payload, invoice, referral.name, stripeInvoice, stripe)
   return { status: 'sent' as const, billingKey: preview.billingKey, stripeInvoiceId: stripeInvoice.id }
 }
 

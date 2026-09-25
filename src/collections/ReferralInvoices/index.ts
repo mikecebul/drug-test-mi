@@ -46,7 +46,9 @@ export const ReferralInvoices: CollectionConfig = {
     { name: 'stripeCustomerId', type: 'text' },
     { name: 'stripeInvoiceId', type: 'text', index: true },
     { name: 'hostedInvoiceUrl', type: 'text' },
+    { name: 'invoicePdfUrl', type: 'text' },
     { name: 'sentAt', type: 'date' },
+    { name: 'emailSentAt', type: 'date' },
     { name: 'paidAt', type: 'date' },
     {
       name: 'items',

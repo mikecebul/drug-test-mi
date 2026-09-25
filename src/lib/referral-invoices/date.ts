@@ -1,4 +1,4 @@
-export function previousBillingMonth(now = new Date()) {
+export function currentBillingMonth(now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Detroit',
     year: 'numeric',
@@ -6,6 +6,11 @@ export function previousBillingMonth(now = new Date()) {
   }).formatToParts(now)
   const year = Number(parts.find((part) => part.type === 'year')?.value)
   const month = Number(parts.find((part) => part.type === 'month')?.value)
+  return `${year}-${String(month).padStart(2, '0')}`
+}
+
+export function previousBillingMonth(now = new Date()) {
+  const [year, month] = currentBillingMonth(now).split('-').map(Number)
   return new Date(Date.UTC(year, month - 2, 1)).toISOString().slice(0, 7)
 }
 
