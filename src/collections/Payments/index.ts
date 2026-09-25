@@ -45,6 +45,12 @@ export const Payments: CollectionConfig = {
       index: true,
     },
     {
+      name: 'relatedReferralInvoice',
+      type: 'relationship',
+      relationTo: 'referral-invoices',
+      index: true,
+    },
+    {
       name: 'relatedBooking',
       type: 'relationship',
       relationTo: 'bookings',
@@ -67,6 +73,7 @@ export const Payments: CollectionConfig = {
       defaultValue: 'unknown',
       options: [
         { label: 'Cash', value: 'cash' },
+        { label: 'Check', value: 'check' },
         { label: 'Card', value: 'card' },
         { label: 'Stripe', value: 'stripe' },
         { label: 'Pre-paid', value: 'pre-paid' },

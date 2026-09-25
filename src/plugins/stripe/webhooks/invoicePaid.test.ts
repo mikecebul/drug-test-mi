@@ -75,3 +75,53 @@ it('posts the paid referral invoice to its exact test and flags later off-line p
     }),
   )
 })
+
+it('posts an out-of-band check as a check payment linked to its invoice', async () => {
+  const payload = {
+    findByID: vi.fn(async ({ collection }: { collection: string }) =>
+      collection === 'referral-invoices'
+        ? {
+            id: 'local-check',
+            stripeInvoiceId: 'in_check',
+            status: 'sent',
+            paymentMethod: 'check',
+            checkReceivedAt: '2026-09-24T16:00:00.000Z',
+            items: [{ drugTest: 'test-check', client: 'client-check', amount: 40 }],
+          }
+        : { id: 'test-check', payment: { amountDue: 40, amountPaid: 0, balanceDue: 40, status: 'invoiced' } },
+    ),
+    find: vi.fn().mockResolvedValue({ docs: [] }),
+    update: vi.fn().mockResolvedValue({}),
+    create: vi.fn().mockResolvedValue({}),
+  } as unknown as Payload
+  await invoicePaid({
+    event: {
+      data: {
+        object: {
+          id: 'in_check',
+          status: 'paid',
+          metadata: { referralInvoiceId: 'local-check' },
+          created: 1780000000,
+          status_transitions: { paid_at: 1780000100 },
+        } as unknown as Stripe.Invoice,
+      },
+    },
+    payload,
+  } as Parameters<typeof invoicePaid>[0])
+  expect(payload.create).toHaveBeenCalledWith(
+    expect.objectContaining({
+      collection: 'payments',
+      data: expect.objectContaining({
+        method: 'check',
+        relatedReferralInvoice: 'local-check',
+        collectedAt: '2026-09-24T16:00:00.000Z',
+      }),
+    }),
+  )
+  expect(payload.update).toHaveBeenCalledWith(
+    expect.objectContaining({
+      collection: 'drug-tests',
+      data: { payment: expect.objectContaining({ status: 'paid', method: 'check', balanceDue: 0 }) },
+    }),
+  )
+})

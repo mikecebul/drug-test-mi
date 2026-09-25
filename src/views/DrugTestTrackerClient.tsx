@@ -82,6 +82,7 @@ const currency = new Intl.NumberFormat('en-US', {
 function getPaymentStatusLabel(test: DrugTest) {
   const balanceDue = getBalanceDue(test)
   if (balanceDue <= 0) return 'Paid'
+  if (test.payment?.status === 'invoiced') return 'Invoiced'
   if (test.payment?.status === 'partial') return 'Partial'
   return 'Unpaid'
 }
@@ -497,9 +498,7 @@ function RequestConfirmationDialog({
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={handleOpenChange}>
       <DrawerTrigger
-        render={
-          <Button size="sm" variant="secondary" disabled={disabled || unexpectedPositives.length === 0} />
-        }
+        render={<Button size="sm" variant="secondary" disabled={disabled || unexpectedPositives.length === 0} />}
       >
         Request Confirmation
       </DrawerTrigger>
@@ -601,9 +600,7 @@ function RecordPaymentDialog({
 
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={handleOpenChange}>
-      <DrawerTrigger render={<Button size="sm" disabled={disabled} />}>
-        Record Payment
-      </DrawerTrigger>
+      <DrawerTrigger render={<Button size="sm" disabled={disabled} />}>Record Payment</DrawerTrigger>
       <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(544px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
         <DrawerHeader className="border-border border-b">
           <DrawerTitle>Record Payment</DrawerTitle>

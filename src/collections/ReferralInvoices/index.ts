@@ -53,6 +53,24 @@ export const ReferralInvoices: CollectionConfig = {
     { name: 'sentAt', type: 'date' },
     { name: 'emailSentAt', type: 'date' },
     { name: 'paidAt', type: 'date' },
+    {
+      name: 'paymentMethod',
+      type: 'select',
+      options: [
+        { label: 'Online', value: 'stripe' },
+        { label: 'Check', value: 'check' },
+      ],
+      admin: { readOnly: true },
+    },
+    { name: 'checkNumber', type: 'text', admin: { readOnly: true } },
+    { name: 'checkReceivedAt', type: 'date', admin: { readOnly: true } },
+    {
+      name: 'payments',
+      type: 'join',
+      collection: 'payments',
+      on: 'relatedReferralInvoice',
+      admin: { defaultColumns: ['amount', 'method', 'collectedAt'] },
+    },
     { name: 'voidedAt', type: 'date' },
     {
       name: 'items',

@@ -5,6 +5,7 @@ import { getTestTypeLabel } from '@/config/test-types'
 import { buildReferralInvoiceEmail, REFERRAL_CHECK_FOOTER } from '@/emails/payments/ReferralInvoiceEmail'
 import { prefixNonLiveEmailSubject, resolveOutboundNotificationRecipients } from '@/lib/email-safety'
 import { billingPeriodEnd, collectionDateInDetroit, currentBillingMonth } from '@/lib/referral-invoices/date'
+import { settleReferralInvoice } from '@/lib/referral-invoices/settle'
 export { currentBillingMonth, previousBillingMonth } from '@/lib/referral-invoices/date'
 
 export type ReferralCollection = 'courts' | 'employers'
@@ -136,6 +137,18 @@ export async function previewReferralInvoice(
     existing?.status === 'sent'
       ? await eligibleItems(payload, relationTo, referralId, cutoff, String(existing.id))
       : null
+  const history = await findAll((page) =>
+    payload.find({
+      collection: 'referral-invoices',
+      where: {
+        and: [{ 'referral.relationTo': { equals: relationTo } }, { 'referral.value': { equals: referralId } }],
+      },
+      depth: 0,
+      limit: PAGE_SIZE,
+      page,
+      sort: '-createdAt',
+    }),
+  )
   return {
     referral: {
       id: String(referral.id),
@@ -148,6 +161,23 @@ export async function previewReferralInvoice(
     items,
     amount: items.reduce((total, item) => total + cents(item.amount), 0) / 100,
     status: existing?.status || 'new',
+    invoiceId: existing?.id || null,
+    paidAt: existing?.paidAt || null,
+    paymentMethod: existing?.paymentMethod || null,
+    history: history.map((invoice) => ({
+      id: invoice.id,
+      billingMonth: invoice.billingMonth,
+      amount: invoice.amount,
+      status: invoice.status,
+      billingEmail: invoice.billingEmail,
+      emailSentAt: invoice.emailSentAt || null,
+      paidAt: invoice.paidAt || null,
+      paymentMethod: invoice.paymentMethod || null,
+      checkNumber: invoice.checkNumber || null,
+      hostedInvoiceUrl: invoice.hostedInvoiceUrl || null,
+      invoicePdfUrl: invoice.invoicePdfUrl || null,
+      replacesInvoiceNumber: invoice.replacesInvoiceNumber || null,
+    })),
     unappliedAmount: existing?.unappliedAmount || 0,
     hostedInvoiceUrl: existing?.hostedInvoiceUrl || null,
     invoicePdfUrl: existing?.invoicePdfUrl || null,
@@ -212,6 +242,21 @@ async function emailReferralInvoice(
   })
 }
 
+async function linkInvoiceTests(payload: Payload, invoice: ReferralInvoice) {
+  for (const item of invoice.items || []) {
+    const testId = idOf(item.drugTest)
+    if (!testId) continue
+    const test = await payload.findByID({ collection: 'drug-tests', id: testId, depth: 0 })
+    if ((test.payment?.balanceDue || 0) <= 0) continue
+    if (idOf(test.payment?.referralInvoice) === String(invoice.id)) continue
+    await payload.update({
+      collection: 'drug-tests',
+      id: testId,
+      data: { payment: { ...test.payment, status: 'invoiced', referralInvoice: invoice.id } },
+    })
+  }
+}
+
 export async function sendReferralInvoice(
   payload: Payload,
   relationTo: ReferralCollection,
@@ -227,29 +272,26 @@ export async function sendReferralInvoice(
   if (preview.items.length === 0) return { status: 'empty' as const, billingKey: preview.billingKey }
   if (preview.items.length > STRIPE_ITEM_LIMIT)
     throw new Error('More than 250 tests need invoicing; contact an administrator to split the invoice.')
-  if (preview.status === 'paid' || (preview.status === 'sent' && (!options.emailExisting || preview.emailSentAt)))
+  if (preview.status === 'paid' || (preview.status === 'sent' && (!options.emailExisting || preview.emailSentAt))) {
+    if (preview.status === 'sent') {
+      const existing = await findExistingInvoice(payload, preview.billingKey)
+      if (existing) await linkInvoiceTests(payload, existing)
+    }
     return { status: preview.status, billingKey: preview.billingKey }
+  }
 
   let invoice = await findExistingInvoice(payload, preview.billingKey)
   if (invoice?.status === 'sent') {
     if (!invoice.stripeInvoiceId) throw new Error('The existing invoice has no Stripe invoice ID.')
     const stripeInvoice = await stripe.invoices.retrieve(invoice.stripeInvoiceId)
     if (stripeInvoice.status === 'paid') {
-      await payload.update({
-        collection: 'referral-invoices',
-        id: invoice.id,
-        data: {
-          status: 'paid',
-          paidAt: stripeInvoice.status_transitions?.paid_at
-            ? new Date(stripeInvoice.status_transitions.paid_at * 1000).toISOString()
-            : new Date().toISOString(),
-        },
-      })
+      await settleReferralInvoice(payload, stripeInvoice)
       return { status: 'paid' as const, billingKey: preview.billingKey, stripeInvoiceId: stripeInvoice.id }
     }
     if (stripeInvoice.status !== 'open')
       throw new Error(`Stripe invoice ${stripeInvoice.id} is ${stripeInvoice.status}.`)
     await emailReferralInvoice(payload, invoice, preview.referral.name, stripeInvoice)
+    await linkInvoiceTests(payload, invoice)
     return { status: 'sent' as const, billingKey: preview.billingKey, stripeInvoiceId: stripeInvoice.id }
   }
   if (!invoice) {
@@ -361,19 +403,11 @@ export async function sendReferralInvoice(
     throw new Error(`Stripe invoice ${stripeInvoice.id} is ${stripeInvoice.status}; it cannot be emailed.`)
   }
   if (stripeInvoice.status === 'paid') {
-    await payload.update({
-      collection: 'referral-invoices',
-      id: invoice.id,
-      data: {
-        status: 'paid',
-        paidAt: stripeInvoice.status_transitions?.paid_at
-          ? new Date(stripeInvoice.status_transitions.paid_at * 1000).toISOString()
-          : new Date().toISOString(),
-      },
-    })
+    await settleReferralInvoice(payload, stripeInvoice)
     return { status: 'paid' as const, billingKey: preview.billingKey, stripeInvoiceId: stripeInvoice.id }
   }
   await emailReferralInvoice(payload, invoice, referral.name, stripeInvoice)
+  await linkInvoiceTests(payload, invoice)
   return { status: 'sent' as const, billingKey: preview.billingKey, stripeInvoiceId: stripeInvoice.id }
 }
 
@@ -424,10 +458,79 @@ export async function replaceReferralInvoice(
       voidedAt: new Date().toISOString(),
     },
   })
+  for (const item of invoice.items || []) {
+    const testId = idOf(item.drugTest)
+    if (!testId) continue
+    const test = await payload.findByID({ collection: 'drug-tests', id: testId, depth: 0 })
+    if (idOf(test.payment?.referralInvoice) !== String(invoice.id)) continue
+    await payload.update({
+      collection: 'drug-tests',
+      id: testId,
+      data: {
+        payment: { ...test.payment, status: test.payment?.amountPaid ? 'partial' : 'unpaid', referralInvoice: null },
+      },
+    })
+  }
   return sendReferralInvoice(payload, relationTo, referralId, month, stripe, {
     replacesInvoiceId: String(invoice.id),
     replacesInvoiceNumber: stripeInvoice.number || stripeInvoice.id,
   })
+}
+
+/** Record a received check in Stripe and immediately settle the local test ledger. */
+export async function recordReferralCheckPayment(
+  payload: Payload,
+  invoiceId: string,
+  relationTo: ReferralCollection,
+  referralId: string,
+  checkNumber: string,
+  checkReceivedAt: string,
+  stripe: Stripe,
+) {
+  const invoice = await payload.findByID({ collection: 'referral-invoices', id: invoiceId, depth: 0 })
+  if (invoice.referral?.relationTo !== relationTo || idOf(invoice.referral.value) !== referralId)
+    throw new Error('Invoice does not belong to the selected referral.')
+  if (invoice.status === 'paid') return { status: 'paid' as const }
+  if (invoice.status !== 'sent' || !invoice.stripeInvoiceId)
+    throw new Error('Only a sent, unpaid invoice can be marked paid by check.')
+  const existing = await stripe.invoices.retrieve(invoice.stripeInvoiceId)
+  if (existing.status !== 'open') {
+    if (existing.status === 'paid') {
+      await settleReferralInvoice(payload, existing)
+      return { status: 'paid' as const }
+    }
+    throw new Error(`Stripe invoice ${existing.id} is ${existing.status}.`)
+  }
+  if (existing.amount_paid > 0)
+    throw new Error('This invoice has a partial online payment. Reconcile it in Stripe before recording a check.')
+  await payload.update({
+    collection: 'referral-invoices',
+    id: invoice.id,
+    data: { paymentMethod: 'check', checkNumber: checkNumber || undefined, checkReceivedAt },
+  })
+  let paid: Stripe.Invoice
+  try {
+    paid = await stripe.invoices.pay(
+      invoice.stripeInvoiceId,
+      { paid_out_of_band: true },
+      { idempotencyKey: `referral-check:${invoice.id}` },
+    )
+  } catch (error) {
+    const latest = await stripe.invoices.retrieve(invoice.stripeInvoiceId)
+    if (latest.status === 'paid') {
+      paid = latest
+    } else {
+      await payload.update({
+        collection: 'referral-invoices',
+        id: invoice.id,
+        data: { paymentMethod: null, checkNumber: null, checkReceivedAt: null },
+      })
+      throw error
+    }
+  }
+  if (paid.status !== 'paid') throw new Error('Stripe did not mark the invoice paid.')
+  await settleReferralInvoice(payload, paid)
+  return { status: 'paid' as const }
 }
 
 export async function sendMonthlyReferralInvoices(payload: Payload, month: string, stripe: Stripe) {

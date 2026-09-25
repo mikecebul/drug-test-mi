@@ -131,6 +131,9 @@ export interface Config {
     employers: {
       clients: 'clients';
     };
+    'referral-invoices': {
+      payments: 'payments';
+    };
     clients: {
       drugTests: 'drug-tests';
       drugTestsWithBalance: 'drug-tests';
@@ -1846,11 +1849,15 @@ export interface DrugTest {
    * Payment snapshot for this test.
    */
   payment: {
-    status: 'paid' | 'unpaid' | 'partial';
+    /**
+     * The active referral invoice for this test. An invoiced test remains unpaid until payment arrives.
+     */
+    referralInvoice?: (string | null) | ReferralInvoice;
+    status: 'paid' | 'invoiced' | 'unpaid' | 'partial';
     /**
      * Most recent known payment method for this test balance.
      */
-    method?: ('cash' | 'card' | 'stripe' | 'pre-paid' | 'credit' | 'unknown') | null;
+    method?: ('cash' | 'check' | 'card' | 'stripe' | 'pre-paid' | 'credit' | 'unknown') | null;
     amountDue?: number | null;
     amountPaid?: number | null;
     /**
@@ -2181,6 +2188,62 @@ export interface DrugTest {
   createdAt: string;
 }
 /**
+ * Monthly Stripe invoices sent to billable court and employer referrals.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "referral-invoices".
+ */
+export interface ReferralInvoice {
+  id: string;
+  billingKey: string;
+  billingMonth: string;
+  referral:
+    | {
+        relationTo: 'courts';
+        value: string | Court;
+      }
+    | {
+        relationTo: 'employers';
+        value: string | Employer;
+      };
+  billingEmail: string;
+  amount: number;
+  /**
+   * Amount paid to Stripe after a test was paid elsewhere. Review for a referral refund or credit.
+   */
+  unappliedAmount?: number | null;
+  status: 'preparing' | 'sent' | 'paid' | 'void';
+  stripeCustomerId?: string | null;
+  stripeInvoiceId?: string | null;
+  replacesInvoice?: (string | null) | ReferralInvoice;
+  replacesInvoiceNumber?: string | null;
+  hostedInvoiceUrl?: string | null;
+  invoicePdfUrl?: string | null;
+  sentAt?: string | null;
+  emailSentAt?: string | null;
+  paidAt?: string | null;
+  paymentMethod?: ('stripe' | 'check') | null;
+  checkNumber?: string | null;
+  checkReceivedAt?: string | null;
+  payments?: {
+    docs?: (string | Payment)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  voidedAt?: string | null;
+  items: {
+    drugTest: string | DrugTest;
+    client: string | Client;
+    clientName: string;
+    collectionDate: string;
+    testType: string;
+    amount: number;
+    id?: string | null;
+  }[];
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Ledger of collected, linked, and credited client payments.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2194,12 +2257,13 @@ export interface Payment {
    */
   relatedClient?: (string | null) | Client;
   relatedDrugTest?: (string | null) | DrugTest;
+  relatedReferralInvoice?: (string | null) | ReferralInvoice;
   relatedBooking?: (string | null) | Booking;
   /**
    * Total money collected or applied in this payment record.
    */
   amount: number;
-  method: 'cash' | 'card' | 'stripe' | 'pre-paid' | 'credit' | 'unknown';
+  method: 'cash' | 'check' | 'card' | 'stripe' | 'pre-paid' | 'credit' | 'unknown';
   source:
     | 'guided-workflow'
     | 'test-tracker'
@@ -2496,54 +2560,6 @@ export interface Technician {
    * Inactive technicians will not appear in scheduling
    */
   isActive?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Monthly Stripe invoices sent to billable court and employer referrals.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "referral-invoices".
- */
-export interface ReferralInvoice {
-  id: string;
-  billingKey: string;
-  billingMonth: string;
-  referral:
-    | {
-        relationTo: 'courts';
-        value: string | Court;
-      }
-    | {
-        relationTo: 'employers';
-        value: string | Employer;
-      };
-  billingEmail: string;
-  amount: number;
-  /**
-   * Amount paid to Stripe after a test was paid elsewhere. Review for a referral refund or credit.
-   */
-  unappliedAmount?: number | null;
-  status: 'preparing' | 'sent' | 'paid' | 'void';
-  stripeCustomerId?: string | null;
-  stripeInvoiceId?: string | null;
-  replacesInvoice?: (string | null) | ReferralInvoice;
-  replacesInvoiceNumber?: string | null;
-  hostedInvoiceUrl?: string | null;
-  invoicePdfUrl?: string | null;
-  sentAt?: string | null;
-  emailSentAt?: string | null;
-  paidAt?: string | null;
-  voidedAt?: string | null;
-  items: {
-    drugTest: string | DrugTest;
-    client: string | Client;
-    clientName: string;
-    collectionDate: string;
-    testType: string;
-    amount: number;
-    id?: string | null;
-  }[];
   updatedAt: string;
   createdAt: string;
 }
@@ -4044,6 +4060,10 @@ export interface ReferralInvoicesSelect<T extends boolean = true> {
   sentAt?: T;
   emailSentAt?: T;
   paidAt?: T;
+  paymentMethod?: T;
+  checkNumber?: T;
+  checkReceivedAt?: T;
+  payments?: T;
   voidedAt?: T;
   items?:
     | T
@@ -4188,6 +4208,7 @@ export interface DrugTestsSelect<T extends boolean = true> {
   payment?:
     | T
     | {
+        referralInvoice?: T;
         status?: T;
         method?: T;
         amountDue?: T;
@@ -4252,6 +4273,7 @@ export interface PaymentsSelect<T extends boolean = true> {
   title?: T;
   relatedClient?: T;
   relatedDrugTest?: T;
+  relatedReferralInvoice?: T;
   relatedBooking?: T;
   amount?: T;
   method?: T;

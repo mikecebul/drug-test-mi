@@ -7,6 +7,7 @@ import {
   currentBillingMonth,
   previewReferralInvoice,
   previousBillingMonth,
+  recordReferralCheckPayment,
   replaceReferralInvoice,
   sendReferralInvoice,
 } from '@/lib/referral-invoices'
@@ -21,7 +22,10 @@ const inputSchema = z.object({
     .string()
     .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
     .optional(),
-  action: z.enum(['email', 'replace']).optional(),
+  action: z.enum(['email', 'replace', 'record-check']).optional(),
+  invoiceId: z.string().trim().min(1).optional(),
+  checkNumber: z.string().trim().max(100).optional(),
+  checkReceivedAt: z.string().datetime().optional(),
 })
 
 async function authorize(request: NextRequest) {
@@ -63,6 +67,21 @@ export async function POST(request: NextRequest) {
   if (!key) return json({ error: 'Stripe is not configured.' }, 503)
   try {
     const stripe = new Stripe(key, {})
+    if (input.data.action === 'record-check') {
+      if (!input.data.invoiceId || !input.data.checkReceivedAt)
+        return json({ error: 'Invoice and check received date are required.' }, 400)
+      return json(
+        await recordReferralCheckPayment(
+          payload,
+          input.data.invoiceId,
+          input.data.relationTo,
+          input.data.referralId,
+          input.data.checkNumber || '',
+          input.data.checkReceivedAt,
+          stripe,
+        ),
+      )
+    }
     if (input.data.action === 'replace') {
       return json(
         await replaceReferralInvoice(

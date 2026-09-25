@@ -649,6 +649,7 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
               id: referral.id as string,
               name: referral.name as string,
               type: client?.referral?.relationTo === 'courts' ? 'Court' : 'Employer',
+              isBillable: Boolean(referral.isBillable),
             }
           : referralType === 'self'
             ? {
@@ -991,6 +992,17 @@ export async function getClientOutstandingPaymentBalances(clientId: string, req?
     overrideAccess: true,
   })
 
+  const activeInvoices = await payload.find({
+    collection: 'referral-invoices',
+    where: { and: [{ 'items.client': { equals: clientId } }, { status: { equals: 'sent' } }] },
+    depth: 0,
+    limit: 1000,
+    overrideAccess: true,
+  })
+  const invoicedTestIds = new Set(
+    activeInvoices.docs.flatMap((invoice) => invoice.items?.map((item) => getRelationshipId(item.drugTest)) || []),
+  )
+
   return result.docs
     .map((test) => {
       const testType = mapTestTypeValue(test.testType)
@@ -999,6 +1011,10 @@ export async function getClientOutstandingPaymentBalances(clientId: string, req?
         collectionDate: test.collectionDate || test.createdAt,
         testTypeLabel: testType?.label || 'Drug test',
         balanceDue: normalizeMoney(test.payment?.balanceDue),
+        billingState:
+          invoicedTestIds.has(String(test.id)) || test.payment?.status === 'invoiced'
+            ? ('invoiced' as const)
+            : ('unpaid' as const),
       }
     })
     .filter((balance) => balance.balanceDue > 0)
@@ -1310,8 +1326,7 @@ export async function cancelAndRefundGuidedBooking(
 
   try {
     const unresolvedRefundStatus =
-      refundablePayment.stripeRefundStatus === 'pending' ||
-      refundablePayment.stripeRefundStatus === 'requires-action'
+      refundablePayment.stripeRefundStatus === 'pending' || refundablePayment.stripeRefundStatus === 'requires-action'
     const isRetry =
       refundablePayment.stripeRefundOperationId === input.operationId && Boolean(refundablePayment.stripeRefundId)
 
@@ -1481,11 +1496,13 @@ export async function recordBookingPayment(
       const receiptEmail = client ? resolveClientReceiptEmail(client) : null
       const shouldSendReceipt = Boolean(
         input.sendReceipt &&
-          input.method === 'cash' &&
-          receiptEmail &&
-          (normalizeMoney(input.amountReceived) > 0 || creditApplied > 0),
+        input.method === 'cash' &&
+        receiptEmail &&
+        (normalizeMoney(input.amountReceived) > 0 || creditApplied > 0),
       )
       const referral = await resolveReferral(payload, client)
+      if (referral?.isBillable && (input.amountReceived > 0 || creditApplied > 0))
+        throw new Error('This referral pays for the test. Record its payment on the referral invoice.')
       const testType =
         mapTestTypeValue(existingBooking.scheduledTestType) ??
         getCalcomBookingTestType(existingBooking) ??
@@ -1505,10 +1522,7 @@ export async function recordBookingPayment(
               await payload.find({
                 collection: 'drug-tests',
                 where: {
-                  and: [
-                    { relatedClient: { equals: clientId } },
-                    { 'payment.balanceDue': { greater_than: 0 } },
-                  ],
+                  and: [{ relatedClient: { equals: clientId } }, { 'payment.balanceDue': { greater_than: 0 } }],
                 },
                 depth: 0,
                 limit: 1000,
@@ -1655,10 +1669,7 @@ export async function recordBookingPayment(
 
     revalidateBookingViews()
 
-    let receipt:
-      | { email: string; sent: true }
-      | { error: string; sent: false }
-      | null = null
+    let receipt: { email: string; sent: true } | { error: string; sent: false } | null = null
 
     if (result.receipt) {
       try {
@@ -1766,6 +1777,12 @@ export async function startBookingTerminalPayment(
   }
 
   const referral = await resolveReferral(payload, client)
+  if (referral?.isBillable) {
+    return {
+      success: false as const,
+      error: 'This referral pays for the test. Record its payment on the referral invoice.',
+    }
+  }
   const testType =
     mapTestTypeValue(booking.scheduledTestType) ?? getCalcomBookingTestType(booking) ?? getPreferredTestType(referral)
   const amountDue = normalizeMoney(testType?.price ?? booking.payment?.amountDue)

@@ -5,6 +5,15 @@ import Link from 'next/link'
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
@@ -17,6 +26,23 @@ type Preview = {
   amount: number
   unappliedAmount: number
   status: string
+  invoiceId: string | null
+  paidAt: string | null
+  paymentMethod: 'stripe' | 'check' | null
+  history: Array<{
+    id: string
+    billingMonth: string
+    amount: number
+    status: string
+    billingEmail: string
+    emailSentAt: string | null
+    paidAt: string | null
+    paymentMethod: 'stripe' | 'check' | null
+    checkNumber: string | null
+    hostedInvoiceUrl: string | null
+    invoicePdfUrl: string | null
+    replacesInvoiceNumber: string | null
+  }>
   hostedInvoiceUrl: string | null
   invoicePdfUrl: string | null
   emailSentAt: string | null
@@ -30,7 +56,7 @@ type Preview = {
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
-function InvoiceItemsTable({ items }: { items: Preview['items'] }) {
+function InvoiceItemsTable({ items, status }: { items: Preview['items']; status?: string }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -40,6 +66,7 @@ function InvoiceItemsTable({ items }: { items: Preview['items'] }) {
             <th>Date</th>
             <th>Test</th>
             <th className="text-right">Balance</th>
+            {status && <th className="text-right">State</th>}
           </tr>
         </thead>
         <tbody>
@@ -49,6 +76,13 @@ function InvoiceItemsTable({ items }: { items: Preview['items'] }) {
               <td>{collectionDateInDetroit(item.collectionDate)}</td>
               <td>{item.testType}</td>
               <td className="text-right">{money.format(item.amount)}</td>
+              {status && (
+                <td className="text-right">
+                  <Badge variant={status === 'paid' ? 'success' : 'outline'}>
+                    {status === 'paid' ? 'Paid' : status === 'sent' ? 'Invoiced' : 'Unpaid'}
+                  </Badge>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -65,6 +99,10 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [replacing, setReplacing] = useState(false)
+  const [checkInvoiceId, setCheckInvoiceId] = useState<string | null>(null)
+  const [checkNumber, setCheckNumber] = useState('')
+  const [checkDate, setCheckDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [recordingCheck, setRecordingCheck] = useState(false)
   const referral = referrals[selected]
 
   async function loadPreview(target: Referral, billingMonth: string) {
@@ -154,6 +192,36 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
       setError(cause instanceof Error ? cause.message : 'Unable to replace invoice.')
     } finally {
       setReplacing(false)
+    }
+  }
+
+  async function recordCheck() {
+    if (!referral || !checkInvoiceId || !checkDate || recordingCheck) return
+    setRecordingCheck(true)
+    setError('')
+    try {
+      const response = await fetch('/api/referral-invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          relationTo: referral.relationTo,
+          referralId: referral.id,
+          month,
+          action: 'record-check',
+          invoiceId: checkInvoiceId,
+          checkNumber,
+          checkReceivedAt: new Date(`${checkDate}T12:00:00`).toISOString(),
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Unable to record check payment.')
+      setCheckInvoiceId(null)
+      setCheckNumber('')
+      await loadPreview(referral, month)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to record check payment.')
+    } finally {
+      setRecordingCheck(false)
     }
   }
 
@@ -248,7 +316,7 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
                 </CardHeader>
                 <CardContent>
                   {preview.items.length ? (
-                    <InvoiceItemsTable items={preview.items} />
+                    <InvoiceItemsTable items={preview.items} status={preview.status} />
                   ) : (
                     <p className="text-muted-foreground text-sm">No uninvoiced balances for this period.</p>
                   )}
@@ -270,6 +338,11 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
                         nativeButton={false}
                       >
                         View PDF
+                      </Button>
+                    )}
+                    {preview.status === 'sent' && preview.invoiceId && (
+                      <Button variant="outline" onClick={() => setCheckInvoiceId(preview.invoiceId)}>
+                        Record check payment
                       </Button>
                     )}
                     <Button
@@ -302,7 +375,7 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
                         Replacing voids the old Stripe invoice and emails a new printable PDF.
                       </p>
                       {preview.replacement.items.length ? (
-                        <InvoiceItemsTable items={preview.replacement.items} />
+                        <InvoiceItemsTable items={preview.replacement.items} status="new" />
                       ) : (
                         <p className="text-muted-foreground text-sm">No unpaid tests remain for a replacement.</p>
                       )}
@@ -326,6 +399,68 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
               </Card>
             )
           )}
+          {preview && !loading && (
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Invoice history</CardTitle>
+                <p className="text-muted-foreground text-sm">Sent, paid, and replaced invoices for {referral.name}.</p>
+              </CardHeader>
+              <CardContent>
+                {preview.history.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">No invoices have been created yet.</p>
+                ) : (
+                  <div className="divide-y">
+                    {preview.history.map((invoice) => (
+                      <div
+                        key={invoice.id}
+                        className="flex flex-wrap items-center justify-between gap-4 py-4 first:pt-0 last:pb-0"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <strong>{invoice.billingMonth}</strong>
+                            <Badge variant={invoice.status === 'paid' ? 'success' : 'outline'}>
+                              {invoice.status === 'sent'
+                                ? 'Invoiced'
+                                : invoice.status === 'void'
+                                  ? 'Voided'
+                                  : invoice.status}
+                            </Badge>
+                          </div>
+                          <p className="text-muted-foreground mt-1 text-sm">
+                            {money.format(invoice.amount)} · {invoice.billingEmail}
+                            {invoice.paidAt ? ` · Paid ${new Date(invoice.paidAt).toLocaleDateString()}` : ''}
+                            {invoice.paymentMethod === 'check'
+                              ? ` by check${invoice.checkNumber ? ` #${invoice.checkNumber}` : ''}`
+                              : ''}
+                          </p>
+                          {invoice.replacesInvoiceNumber && (
+                            <p className="text-muted-foreground text-sm">Replaces {invoice.replacesInvoiceNumber}</p>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          {invoice.invoicePdfUrl && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              render={<a href={invoice.invoicePdfUrl} target="_blank" rel="noreferrer" />}
+                              nativeButton={false}
+                            >
+                              PDF
+                            </Button>
+                          )}
+                          {invoice.status === 'sent' && (
+                            <Button variant="outline" size="sm" onClick={() => setCheckInvoiceId(invoice.id)}>
+                              Record check
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
           <p className="text-muted-foreground mt-4 text-sm">
             Edit billing settings in the{' '}
             <Link className="underline" href={`/admin/collections/${referral.relationTo}/${referral.id}`}>
@@ -335,6 +470,52 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
           </p>
         </>
       )}
+      <Dialog
+        open={Boolean(checkInvoiceId)}
+        onOpenChange={(open) => !open && !recordingCheck && setCheckInvoiceId(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record check payment</DialogTitle>
+            <DialogDescription>
+              Confirm the full check was received. This marks the Stripe invoice paid and posts payments to its tests.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {error && (
+              <p role="alert" className="text-destructive text-sm">
+                {error}
+              </p>
+            )}
+            <div>
+              <Label htmlFor="check-received">Date received</Label>
+              <Input
+                id="check-received"
+                type="date"
+                value={checkDate}
+                onChange={(event) => setCheckDate(event.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="check-number">Check number (optional)</Label>
+              <Input
+                id="check-number"
+                value={checkNumber}
+                maxLength={100}
+                onChange={(event) => setCheckNumber(event.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCheckInvoiceId(null)} disabled={recordingCheck}>
+              Cancel
+            </Button>
+            <Button onClick={recordCheck} disabled={!checkDate || recordingCheck}>
+              {recordingCheck ? 'Recording…' : 'Mark invoice paid'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </ShadcnWrapper>
   )
 }
