@@ -200,6 +200,7 @@ export interface Config {
   jobs: {
     tasks: {
       'send-monthly-referral-invoices': TaskSendMonthlyReferralInvoices;
+      'sync-referral-invoice-payments': TaskSyncReferralInvoicePayments;
       'redwood-diagnostics-probe': TaskRedwoodDiagnosticsProbe;
       'redwood-import-client': TaskRedwoodImportClient;
       'redwood-update-client': TaskRedwoodUpdateClient;
@@ -1303,7 +1304,7 @@ export interface Client {
    */
   allowUnpaidBookings?: boolean | null;
   /**
-   * Auto-calculated from drug tests with a remaining payment balance.
+   * Auto-calculated from drug tests with a remaining balance, including amounts billed to a referral.
    */
   moneyOwed?: number | null;
   /**
@@ -1704,7 +1705,7 @@ export interface Court {
    */
   isBillable?: boolean | null;
   /**
-   * Stripe sends invoices to this address. This is separate from result notification contacts.
+   * Monthly invoice PDFs are emailed by MI Drug Test to this address. This is separate from result notification contacts.
    */
   billingEmail?: string | null;
   /**
@@ -1754,7 +1755,7 @@ export interface Employer {
    */
   isBillable?: boolean | null;
   /**
-   * Stripe sends invoices to this address. This is separate from result notification contacts.
+   * Monthly invoice PDFs are emailed by MI Drug Test to this address. This is separate from result notification contacts.
    */
   billingEmail?: string | null;
   /**
@@ -2209,7 +2210,7 @@ export interface ReferralInvoice {
   billingEmail: string;
   amount: number;
   /**
-   * Amount paid to Stripe after a test was paid elsewhere. Review for a referral refund or credit.
+   * Invoice payment that could not be applied to test balances. Review for a referral refund or credit.
    */
   unappliedAmount?: number | null;
   status: 'preparing' | 'sent' | 'paid' | 'void';
@@ -2244,7 +2245,7 @@ export interface ReferralInvoice {
   createdAt: string;
 }
 /**
- * Ledger of collected, linked, and credited client payments.
+ * Ledger of collected, linked, and credited client and referral payments.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payments".
@@ -2847,6 +2848,7 @@ export interface PayloadJob {
         taskSlug:
           | 'inline'
           | 'send-monthly-referral-invoices'
+          | 'sync-referral-invoice-payments'
           | 'redwood-diagnostics-probe'
           | 'redwood-import-client'
           | 'redwood-update-client'
@@ -2894,6 +2896,7 @@ export interface PayloadJob {
     | (
         | 'inline'
         | 'send-monthly-referral-invoices'
+        | 'sync-referral-invoice-payments'
         | 'redwood-diagnostics-probe'
         | 'redwood-import-client'
         | 'redwood-update-client'
@@ -4820,6 +4823,14 @@ export interface CollectionsWidget {
  * via the `definition` "TaskSend-monthly-referral-invoices".
  */
 export interface TaskSendMonthlyReferralInvoices {
+  input?: unknown;
+  output?: unknown;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskSync-referral-invoice-payments".
+ */
+export interface TaskSyncReferralInvoicePayments {
   input?: unknown;
   output?: unknown;
 }

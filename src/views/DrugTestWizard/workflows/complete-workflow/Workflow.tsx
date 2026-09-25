@@ -463,7 +463,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const paymentAmountIsValid = isValidGuidedPaymentAmount(payment.amountReceived)
   const amountReceived = selectedBooking?.referral?.isBillable ? 0 : parseGuidedPaymentAmount(payment.amountReceived)
   const creditToApply = selectedBooking?.referral?.isBillable ? 0 : parseGuidedPaymentAmount(payment.creditToApply)
-  const paymentTotalDue = outstandingPaymentBalances.reduce(
+  const clientPayableBalances = outstandingPaymentBalances.filter((balance) => balance.billingState !== 'invoiced')
+  const paymentTotalDue = clientPayableBalances.reduce(
     (total, balance) => total + balance.balanceDue,
     payment.currentBalanceDue,
   )
@@ -844,7 +845,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     }
     const clientId = selectedBooking.client.id
     const allocationPreview = buildGuidedPaymentAllocationPreview({
-      previousBalances: outstandingPaymentBalances,
+      previousBalances: clientPayableBalances,
       currentBalanceDue: payment.currentBalanceDue,
       amountReceived,
       clientCreditAvailable: selectedBooking.client.creditBalance ?? 0,
@@ -1749,7 +1750,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       recordedPayment && (recordedPayment.newMoneyAmount > 0 || recordedPayment.creditAppliedAmount > 0),
     )
     const allocationPreview = buildGuidedPaymentAllocationPreview({
-      previousBalances: outstandingPaymentBalances,
+      previousBalances: clientPayableBalances,
       currentBalanceDue: payment.currentBalanceDue,
       amountReceived,
       clientCreditAvailable: clientCreditBalance,
@@ -1803,7 +1804,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                         {currency.format(balance.balanceDue)} owed by referral
                       </p>
                     </div>
-                    <Badge variant="outline">{balance.billingState === 'invoiced' ? 'Invoiced' : 'Unpaid'}</Badge>
+                    <Badge variant={balance.billingState === 'invoiced' ? 'warning' : 'outline'}>
+                      {balance.billingState === 'invoiced' ? 'Invoiced' : 'Unpaid'}
+                    </Badge>
                   </div>
                 ))}
                 <div className="flex items-center justify-between gap-3 p-3">

@@ -13,7 +13,7 @@ export const Payments: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'relatedClient', 'amount', 'method', 'status', 'collectedAt'],
     group: 'Admin',
-    description: 'Ledger of collected, linked, and credited client payments.',
+    description: 'Ledger of collected, linked, and credited client and referral payments.',
   },
   access: {
     create: admins,

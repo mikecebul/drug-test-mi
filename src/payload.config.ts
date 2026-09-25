@@ -63,7 +63,11 @@ import { JobRuns } from './collections/JobRuns'
 import { Employers } from './collections/Employers'
 import { Courts } from './collections/Courts'
 import { ReferralInvoices } from './collections/ReferralInvoices'
-import { previousBillingMonth, sendMonthlyReferralInvoices } from './lib/referral-invoices'
+import {
+  previousBillingMonth,
+  sendMonthlyReferralInvoices,
+  syncSentReferralInvoicePayments,
+} from './lib/referral-invoices'
 import Stripe from 'stripe'
 import { runRedwoodImportClientJob } from './collections/Clients/services/redwoodImportWorkflow'
 import { runRedwoodClientInactivationJob } from './collections/Clients/services/redwoodClientInactivation'
@@ -433,6 +437,16 @@ export default buildConfig({
           const failed = results.filter((result) => result.status === 'failed')
           if (failed.length) throw new Error(`${failed.length} referral invoices failed for ${month}.`)
           return { output: { month, invoices: results.length } }
+        },
+      },
+      {
+        slug: 'sync-referral-invoice-payments',
+        retries: 1,
+        schedule: process.env.STRIPE_SECRET_KEY ? [{ cron: '0 0 * * * *', queue: 'redwood' }] : [],
+        handler: async ({ req }) => {
+          const key = process.env.STRIPE_SECRET_KEY
+          if (!key) throw new Error('Stripe is not configured.')
+          return { output: await syncSentReferralInvoicePayments(req.payload, new Stripe(key, {})) }
         },
       },
       {

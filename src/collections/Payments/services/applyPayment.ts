@@ -168,6 +168,7 @@ export async function applyIncomingPayment(input: ApplyIncomingPaymentInput) {
 
     for (const test of unpaidTests.docs) {
       if (remaining <= 0) break
+      if (test.payment?.status === 'invoiced' || test.payment?.referralInvoice) continue
 
       const balanceDue = normalizeMoney(test.payment?.balanceDue)
       if (balanceDue <= 0) continue
@@ -289,6 +290,7 @@ export async function applyAvailableClientCredit(input: {
 
     for (const test of unpaidTests.docs) {
       if (remainingCredit <= 0) break
+      if (test.payment?.status === 'invoiced' || test.payment?.referralInvoice) continue
 
       const balanceDue = normalizeMoney(test.payment?.balanceDue)
       if (balanceDue <= 0) continue

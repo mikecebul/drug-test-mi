@@ -34,6 +34,23 @@ function cents(amount: number) {
   return Math.round(amount * 100)
 }
 
+function invoiceItemsDiffer(original: InvoiceItem[], current: InvoiceItem[]) {
+  const snapshot = (items: InvoiceItem[]) =>
+    items
+      .map((item) =>
+        JSON.stringify([
+          idOf(item.drugTest),
+          idOf(item.client),
+          item.clientName,
+          item.collectionDate,
+          item.testType,
+          cents(item.amount),
+        ]),
+      )
+      .sort()
+  return JSON.stringify(snapshot(original)) !== JSON.stringify(snapshot(current))
+}
+
 async function findExistingInvoice(payload: Payload, billingKey: string) {
   const result = await payload.find({
     collection: 'referral-invoices',
@@ -96,7 +113,10 @@ async function eligibleItems(
   )
   const alreadyInvoiced = new Set(
     priorInvoices
-      .filter((invoice) => invoice.status !== 'void' && String(invoice.id) !== excludeInvoiceId)
+      .filter(
+        (invoice) =>
+          (invoice.status === 'sent' || invoice.status === 'preparing') && String(invoice.id) !== excludeInvoiceId,
+      )
       .flatMap((invoice) => invoice.items?.map((item) => idOf(item.drugTest)) || []),
   )
 
@@ -137,6 +157,8 @@ export async function previewReferralInvoice(
     existing?.status === 'sent'
       ? await eligibleItems(payload, relationTo, referralId, cutoff, String(existing.id))
       : null
+  const changedReplacementItems =
+    replacementItems?.length && invoiceItemsDiffer(existing?.items || [], replacementItems) ? replacementItems : null
   const history = await findAll((page) =>
     payload.find({
       collection: 'referral-invoices',
@@ -184,10 +206,10 @@ export async function previewReferralInvoice(
     emailSentAt: existing?.emailSentAt || null,
     replacesInvoiceNumber: existing?.replacesInvoiceNumber || null,
     upcoming: month === currentMonth && !existing,
-    replacement: replacementItems
+    replacement: changedReplacementItems
       ? {
-          items: replacementItems,
-          amount: replacementItems.reduce((total, item) => total + cents(item.amount), 0) / 100,
+          items: changedReplacementItems,
+          amount: changedReplacementItems.reduce((total, item) => total + cents(item.amount), 0) / 100,
         }
       : null,
   }
@@ -257,6 +279,41 @@ async function linkInvoiceTests(payload: Payload, invoice: ReferralInvoice) {
   }
 }
 
+async function closePendingClientCheckoutLinks(payload: Payload, stripe: Stripe, items: InvoiceItem[]) {
+  const testIds = items.map((item) => idOf(item.drugTest)).filter((id): id is string => Boolean(id))
+  if (!testIds.length) return
+  const pending = await findAll((page) =>
+    payload.find({
+      collection: 'payments',
+      where: {
+        and: [
+          { relatedDrugTest: { in: testIds } },
+          { source: { equals: 'stripe-checkout' } },
+          { status: { equals: 'pending' } },
+        ],
+      },
+      depth: 0,
+      limit: PAGE_SIZE,
+      page,
+    }),
+  )
+  for (const payment of pending) {
+    if (!payment.stripeCheckoutSessionId)
+      throw new Error('A client payment link is still being created. Retry this invoice shortly.')
+    const session = await stripe.checkout.sessions.retrieve(payment.stripeCheckoutSessionId)
+    if (session.status === 'complete')
+      throw new Error(
+        'A client has paid a checkout link for one of these tests. Reconcile that payment before invoicing.',
+      )
+    if (session.status === 'open') await stripe.checkout.sessions.expire(session.id)
+    await payload.update({
+      collection: 'payments',
+      id: payment.id,
+      data: { status: 'voided', voidedAt: new Date().toISOString() },
+    })
+  }
+}
+
 export async function sendReferralInvoice(
   payload: Payload,
   relationTo: ReferralCollection,
@@ -279,6 +336,8 @@ export async function sendReferralInvoice(
     }
     return { status: preview.status, billingKey: preview.billingKey }
   }
+
+  if (preview.status !== 'sent') await closePendingClientCheckoutLinks(payload, stripe, preview.items)
 
   let invoice = await findExistingInvoice(payload, preview.billingKey)
   if (invoice?.status === 'sent') {
@@ -531,6 +590,48 @@ export async function recordReferralCheckPayment(
   if (paid.status !== 'paid') throw new Error('Stripe did not mark the invoice paid.')
   await settleReferralInvoice(payload, paid)
   return { status: 'paid' as const }
+}
+
+/** Reconcile an online payment when a Stripe webhook is delayed or unavailable. */
+export async function syncReferralInvoicePayment(
+  payload: Payload,
+  invoiceId: string,
+  stripe: Stripe,
+  expectedReferral?: { relationTo: ReferralCollection; referralId: string },
+) {
+  const invoice = await payload.findByID({ collection: 'referral-invoices', id: invoiceId, depth: 0 })
+  if (
+    expectedReferral &&
+    (invoice.referral?.relationTo !== expectedReferral.relationTo ||
+      idOf(invoice.referral?.value) !== expectedReferral.referralId)
+  )
+    throw new Error('Invoice does not belong to the selected referral.')
+  if (!invoice.stripeInvoiceId) throw new Error('This invoice has no Stripe invoice ID.')
+  if (invoice.status === 'void') return { status: 'void' as const }
+  const stripeInvoice = await stripe.invoices.retrieve(invoice.stripeInvoiceId)
+  if (stripeInvoice.status === 'paid') {
+    await settleReferralInvoice(payload, stripeInvoice)
+    return { status: 'paid' as const }
+  }
+  return { status: stripeInvoice.status || 'unknown' }
+}
+
+export async function syncSentReferralInvoicePayments(payload: Payload, stripe: Stripe) {
+  const invoices = await findAll((page) =>
+    payload.find({
+      collection: 'referral-invoices',
+      where: { status: { equals: 'sent' } },
+      depth: 0,
+      limit: PAGE_SIZE,
+      page,
+    }),
+  )
+  let paid = 0
+  for (const invoice of invoices) {
+    const result = await syncReferralInvoicePayment(payload, String(invoice.id), stripe)
+    if (result.status === 'paid') paid += 1
+  }
+  return { checked: invoices.length, paid }
 }
 
 export async function sendMonthlyReferralInvoices(payload: Payload, month: string, stripe: Stripe) {

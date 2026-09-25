@@ -23,7 +23,7 @@ export const referralBillingFields: Field[] = [
         access: { create: adminFieldAccess, read: adminFieldAccess, update: adminFieldAccess },
         admin: {
           condition: (_, siblingData) => Boolean(siblingData?.isBillable),
-          description: 'Stripe sends invoices to this address. This is separate from result notification contacts.',
+          description: 'Monthly invoice PDFs are emailed by MI Drug Test to this address. This is separate from result notification contacts.',
         },
         validate: (value, { siblingData }) => {
           if (

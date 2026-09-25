@@ -30,7 +30,7 @@ export const ReferralInvoices: CollectionConfig = {
       min: 0,
       admin: {
         readOnly: true,
-        description: 'Amount paid to Stripe after a test was paid elsewhere. Review for a referral refund or credit.',
+        description: 'Invoice payment that could not be applied to test balances. Review for a referral refund or credit.',
       },
     },
     {

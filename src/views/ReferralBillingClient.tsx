@@ -78,7 +78,7 @@ function InvoiceItemsTable({ items, status }: { items: Preview['items']; status?
               <td className="text-right">{money.format(item.amount)}</td>
               {status && (
                 <td className="text-right">
-                  <Badge variant={status === 'paid' ? 'success' : 'outline'}>
+                  <Badge variant={status === 'paid' ? 'success' : status === 'sent' ? 'warning' : 'outline'}>
                     {status === 'paid' ? 'Paid' : status === 'sent' ? 'Invoiced' : 'Unpaid'}
                   </Badge>
                 </td>
@@ -99,10 +99,12 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [replacing, setReplacing] = useState(false)
+  const [showReplacementPreview, setShowReplacementPreview] = useState(false)
   const [checkInvoiceId, setCheckInvoiceId] = useState<string | null>(null)
   const [checkNumber, setCheckNumber] = useState('')
-  const [checkDate, setCheckDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [checkDate, setCheckDate] = useState(() => collectionDateInDetroit(new Date().toISOString()))
   const [recordingCheck, setRecordingCheck] = useState(false)
+  const [syncingInvoiceId, setSyncingInvoiceId] = useState<string | null>(null)
   const referral = referrals[selected]
 
   async function loadPreview(target: Referral, billingMonth: string) {
@@ -115,6 +117,7 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Unable to preview invoice.')
       setPreview(data)
+      setShowReplacementPreview(false)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to preview invoice.')
     } finally {
@@ -210,7 +213,7 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
           action: 'record-check',
           invoiceId: checkInvoiceId,
           checkNumber,
-          checkReceivedAt: new Date(`${checkDate}T12:00:00`).toISOString(),
+          checkReceivedAt: new Date(`${checkDate}T12:00:00Z`).toISOString(),
         }),
       })
       const data = await response.json()
@@ -222,6 +225,31 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
       setError(cause instanceof Error ? cause.message : 'Unable to record check payment.')
     } finally {
       setRecordingCheck(false)
+    }
+  }
+
+  async function syncPayment(invoiceId: string) {
+    if (!referral || syncingInvoiceId) return
+    setSyncingInvoiceId(invoiceId)
+    setError('')
+    try {
+      const response = await fetch('/api/referral-invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          relationTo: referral.relationTo,
+          referralId: referral.id,
+          invoiceId,
+          action: 'sync-payment',
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Unable to check Stripe payment status.')
+      await loadPreview(referral, month)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to check Stripe payment status.')
+    } finally {
+      setSyncingInvoiceId(null)
     }
   }
 
@@ -254,6 +282,7 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
                   setPreview(null)
                   setLoading(true)
                   setError('')
+                  setShowReplacementPreview(false)
                   setSelected(Number(event.target.value))
                 }}
               >
@@ -276,6 +305,7 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
                   setPreview(null)
                   setLoading(true)
                   setError('')
+                  setShowReplacementPreview(false)
                   setMonth(event.target.value)
                 }}
               />
@@ -341,9 +371,18 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
                       </Button>
                     )}
                     {preview.status === 'sent' && preview.invoiceId && (
-                      <Button variant="outline" onClick={() => setCheckInvoiceId(preview.invoiceId)}>
-                        Record check payment
-                      </Button>
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => void syncPayment(preview.invoiceId!)}
+                          disabled={Boolean(syncingInvoiceId)}
+                        >
+                          {syncingInvoiceId === preview.invoiceId ? 'Checking…' : 'Check Stripe status'}
+                        </Button>
+                        <Button variant="outline" onClick={() => setCheckInvoiceId(preview.invoiceId)}>
+                          Record check payment
+                        </Button>
+                      </>
                     )}
                     <Button
                       onClick={send}
@@ -366,10 +405,25 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
                       This total may change before the month closes. It can be invoiced next month.
                     </p>
                   )}
-                  {preview.replacement && (
+                  {preview.replacement && !showReplacementPreview && (
+                    <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t pt-6">
+                      <p className="text-muted-foreground text-sm">
+                        The tests or balances have changed since this invoice was sent.
+                      </p>
+                      <Button variant="outline" onClick={() => setShowReplacementPreview(true)}>
+                        Review invoice changes
+                      </Button>
+                    </div>
+                  )}
+                  {preview.replacement && showReplacementPreview && (
                     <section className="mt-8" aria-label="Replacement invoice preview">
                       <Separator className="mb-6" />
-                      <h3 className="text-lg font-semibold">Replacement preview</h3>
+                      <div className="flex items-center justify-between gap-3">
+                        <h3 className="text-lg font-semibold">Replacement preview</h3>
+                        <Button variant="ghost" size="sm" onClick={() => setShowReplacementPreview(false)}>
+                          Hide preview
+                        </Button>
+                      </div>
                       <p className="text-muted-foreground mt-1 mb-3 text-sm">
                         Current unpaid balances through {month}, including tests added after the original invoice.
                         Replacing voids the old Stripe invoice and emails a new printable PDF.
@@ -418,7 +472,15 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
                         <div>
                           <div className="flex items-center gap-2">
                             <strong>{invoice.billingMonth}</strong>
-                            <Badge variant={invoice.status === 'paid' ? 'success' : 'outline'}>
+                            <Badge
+                              variant={
+                                invoice.status === 'paid'
+                                  ? 'success'
+                                  : invoice.status === 'sent'
+                                    ? 'warning'
+                                    : 'outline'
+                              }
+                            >
                               {invoice.status === 'sent'
                                 ? 'Invoiced'
                                 : invoice.status === 'void'
@@ -449,9 +511,19 @@ export function ReferralBillingClient({ referrals }: { referrals: Referral[] }) 
                             </Button>
                           )}
                           {invoice.status === 'sent' && (
-                            <Button variant="outline" size="sm" onClick={() => setCheckInvoiceId(invoice.id)}>
-                              Record check
-                            </Button>
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void syncPayment(invoice.id)}
+                                disabled={Boolean(syncingInvoiceId)}
+                              >
+                                {syncingInvoiceId === invoice.id ? 'Checking…' : 'Check Stripe status'}
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => setCheckInvoiceId(invoice.id)}>
+                                Record check
+                              </Button>
+                            </>
                           )}
                         </div>
                       </div>

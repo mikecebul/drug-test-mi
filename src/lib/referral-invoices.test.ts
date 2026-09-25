@@ -7,9 +7,14 @@ import {
   currentBillingMonth,
   previousBillingMonth,
 } from './referral-invoices/date'
-import { previewReferralInvoice, replaceReferralInvoice, sendReferralInvoice } from './referral-invoices'
+import {
+  previewReferralInvoice,
+  replaceReferralInvoice,
+  sendReferralInvoice,
+  syncReferralInvoicePayment,
+} from './referral-invoices'
 
-function mockPayload(priorInvoice?: Record<string, unknown>) {
+function mockPayload(priorInvoice?: Record<string, unknown>, pendingPayment?: Record<string, unknown>) {
   let invoice: Record<string, unknown> | null = priorInvoice || null
   const find = vi.fn(
     async ({ collection, where }: { collection: string; where?: { billingKey?: { equals: string } } }) => {
@@ -40,6 +45,7 @@ function mockPayload(priorInvoice?: Record<string, unknown>) {
           docs: invoice && (!where?.billingKey || where.billingKey.equals === invoice.billingKey) ? [invoice] : [],
           hasNextPage: false,
         }
+      if (collection === 'payments') return { docs: pendingPayment ? [pendingPayment] : [], hasNextPage: false }
       return { docs: [], hasNextPage: false }
     },
   )
@@ -135,6 +141,34 @@ describe('monthly referral invoicing', () => {
     )
   })
 
+  it('hides replacement when the sent invoice already matches the tests and balances', async () => {
+    const { payload } = mockPayload({
+      id: 'invoice-1',
+      billingKey: 'courts:court-1:2026-08',
+      status: 'sent',
+      items: [
+        {
+          drugTest: 'test-1',
+          client: 'client-1',
+          clientName: 'Jane Doe',
+          collectionDate: '2026-08-12T14:00:00.000Z',
+          testType: '11-Panel Lab',
+          amount: 20,
+        },
+        {
+          drugTest: 'test-2',
+          client: 'client-1',
+          clientName: 'Jane Doe',
+          collectionDate: '2026-08-15T14:00:00.000Z',
+          testType: '17-Panel Instant',
+          amount: 35,
+        },
+      ],
+    })
+    const preview = await previewReferralInvoice(payload, 'courts', 'court-1', '2026-08')
+    expect(preview.replacement).toBeNull()
+  })
+
   it('does not invoice a test that was already billed before its client changed referrals', async () => {
     const { payload } = mockPayload({
       billingKey: 'employers:old:2026-07',
@@ -144,6 +178,66 @@ describe('monthly referral invoicing', () => {
     const preview = await previewReferralInvoice(payload, 'courts', 'court-1', '2026-08')
     expect(preview.items.map((item) => item.drugTest)).toEqual(['test-2'])
     expect(preview.amount).toBe(35)
+  })
+
+  it('can bill a new balance on a test after its previous invoice was paid', async () => {
+    const { payload } = mockPayload({
+      id: 'invoice-paid',
+      billingKey: 'courts:court-1:2026-07',
+      status: 'paid',
+      items: [{ drugTest: 'test-1', amount: 20 }],
+    })
+    const preview = await previewReferralInvoice(payload, 'courts', 'court-1', '2026-08')
+    expect(preview.items.map((item) => item.drugTest)).toEqual(['test-1', 'test-2'])
+    expect(preview.amount).toBe(55)
+  })
+
+  it('stops referral invoicing when an earlier client checkout link was completed', async () => {
+    const { payload, create } = mockPayload(undefined, {
+      id: 'payment-1',
+      stripeCheckoutSessionId: 'cs_1',
+    })
+    const stripe = {
+      checkout: {
+        sessions: { retrieve: vi.fn().mockResolvedValue({ id: 'cs_1', status: 'complete' }), expire: vi.fn() },
+      },
+    }
+    await expect(
+      sendReferralInvoice(payload, 'courts', 'court-1', '2026-08', stripe as unknown as Stripe),
+    ).rejects.toThrow('Reconcile that payment')
+    expect(create).not.toHaveBeenCalled()
+    expect(stripe.checkout.sessions.expire).not.toHaveBeenCalled()
+  })
+
+  it('checks Stripe status for the selected referral without changing an open invoice', async () => {
+    const { payload, update } = mockPayload({
+      id: 'invoice-1',
+      billingKey: 'courts:court-1:2026-08',
+      status: 'sent',
+      stripeInvoiceId: 'in_1',
+      referral: { relationTo: 'courts', value: 'court-1' },
+    })
+    vi.mocked(payload.findByID).mockResolvedValue({
+      id: 'invoice-1',
+      status: 'sent',
+      stripeInvoiceId: 'in_1',
+      referral: { relationTo: 'courts', value: 'court-1' },
+    } as never)
+    const stripe = { invoices: { retrieve: vi.fn().mockResolvedValue({ id: 'in_1', status: 'open' }) } }
+    await expect(
+      syncReferralInvoicePayment(payload, 'invoice-1', stripe as unknown as Stripe, {
+        relationTo: 'courts',
+        referralId: 'other-court',
+      }),
+    ).rejects.toThrow('does not belong')
+    expect(stripe.invoices.retrieve).not.toHaveBeenCalled()
+    expect(
+      await syncReferralInvoicePayment(payload, 'invoice-1', stripe as unknown as Stripe, {
+        relationTo: 'courts',
+        referralId: 'court-1',
+      }),
+    ).toEqual({ status: 'open' })
+    expect(update).not.toHaveBeenCalled()
   })
 
   it('makes tests from a voided invoice eligible for a replacement', async () => {
@@ -158,8 +252,17 @@ describe('monthly referral invoicing', () => {
   })
 
   it('creates, itemizes, and emails one PDF invoice, then leaves it sent on a repeat request', async () => {
-    const { payload, create, update } = mockPayload()
+    const { payload, create, update } = mockPayload(undefined, {
+      id: 'pending-checkout',
+      stripeCheckoutSessionId: 'cs_old',
+    })
     const stripe = {
+      checkout: {
+        sessions: {
+          retrieve: vi.fn().mockResolvedValue({ id: 'cs_old', status: 'open' }),
+          expire: vi.fn().mockResolvedValue({ id: 'cs_old', status: 'expired' }),
+        },
+      },
       customers: { create: vi.fn().mockResolvedValue({ id: 'cus_1' }), update: vi.fn() },
       invoices: {
         create: vi.fn().mockResolvedValue({
@@ -182,6 +285,10 @@ describe('monthly referral invoicing', () => {
     }
     const result = await sendReferralInvoice(payload, 'courts', 'court-1', '2026-08', stripe as unknown as Stripe)
     expect(result.status).toBe('sent')
+    expect(stripe.checkout.sessions.expire).toHaveBeenCalledWith('cs_old')
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ collection: 'payments', id: 'pending-checkout', data: expect.objectContaining({ status: 'voided' }) }),
+    )
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({ collection: 'referral-invoices', data: expect.objectContaining({ amount: 55 }) }),
     )

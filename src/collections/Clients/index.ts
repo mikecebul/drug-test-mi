@@ -256,14 +256,14 @@ export const Clients: CollectionConfig = {
     {
       name: 'moneyOwed',
       type: 'number',
-      label: 'Money Owed',
+      label: 'Outstanding Test Balances',
       defaultValue: 0,
       min: 0,
       access: {
         update: ({ req }) => req.user?.collection === 'admins' && req.user.role === 'superAdmin',
       },
       admin: {
-        description: 'Auto-calculated from drug tests with a remaining payment balance.',
+        description: 'Auto-calculated from drug tests with a remaining balance, including amounts billed to a referral.',
         position: 'sidebar',
         readOnly: true,
         step: 1,

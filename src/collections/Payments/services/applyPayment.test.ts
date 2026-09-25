@@ -14,7 +14,8 @@ function createMockPayload({
       amountDue?: number
       amountPaid?: number
       balanceDue?: number
-      status?: 'paid' | 'partial' | 'unpaid'
+      status?: 'paid' | 'partial' | 'unpaid' | 'invoiced'
+      referralInvoice?: string
     }
   }>
 }) {
@@ -40,6 +41,31 @@ function createMockPayload({
 }
 
 describe('payment allocation service', () => {
+  test('does not apply client money or credit to tests already billed on a referral invoice', async () => {
+    const unpaidTests = [
+      {
+        id: 'referral-test',
+        payment: { amountDue: 40, amountPaid: 0, balanceDue: 40, status: 'invoiced' as const, referralInvoice: 'invoice-1' },
+      },
+      {
+        id: 'client-test',
+        payment: { amountDue: 35, amountPaid: 0, balanceDue: 35, status: 'unpaid' as const },
+      },
+    ]
+    const moneyPayload = createMockPayload({ unpaidTests })
+    await applyIncomingPayment({
+      payload: moneyPayload as unknown as Payload,
+      clientId: 'client-1', amount: 35, method: 'cash', source: 'test-tracker',
+    })
+    expect(moneyPayload.update).toHaveBeenCalledWith(expect.objectContaining({ collection: 'drug-tests', id: 'client-test' }))
+    expect(moneyPayload.update).not.toHaveBeenCalledWith(expect.objectContaining({ collection: 'drug-tests', id: 'referral-test' }))
+
+    const creditPayload = createMockPayload({ clientCredit: 35, unpaidTests })
+    await applyAvailableClientCredit({ payload: creditPayload as unknown as Payload, clientId: 'client-1' })
+    expect(creditPayload.update).toHaveBeenCalledWith(expect.objectContaining({ collection: 'drug-tests', id: 'client-test' }))
+    expect(creditPayload.update).not.toHaveBeenCalledWith(expect.objectContaining({ collection: 'drug-tests', id: 'referral-test' }))
+  })
+
   test('applies incoming payments to oldest unpaid drug-test balances first', async () => {
     const payload = createMockPayload({
       unpaidTests: [

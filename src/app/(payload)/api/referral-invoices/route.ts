@@ -10,6 +10,7 @@ import {
   recordReferralCheckPayment,
   replaceReferralInvoice,
   sendReferralInvoice,
+  syncReferralInvoicePayment,
 } from '@/lib/referral-invoices'
 
 export const dynamic = 'force-dynamic'
@@ -22,7 +23,7 @@ const inputSchema = z.object({
     .string()
     .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
     .optional(),
-  action: z.enum(['email', 'replace', 'record-check']).optional(),
+  action: z.enum(['email', 'replace', 'record-check', 'sync-payment']).optional(),
   invoiceId: z.string().trim().min(1).optional(),
   checkNumber: z.string().trim().max(100).optional(),
   checkReceivedAt: z.string().datetime().optional(),
@@ -67,6 +68,15 @@ export async function POST(request: NextRequest) {
   if (!key) return json({ error: 'Stripe is not configured.' }, 503)
   try {
     const stripe = new Stripe(key, {})
+    if (input.data.action === 'sync-payment') {
+      if (!input.data.invoiceId) return json({ error: 'Invoice is required.' }, 400)
+      return json(
+        await syncReferralInvoicePayment(payload, input.data.invoiceId, stripe, {
+          relationTo: input.data.relationTo,
+          referralId: input.data.referralId,
+        }),
+      )
+    }
     if (input.data.action === 'record-check') {
       if (!input.data.invoiceId || !input.data.checkReceivedAt)
         return json({ error: 'Invoice and check received date are required.' }, 400)
