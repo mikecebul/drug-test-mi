@@ -151,18 +151,22 @@ describe('monthly referral invoicing', () => {
     const stripe = {
       customers: { create: vi.fn().mockResolvedValue({ id: 'cus_1' }), update: vi.fn() },
       invoices: {
-        create: vi.fn().mockResolvedValue({ id: 'in_1', status: 'draft' }),
-        retrieve: vi.fn(),
-        finalizeInvoice: vi
+        create: vi
           .fn()
           .mockResolvedValue({
             id: 'in_1',
-            status: 'open',
+            status: 'draft',
             footer:
               'Checks accepted. Make payable to MI Drug Test and mail to 410 W Robinson St, Charlevoix, MI 49720.',
-            invoice_pdf: 'https://pay.stripe.com/pdf',
-            hosted_invoice_url: 'https://pay.stripe.com/invoice',
           }),
+        retrieve: vi.fn(),
+        finalizeInvoice: vi.fn().mockResolvedValue({
+          id: 'in_1',
+          status: 'open',
+          footer: 'Checks accepted. Make payable to MI Drug Test and mail to 410 W Robinson St, Charlevoix, MI 49720.',
+          invoice_pdf: 'https://pay.stripe.com/pdf',
+          hosted_invoice_url: 'https://pay.stripe.com/invoice',
+        }),
         update: vi.fn(),
         sendInvoice: vi.fn(),
       },
@@ -202,6 +206,7 @@ describe('monthly referral invoicing', () => {
       }),
     )
     expect(stripe.invoices.sendInvoice).not.toHaveBeenCalled()
+    expect(stripe.invoices.update).not.toHaveBeenCalled()
     await sendReferralInvoice(payload, 'courts', 'court-1', '2026-08', stripe as unknown as Stripe)
     expect(stripe.invoices.create).toHaveBeenCalledTimes(1)
   })
@@ -211,18 +216,29 @@ describe('monthly referral invoicing', () => {
     const stripe = {
       customers: { create: vi.fn().mockResolvedValue({ id: 'cus_1' }), update: vi.fn() },
       invoices: {
-        create: vi.fn().mockResolvedValue({ id: 'in_1', status: 'draft' }),
-        retrieve: vi.fn().mockResolvedValue({ id: 'in_1', status: 'draft' }),
-        finalizeInvoice: vi
+        create: vi
           .fn()
           .mockResolvedValue({
             id: 'in_1',
-            status: 'open',
+            status: 'draft',
             footer:
               'Checks accepted. Make payable to MI Drug Test and mail to 410 W Robinson St, Charlevoix, MI 49720.',
-            invoice_pdf: 'https://pay.stripe.com/pdf',
           }),
-        update: vi.fn(),
+        retrieve: vi.fn().mockResolvedValue({ id: 'in_1', status: 'draft' }),
+        finalizeInvoice: vi.fn().mockResolvedValue({
+          id: 'in_1',
+          status: 'open',
+          footer: 'Checks accepted. Make payable to MI Drug Test and mail to 410 W Robinson St, Charlevoix, MI 49720.',
+          invoice_pdf: 'https://pay.stripe.com/pdf',
+        }),
+        update: vi
+          .fn()
+          .mockResolvedValue({
+            id: 'in_1',
+            status: 'draft',
+            footer:
+              'Checks accepted. Make payable to MI Drug Test and mail to 410 W Robinson St, Charlevoix, MI 49720.',
+          }),
       },
       invoiceItems: {
         create: vi.fn().mockRejectedValueOnce(new Error('Stripe request failed')).mockResolvedValue({ id: 'ii_1' }),
@@ -236,6 +252,10 @@ describe('monthly referral invoicing', () => {
     expect(create).toHaveBeenCalledTimes(1)
     expect(stripe.invoices.create).toHaveBeenCalledTimes(1)
     expect(stripe.invoices.retrieve).toHaveBeenCalledWith('in_1')
+    expect(stripe.invoices.update).toHaveBeenCalledWith(
+      'in_1',
+      expect.objectContaining({ footer: expect.stringContaining('410 W Robinson St') }),
+    )
     expect(stripe.invoiceItems.create).toHaveBeenCalledTimes(3)
     expect(stripe.invoiceItems.create.mock.calls[1][0]).not.toHaveProperty('quantity')
   })
@@ -255,7 +275,14 @@ describe('monthly referral invoicing', () => {
         update: vi.fn(),
       },
       invoices: {
-        create: vi.fn().mockResolvedValue({ id: 'in_1', status: 'draft' }),
+        create: vi
+          .fn()
+          .mockResolvedValue({
+            id: 'in_1',
+            status: 'draft',
+            footer:
+              'Checks accepted. Make payable to MI Drug Test and mail to 410 W Robinson St, Charlevoix, MI 49720.',
+          }),
         retrieve: vi.fn().mockResolvedValue(finalized),
         finalizeInvoice: vi.fn().mockResolvedValue(finalized),
         update: vi.fn(),
@@ -293,16 +320,14 @@ describe('monthly referral invoicing', () => {
       invoices: {
         retrieve: vi
           .fn()
-          .mockResolvedValue({ id: 'in_1', status: 'open', footer: null, invoice_pdf: 'https://pay.stripe.com/pdf' }),
-        update: vi
-          .fn()
           .mockResolvedValue({
             id: 'in_1',
             status: 'open',
-            footer:
-              'Checks accepted. Make payable to MI Drug Test and mail to 410 W Robinson St, Charlevoix, MI 49720.',
+            footer: null,
+            description: '2026-08 drug tests\nJane Doe — 2026-08-12',
             invoice_pdf: 'https://pay.stripe.com/pdf',
           }),
+        update: vi.fn(),
       },
     }
     await sendReferralInvoice(payload, 'courts', 'court-1', '2026-08', stripe as unknown as Stripe)
@@ -310,10 +335,7 @@ describe('monthly referral invoicing', () => {
     await sendReferralInvoice(payload, 'courts', 'court-1', '2026-08', stripe as unknown as Stripe, {
       emailExisting: true,
     })
-    expect(stripe.invoices.update).toHaveBeenCalledWith(
-      'in_1',
-      expect.objectContaining({ footer: expect.stringContaining('410 W Robinson St') }),
-    )
+    expect(stripe.invoices.update).not.toHaveBeenCalled()
     expect(payload.sendEmail).toHaveBeenCalledTimes(1)
   })
 })

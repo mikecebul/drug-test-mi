@@ -149,16 +149,8 @@ async function emailReferralInvoice(
   invoice: ReferralInvoice,
   referralName: string,
   stripeInvoice: Stripe.Invoice,
-  stripe: Stripe,
 ) {
   if (!stripeInvoice.id) throw new Error('Stripe did not return an invoice ID.')
-  const duplicateMemo = stripeInvoice.description?.startsWith(`${invoice.billingMonth} drug tests\n`)
-  if (stripeInvoice.footer !== REFERRAL_CHECK_FOOTER || duplicateMemo) {
-    stripeInvoice = await stripe.invoices.update(stripeInvoice.id, {
-      footer: REFERRAL_CHECK_FOOTER,
-      ...(duplicateMemo ? { description: '' } : {}),
-    })
-  }
   const pdfUrl = stripeInvoice.invoice_pdf
   if (!pdfUrl) throw new Error('Stripe has not generated the invoice PDF yet. Retry sending shortly.')
   const url = new URL(pdfUrl)
@@ -237,7 +229,7 @@ export async function sendReferralInvoice(
     }
     if (stripeInvoice.status !== 'open')
       throw new Error(`Stripe invoice ${stripeInvoice.id} is ${stripeInvoice.status}.`)
-    await emailReferralInvoice(payload, invoice, preview.referral.name, stripeInvoice, stripe)
+    await emailReferralInvoice(payload, invoice, preview.referral.name, stripeInvoice)
     return { status: 'sent' as const, billingKey: preview.billingKey, stripeInvoiceId: stripeInvoice.id }
   }
   if (!invoice) {
@@ -306,6 +298,13 @@ export async function sendReferralInvoice(
   const stripeInvoiceId = stripeInvoice.id
 
   if (stripeInvoice.status === 'draft') {
+    const duplicateMemo = stripeInvoice.description?.startsWith(`${month} drug tests\n`)
+    if (stripeInvoice.footer !== REFERRAL_CHECK_FOOTER || duplicateMemo) {
+      stripeInvoice = await stripe.invoices.update(stripeInvoiceId, {
+        footer: REFERRAL_CHECK_FOOTER,
+        ...(duplicateMemo ? { description: '' } : {}),
+      })
+    }
     for (const item of invoice.items || []) {
       await stripe.invoiceItems.create(
         {
@@ -345,7 +344,7 @@ export async function sendReferralInvoice(
     })
     return { status: 'paid' as const, billingKey: preview.billingKey, stripeInvoiceId: stripeInvoice.id }
   }
-  await emailReferralInvoice(payload, invoice, referral.name, stripeInvoice, stripe)
+  await emailReferralInvoice(payload, invoice, referral.name, stripeInvoice)
   return { status: 'sent' as const, billingKey: preview.billingKey, stripeInvoiceId: stripeInvoice.id }
 }
 
