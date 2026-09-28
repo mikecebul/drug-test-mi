@@ -303,7 +303,7 @@ async function closePendingClientCheckoutLinks(payload: Payload, stripe: Stripe,
     const session = await stripe.checkout.sessions.retrieve(payment.stripeCheckoutSessionId)
     if (session.status === 'complete')
       throw new Error(
-        'A client has paid a checkout link for one of these tests. Reconcile that payment before invoicing.',
+        'A client completed a checkout link for one of these tests. Verify that payment has settled before invoicing.',
       )
     if (session.status === 'open') await stripe.checkout.sessions.expire(session.id)
     await payload.update({
@@ -392,12 +392,14 @@ export async function sendReferralInvoice(
     await payload.update({ collection: relationTo, id: referralId, data: { stripeCustomerId: customer.id } })
   }
 
-  let stripeInvoice = invoice.stripeInvoiceId
-    ? await stripe.invoices.retrieve(invoice.stripeInvoiceId)
+  const existingStripeInvoiceId = invoice.stripeInvoiceId
+  let stripeInvoice = existingStripeInvoiceId
+    ? await stripe.invoices.retrieve(existingStripeInvoiceId)
     : await stripe.invoices.create(
         {
           customer: customer.id,
           collection_method: 'send_invoice',
+          payment_settings: { payment_method_types: ['card', 'us_bank_account'] },
           days_until_due: 30,
           auto_advance: false,
           automatic_tax: { enabled: false },
@@ -429,9 +431,13 @@ export async function sendReferralInvoice(
 
   if (stripeInvoice.status === 'draft') {
     const duplicateMemo = stripeInvoice.description?.startsWith(`${month} drug tests\n`)
-    if (stripeInvoice.footer !== REFERRAL_CHECK_FOOTER || duplicateMemo) {
+    const missingBankPayment =
+      Boolean(existingStripeInvoiceId) &&
+      !stripeInvoice.payment_settings?.payment_method_types?.includes('us_bank_account')
+    if (stripeInvoice.footer !== REFERRAL_CHECK_FOOTER || duplicateMemo || missingBankPayment) {
       stripeInvoice = await stripe.invoices.update(stripeInvoiceId, {
         footer: REFERRAL_CHECK_FOOTER,
+        ...(missingBankPayment ? { payment_settings: { payment_method_types: ['card', 'us_bank_account'] } } : {}),
         ...(duplicateMemo ? { description: '' } : {}),
       })
     }

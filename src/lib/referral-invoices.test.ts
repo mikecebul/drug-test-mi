@@ -204,7 +204,7 @@ describe('monthly referral invoicing', () => {
     }
     await expect(
       sendReferralInvoice(payload, 'courts', 'court-1', '2026-08', stripe as unknown as Stripe),
-    ).rejects.toThrow('Reconcile that payment')
+    ).rejects.toThrow('Verify that payment has settled')
     expect(create).not.toHaveBeenCalled()
     expect(stripe.checkout.sessions.expire).not.toHaveBeenCalled()
   })
@@ -295,6 +295,7 @@ describe('monthly referral invoicing', () => {
     expect(stripe.invoices.create).toHaveBeenCalledWith(
       expect.objectContaining({
         collection_method: 'send_invoice',
+        payment_settings: { payment_method_types: ['card', 'us_bank_account'] },
         auto_advance: false,
         footer: expect.stringContaining('410 W Robinson St, Charlevoix, MI 49720'),
       }),
@@ -363,7 +364,10 @@ describe('monthly referral invoicing', () => {
     expect(stripe.invoices.retrieve).toHaveBeenCalledWith('in_1')
     expect(stripe.invoices.update).toHaveBeenCalledWith(
       'in_1',
-      expect.objectContaining({ footer: expect.stringContaining('410 W Robinson St') }),
+      expect.objectContaining({
+        footer: expect.stringContaining('410 W Robinson St'),
+        payment_settings: { payment_method_types: ['card', 'us_bank_account'] },
+      }),
     )
     expect(stripe.invoiceItems.create).toHaveBeenCalledTimes(3)
     expect(stripe.invoiceItems.create.mock.calls[1][0]).not.toHaveProperty('quantity')

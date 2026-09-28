@@ -13,6 +13,7 @@ import {
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { baseUrl } from '@/utilities/baseUrl'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
+import { closePendingClientCheckoutSessions } from '@/collections/Payments/services/closePendingClientCheckoutSessions'
 import { isClientBilledToReferral } from '@/lib/referral-invoices/payer'
 
 function getRelationshipId(value: unknown): string | null {
@@ -371,6 +372,7 @@ export async function sendDrugTestStripePaymentLink(testId: string) {
   let session: Stripe.Checkout.Session | null = null
 
   try {
+    await closePendingClientCheckoutSessions(payload, stripe, String(test.id))
     const pendingPayment = await payload.create({
       collection: 'payments',
       data: {
@@ -390,6 +392,7 @@ export async function sendDrugTestStripePaymentLink(testId: string) {
 
     session = await stripe.checkout.sessions.create({
       mode: 'payment',
+      payment_method_types: ['card', 'us_bank_account'],
       success_url: `${baseUrl}/dashboard/results?payment=success`,
       cancel_url: `${baseUrl}/dashboard/results?payment=cancelled`,
       customer_email: client.email,
@@ -433,7 +436,8 @@ export async function sendDrugTestStripePaymentLink(testId: string) {
       html: `
         <p>Hello ${client.firstName},</p>
         <p>You have a balance of <strong>$${balanceDue.toFixed(2)}</strong> for your MI Drug Test account.</p>
-        <p><a href="${session.url}">Pay securely by card</a></p>
+        <p><a href="${session.url}">Pay securely by card or bank account</a></p>
+        <p>Bank payments can take several business days to clear. Your balance will update when Stripe confirms the payment.</p>
         <p>If you have already paid, please disregard this message.</p>
       `,
     })

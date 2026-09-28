@@ -66,7 +66,9 @@ export async function buildReferralInvoiceEmail(data: InvoiceEmailData) {
             {dueDate && <Text>Payment due: {dueDate}</Text>}
             {data.paymentUrl && (
               <Text>
-                You can also <Link href={data.paymentUrl}>view the invoice and pay online</Link>.
+                You can also <Link href={data.paymentUrl}>view the invoice and pay online</Link> by card or bank account.
+                Bank payments may take several business days to clear; we will mark the invoice paid after Stripe
+                confirms the payment.
               </Text>
             )}
             <Hr />

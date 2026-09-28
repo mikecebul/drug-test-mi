@@ -48,6 +48,7 @@ import { PrivateMedia } from './collections/PrivateMedia'
 import { MediaBlock } from './blocks/MediaBlock/config'
 import { baseUrl } from './utilities/baseUrl'
 import { checkoutSessionCompleted } from './plugins/stripe/webhooks/checkoutSessionCompleted'
+import { checkoutSessionAsyncPaymentFailed } from './plugins/stripe/webhooks/checkoutSessionAsyncPaymentFailed'
 import { paymentIntentPaymentFailed } from './plugins/stripe/webhooks/paymentIntentPaymentFailed'
 import { paymentIntentSucceeded } from './plugins/stripe/webhooks/paymentIntentSucceeded'
 import { invoicePaid } from './plugins/stripe/webhooks/invoicePaid'
@@ -1048,6 +1049,8 @@ export default buildConfig({
       webhooks: {
         'invoice.paid': invoicePaid,
         'checkout.session.completed': checkoutSessionCompleted,
+        'checkout.session.async_payment_succeeded': checkoutSessionCompleted,
+        'checkout.session.async_payment_failed': checkoutSessionAsyncPaymentFailed,
         'payment_intent.payment_failed': paymentIntentPaymentFailed,
         'payment_intent.succeeded': paymentIntentSucceeded,
       },
