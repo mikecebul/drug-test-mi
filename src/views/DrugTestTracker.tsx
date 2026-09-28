@@ -23,6 +23,7 @@ function getRelatedClient(test: unknown): DrugTest['relatedClient'] | null {
       'firstName' in relatedClient && typeof relatedClient.firstName === 'string' ? relatedClient.firstName : '',
     lastName: 'lastName' in relatedClient && typeof relatedClient.lastName === 'string' ? relatedClient.lastName : '',
     email: 'email' in relatedClient && typeof relatedClient.email === 'string' ? relatedClient.email : '',
+    phone: 'phone' in relatedClient && typeof relatedClient.phone === 'string' ? relatedClient.phone : '',
   }
 }
 

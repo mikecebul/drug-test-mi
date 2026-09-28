@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +23,7 @@ import {
   sendDrugTestStripePaymentLink,
 } from './DrugTestTracker/actions'
 import { getBalanceDue, getTestStage, shouldStayInTracker } from './DrugTestTracker/stage'
+import { formatSubstance } from '@/lib/substances'
 
 export interface DrugTest {
   id: string
@@ -32,6 +33,7 @@ export interface DrugTest {
     firstName: string
     lastName: string
     email: string
+    phone?: string
   }
   collectionDate: string
   testType: string
@@ -86,6 +88,14 @@ function getPaymentStatusLabel(test: DrugTest) {
   if (test.payment?.status === 'invoiced') return 'Invoiced'
   if (test.payment?.status === 'partial') return 'Partial'
   return 'Unpaid'
+}
+
+function formatTestType(testType: string) {
+  return testType ? testType.replaceAll('-', ' ') : 'Unknown test type'
+}
+
+function formatScreenResult(result: string) {
+  return result.replaceAll('-', ' ')
 }
 
 export function DrugTestTrackerClient({ initialError = null, initialTests }: DrugTestTrackerClientProps) {
@@ -300,28 +310,33 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
               <span className="text-muted-foreground text-sm">({stageTests.length} tests)</span>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-6">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,26rem),1fr))] gap-4 xl:gap-5">
               {stageTests.map((test) => (
-                <Card key={test.id} className="">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg md:text-xl">
+                <Card key={test.id} className="flex min-w-0 flex-col overflow-hidden">
+                  <CardHeader className="border-border/70 gap-3 space-y-0 border-b p-5">
+                    <div className="min-w-0">
+                      <CardTitle className="text-lg leading-snug">
+                        <a
+                          href={`/admin/collections/clients/${test.relatedClient.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-primary focus-visible:ring-ring rounded-sm underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+                        >
                           {test.relatedClient.firstName} {test.relatedClient.lastName}
-                        </CardTitle>
-                        <p className="text-muted-foreground text-sm md:text-base">{test.relatedClient.email}</p>
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        {test.testType?.replace('-', ' ') || 'Unknown'}
-                      </Badge>
+                        </a>
+                      </CardTitle>
+                      <p className="text-muted-foreground mt-1 text-sm break-all">{test.relatedClient.email}</p>
                     </div>
+                    <Badge variant="secondary" className="max-w-full text-left whitespace-normal capitalize">
+                      {formatTestType(test.testType)}
+                    </Badge>
                   </CardHeader>
 
-                  <CardContent>
-                    <div className="space-y-2">
+                  <CardContent className="flex-1 p-5">
+                    <div className="flex flex-col gap-3">
                       <div>
-                        <span className="text-muted-foreground text-xs font-medium md:text-sm">Collection Date:</span>
-                        <p className="text-sm md:text-base">
+                        <span className="text-muted-foreground text-xs font-medium">Collection date</span>
+                        <p className="text-sm font-medium">
                           {test.collectionDate
                             ? new Date(test.collectionDate).toLocaleDateString('en-US', {
                                 year: 'numeric',
@@ -336,17 +351,33 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
 
                       {test.initialScreenResult && (
                         <div>
-                          <span className="text-muted-foreground text-xs font-medium md:text-sm">Screen Result:</span>
-                          <p className="text-sm capitalize md:text-base">
-                            {test.initialScreenResult.replace('-', ' ')}
+                          <span className="text-muted-foreground text-xs font-medium">Screen result</span>
+                          <p className="text-sm font-medium capitalize">
+                            {formatScreenResult(test.initialScreenResult)}
                           </p>
+                          {test.unexpectedPositives && test.unexpectedPositives.length > 0 && (
+                            <div className="mt-2">
+                              <span className="text-muted-foreground text-xs font-medium">Unexpected positives</span>
+                              <div className="mt-1 flex flex-wrap gap-1.5">
+                                {test.unexpectedPositives.map((substance) => (
+                                  <Badge
+                                    key={substance}
+                                    variant="warning"
+                                    className="max-w-full text-left whitespace-normal"
+                                  >
+                                    {formatSubstance(substance, true)}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
 
                       {test.confirmationDecision === 'request-confirmation' && (
                         <div>
-                          <span className="text-muted-foreground text-xs font-medium md:text-sm">Confirmation:</span>
-                          <p className="text-sm md:text-base">
+                          <span className="text-muted-foreground text-xs font-medium">Confirmation</span>
+                          <p className="text-sm font-medium">
                             {test.confirmationResults &&
                             test.confirmationSubstances &&
                             test.confirmationResults.length === test.confirmationSubstances.length &&
@@ -359,7 +390,7 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
 
                       {test.payment && (
                         <div>
-                          <span className="text-muted-foreground text-xs font-medium md:text-sm">Payment:</span>
+                          <span className="text-muted-foreground text-xs font-medium">Payment</span>
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             <Badge
                               variant={
@@ -372,7 +403,7 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
                             >
                               {getPaymentStatusLabel(test)}
                             </Badge>
-                            <span className="text-sm md:text-base">
+                            <span className="text-sm">
                               {getBalanceDue(test) > 0
                                 ? `${currency.format(getBalanceDue(test))} due`
                                 : 'No balance due'}
@@ -388,75 +419,95 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
 
                       {test.processNotes && (
                         <div>
-                          <span className="text-muted-foreground text-xs font-medium md:text-sm">Notes:</span>
-                          <p className="line-clamp-2 text-sm md:text-base">{test.processNotes}</p>
+                          <span className="text-muted-foreground text-xs font-medium">Notes</span>
+                          <p className="line-clamp-2 text-sm">{test.processNotes}</p>
+                        </div>
+                      )}
+
+                      {stage === 'Awaiting Client Decision' && (
+                        <div className="bg-warning-muted/50 border-warning/30 rounded-md border p-3 text-sm">
+                          <p className="font-medium">Call client to discuss confirmation</p>
+                          {test.relatedClient.phone && (
+                            <a
+                              href={`tel:${test.relatedClient.phone.replace(/[^\d+]/g, '')}`}
+                              className="text-primary mt-1 inline-block font-medium underline underline-offset-2"
+                            >
+                              {test.relatedClient.phone}
+                            </a>
+                          )}
+                          {!test.relatedClient.phone && (
+                            <p className="text-muted-foreground mt-1 text-xs">
+                              Open the client record for contact details.
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
+                  </CardContent>
 
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {stage === 'Awaiting Client Decision' && (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={() => markAsAccepted(test.id)}
-                            disabled={Boolean(updatingTests[test.id])}
-                          >
-                            {updatingTests[test.id] ? 'Accepting...' : 'Mark Accepted'}
-                          </Button>
-                          <RequestConfirmationDialog
-                            disabled={Boolean(updatingTests[test.id])}
-                            isSubmitting={Boolean(updatingTests[test.id])}
-                            test={test}
-                            onConfirm={(substances, bypassPaymentRequirement) =>
-                              requestConfirmation(test.id, substances, bypassPaymentRequirement)
-                            }
-                          />
-                        </>
-                      )}
-                      {getBalanceDue(test) > 0 && !test.billedToReferral && test.payment?.status !== 'invoiced' && (
-                        <>
-                          <RecordPaymentDialog
-                            disabled={Boolean(updatingTests[test.id])}
-                            isSubmitting={Boolean(updatingTests[test.id])}
-                            test={test}
-                            onSubmit={(amount, method) => recordPayment(test.id, amount, method)}
-                          />
+                  <CardFooter className="border-border/70 flex-col items-stretch gap-3 border-t p-5">
+                    {(stage === 'Awaiting Client Decision' || getBalanceDue(test) > 0) && (
+                      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-2">
+                        {stage === 'Awaiting Client Decision' && (
+                          <>
+                            <Button
+                              size="sm"
+                              className="w-full"
+                              onClick={() => markAsAccepted(test.id)}
+                              disabled={Boolean(updatingTests[test.id])}
+                            >
+                              {updatingTests[test.id] ? 'Accepting...' : 'Mark Accepted'}
+                            </Button>
+                            <RequestConfirmationDialog
+                              disabled={Boolean(updatingTests[test.id])}
+                              isSubmitting={Boolean(updatingTests[test.id])}
+                              test={test}
+                              onConfirm={(substances, bypassPaymentRequirement) =>
+                                requestConfirmation(test.id, substances, bypassPaymentRequirement)
+                              }
+                            />
+                          </>
+                        )}
+                        {getBalanceDue(test) > 0 && !test.billedToReferral && test.payment?.status !== 'invoiced' && (
+                          <>
+                            <RecordPaymentDialog
+                              disabled={Boolean(updatingTests[test.id])}
+                              isSubmitting={Boolean(updatingTests[test.id])}
+                              test={test}
+                              onSubmit={(amount, method) => recordPayment(test.id, amount, method)}
+                            />
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="w-full"
+                              onClick={() => void sendStripeLink(test.id)}
+                              disabled={Boolean(updatingTests[test.id]) || !test.relatedClient.email}
+                            >
+                              {updatingTests[test.id] ? 'Sending...' : 'Send Stripe Link'}
+                            </Button>
+                          </>
+                        )}
+                        {getBalanceDue(test) > 0 && (test.billedToReferral || test.payment?.status === 'invoiced') && (
                           <Button
                             size="sm"
                             variant="secondary"
-                            onClick={() => void sendStripeLink(test.id)}
-                            disabled={Boolean(updatingTests[test.id]) || !test.relatedClient.email}
+                            className="w-full"
+                            onClick={() => window.open('/admin/referral-billing', '_blank')}
                           >
-                            {updatingTests[test.id] ? 'Sending...' : 'Send Stripe Link'}
+                            Manage referral invoice
                           </Button>
-                        </>
-                      )}
-                      {getBalanceDue(test) > 0 && (test.billedToReferral || test.payment?.status === 'invoiced') && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => window.open('/admin/referral-billing', '_blank')}
-                        >
-                          Manage referral invoice
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => window.open(`/admin/collections/drug-tests/${test.id}`, '_blank')}
-                      >
-                        Edit Test
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => window.open(`/admin/collections/clients/${test.relatedClient.id}`, '_blank')}
-                      >
-                        View Client
-                      </Button>
-                    </div>
-                  </CardContent>
+                        )}
+                      </div>
+                    )}
+                    <a
+                      href={`/admin/collections/drug-tests/${test.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-foreground focus-visible:ring-ring w-fit rounded-sm text-sm font-medium underline underline-offset-4 focus-visible:ring-2 focus-visible:outline-none"
+                    >
+                      Edit Test
+                    </a>
+                  </CardFooter>
                 </Card>
               ))}
             </div>
@@ -516,7 +567,14 @@ function RequestConfirmationDialog({
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={handleOpenChange}>
       <DrawerTrigger
-        render={<Button size="sm" variant="secondary" disabled={disabled || unexpectedPositives.length === 0} />}
+        render={
+          <Button
+            size="sm"
+            variant="secondary"
+            className="w-full"
+            disabled={disabled || unexpectedPositives.length === 0}
+          />
+        }
       >
         Request Confirmation
       </DrawerTrigger>
@@ -618,7 +676,7 @@ function RecordPaymentDialog({
 
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={handleOpenChange}>
-      <DrawerTrigger render={<Button size="sm" disabled={disabled} />}>Record Payment</DrawerTrigger>
+      <DrawerTrigger render={<Button size="sm" className="w-full" disabled={disabled} />}>Record Payment</DrawerTrigger>
       <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(544px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
         <DrawerHeader className="border-border border-b">
           <DrawerTitle>Record Payment</DrawerTitle>
