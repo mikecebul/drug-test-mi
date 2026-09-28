@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowRight, Check } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useQueryState, parseAsStringLiteral } from 'nuqs'
@@ -79,6 +79,10 @@ export function RegisterClientWorkflow({ onComplete }: RegisterClientWorkflowPro
   const isLastStep = stepIndex === steps.length - 1
 
   const formRef = useRef<HTMLFormElement | null>(null)
+
+  useEffect(() => {
+    if (formRef.current) formRef.current.dataset.hydrated = 'true'
+  }, [])
 
   const goToDashboard = useCallback(() => {
     router.push('/dashboard')
