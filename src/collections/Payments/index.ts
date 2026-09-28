@@ -13,7 +13,7 @@ export const Payments: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'relatedClient', 'amount', 'method', 'status', 'collectedAt'],
     group: 'Admin',
-    description: 'Ledger of collected, linked, and credited client payments.',
+    description: 'Ledger of collected, linked, and credited client and referral payments.',
   },
   access: {
     create: admins,
@@ -45,6 +45,12 @@ export const Payments: CollectionConfig = {
       index: true,
     },
     {
+      name: 'relatedReferralInvoice',
+      type: 'relationship',
+      relationTo: 'referral-invoices',
+      index: true,
+    },
+    {
       name: 'relatedBooking',
       type: 'relationship',
       relationTo: 'bookings',
@@ -67,6 +73,7 @@ export const Payments: CollectionConfig = {
       defaultValue: 'unknown',
       options: [
         { label: 'Cash', value: 'cash' },
+        { label: 'Check', value: 'check' },
         { label: 'Card', value: 'card' },
         { label: 'Stripe', value: 'stripe' },
         { label: 'Pre-paid', value: 'pre-paid' },
@@ -83,6 +90,7 @@ export const Payments: CollectionConfig = {
         { label: 'Guided Workflow', value: 'guided-workflow' },
         { label: 'Drug Test Tracker', value: 'test-tracker' },
         { label: 'Stripe Checkout', value: 'stripe-checkout' },
+        { label: 'Referral Invoice', value: 'referral-invoice' },
         { label: 'Cal.com', value: 'calcom' },
         { label: 'Credit Application', value: 'credit-application' },
         { label: 'Manual', value: 'manual' },
@@ -279,6 +287,12 @@ export const Payments: CollectionConfig = {
           name: 'stripeCheckoutSessionId',
           type: 'text',
           index: true,
+        },
+        {
+          name: 'stripeInvoiceId',
+          type: 'text',
+          index: true,
+          admin: { readOnly: true },
         },
         {
           name: 'stripePaymentIntentId',

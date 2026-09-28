@@ -64,6 +64,7 @@ async function mockReferralLookups(page: Page) {
 async function openRegistration(page: Page) {
   await page.goto('/register')
   await expect(page.getByRole('heading', { name: 'Personal Information' })).toBeVisible()
+  await expect(page.locator('form[data-hydrated="true"]')).toBeVisible()
 }
 
 async function fillPersonalInfo(page: Page) {
@@ -74,6 +75,7 @@ async function fillPersonalInfo(page: Page) {
   await page.getByRole('option', { name: 'Male', exact: true }).click()
   await page.getByLabel('Phone Number').fill('2485551212')
   await page.getByLabel('Date of Birth').fill('01/15/1990')
+  await expect(page.getByLabel('First Name')).toHaveValue('Alex')
   await expect(page.getByLabel('Date of Birth')).toHaveValue('01/15/1990')
 }
 

@@ -10,6 +10,7 @@ import { createAdminAlert } from '@/lib/admin-alerts'
 import { getDrugTestPaymentSnapshot } from '../../paymentSnapshot'
 import { applyAvailableClientCredit } from '@/collections/Payments/services/applyPayment'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
+import { isClientBilledToReferral } from '@/lib/referral-invoices/payer'
 import type { DrugTest } from '@/payload-types'
 
 /**
@@ -68,6 +69,7 @@ export async function createDrugTestWithEmailReview(
         error: 'Client not found. They may have been deleted. Please go back and select a different client.',
       }
     }
+    const billedToReferral = await isClientBilledToReferral(payload, testData.clientId)
     const disableClientEmails = (existingClient as { disableClientEmails?: boolean }).disableClientEmails === true
 
     // Import email functions
@@ -200,7 +202,7 @@ export async function createDrugTestWithEmailReview(
         req,
       })
 
-      if (!testData.bookingId) {
+      if (!testData.bookingId && !billedToReferral) {
         await applyAvailableClientCredit({
           payload,
           clientId: testData.clientId,

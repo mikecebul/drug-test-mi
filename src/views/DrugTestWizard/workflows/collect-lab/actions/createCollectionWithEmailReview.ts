@@ -12,6 +12,7 @@ import { getDrugTestPaymentSnapshot } from '../../paymentSnapshot'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 import { applyAvailableClientCredit } from '@/collections/Payments/services/applyPayment'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
+import { isClientBilledToReferral } from '@/lib/referral-invoices/payer'
 
 // Extract medication type from Client payload type
 type MedicationInput = NonNullable<Client['medications']>[number] & {
@@ -56,6 +57,8 @@ export async function createCollectionWithEmailReview(
         error: 'Client not found. They may have been deleted. Please go back and select a different client.',
       }
     }
+
+    const billedToReferral = await isClientBilledToReferral(payload, testData.clientId)
 
     // 1. Update client medications if there are changes
     if (medications.length > 0) {
@@ -117,7 +120,7 @@ export async function createCollectionWithEmailReview(
         req,
       })
 
-      if (!testData.bookingId) {
+      if (!testData.bookingId && !billedToReferral) {
         await applyAvailableClientCredit({
           payload,
           clientId: testData.clientId,

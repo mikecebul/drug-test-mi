@@ -276,12 +276,23 @@ export const DrugTests: CollectionConfig = {
               },
               fields: [
                 {
+                  name: 'referralInvoice',
+                  type: 'relationship',
+                  relationTo: 'referral-invoices',
+                  admin: {
+                    readOnly: true,
+                    description:
+                      'The active referral invoice for this test. An invoiced test remains unpaid until payment arrives.',
+                  },
+                },
+                {
                   name: 'status',
                   type: 'select',
                   required: true,
                   defaultValue: 'unpaid',
                   options: [
                     { label: 'Paid', value: 'paid' },
+                    { label: 'Invoiced', value: 'invoiced' },
                     { label: 'Unpaid', value: 'unpaid' },
                     { label: 'Partial / Still Owes', value: 'partial' },
                   ],
@@ -292,6 +303,7 @@ export const DrugTests: CollectionConfig = {
                   defaultValue: 'unknown',
                   options: [
                     { label: 'Cash', value: 'cash' },
+                    { label: 'Check', value: 'check' },
                     { label: 'Card', value: 'card' },
                     { label: 'Stripe', value: 'stripe' },
                     { label: 'Pre-paid', value: 'pre-paid' },
