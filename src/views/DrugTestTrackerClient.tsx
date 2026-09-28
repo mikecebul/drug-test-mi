@@ -1,6 +1,8 @@
 'use client'
 
 import React, { useState } from 'react'
+import Link from 'next/link'
+import { Pencil } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -314,18 +316,31 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
               {stageTests.map((test) => (
                 <Card key={test.id} className="flex w-full max-w-[32rem] min-w-0 flex-col overflow-hidden">
                   <CardHeader className="border-border/70 gap-2 space-y-0 border-b p-4">
-                    <div className="min-w-0">
-                      <CardTitle className="text-lg leading-snug">
-                        <a
-                          href={`/admin/collections/clients/${test.relatedClient.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="hover:text-primary focus-visible:ring-ring rounded-sm underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
-                        >
-                          {test.relatedClient.firstName} {test.relatedClient.lastName}
-                        </a>
-                      </CardTitle>
-                      <p className="text-muted-foreground mt-1 text-sm break-all">{test.relatedClient.email}</p>
+                    <div className="flex min-w-0 items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <CardTitle className="text-lg leading-snug">
+                          <Link
+                            href={`/admin/collections/clients/${test.relatedClient.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-primary focus-visible:ring-ring rounded-sm underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+                          >
+                            {test.relatedClient.firstName} {test.relatedClient.lastName}
+                          </Link>
+                        </CardTitle>
+                        <p className="text-muted-foreground mt-1 text-sm break-all">{test.relatedClient.email}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        render={<Link href={`/admin/collections/drug-tests/${test.id}`} />}
+                        nativeButton={false}
+                        aria-label={`Edit test for ${test.relatedClient.firstName} ${test.relatedClient.lastName}`}
+                        title="Edit test"
+                        className="shrink-0"
+                      >
+                        <Pencil aria-hidden="true" />
+                      </Button>
                     </div>
                     <Badge variant="secondary" className="max-w-full text-left whitespace-normal capitalize">
                       {formatTestType(test.testType)}
@@ -444,8 +459,8 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
                     </div>
                   </CardContent>
 
-                  <CardFooter className="border-border/70 flex-col items-stretch gap-2 border-t p-4">
-                    {(stage === 'Awaiting Client Decision' || getBalanceDue(test) > 0) && (
+                  {(stage === 'Awaiting Client Decision' || getBalanceDue(test) > 0) && (
+                    <CardFooter className="border-border/70 flex-col items-stretch border-t p-4">
                       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-2">
                         {stage === 'Awaiting Client Decision' && (
                           <>
@@ -488,25 +503,18 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
                         )}
                         {getBalanceDue(test) > 0 && (test.billedToReferral || test.payment?.status === 'invoiced') && (
                           <Button
-                            size="sm"
                             variant="secondary"
+                            size="sm"
+                            render={<Link href="/admin/referral-billing" />}
+                            nativeButton={false}
                             className="w-full"
-                            onClick={() => window.open('/admin/referral-billing', '_blank')}
                           >
                             Manage referral invoice
                           </Button>
                         )}
                       </div>
-                    )}
-                    <a
-                      href={`/admin/collections/drug-tests/${test.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted-foreground hover:text-foreground focus-visible:ring-ring w-fit rounded-sm text-sm font-medium underline underline-offset-4 focus-visible:ring-2 focus-visible:outline-none"
-                    >
-                      Edit Test
-                    </a>
-                  </CardFooter>
+                    </CardFooter>
+                  )}
                 </Card>
               ))}
             </div>
