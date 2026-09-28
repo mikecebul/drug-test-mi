@@ -310,10 +310,10 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
               <span className="text-muted-foreground text-sm">({stageTests.length} tests)</span>
             </div>
 
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,26rem),1fr))] gap-4 xl:gap-5">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,26rem),1fr))] gap-4 xl:gap-5">
               {stageTests.map((test) => (
-                <Card key={test.id} className="flex min-w-0 flex-col overflow-hidden">
-                  <CardHeader className="border-border/70 gap-3 space-y-0 border-b p-5">
+                <Card key={test.id} className="flex w-full max-w-[32rem] min-w-0 flex-col overflow-hidden">
+                  <CardHeader className="border-border/70 gap-2 space-y-0 border-b p-4">
                     <div className="min-w-0">
                       <CardTitle className="text-lg leading-snug">
                         <a
@@ -332,8 +332,8 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
                     </Badge>
                   </CardHeader>
 
-                  <CardContent className="flex-1 p-5">
-                    <div className="flex flex-col gap-3">
+                  <CardContent className="flex-1 p-4">
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-x-3 gap-y-3">
                       <div>
                         <span className="text-muted-foreground text-xs font-medium">Collection date</span>
                         <p className="text-sm font-medium">
@@ -348,45 +348,6 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
                             : 'Not scheduled'}
                         </p>
                       </div>
-
-                      {test.initialScreenResult && (
-                        <div>
-                          <span className="text-muted-foreground text-xs font-medium">Screen result</span>
-                          <p className="text-sm font-medium capitalize">
-                            {formatScreenResult(test.initialScreenResult)}
-                          </p>
-                          {test.unexpectedPositives && test.unexpectedPositives.length > 0 && (
-                            <div className="mt-2">
-                              <span className="text-muted-foreground text-xs font-medium">Unexpected positives</span>
-                              <div className="mt-1 flex flex-wrap gap-1.5">
-                                {test.unexpectedPositives.map((substance) => (
-                                  <Badge
-                                    key={substance}
-                                    variant="warning"
-                                    className="max-w-full text-left whitespace-normal"
-                                  >
-                                    {formatSubstance(substance, true)}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {test.confirmationDecision === 'request-confirmation' && (
-                        <div>
-                          <span className="text-muted-foreground text-xs font-medium">Confirmation</span>
-                          <p className="text-sm font-medium">
-                            {test.confirmationResults &&
-                            test.confirmationSubstances &&
-                            test.confirmationResults.length === test.confirmationSubstances.length &&
-                            test.confirmationResults.every((r) => r.result)
-                              ? 'All results received'
-                              : `Pending (${test.confirmationResults?.filter((r) => r.result).length || 0}/${test.confirmationSubstances?.length || 0})`}
-                          </p>
-                        </div>
-                      )}
 
                       {test.payment && (
                         <div>
@@ -417,35 +378,73 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
                         </div>
                       )}
 
-                      {test.processNotes && (
+                      {test.initialScreenResult && (
                         <div>
+                          <span className="text-muted-foreground text-xs font-medium">Screen result</span>
+                          <p className="text-sm font-medium capitalize">
+                            {formatScreenResult(test.initialScreenResult)}
+                          </p>
+                        </div>
+                      )}
+
+                      {test.unexpectedPositives && test.unexpectedPositives.length > 0 && (
+                        <div>
+                          <span className="text-muted-foreground text-xs font-medium">Unexpected positives</span>
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            {test.unexpectedPositives.map((substance) => (
+                              <Badge
+                                key={substance}
+                                variant="warning"
+                                className="max-w-full text-left whitespace-normal"
+                              >
+                                {formatSubstance(substance, true)}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {test.confirmationDecision === 'request-confirmation' && (
+                        <div>
+                          <span className="text-muted-foreground text-xs font-medium">Confirmation</span>
+                          <p className="text-sm font-medium">
+                            {test.confirmationResults &&
+                            test.confirmationSubstances &&
+                            test.confirmationResults.length === test.confirmationSubstances.length &&
+                            test.confirmationResults.every((r) => r.result)
+                              ? 'All results received'
+                              : `Pending (${test.confirmationResults?.filter((r) => r.result).length || 0}/${test.confirmationSubstances?.length || 0})`}
+                          </p>
+                        </div>
+                      )}
+
+                      {test.processNotes && (
+                        <div className="col-span-full">
                           <span className="text-muted-foreground text-xs font-medium">Notes</span>
                           <p className="line-clamp-2 text-sm">{test.processNotes}</p>
                         </div>
                       )}
 
                       {stage === 'Awaiting Client Decision' && (
-                        <div className="bg-warning-muted/50 border-warning/30 rounded-md border p-3 text-sm">
-                          <p className="font-medium">Call client to discuss confirmation</p>
+                        <div className="bg-warning-muted/50 border-warning/30 col-span-full flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-sm">
+                          <p className="font-medium">Call client about confirmation</p>
                           {test.relatedClient.phone && (
                             <a
                               href={`tel:${test.relatedClient.phone.replace(/[^\d+]/g, '')}`}
-                              className="text-primary mt-1 inline-block font-medium underline underline-offset-2"
+                              className="text-primary font-medium underline underline-offset-2"
                             >
                               {test.relatedClient.phone}
                             </a>
                           )}
                           {!test.relatedClient.phone && (
-                            <p className="text-muted-foreground mt-1 text-xs">
-                              Open the client record for contact details.
-                            </p>
+                            <p className="text-muted-foreground text-xs">Open the client record for contact details.</p>
                           )}
                         </div>
                       )}
                     </div>
                   </CardContent>
 
-                  <CardFooter className="border-border/70 flex-col items-stretch gap-3 border-t p-5">
+                  <CardFooter className="border-border/70 flex-col items-stretch gap-2 border-t p-4">
                     {(stage === 'Awaiting Client Decision' || getBalanceDue(test) > 0) && (
                       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-2">
                         {stage === 'Awaiting Client Decision' && (
