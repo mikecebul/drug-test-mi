@@ -54,7 +54,6 @@ import { default as default_8331dd52841b839972744131b323247b } from '@/views/bef
 import { default as default_ecb6141ba55c46753b7e0292674e17e1 } from '@/views/beforeNavLinks/DrugTestTrackerLink'
 import { default as default_3da75b5b33890258a17d0ac02103d516 } from '@/views/beforeNavLinks/ReferralBillingLink'
 import { ImportExportProvider as ImportExportProvider_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
-import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 import { default as default_5b15bbc11068c744f1566d4e8e7e2b0a } from '@/views/ReferralBilling'
 import { default as default_af05419e5157afdd5ccd30100f9c9f64 } from '@/views/Analytics'
 import { default as default_fb357f89b63991d343cdc6c077a34fcf } from '@/views/DrugTestTracker'
@@ -67,6 +66,7 @@ import { default as default_fd968e0da0fc0941e37dad363863677a } from '@/views/das
 import { default as default_190b527a5d0dc60bde6858927bce505d } from '@/views/dashboard/widgets/PendingDrugTestsWidget'
 import { default as default_161f575868c09df6b79abb3fe82eef6a } from '@/views/dashboard/widgets/AdminAlertsWidget'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
+import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 
 /** @type import('payload').ImportMap */
 export const importMap = {
@@ -126,7 +126,6 @@ export const importMap = {
   "@/views/beforeNavLinks/DrugTestTrackerLink#default": default_ecb6141ba55c46753b7e0292674e17e1,
   "@/views/beforeNavLinks/ReferralBillingLink#default": default_3da75b5b33890258a17d0ac02103d516,
   "@payloadcms/plugin-import-export/rsc#ImportExportProvider": ImportExportProvider_cdf7e044479f899a31f804427d568b36,
-  "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
   "@/views/ReferralBilling#default": default_5b15bbc11068c744f1566d4e8e7e2b0a,
   "@/views/Analytics#default": default_af05419e5157afdd5ccd30100f9c9f64,
   "@/views/DrugTestTracker#default": default_fb357f89b63991d343cdc6c077a34fcf,
@@ -138,5 +137,6 @@ export const importMap = {
   "@/views/dashboard/widgets/RandomTestingSyncWidget#default": default_fd968e0da0fc0941e37dad363863677a,
   "@/views/dashboard/widgets/PendingDrugTestsWidget#default": default_190b527a5d0dc60bde6858927bce505d,
   "@/views/dashboard/widgets/AdminAlertsWidget#default": default_161f575868c09df6b79abb3fe82eef6a,
-  "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
+  "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1,
+  "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24
 }
