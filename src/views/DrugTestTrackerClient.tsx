@@ -371,7 +371,7 @@ export function DrugTestTrackerClient({ initialError = null, initialTests }: Dru
                             <Badge
                               variant={
                                 getBalanceDue(test) <= 0
-                                  ? 'secondary'
+                                  ? 'success'
                                   : test.payment?.status === 'invoiced'
                                     ? 'warning'
                                     : 'destructive'
