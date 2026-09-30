@@ -30,6 +30,7 @@ type TrackerRelatedClient = {
   firstName?: unknown
   lastName?: unknown
   email?: unknown
+  phone?: unknown
 }
 
 type TrackerDoc = {
@@ -76,6 +77,7 @@ function toTrackerTest(doc: TrackerDoc) {
           firstName: typeof relatedClient.firstName === 'string' ? relatedClient.firstName : '',
           lastName: typeof relatedClient.lastName === 'string' ? relatedClient.lastName : '',
           email: typeof relatedClient.email === 'string' ? relatedClient.email : '',
+          phone: typeof relatedClient.phone === 'string' ? relatedClient.phone : '',
         }
       : undefined,
     collectionDate: typeof doc.collectionDate === 'string' ? doc.collectionDate : '',
