@@ -24,8 +24,11 @@ import { ReportLink } from '../../../components/ReportLink'
 
 export const VerifyDataStep = withForm({
   ...getInstantTestFormOpts(),
+  props: {
+    validateGroup: (_cause: 'submit', _options: { skipFormValidation: boolean }): unknown => undefined,
+  },
 
-  render: function Render({ form }) {
+  render: function Render({ form, validateGroup }) {
     const formValues = useStore(form.store, (state) => state.values)
     const formClient = formValues.client
     const verifyData = formValues.verifyData
@@ -67,15 +70,15 @@ export const VerifyDataStep = withForm({
       if (!preview || isFetching || isError) return
       if (requiresDecision === true) {
         form.setFieldValue('verifyData.confirmationDecisionRequired', true)
-        form.validate('submit')
+        validateGroup('submit', { skipFormValidation: true })
       }
       if (requiresDecision === false) {
         form.setFieldValue('verifyData.confirmationDecisionRequired', false)
         form.setFieldValue('verifyData.confirmationDecision', undefined)
         form.setFieldValue('verifyData.confirmationSubstances', [])
-        form.validate('submit')
+        validateGroup('submit', { skipFormValidation: true })
       }
-    }, [requiresDecision, form, preview, isFetching, isError])
+    }, [requiresDecision, form, preview, isFetching, isError, validateGroup])
 
     // Get confirmation decision from form state
     const confirmationDecisionValue = verifyData?.confirmationDecision
@@ -94,7 +97,7 @@ export const VerifyDataStep = withForm({
       }
 
       // Ensure submit-mode errors clear immediately after user correction.
-      form.validate('submit')
+      validateGroup('submit', { skipFormValidation: true })
     }
 
     const [changeSubstances, setChangeSubstances] = useState(false)
@@ -207,7 +210,7 @@ export const VerifyDataStep = withForm({
                       selectedSubstances={confirmationSubstancesValue}
                       onSelectionChange={(substances) => {
                         form.setFieldValue('verifyData.confirmationSubstances', substances)
-                        form.validate('submit')
+                        validateGroup('submit', { skipFormValidation: true })
                       }}
                       invalid={invalid}
                     />

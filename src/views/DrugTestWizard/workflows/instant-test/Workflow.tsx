@@ -3,7 +3,7 @@
 import { useCallback, useState, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
-import { revalidateLogic, useStore } from '@tanstack/react-form'
+import { revalidateLogic, useStore, type AnyFormGroupApi } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
@@ -404,7 +404,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     const renderGroup = (
       name: 'upload' | 'extract' | 'client' | 'medications' | 'verifyData' | 'emails',
       validators: Parameters<typeof form.FormGroup>[0]['validators'],
-      content: ReactNode,
+      content: ReactNode | ((group: AnyFormGroupApi) => ReactNode),
     ) => (
       <form.FormGroup
         key={currentStep}
@@ -416,7 +416,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       >
         {(group) => (
           <>
-            <div className="wizard-content mb-8 flex-1">{content}</div>
+            <div className="wizard-content mb-8 flex-1">{typeof content === 'function' ? content(group) : content}</div>
             <InstantTestNavigation form={form} group={group} onBack={handleBack} />
           </>
         )}
@@ -437,11 +437,9 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
           <MedicationsStep form={form} />,
         )
       case 'verifyData':
-        return renderGroup(
-          'verifyData',
-          { onDynamic: verifyDataSchema.shape.verifyData },
-          <VerifyDataStep form={form} />,
-        )
+        return renderGroup('verifyData', { onDynamic: verifyDataSchema.shape.verifyData }, (group) => (
+          <VerifyDataStep form={form} validateGroup={group.validate} />
+        ))
       case 'reviewEmails':
         return renderGroup('emails', { onDynamic: emailsGroupSchema }, <EmailsStep form={form} />)
       default:
