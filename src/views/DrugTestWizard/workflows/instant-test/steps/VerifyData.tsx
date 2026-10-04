@@ -138,89 +138,90 @@ export const VerifyDataStep = withForm({
           breathalyzerResult={verifyData.breathalyzerResult}
           action={<ReportLink file={formValues.upload.file} />}
         />
-        {requiresDecision && (
-          <FieldSet>
-            <FieldLegend>Result decision</FieldLegend>
-            <form.Field name="verifyData.confirmationDecision">
-              {(field) => (
-                <Field data-invalid={field.state.meta.errors.length > 0}>
-                  <RadioGroup
-                    value={confirmationDecisionValue || ''}
-                    onValueChange={(value) =>
-                      handleConfirmationDecisionChange(value as 'accept' | 'request-confirmation' | 'pending-decision')
-                    }
-                    className="flex flex-wrap gap-6"
-                    aria-label="Result decision"
-                    aria-invalid={field.state.meta.errors.length > 0}
-                  >
-                    {(
-                      [
-                        { value: 'accept', label: 'Accept result' },
-                        { value: 'request-confirmation', label: 'Request confirmation' },
-                        { value: 'pending-decision', label: 'Decide later' },
-                      ] as const
-                    ).map((option) => (
-                      <Label key={option.value} htmlFor={option.value} className="flex items-center gap-3">
-                        <RadioGroupItem id={option.value} value={option.value} />
-                        {option.label}
-                      </Label>
-                    ))}
-                  </RadioGroup>
-                  <FieldError errors={field.state.meta.errors} />
+        {/* Keep conditional fields registered so FormGroup can clear earlier errors. */}
+        <FieldSet className={!requiresDecision ? 'hidden' : undefined}>
+          <FieldLegend>Result decision</FieldLegend>
+          <form.Field name="verifyData.confirmationDecision">
+            {(field) => (
+              <Field data-invalid={field.state.meta.errors.length > 0}>
+                <RadioGroup
+                  value={confirmationDecisionValue || ''}
+                  onValueChange={(value) =>
+                    handleConfirmationDecisionChange(value as 'accept' | 'request-confirmation' | 'pending-decision')
+                  }
+                  className="flex flex-wrap gap-6"
+                  aria-label="Result decision"
+                  aria-invalid={field.state.meta.errors.length > 0}
+                >
+                  {(
+                    [
+                      { value: 'accept', label: 'Accept result' },
+                      { value: 'request-confirmation', label: 'Request confirmation' },
+                      { value: 'pending-decision', label: 'Decide later' },
+                    ] as const
+                  ).map((option) => (
+                    <Label key={option.value} htmlFor={option.value} className="flex items-center gap-3">
+                      <RadioGroupItem id={option.value} value={option.value} />
+                      {option.label}
+                    </Label>
+                  ))}
+                </RadioGroup>
+                <FieldError errors={field.state.meta.errors} />
+              </Field>
+            )}
+          </form.Field>
+          {confirmationDecisionValue === 'accept' && (
+            <p className="text-muted-foreground text-sm">
+              Accept as final. First-time unexpected failures are retained for 14 days for later confirmation.
+            </p>
+          )}
+          {confirmationDecisionValue === 'pending-decision' && (
+            <p className="text-muted-foreground text-sm">
+              Sample held for 30 days. Confirmation costs $30 per substance.
+            </p>
+          )}
+          <form.Field name="verifyData.confirmationSubstances">
+            {(field) => {
+              if (confirmationDecisionValue !== 'request-confirmation') return null
+              const invalid = field.state.meta.errors.length > 0 || confirmationSubstancesValue.length === 0
+              return (
+                <Field data-invalid={invalid}>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <span>
+                      {confirmationSubstancesValue.length === preview?.unexpectedPositives.length
+                        ? 'Confirm all unexpected substances'
+                        : 'Confirm: ' + confirmationSubstancesValue.map((value) => formatSubstance(value)).join(', ')}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="link"
+                      onClick={() => setChangeSubstances((value) => !value)}
+                      aria-expanded={changeSubstances || invalid}
+                    >
+                      Change
+                    </Button>
+                  </div>
+                  {(changeSubstances || invalid) && (
+                    <ConfirmationSubstanceSelector
+                      unexpectedPositives={preview?.unexpectedPositives ?? []}
+                      selectedSubstances={confirmationSubstancesValue}
+                      onSelectionChange={(substances) => {
+                        form.setFieldValue('verifyData.confirmationSubstances', substances)
+                        form.validate('submit')
+                      }}
+                      invalid={invalid}
+                    />
+                  )}
+                  <FieldError errors={field.state.meta.errors}>
+                    {confirmationSubstancesValue.length === 0
+                      ? 'Please select at least one substance for confirmation testing'
+                      : undefined}
+                  </FieldError>
                 </Field>
-              )}
-            </form.Field>
-            {confirmationDecisionValue === 'accept' && (
-              <p className="text-muted-foreground text-sm">
-                Accept as final. First-time unexpected failures are retained for 14 days for later confirmation.
-              </p>
-            )}
-            {confirmationDecisionValue === 'pending-decision' && (
-              <p className="text-muted-foreground text-sm">
-                Sample held for 30 days. Confirmation costs $30 per substance.
-              </p>
-            )}
-            {confirmationDecisionValue === 'request-confirmation' && (
-              <form.Field name="verifyData.confirmationSubstances">
-                {(field) => {
-                  const invalid = field.state.meta.errors.length > 0 || confirmationSubstancesValue.length === 0
-                  return (
-                    <Field data-invalid={invalid}>
-                      <div className="flex flex-wrap items-center gap-4">
-                        <span>
-                          {confirmationSubstancesValue.length === preview?.unexpectedPositives.length
-                            ? 'Confirm all unexpected substances'
-                            : 'Confirm: ' +
-                              confirmationSubstancesValue.map((value) => formatSubstance(value)).join(', ')}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="link"
-                          onClick={() => setChangeSubstances((value) => !value)}
-                          aria-expanded={changeSubstances || invalid}
-                        >
-                          Change
-                        </Button>
-                      </div>
-                      {(changeSubstances || invalid) && (
-                        <ConfirmationSubstanceSelector
-                          unexpectedPositives={preview?.unexpectedPositives ?? []}
-                          selectedSubstances={confirmationSubstancesValue}
-                          onSelectionChange={(substances) => {
-                            form.setFieldValue('verifyData.confirmationSubstances', substances)
-                            form.validate('submit')
-                          }}
-                          invalid={invalid}
-                        />
-                      )}
-                      <FieldError errors={field.state.meta.errors} />
-                    </Field>
-                  )
-                }}
-              </form.Field>
-            )}
-          </FieldSet>
-        )}
+              )
+            }}
+          </form.Field>
+        </FieldSet>
         <OptionalDetails invalid={detailsInvalid}>
           <FieldGroup className="grid @lg:grid-cols-2">
             <form.Field name="verifyData.testType">

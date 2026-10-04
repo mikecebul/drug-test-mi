@@ -39,14 +39,8 @@ async function fillPersonalInfo(
 
   const genderSelect = page.getByLabel('Gender')
   const maleOption = page.getByRole('option', { name: /^Male$/i })
-  const genderDeadline = Date.now() + 10_000
-  do {
-    await genderSelect.click()
-    if (await maleOption.isVisible().catch(() => false)) {
-      break
-    }
-    await page.waitForTimeout(500)
-  } while (Date.now() < genderDeadline)
+  await genderSelect.click()
+  await expect(maleOption).toBeVisible({ timeout: 10_000 })
   await maleOption.click()
   await page.getByLabel('Phone Number').fill(phone)
   await page.getByLabel('Date of Birth').fill(dob)

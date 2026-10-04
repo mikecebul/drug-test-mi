@@ -1,6 +1,6 @@
 # Plan 008: Simplify staff navigation and client/referral summaries
 
-Status: **IN PROGRESS — implementation approved by the user on October 3, 2026.** Reviewed against `54f5d58` on October 3, 2026. Navigation/summary effort M; account-payment effort L and higher backend risk. Keep account-payment implementation in a separate PR from the navigation and read-only summaries.
+Status: **IMPLEMENTED — approved October 3, completed on the feature branch October 4, 2026.** Reviewed against `54f5d58` on October 3, 2026. Navigation/summary effort M; account-payment effort L and higher backend risk. The approved staff views and transactional account-payment guards are included in PR #93.
 
 ## Intent and existing behavior
 
@@ -56,3 +56,5 @@ During implementation run `node node_modules/typescript/bin/tsc --noEmit --incre
 Account-payment regression matrix: no debt adds credit; partial debt payment; oldest-first; overpayment; mixed payer debt; already invoiced locks; current balances changed; invalid amount; another client's ID; repeated submission; saved payment but failed receipt; Terminal failure/cancel/pending/retry when that phase is implemented. Existing money calculations remain in cents; verify ledger and balance, not just toast text.
 
 Use local test services and fixtures. `pnpm build` performs migrations; it is not a casual preview command. No live charge or invoice is necessary for verification. Stop and expand the reviewed scope if a summary needs a new access privilege, a role visibility change disables a needed native edit route, or card payments require modifying booking settlement semantics. Use feature branches and PRs with required CI; never push main. The current review contains artifacts only.
+
+Implementation: [PR #93](https://github.com/mikecebul/drug-test-mi/pull/93). See [the implementation record](guided-collection-review/implementation-status.md) and the PR for current verification results.

@@ -880,6 +880,15 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       setNoPaymentDialogOpen(true)
       return
     }
+    // Returning from preparation must not replace an already recorded payment.
+    // A first zero-money continuation still records the collection payment state.
+    if (amountReceived === 0 && creditToApply === 0 && selectedBooking.payment?.collectedAt) {
+      setPaymentDraft(null)
+      setShowAdditionalPayment(false)
+      setNoPaymentDialogOpen(false)
+      setQuery({ step: 'toxaccess', bookingId: selectedBooking.id, terminalPaymentId: null })
+      return
+    }
     const clientId = selectedBooking.client.id
     const allocationPreview = buildGuidedPaymentAllocationPreview({
       previousBalances: clientPayableBalances,

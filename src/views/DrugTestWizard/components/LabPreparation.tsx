@@ -41,15 +41,18 @@ export function LabPreparation({
       reportComplete={reportCreated}
       reportStatus={reportCreated ? 'Report created' : 'Create report before continuing'}
     >
-      <label className="flex cursor-pointer items-start gap-3 text-sm font-medium">
+      <div className="flex items-start gap-3 text-sm font-medium">
         <Checkbox
+          id="lab-report-created"
           checked={reportCreated}
           onCheckedChange={(checked) => onReportCreatedChange(checked === true)}
           disabled={isPending}
           className="mt-0.5 shrink-0"
         />
-        <span>I created the report in ToxAccess</span>
-      </label>
+        <label htmlFor="lab-report-created" className="cursor-pointer">
+          I created the report in ToxAccess
+        </label>
+      </div>
       <p className="text-muted-foreground text-sm">No PDF upload needed for this lab collection.</p>
       {continueButton}
     </ReportPreparationLayout>

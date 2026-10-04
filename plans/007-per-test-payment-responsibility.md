@@ -1,6 +1,6 @@
 # Plan 007: Allow client-paid exceptions for invoice-enabled referrals
 
-Status: **IN PROGRESS — implementation approved by the user on October 3, 2026.** Priority P1; effort L; backend risk high. Planned at `54f5d58`, October 3, 2026. Can be developed independently of the visual changes in Plan 006.
+Status: **IMPLEMENTED — approved October 3, completed on the feature branch October 4, 2026.** Priority P1; effort L; backend risk high. Planned at `54f5d58`, October 3, 2026. Can be developed independently of the visual changes in Plan 006.
 
 ## Business contract
 
@@ -93,3 +93,5 @@ Done requires schema/design approval; generated types current; passing types/lin
 STOP if the schema/excerpts drift, legacy fallback cannot be defined without a data migration, another consumer would still infer payer globally, a payer change requires moving settled/invoiced funds, a transaction or idempotency boundary would need redesign, or a verification fails twice. Expand the proposal for review instead of bypassing profile checks in one endpoint. Retain the current feature until the entire exception path is tested; do not ship just the switch.
 
 Maintenance: every future test creation/payment/invoice/confirmation consumer must use the canonical resolver. Do not cache responsibility solely by client. Any future reassignment UI needs invoice locks and audited correction semantics; the collection switch cannot serve as a refund tool.
+
+Implementation: [PR #93](https://github.com/mikecebul/drug-test-mi/pull/93). See [the implementation record](guided-collection-review/implementation-status.md) and the PR for current verification results.

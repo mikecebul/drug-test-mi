@@ -133,6 +133,8 @@ test.describe('Wizard Instant Workflow', () => {
   })
 
   test('validates upload and confirmation-decision branches, with back-forward navigation', async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(error.message))
     const env = getE2EEnv({ pdfs: ['instant'] })
 
     await clickNext(page)
@@ -177,10 +179,8 @@ test.describe('Wizard Instant Workflow', () => {
     await expect(page.getByText('Please select at least one substance for confirmation testing')).toBeVisible()
 
     await page.getByRole('radio', { name: /Accept result/i }).check()
-    const nextButton = page.getByTestId('wizard-next-button')
-    if (await nextButton.isEnabled().catch(() => false)) {
-      await nextButton.click()
-    }
+    await clickNext(page)
+    await expect(page.getByRole('heading', { name: 'Review result & recipients', exact: true })).toBeVisible()
 
     await clickBack(page)
     await expect(page.getByText('Verify instant test')).toBeVisible()
@@ -191,6 +191,7 @@ test.describe('Wizard Instant Workflow', () => {
     await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
     await expect(page.getByLabel(/^PCP$/i)).toBeChecked()
     await expect(page.getByLabel(/Fentanyl/i)).toBeChecked()
+    expect(pageErrors).toEqual([])
   })
 
   test('returns to report upload after a browser refresh', async ({ page }) => {
@@ -244,6 +245,7 @@ test.describe('Wizard Instant Workflow', () => {
     await expect(page.getByText('Verify medications')).toBeVisible()
     await clickNext(page)
     await expect(page.getByText('Verify instant test')).toBeVisible()
+    await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
     await expect(page.getByRole('textbox', { name: /Test Type/i })).toHaveValue('17-Panel Instant')
   })
 

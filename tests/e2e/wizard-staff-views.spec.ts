@@ -158,7 +158,7 @@ test.describe('Standard staff views and account payments', () => {
     await page.screenshot({ path: test.info().outputPath('payment-referral.png'), fullPage: true })
     const billReferral = page.getByRole('switch', { name: 'Bill this referral', exact: true })
     await expect(billReferral).toBeChecked()
-    await billReferral.uncheck()
+    await billReferral.click()
     await expect(billReferral).not.toBeChecked()
     await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toHaveValue('0')
     await expect(page.getByTestId('wizard-next-button')).toHaveText(/Continue with balance owing/)
@@ -321,6 +321,20 @@ test.describe('Standard staff views and account payments', () => {
   test('records account credit without a booking and reconciles a lost response with the same operation', async ({
     page,
   }) => {
+    const payload = await getPayloadClient()
+    // Arrange this balance independently of the preceding service regression.
+    await payload.update({
+      collection: 'drug-tests',
+      id: clientDebtId,
+      data: { payment: { status: 'paid', amountDue: 40, amountPaid: 40, balanceDue: 0 } },
+      overrideAccess: true,
+    })
+    await payload.update({
+      collection: 'clients',
+      id: fixtures.clients.instant.id,
+      data: { creditBalance: 10 },
+      overrideAccess: true,
+    })
     await loginAdmin(page, fixtures.admin)
     await page.goto(`/admin/collect-payment?clientId=${fixtures.clients.instant.id}`)
     await expect(page.getByRole('heading', { name: 'Collect payment', exact: true })).toBeVisible({ timeout: 30_000 })
@@ -330,7 +344,6 @@ test.describe('Standard staff views and account payments', () => {
     await expect(page.getByRole('radio', { name: 'Card', exact: true })).toBeDisabled()
     await page.getByRole('spinbutton', { name: 'Amount received', exact: true }).fill('20')
     await page.getByRole('checkbox', { name: /Email receipt/i }).uncheck()
-    const payload = await getPayloadClient()
     const bookingsBefore = (
       await payload.find({ collection: 'bookings', where: { relatedClient: { equals: fixtures.clients.instant.id } } })
     ).totalDocs

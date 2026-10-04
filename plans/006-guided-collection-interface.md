@@ -1,6 +1,6 @@
 # Plan 006: Make guided collection recoverable and clear
 
-Status: **IN PROGRESS — implementation approved by the user on October 3, 2026.** Priority P1; effort M; frontend risk medium. Planned at commit `54f5d58`, October 3, 2026. No backend change is part of this plan.
+Status: **IMPLEMENTED — approved October 3, completed on the feature branch October 4, 2026.** Priority P1; effort M; frontend risk medium. Planned at commit `54f5d58`, October 3, 2026. No backend change is part of this plan.
 
 ## Purpose and current state
 
@@ -101,3 +101,5 @@ Done requires approved design, passing types/lint/unit/E2E gates, a reviewed sou
 STOP if the live excerpts drift, navigation requires changing final submission or payment semantics, draft data crosses clients/bookings, a payer switch is needed, external report readiness is assumed, or a verification fails twice after a reasonable repair. Report a separate proposal rather than changing backend behavior in this UI PR.
 
 Use a `codex/` feature branch and PR. Never push main or bypass CI. Commit descriptions should list changes. This review branch can hold the design assets; implementation begins only after the user's review. Maintenance: new test types need the correct branch, progress and Back behavior; new required fields must remain outside optional disclosures.
+
+Implementation: [PR #93](https://github.com/mikecebul/drug-test-mi/pull/93). See [the implementation record](guided-collection-review/implementation-status.md) and the PR for current verification results.
