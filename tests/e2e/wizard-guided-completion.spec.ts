@@ -24,7 +24,7 @@ test.afterEach(async () => cleanupFixtures(fixtures))
 for (const kind of ['instant', 'lab'] as const) {
   test(
     `completes a guided ${kind} collection and links the saved result and payment to its booking`,
-    { tag: '@smoke' },
+    { tag: ['@smoke', '@critical'] },
     async ({ page }) => {
       const payload = await getPayloadClient()
       const client = kind === 'instant' ? fixtures.clients.instant : fixtures.clients.collectLab
@@ -70,7 +70,7 @@ for (const kind of ['instant', 'lab'] as const) {
         await expectWizardStep(page, 'toxaccess')
         const confirmed = page.locator('#lab-report-created')
         await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
-        await confirmed.check()
+        await confirmed.click()
         await expect(confirmed).toBeChecked()
         await clickNext(page)
       } else {

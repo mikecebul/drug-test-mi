@@ -18,6 +18,7 @@ export default defineConfig({
   workers,
   fullyParallel: false,
   retries: process.env.CI ? 2 : 0,
+  failOnFlakyTests: Boolean(process.env.CI),
   reporter: process.env.CI ? [['github'], ['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL,

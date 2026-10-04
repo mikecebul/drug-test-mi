@@ -5,6 +5,9 @@ The GitHub check is still named `ui-smoke` to preserve branch protection, but it
 runs the complete browser suite, including the Safari PDF regression. A smoke
 tag remains available for quick local feedback.
 
+`pnpm test:e2e:critical` runs each tagged critical case five times with retries
+disabled. CI runs it after the full suite and saves both reports separately.
+
 | Command                    | Coverage                                                                                                             |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `pnpm test:integration:ci` | Full Vitest suite, including PDF parsing, validation, access, result classification, billing, and payment safeguards |
@@ -61,4 +64,7 @@ the required side-by-side report actions on portrait tablets.
 
 Keep independent tests independent; do not skip a result-decision branch merely
 because it did not appear. Seed the data needed to force that branch. Re-run new
-critical regressions with `--repeat-each=5` before considering them stable.
+critical regressions with `--repeat-each=5` before considering them stable. CI
+repeats guided completion, lab decision-validation, and account-payment recovery
+five times without retries. A flaky pass also fails the full CI suite, so retry
+success cannot hide an intermittent regression.

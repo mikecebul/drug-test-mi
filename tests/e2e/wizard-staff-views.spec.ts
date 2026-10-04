@@ -322,7 +322,7 @@ test.describe('Standard staff views and account payments', () => {
 
   test(
     'records account credit without a booking and reconciles a lost response with the same operation',
-    { tag: '@smoke' },
+    { tag: ['@smoke', '@critical'] },
     async ({ page }) => {
       const payload = await getPayloadClient()
       // Arrange this balance independently of the preceding service regression.

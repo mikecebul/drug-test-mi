@@ -183,6 +183,11 @@ jobs:
       - name: Run all workflow tests and Safari PDF regression
         run: pnpm test:e2e
 
+      - name: Repeat critical regressions without retries
+        run: pnpm test:e2e:critical
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-critical
+
       - name: Print app log on failure
         if: failure()
         run: tail -n 300 /tmp/next-dev.log || true
@@ -206,4 +211,6 @@ jobs:
           path: |
             playwright-report
             test-results
+            playwright-report-critical
+            test-results-critical
           if-no-files-found: ignore

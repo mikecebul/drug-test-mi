@@ -40,7 +40,7 @@ test.describe('Wizard Lab Screen Workflow', () => {
 
   test(
     'requires a report and a valid confirmation decision, retaining edits across Back',
-    { tag: '@smoke' },
+    { tag: ['@smoke', '@critical'] },
     async ({ page }) => {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
