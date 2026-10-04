@@ -39,6 +39,7 @@ export const ScreeningTypeStep = withForm({
                       name={field.name}
                       value={option.value}
                       checked={requestedBy === option.value}
+                      aria-invalid={field.state.meta.errors.length > 0 || undefined}
                       onChange={(e) => field.handleChange(e.target.value as (typeof SCREENING_TYPES)[number]['value'])}
                       className="text-primary border-border focus:ring-primary h-5 w-5"
                     />
@@ -49,8 +50,8 @@ export const ScreeningTypeStep = withForm({
                   </label>
                 ))}
               </div>
-              {field.state.meta.errors && (
-                <em className="text-destructive text-sm first:mt-2">
+              {field.state.meta.errors.length > 0 && (
+                <em role="alert" className="text-destructive text-sm first:mt-2">
                   {typeof field.state.meta.errors[0] === 'string'
                     ? field.state.meta.errors[0]
                     : (field.state.meta.errors[0] as { message?: string } | undefined)?.message}

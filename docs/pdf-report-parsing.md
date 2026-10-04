@@ -45,21 +45,27 @@ A report summary that says “Confirmed Positive” while yielding no confirmati
 
 ## Regression matrix
 
-Synthetic or explicitly sanitized PDFs may be committed. Production reports must remain outside the repository. Local paths are configured with environment variables:
+Synthetic or explicitly sanitized PDFs may be committed. Production reports must remain outside the repository. The automated matrix uses required committed fixtures, so every case runs in CI:
 
-| Variable | Required case |
+| Fixture | Required case |
 | --- | --- |
-| `INSTANT_SCREEN_PDF` | Representative instant report |
-| `INSTANT_MULTI_POSITIVE_PDF` | Instant report positive for THC and EtG |
-| `LAB_11_SCREEN_PDF` | Representative 11-panel lab screen |
-| `LAB_MULTI_POSITIVE_PDF` | Lab screen positive for THC and EtG |
-| `LAB_CONFIRMED_POSITIVE_PDF` | LC-MS/MS confirmed-positive report |
-| `LAB_CONFIRMED_NEGATIVE_PDF` | LC-MS/MS confirmed-negative report, preferably with multiple analytes |
-| `NO_ETG_LAB_PDF` | B829 no-EtG panel |
-| `LAB_17_SOS_PDF` | B306 17-panel SOS report |
-| `LAB_ETG_PDF` | 049/050 EtG-only report |
+| `15-panel-instant/screening.pdf` | 15-panel instant screen with anchored DOB/sex |
+| `17-panel-instant/all-neg.pdf` | 17-panel all-negative screen |
+| `17-panel-instant/pos-kratom-morphine.pdf` | Kratom/morphine name mapping |
+| `17-panel-instant/multi-positive.pdf` | Instant report positive for THC and EtG |
+| `11-panel-lab/screening.pdf` | Complete 11-panel lab screen with creatinine |
+| `11-panel-lab/multi-positive.pdf` | Lab screen positive for THC and EtG |
+| `11-panel-lab/confirmed-positive.pdf` | LC-MS/MS confirmed-positive THC metabolite |
+| `11-panel-lab/confirmation.pdf` | Multiple negative fentanyl analytes aggregated to confirmed negative |
+| `11-panel-lab/inconclusive.pdf` | Insufficient specimen confirmation |
+| `11-panel-lab/incomplete.pdf` | Missing screening row requires manual review |
+| `11-panel-lab/dilute.pdf` | Dilute creatinine measurement |
+| `11-panel-lab-no-etg/screening.pdf` | B829 ethanol EA panel |
+| `8-panel-lab/screening.pdf` | B814 8-panel lab screen |
+| `17-panel-sos-lab/screening.pdf` | B306 17-panel SOS screen |
+| `etg-lab/screening.pdf` | 049 EtG-only screen |
 
-The local test matrix asserts extracted substances, physical result-row counts, row completeness, confirmation aggregation, confidence, and warnings. Actual reports and client-identifying file paths must not appear in commits, snapshots, Playwright traces, or CI artifacts.
+The matrix asserts exact extracted substances, physical result-row counts, row completeness, confirmation aggregation, confidence, and warnings. Missing fixtures fail the suite. Regenerate synthetic files with `node scripts/generate-test-report-fixtures.mjs`. Actual reports and client-identifying file paths must not appear in commits, snapshots, Playwright traces, or CI artifacts.
 
 Run the privacy-safe corpus audit against one or more directories outside the repository:
 

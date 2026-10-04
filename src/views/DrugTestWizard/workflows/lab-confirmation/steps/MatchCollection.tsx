@@ -93,7 +93,10 @@ export const MatchCollectionStep = withForm({
     if (isLoading) {
       return (
         <div className="space-y-8">
-          <FieldGroupHeader title="Match Test for Confirmation" description="Finding tests that need confirmation results" />
+          <FieldGroupHeader
+            title="Match Test for Confirmation"
+            description="Finding tests that need confirmation results"
+          />
           <Card>
             <CardContent className="flex items-center justify-center py-12">
               <div className="flex flex-col items-center gap-4">
@@ -176,10 +179,20 @@ export const MatchCollectionStep = withForm({
               return (
                 <Card
                   key={test.id}
+                  data-testid={`pending-test-${test.id}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isSelected}
                   className={`cursor-pointer transition-all hover:shadow-md ${
                     isSelected ? 'border-primary ring-primary ring-2' : ''
                   }`}
                   onClick={() => handleTestSelect(test)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      handleTestSelect(test)
+                    }
+                  }}
                 >
                   <CardHeader>
                     <div className="flex items-start justify-between gap-3">

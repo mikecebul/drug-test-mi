@@ -17,8 +17,10 @@ The selected simplified mockups are the implementation reference. Visible client
 
 ## Verification
 
-- Full unit suite: 131 files, 902 tests passed. TypeScript and ESLint passed; no errors. The existing full-repository warning baseline remains.
-- CI runs integration, 17 registration/collection smoke cases and PDF workflow checks in Chromium and WebKit. The PR contains the final build/browser counts and its live required-check results.
+- Full unit suite: 131 files, 890 tests passed after consolidating redundant PDF assertions. TypeScript and ESLint passed; no errors. Existing lint warnings remain.
+- CI now runs every Chromium workflow and the WebKit PDF regression, including guided completion and saved result decisions. The 13-case smoke tag remains available for quick local feedback. The PR contains final browser counts and its live required-check results.
+- Required synthetic PDF fixtures cover every supported panel, incomplete/dilute screens, and confirmation outcomes; missing reports fail CI instead of silently returning from tests.
+- Browser assertions use active routes, accessible controls, validation state and saved data. Cosmetic color/font/spacing checks and stale full-message matches were removed. The lab-screen decision step revalidates its active FormGroup and keeps conditional fields registered.
 - Browser regressions cover portrait/phone layout, report replacement and identity acknowledgement, payment/credit/undo, client registration, actual local-mail delivery and PDF attachment, standard-admin payer switching and unpaid continuation, native editing/no deletion, and lost-response recovery without duplicate payments or bookings.
 - Real-database regressions passed for payer concurrency with transactions disabled, active-card protection, rejecting account payments before unsupported writes, transactional payment rollback, and concurrent retry deduplication.
 - Verification uses an isolated local database and Mailpit, with external Redwood, S3, Cal.com and payment integrations disabled. Production verification routes email to Mailpit in the temporary checkout; no production mail transport was exercised. Builds invoke Next directly without migrations.

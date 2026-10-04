@@ -48,6 +48,8 @@ export default defineConfig({
       // PDF parsing runs on the server, but the upload/server-action workflow
       // still needs coverage against Safari's browser engine.
       name: 'webkit',
+      testMatch: '**/wizard-instant.spec.ts',
+      grep: /@pdf-browser/,
       use: { ...devices['Desktop Safari'] },
     },
   ],

@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -31,90 +31,16 @@ async function getBackButton(page: Page) {
   return page.getByRole('button', { name: /^back$/i })
 }
 
-const validationMessages = [
-  'Please upload a PDF file',
-  'Please select a client',
-  'First name is required',
-  'Middle initial is required',
-  'Last name is required',
-  'Collection date is required',
-  'Breathalyzer result is required',
-  'Must select an option',
-  'Please select at least one substance for confirmation testing',
-]
-
 async function hasVisibleValidationMessage(page: Page) {
-  if ((await page.locator('[data-slot="field-error"]:visible').count()) > 0) {
-    return true
-  }
-
-  for (const message of validationMessages) {
-    if (
-      await page
-        .getByText(message)
-        .first()
-        .isVisible()
-        .catch(() => false)
-    ) {
-      return true
-    }
-  }
-
-  return false
-}
-
-async function waitForWizardHome(page: Page) {
-  const indicators = [
-    page.getByText('Drug Test Workflow'),
-    page.getByText('Select the type of workflow you want to perform'),
-    page.getByText('Register New Client'),
-  ]
-
-  const end = Date.now() + 30_000
-  while (Date.now() < end) {
-    for (const locator of indicators) {
-      if (
-        await locator
-          .first()
-          .isVisible()
-          .catch(() => false)
-      ) {
-        return
-      }
-    }
-    await page.waitForTimeout(250)
-  }
-
-  throw new Error('Timed out waiting for wizard workflow chooser.')
+  return (
+    (await page.getByRole('alert').filter({ hasText: /\S/ }).count()) > 0 ||
+    (await page.locator('[aria-invalid="true"]:visible').count()) > 0
+  )
 }
 
 export async function openWizard(page: Page) {
-  const alreadyOnWizard = page.url().includes('/admin/drug-test-upload')
-  if (alreadyOnWizard) {
-    const hasWizardUI =
-      (await page
-        .getByText('Select the type of workflow you want to perform')
-        .first()
-        .isVisible()
-        .catch(() => false)) ||
-      (await page
-        .getByTestId('wizard-next-button')
-        .first()
-        .isVisible()
-        .catch(() => false)) ||
-      (await page
-        .getByText('Drug Test Workflow')
-        .first()
-        .isVisible()
-        .catch(() => false))
-
-    if (hasWizardUI) {
-      return
-    }
-  }
-
   await page.goto('/admin/drug-test-upload', { waitUntil: 'domcontentloaded' })
-  await waitForWizardHome(page)
+  await expect(page.locator('[data-wizard-ready="true"]')).toBeVisible({ timeout: 30_000 })
 }
 
 const directWorkflowRoutes: Record<string, { workflow: string; step: string }> = {
@@ -125,77 +51,27 @@ const directWorkflowRoutes: Record<string, { workflow: string; step: string }> =
   'Screen Instant Test': { workflow: 'instant-test', step: 'upload' },
 }
 
-const workflowReadyHeadings: Record<string, RegExp> = {
-  'Register New Client': /^Personal Information$/i,
-  'Collect Sample for Lab': /^Choose a Client$/i,
-  'Enter Lab Screen Data': /^Upload Lab Screening Results PDF$/i,
-  'Enter Lab Confirmation Data': /^Upload Confirmation PDF$/i,
-  'Screen Instant Test': /^Upload instant report$/i,
+export async function expectWizardStep(page: Page, step: string) {
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get('step'), {
+      message: `Expected workflow step "${step}"`,
+      timeout: 20_000,
+    })
+    .toBe(step)
 }
 
-async function waitForWorkflowLoaded(page: Page, title: string) {
-  await expect(page.locator('[data-wizard-ready="true"]')).toBeVisible({ timeout: 30_000 })
-  const headingPattern = workflowReadyHeadings[title]
-
-  if (headingPattern) {
-    await expect(page.getByRole('heading', { name: headingPattern }).first()).toBeVisible({ timeout: 20_000 })
-  }
-
-  const nextButton = await getNextButton(page)
-  await expect(nextButton).toBeVisible({ timeout: 20_000 })
-  await expect(nextButton).toBeEnabled({ timeout: 20_000 })
-  await page.waitForTimeout(1_000)
+export async function expectValidationError(page: Page, control?: Locator) {
+  if (control) await expect(control).toHaveAttribute('aria-invalid', 'true')
+  await expect(page.getByRole('alert').filter({ hasText: /\S/ }).first()).toBeVisible()
 }
 
 export async function selectWorkflow(page: Page, title: string) {
-  const directRoute = directWorkflowRoutes[title]
-  if (directRoute) {
-    const params = new URLSearchParams({
-      workflow: directRoute.workflow,
-      step: directRoute.step,
-    })
-
-    await page.goto(`/admin/drug-test-upload?${params.toString()}`, { waitUntil: 'domcontentloaded' })
-    await waitForWorkflowLoaded(page, title)
-
-    const stillOnHome = await page
-      .getByText('Select the type of workflow you want to perform')
-      .first()
-      .isVisible()
-      .catch(() => false)
-    if (!stillOnHome) {
-      return
-    }
-  }
-
-  const titlePattern = new RegExp(`^${escapeRegex(title)}$`, 'i')
-
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const card = page.locator('[class*="cursor-pointer"]').filter({ hasText: titlePattern }).first()
-    if ((await card.count()) > 0) {
-      await card.click({ force: true })
-    } else {
-      const heading = page.getByRole('heading', { name: titlePattern }).first()
-      const headingCard = heading.locator('xpath=ancestor::*[contains(@class, "cursor-pointer")][1]')
-      if ((await headingCard.count()) > 0) {
-        await headingCard.click({ force: true })
-      } else {
-        await heading.click({ force: true })
-      }
-    }
-
-    await page.waitForTimeout(250)
-    const stillOnHome = await page
-      .getByText('Select the type of workflow you want to perform')
-      .first()
-      .isVisible()
-      .catch(() => false)
-    if (!stillOnHome) {
-      return
-    }
-  }
-
-  throw new Error(`Unable to select workflow card: "${title}"`)
+  const route = directWorkflowRoutes[title]
+  if (!route) throw new Error(`Unknown workflow: ${title}`)
+  await page.goto(`/admin/drug-test-upload?${new URLSearchParams(route)}`, { waitUntil: 'domcontentloaded' })
+  await expect(page.locator('[data-wizard-ready="true"]')).toBeVisible({ timeout: 30_000 })
+  await expectWizardStep(page, route.step)
+  await expect(await getNextButton(page)).toBeEnabled({ timeout: 20_000 })
 }
 
 export async function clickNext(page: Page) {
@@ -204,7 +80,6 @@ export async function clickNext(page: Page) {
   await expect(nextButton).toBeEnabled({ timeout: 20_000 })
   await nextButton.scrollIntoViewIfNeeded()
   const beforeUrl = page.url()
-  const clickedButton = await nextButton.elementHandle()
   const missingHeadshotDialog = page.getByRole('alertdialog', { name: 'Continue without a headshot?' })
 
   await nextButton.click({ timeout: 10_000 })
@@ -216,12 +91,16 @@ export async function clickNext(page: Page) {
           return true
         }
 
-        if (await missingHeadshotDialog.isVisible().catch(() => false)) {
+        if (
+          await page
+            .getByRole('alertdialog')
+            .isVisible()
+            .catch(() => false)
+        ) {
           return true
         }
 
-        if (!clickedButton) return true
-        return clickedButton.evaluate((element) => !element.isConnected).catch(() => true)
+        return false
       },
       {
         message: 'Expected Next to change the wizard step or show a validation error',
@@ -263,53 +142,10 @@ export async function clickBack(page: Page) {
 }
 
 export async function uploadSinglePdf(page: Page, filePath: string) {
-  const filename = filePath.split('/').pop() ?? filePath
-  const waitForAcceptedFile = async (trigger: ReturnType<Page['locator']>, input: ReturnType<Page['locator']>) => {
-    const deadline = Date.now() + 7_500
-    do {
-      const chooserPromise = page.waitForEvent('filechooser', { timeout: 5_000 }).catch(() => null)
-      await trigger.click()
-      const chooser = await chooserPromise
-      if (chooser) {
-        await chooser.setFiles(filePath)
-      } else {
-        await input.setInputFiles(filePath)
-      }
-      await page.waitForTimeout(500)
-      if (
-        await page
-          .getByText(filename)
-          .first()
-          .isVisible()
-          .catch(() => false)
-      ) {
-        return
-      }
-    } while (Date.now() < deadline)
-  }
-
-  const uploadRoots = page.locator('[data-slot="file-upload"]')
-  const rootCount = await uploadRoots.count()
-
-  for (let i = 0; i < rootCount; i += 1) {
-    const root = uploadRoots.nth(i)
-    const visibleDropzone = await root
-      .locator('[data-slot="file-upload-dropzone"]')
-      .first()
-      .isVisible()
-      .catch(() => false)
-    if (!visibleDropzone) {
-      continue
-    }
-
-    const input = root.locator('input[type="file"]').first()
-    await waitForAcceptedFile(root.locator('[data-slot="file-upload-dropzone"]').first(), input)
-    return
-  }
-
-  const fallbackInput = page.locator('input[type="file"]').first()
-  await expect(fallbackInput).toBeAttached({ timeout: 10_000 })
-  await waitForAcceptedFile(fallbackInput, fallbackInput)
+  const input = page.locator('[data-slot="file-upload"] input[type="file"]').first()
+  await expect(input).toBeAttached()
+  await input.setInputFiles(filePath)
+  await expect(page.getByText(filePath.split('/').pop()!, { exact: true }).first()).toBeVisible()
 }
 
 export async function selectClientFromSearchDialog(page: Page, fullName: string) {
@@ -318,136 +154,37 @@ export async function selectClientFromSearchDialog(page: Page, fullName: string)
   })
   const dialog = page.getByRole('dialog', { name: /Search and Select Client|Choose client/i })
 
-  const deadline = Date.now() + 10_000
-  do {
-    await expect(openButton).toBeVisible({ timeout: 10_000 })
-    await expect(openButton).toBeEnabled({ timeout: 10_000 })
-    await openButton.click()
-
-    if (await dialog.isVisible().catch(() => false)) {
-      break
-    }
-
-    await page.waitForTimeout(500)
-  } while (Date.now() < deadline)
-
-  await expect(dialog).toBeVisible({ timeout: 10_000 })
-
-  const searchInput = dialog.getByPlaceholder('Search by name, DOB, phone, or email...')
-  await expect(searchInput).toBeVisible()
+  await openButton.click()
+  await expect(dialog).toBeVisible()
+  const searchInput = dialog.getByRole('combobox')
   const parts = fullName.trim().split(/\s+/)
   const searchTerm = parts.length > 2 ? `${parts[0]} ${parts[parts.length - 1]}` : fullName
   await searchInput.fill(searchTerm)
 
-  const clientMatchPattern = nameToLoosePattern(fullName)
-  const clientByText = dialog.getByText(clientMatchPattern).first()
-  const failedFetch = dialog.getByText('Failed to fetch')
-
-  const end = Date.now() + 20_000
-  while (Date.now() < end) {
-    if (await failedFetch.isVisible().catch(() => false)) {
-      throw new Error(`Client search failed while selecting "${fullName}".`)
-    }
-
-    if (await clientByText.isVisible().catch(() => false)) {
-      await clientByText.click()
-      return
-    }
-
-    await page.waitForTimeout(250)
-  }
-
-  await dialog.getByRole('option', { name: clientMatchPattern }).first().click()
+  await dialog
+    .getByRole('option', { name: nameToLoosePattern(fullName) })
+    .first()
+    .click()
+  await expect(dialog).toBeHidden()
 }
 
-type InstantStep = 'upload' | 'extract' | 'client' | 'medications' | 'verifyData' | 'reviewEmails'
-
-async function waitForWizardStep(page: Page, step: InstantStep, timeoutMs = 20_000) {
-  await expect
-    .poll(
-      () => {
-        const current = new URL(page.url()).searchParams.get('step')
-        return current ?? ''
-      },
-      { timeout: timeoutMs, message: `Timed out waiting for wizard step "${step}"` },
-    )
-    .toBe(step)
+async function waitForWizardStep(page: Page, step: string) {
+  await expectWizardStep(page, step)
 }
 
-async function clickNextToStep(page: Page, step: InstantStep) {
+async function clickNextToStep(page: Page, step: string) {
   await clickNext(page)
   await waitForWizardStep(page, step)
 }
 
-export async function waitForExtractStepReady(
-  page: Page,
-  options?: {
-    readyHeadings?: Array<string | RegExp>
-    timeoutMs?: number
-  },
-) {
-  const readyHeadings = options?.readyHeadings ?? [
-    /Review report data/i,
-    /Data Extracted/i,
-    /Confirmation Data Extracted/i,
-  ]
-  const timeoutMs = options?.timeoutMs ?? 45_000
-  const end = Date.now() + timeoutMs
-  while (Date.now() < end) {
-    const loading = await page
-      .getByText('Extracting Data...')
-      .first()
-      .isVisible()
-      .catch(() => false)
-    if (loading) {
-      await page.waitForTimeout(200)
-      continue
-    }
-
-    const hasReadyHeading = await Promise.all(
-      readyHeadings.map(async (heading) => {
-        if (heading instanceof RegExp) {
-          return page
-            .getByText(heading)
-            .first()
-            .isVisible()
-            .catch(() => false)
-        }
-        return page
-          .getByText(heading, { exact: false })
-          .first()
-          .isVisible()
-          .catch(() => false)
-      }),
-    ).then((states) => states.some(Boolean))
-
-    if (!hasReadyHeading) {
-      await page.waitForTimeout(200)
-      continue
-    }
-
-    const nextButton = await getNextButton(page)
-    if (
-      (await nextButton.isEnabled().catch(() => false)) ||
-      (await page
-        .getByTestId('report-client-confirmation')
-        .isVisible()
-        .catch(() => false))
-    ) {
-      return
-    }
-
-    await page.waitForTimeout(200)
-  }
-
-  throw new Error('Extract step did not become ready to advance.')
+export async function waitForExtractStepReady(page: Page, options?: { timeoutMs?: number }) {
+  await expect(page.getByTestId('parsed-report')).toBeVisible({ timeout: options?.timeoutMs ?? 45_000 })
+  await expect(page.getByTestId('parsed-report')).toHaveAttribute('data-results-complete', 'true')
 }
 
 async function ensureInstantExtractReady(page: Page) {
   await waitForWizardStep(page, 'extract')
-  await waitForExtractStepReady(page, {
-    readyHeadings: [/Review report data/i],
-  })
+  await waitForExtractStepReady(page)
 }
 
 // Selecting the client makes the report identity comparison possible. If it
@@ -463,15 +200,15 @@ export async function continueFromInstantClient(page: Page) {
     await clickNextToStep(page, 'client')
     await clickNextToStep(page, 'medications')
   }
-  await expect(page.getByRole('heading', { name: 'Verify medications', exact: true })).toBeVisible()
+  await expectWizardStep(page, 'medications')
 }
 
 async function ensureInstantVerifyDataReady(page: Page) {
   await waitForWizardStep(page, 'verifyData')
 
-  const decisionSection = page.getByText('Result decision').first()
+  const decisionSection = page.locator('#accept')
   if (await decisionSection.isVisible().catch(() => false)) {
-    const acceptResults = page.getByRole('radio', { name: /Accept result/i }).first()
+    const acceptResults = decisionSection
     await acceptResults.check()
   }
 
@@ -479,70 +216,40 @@ async function ensureInstantVerifyDataReady(page: Page) {
   await expect(nextButton).toBeEnabled({ timeout: 15_000 })
 }
 
-export async function goToEmailsStepFromInstant(page: Page, pdfPath: string, clientName?: string) {
+export async function goToInstantResults(page: Page, pdfPath: string, clientName: string) {
   await waitForWizardStep(page, 'upload')
   await uploadSinglePdf(page, pdfPath)
   await clickNextToStep(page, 'extract')
   await ensureInstantExtractReady(page)
   await clickNextToStep(page, 'client')
 
-  if (clientName) {
-    const hasSelectedClient = await page
-      .getByRole('heading', { name: /Selected Client/i })
-      .isVisible()
-      .catch(() => false)
-    if (!hasSelectedClient) {
-      await selectClientFromSearchDialog(page, clientName)
-    }
-
-    // Selecting the client can reveal a report/client name mismatch that was not knowable on the
-    // first extract pass. Revisit the extracted identity and explicitly confirm it when required.
-    await clickBack(page)
-    await ensureInstantExtractReady(page)
-    const mismatchConfirmation = page.getByRole('checkbox', {
-      name: 'This is the same person',
-    })
-    if (await mismatchConfirmation.isVisible().catch(() => false)) {
-      await mismatchConfirmation.check()
-    }
-    await clickNextToStep(page, 'client')
-  }
-
-  await clickNextToStep(page, 'medications')
+  await selectClientFromSearchDialog(page, clientName)
+  await continueFromInstantClient(page)
   await clickNextToStep(page, 'verifyData')
+}
+
+export async function goToEmailsStepFromInstant(page: Page, pdfPath: string, clientName: string) {
+  await goToInstantResults(page, pdfPath, clientName)
   await ensureInstantVerifyDataReady(page)
   await clickNextToStep(page, 'reviewEmails')
 }
 
+export async function goToLabScreenData(page: Page, pdfPath: string, testId: string) {
+  await uploadSinglePdf(page, pdfPath)
+  await clickNextToStep(page, 'extract')
+  await waitForExtractStepReady(page)
+  await clickNextToStep(page, 'matchCollection')
+  const candidate = page.getByTestId(`pending-test-${testId}`)
+  await candidate.focus()
+  await candidate.press('Space')
+  await expect(candidate).toHaveAttribute('aria-pressed', 'true')
+  await clickNextToStep(page, 'labScreenData')
+}
+
 export async function extractTestIdFromSuccess(page: Page): Promise<string> {
-  const viewButtonWithId = page.getByTestId('wizard-view-drug-test-button').first()
-  if (await viewButtonWithId.isVisible().catch(() => false)) {
-    const testId = await viewButtonWithId.getAttribute('data-drug-test-id')
-    if (testId) {
-      return testId
-    }
-  }
-
-  const link = page.locator('a[href*="/admin/collections/drug-tests/"]').first()
-  if (await link.isVisible().catch(() => false)) {
-    const href = await link.getAttribute('href')
-    const match = href?.match(/\/admin\/collections\/drug-tests\/([^/?#]+)/)
-    if (!match) {
-      throw new Error(`Unable to extract test id from success URL: ${href}`)
-    }
-    return match[1]
-  }
-
-  const viewButton = page.getByRole('button', { name: /View Drug Test/i }).first()
-  await expect(viewButton).toBeVisible({ timeout: 20_000 })
-  await viewButton.click({ force: true })
-  await page.waitForURL(/\/admin\/collections\/drug-tests\/[^/?#]+/i, { timeout: 20_000 })
-
-  const currentUrl = page.url()
-  const urlMatch = currentUrl.match(/\/admin\/collections\/drug-tests\/([^/?#]+)/i)
-  if (!urlMatch) {
-    throw new Error(`Unable to extract test id from browser URL: ${currentUrl}`)
-  }
-
-  return urlMatch[1]
+  const button = page.getByTestId('wizard-view-drug-test-button')
+  await expect(button).toBeVisible({ timeout: 30_000 })
+  const id = await button.getAttribute('data-drug-test-id')
+  if (!id) throw new Error('The completed collection must identify the saved test record')
+  return id
 }

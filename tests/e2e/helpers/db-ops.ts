@@ -401,7 +401,7 @@ async function seedFixtures(): Promise<FixtureContext> {
 
   const labScreen = await createClient(payload, {
     runId,
-    fullName: 'Tom V Vachon',
+    fullName: 'Test S Screening',
     emailPrefix: 'labscreen',
     referralEmails: [`labscreen.ref.${runId}@example.com`],
   })
@@ -409,7 +409,7 @@ async function seedFixtures(): Promise<FixtureContext> {
 
   const labConfirm = await createClient(payload, {
     runId,
-    fullName: 'Tom V Vachon',
+    fullName: 'Test C Confirmation',
     emailPrefix: 'labconfirm',
     referralEmails: [`labconfirm.ref.${runId}@example.com`],
   })

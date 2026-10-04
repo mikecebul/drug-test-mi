@@ -1,47 +1,26 @@
-# Test Fixtures
+# PDF regression fixtures
 
-This directory contains PDF test fixtures for the extractor tests.
+These committed reports are required by the extractor tests. Missing or unreadable
+fixtures fail the suite; they never silently skip an assertion in CI.
 
-## Setup for Local Development
+Regenerate the synthetic reports from the repository root:
 
-The committed PDFs in this directory must be synthetic or explicitly sanitized. Test production reports from their existing location on the developer laptop by setting the local-only environment variables in `.env.example`.
-
-### Required Files
-
-Synthetic fixtures may use the following structure:
-
-```
-fixtures/
-├── 11-panel-lab/
-│   ├── screening.pdf       # 11-panel lab screening result
-│   └── confirmation.pdf    # 11-panel lab with confirmation results
-├── 11-panel-lab-no-etg/
-│   └── screening.pdf       # B829 11-panel lab screening result with Alcohol (Ethanol), no EtG
-├── 17-panel-sos-lab/
-│   └── screening.pdf       # 17-panel SOS lab screening result
-├── etg-lab/
-│   └── screening.pdf       # EtG lab screening result
-└── 15-panel-instant/
-    └── screening.pdf       # 15-panel instant test result
-└── 17-panel-instant/
-    ├── all-neg.pdf         # 17-panel instant all-negative result
-    └── pos-kratom-morphine.pdf # 17-panel instant positive result
+```sh
+node scripts/generate-test-report-fixtures.mjs
 ```
 
-### File Naming Convention
+The generator uses fictional donors, fixed dates, and positioned PDF table cells.
+It also generates the lab-screen and lab-confirmation browser fixtures in
+`tests/e2e/fixtures/`, whose donor names and dates match the seeded pending tests.
+The two existing 17-panel instant PDFs remain as sanitized layout regressions.
 
-Files should follow this pattern: `{test-type}/{result-type}.pdf`
+Coverage includes every supported lab panel, 15/17-panel instant reports,
+all-negative and multiple-positive results, dilute specimens, incomplete rows,
+and confirmed-positive, confirmed-negative, and inconclusive analytes. Tests
+assert exact detected substances and identity, collection time, row completeness,
+and confidence rather than checking only that the return type looks valid.
 
-### CI/CD Behavior
-
-Tests that require fixtures will be **skipped** when the fixture files are not present.
-This allows CI/CD pipelines to pass while still running all other tests.
-
-The local regression matrix supports separate report variants for all-negative, multi-positive, lab screen, and LC-MS/MS confirmed-positive/confirmed-negative cases. Paths are supplied through environment variables so neither reports nor client-identifying paths are committed.
-
-### Important Notes
-
-- Do NOT commit actual PDF files to the repository (they may contain PII)
-- Store production reports outside the repository, or under the ignored `.pdf-test-reports/` directory
-- PDF.js is used directly through `pdfjs-dist/legacy/build/pdf.mjs`; tests assert coordinate-derived row completeness as well as extracted values
-- For CI/CD, consider creating synthetic/mock PDF fixtures without real data
+Keep production reports outside the repository or in ignored
+`.pdf-test-reports/`. Inspect local reports with
+`pnpm audit:pdf-parsing -- /path/to/private/reports`; those reports are not required
+for CI. The audit emits aggregate counts without report text or donor names.

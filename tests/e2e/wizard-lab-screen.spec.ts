@@ -8,242 +8,105 @@ import { seedFixtures, type FixtureContext } from './helpers/seed'
 import {
   clickBack,
   clickNext,
+  expectValidationError,
+  expectWizardStep,
   extractTestIdFromSuccess,
-  openWizard,
+  goToLabScreenData,
   selectWorkflow,
-  triggerNextValidation,
-  uploadSinglePdf,
-  waitForExtractStepReady,
 } from './helpers/wizard'
 
 let fixtures: FixtureContext
 
-async function ensureMatchSelected(page: Page) {
-  const headingPattern = new RegExp(
-    `${fixtures.clients.labScreen.firstName}\\s+.*${fixtures.clients.labScreen.lastName}`,
-    'i',
+async function openScreenData(page: Page) {
+  await goToLabScreenData(
+    page,
+    getE2EEnv({ pdfs: ['labScreen'] }).pdfLabScreenPath,
+    fixtures.tests.labScreenCollectedTestId,
   )
-  const candidateHeading = page.getByRole('heading', { name: headingPattern }).first()
-  await expect(candidateHeading).toBeVisible({ timeout: 20_000 })
-
-  const headingCard = candidateHeading.locator('xpath=ancestor::*[contains(@class, "cursor-pointer")][1]')
-  if ((await headingCard.count()) > 0) {
-    await headingCard.click()
-  } else {
-    await candidateHeading.click()
-  }
-  await expect(page.getByRole('button', { name: /^next$/i })).toBeEnabled()
-}
-
-function hasDecisionSection(page: Page) {
-  return page.getByText('Confirmation Decision Required')
-}
-
-async function resolveConfirmationDecision(page: Page) {
-  const nextButton = page.getByTestId('wizard-next-button')
-  const acceptRadio = page.getByRole('radio', { name: /Accept Results/i })
-  const missingDecisionError = page.getByText('Must select an option')
-  const missingSubstancesError = page.getByText('Please select at least one substance for confirmation testing')
-
-  await acceptRadio.check()
-  await expect(acceptRadio).toBeChecked()
-  if (await nextButton.isDisabled().catch(() => false)) {
-    const hasVisibleValidationError =
-      (await missingDecisionError.isVisible().catch(() => false)) ||
-      (await missingSubstancesError.isVisible().catch(() => false))
-
-    if (!hasVisibleValidationError) {
-      await triggerNextValidation(page)
-    }
-
-    await acceptRadio.check()
-    await expect(acceptRadio).toBeChecked()
-  }
-
-  await expect(nextButton).toBeEnabled({ timeout: 7_500 })
-}
-
-async function ensureLabScreenDataReadyToAdvance(page: Page) {
-  const nextButton = page.getByTestId('wizard-next-button')
-
-  for (let i = 0; i < 20; i += 1) {
-    const decisionVisible = await hasDecisionSection(page)
-      .isVisible()
-      .catch(() => false)
-    if (decisionVisible) {
-      await resolveConfirmationDecision(page)
-      return
-    }
-
-    const nextDisabled = await nextButton.isDisabled().catch(() => true)
-    if (!nextDisabled) {
-      // Give async preview/validation a beat to settle before advancing.
-      await page.waitForTimeout(200)
-      const decisionAfterSettle = await hasDecisionSection(page)
-        .isVisible()
-        .catch(() => false)
-      const nextStillEnabled = await nextButton.isEnabled().catch(() => false)
-      if (!decisionAfterSettle && nextStillEnabled) {
-        return
-      }
-    } else {
-      await page.waitForTimeout(200)
-    }
-  }
-
-  if (
-    await hasDecisionSection(page)
-      .isVisible()
-      .catch(() => false)
-  ) {
-    await resolveConfirmationDecision(page)
-    return
-  }
-
-  await triggerNextValidation(page)
-  const alertText = (
-    await page
-      .getByRole('alert')
-      .first()
-      .textContent()
-      .catch(() => null)
-  )?.trim()
-  throw new Error(
-    `Lab screen step stayed blocked before advancing${alertText ? `: ${alertText}` : ' without a visible validation alert'}`,
-  )
+  await expect(page.getByRole('checkbox', { name: /^Buprenorphine\b/i })).toBeChecked()
 }
 
 test.describe('Wizard Lab Screen Workflow', () => {
-  test.describe.configure({ mode: 'serial' })
-
   test.beforeAll(async () => {
     fixtures = await seedFixtures()
     const env = getE2EEnv({ pdfs: ['labScreen'] })
-    if (env.enableMailpitAssertions) {
-      await ensureMailpitReachable(env.mailpitApiBase)
-    }
+    if (env.enableMailpitAssertions) await ensureMailpitReachable(env.mailpitApiBase)
   })
-
-  test.afterAll(async () => {
-    await cleanupFixtures(fixtures)
-  })
-
+  test.afterAll(async () => cleanupFixtures(fixtures))
   test.beforeEach(async ({ page }) => {
     await loginAdmin(page, fixtures.admin)
-    await openWizard(page)
     await selectWorkflow(page, 'Enter Lab Screen Data')
   })
 
-  test('validates upload and confirmation-decision flow with back-forward navigation', async ({ page }) => {
-    const env = getE2EEnv({ pdfs: ['labScreen'] })
-
-    await clickNext(page)
-    await expect(page.getByText('Please upload a PDF file')).toBeVisible()
-
-    await uploadSinglePdf(page, env.pdfLabScreenPath)
-    await clickNext(page)
-    await waitForExtractStepReady(page, {
-      readyHeadings: [/Extract Data/i],
-    })
-    await expect(page.getByText(/Extracted with (HIGH|MEDIUM) Confidence/i)).toBeVisible()
-    await expect(page.getByText(/Results Incomplete/i)).toHaveCount(0)
-    await clickNext(page)
-
-    const matchRequiredAlert = page.getByText('Please select a pending test to continue')
-    if (await matchRequiredAlert.isVisible().catch(() => false)) {
+  test(
+    'requires a report and a valid confirmation decision, retaining edits across Back',
+    { tag: '@smoke' },
+    async ({ page }) => {
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
       await clickNext(page)
-      await expect(matchRequiredAlert).toBeVisible()
-    }
+      await expectValidationError(page)
+      await expectWizardStep(page, 'upload')
+      await openScreenData(page)
 
-    await ensureMatchSelected(page)
-    await clickNext(page)
+      const fentanyl = page.getByRole('checkbox', { name: /^Fentanyl\b/i })
+      await fentanyl.check()
+      await expect(page.locator('#accept')).toBeVisible()
+      await clickNext(page)
+      await expectWizardStep(page, 'labScreenData')
+      await expect(page.getByRole('radiogroup')).toHaveAttribute('aria-invalid', 'true')
 
-    await expect(page.getByText('Verify Lab Screening Data')).toBeVisible()
-    const decisionSection = hasDecisionSection(page)
-
-    if (await decisionSection.isVisible().catch(() => false)) {
-      await expect(page.getByText('$45/substance.', { exact: false })).toBeVisible()
-      await expect(page.getByText('$30/substance.', { exact: false })).toHaveCount(0)
-
-      await page.getByLabel(/Fentanyl/i).check()
-      await expect(page.getByText('Must select an option')).toBeVisible()
-
-      await page.getByRole('radio', { name: /Request Confirmation Testing/i }).click()
+      await page.locator('#request-confirmation').check()
       await page.getByRole('button', { name: /Clear/i }).click()
-      await triggerNextValidation(page)
-      await expect(page.getByText('Please select at least one substance for confirmation testing')).toBeVisible()
+      await clickNext(page)
+      await expectValidationError(page)
+      await expectWizardStep(page, 'labScreenData')
 
-      await resolveConfirmationDecision(page)
-    }
+      await page.locator('#accept').check()
+      await clickNext(page)
+      await expectWizardStep(page, 'confirm')
+      await clickBack(page)
+      await expectWizardStep(page, 'labScreenData')
+      await expect(page.locator('#accept')).toBeChecked()
+      await expect(fentanyl).toBeChecked()
+      await clickNext(page)
+      await expectWizardStep(page, 'confirm')
+      await clickNext(page)
+      await expectWizardStep(page, 'emails')
+      expect(errors).toEqual([])
+    },
+  )
 
-    await ensureLabScreenDataReadyToAdvance(page)
-    await clickNext(page)
-    await expect(page.getByText('Confirm Lab Screening')).toBeVisible()
-
-    await clickBack(page)
-    await expect(page.getByText('Verify Lab Screening Data')).toBeVisible()
-
-    await ensureLabScreenDataReadyToAdvance(page)
-    await clickNext(page)
-    await expect(page.getByText('Confirm Lab Screening')).toBeVisible()
-
-    await clickNext(page)
-    await expect(page.getByText('Review Screening Notification Emails')).toBeVisible()
-  })
-
-  test('submits lab-screen workflow, updates seeded collected test, and verifies screened-stage email with attachment', async ({
-    page,
-  }) => {
-    const env = getE2EEnv({ pdfs: ['labScreen'] })
-
-    await uploadSinglePdf(page, env.pdfLabScreenPath)
-    await clickNext(page)
-    await waitForExtractStepReady(page, {
-      readyHeadings: [/Extract Data/i],
-    })
-    await clickNext(page)
-    await ensureMatchSelected(page)
-    await clickNext(page)
-
-    await ensureLabScreenDataReadyToAdvance(page)
-    await clickNext(page)
-    await clickNext(page)
-
-    await expect(page.getByText('Review Screening Notification Emails')).toBeVisible()
-
-    const testStart = new Date()
-    await page.getByRole('button', { name: /^Update Test Record$/i }).click()
-
-    await expect(page.getByRole('heading', { name: 'Collection saved' })).toBeVisible({
-      timeout: 30_000,
-    })
-
-    const testId = await extractTestIdFromSuccess(page)
-    fixtures.created.drugTestIds.push(testId)
-
-    const testRecord = await assertNotificationSent({ testId, stage: 'screened' })
-    expect(testRecord.screeningStatus).toBe('complete')
-
-    const expectedSubject = `Drug Test Results - ${fixtures.clients.labScreen.firstName} ${fixtures.clients.labScreen.lastName}`
-
-    if (env.enableMailpitAssertions) {
-      await findMailpitMessages({
-        apiBase: env.mailpitApiBase,
-        createdAfter: testStart,
-        to: fixtures.clients.labScreen.email,
-        subject: expectedSubject,
-        requireAttachment: 'some',
-        timeoutMs: 45_000,
-      })
-
-      await findMailpitMessages({
-        apiBase: env.mailpitApiBase,
-        createdAfter: testStart,
-        to: fixtures.clients.labScreen.referralRecipients[0],
-        subject: expectedSubject,
-        requireAttachment: 'some',
-        timeoutMs: 45_000,
-      })
-    }
-  })
+  test(
+    'saves screening results on the selected collection and sends report attachments',
+    { tag: '@smoke' },
+    async ({ page }) => {
+      const env = getE2EEnv({ pdfs: ['labScreen'] })
+      await openScreenData(page)
+      await clickNext(page)
+      await expectWizardStep(page, 'confirm')
+      await clickNext(page)
+      await expectWizardStep(page, 'emails')
+      const started = new Date()
+      await page.getByTestId('wizard-next-button').click()
+      const testId = await extractTestIdFromSuccess(page)
+      expect(testId).toBe(fixtures.tests.labScreenCollectedTestId)
+      const record = await assertNotificationSent({ testId, stage: 'screened' })
+      expect(record.screeningStatus).toBe('complete')
+      expect(record.detectedSubstances).toEqual(['buprenorphine'])
+      expect(record.testDocument).toBeTruthy()
+      if (env.enableMailpitAssertions) {
+        for (const to of [fixtures.clients.labScreen.email, ...fixtures.clients.labScreen.referralRecipients]) {
+          await findMailpitMessages({
+            apiBase: env.mailpitApiBase,
+            createdAfter: started,
+            to,
+            subject: /Drug Test Results/i,
+            requireAttachment: 'some',
+            timeoutMs: 45_000,
+          })
+        }
+      }
+    },
+  )
 })

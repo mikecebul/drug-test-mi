@@ -82,40 +82,37 @@ jobs:
     name: ui-smoke
     runs-on: ubuntu-latest
     services:
-      mongodb:
-        image: mongo:7
-        ports:
-          - 27017:27017
       mailpit:
         image: axllent/mailpit:latest
         ports:
           - 1025:1025
           - 8025:8025
     env:
-      DATABASE_URI: mongodb://127.0.0.1:27017/drug-test-mi-ci
+      DATABASE_URI: mongodb://127.0.0.1:27017/drug-test-mi-ci?replicaSet=ci
       PAYLOAD_SECRET: ci-payload-secret
       PREVIEW_SECRET: ci-preview-secret
       NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
       NEXT_PUBLIC_SERVER_URL: http://127.0.0.1:3000
-      NEXT_PUBLIC_IS_LIVE: 'false'
+      NEXT_PUBLIC_IS_LIVE: 'true'
       EMAIL_TEST_MODE: 'false'
       EMAIL_HOST: 127.0.0.1
       EMAIL_PORT: '1025'
-      S3_BUCKET: ci-bucket
+      NEXT_PUBLIC_S3_HOSTNAME: ''
+      S3_BUCKET: ''
       S3_ACCESS_KEY_ID: ci-access-key
       S3_SECRET_ACCESS_KEY: ci-secret-key
       S3_REGION: auto
       S3_ENDPOINT: http://127.0.0.1:9000
       STRIPE_SECRET_KEY: sk_test_ci
       STRIPE_WEBHOOKS_ENDPOINT_SECRET: whsec_ci
-      RESEND_API_KEY: re_ci
-      PAYLOAD_ADMIN_AUTOLOGIN_ENABLED: 'true'
+      RESEND_API_KEY: ''
+      PAYLOAD_ADMIN_AUTOLOGIN_ENABLED: 'false'
       PAYLOAD_ADMIN_AUTOLOGIN_EMAIL: e2e.admin.autologin@example.com
       PAYLOAD_ADMIN_AUTOLOGIN_PASSWORD: StrongPass123!
       PLAYWRIGHT_WORKERS: '1'
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
       REDWOOD_AUTOMATION_ENABLED: 'false'
-      E2E_ENABLE_MAILPIT_ASSERTIONS: 'false'
+      E2E_ENABLE_MAILPIT_ASSERTIONS: 'true'
       E2E_REQUIRE_EMAIL_TEST_MODE_FALSE: 'true'
       NEXT_TELEMETRY_DISABLED: '1'
       CI: 'true'
@@ -138,18 +135,23 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium webkit
 
-      - name: Wait for MongoDB port
+      - name: Start transactional workflow database
         run: |
+          docker run -d --name workflow-mongo -p 127.0.0.1:27017:27017 mongo:7 --replSet ci --bind_ip_all
           for _ in $(seq 1 30); do
-            if timeout 1 bash -c '</dev/tcp/127.0.0.1/27017' 2>/dev/null; then
-              echo "MongoDB port is ready."
-              exit 0
+            if docker exec workflow-mongo mongosh --quiet --eval 'db.adminCommand({ ping: 1 })' > /dev/null; then
+              break
             fi
-
             sleep 1
           done
-
-          echo "Timed out waiting for MongoDB port."
+          docker exec workflow-mongo mongosh --quiet --eval 'rs.initiate({_id: "ci", members: [{_id: 0, host: "127.0.0.1:27017"}]})'
+          for _ in $(seq 1 30); do
+            if docker exec workflow-mongo mongosh --quiet --eval 'if (!db.hello().isWritablePrimary) quit(1)' > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Timed out waiting for transactional MongoDB primary."
           exit 1
 
       - name: Start app server
@@ -178,10 +180,8 @@ jobs:
           tail -n 200 /tmp/next-dev.log || true
           exit 1
 
-      - name: Run UI smoke tests
-        run: |
-          pnpm test:e2e:smoke
-          pnpm test:e2e:pdf-browser
+      - name: Run all workflow tests and Safari PDF regression
+        run: pnpm test:e2e
 
       - name: Print app log on failure
         if: failure()
@@ -193,6 +193,10 @@ jobs:
           if [ -f /tmp/next-dev.pid ] && kill -0 "$(cat /tmp/next-dev.pid)" 2>/dev/null; then
             kill "$(cat /tmp/next-dev.pid)" || true
           fi
+
+      - name: Stop workflow database
+        if: always()
+        run: docker rm -f workflow-mongo || true
 
       - name: Upload Playwright report
         if: always()

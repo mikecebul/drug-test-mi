@@ -128,51 +128,53 @@ test.describe('Standard staff views and account payments', () => {
     expect((await payload.findByID({ collection: 'courts', id: fixtures.referrals.court.id })).isBillable).toBe(true)
   })
 
-  test('lets a standard admin choose self-pay in the payment screen and continue with the balance owing', async ({
-    page,
-  }) => {
-    const payload = await getPayloadClient()
-    const client = fixtures.clients.instant
-    const booking = await payload.create({
-      collection: 'bookings',
-      data: {
-        title: 'Staff payment UI',
-        type: '15min',
-        status: 'confirmed',
-        startTime: new Date().toISOString(),
-        endTime: new Date(Date.now() + 900000).toISOString(),
-        attendeeName: client.fullName,
-        attendeeEmail: client.email,
-        relatedClient: client.id,
-        organizer: { name: 'Local test', email: 'local@example.test' },
-        scheduledTestType: '11-panel-lab',
-        payment: { amountDue: 80, amountPaid: 0, status: 'unpaid' },
-      },
-      overrideAccess: true,
-    })
-    fixtures.created.bookingIds = [...(fixtures.created.bookingIds || []), booking.id]
-    await loginAdmin(page, fixtures.admin)
-    await page.goto(`/admin/drug-test-upload?workflow=guided&step=payment&bookingId=${booking.id}`)
-    await expect(page.getByText('Referral will be invoiced', { exact: true })).toBeVisible()
-    await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toBeHidden()
-    await page.screenshot({ path: test.info().outputPath('payment-referral.png'), fullPage: true })
-    const billReferral = page.getByRole('switch', { name: 'Bill this referral', exact: true })
-    await expect(billReferral).toBeChecked()
-    await billReferral.click()
-    await expect(billReferral).not.toBeChecked()
-    await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toHaveValue('0')
-    await expect(page.getByTestId('wizard-next-button')).toHaveText(/Continue with balance owing/)
-    await page.screenshot({ path: test.info().outputPath('payment-client-exception.png'), fullPage: true })
-    await page.getByTestId('wizard-next-button').click()
-    const confirmation = page.getByRole('alertdialog', { name: 'Continue without payment?' })
-    await expect(confirmation).toBeVisible()
-    await confirmation.getByRole('button', { name: 'Continue', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Prepare lab collection' })).toBeVisible()
-    const saved = await payload.findByID({ collection: 'bookings', id: booking.id, depth: 0 })
-    expect(saved.billingResponsibility?.payer).toBe('client')
-    expect(saved.payment?.amountPaid).toBe(0)
-    expect(saved.payment?.collectedAt).toBeTruthy()
-  })
+  test(
+    'lets a standard admin choose self-pay in the payment screen and continue with the balance owing',
+    { tag: '@smoke' },
+    async ({ page }) => {
+      const payload = await getPayloadClient()
+      const client = fixtures.clients.instant
+      const booking = await payload.create({
+        collection: 'bookings',
+        data: {
+          title: 'Staff payment UI',
+          type: '15min',
+          status: 'confirmed',
+          startTime: new Date().toISOString(),
+          endTime: new Date(Date.now() + 900000).toISOString(),
+          attendeeName: client.fullName,
+          attendeeEmail: client.email,
+          relatedClient: client.id,
+          organizer: { name: 'Local test', email: 'local@example.test' },
+          scheduledTestType: '11-panel-lab',
+          payment: { amountDue: 80, amountPaid: 0, status: 'unpaid' },
+        },
+        overrideAccess: true,
+      })
+      fixtures.created.bookingIds = [...(fixtures.created.bookingIds || []), booking.id]
+      await loginAdmin(page, fixtures.admin)
+      await page.goto(`/admin/drug-test-upload?workflow=guided&step=payment&bookingId=${booking.id}`)
+      await expect(page.getByText('Referral will be invoiced', { exact: true })).toBeVisible()
+      await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toBeHidden()
+      await page.screenshot({ path: test.info().outputPath('payment-referral.png'), fullPage: true })
+      const billReferral = page.getByRole('switch', { name: 'Bill this referral', exact: true })
+      await expect(billReferral).toBeChecked()
+      await billReferral.click()
+      await expect(billReferral).not.toBeChecked()
+      await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toHaveValue('0')
+      await expect(page.getByTestId('wizard-next-button')).toHaveText(/Continue with balance owing/)
+      await page.screenshot({ path: test.info().outputPath('payment-client-exception.png'), fullPage: true })
+      await page.getByTestId('wizard-next-button').click()
+      const confirmation = page.getByRole('alertdialog', { name: 'Continue without payment?' })
+      await expect(confirmation).toBeVisible()
+      await confirmation.getByRole('button', { name: 'Continue', exact: true }).click()
+      await expect(page.getByRole('heading', { name: 'Prepare lab collection' })).toBeVisible()
+      const saved = await payload.findByID({ collection: 'bookings', id: booking.id, depth: 0 })
+      expect(saved.billingResponsibility?.payer).toBe('client')
+      expect(saved.payment?.amountPaid).toBe(0)
+      expect(saved.payment?.collectedAt).toBeTruthy()
+    },
+  )
 
   test('rejects concurrent payer writes when transactions are unavailable', async () => {
     const payload = await getPayloadClient()
@@ -318,70 +320,77 @@ test.describe('Standard staff views and account payments', () => {
     expect((await payload.findByID({ collection: 'clients', id: fixtures.clients.instant.id })).creditBalance).toBe(10)
   })
 
-  test('records account credit without a booking and reconciles a lost response with the same operation', async ({
-    page,
-  }) => {
-    const payload = await getPayloadClient()
-    // Arrange this balance independently of the preceding service regression.
-    await payload.update({
-      collection: 'drug-tests',
-      id: clientDebtId,
-      data: { payment: { status: 'paid', amountDue: 40, amountPaid: 40, balanceDue: 0 } },
-      overrideAccess: true,
-    })
-    await payload.update({
-      collection: 'clients',
-      id: fixtures.clients.instant.id,
-      data: { creditBalance: 10 },
-      overrideAccess: true,
-    })
-    await loginAdmin(page, fixtures.admin)
-    await page.goto(`/admin/collect-payment?clientId=${fixtures.clients.instant.id}`)
-    await expect(page.getByRole('heading', { name: 'Collect payment', exact: true })).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByRole('spinbutton', { name: 'Amount received', exact: true })).toBeEnabled({
-      timeout: 30_000,
-    })
-    await expect(page.getByRole('radio', { name: 'Card', exact: true })).toBeDisabled()
-    await page.getByRole('spinbutton', { name: 'Amount received', exact: true }).fill('20')
-    await page.getByRole('checkbox', { name: /Email receipt/i }).uncheck()
-    const bookingsBefore = (
-      await payload.find({ collection: 'bookings', where: { relatedClient: { equals: fixtures.clients.instant.id } } })
-    ).totalDocs
-    let recordedRequest: { operationId: string } | undefined
-    let intercepted = false
-    await page.route('**/api/account-payments', async (route) => {
-      if (route.request().method() !== 'POST' || intercepted) return route.continue()
-      intercepted = true
-      recordedRequest = route.request().postDataJSON()
-      const response = await route.fetch()
-      expect(response.ok()).toBe(true)
-      await route.abort('failed') // The server committed, but the browser did not receive success.
-    })
-    await page.getByRole('button', { name: 'Record $20.00 cash payment', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'Check payment status', exact: true })).toBeEnabled({
-      timeout: 30_000,
-    })
-    await expect(page.getByRole('spinbutton', { name: 'Amount received', exact: true })).toBeDisabled()
-    await expect(page.getByRole('button', { name: 'Change client', exact: true })).toBeDisabled()
-    await page.getByRole('button', { name: 'Check payment status', exact: true }).click()
-    await expect(page.getByText('Payment recorded', { exact: true })).toBeVisible({ timeout: 30_000 })
-    expect(
-      (
-        await payload.find({
-          collection: 'payments',
-          where: { accountOperationId: { equals: recordedRequest!.operationId } },
-        })
-      ).totalDocs,
-    ).toBe(1)
-    expect((await payload.findByID({ collection: 'clients', id: fixtures.clients.instant.id })).creditBalance).toBe(30)
-    expect(
-      (
+  test(
+    'records account credit without a booking and reconciles a lost response with the same operation',
+    { tag: '@smoke' },
+    async ({ page }) => {
+      const payload = await getPayloadClient()
+      // Arrange this balance independently of the preceding service regression.
+      await payload.update({
+        collection: 'drug-tests',
+        id: clientDebtId,
+        data: { payment: { status: 'paid', amountDue: 40, amountPaid: 40, balanceDue: 0 } },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'clients',
+        id: fixtures.clients.instant.id,
+        data: { creditBalance: 10 },
+        overrideAccess: true,
+      })
+      await loginAdmin(page, fixtures.admin)
+      await page.goto(`/admin/collect-payment?clientId=${fixtures.clients.instant.id}`)
+      await expect(page.getByRole('heading', { name: 'Collect payment', exact: true })).toBeVisible({ timeout: 30_000 })
+      await expect(page.getByRole('spinbutton', { name: 'Amount received', exact: true })).toBeEnabled({
+        timeout: 30_000,
+      })
+      await expect(page.getByRole('radio', { name: 'Card', exact: true })).toBeDisabled()
+      await page.getByRole('spinbutton', { name: 'Amount received', exact: true }).fill('20')
+      await page.getByRole('checkbox', { name: /Email receipt/i }).uncheck()
+      const bookingsBefore = (
         await payload.find({
           collection: 'bookings',
           where: { relatedClient: { equals: fixtures.clients.instant.id } },
         })
-      ).totalDocs,
-    ).toBe(bookingsBefore)
-    expect((await payload.findByID({ collection: 'drug-tests', id: referralDebtId })).payment?.balanceDue).toBe(80)
-  })
+      ).totalDocs
+      let recordedRequest: { operationId: string } | undefined
+      let intercepted = false
+      await page.route('**/api/account-payments', async (route) => {
+        if (route.request().method() !== 'POST' || intercepted) return route.continue()
+        intercepted = true
+        recordedRequest = route.request().postDataJSON()
+        const response = await route.fetch()
+        expect(response.ok()).toBe(true)
+        await route.abort('failed') // The server committed, but the browser did not receive success.
+      })
+      await page.getByRole('button', { name: 'Record $20.00 cash payment', exact: true }).click()
+      await expect(page.getByRole('button', { name: 'Check payment status', exact: true })).toBeEnabled({
+        timeout: 30_000,
+      })
+      await expect(page.getByRole('spinbutton', { name: 'Amount received', exact: true })).toBeDisabled()
+      await expect(page.getByRole('button', { name: 'Change client', exact: true })).toBeDisabled()
+      await page.getByRole('button', { name: 'Check payment status', exact: true }).click()
+      await expect(page.getByText('Payment recorded', { exact: true })).toBeVisible({ timeout: 30_000 })
+      expect(
+        (
+          await payload.find({
+            collection: 'payments',
+            where: { accountOperationId: { equals: recordedRequest!.operationId } },
+          })
+        ).totalDocs,
+      ).toBe(1)
+      expect((await payload.findByID({ collection: 'clients', id: fixtures.clients.instant.id })).creditBalance).toBe(
+        30,
+      )
+      expect(
+        (
+          await payload.find({
+            collection: 'bookings',
+            where: { relatedClient: { equals: fixtures.clients.instant.id } },
+          })
+        ).totalDocs,
+      ).toBe(bookingsBefore)
+      expect((await payload.findByID({ collection: 'drug-tests', id: referralDebtId })).payment?.balanceDue).toBe(80)
+    },
+  )
 })

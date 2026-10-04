@@ -71,10 +71,7 @@ export const LabConfirmationDataStep = withForm({
     const substanceOptions = getSubstanceOptions(testType)
 
     const handleAddResult = () => {
-      const updated = [
-        ...confirmationResults,
-        { substance: '', result: 'confirmed-negative' as const, notes: '' },
-      ]
+      const updated = [...confirmationResults, { substance: '', result: 'confirmed-negative' as const, notes: '' }]
       form.setFieldValue('labConfirmationData.confirmationResults', updated)
     }
 
@@ -117,21 +114,13 @@ export const LabConfirmationDataStep = withForm({
 
     return (
       <div className="space-y-6">
-        <FieldGroupHeader
-          title="Enter Confirmation Results"
-          description="Enter LC-MS/MS confirmation test results"
-        />
+        <FieldGroupHeader title="Enter Confirmation Results" description="Enter LC-MS/MS confirmation test results" />
 
         {/* Client Info & Medications */}
-        {client && (
-          <HeadshotCaptureCard client={client} onHeadshotLinked={handleHeadshotLinked} />
-        )}
+        {client && <HeadshotCaptureCard client={client} onHeadshotLinked={handleHeadshotLinked} />}
 
         {clientMedications.length > 0 && (
-          <MedicationDisplayField
-            medicationSnapshot={clientMedications}
-            title="Medications at Collection Time"
-          />
+          <MedicationDisplayField medicationSnapshot={clientMedications} title="Medications at Collection Time" />
         )}
 
         {/* Matched Test Context + Original Screening Results */}
@@ -143,7 +132,9 @@ export const LabConfirmationDataStep = withForm({
                   <p className="text-muted-foreground text-[11px] font-medium tracking-[0.12em] uppercase">
                     Collection Date
                   </p>
-                  <p className="text-base leading-tight font-medium">{format(new Date(matchCollection.collectionDate), 'PPp')}</p>
+                  <p className="text-base leading-tight font-medium">
+                    {format(new Date(matchCollection.collectionDate), 'PPp')}
+                  </p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-muted-foreground text-[11px] font-medium tracking-[0.12em] uppercase">Test Type</p>
@@ -152,12 +143,16 @@ export const LabConfirmationDataStep = withForm({
               </div>
 
               <div className="space-y-1.5">
-                <p className="text-muted-foreground text-[11px] font-medium tracking-[0.12em] uppercase">Record Status</p>
+                <p className="text-muted-foreground text-[11px] font-medium tracking-[0.12em] uppercase">
+                  Record Status
+                </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="default" className="border-primary/20 bg-primary/10 text-primary hover:bg-primary/10">
                     Confirmed Match
                   </Badge>
-                  {matchCollection.screeningStatus && <Badge variant="outline">{matchCollection.screeningStatus}</Badge>}
+                  {matchCollection.screeningStatus && (
+                    <Badge variant="outline">{matchCollection.screeningStatus}</Badge>
+                  )}
                 </div>
               </div>
 
@@ -233,6 +228,7 @@ export const LabConfirmationDataStep = withForm({
                     variant="ghost"
                     size="sm"
                     onClick={() => handleRemoveResult(index)}
+                    aria-label="Remove confirmation result"
                     className="text-destructive hover:text-destructive absolute top-2 right-2"
                   >
                     <Trash2 className="h-4 w-4" />

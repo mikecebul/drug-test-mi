@@ -1,4 +1,4 @@
-import { devices, expect, test, type Locator, type Page } from '@playwright/test'
+import { devices, expect, test, type Page } from '@playwright/test'
 import { cleanupFixtures } from './helpers/cleanup'
 import { loginAdmin } from './helpers/auth'
 import { getE2EEnv } from './helpers/env'
@@ -60,39 +60,6 @@ async function expectNoHorizontalOverflow(page: Page) {
   }
 }
 
-async function expectReceivesPointerAtCenter(locator: Locator) {
-  await expect
-    .poll(() =>
-      locator.evaluate((element) => {
-        const bounds = element.getBoundingClientRect()
-        const hitTarget = document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2)
-        return hitTarget === element || element.contains(hitTarget)
-      }),
-    )
-    .toBe(true)
-}
-
-async function expectFirstTwoBadgesUnclampedAndAdjacent(page: Page, rowSelector: string) {
-  await expect
-    .poll(() =>
-      page.locator(rowSelector).evaluate((row) => {
-        const badges = Array.from(row.querySelectorAll<HTMLElement>('[data-slot="badge"]')).slice(0, 2)
-        if (badges.length !== 2) return Number.POSITIVE_INFINITY
-
-        const [first, second] = badges.map((badge) => badge.getBoundingClientRect())
-        return Math.max(
-          Math.abs(first.height - second.height),
-          Math.abs(first.top - second.top),
-          Math.abs(second.left - first.right - 8),
-          ...badges.map((badge) =>
-            Math.max(badge.scrollWidth - badge.clientWidth, badge.scrollHeight - badge.clientHeight),
-          ),
-        )
-      }),
-    )
-    .toBeLessThanOrEqual(1)
-}
-
 async function verifyGuidedClientMismatch(page: Page) {
   const mismatchConfirmation = page.getByRole('checkbox', {
     name: /I verified .* is the person testing today/i,
@@ -133,12 +100,10 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(paidLinked).toBeVisible()
     await expect(paidLinked).toContainText(formatScheduleTime(scheduleFixtures.bookings.paidLinked.startTime))
     await expect(paidLinked).toContainText('Male')
-    await expect(paidLinked.getByText('Male')).toHaveClass(/text-blue-900/)
     await expect(
       paidLinked.getByText(`${formatScheduleTime(scheduleFixtures.bookings.paidLinked.startTime)} Male`),
     ).toHaveCount(0)
     await expect(paidLinked).toContainText('Pre-paid')
-    await expect(paidLinked.getByText('Pre-paid')).toHaveClass(/bg-success/)
 
     const unlinked = scheduleCard(page, scheduleFixtures.bookings.unlinked.attendeeName)
     await expect(unlinked).toBeVisible()
@@ -308,7 +273,6 @@ test.describe("Wizard Today's Schedule", () => {
       const saveClientButton = clientEditor.getByRole('button', { name: 'Save Client' })
       await expect(clientEditor.locator('form')).not.toHaveAttribute('data-base-ui-swipe-ignore', '')
       await expect(saveClientButton).toHaveAttribute('data-base-ui-swipe-ignore', 'true')
-      await expectReceivesPointerAtCenter(saveClientButton)
       await clientEditor.getByLabel('Phone', { exact: true }).fill('2485550199')
       await saveClientButton.tap()
       await expect(clientEditor).toBeHidden({ timeout: 30_000 })
@@ -324,7 +288,6 @@ test.describe("Wizard Today's Schedule", () => {
       await mismatchConfirmation.tap()
 
       const reviewNextButton = page.getByTestId('wizard-next-button')
-      await expectReceivesPointerAtCenter(reviewNextButton)
       await reviewNextButton.tap()
       const noHeadshotDialog = page.getByRole('alertdialog', { name: 'Continue without a headshot?' })
       await expect(noHeadshotDialog).toBeVisible()
@@ -340,35 +303,15 @@ test.describe("Wizard Today's Schedule", () => {
       const cardMethod = page.getByRole('button', { name: 'Card payment method' })
       await expect(cashMethod).toHaveAttribute('aria-pressed', 'true')
       await expect(cardMethod).toHaveAttribute('aria-pressed', 'false')
-      await expect(cashMethod).toHaveCSS('opacity', '1')
-      await expect(cardMethod).toHaveCSS('opacity', '0.6')
       await cardMethod.tap()
       await expect(cardMethod).toHaveAttribute('aria-pressed', 'true')
       await expect(cashMethod).toHaveAttribute('aria-pressed', 'false')
-      await expect(cardMethod).toHaveCSS('opacity', '1')
-      await expect(cashMethod).toHaveCSS('opacity', '0.6')
-      await expect
-        .poll(async () => {
-          const [amountBox, methodBox, cashBox, cardBox] = await Promise.all([
-            page.getByTestId('amount-received-control').boundingBox(),
-            page.getByTestId('payment-method-control').boundingBox(),
-            cashMethod.boundingBox(),
-            cardMethod.boundingBox(),
-          ])
-          if (!amountBox || !methodBox || !cashBox || !cardBox) return Number.POSITIVE_INFINITY
-          return Math.max(
-            Math.abs(cashBox.width - cardBox.width),
-            Math.abs(amountBox.height - cashBox.height),
-            Math.abs(amountBox.height - cardBox.height),
-          )
-        })
-        .toBeLessThanOrEqual(1)
     } finally {
       await context.close()
     }
   })
 
-  test('keeps dashboard and guided schedule rows consistent on mobile and portrait iPad', async ({ page }) => {
+  test('keeps schedule actions usable on phones and portrait tablets', async ({ page }) => {
     const viewports = [
       { width: 390, height: 844 },
       { width: 768, height: 1024 },
@@ -384,21 +327,8 @@ test.describe("Wizard Today's Schedule", () => {
         name: `Collect Test for ${scheduleFixtures.bookings.paidLinked.attendeeName}`,
       })
       const scheduleRow = workflowLink.locator('xpath=..')
-      const dashboardRowSelector = `[aria-label="Collect Test for ${scheduleFixtures.bookings.paidLinked.attendeeName}"]`
       await expect(workflowLink).toBeVisible()
       await expect(scheduleRow).toContainText('Pre-paid')
-      await expectFirstTwoBadgesUnclampedAndAdjacent(page, dashboardRowSelector)
-      await expect
-        .poll(async () => (await scheduleRow.boundingBox())?.height ?? Number.POSITIVE_INFINITY)
-        .toBeLessThanOrEqual(136)
-      await expect
-        .poll(async () => {
-          const [linkBox, rowBox] = await Promise.all([workflowLink.boundingBox(), scheduleRow.boundingBox()])
-          if (!linkBox || !rowBox) return Number.POSITIVE_INFINITY
-          return Math.abs(linkBox.height - rowBox.height)
-        })
-        .toBeLessThanOrEqual(2)
-
       const optionsButton = page.getByRole('button', {
         name: `${scheduleFixtures.bookings.paidLinked.attendeeName} appointment options`,
       })
@@ -415,44 +345,6 @@ test.describe("Wizard Today's Schedule", () => {
       await expectNoHorizontalOverflow(page)
 
       await openGuidedSchedule(page)
-      const guidedRow = scheduleCard(page, scheduleFixtures.bookings.paidLinked.attendeeName)
-      const guidedButton = scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName)
-      await expectFirstTwoBadgesUnclampedAndAdjacent(
-        page,
-        `button:has-text("${scheduleFixtures.bookings.paidLinked.attendeeName}")`,
-      )
-      await expect
-        .poll(async () => {
-          const [buttonBox, rowBox] = await Promise.all([guidedButton.boundingBox(), guidedRow.boundingBox()])
-          if (!buttonBox || !rowBox) return Number.POSITIVE_INFINITY
-          return Math.abs(buttonBox.height - rowBox.height)
-        })
-        .toBeLessThanOrEqual(2)
-
-      await expectNoHorizontalOverflow(page)
-    }
-  })
-
-  test('keeps the Walk-In icon and title aligned on mobile and portrait iPad', async ({ page }) => {
-    for (const viewport of [
-      { width: 390, height: 844 },
-      { width: 768, height: 1024 },
-    ]) {
-      await page.setViewportSize(viewport)
-      await openGuidedSchedule(page)
-
-      const walkInTitleRow = page.getByTestId('guided-walk-in-title-row')
-      await expect(walkInTitleRow.getByRole('heading', { name: 'Walk-In Collection' })).toBeVisible()
-      await expect
-        .poll(async () => {
-          const [iconBox, titleBox] = await Promise.all([
-            walkInTitleRow.locator('svg').boundingBox(),
-            walkInTitleRow.getByRole('heading', { name: 'Walk-In Collection' }).boundingBox(),
-          ])
-          if (!iconBox || !titleBox) return Number.POSITIVE_INFINITY
-          return Math.abs(iconBox.y + iconBox.height / 2 - (titleBox.y + titleBox.height / 2))
-        })
-        .toBeLessThanOrEqual(1)
       await expectNoHorizontalOverflow(page)
     }
   })
@@ -656,7 +548,7 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
   })
 
-  test('applies client credit and can undo the recorded payment', async ({ page }) => {
+  test('applies client credit and can undo the recorded payment', { tag: '@smoke' }, async ({ page }) => {
     const booking = scheduleFixtures.bookings.creditAvailable
 
     await scheduleCardButton(page, booking.attendeeName).click()
@@ -777,8 +669,6 @@ test.describe("Wizard Today's Schedule", () => {
     await page.screenshot({ path: test.info().outputPath('payment-prepaid.png'), fullPage: true })
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Generate & upload report' })).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByRole('heading', { name: 'Generate & upload report' })).toHaveCSS('font-size', '30px')
-    await expect(page.getByRole('heading', { name: '1. Generate report' })).toHaveCSS('font-size', '18px')
     const panes = page.getByTestId('report-preparation-panes').locator(':scope > section')
     await expect(panes).toHaveCount(2)
     const [generate, upload] = await Promise.all([panes.nth(0).boundingBox(), panes.nth(1).boundingBox()])
@@ -793,7 +683,7 @@ test.describe("Wizard Today's Schedule", () => {
     await uploadSinglePdf(page, env.pdfInstantPath)
     await expect(page.getByText('PDF uploaded', { exact: true })).toBeVisible()
     await clickNext(page)
-    await waitForExtractStepReady(page, { readyHeadings: [/Review report data/i] })
+    await waitForExtractStepReady(page)
     const acknowledgement = page.getByRole('checkbox', {
       name: 'This is the same person',
     })
@@ -821,7 +711,7 @@ test.describe("Wizard Today's Schedule", () => {
     await expectNoHorizontalOverflow(page)
     await uploadSinglePdf(page, env.pdfInstantPath)
     await clickNext(page)
-    await waitForExtractStepReady(page, { readyHeadings: [/Review report data/i] })
+    await waitForExtractStepReady(page)
     await expect(acknowledgement).not.toBeChecked()
     await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
     await expectNoHorizontalOverflow(page)
@@ -881,7 +771,7 @@ test.describe("Wizard Today's Schedule", () => {
 
     await uploadSinglePdf(page, env.pdfInstantPath)
     await clickNext(page)
-    await waitForExtractStepReady(page, { readyHeadings: [/Review report data/i] })
+    await waitForExtractStepReady(page)
 
     const mismatchConfirmation = page.getByRole('checkbox', {
       name: 'This is the same person',

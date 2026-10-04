@@ -47,7 +47,7 @@ export default function ParsedDataDisplayField({ data, showRawText = true }: Par
   const ConfidenceIcon = confidence.icon
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="parsed-report" data-results-complete={data.resultsComplete}>
       <Alert variant={confidence.type}>
         <ConfidenceIcon className="" />
         <AlertTitle className={confidence.titleColor}>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
-import { revalidateLogic } from '@tanstack/react-form'
+import { revalidateLogic, type AnyFormGroupApi } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
@@ -105,7 +105,7 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
     const renderGroup = (
       name: 'upload' | 'extract' | 'matchCollection' | 'labScreenData' | 'emails',
       validators: Parameters<typeof form.FormGroup>[0]['validators'],
-      content: ReactNode,
+      content: ReactNode | ((group: AnyFormGroupApi) => ReactNode),
     ) => (
       <form.FormGroup
         key={currentStep}
@@ -117,7 +117,7 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
       >
         {(group) => (
           <>
-            <div className="wizard-content mb-8 flex-1">{content}</div>
+            <div className="wizard-content mb-8 flex-1">{typeof content === 'function' ? content(group) : content}</div>
             <LabScreenNavigation form={form} group={group} onBack={onBack} />
           </>
         )}
@@ -136,11 +136,9 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
           <MatchCollectionStep form={form} />,
         )
       case 'labScreenData':
-        return renderGroup(
-          'labScreenData',
-          { onDynamic: labScreenDataSchema.shape.labScreenData },
-          <LabScreenDataStep form={form} />,
-        )
+        return renderGroup('labScreenData', { onDynamic: labScreenDataSchema.shape.labScreenData }, (group) => (
+          <LabScreenDataStep form={form} validateGroup={group.validate} />
+        ))
       case 'confirm':
         return renderGroup('labScreenData', undefined, <ConfirmStep form={form} />)
       case 'emails':

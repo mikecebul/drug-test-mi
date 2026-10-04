@@ -168,7 +168,11 @@ export const ExtractStep = withForm({
     const collectionDate = formatCollectionDate(parsedData.collectionDate)
 
     return (
-      <div className="flex flex-col gap-6">
+      <div
+        className="flex flex-col gap-6"
+        data-testid="parsed-report"
+        data-results-complete={parsedData.resultsComplete}
+      >
         {selectedClient.id && (
           <ClientDetailsCard
             compact

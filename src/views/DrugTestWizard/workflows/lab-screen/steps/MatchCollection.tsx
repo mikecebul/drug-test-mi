@@ -73,11 +73,7 @@ export const MatchCollectionStep = withForm({
             form.setFieldValue(
               'labScreenData.testType',
               bestMatch.test.testType as
-                | '11-panel-lab'
-                | '11-panel-lab-no-etg'
-                | '8-panel-lab'
-                | '17-panel-sos-lab'
-                | 'etg-lab',
+                '11-panel-lab' | '11-panel-lab-no-etg' | '8-panel-lab' | '17-panel-sos-lab' | 'etg-lab',
             )
         }
       }
@@ -189,10 +185,20 @@ export const MatchCollectionStep = withForm({
               return (
                 <Card
                   key={test.id}
+                  data-testid={`pending-test-${test.id}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isSelected}
                   className={`cursor-pointer transition-all hover:shadow-md ${
                     isSelected ? 'border-primary ring-primary ring-2' : ''
                   }`}
                   onClick={() => handleTestSelect(test)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      handleTestSelect(test)
+                    }
+                  }}
                 >
                   <CardHeader>
                     <div className="flex items-start justify-between gap-3">
