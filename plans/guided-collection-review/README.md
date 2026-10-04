@@ -24,6 +24,8 @@ Keep one collection flow with visible phases: **Client → Payment → Prepare �
 
 For instant tests, put **Generate in ToxAccess** and **Upload the saved PDF** on the same screen. The external ToxAccess button still opens a separate tab. After generating and saving the report, the technician closes that tab and uploads the PDF into the screen they left open. Until a file is attached, the screen says **Waiting for PDF** and cannot continue. Returning focus or closing the external tab must never imply the report was generated: there is no report-generation webhook. Donor readiness is a separate status. Extraction, report/client checks, and result verification still happen afterward.
 
+Lab preparation uses the same two-pane layout: **Generate report** followed by **Continue here**. The technician must check **I created the report in ToxAccess** before continuing to medications and collection details. This is a manual acknowledgement, not a report-generation webhook. It survives Back to payment for the same booking/client/test; Reset clears it and identity/test changes require confirmation again. Setup help stays collapsed.
+
 For prepaid bookings with no older client debt, show **No payment needed** and **$0 remaining**. Put optional prepayment in a collapsed **Add account credit** disclosure. If older client debt exists, explicitly say **Today's test is prepaid; previous client balance remains** and keep that balance visible. Available account credit is not the same as a prepaid appointment: it must be intentionally applied through the existing payment action.
 
 For invoice-enabled referrals, show an actual switch: **Bill this referral — for this test only**. On means the referral owes the test balance; off means the client owes it. The technician chooses eligibility manually. This is a per-test exception, not a change to the referral's profile or recipient list. Persisting that exception is a separate backend change because current payment, invoice, and tracker rules all derive the payer from the client's referral.
@@ -106,8 +108,10 @@ flowchart TD
     EX --> IM[Verify medications]
     IM --> IV[Verify instant data and conditional confirmation decision]
     IV --> IE[Review recipients and create screened test]
-    CAT -- Lab --> LP[Prepare lab specimen in ToxAccess]
-    LP --> LM[Verify medications]
+    CAT -- Lab --> LP[Generate lab collection report in ToxAccess]
+    LP --> LACK{Tech confirms report created?}
+    LACK -- No --> LP
+    LACK -- Yes --> LM[Verify medications]
     LM --> LC[Confirm collection and optional breathalyzer]
     LC --> LE[Review referral notification and create collection]
     IE --> DONE[Created record and actual delivery outcome]

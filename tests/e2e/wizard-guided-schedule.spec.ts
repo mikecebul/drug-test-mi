@@ -778,7 +778,7 @@ test.describe("Wizard Today's Schedule", () => {
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Generate & upload report' })).toBeVisible({ timeout: 30_000 })
     await expect(page.getByRole('heading', { name: 'Generate & upload report' })).toHaveCSS('font-size', '30px')
-    await expect(page.getByRole('heading', { name: '1. Generate in ToxAccess' })).toHaveCSS('font-size', '18px')
+    await expect(page.getByRole('heading', { name: '1. Generate report' })).toHaveCSS('font-size', '18px')
     const panes = page.getByTestId('report-preparation-panes').locator(':scope > section')
     await expect(panes).toHaveCount(2)
     const [generate, upload] = await Promise.all([panes.nth(0).boundingBox(), panes.nth(1).boundingBox()])
@@ -828,6 +828,11 @@ test.describe("Wizard Today's Schedule", () => {
   })
 
   test('carries a guided instant booking into the instant workflow', async ({ page }) => {
+    const queryErrors: string[] = []
+    page.on('console', (message) => {
+      if (message.type() === 'error' && message.text().includes('No queryFn was passed'))
+        queryErrors.push(message.text())
+    })
     const env = getE2EEnv({ requirePdfs: false })
     const booking = scheduleFixtures.bookings.paidLinked
 
@@ -895,9 +900,11 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByRole('heading', { name: "Today's Schedule", exact: true })).toBeVisible()
     await scheduleCardButton(page, booking.attendeeName).click()
     await expect(page.getByRole('checkbox', { name: /I verified .* is the person testing today/i })).not.toBeChecked()
+    expect(queryErrors).toEqual([])
   })
 
   test('carries an unpaid guided lab booking into lab collection', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 })
     const booking = scheduleFixtures.bookings.unlinked
 
     await scheduleCardButton(page, booking.attendeeName).click()
@@ -934,7 +941,34 @@ test.describe("Wizard Today's Schedule", () => {
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Prepare lab collection' })).toBeVisible()
 
-    await page.getByRole('button', { name: /Continue to medications/i }).click()
+    await expect(page.getByRole('heading', { name: '1. Generate report' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '2. Continue here' })).toBeVisible()
+    const preparationPanes = page.getByTestId('report-preparation-panes').locator(':scope > section')
+    const [generationPane, continuePane] = await Promise.all([
+      preparationPanes.nth(0).boundingBox(),
+      preparationPanes.nth(1).boundingBox(),
+    ])
+    expect(Math.abs(generationPane!.y - continuePane!.y)).toBeLessThanOrEqual(1)
+    expect(continuePane!.x).toBeGreaterThanOrEqual(generationPane!.x + generationPane!.width - 1)
+    const reportConfirmation = page.getByRole('checkbox', { name: 'I created the report in ToxAccess' })
+    await expect(reportConfirmation).not.toBeChecked()
+    await expect(page.getByTestId('wizard-next-button')).toHaveCount(1)
+    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
+    await expect(page.getByText('Create report before continuing', { exact: true })).toBeVisible()
+    await expect(page.getByText('ToxAccess setup could not be verified.', { exact: true })).toBeHidden()
+    await reportConfirmation.check()
+    await expect(page.getByTestId('wizard-next-button')).toBeEnabled()
+    await reportConfirmation.uncheck()
+    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
+    await reportConfirmation.check()
+    await expectNoHorizontalOverflow(page)
+    await page.screenshot({ path: test.info().outputPath('lab-report-portrait.png'), fullPage: true })
+    await page.getByTestId('wizard-back-button').click()
+    await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toBeVisible()
+    await clickNext(page)
+    await expect(page.getByRole('heading', { name: 'Prepare lab collection' })).toBeVisible()
+    await expect(reportConfirmation).toBeChecked()
+    await clickNext(page)
     await expect(page.getByText('Verify medications')).toBeVisible({ timeout: 30_000 })
 
     const labUrl = new URL(page.url())

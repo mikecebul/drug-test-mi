@@ -113,6 +113,7 @@ import {
 } from './payment-state'
 import { ReferralProfileDrawer } from '../components/emails/referrals/ReferralProfileDrawer'
 import { LabPreparation } from '../../components/LabPreparation'
+import { useGuidedConfirmations } from './useGuidedConfirmations'
 import { WalkInClientDrawer } from './WalkInClientDrawer'
 import { useWizardSession } from '../../components/main-wizard/WizardSessionGuard'
 
@@ -392,14 +393,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const [noHeadshotDialogOpen, setNoHeadshotDialogOpen] = useState(false)
   const headshotEditorRef = useRef<(() => void) | null>(null)
   const { user } = useAuth()
-  const identityConfirmationQueryKey = ['guided', 'verified-client-identities', user?.id] as const
-  // Keep acknowledgement while switching between guided payment and collection.
-  // This is transient browser state, scoped to the admin and cleared by Reset.
-  const { data: verifiedClientMismatchKeys = [] } = useQuery<string[]>({
-    queryKey: identityConfirmationQueryKey,
-    enabled: false,
-    initialData: [],
-  })
+  const { keys: verifiedClientMismatchKeys, queryKey: identityConfirmationQueryKey } = useGuidedConfirmations(
+    'verified-client-identities',
+    user?.id,
+  )
+  const { keys: createdLabReportKeys, queryKey: labReportConfirmationQueryKey } = useGuidedConfirmations(
+    'created-lab-reports',
+    user?.id,
+  )
   const [clientIdentityValidationErrorKey, setClientIdentityValidationErrorKey] = useState<string | null>(null)
   const [testTypeValidationErrorBookingId, setTestTypeValidationErrorBookingId] = useState<string | null>(null)
   const [referralDrawerOpen, setReferralDrawerOpen] = useState(false)
@@ -500,6 +501,22 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const selectedClientMismatchKey = selectedBooking ? getClientIdentityMismatchKey(selectedBooking) : null
   const clientIdentityIsVerified =
     !selectedClientMismatchKey || verifiedClientMismatchKeys.includes(selectedClientMismatchKey)
+  // A report belongs to this collection, client identity and selected test.
+  // Going Back preserves acknowledgement; changing those details requires it again.
+  const selectedLabReportKey =
+    selectedBooking?.client && selectedBooking.testType
+      ? JSON.stringify([
+          selectedBooking.id,
+          selectedBooking.client.id,
+          selectedBooking.client.firstName,
+          selectedBooking.client.middleInitial,
+          selectedBooking.client.lastName,
+          selectedBooking.client.dob,
+          selectedBooking.testType.id,
+          getToxAccessName(selectedBooking, !selectedBooking.client.firstDrugTestDate),
+        ])
+      : null
+  const labReportIsConfirmed = Boolean(selectedLabReportKey && createdLabReportKeys.includes(selectedLabReportKey))
   const guidedWorkflowRef = useRef<HTMLDivElement>(null)
 
   useStepFocus({
@@ -1162,6 +1179,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const handleContinueToCollection = async () => {
     if (!selectedBooking?.testType || !selectedBooking.client?.id) return
     if (!validateClientIdentity()) return
+    if (selectedBooking.testType.category !== 'instant' && !labReportIsConfirmed) return
 
     try {
       if (selectedBooking.testType.category !== 'instant' && !redwoodProvisioning?.canContinue) {
@@ -1234,13 +1252,16 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           phase={currentStep === 'payment' ? 'Payment' : currentStep === 'toxaccess' ? 'Prepare' : 'Client'}
         />
       )}
-      {eyebrow === 'Payment' && selectedBooking?.client && (
+      {(eyebrow === 'Payment' || eyebrow === 'ToxAccess') && selectedBooking?.client && (
         <ClientDetailsCard
           compact
-          client={selectedBooking.client}
+          client={{ ...selectedBooking.client, referralTitle: selectedBooking.referral?.name || null }}
           editable
           testLabel={selectedBooking.testType?.label}
-          onClientUpdated={() => void refreshBookings()}
+          onClientUpdated={() => {
+            void refreshBookings()
+            void refetchReferralProfile()
+          }}
         />
       )}
       <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
@@ -2293,25 +2314,22 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     return (
       <div className="flex flex-col gap-4">
         {renderHeader('ToxAccess', 'Prepare lab collection')}
-        {selectedBooking.client && (
-          <ClientDetailsCard
-            compact
-            client={{
-              ...selectedBooking.client,
-              referralTitle: selectedBooking.referral?.name || null,
-            }}
-            editable
-            onClientUpdated={() => {
-              void refreshBookings()
-              void refetchReferralProfile()
-            }}
-          />
-        )}
         <LabPreparation
           status={redwoodProvisioning}
           isLoading={isRedwoodProvisioningLoading}
           donorName={fullName}
           testCode={getToxAccessTestValue(selectedBooking.testType)}
+          reportCreated={labReportIsConfirmed}
+          onReportCreatedChange={(checked) => {
+            if (!selectedLabReportKey) return
+            queryClient.setQueryData<string[]>(labReportConfirmationQueryKey, (current = []) =>
+              checked
+                ? Array.from(new Set([...current, selectedLabReportKey]))
+                : current.filter((key) => key !== selectedLabReportKey),
+            )
+          }}
+          isPending={continueMutation.isPending}
+          continueButton={renderPrimaryNextButton()}
         />
       </div>
     )
@@ -2369,7 +2387,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             !cardPaymentRequiresTerminal,
           )
         : currentStep === 'toxaccess'
-          ? Boolean(paymentRecorded && selectedBooking?.testType && selectedBooking.client?.id)
+          ? Boolean(paymentRecorded && selectedBooking?.testType && selectedBooking.client?.id && labReportIsConfirmed)
           : false
 
   const backLabel =
@@ -2406,6 +2424,42 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     await handleContinueToCollection()
   }
 
+  const renderPrimaryNextButton = () => (
+    <Button
+      type="button"
+      onClick={() => void handlePrimaryNext()}
+      disabled={!canGoNext || footerIsPending || isCheckingSession}
+      size="lg"
+      data-testid="wizard-next-button"
+    >
+      {terminalPaymentIsActive ? (
+        <>
+          <Loader2 data-icon="inline-start" className="animate-spin" />
+          Payment pending
+        </>
+      ) : footerIsPending || isCheckingSession ? (
+        <>
+          <Loader2 data-icon="inline-start" className="animate-spin" />
+          Processing...
+        </>
+      ) : paymentBalancesAreLoading ? (
+        <>
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          Loading payment details...
+        </>
+      ) : (
+        <>
+          {nextLabel}
+          {currentStep === 'toxaccess' ? (
+            <CheckCircle2 className="ml-2 h-5 w-5" />
+          ) : (
+            <ChevronRight className="ml-2 h-5 w-5" />
+          )}
+        </>
+      )}
+    </Button>
+  )
+
   return (
     <>
       <div
@@ -2439,41 +2493,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             )}
           </div>
 
-          {currentStep !== 'schedule' && (
+          {currentStep !== 'schedule' && currentStep !== 'toxaccess' && (
             <div className="flex min-w-0 flex-col items-stretch gap-2 min-[500px]:items-end">
-              <Button
-                type="button"
-                onClick={() => void handlePrimaryNext()}
-                disabled={!canGoNext || footerIsPending || isCheckingSession}
-                size="lg"
-                data-testid="wizard-next-button"
-              >
-                {terminalPaymentIsActive ? (
-                  <>
-                    <Loader2 data-icon="inline-start" className="animate-spin" />
-                    Payment pending
-                  </>
-                ) : footerIsPending || isCheckingSession ? (
-                  <>
-                    <Loader2 data-icon="inline-start" className="animate-spin" />
-                    Processing...
-                  </>
-                ) : paymentBalancesAreLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Loading payment details...
-                  </>
-                ) : (
-                  <>
-                    {nextLabel}
-                    {currentStep === 'toxaccess' ? (
-                      <CheckCircle2 className="ml-2 h-5 w-5" />
-                    ) : (
-                      <ChevronRight className="ml-2 h-5 w-5" />
-                    )}
-                  </>
-                )}
-              </Button>
+              {renderPrimaryNextButton()}
               {currentStep === 'payment' &&
                 !selectedReferralPays &&
                 paymentTotalDue > 0 &&
