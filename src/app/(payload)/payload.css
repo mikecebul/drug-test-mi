@@ -1,4 +1,6 @@
-@layer theme, base, components, utilities;
+/* Code splitting can load our CSS before Payload's production bundle. Register
+ * its layers first so native heading/link defaults cannot override custom UI. */
+@layer payload-default, payload, theme, base, components, utilities;
 
 @import 'react-image-crop/dist/ReactCrop.css';
 @import 'tailwindcss/theme.css' layer(theme);

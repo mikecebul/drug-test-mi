@@ -80,7 +80,10 @@ async function fillPersonalInfo(page: Page) {
 }
 
 async function fillAccountInfo(page: Page, emailPrefix: string) {
-  await page.getByLabel('Email Address').fill(uniqueEmail(emailPrefix))
+  const email = page.getByLabel('Email Address')
+  // Wait for the step's scheduled focus before typing into the next field.
+  await expect(email).toBeFocused()
+  await email.fill(uniqueEmail(emailPrefix))
   await page.locator('[id="accountInfo.password"]').fill('StrongPass123')
   await page.locator('[id="accountInfo.confirmPassword"]').fill('StrongPass123')
 }

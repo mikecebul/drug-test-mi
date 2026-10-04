@@ -6,7 +6,6 @@ import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { useStore } from '@tanstack/react-form'
 import { useQueryState, parseAsString } from 'nuqs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { ClientDetailsCard } from '../../components/client/ClientDetailsCard'
 import { ReportPreparation } from '../../../components/ReportPreparation'
 
@@ -17,9 +16,21 @@ export const UploadStep = withForm({
     const [bookingId] = useQueryState('bookingId', parseAsString)
     const client = useStore(form.store, (state) => state.values.client)
     const file = useStore(form.store, (state) => state.values.upload.file)
+    const upload = (
+      <form.AppField name="upload.file">
+        {(field) => (
+          <field.FileUploadField
+            reportStyle
+            accept="application/pdf"
+            maxFiles={1}
+            maxSize={10 * 1024 * 1024}
+            required
+          />
+        )}
+      </form.AppField>
+    )
     return (
       <div className="flex flex-col gap-6">
-        <FieldGroupHeader title={bookingId ? 'Generate & upload report' : 'Upload instant report'} />
         {client.id && (
           <ClientDetailsCard
             compact
@@ -41,20 +52,19 @@ export const UploadStep = withForm({
             }}
           />
         )}
-        {bookingId && client.id && <ReportPreparation clientId={client.id} />}
-        <Card>
-          <CardHeader className="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle>{bookingId ? '2. Upload the saved PDF' : 'Report PDF'}</CardTitle>
-            {!file && <Badge variant="warning">Waiting for PDF</Badge>}
-          </CardHeader>
-          <CardContent>
-            <form.AppField name="upload.file">
-              {(field) => (
-                <field.FileUploadField accept="application/pdf" maxFiles={1} maxSize={10 * 1024 * 1024} required />
-              )}
-            </form.AppField>
-          </CardContent>
-        </Card>
+        <FieldGroupHeader title={bookingId ? 'Generate & upload report' : 'Upload instant report'} />
+        {bookingId && client.id ? (
+          <ReportPreparation clientId={client.id} hasReport={Boolean(file)}>
+            {upload}
+          </ReportPreparation>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Report PDF</CardTitle>
+            </CardHeader>
+            <CardContent>{upload}</CardContent>
+          </Card>
+        )}
       </div>
     )
   },

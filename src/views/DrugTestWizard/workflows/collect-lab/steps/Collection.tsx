@@ -58,8 +58,6 @@ export const CollectionStep = withForm({
     const selectedType = useStore(form.store, (state) => state.values.collection.testType)
     return (
       <div className="flex flex-col gap-6">
-        <FieldGroupHeader title="Confirm lab collection" />
-
         {client && (
           <ClientDetailsCard
             compact
@@ -80,6 +78,7 @@ export const CollectionStep = withForm({
             }}
           />
         )}
+        <FieldGroupHeader title="Confirm lab collection" />
 
         <Card>
           <CardContent className="flex flex-col gap-3 p-4">

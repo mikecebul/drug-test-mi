@@ -8,6 +8,7 @@ import { seedFixtures, type FixtureContext } from './helpers/seed'
 import {
   clickBack,
   clickNext,
+  continueFromInstantClient,
   extractTestIdFromSuccess,
   goToEmailsStepFromInstant,
   openWizard,
@@ -63,7 +64,7 @@ test.describe('Wizard Instant Workflow', () => {
 
     await expect(page.getByRole('heading', { name: /Choose a Client/i })).toBeVisible({ timeout: 30_000 })
     await selectClientFromSearchDialog(page, fixtures.clients.instant.fullName)
-    await clickNext(page)
+    await continueFromInstantClient(page)
     await expect(page.getByText('Verify medications')).toBeVisible()
     await page.setViewportSize({ width: 768, height: 1024 })
 
@@ -148,7 +149,7 @@ test.describe('Wizard Instant Workflow', () => {
     await expect(page.getByText('Selected Client', { exact: true })).toHaveCount(0)
     await selectClientFromSearchDialog(page, fixtures.clients.instant.fullName)
 
-    await clickNext(page)
+    await continueFromInstantClient(page)
     await clickNext(page)
 
     await expect(page.getByText('Verify instant test')).toBeVisible()
@@ -207,7 +208,7 @@ test.describe('Wizard Instant Workflow', () => {
       await selectClientFromSearchDialog(page, fixtures.clients.instant.fullName)
     }
 
-    await clickNext(page)
+    await continueFromInstantClient(page)
     await clickNext(page)
     await expect(page.getByText('Verify instant test')).toBeVisible()
 
@@ -239,7 +240,7 @@ test.describe('Wizard Instant Workflow', () => {
     await page.goto(`/admin/drug-test-upload?workflow=instant-test&step=client&clientId=${fixtures.clients.instant.id}`)
 
     await expect(page.getByRole('heading', { name: /Selected Client/i })).toBeVisible({ timeout: 30_000 })
-    await clickNext(page)
+    await continueFromInstantClient(page)
     await expect(page.getByText('Verify medications')).toBeVisible()
     await clickNext(page)
     await expect(page.getByText('Verify instant test')).toBeVisible()

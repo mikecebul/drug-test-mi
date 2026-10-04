@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs'
 import { toast } from 'sonner'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '@payloadcms/ui'
 import {
   Ban,
   Banknote,
@@ -82,6 +83,7 @@ import { RegisterClientDialog } from '../../components/RegisterClientDialog'
 import type { ClientMatch } from '../../types'
 import { CollectionProgress } from '../../components/CollectionProgress'
 import { OptionalDetails } from '../../components/OptionalDetails'
+import { IdentityNotice } from '../../components/IdentityNotice'
 import QuickBookLink from '@/views/beforeNavLinks/QuickBookLink'
 import { ClientDetailsCard } from '../components/client/ClientDetailsCard'
 import type { SimpleClient } from '../components/client/getClients'
@@ -104,7 +106,6 @@ import { PendingPaymentRecoveryActions } from './components/PendingPaymentRecove
 import {
   buildGuidedPaymentAllocationPreview,
   getGuidedCreditMaximum,
-  getGuidedPaymentQuickAmounts,
   isValidGuidedCreditAmount,
   isValidGuidedPaymentAmount,
   parseGuidedPaymentAmount,
@@ -182,7 +183,13 @@ function getPaymentLabel(booking: Booking) {
 function getClientIdentityMismatchKey(booking: Booking) {
   if (!booking.client || doesGuidedBookingNameMatchClient(booking.attendeeName, booking.client)) return null
 
-  return [booking.id, booking.client.id, booking.attendeeName, getGuidedClientName(booking.client)].join(':')
+  return JSON.stringify([
+    booking.id,
+    booking.client.id,
+    booking.attendeeName,
+    getGuidedClientName(booking.client),
+    booking.client.dob,
+  ])
 }
 
 function getAmountDisplay(booking: Booking) {
@@ -384,7 +391,15 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const [noPaymentDialogOpen, setNoPaymentDialogOpen] = useState(false)
   const [noHeadshotDialogOpen, setNoHeadshotDialogOpen] = useState(false)
   const headshotEditorRef = useRef<(() => void) | null>(null)
-  const [verifiedClientMismatchKeys, setVerifiedClientMismatchKeys] = useState<Set<string>>(() => new Set())
+  const { user } = useAuth()
+  const identityConfirmationQueryKey = ['guided', 'verified-client-identities', user?.id] as const
+  // Keep acknowledgement while switching between guided payment and collection.
+  // This is transient browser state, scoped to the admin and cleared by Reset.
+  const { data: verifiedClientMismatchKeys = [] } = useQuery<string[]>({
+    queryKey: identityConfirmationQueryKey,
+    enabled: false,
+    initialData: [],
+  })
   const [clientIdentityValidationErrorKey, setClientIdentityValidationErrorKey] = useState<string | null>(null)
   const [testTypeValidationErrorBookingId, setTestTypeValidationErrorBookingId] = useState<string | null>(null)
   const [referralDrawerOpen, setReferralDrawerOpen] = useState(false)
@@ -484,7 +499,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     : selectedBooking?.client?.email || null
   const selectedClientMismatchKey = selectedBooking ? getClientIdentityMismatchKey(selectedBooking) : null
   const clientIdentityIsVerified =
-    !selectedClientMismatchKey || verifiedClientMismatchKeys.has(selectedClientMismatchKey)
+    !selectedClientMismatchKey || verifiedClientMismatchKeys.includes(selectedClientMismatchKey)
   const guidedWorkflowRef = useRef<HTMLDivElement>(null)
 
   useStepFocus({
@@ -502,6 +517,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     if (clientIdentityIsVerified) return true
 
     setClientIdentityValidationErrorKey(selectedClientMismatchKey)
+    if (currentStep !== 'review' && currentStep !== 'registration') {
+      void setQuery({ step: 'review' })
+    }
     focusGuidedInvalidField()
     return false
   }
@@ -1216,7 +1234,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           phase={currentStep === 'payment' ? 'Payment' : currentStep === 'toxaccess' ? 'Prepare' : 'Client'}
         />
       )}
-      <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
       {eyebrow === 'Payment' && selectedBooking?.client && (
         <ClientDetailsCard
           compact
@@ -1226,13 +1243,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           onClientUpdated={() => void refreshBookings()}
         />
       )}
+      <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
     </div>
   )
 
   const renderClientIdentityMismatch = (booking: Booking) => {
     const mismatchKey = getClientIdentityMismatchKey(booking)
     if (!mismatchKey || !booking.client) return null
-    if (verifiedClientMismatchKeys.has(mismatchKey)) return null
+    if (verifiedClientMismatchKeys.includes(mismatchKey)) return null
 
     const selectedClientName = getGuidedClientName(booking.client) || 'Unknown client'
     const confirmationId = `verify-client-identity-${booking.id}`
@@ -1240,15 +1258,13 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     const showValidationError = clientIdentityValidationErrorKey === mismatchKey
 
     return (
-      <Alert variant="warning" data-testid="client-identity-mismatch">
-        <TriangleAlert />
-        <AlertTitle>Booking name does not match the selected client</AlertTitle>
-        <AlertDescription>
-          <p>
-            Booked as <strong>{booking.attendeeName}</strong>, but the selected client is{' '}
-            <strong>{selectedClientName}</strong>.
-          </p>
-          <p>Change the client if this is wrong. Otherwise, verify their identity before continuing.</p>
+      <div data-testid="client-identity-mismatch">
+        <IdentityNotice
+          title="Booking name doesn't match the client"
+          sourceLabel="Booking"
+          sourceName={booking.attendeeName}
+          clientName={selectedClientName}
+        >
           <Field orientation="horizontal" className="mt-3" data-invalid={showValidationError || undefined}>
             <Checkbox
               id={confirmationId}
@@ -1258,11 +1274,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               onCheckedChange={(checked) => {
                 if (checked !== true) return
 
-                setVerifiedClientMismatchKeys((current) => {
-                  const next = new Set(current)
-                  next.add(mismatchKey)
-                  return next
-                })
+                queryClient.setQueryData<string[]>(identityConfirmationQueryKey, (current = []) =>
+                  current.includes(mismatchKey) ? current : [...current, mismatchKey],
+                )
                 setClientIdentityValidationErrorKey((current) => (current === mismatchKey ? null : current))
               }}
             />
@@ -1276,8 +1290,8 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               />
             </FieldContent>
           </Field>
-        </AlertDescription>
-      </Alert>
+        </IdentityNotice>
+      </div>
     )
   }
 
@@ -1799,22 +1813,58 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       clientCreditApplied: creditToApply,
     })
     const maximumCredit = getGuidedCreditMaximum(clientCreditBalance, allocationPreview.totalDue)
-    const quickAmounts = getGuidedPaymentQuickAmounts(
-      allocationPreview.currentBalanceAfterCredit,
-      allocationPreview.dueAfterCredit,
-    )
-    const activeQuickAmount = quickAmounts.includes(amountReceived) ? [String(amountReceived)] : []
     const prepaid =
       allocationPreview.totalDue === 0 && !isFetchingOutstandingPaymentBalances && !hasOutstandingPaymentBalanceError
     const referralPays = selectedReferralPays
     const entry = (
-      <FieldGroup>
+      <FieldGroup className="gap-5">
+        <Field>
+          <FieldLabel id="payment-method-label" className="font-semibold">
+            Payment method
+          </FieldLabel>
+          <ToggleGroup
+            aria-labelledby="payment-method-label"
+            variant="outline"
+            value={[payment.method]}
+            onValueChange={(methods) => {
+              const method = methods[0] as GuidedPaymentEntryMethod | undefined
+              if (!method) return
+              setPaymentDraft((current) => ({
+                ...(current ?? payment),
+                method,
+              }))
+            }}
+            className="bg-muted/30 h-12 w-full max-w-sm"
+            data-testid="payment-method-control"
+            disabled={terminalPaymentIsActive}
+          >
+            <ToggleGroupItem
+              value="cash"
+              aria-label="Cash payment method"
+              className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-12 px-3 opacity-60 data-pressed:opacity-100"
+            >
+              <Banknote />
+              Cash
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="card"
+              aria-label="Card payment method"
+              className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-12 px-3 opacity-60 data-pressed:opacity-100"
+            >
+              <CreditCard />
+              Card · Chx Desk
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </Field>
         {clientCreditBalance > 0 && maximumCredit > 0 && (
           <Field data-invalid={!creditAmountIsValid || undefined}>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <FieldLabel htmlFor="credit-to-apply">
-                Credit available: {currency.format(clientCreditBalance)}
-              </FieldLabel>
+              <div>
+                <FieldLabel htmlFor="credit-to-apply">Credit to apply</FieldLabel>
+                <p className="text-muted-foreground text-sm">
+                  Credit available: {preciseCurrency.format(clientCreditBalance)}
+                </p>
+              </div>
               <Button
                 type="button"
                 variant="outline"
@@ -1857,240 +1907,218 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             />
           </Field>
         )}
-        <section className="flex flex-col gap-4">
-          {!isLoadingOutstandingPaymentBalances && !hasOutstandingPaymentBalanceError && (
-            <ToggleGroup
-              value={activeQuickAmount}
-              disabled={terminalPaymentIsActive}
-              onValueChange={(values) => {
-                const value = values.at(-1)
-                if (value === undefined) return
-                setPaymentDraft((current) => ({
-                  ...(current ?? payment),
-                  amountReceived: value,
-                }))
-              }}
-              variant="outline"
-              className="bg-muted/30 h-11 w-full"
-              aria-label="Quick amount received"
-            >
-              {quickAmounts.map((amount) => (
-                <ToggleGroupItem
-                  key={amount}
-                  value={String(amount)}
-                  aria-label={`Set amount received to ${currency.format(amount)}`}
-                  className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-11 opacity-60 data-pressed:opacity-100"
-                >
-                  {currency.format(amount)}
-                  {amount > 0 && amount === allocationPreview.dueAfterCredit ? ' · Pay all' : ''}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          )}
-
-          <FieldGroup className="grid gap-4 sm:grid-cols-2">
-            <Field data-invalid={!paymentAmountIsValid || undefined}>
-              <FieldLabel htmlFor="amount-received" className="font-semibold">
-                Amount received now
-              </FieldLabel>
-              <InputGroup
-                className="border-primary/50 bg-background h-12! shadow-sm"
-                data-testid="amount-received-control"
-              >
-                <InputGroupInput
-                  id="amount-received"
-                  name="amountReceived"
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step={1}
-                  value={payment.amountReceived}
-                  disabled={terminalPaymentIsActive}
-                  aria-invalid={!paymentAmountIsValid || undefined}
-                  onChange={(event) =>
-                    setPaymentDraft((current) => ({
-                      ...(current ?? payment),
-                      amountReceived: event.target.value,
-                    }))
-                  }
-                  className="text-xl font-bold"
-                />
-                <InputGroupAddon>
-                  <InputGroupText className="font-semibold">$</InputGroupText>
-                </InputGroupAddon>
-              </InputGroup>
-              <FieldError errors={paymentAmountIsValid ? [] : ['Enter zero or a positive amount received.']} />
-            </Field>
-
-            <Field>
-              <FieldLabel id="payment-method-label" className="font-semibold">
-                Payment method
-              </FieldLabel>
-              <ToggleGroup
-                aria-labelledby="payment-method-label"
-                variant="outline"
-                value={[payment.method]}
-                onValueChange={(methods) => {
-                  const method = methods[0] as GuidedPaymentEntryMethod | undefined
-                  if (!method) return
-                  setPaymentDraft((current) => ({
-                    ...(current ?? payment),
-                    method,
-                  }))
-                }}
-                className="bg-muted/30 h-12 w-full"
-                data-testid="payment-method-control"
+        <Field data-invalid={!paymentAmountIsValid || undefined}>
+          <FieldLabel htmlFor="amount-received" className="font-semibold">
+            Amount received now
+          </FieldLabel>
+          <div className="flex flex-col gap-3 min-[500px]:flex-row min-[500px]:items-center">
+            <InputGroup className="bg-background h-12! min-w-0 flex-1" data-testid="amount-received-control">
+              <InputGroupInput
+                id="amount-received"
+                name="amountReceived"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="0.01"
+                value={payment.amountReceived}
                 disabled={terminalPaymentIsActive}
-              >
-                <ToggleGroupItem
-                  value="cash"
-                  aria-label="Cash payment method"
-                  className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-12 px-3 opacity-60 data-pressed:opacity-100"
-                >
-                  <Banknote />
-                  Cash
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="card"
-                  aria-label="Card payment method"
-                  className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-12 px-3 opacity-60 data-pressed:opacity-100"
-                >
-                  <CreditCard />
-                  Card · Chx Desk
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </Field>
-          </FieldGroup>
-          {payment.method === 'card' && clientReceiptEmail && (
-            <p className="text-muted-foreground flex w-full items-center gap-2 text-sm">
-              <Mail /> Email receipt sending to {clientReceiptEmail}
-            </p>
-          )}
-          {payment.method === 'cash' && (
-            <Field orientation="horizontal" data-disabled={!clientReceiptEmail || undefined} className="w-full">
-              <Checkbox
-                id="send-payment-receipt"
-                checked={clientReceiptEmail ? payment.sendReceipt : false}
-                disabled={!clientReceiptEmail}
-                onCheckedChange={(checked) =>
+                aria-invalid={!paymentAmountIsValid || undefined}
+                onChange={(event) =>
                   setPaymentDraft((current) => ({
                     ...(current ?? payment),
-                    sendReceipt: checked === true,
+                    amountReceived: event.target.value,
                   }))
                 }
+                className="text-lg font-semibold"
               />
-              <FieldContent>
-                <FieldLabel htmlFor="send-payment-receipt" className={cn(clientReceiptEmail && 'cursor-pointer')}>
-                  {clientReceiptEmail ? `Email receipt to ${clientReceiptEmail}` : 'Email receipt unavailable'}
-                </FieldLabel>
-                {!clientReceiptEmail && (
-                  <FieldDescription>Client emails are disabled for this profile.</FieldDescription>
-                )}
-              </FieldContent>
-            </Field>
-          )}
-          {payment.method === 'card' && amountReceived > 0 && (
-            <>
-              <Separator />
-              <div
-                className="bg-background flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
-                data-testid="guided-terminal-payment-action"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-md border">
-                    <CreditCard className="size-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="font-semibold">Card payment · Chx Desk</p>
-                    <p className="text-muted-foreground text-sm">
-                      Send {currency.format(amountReceived)} to the reader. Wait for the reader to approve the payment.
-                    </p>
-                  </div>
+              <InputGroupAddon>
+                <InputGroupText className="font-semibold">$</InputGroupText>
+              </InputGroupAddon>
+            </InputGroup>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 shrink-0"
+              disabled={
+                terminalPaymentIsActive || isFetchingOutstandingPaymentBalances || hasOutstandingPaymentBalanceError
+              }
+              onClick={() =>
+                setPaymentDraft((current) => ({
+                  ...(current ?? payment),
+                  amountReceived: String(allocationPreview.dueAfterCredit),
+                }))
+              }
+              aria-label={`Set amount received to ${preciseCurrency.format(allocationPreview.dueAfterCredit)}`}
+            >
+              Full balance · {preciseCurrency.format(allocationPreview.dueAfterCredit)}
+            </Button>
+          </div>
+          <FieldError errors={paymentAmountIsValid ? [] : ['Enter zero or a positive amount received.']} />
+        </Field>
+
+        <p className="text-muted-foreground text-sm">Payments apply to older balances first.</p>
+        {payment.method === 'card' && clientReceiptEmail && (
+          <p className="text-muted-foreground flex w-full items-center gap-2 text-sm">
+            <Mail /> Email receipt sending to {clientReceiptEmail}
+          </p>
+        )}
+        {payment.method === 'cash' && (
+          <Field orientation="horizontal" data-disabled={!clientReceiptEmail || undefined} className="w-full">
+            <Checkbox
+              id="send-payment-receipt"
+              checked={clientReceiptEmail ? payment.sendReceipt : false}
+              disabled={!clientReceiptEmail}
+              onCheckedChange={(checked) =>
+                setPaymentDraft((current) => ({
+                  ...(current ?? payment),
+                  sendReceipt: checked === true,
+                }))
+              }
+            />
+            <FieldContent>
+              <FieldLabel htmlFor="send-payment-receipt" className={cn(clientReceiptEmail && 'cursor-pointer')}>
+                {clientReceiptEmail ? `Email receipt to ${clientReceiptEmail}` : 'Email receipt unavailable'}
+              </FieldLabel>
+              {!clientReceiptEmail && <FieldDescription>Client emails are disabled for this profile.</FieldDescription>}
+            </FieldContent>
+          </Field>
+        )}
+        {payment.method === 'card' && amountReceived > 0 && (
+          <>
+            <Separator />
+            <div
+              className="bg-background flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+              data-testid="guided-terminal-payment-action"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-md border">
+                  <CreditCard className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="font-semibold">Card payment · Chx Desk</p>
+                  <p className="text-muted-foreground text-sm">
+                    Send {preciseCurrency.format(amountReceived)} to the reader. Wait for the reader to approve the
+                    payment.
+                  </p>
                 </div>
-                <Button
-                  type="button"
-                  className="w-full sm:w-auto"
-                  onClick={handleTerminalPayment}
-                  disabled={
-                    terminalPaymentIsActive ||
-                    terminalPaymentMutation.isPending ||
-                    terminalPaymentCancelMutation.isPending ||
-                    !paymentAmountIsValid ||
-                    !creditAmountIsValid ||
-                    isFetchingOutstandingPaymentBalances ||
-                    hasOutstandingPaymentBalanceError
-                  }
-                  data-testid="send-terminal-payment-button"
-                >
-                  {terminalPaymentIsActive ? (
-                    <>
-                      <Loader2 data-icon="inline-start" className="animate-spin" />
-                      Waiting for card...
-                    </>
-                  ) : terminalPaymentMutation.isPending ? (
-                    <>
-                      <Loader2 data-icon="inline-start" className="animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard data-icon="inline-start" />
-                      Send {currency.format(amountReceived)} to Chx Desk
-                    </>
-                  )}
-                </Button>
               </div>
-            </>
-          )}
-        </section>
+              <Button
+                type="button"
+                className="w-full sm:w-auto"
+                onClick={handleTerminalPayment}
+                disabled={
+                  terminalPaymentIsActive ||
+                  terminalPaymentMutation.isPending ||
+                  terminalPaymentCancelMutation.isPending ||
+                  !paymentAmountIsValid ||
+                  !creditAmountIsValid ||
+                  isFetchingOutstandingPaymentBalances ||
+                  hasOutstandingPaymentBalanceError
+                }
+                data-testid="send-terminal-payment-button"
+              >
+                {terminalPaymentIsActive ? (
+                  <>
+                    <Loader2 data-icon="inline-start" className="animate-spin" />
+                    Waiting for card...
+                  </>
+                ) : terminalPaymentMutation.isPending ? (
+                  <>
+                    <Loader2 data-icon="inline-start" className="animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard data-icon="inline-start" />
+                    Send {preciseCurrency.format(amountReceived)} to Chx Desk
+                  </>
+                )}
+              </Button>
+            </div>
+          </>
+        )}
       </FieldGroup>
+    )
+    const breakdown = (
+      <OptionalDetails title="Payment breakdown">
+        <div className="flex flex-col gap-2 text-sm">
+          <p>
+            Credit remaining:{' '}
+            {preciseCurrency.format(allocationPreview.clientCreditRemaining + allocationPreview.creditAmount)}
+          </p>
+          <p>Balance after this payment: {preciseCurrency.format(allocationPreview.remainingClientBalance)}</p>
+          {allocationPreview.creditAmount > 0 && (
+            <p>Added to account credit: {preciseCurrency.format(allocationPreview.creditAmount)}</p>
+          )}
+          {allocationPreview.previousAllocations.map((row) => (
+            <p key={row.id}>
+              {row.testTypeLabel}: {preciseCurrency.format(row.amountApplied)} applied
+            </p>
+          ))}
+        </div>
+        {hasRecordedPayment && recordedPayment && (
+          <div data-testid="guided-recorded-payment" className="flex flex-col gap-3">
+            <h3 className="text-lg font-semibold">Payment recorded</h3>
+            <p>
+              {preciseCurrency.format(recordedPayment.newMoneyAmount + recordedPayment.creditAppliedAmount)} recorded
+            </p>
+            <AlertDialog
+              open={undoPaymentDialogOpen}
+              onOpenChange={(open) => {
+                if (!undoPaymentMutation.isPending) setUndoPaymentDialogOpen(open)
+              }}
+            >
+              <AlertDialogTrigger
+                render={
+                  <Button type="button" variant="outline" className="flex-1">
+                    <Undo2 data-icon="inline-start" />
+                    Undo payment
+                  </Button>
+                }
+              />
+              <AlertDialogContent size="sm">
+                <AlertDialogHeader>
+                  <AlertDialogMedia className="bg-destructive/10 text-destructive">
+                    <Trash2Icon />
+                  </AlertDialogMedia>
+                  <AlertDialogTitle>Undo payment?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {recordedPayment.newMoneyAmount > 0
+                      ? recordedPayment.method === 'card' || recordedPayment.method === 'stripe'
+                        ? 'Correct the record without refunding the card charge.'
+                        : 'Remove this payment from the balance record.'
+                      : 'Correct the record and restore the applied client credit.'}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel variant="outline" disabled={undoPaymentMutation.isPending}>
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    type="button"
+                    variant="destructive"
+                    onClick={handleUndoPayment}
+                    disabled={undoPaymentMutation.isPending}
+                  >
+                    {undoPaymentMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                        Undoing...
+                      </>
+                    ) : (
+                      'Undo payment'
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
+      </OptionalDetails>
     )
     return (
       <div className="flex flex-col gap-6">
         {renderHeader('Payment', 'Payment')}
-        {(selectedBooking.referral?.isBillable || selectedReferralPays) && (
-          <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-            <div>
-              <label htmlFor="bill-referral" className="font-medium">
-                Bill this referral
-              </label>
-              <p className="text-muted-foreground text-sm">
-                For this test only.{' '}
-                {selectedBooking.payerLocked
-                  ? 'Billing is locked after payment.'
-                  : 'Turn off when the client needs to pay.'}
-              </p>
-            </div>
-            <Switch
-              id="bill-referral"
-              checked={selectedReferralPays}
-              disabled={
-                selectedBooking.payerLocked ||
-                payerMutation.isPending ||
-                terminalPaymentIsActive ||
-                paymentMutation.isPending ||
-                terminalPaymentMutation.isPending
-              }
-              onCheckedChange={async (checked) => {
-                const result = await payerMutation
-                  .mutateAsync({
-                    bookingId: selectedBooking.id,
-                    payer: checked ? 'referral' : 'client',
-                    expectedPayer: selectedReferralPays ? 'referral' : 'client',
-                  })
-                  .catch(() => null)
-                if (!result?.success) {
-                  toast.error(
-                    result && 'error' in result ? result.error : 'Unable to change billing. Refresh and try again.',
-                  )
-                  return
-                }
-                setPaymentDraft(null)
-                await queryClient.invalidateQueries({ queryKey: ['guided'] })
-              }}
-            />
-          </div>
-        )}
         {hasOutstandingPaymentBalanceError && (
           <Alert variant="destructive">
             <AlertTitle>Balances could not be loaded</AlertTitle>
@@ -2098,137 +2126,157 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           </Alert>
         )}
         {isLoadingOutstandingPaymentBalances ? (
-          <Skeleton className="h-24 w-full" />
-        ) : referralPays ? (
-          <Card data-testid="guided-referral-billing">
-            <CardHeader>
-              <CardTitle>Referral will be invoiced</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <p>
-                {selectedBooking.billingReferralName || selectedBooking.referral?.name} ·{' '}
-                {currency.format(payment.currentBalanceDue)}
-              </p>
-              <p className="text-muted-foreground text-sm">
-                Due from client for this test: $0. This test remains unpaid until the invoice is paid.
-              </p>
-            </CardContent>
-          </Card>
-        ) : prepaid ? (
-          <Alert variant="success">
-            <CheckCircle2 />
-            <AlertTitle>No payment needed</AlertTitle>
-            <AlertDescription>
-              <p>{currency.format(0)} remaining</p>
-              {clientCreditBalance > 0 && <p>Account credit available: {currency.format(clientCreditBalance)}</p>}
-            </AlertDescription>
-          </Alert>
+          <Skeleton className="h-64 w-full" />
         ) : (
           <Card>
-            <CardHeader>
-              <CardTitle>Total due: {currency.format(allocationPreview.dueAfterCredit)}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              {allocationPreview.previousBalanceTotal > 0 && (
-                <p>Previous client balance: {currency.format(allocationPreview.previousBalanceTotal)}</p>
+            <CardContent className="flex flex-col gap-6 p-4 sm:p-6">
+              {(selectedBooking.referral?.isBillable || selectedReferralPays) && (
+                <div className="flex flex-wrap items-center gap-4 border-b pb-5">
+                  <div className="order-2 min-w-0 flex-1">
+                    <label htmlFor="bill-referral" className="text-lg font-semibold">
+                      Bill this referral
+                    </label>
+                    <p className="text-muted-foreground text-sm">
+                      For this test only.{' '}
+                      {selectedBooking.payerLocked
+                        ? 'Billing is locked after payment.'
+                        : 'Turn off when the client needs to pay.'}
+                    </p>
+                  </div>
+                  <Switch
+                    className="order-1"
+                    id="bill-referral"
+                    checked={selectedReferralPays}
+                    disabled={
+                      selectedBooking.payerLocked ||
+                      payerMutation.isPending ||
+                      terminalPaymentIsActive ||
+                      paymentMutation.isPending ||
+                      terminalPaymentMutation.isPending
+                    }
+                    onCheckedChange={async (checked) => {
+                      const result = await payerMutation
+                        .mutateAsync({
+                          bookingId: selectedBooking.id,
+                          payer: checked ? 'referral' : 'client',
+                          expectedPayer: selectedReferralPays ? 'referral' : 'client',
+                        })
+                        .catch(() => null)
+                      if (!result?.success) {
+                        toast.error(
+                          result && 'error' in result
+                            ? result.error
+                            : 'Unable to change billing. Refresh and try again.',
+                        )
+                        return
+                      }
+                      setPaymentDraft(null)
+                      await queryClient.invalidateQueries({ queryKey: ['guided'] })
+                    }}
+                  />
+                  <div className="order-3 min-w-0 border-l pl-4 text-sm">
+                    <p className="text-muted-foreground">Referral</p>
+                    <p className="font-medium">
+                      {selectedBooking.billingReferralName || selectedBooking.referral?.name}
+                    </p>
+                  </div>
+                </div>
               )}
-              <p>
-                Today&apos;s test: {currency.format(payment.currentBalanceDue)}
-                {payment.currentBalanceDue === 0 ? ' — prepaid' : ''}
-              </p>
+
+              {referralPays ? (
+                <div className="flex flex-col gap-6" data-testid="guided-referral-billing">
+                  <Alert variant="success">
+                    <CheckCircle2 />
+                    <AlertTitle>Referral will be invoiced</AlertTitle>
+                    <AlertDescription>No payment needed from the client for this test.</AlertDescription>
+                  </Alert>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-muted-foreground text-sm">Test price</p>
+                      <p className="mt-2 text-3xl font-semibold">{preciseCurrency.format(payment.currentBalanceDue)}</p>
+                    </div>
+                    <div className="border-l pl-4">
+                      <p className="text-muted-foreground text-sm">Due from client for this test</p>
+                      <p className="mt-2 text-3xl font-semibold">{preciseCurrency.format(0)}</p>
+                    </div>
+                  </div>
+                  <OptionalDetails title="Other outstanding balances">
+                    <p>Previous client balance: {preciseCurrency.format(allocationPreview.previousBalanceTotal)}</p>
+                  </OptionalDetails>
+                </div>
+              ) : prepaid ? (
+                <>
+                  <Alert variant="success">
+                    <CheckCircle2 />
+                    <AlertTitle>No payment needed</AlertTitle>
+                    <AlertDescription>Today&apos;s test is paid.</AlertDescription>
+                  </Alert>
+                  <div>
+                    <p className="text-muted-foreground text-sm">Remaining for today&apos;s test</p>
+                    <p className="text-success-foreground mt-2 text-4xl font-semibold">{preciseCurrency.format(0)}</p>
+                  </div>
+                  <dl className="divide-border divide-y text-sm">
+                    <div className="flex justify-between gap-4 py-3">
+                      <dt>Already paid for this test</dt>
+                      <dd>{preciseCurrency.format(payment.existingAmountPaid)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-4 pt-3">
+                      <dt>Previous balance</dt>
+                      <dd>{preciseCurrency.format(allocationPreview.previousBalanceTotal)}</dd>
+                    </div>
+                  </dl>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-lg font-semibold">
+                    {payment.currentBalanceDue === 0 ? 'Previous balance owing' : 'Payment needed'}
+                  </h3>
+                  <div className="grid gap-6 min-[600px]:grid-cols-2">
+                    <div>
+                      <p className="text-muted-foreground text-sm">Due from client</p>
+                      <p className="mt-2 text-4xl font-semibold" data-testid="client-amount-due">
+                        {preciseCurrency.format(allocationPreview.dueAfterCredit)}
+                      </p>
+                    </div>
+                    <dl className="divide-border divide-y text-sm">
+                      <div className="flex justify-between gap-4 pb-3">
+                        <dt>Today&apos;s test</dt>
+                        <dd>{preciseCurrency.format(payment.currentBalanceDue)}</dd>
+                      </div>
+                      <div className="flex justify-between gap-4 py-3">
+                        <dt>Previous balance</dt>
+                        <dd>{preciseCurrency.format(allocationPreview.previousBalanceTotal)}</dd>
+                      </div>
+                      <div className="flex justify-between gap-4 pt-3">
+                        <dt>Account credit</dt>
+                        <dd>{preciseCurrency.format(clientCreditBalance)}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <Separator />
+                  {entry}
+                  {breakdown}
+                </>
+              )}
+              {terminalPaymentFailed && (
+                <Alert variant="warning">
+                  <AlertTitle>Card payment {terminalPaymentStatus?.status}</AlertTitle>
+                  <AlertDescription>
+                    {terminalPaymentStatus?.failureMessage ||
+                      'No successful payment was recorded. Try again or choose cash.'}
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardContent>
           </Card>
         )}
-        {terminalPaymentFailed && (
-          <Alert variant="warning">
-            <AlertTitle>Card payment {terminalPaymentStatus?.status}</AlertTitle>
-            <AlertDescription>
-              {terminalPaymentStatus?.failureMessage || 'No successful payment was recorded. Try again or choose cash.'}
-            </AlertDescription>
-          </Alert>
-        )}
-        {!referralPays &&
-          (prepaid ? (
-            <OptionalDetails title="Add account credit" invalid={!paymentAmountIsValid}>
+        {!referralPays && prepaid && (
+          <>
+            <OptionalDetails title="Add account credit (optional)" invalid={!paymentAmountIsValid}>
               {entry}
             </OptionalDetails>
-          ) : (
-            <Card>
-              <CardContent className="p-4 sm:p-6">{entry}</CardContent>
-            </Card>
-          ))}
-        {!referralPays && (
-          <OptionalDetails title="Payment details">
-            <p>
-              Credit remaining:{' '}
-              {currency.format(allocationPreview.clientCreditRemaining + allocationPreview.creditAmount)}
-            </p>
-            <p>
-              Payment applies to the oldest eligible client balance first, then today&apos;s test. Extra money becomes
-              account credit.
-            </p>
-            {allocationPreview.previousAllocations.map((row) => (
-              <p key={row.id}>
-                {row.testTypeLabel}: {currency.format(row.amountApplied)} applied
-              </p>
-            ))}
-            {hasRecordedPayment && recordedPayment && (
-              <div data-testid="guided-recorded-payment" className="flex flex-col gap-3">
-                <h3 className="text-lg font-semibold">Payment recorded</h3>
-                <p>{currency.format(recordedPayment.newMoneyAmount + recordedPayment.creditAppliedAmount)} recorded</p>
-                <AlertDialog
-                  open={undoPaymentDialogOpen}
-                  onOpenChange={(open) => {
-                    if (!undoPaymentMutation.isPending) setUndoPaymentDialogOpen(open)
-                  }}
-                >
-                  <AlertDialogTrigger
-                    render={
-                      <Button type="button" variant="outline" className="flex-1">
-                        <Undo2 data-icon="inline-start" />
-                        Undo payment
-                      </Button>
-                    }
-                  />
-                  <AlertDialogContent size="sm">
-                    <AlertDialogHeader>
-                      <AlertDialogMedia className="bg-destructive/10 text-destructive">
-                        <Trash2Icon />
-                      </AlertDialogMedia>
-                      <AlertDialogTitle>Undo payment?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {recordedPayment.newMoneyAmount > 0
-                          ? recordedPayment.method === 'card' || recordedPayment.method === 'stripe'
-                            ? 'Correct the record without refunding the card charge.'
-                            : 'Remove this payment from the balance record.'
-                          : 'Correct the record and restore the applied client credit.'}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel variant="outline" disabled={undoPaymentMutation.isPending}>
-                        Cancel
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        type="button"
-                        variant="destructive"
-                        onClick={handleUndoPayment}
-                        disabled={undoPaymentMutation.isPending}
-                      >
-                        {undoPaymentMutation.isPending ? (
-                          <>
-                            <Loader2 className="mr-2 size-4 animate-spin" />
-                            Undoing...
-                          </>
-                        ) : (
-                          'Undo payment'
-                        )}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            )}
-          </OptionalDetails>
+            {breakdown}
+          </>
         )}
       </div>
     )
@@ -2304,7 +2352,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             : 'Send card payment above'
           : amountReceived > 0 || creditToApply > 0
             ? 'Record Payment & Continue'
-            : 'Continue to Collection Setup'
+            : selectedReferralPays || paymentTotalDue === 0
+              ? 'Continue to preparation'
+              : 'Continue with balance owing'
         : 'Continue to medications'
   const canGoNext =
     currentStep === 'review' || currentStep === 'registration'
@@ -2326,7 +2376,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     currentStep === 'schedule'
       ? 'Cancel'
       : currentStep === 'payment'
-        ? 'Back to Review'
+        ? 'Back to client'
         : currentStep === 'toxaccess'
           ? 'Back to payment'
           : 'Back'
@@ -2367,7 +2417,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       >
         {renderCurrentStep()}
 
-        <div className="mt-6 flex items-start justify-between gap-4 border-t pt-4">
+        <div className="mt-6 flex flex-col-reverse items-stretch gap-4 border-t pt-4 min-[500px]:flex-row min-[500px]:items-start min-[500px]:justify-between">
           <div className="flex flex-col gap-1">
             <Button
               type="button"
@@ -2390,39 +2440,47 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           </div>
 
           {currentStep !== 'schedule' && (
-            <Button
-              type="button"
-              onClick={() => void handlePrimaryNext()}
-              disabled={!canGoNext || footerIsPending || isCheckingSession}
-              size="lg"
-              data-testid="wizard-next-button"
-            >
-              {terminalPaymentIsActive ? (
-                <>
-                  <Loader2 data-icon="inline-start" className="animate-spin" />
-                  Payment pending
-                </>
-              ) : footerIsPending || isCheckingSession ? (
-                <>
-                  <Loader2 data-icon="inline-start" className="animate-spin" />
-                  Processing...
-                </>
-              ) : paymentBalancesAreLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Loading payment details...
-                </>
-              ) : (
-                <>
-                  {nextLabel}
-                  {currentStep === 'toxaccess' ? (
-                    <CheckCircle2 className="ml-2 h-5 w-5" />
-                  ) : (
-                    <ChevronRight className="ml-2 h-5 w-5" />
-                  )}
-                </>
-              )}
-            </Button>
+            <div className="flex min-w-0 flex-col items-stretch gap-2 min-[500px]:items-end">
+              <Button
+                type="button"
+                onClick={() => void handlePrimaryNext()}
+                disabled={!canGoNext || footerIsPending || isCheckingSession}
+                size="lg"
+                data-testid="wizard-next-button"
+              >
+                {terminalPaymentIsActive ? (
+                  <>
+                    <Loader2 data-icon="inline-start" className="animate-spin" />
+                    Payment pending
+                  </>
+                ) : footerIsPending || isCheckingSession ? (
+                  <>
+                    <Loader2 data-icon="inline-start" className="animate-spin" />
+                    Processing...
+                  </>
+                ) : paymentBalancesAreLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Loading payment details...
+                  </>
+                ) : (
+                  <>
+                    {nextLabel}
+                    {currentStep === 'toxaccess' ? (
+                      <CheckCircle2 className="ml-2 h-5 w-5" />
+                    ) : (
+                      <ChevronRight className="ml-2 h-5 w-5" />
+                    )}
+                  </>
+                )}
+              </Button>
+              {currentStep === 'payment' &&
+                !selectedReferralPays &&
+                paymentTotalDue > 0 &&
+                amountReceived === 0 &&
+                creditToApply === 0 &&
+                !paymentBalancesAreLoading && <p className="text-warning-foreground text-xs">No payment entered</p>}
+            </div>
           )}
         </div>
       </div>

@@ -89,11 +89,11 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
           return
         }
 
-        const reportClientMatch = getReportClientMatch(extractedData?.donorName, value.client)
+        const reportClientMatch = getReportClientMatch(extractedData?.donorName, value.client, extractedData?.dob)
         const mismatchKey = getReportClientMismatchKey(reportClientMatch)
 
         if (
-          reportClientMatch.status === 'mismatch' &&
+          reportClientMatch.requiresConfirmation &&
           (!value.extract.clientMismatchConfirmed || value.extract.clientMismatchConfirmationKey !== mismatchKey)
         ) {
           toast.error('Confirm the report/client mismatch before submitting.', {
@@ -362,17 +362,25 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
         }
       }
 
-      if (currentStep === 'extract' && form.state.values.client.id) {
+      if ((currentStep === 'extract' || currentStep === 'client') && form.state.values.client.id) {
         const queryKey = extractPdfQueryKey(form.state.values.upload.file, 'instant-test')
         const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
-        const reportClientMatch = getReportClientMatch(extractedData?.donorName, form.state.values.client)
+        const reportClientMatch = getReportClientMatch(
+          extractedData?.donorName,
+          form.state.values.client,
+          extractedData?.dob,
+        )
         const mismatchKey = getReportClientMismatchKey(reportClientMatch)
 
         if (
-          reportClientMatch.status === 'mismatch' &&
+          reportClientMatch.requiresConfirmation &&
           (!form.state.values.extract.clientMismatchConfirmed ||
             form.state.values.extract.clientMismatchConfirmationKey !== mismatchKey)
         ) {
+          if (currentStep === 'client') {
+            await setCurrentStep('extract', { history: 'push' })
+            return
+          }
           toast.error('Confirm the report/client mismatch before continuing.', {
             id: 'instant-test-report-client-mismatch',
           })

@@ -10,7 +10,7 @@ export type CollectionPhase = (typeof phases)[number]
 export function CollectionProgress({ phase, completed = false }: { phase: CollectionPhase; completed?: boolean }) {
   const current = phases.indexOf(phase)
   return (
-    <nav aria-label="Collection progress" className="mb-8">
+    <nav aria-label="Collection progress" className="mr-8 mb-8 sm:mr-0">
       <ol className="flex items-start">
         {phases.map((label, index) => (
           <li
@@ -22,7 +22,7 @@ export function CollectionProgress({ phase, completed = false }: { phase: Collec
               <span
                 aria-hidden
                 className={cn(
-                  'bg-border absolute top-3 left-1/2 h-px w-full',
+                  'bg-border absolute top-4 left-1/2 h-px w-full',
                   (completed || index < current) && 'bg-primary',
                 )}
               />
@@ -30,11 +30,12 @@ export function CollectionProgress({ phase, completed = false }: { phase: Collec
             <span
               aria-hidden
               className={cn(
-                'border-border bg-background relative flex size-6 items-center justify-center rounded-full border',
-                (completed || index <= current) && 'border-primary bg-primary text-primary-foreground',
+                'border-border bg-background text-muted-foreground relative flex size-8 items-center justify-center rounded-full border text-sm font-medium',
+                (completed || index < current) && 'border-success-border bg-success text-success-foreground',
+                !completed && index === current && 'border-primary bg-primary text-primary-foreground',
               )}
             >
-              {(completed || index < current) && <Check className="size-4" />}
+              {completed || index < current ? <Check className="size-4" /> : index + 1}
             </span>
             <span
               className={cn(

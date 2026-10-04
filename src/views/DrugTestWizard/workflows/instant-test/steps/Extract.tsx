@@ -10,13 +10,17 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { ParsedPDFData } from '@/views/DrugTestWizard/types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
-import { useExtractPdfQuery } from '@/views/DrugTestWizard/queries'
+import { useExtractPdfQuery, useComputeTestResultPreviewQuery } from '@/views/DrugTestWizard/queries'
 import { OptionalDetails } from '../../../components/OptionalDetails'
 import { ReportLink } from '../../../components/ReportLink'
 import { ClientDetailsCard } from '../../components/client/ClientDetailsCard'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { getInstantTestFormOpts } from '../shared-form'
 import { getReportClientMatch, getReportClientMismatchKey } from '../utils/reportClientMatch'
+import { Button } from '@/components/ui/button'
+import { useQueryState, parseAsString } from 'nuqs'
+import { CollectionResultStrip } from '../../../components/CollectionResultStrip'
+import { IdentityNotice } from '../../../components/IdentityNotice'
 import { AlertTriangle, Calendar, FileCheck2, FileX2, Loader2, User } from 'lucide-react'
 import { formatSubstance } from '@/lib/substances'
 
@@ -59,6 +63,16 @@ export const ExtractStep = withForm({
     const mismatchConfirmed = useStore(form.store, (state) => state.values.extract.clientMismatchConfirmed)
     const mismatchConfirmationKey = useStore(form.store, (state) => state.values.extract.clientMismatchConfirmationKey)
     const { data: extractedData, isLoading, error } = useExtractPdfQuery(uploadedFile, 'instant-test')
+    const [, setStep] = useQueryState('step', parseAsString)
+    const {
+      data: preview,
+      isFetching: previewLoading,
+      isError: previewError,
+    } = useComputeTestResultPreviewQuery(
+      extractedData?.resultsComplete === false ? null : selectedClient.id,
+      (extractedData?.detectedSubstances ?? []) as SubstanceValue[],
+      extractedData?.testType === '17-panel-instant' ? '17-panel-instant' : null,
+    )
 
     // Auto-sync extracted data to form when available
     useEffect(() => {
@@ -127,6 +141,7 @@ export const ExtractStep = withForm({
     // Build ParsedPDFData object for display
     const parsedData: ParsedPDFData = {
       donorName: extractedData.donorName,
+      dob: extractedData.dob,
       collectionDate: extractedData.collectionDate,
       detectedSubstances: extractedData.detectedSubstances as SubstanceValue[],
       isDilute: extractedData.isDilute,
@@ -142,17 +157,18 @@ export const ExtractStep = withForm({
       hasConfirmation: extractedData.hasConfirmation,
       confirmationResults: extractedData.confirmationResults as ParsedPDFData['confirmationResults'],
     }
-    const reportClientMatch = selectedClient.id ? getReportClientMatch(extractedData.donorName, selectedClient) : null
+    const reportClientMatch = selectedClient.id
+      ? getReportClientMatch(extractedData.donorName, selectedClient, extractedData.dob)
+      : null
     const mismatchKey = getReportClientMismatchKey(reportClientMatch)
     const mismatchIsConfirmed = Boolean(
-      reportClientMatch?.status === 'mismatch' && mismatchConfirmed && mismatchConfirmationKey === mismatchKey,
+      reportClientMatch?.requiresConfirmation && mismatchConfirmed && mismatchConfirmationKey === mismatchKey,
     )
     const detectedSubstances = parsedData.detectedSubstances ?? []
     const collectionDate = formatCollectionDate(parsedData.collectionDate)
 
     return (
       <div className="flex flex-col gap-6">
-        <FieldGroupHeader title="Review report data" />
         {selectedClient.id && (
           <ClientDetailsCard
             compact
@@ -173,152 +189,150 @@ export const ExtractStep = withForm({
             }}
           />
         )}
-        <ReportLink file={uploadedFile} filename />
-        {reportClientMatch?.status === 'warning' && (
-          <Card className="border-warning-border bg-warning-muted">
-            <CardContent className="space-y-5 p-6">
-              <div className="flex items-start gap-4">
-                <div className="border-warning-border bg-warning-muted text-warning-foreground flex size-12 shrink-0 items-center justify-center rounded-full border">
-                  <AlertTriangle className="size-6" />
-                </div>
-                <div className="min-w-0 space-y-2">
-                  <h3 className="text-warning-foreground text-base font-bold tracking-tight">
-                    Name spelling does not match
-                  </h3>
-                  <p className="text-warning-foreground text-sm">
-                    The report name is close to the selected client. Verify the correct spelling, then fix it in
-                    ToxAccess or the Client Collection.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="bg-card border-warning-border rounded-lg border p-4">
-                  <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">Report</p>
-                  <p className="text-foreground mt-2 text-base font-semibold">{reportClientMatch.reportName}</p>
-                </div>
-                <div className="bg-card border-warning-border rounded-lg border p-4">
-                  <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">
-                    Selected client
-                  </p>
-                  <p className="text-foreground mt-2 text-base font-semibold">{reportClientMatch.clientName}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-        {reportClientMatch?.status === 'mismatch' && (
-          <Card className="border-destructive/70 bg-destructive/5">
-            <CardContent className="flex flex-col gap-3 p-4">
-              <div className="flex items-start gap-3">
-                <div className="border-destructive/40 bg-destructive/10 text-destructive flex size-8 shrink-0 items-center justify-center rounded-full border">
-                  <AlertTriangle className="size-4" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-destructive text-base font-semibold">Possible wrong client report</h3>
-                  <p className="text-muted-foreground text-sm">
-                    The names do not closely match. Verify the report before continuing.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-2">
-                <div className="border-destructive/30 bg-card rounded-md border px-3 py-2">
-                  <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Report</p>
-                  <p className="text-foreground truncate text-base font-semibold">{reportClientMatch.reportName}</p>
-                </div>
-                <div className="border-destructive/30 bg-card rounded-md border px-3 py-2">
-                  <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-                    Selected client
-                  </p>
-                  <p className="text-foreground truncate text-base font-semibold">{reportClientMatch.clientName}</p>
-                </div>
-              </div>
-
-              <label className="border-destructive/40 bg-card hover:bg-muted/40 flex cursor-pointer items-center gap-3 rounded-md border p-3 transition">
-                <Checkbox
-                  checked={mismatchIsConfirmed}
-                  onCheckedChange={(checked) => {
-                    form.setFieldValue('extract.clientMismatchConfirmed', checked === true)
-                    form.setFieldValue('extract.clientMismatchConfirmationKey', checked === true ? mismatchKey : null)
+        <FieldGroupHeader title="Review report data" />
+        <Card>
+          <CardContent className="flex flex-col gap-5 p-4 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <p className="min-w-0 flex-1 text-lg font-semibold wrap-anywhere">{uploadedFile?.name || 'Report PDF'}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="link"
+                  onClick={() => {
+                    form.resetField('upload.file')
+                    form.setFieldValue('extract.clientMismatchConfirmed', false)
+                    form.setFieldValue('extract.clientMismatchConfirmationKey', null)
+                    void setStep('upload', { history: 'push' })
                   }}
-                />
-                <span className="text-sm font-medium">
-                  I reviewed the report and confirm it belongs to this client.
-                </span>
-              </label>
-            </CardContent>
-          </Card>
-        )}
-        {reportClientMatch?.status === 'unknown' && (
-          <Alert className="border-warning-border">
-            <AlertTriangle className="h-5 w-5" />
-            <AlertDescription className="space-y-1">
-              <p className="text-base font-semibold">Could not verify the report name against the selected client.</p>
-              <p className="text-sm">
-                Report name: {reportClientMatch.reportName || 'Not found'} · Selected client:{' '}
-                {reportClientMatch.clientName || 'Not selected'}
+                >
+                  Replace PDF
+                </Button>
+                <ReportLink file={uploadedFile} />
+              </div>
+            </div>
+            {reportClientMatch?.status === 'match' && (
+              <p className="text-success-foreground flex items-center gap-2 text-sm">
+                <FileCheck2 className="size-5" />
+                {reportClientMatch.reportDob ? 'Report name and birth date match' : 'Report name matches client'}
               </p>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <Alert variant={parsedData.resultsComplete === false ? 'warning' : 'info'}>
-          <AlertDescription>
-            {parsedData.resultsComplete === false
-              ? 'Results incomplete — review the PDF'
-              : 'Detected: ' +
-                (detectedSubstances.length
-                  ? detectedSubstances.map((value) => formatSubstance(value)).join(', ')
-                  : 'None')}
-            {parsedData.isDilute ? ' · Dilute sample' : ''}
-          </AlertDescription>
-        </Alert>
-        <OptionalDetails title="Report details">
-          <p className="text-muted-foreground text-sm">
-            Parsed with {parsedData.confidence} confidence
-            {typeof parsedData.confidenceScore === 'number' ? ` (${parsedData.confidenceScore}%)` : ''}
-          </p>
-          {parsedData.confidenceReasons?.length ? (
-            <p className="text-muted-foreground text-sm">{parsedData.confidenceReasons.join(' · ')}</p>
-          ) : null}
-          <div className="divide-border divide-y">
-            <DetailRow icon={User} label="Donor Name">
-              {parsedData.donorName || <span className="text-muted-foreground italic">Not found</span>}
-            </DetailRow>
-
-            <DetailRow icon={Calendar} label="Collection Date">
-              {collectionDate || <span className="text-muted-foreground italic">Not found</span>}
-            </DetailRow>
-
-            {parsedData.testType && (
-              <DetailRow icon={FileCheck2} label="Detected Test Type">
-                <Badge variant="outline" className="px-3 py-1.5 text-sm capitalize">
-                  {formatTestType(parsedData.testType)}
-                </Badge>
-              </DetailRow>
             )}
+            {reportClientMatch && reportClientMatch.status !== 'match' && (
+              <IdentityNotice
+                title={
+                  reportClientMatch.status === 'unknown' ||
+                  (reportClientMatch.dobDifferent && (!reportClientMatch.reportDob || !reportClientMatch.clientDob))
+                    ? 'Check client details in the PDF'
+                    : reportClientMatch.nameDifferent && reportClientMatch.dobDifferent
+                      ? "Name and birth date don't match"
+                      : reportClientMatch.dobDifferent
+                        ? "Birth date doesn't match"
+                        : "Name doesn't match"
+                }
+                sourceLabel="ToxAccess report"
+                rows={[
+                  {
+                    label: 'Name',
+                    clientValue: reportClientMatch.clientName,
+                    sourceValue: reportClientMatch.reportName,
+                    different: reportClientMatch.nameDifferent,
+                  },
+                  ...(extractedData.dob
+                    ? [
+                        {
+                          label: 'Birth date',
+                          clientValue: reportClientMatch.clientDob,
+                          sourceValue: reportClientMatch.reportDob || 'Not readable',
+                          different: reportClientMatch.dobDifferent,
+                        },
+                      ]
+                    : []),
+                ]}
+              >
+                <label className="flex cursor-pointer items-start gap-3 text-sm">
+                  <Checkbox
+                    aria-required="true"
+                    data-testid="report-client-confirmation"
+                    checked={mismatchIsConfirmed}
+                    onCheckedChange={(checked) => {
+                      form.setFieldValue('extract.clientMismatchConfirmed', checked === true)
+                      form.setFieldValue('extract.clientMismatchConfirmationKey', checked === true ? mismatchKey : null)
+                    }}
+                  />
+                  <span>This is the same person</span>
+                </label>
+              </IdentityNotice>
+            )}
+            {parsedData.resultsComplete === false ? (
+              <Alert variant="warning">
+                <AlertTriangle />
+                <AlertDescription>Results incomplete — review the PDF</AlertDescription>
+              </Alert>
+            ) : !selectedClient.id ? (
+              <Alert variant="info">
+                <AlertDescription>
+                  Detected:{' '}
+                  {detectedSubstances.length
+                    ? detectedSubstances.map((value) => formatSubstance(value)).join(', ')
+                    : 'None'}
+                  {parsedData.isDilute ? ' · Dilute sample' : ''}
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <CollectionResultStrip
+                preview={preview}
+                detected={detectedSubstances}
+                isLoading={previewLoading}
+                error={previewError}
+                isDilute={parsedData.isDilute}
+              />
+            )}
+            <OptionalDetails title="Report details">
+              <p className="text-muted-foreground text-sm">
+                Parsed with {parsedData.confidence} confidence
+                {typeof parsedData.confidenceScore === 'number' ? ` (${parsedData.confidenceScore}%)` : ''}
+              </p>
+              {parsedData.confidenceReasons?.length ? (
+                <p className="text-muted-foreground text-sm">{parsedData.confidenceReasons.join(' · ')}</p>
+              ) : null}
+              <div className="divide-border divide-y">
+                <DetailRow icon={User} label="Donor Name">
+                  {parsedData.donorName || <span className="text-muted-foreground italic">Not found</span>}
+                </DetailRow>
 
-            <DetailRow label="Dilute Sample">
-              {parsedData.isDilute ? (
-                <Badge variant="warning" className="gap-2 px-3 py-1.5 text-base">
-                  <AlertTriangle className="size-4" />
-                  Yes
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="px-3 py-1.5 text-base">
-                  No
-                </Badge>
-              )}
-            </DetailRow>
-          </div>
-        </OptionalDetails>
-        {parsedData.parseWarnings?.map((warning) => (
-          <Alert key={warning} variant="warning">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>{warning}</AlertDescription>
-          </Alert>
-        ))}
+                <DetailRow icon={Calendar} label="Collection Date">
+                  {collectionDate || <span className="text-muted-foreground italic">Not found</span>}
+                </DetailRow>
+
+                {parsedData.testType && (
+                  <DetailRow icon={FileCheck2} label="Detected Test Type">
+                    <Badge variant="outline" className="px-3 py-1.5 text-sm capitalize">
+                      {formatTestType(parsedData.testType)}
+                    </Badge>
+                  </DetailRow>
+                )}
+
+                <DetailRow label="Dilute Sample">
+                  {parsedData.isDilute ? (
+                    <Badge variant="warning" className="gap-2 px-3 py-1.5 text-base">
+                      <AlertTriangle className="size-4" />
+                      Yes
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="px-3 py-1.5 text-base">
+                      No
+                    </Badge>
+                  )}
+                </DetailRow>
+              </div>
+            </OptionalDetails>
+            {parsedData.parseWarnings?.map((warning) => (
+              <Alert key={warning} variant="warning">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{warning}</AlertDescription>
+              </Alert>
+            ))}
+          </CardContent>
+        </Card>
       </div>
     )
   },

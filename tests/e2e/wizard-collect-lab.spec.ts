@@ -175,6 +175,7 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await clickNext(page)
     await clickNext(page)
 
+    await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
     await page.locator('#collection-date').fill(isoDateTimeForInput(new Date().toISOString()))
     await page.locator('#collection-date').press('Tab')
     await clickNext(page)
@@ -203,7 +204,9 @@ test.describe('Wizard Collect Lab Workflow', () => {
       const messages = await findMailpitMessages({
         apiBase: env.mailpitApiBase,
         createdAfter: testStart,
-        to: fixtures.clients.collectLab.referralRecipients[0],
+        // This self-referred fixture has no additional contact; its collection
+        // notification goes to the client's own address.
+        to: fixtures.clients.collectLab.email,
         subject: expectedSubject,
         requireAttachment: 'none',
         timeoutMs: 45_000,

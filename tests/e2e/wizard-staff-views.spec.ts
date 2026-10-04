@@ -128,6 +128,52 @@ test.describe('Standard staff views and account payments', () => {
     expect((await payload.findByID({ collection: 'courts', id: fixtures.referrals.court.id })).isBillable).toBe(true)
   })
 
+  test('lets a standard admin choose self-pay in the payment screen and continue with the balance owing', async ({
+    page,
+  }) => {
+    const payload = await getPayloadClient()
+    const client = fixtures.clients.instant
+    const booking = await payload.create({
+      collection: 'bookings',
+      data: {
+        title: 'Staff payment UI',
+        type: '15min',
+        status: 'confirmed',
+        startTime: new Date().toISOString(),
+        endTime: new Date(Date.now() + 900000).toISOString(),
+        attendeeName: client.fullName,
+        attendeeEmail: client.email,
+        relatedClient: client.id,
+        organizer: { name: 'Local test', email: 'local@example.test' },
+        scheduledTestType: '11-panel-lab',
+        payment: { amountDue: 80, amountPaid: 0, status: 'unpaid' },
+      },
+      overrideAccess: true,
+    })
+    fixtures.created.bookingIds = [...(fixtures.created.bookingIds || []), booking.id]
+    await loginAdmin(page, fixtures.admin)
+    await page.goto(`/admin/drug-test-upload?workflow=guided&step=payment&bookingId=${booking.id}`)
+    await expect(page.getByText('Referral will be invoiced', { exact: true })).toBeVisible()
+    await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toBeHidden()
+    await page.screenshot({ path: test.info().outputPath('payment-referral.png'), fullPage: true })
+    const billReferral = page.getByRole('switch', { name: 'Bill this referral', exact: true })
+    await expect(billReferral).toBeChecked()
+    await billReferral.uncheck()
+    await expect(billReferral).not.toBeChecked()
+    await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toHaveValue('0')
+    await expect(page.getByTestId('wizard-next-button')).toHaveText(/Continue with balance owing/)
+    await page.screenshot({ path: test.info().outputPath('payment-client-exception.png'), fullPage: true })
+    await page.getByTestId('wizard-next-button').click()
+    const confirmation = page.getByRole('alertdialog', { name: 'Continue without payment?' })
+    await expect(confirmation).toBeVisible()
+    await confirmation.getByRole('button', { name: 'Continue', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Prepare lab collection' })).toBeVisible()
+    const saved = await payload.findByID({ collection: 'bookings', id: booking.id, depth: 0 })
+    expect(saved.billingResponsibility?.payer).toBe('client')
+    expect(saved.payment?.amountPaid).toBe(0)
+    expect(saved.payment?.collectedAt).toBeTruthy()
+  })
+
   test('rejects concurrent payer writes when transactions are unavailable', async () => {
     const payload = await getPayloadClient()
     const client = fixtures.clients.instant

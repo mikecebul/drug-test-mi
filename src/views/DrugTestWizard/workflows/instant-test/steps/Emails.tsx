@@ -102,7 +102,6 @@ export const EmailsStep = withForm({
     )
     return (
       <div className="flex flex-col gap-6">
-        <FieldGroupHeader title="Review result & recipients" />
         <ClientDetailsCard
           compact
           client={formValues.client}
@@ -121,6 +120,7 @@ export const EmailsStep = withForm({
             if (updated.referralTitle !== undefined) form.setFieldValue('client.referralTitle', updated.referralTitle)
           }}
         />
+        <FieldGroupHeader title="Review result & recipients" />
         <CollectionResultStrip
           preview={resultPreview.data}
           detected={formValues.verifyData.detectedSubstances}

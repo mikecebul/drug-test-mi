@@ -427,7 +427,13 @@ export async function waitForExtractStepReady(
     }
 
     const nextButton = await getNextButton(page)
-    if (await nextButton.isEnabled().catch(() => false)) {
+    if (
+      (await nextButton.isEnabled().catch(() => false)) ||
+      (await page
+        .getByTestId('report-client-confirmation')
+        .isVisible()
+        .catch(() => false))
+    ) {
       return
     }
 
@@ -442,6 +448,22 @@ async function ensureInstantExtractReady(page: Page) {
   await waitForExtractStepReady(page, {
     readyHeadings: [/Review report data/i],
   })
+}
+
+// Selecting the client makes the report identity comparison possible. If it
+// differs, the workflow returns to review before medication/result decisions.
+export async function continueFromInstantClient(page: Page) {
+  await clickNext(page)
+  if (new URL(page.url()).searchParams.get('step') === 'extract') {
+    await ensureInstantExtractReady(page)
+    const confirmation = page.getByRole('checkbox', { name: 'This is the same person', exact: true })
+    await expect(confirmation).not.toBeChecked()
+    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
+    await confirmation.check()
+    await clickNextToStep(page, 'client')
+    await clickNextToStep(page, 'medications')
+  }
+  await expect(page.getByRole('heading', { name: 'Verify medications', exact: true })).toBeVisible()
 }
 
 async function ensureInstantVerifyDataReady(page: Page) {
@@ -478,7 +500,7 @@ export async function goToEmailsStepFromInstant(page: Page, pdfPath: string, cli
     await clickBack(page)
     await ensureInstantExtractReady(page)
     const mismatchConfirmation = page.getByRole('checkbox', {
-      name: /confirm it belongs to this client/i,
+      name: 'This is the same person',
     })
     if (await mismatchConfirmation.isVisible().catch(() => false)) {
       await mismatchConfirmation.check()

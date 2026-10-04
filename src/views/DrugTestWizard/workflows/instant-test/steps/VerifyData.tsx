@@ -106,7 +106,6 @@ export const VerifyDataStep = withForm({
     )
     return (
       <div className="flex flex-col gap-6">
-        <FieldGroupHeader title="Verify instant test" />
         {client && (
           <ClientDetailsCard
             compact
@@ -127,6 +126,7 @@ export const VerifyDataStep = withForm({
             }}
           />
         )}
+        <FieldGroupHeader title="Verify instant test" />
 
         <CollectionResultStrip
           preview={preview}

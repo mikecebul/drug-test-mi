@@ -236,7 +236,7 @@ export function ClientDetailsCard({
     <>
       {compact ? (
         <Card className={cn('rounded-lg', className)}>
-          <CardContent className="flex flex-wrap items-center gap-4 p-4">
+          <CardContent className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-3 p-4 sm:flex sm:flex-wrap sm:gap-4">
             <Avatar className="size-14 shrink-0 sm:size-16">
               <AvatarImage src={client.headshot || undefined} alt={fullName} />
               <AvatarFallback>{initials}</AvatarFallback>
@@ -248,7 +248,7 @@ export function ClientDetailsCard({
                 {testLabel ? ` · ${testLabel}` : ''}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="col-span-2 flex flex-wrap items-center justify-end gap-2">
               {onChangeClient && (
                 <Button type="button" variant="ghost" size="sm" onClick={onChangeClient}>
                   Change client

@@ -36,9 +36,28 @@ async function openGuidedSchedule(page: Page) {
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
-  await expect
-    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth))
-    .toBe(true)
+  try {
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), {
+        message: 'The page must fit the viewport',
+      })
+      .toBeLessThanOrEqual(0)
+  } catch (error) {
+    console.error(
+      await page.evaluate(() =>
+        Array.from(document.querySelectorAll('body *'))
+          .filter((element) => element.getBoundingClientRect().right > document.documentElement.clientWidth + 1)
+          .slice(0, 15)
+          .map((element) => ({
+            tag: element.tagName,
+            className: element.className,
+            right: element.getBoundingClientRect().right,
+            width: element.getBoundingClientRect().width,
+          })),
+      ),
+    )
+    throw error
+  }
 }
 
 async function expectReceivesPointerAtCenter(locator: Locator) {
@@ -294,7 +313,10 @@ test.describe("Wizard Today's Schedule", () => {
       await saveClientButton.tap()
       await expect(clientEditor).toBeHidden({ timeout: 30_000 })
       await expect(page.getByText('Client details updated')).toBeVisible()
-      await expect(page.getByText('(248) 555-0199', { exact: true })).toBeVisible()
+      const updatedClient = await page.request.get(`/api/clients/${fixtures.clients.instant.id}?depth=0`, {
+        headers: { Origin: new URL(page.url()).origin },
+      })
+      expect((await updatedClient.json()).phone).toBe('2485550199')
 
       const mismatchConfirmation = page.getByRole('checkbox', {
         name: /I verified .* is the person testing today/i,
@@ -308,6 +330,8 @@ test.describe("Wizard Today's Schedule", () => {
       await expect(noHeadshotDialog).toBeVisible()
       await noHeadshotDialog.getByRole('button', { name: 'Continue', exact: true }).tap()
       await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toBeVisible()
+      await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toBeHidden()
+      await page.getByRole('button', { name: 'Add account credit (optional)', exact: true }).tap()
       await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toBeVisible()
       await expect(page.getByTestId('wizard-next-button')).toBeVisible()
       await expectNoHorizontalOverflow(page)
@@ -333,7 +357,6 @@ test.describe("Wizard Today's Schedule", () => {
           ])
           if (!amountBox || !methodBox || !cashBox || !cardBox) return Number.POSITIVE_INFINITY
           return Math.max(
-            Math.abs(amountBox.width - methodBox.width),
             Math.abs(cashBox.width - cardBox.width),
             Math.abs(amountBox.height - cashBox.height),
             Math.abs(amountBox.height - cardBox.height),
@@ -471,26 +494,19 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
     await expect(page.getByText(fixtures.clients.instant.fullName, { exact: true }).first()).toBeVisible()
     await expect(page.getByText(scheduleFixtures.bookings.paidLinked.attendeeName)).toBeVisible()
-    await expect(page.getByText('Booking name does not match the selected client')).toBeVisible()
-    await expect(page.getByTestId('wizard-next-button')).toBeEnabled()
-    await expect(page.getByText('Male')).toHaveClass(/text-blue-900/)
     await expect(
-      page.getByText(`${formatScheduleTime(scheduleFixtures.bookings.paidLinked.startTime)} · Male`),
-    ).toHaveCount(0)
+      page.getByRole('heading', { name: "Booking name doesn't match the client", exact: true }),
+    ).toBeVisible()
+    await expect(page.getByTestId('wizard-next-button')).toBeEnabled()
+    await expect(page.getByText(/DOB/).first()).toBeVisible()
+    await expect(page.locator('body')).not.toContainText(fixtures.clients.instant.id)
     await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toHaveCount(0)
     await verifyGuidedClientMismatch(page)
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toBeVisible()
-    await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toHaveValue('0')
-    await expect(page.getByRole('button', { name: 'Cash payment method' })).toHaveAttribute('aria-pressed', 'true')
-    await expect(
-      page.getByRole('group', { name: 'Quick amount received' }).getByRole('button', {
-        name: 'Set amount received to $0',
-      }),
-    ).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByText('Today · 17-Panel Instant')).toBeVisible()
-    await expect(page.getByText('Current test · $0 due')).toBeVisible()
-    await expect(page.getByText('$0 applied', { exact: true })).toBeVisible()
+    await expect(page.getByText('No payment needed', { exact: true })).toBeVisible()
+    await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toBeHidden()
+    await expect(page.getByRole('button', { name: 'Add account credit (optional)', exact: true })).toBeVisible()
   })
 
   test('focuses the required identity confirmation without disabling Next', async ({ page }) => {
@@ -607,7 +623,7 @@ test.describe("Wizard Today's Schedule", () => {
       await expect(page.getByRole('button', { name: 'Close menu' }).last()).toBeVisible()
     }
 
-    const quickBookTrigger = page.getByRole('button', { name: 'Quick Book', exact: true })
+    const quickBookTrigger = page.getByRole('complementary').getByRole('button', { name: 'Quick Book', exact: true })
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
       await quickBookTrigger.click()
@@ -647,29 +663,28 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toBeVisible()
-    await expect(page.getByText('Credit available')).toBeVisible()
-    await expect(page.getByText('$40 available')).toBeVisible()
-    await expect(page.getByText('Total Due', { exact: true })).toBeVisible()
+    await expect(page.locator('dl').filter({ hasText: 'Account credit' }).getByText('$40.00').last()).toBeVisible()
+    await expect(page.getByTestId('client-amount-due')).toHaveText('$40.00')
+    await page.screenshot({ path: test.info().outputPath('payment-owed.png'), fullPage: true })
 
     const creditInput = page.getByRole('spinbutton', { name: 'Credit to apply' })
     const amountReceived = page.getByRole('spinbutton', { name: 'Amount received now' })
     await expect(creditInput).toHaveValue('0')
     await expect(amountReceived).toHaveValue('0')
 
-    await page.getByRole('button', { name: 'Apply $40 credit' }).click()
+    await page.getByRole('button', { name: 'Apply credit' }).click()
     await expect(creditInput).toHaveValue('40')
     await expect(amountReceived).toHaveValue('0')
-    await expect(page.getByText('$40 credit', { exact: true })).toBeVisible()
-    await expect(page.getByText('Credit remaining').last()).toBeVisible()
+    await expect(page.getByTestId('client-amount-due')).toHaveText('$0.00')
 
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Prepare lab collection' })).toBeVisible()
-    await page.getByRole('button', { name: /^Back$/ }).click()
+    await page.getByTestId('wizard-back-button').click()
+    await page.getByRole('button', { name: 'Payment breakdown', exact: true }).click()
 
     const receipt = page.getByTestId('guided-recorded-payment')
     await expect(receipt.getByRole('heading', { name: 'Payment recorded' })).toBeVisible()
-    await expect(receipt).toContainText('Client credit')
-    await expect(receipt).toContainText("Applied to today's test")
+    await expect(receipt).toContainText('$40.00 recorded')
     await expect(receipt.getByRole('button', { name: 'Undo payment' })).toBeVisible()
 
     await receipt.getByRole('button', { name: 'Undo payment' }).click()
@@ -710,7 +725,7 @@ test.describe("Wizard Today's Schedule", () => {
     await undoDialog.getByRole('button', { name: 'Undo payment' }).click()
 
     await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toBeVisible()
-    await expect(page.getByText('$40 available')).toBeVisible()
+    await expect(page.locator('dl').filter({ hasText: 'Account credit' }).getByText('$40.00').last()).toBeVisible()
     await expect(page.getByRole('spinbutton', { name: 'Credit to apply' })).toHaveValue('0')
 
     await page.getByTestId('wizard-next-button').click()
@@ -749,6 +764,69 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByRole('heading', { name: 'Prepare lab collection' })).toBeVisible()
   })
 
+  test('keeps report generation and upload beside each other on portrait tablets and preserves the client check', async ({
+    page,
+  }) => {
+    const env = getE2EEnv({ pdfs: ['instant'] })
+    await page.setViewportSize({ width: 768, height: 1024 })
+    await scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName).click()
+    await verifyGuidedClientMismatch(page)
+    await clickNext(page)
+    await expect(page.getByText('No payment needed', { exact: true })).toBeVisible()
+    await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toBeHidden()
+    await page.screenshot({ path: test.info().outputPath('payment-prepaid.png'), fullPage: true })
+    await clickNext(page)
+    await expect(page.getByRole('heading', { name: 'Generate & upload report' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('heading', { name: 'Generate & upload report' })).toHaveCSS('font-size', '30px')
+    await expect(page.getByRole('heading', { name: '1. Generate in ToxAccess' })).toHaveCSS('font-size', '18px')
+    const panes = page.getByTestId('report-preparation-panes').locator(':scope > section')
+    await expect(panes).toHaveCount(2)
+    const [generate, upload] = await Promise.all([panes.nth(0).boundingBox(), panes.nth(1).boundingBox()])
+    expect(generate).not.toBeNull()
+    expect(upload).not.toBeNull()
+    expect(Math.abs(generate!.y - upload!.y)).toBeLessThanOrEqual(1)
+    expect(upload!.x).toBeGreaterThanOrEqual(generate!.x + generate!.width - 1)
+    await expect(page.getByText('Waiting for PDF', { exact: true })).toBeVisible()
+    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
+    await expectNoHorizontalOverflow(page)
+    await page.screenshot({ path: test.info().outputPath('report-portrait.png'), fullPage: true })
+    await uploadSinglePdf(page, env.pdfInstantPath)
+    await expect(page.getByText('PDF uploaded', { exact: true })).toBeVisible()
+    await clickNext(page)
+    await waitForExtractStepReady(page, { readyHeadings: [/Review report data/i] })
+    const acknowledgement = page.getByRole('checkbox', {
+      name: 'This is the same person',
+    })
+    await expect(acknowledgement).not.toBeChecked()
+    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
+    const comparison = page.getByRole('table', { name: 'Client identification comparison' })
+    await expect(comparison.getByRole('columnheader', { name: 'Website client' })).toBeVisible()
+    await expect(comparison.getByRole('columnheader', { name: 'ToxAccess report' })).toBeVisible()
+    await expect(comparison.getByRole('rowheader', { name: 'Name', exact: true })).toBeVisible()
+    await expect(comparison.getByRole('rowheader', { name: 'Birth date', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: "Name and birth date don't match", exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review report data' })).toBeVisible()
+    await expectNoHorizontalOverflow(page)
+    await page.screenshot({ path: test.info().outputPath('report-client-check.png'), fullPage: true })
+    await acknowledgement.check()
+    await clickNext(page)
+    await expect(page.getByRole('heading', { name: 'Verify medications' })).toBeVisible()
+    await page.getByTestId('wizard-back-button').click()
+    await page.getByRole('button', { name: 'Replace PDF', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Generate & upload report' })).toBeVisible()
+    expect(new URL(page.url()).searchParams.get('bookingId')).toBe(scheduleFixtures.bookings.paidLinked.id)
+    await page.setViewportSize({ width: 390, height: 844 })
+    const [phoneGenerate, phoneUpload] = await Promise.all([panes.nth(0).boundingBox(), panes.nth(1).boundingBox()])
+    expect(phoneUpload!.y).toBeGreaterThanOrEqual(phoneGenerate!.y + phoneGenerate!.height - 1)
+    await expectNoHorizontalOverflow(page)
+    await uploadSinglePdf(page, env.pdfInstantPath)
+    await clickNext(page)
+    await waitForExtractStepReady(page, { readyHeadings: [/Review report data/i] })
+    await expect(acknowledgement).not.toBeChecked()
+    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
+    await expectNoHorizontalOverflow(page)
+  })
+
   test('carries a guided instant booking into the instant workflow', async ({ page }) => {
     const env = getE2EEnv({ requirePdfs: false })
     const booking = scheduleFixtures.bookings.paidLinked
@@ -767,13 +845,25 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByRole('button', { name: 'Open ToxAccess', exact: true })).toBeVisible()
     await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
     await expect(page.getByText('Verify medications', { exact: true })).toHaveCount(0)
-    const paymentBefore = (await (await page.request.get(`/api/bookings/${booking.id}?depth=0`)).json()).payment
+    const paymentBefore = (
+      await (
+        await page.request.get(`/api/bookings/${booking.id}?depth=0`, {
+          headers: { Origin: new URL(page.url()).origin },
+        })
+      ).json()
+    ).payment
     await page.getByTestId('wizard-back-button').click()
     await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toBeVisible()
     expect(new URL(page.url()).searchParams.get('bookingId')).toBe(booking.id)
     await clickNext(page)
     await expect(page.getByRole('heading', { name: /Generate & upload report/i })).toBeVisible({ timeout: 30_000 })
-    const paymentAfter = (await (await page.request.get(`/api/bookings/${booking.id}?depth=0`)).json()).payment
+    const paymentAfter = (
+      await (
+        await page.request.get(`/api/bookings/${booking.id}?depth=0`, {
+          headers: { Origin: new URL(page.url()).origin },
+        })
+      ).json()
+    ).payment
     expect(paymentAfter.amountPaid).toBe(paymentBefore.amountPaid)
     expect(paymentAfter.workflowOperationId).toBe(paymentBefore.workflowOperationId)
 
@@ -789,7 +879,7 @@ test.describe("Wizard Today's Schedule", () => {
     await waitForExtractStepReady(page, { readyHeadings: [/Review report data/i] })
 
     const mismatchConfirmation = page.getByRole('checkbox', {
-      name: /confirm it belongs to this client/i,
+      name: 'This is the same person',
     })
     if (await mismatchConfirmation.isVisible().catch(() => false)) {
       await mismatchConfirmation.check()
@@ -801,6 +891,10 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByText('Verify instant test')).toBeVisible()
     await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
     await expect(page.getByRole('textbox', { name: /Test Type/i })).toHaveValue('17-Panel Instant')
+    await page.getByRole('button', { name: 'Reset Wizard', exact: true }).click()
+    await expect(page.getByRole('heading', { name: "Today's Schedule", exact: true })).toBeVisible()
+    await scheduleCardButton(page, booking.attendeeName).click()
+    await expect(page.getByRole('checkbox', { name: /I verified .* is the person testing today/i })).not.toBeChecked()
   })
 
   test('carries an unpaid guided lab booking into lab collection', async ({ page }) => {
@@ -813,7 +907,9 @@ test.describe("Wizard Today's Schedule", () => {
 
     await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible({ timeout: 30_000 })
     await expect(page.getByText(registeredClient.fullName, { exact: true }).first()).toBeVisible()
-    await expect(page.getByText('Booking name does not match the selected client')).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: "Booking name doesn't match the client", exact: true })).toHaveCount(
+      0,
+    )
 
     await selectClientFromSearchDialog(page, fixtures.clients.instant.fullName)
     await expect(page.getByText(fixtures.clients.instant.fullName, { exact: true }).first()).toBeVisible()
@@ -826,33 +922,15 @@ test.describe("Wizard Today's Schedule", () => {
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toBeVisible()
     const amountReceived = page.getByRole('spinbutton', { name: 'Amount received now' })
-    const quickAmountGroup = page.getByRole('group', { name: 'Quick amount received' })
-    const zeroAmountButton = quickAmountGroup.getByRole('button', { name: 'Set amount received to $0' })
-    const payAllButton = quickAmountGroup.getByRole('button', { name: 'Set amount received to $40' })
-
+    const payAllButton = page.getByRole('button', { name: 'Set amount received to $40.00', exact: true })
     await expect(amountReceived).toHaveValue('0')
-    await expect(zeroAmountButton).toHaveAttribute('aria-pressed', 'true')
-    await expect(payAllButton).toHaveAttribute('aria-pressed', 'false')
-    await expect(zeroAmountButton).toHaveCSS('opacity', '1')
-    await expect(payAllButton).toHaveCSS('opacity', '0.6')
-    await expect(page.getByText('Today · 11-Panel Lab')).toBeVisible()
-    await expect(page.getByText('Current test · $40 due')).toBeVisible()
-    await expect(page.getByText('$0 applied', { exact: true })).toBeVisible()
-
+    await expect(page.getByTestId('client-amount-due')).toHaveText('$40.00')
     await amountReceived.fill('50')
-    await expect(page.getByText('Includes $10 new credit')).toBeVisible()
-    await expect(zeroAmountButton).toHaveAttribute('aria-pressed', 'false')
-    await expect(payAllButton).toHaveAttribute('aria-pressed', 'false')
-    await expect(zeroAmountButton).toHaveCSS('opacity', '0.6')
-    await expect(payAllButton).toHaveCSS('opacity', '0.6')
-
+    await page.getByRole('button', { name: 'Payment breakdown', exact: true }).click()
+    await expect(page.getByText('Credit remaining: $10.00')).toBeVisible()
     await payAllButton.click()
     await expect(amountReceived).toHaveValue('40')
-    await expect(zeroAmountButton).toHaveAttribute('aria-pressed', 'false')
-    await expect(payAllButton).toHaveAttribute('aria-pressed', 'true')
-    await expect(zeroAmountButton).toHaveCSS('opacity', '0.6')
-    await expect(payAllButton).toHaveCSS('opacity', '1')
-    await expect(page.getByText('Includes $10 new credit')).toHaveCount(0)
+    await expect(page.getByText('Credit remaining: $0.00')).toBeVisible()
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Prepare lab collection' })).toBeVisible()
 

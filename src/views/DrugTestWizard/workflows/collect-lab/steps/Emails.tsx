@@ -70,7 +70,6 @@ export const EmailsStep = withForm({
 
     return (
       <div className="flex flex-col gap-6">
-        <FieldGroupHeader title="Review collection notification" />
         <ClientDetailsCard
           compact
           client={formValues.client}
@@ -89,6 +88,7 @@ export const EmailsStep = withForm({
             if (updated.referralTitle !== undefined) form.setFieldValue('client.referralTitle', updated.referralTitle)
           }}
         />
+        <FieldGroupHeader title="Review collection notification" />
 
         <EmailsFieldGroup
           hideHeader
