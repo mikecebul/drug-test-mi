@@ -12,6 +12,7 @@ import {
   goToInstantResults,
   goToLabScreenData,
   selectWorkflow,
+  selectResultDecision,
 } from './helpers/wizard'
 
 let fixtures: FixtureContext
@@ -35,7 +36,7 @@ for (const workflow of ['instant', 'lab'] as const) {
       }
 
       await page.getByRole('checkbox', { name: /^Fentanyl\b/i }).check()
-      await page.locator(`#${decision}`).check()
+      await selectResultDecision(page, decision)
       await clickNext(page)
       if (workflow === 'lab') {
         await expectWizardStep(page, 'confirm')

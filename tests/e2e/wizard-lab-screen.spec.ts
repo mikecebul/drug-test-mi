@@ -13,6 +13,7 @@ import {
   extractTestIdFromSuccess,
   goToLabScreenData,
   selectWorkflow,
+  selectResultDecision,
 } from './helpers/wizard'
 
 let fixtures: FixtureContext
@@ -56,13 +57,13 @@ test.describe('Wizard Lab Screen Workflow', () => {
       await expectWizardStep(page, 'labScreenData')
       await expect(page.getByRole('radiogroup')).toHaveAttribute('aria-invalid', 'true')
 
-      await page.locator('#request-confirmation').check()
+      await selectResultDecision(page, 'request-confirmation')
       await page.getByRole('button', { name: /Clear/i }).click()
       await clickNext(page)
       await expectValidationError(page)
       await expectWizardStep(page, 'labScreenData')
 
-      await page.locator('#accept').check()
+      await selectResultDecision(page, 'accept')
       await clickNext(page)
       await expectWizardStep(page, 'confirm')
       await clickBack(page)

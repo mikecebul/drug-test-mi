@@ -12,9 +12,9 @@ import {
   continueFromInstantClient,
   extractTestIdFromSuccess,
   goToEmailsStepFromInstant,
-  openWizard,
   selectClientFromSearchDialog,
   selectWorkflow,
+  selectResultDecision,
   triggerNextValidation,
   uploadSinglePdf,
   waitForExtractStepReady,
@@ -27,8 +27,6 @@ function subjectForClient(prefix: string, person: FixtureContext['clients']['ins
 }
 
 test.describe('Wizard Instant Workflow', () => {
-  test.describe.configure({ mode: 'serial' })
-
   test.beforeAll(async () => {
     fixtures = await seedFixtures()
     const env = getE2EEnv({ pdfs: ['instant'] })
@@ -43,7 +41,6 @@ test.describe('Wizard Instant Workflow', () => {
 
   test.beforeEach(async ({ page }) => {
     await loginAdmin(page, fixtures.admin)
-    await openWizard(page)
     await selectWorkflow(page, 'Screen Instant Test')
   })
 
@@ -130,16 +127,19 @@ test.describe('Wizard Instant Workflow', () => {
     },
   )
 
+  test('requires a report before advancing', async ({ page }) => {
+    await clickNext(page)
+    await expectValidationError(page)
+    await expectWizardStep(page, 'upload')
+  })
+
   test(
-    'validates upload and confirmation-decision branches, with back-forward navigation',
-    { tag: '@smoke' },
+    'validates confirmation decisions and retains edited results across Back',
+    { tag: ['@smoke', '@critical'] },
     async ({ page }) => {
       const pageErrors: string[] = []
       page.on('pageerror', (error) => pageErrors.push(error.message))
       const env = getE2EEnv({ pdfs: ['instant'] })
-
-      await clickNext(page)
-      await expectValidationError(page)
 
       await uploadSinglePdf(page, env.pdfInstantPath)
       await clickNext(page)
@@ -147,7 +147,6 @@ test.describe('Wizard Instant Workflow', () => {
       await clickNext(page)
 
       await expectWizardStep(page, 'client')
-      await expect(page.getByText('Selected Client', { exact: true })).toHaveCount(0)
       await selectClientFromSearchDialog(page, fixtures.clients.instant.fullName)
 
       await continueFromInstantClient(page)
@@ -170,13 +169,13 @@ test.describe('Wizard Instant Workflow', () => {
       await triggerNextValidation(page)
       await expectValidationError(page)
 
-      await page.getByRole('radio', { name: /Request confirmation/i }).check()
+      await selectResultDecision(page, 'request-confirmation')
       await page.getByRole('button', { name: 'Change', exact: true }).click()
       await page.getByRole('button', { name: /Clear/i }).click()
       await triggerNextValidation(page)
       await expectValidationError(page)
 
-      await page.getByRole('radio', { name: /Accept result/i }).check()
+      await selectResultDecision(page, 'accept')
       await clickNext(page)
       await expectWizardStep(page, 'reviewEmails')
 

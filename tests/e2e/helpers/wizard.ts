@@ -208,12 +208,21 @@ async function ensureInstantVerifyDataReady(page: Page) {
 
   const decisionSection = page.locator('#accept')
   if (await decisionSection.isVisible().catch(() => false)) {
-    const acceptResults = decisionSection
-    await acceptResults.check()
+    await selectResultDecision(page, 'accept')
   }
 
   const nextButton = await getNextButton(page)
   await expect(nextButton).toBeEnabled({ timeout: 15_000 })
+}
+
+export async function selectResultDecision(
+  page: Page,
+  decision: 'accept' | 'request-confirmation' | 'pending-decision',
+) {
+  const control = page.locator(`#${decision}`)
+  await expect(control).toBeVisible()
+  if (!(await control.isChecked())) await control.click()
+  await expect(control).toBeChecked()
 }
 
 export async function goToInstantResults(page: Page, pdfPath: string, clientName: string) {
