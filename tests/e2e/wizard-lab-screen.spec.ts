@@ -214,7 +214,7 @@ test.describe('Wizard Lab Screen Workflow', () => {
     const testStart = new Date()
     await page.getByRole('button', { name: /^Update Test Record$/i }).click()
 
-    await expect(page.getByRole('heading', { name: 'Drug Test Created Successfully!' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Collection saved' })).toBeVisible({
       timeout: 30_000,
     })
 

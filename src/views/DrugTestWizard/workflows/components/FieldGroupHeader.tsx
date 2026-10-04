@@ -18,9 +18,9 @@ interface FieldGroupHeaderProps {
  */
 export function FieldGroupHeader({ title, description, className }: FieldGroupHeaderProps) {
   return (
-    <div className={cn('space-y-2 pb-6', className)}>
-      <h2 className="text-3xl font-bold">{title}</h2>
-      {description && <p className="text-muted-foreground text-lg">{description}</p>}
+    <div className={cn('flex flex-col gap-2 pb-2', className)}>
+      <h2 className="text-3xl font-semibold tracking-tight">{title}</h2>
+      {description && <p className="text-muted-foreground text-sm">{description}</p>}
     </div>
   )
 }

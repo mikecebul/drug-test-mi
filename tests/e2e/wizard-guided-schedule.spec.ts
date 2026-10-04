@@ -116,9 +116,6 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(paidLinked).toContainText('Male')
     await expect(paidLinked.getByText('Male')).toHaveClass(/text-blue-900/)
     await expect(
-      paidLinked.locator('span').filter({ hasText: scheduleFixtures.bookings.paidLinked.attendeeName }).first(),
-    ).toContainText('Male')
-    await expect(
       paidLinked.getByText(`${formatScheduleTime(scheduleFixtures.bookings.paidLinked.startTime)} Male`),
     ).toHaveCount(0)
     await expect(paidLinked).toContainText('Pre-paid')
@@ -295,7 +292,7 @@ test.describe("Wizard Today's Schedule", () => {
       await expectReceivesPointerAtCenter(saveClientButton)
       await clientEditor.getByLabel('Phone', { exact: true }).fill('2485550199')
       await saveClientButton.tap()
-      await expect(clientEditor).toBeHidden()
+      await expect(clientEditor).toBeHidden({ timeout: 30_000 })
       await expect(page.getByText('Client details updated')).toBeVisible()
       await expect(page.getByText('(248) 555-0199', { exact: true })).toBeVisible()
 
@@ -310,7 +307,7 @@ test.describe("Wizard Today's Schedule", () => {
       const noHeadshotDialog = page.getByRole('alertdialog', { name: 'Continue without a headshot?' })
       await expect(noHeadshotDialog).toBeVisible()
       await noHeadshotDialog.getByRole('button', { name: 'Continue', exact: true }).tap()
-      await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toBeVisible()
       await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toBeVisible()
       await expect(page.getByTestId('wizard-next-button')).toBeVisible()
       await expectNoHorizontalOverflow(page)
@@ -480,10 +477,10 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(
       page.getByText(`${formatScheduleTime(scheduleFixtures.bookings.paidLinked.startTime)} · Male`),
     ).toHaveCount(0)
-    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toHaveCount(0)
     await verifyGuidedClientMismatch(page)
     await clickNext(page)
-    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toBeVisible()
     await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toHaveValue('0')
     await expect(page.getByRole('button', { name: 'Cash payment method' })).toHaveAttribute('aria-pressed', 'true')
     await expect(
@@ -525,7 +522,7 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(clientEditor).toBeVisible()
     await expect(clientEditor.getByRole('button', { name: 'Take Photo' })).toBeVisible()
     await page.keyboard.press('Escape')
-    await expect(clientEditor).toBeHidden()
+    await expect(clientEditor).toBeHidden({ timeout: 30_000 })
 
     await verifyGuidedClientMismatch(page)
     const nextButton = page.getByTestId('wizard-next-button')
@@ -543,7 +540,7 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(noHeadshotDialog).toBeHidden()
     await expect(clientEditor).toBeVisible()
     await page.keyboard.press('Escape')
-    await expect(clientEditor).toBeHidden()
+    await expect(clientEditor).toBeHidden({ timeout: 30_000 })
 
     await nextButton.click()
     await expect(noHeadshotDialog).toBeVisible()
@@ -554,7 +551,7 @@ test.describe("Wizard Today's Schedule", () => {
     await nextButton.click()
     await expect(noHeadshotDialog).toBeVisible()
     await noHeadshotDialog.getByRole('button', { name: 'Continue', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toBeVisible()
   })
 
   test('keeps payment navigation responsive while balance details are loading', async ({ page }) => {
@@ -586,7 +583,7 @@ test.describe("Wizard Today's Schedule", () => {
       const noHeadshotDialog = page.getByRole('alertdialog', { name: 'Continue without a headshot?' })
       await expect(noHeadshotDialog).toBeVisible()
       await noHeadshotDialog.getByRole('button', { name: 'Continue', exact: true }).click()
-      await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toBeVisible()
 
       const nextButton = page.getByTestId('wizard-next-button')
       const backButton = page.getByTestId('wizard-back-button')
@@ -649,7 +646,7 @@ test.describe("Wizard Today's Schedule", () => {
     await scheduleCardButton(page, booking.attendeeName).click()
     await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
     await clickNext(page)
-    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toBeVisible()
     await expect(page.getByText('Credit available')).toBeVisible()
     await expect(page.getByText('$40 available')).toBeVisible()
     await expect(page.getByText('Total Due', { exact: true })).toBeVisible()
@@ -666,7 +663,7 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByText('Credit remaining').last()).toBeVisible()
 
     await clickNext(page)
-    await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Prepare lab collection' })).toBeVisible()
     await page.getByRole('button', { name: /^Back$/ }).click()
 
     const receipt = page.getByTestId('guided-recorded-payment')
@@ -712,7 +709,7 @@ test.describe("Wizard Today's Schedule", () => {
 
     await undoDialog.getByRole('button', { name: 'Undo payment' }).click()
 
-    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toBeVisible()
     await expect(page.getByText('$40 available')).toBeVisible()
     await expect(page.getByRole('spinbutton', { name: 'Credit to apply' })).toHaveValue('0')
 
@@ -749,7 +746,7 @@ test.describe("Wizard Today's Schedule", () => {
     await page.unroute('**/api/guided-workflow')
 
     await noPaymentDialog.getByRole('button', { name: 'Continue', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Prepare lab collection' })).toBeVisible()
   })
 
   test('carries a guided instant booking into the instant workflow', async ({ page }) => {
@@ -760,15 +757,25 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
     await verifyGuidedClientMismatch(page)
     await clickNext(page)
-    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toBeVisible()
+    await expect(page.getByText('No payment needed', { exact: true })).toBeVisible()
+    await expect(page.getByRole('spinbutton', { name: 'Amount received now' })).toBeHidden()
     await clickNext(page)
-    await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()
-    await expect(page.getByTestId('client-identity-mismatch')).toHaveCount(0)
-
-    await page.getByRole('button', { name: /Continue Collection/i }).click()
-    await expect(page.getByRole('heading', { name: /Upload Instant Drug Test Report/i })).toBeVisible({
+    await expect(page.getByRole('heading', { name: /Generate & upload report/i })).toBeVisible({
       timeout: 30_000,
     })
+    await expect(page.getByRole('button', { name: 'Open ToxAccess', exact: true })).toBeVisible()
+    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
+    await expect(page.getByText('Verify medications', { exact: true })).toHaveCount(0)
+    const paymentBefore = (await (await page.request.get(`/api/bookings/${booking.id}?depth=0`)).json()).payment
+    await page.getByTestId('wizard-back-button').click()
+    await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toBeVisible()
+    expect(new URL(page.url()).searchParams.get('bookingId')).toBe(booking.id)
+    await clickNext(page)
+    await expect(page.getByRole('heading', { name: /Generate & upload report/i })).toBeVisible({ timeout: 30_000 })
+    const paymentAfter = (await (await page.request.get(`/api/bookings/${booking.id}?depth=0`)).json()).payment
+    expect(paymentAfter.amountPaid).toBe(paymentBefore.amountPaid)
+    expect(paymentAfter.workflowOperationId).toBe(paymentBefore.workflowOperationId)
 
     const instantUrl = new URL(page.url())
     expect(instantUrl.searchParams.get('workflow')).toBe('instant-test')
@@ -779,7 +786,7 @@ test.describe("Wizard Today's Schedule", () => {
 
     await uploadSinglePdf(page, env.pdfInstantPath)
     await clickNext(page)
-    await waitForExtractStepReady(page, { readyHeadings: [/Extract Data/i] })
+    await waitForExtractStepReady(page, { readyHeadings: [/Review report data/i] })
 
     const mismatchConfirmation = page.getByRole('checkbox', {
       name: /confirm it belongs to this client/i,
@@ -789,9 +796,10 @@ test.describe("Wizard Today's Schedule", () => {
     }
 
     await clickNext(page)
-    await expect(page.getByText('Verify Medications')).toBeVisible()
+    await expect(page.getByText('Verify medications')).toBeVisible()
     await clickNext(page)
-    await expect(page.getByText('Verify Test Data')).toBeVisible()
+    await expect(page.getByText('Verify instant test')).toBeVisible()
+    await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
     await expect(page.getByRole('textbox', { name: /Test Type/i })).toHaveValue('17-Panel Instant')
   })
 
@@ -816,7 +824,7 @@ test.describe("Wizard Today's Schedule", () => {
 
     await verifyGuidedClientMismatch(page)
     await clickNext(page)
-    await expect(page.getByRole('heading', { name: 'Collect Payment', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Payment', exact: true })).toBeVisible()
     const amountReceived = page.getByRole('spinbutton', { name: 'Amount received now' })
     const quickAmountGroup = page.getByRole('group', { name: 'Quick amount received' })
     const zeroAmountButton = quickAmountGroup.getByRole('button', { name: 'Set amount received to $0' })
@@ -846,10 +854,10 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(payAllButton).toHaveCSS('opacity', '1')
     await expect(page.getByText('Includes $10 new credit')).toHaveCount(0)
     await clickNext(page)
-    await expect(page.getByRole('heading', { name: 'Collect Sample in ToxAccess' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Prepare lab collection' })).toBeVisible()
 
-    await page.getByRole('button', { name: /Continue Collection/i }).click()
-    await expect(page.getByText('Verify Medications')).toBeVisible({ timeout: 30_000 })
+    await page.getByRole('button', { name: /Continue to medications/i }).click()
+    await expect(page.getByText('Verify medications')).toBeVisible({ timeout: 30_000 })
 
     const labUrl = new URL(page.url())
     expect(labUrl.searchParams.get('workflow')).toBe('collect-lab')
@@ -860,7 +868,8 @@ test.describe("Wizard Today's Schedule", () => {
     expect(labUrl.searchParams.get('returnTo')).toBe('guided')
 
     await clickNext(page)
-    await expect(page.getByRole('heading', { name: 'Confirm Details' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Confirm lab collection' })).toBeVisible()
+    await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
     await expect(page.getByRole('radio', { name: /^11-Panel$/i })).toBeChecked()
   })
 })

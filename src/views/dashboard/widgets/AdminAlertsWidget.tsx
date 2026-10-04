@@ -17,7 +17,7 @@ type AlertItem = {
 }
 
 export default async function AdminAlertsWidget({ req }: WidgetServerProps) {
-  if (!req.user || req.user.collection !== 'admins') {
+  if (!req.user || req.user.collection !== 'admins' || req.user.role !== 'superAdmin') {
     return null
   }
 

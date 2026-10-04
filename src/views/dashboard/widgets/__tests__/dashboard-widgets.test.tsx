@@ -47,6 +47,7 @@ function createAdminReq(): WidgetReq {
   return {
     user: {
       collection: 'admins',
+      role: 'superAdmin',
     },
     payload: {
       count: vi.fn(),
@@ -66,6 +67,15 @@ function createWidgetProps(req: WidgetReq, widgetSlug: string): WidgetProps {
 }
 
 describe('dashboard widgets', () => {
+  test('hides diagnostic and administration widgets from standard staff', async () => {
+    const req = createAdminReq()
+    if (req.user && req.user.collection === 'admins') req.user.role = 'admin'
+    expect(renderMarkup(RedwoodQueueProbeWidget(createWidgetProps(req, 'redwood-queue-probe')))).toBe('')
+    expect(renderMarkup(RandomTestingSyncWidget(createWidgetProps(req, 'random-testing-sync')))).toBe('')
+    expect(renderMarkup(await AdminAlertsWidget(createWidgetProps(req, 'admin-alerts')))).toBe('')
+    expect(req.payload.find).not.toHaveBeenCalled()
+    expect(req.payload.count).not.toHaveBeenCalled()
+  })
   test('renders admin card variant styles for all dashboard cards', async () => {
     mockGetTodaysCollectionBookings.mockResolvedValue([])
 
@@ -113,7 +123,7 @@ describe('dashboard widgets', () => {
     expect(alertsMarkup).toContain('bg-gradient-to-b')
   })
 
-  test('renders the Redwood queue probe diagnostic widget for admins', () => {
+  test('renders the Redwood queue probe diagnostic widget for super admins', () => {
     const req = createAdminReq()
     const markup = renderMarkup(RedwoodQueueProbeWidget(createWidgetProps(req, 'redwood-queue-probe')))
 
@@ -122,7 +132,7 @@ describe('dashboard widgets', () => {
     expect(markup).toContain('Redwood Queue Probe Client')
   })
 
-  test('renders the random-testing sync controls for admins', () => {
+  test('renders the random-testing sync controls for super admins', () => {
     const req = createAdminReq()
     const markup = renderMarkup(RandomTestingSyncWidget(createWidgetProps(req, 'random-testing-sync')))
 

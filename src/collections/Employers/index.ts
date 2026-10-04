@@ -23,6 +23,17 @@ export const Employers: CollectionConfig = {
   },
   admin: {
     group: 'Referrals',
+    components: {
+      views: {
+        edit: {
+          summary: {
+            Component: '@/views/staff/ReferralSummaryView',
+            path: '/summary',
+            tab: { label: 'Summary', href: '/summary', order: 50 },
+          },
+        },
+      },
+    },
     useAsTitle: 'name',
     defaultColumns: ['name', 'preferredTestType', 'isActive'],
   },
@@ -30,6 +41,7 @@ export const Employers: CollectionConfig = {
     {
       name: 'name',
       type: 'text',
+      admin: { components: { Cell: '@/views/staff/SummaryLinkCell' } },
       required: true,
       unique: true,
       index: true,

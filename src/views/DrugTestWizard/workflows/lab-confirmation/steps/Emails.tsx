@@ -93,6 +93,7 @@ export const EmailsStep = withForm({
 
     return (
       <EmailsFieldGroup
+        hideHeader={false}
         form={form}
         fields="emails"
         previewData={previewData || null}

@@ -36,6 +36,7 @@ import { getFileFromStorage, clearFileStorage, hasStoredFile, saveFileToStorage 
 import { focusFirstInvalidFieldWithToast, useStepFocus } from '@/lib/form-scroll-focus'
 import { getReportClientMatch, getReportClientMismatchKey } from './utils/reportClientMatch'
 import { materializeBrowserFile } from '../../utils/materializeBrowserFile'
+import { CollectionProgress } from '../../components/CollectionProgress'
 
 interface InstantTestWorkflowProps {
   onBack: () => void
@@ -45,6 +46,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
+  const [deliveryError, setDeliveryError] = useState<string | null>(null)
   const [isRestoringFile, setIsRestoringFile] = useState(true)
 
   // Wrap onBack to clear storage when navigating away
@@ -146,7 +148,8 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
 
         console.log(`[InstantTest] Server action returned:`, result)
 
-        if (result.success && result.testId) {
+        if (result.testId) {
+          setDeliveryError(result.success ? null : result.error || 'Notification delivery failed.')
           console.log(`[InstantTest] Success! Test ID: ${result.testId}`)
           setCompletedTestId(result.testId)
           // Clear stored file after successful submission
@@ -180,6 +183,15 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     [form],
   )
   const uploadedFile = useStore(form.store, (state) => state.values.upload.file)
+  const previousReport = useRef(uploadedFile)
+  useEffect(() => {
+    if (previousReport.current && previousReport.current !== uploadedFile) {
+      const defaults = getInstantTestFormOpts(initialTestType).defaultValues
+      form.setFieldValue('extract', defaults.extract)
+      form.setFieldValue('verifyData', defaults.verifyData)
+    }
+    previousReport.current = uploadedFile
+  }, [uploadedFile, form, initialTestType])
 
   // The stored PDF only bridges the register-client detour. A browser refresh
   // resets the workflow because the rest of the form cannot be restored safely.
@@ -317,6 +329,8 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     return (
       <TestCompleted
         testId={completedTestId}
+        client={form.state.values.client}
+        deliveryError={deliveryError}
         onBack={() => {
           if (bookingId) {
             clearFileStorage()
@@ -435,6 +449,11 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       }}
       className="flex flex-1 flex-col"
     >
+      {bookingId && (
+        <CollectionProgress
+          phase={currentStep === 'upload' ? 'Prepare' : currentStep === 'reviewEmails' ? 'Review' : 'Details'}
+        />
+      )}
       {renderStep()}
     </form>
   )

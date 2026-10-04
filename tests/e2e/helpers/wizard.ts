@@ -130,10 +130,11 @@ const workflowReadyHeadings: Record<string, RegExp> = {
   'Collect Sample for Lab': /^Choose a Client$/i,
   'Enter Lab Screen Data': /^Upload Lab Screening Results PDF$/i,
   'Enter Lab Confirmation Data': /^Upload Confirmation PDF$/i,
-  'Screen Instant Test': /^Upload Instant Drug Test Report$/i,
+  'Screen Instant Test': /^Upload instant report$/i,
 }
 
 async function waitForWorkflowLoaded(page: Page, title: string) {
+  await expect(page.locator('[data-wizard-ready="true"]')).toBeVisible({ timeout: 30_000 })
   const headingPattern = workflowReadyHeadings[title]
 
   if (headingPattern) {
@@ -385,7 +386,11 @@ export async function waitForExtractStepReady(
     timeoutMs?: number
   },
 ) {
-  const readyHeadings = options?.readyHeadings ?? [/Extract Data/i, /Data Extracted/i, /Confirmation Data Extracted/i]
+  const readyHeadings = options?.readyHeadings ?? [
+    /Review report data/i,
+    /Data Extracted/i,
+    /Confirmation Data Extracted/i,
+  ]
   const timeoutMs = options?.timeoutMs ?? 45_000
   const end = Date.now() + timeoutMs
   while (Date.now() < end) {
@@ -435,16 +440,16 @@ export async function waitForExtractStepReady(
 async function ensureInstantExtractReady(page: Page) {
   await waitForWizardStep(page, 'extract')
   await waitForExtractStepReady(page, {
-    readyHeadings: [/Extract Data/i],
+    readyHeadings: [/Review report data/i],
   })
 }
 
 async function ensureInstantVerifyDataReady(page: Page) {
   await waitForWizardStep(page, 'verifyData')
 
-  const decisionSection = page.getByText('Confirmation Decision Required').first()
+  const decisionSection = page.getByText('Result decision').first()
   if (await decisionSection.isVisible().catch(() => false)) {
-    const acceptResults = page.getByRole('radio', { name: /Accept Results/i }).first()
+    const acceptResults = page.getByRole('radio', { name: /Accept result/i }).first()
     await acceptResults.check()
   }
 

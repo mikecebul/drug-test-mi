@@ -1,5 +1,6 @@
 import type { Payload, PayloadRequest } from 'payload'
 import type { DrugTest } from '@/payload-types'
+import { resolveBillingResponsibility } from '@/lib/referral-invoices/payer'
 
 type RelationshipId = string
 
@@ -57,6 +58,29 @@ function addMoney(a: number, b: number) {
 
 function subtractMoney(a: number, b: number) {
   return normalizeMoney(a - b)
+}
+
+// Read every page before changing balances, since payment updates remove rows from this query.
+async function unpaidClientTests(payload: Payload, clientId: string, req?: Partial<PayloadRequest>) {
+  const tests: DrugTest[] = []
+  let page = 1
+  let hasNextPage: boolean
+  do {
+    const result = await payload.find({
+      collection: 'drug-tests',
+      where: { and: [{ relatedClient: { equals: clientId } }, { 'payment.balanceDue': { greater_than: 0 } }] },
+      depth: 0,
+      limit: 1000,
+      page,
+      sort: 'collectionDate',
+      overrideAccess: true,
+      req,
+    })
+    tests.push(...result.docs)
+    hasNextPage = result.hasNextPage
+    page += 1
+  } while (hasNextPage)
+  return tests
 }
 
 async function updateDrugTestPayment(input: {
@@ -143,32 +167,12 @@ export async function applyIncomingPayment(input: ApplyIncomingPaymentInput) {
   const allocations: PaymentAllocation[] = []
 
   if (remaining > 0) {
-    const unpaidTests = await input.payload.find({
-      collection: 'drug-tests',
-      where: {
-        and: [
-          {
-            relatedClient: {
-              equals: input.clientId,
-            },
-          },
-          {
-            'payment.balanceDue': {
-              greater_than: 0,
-            },
-          },
-        ],
-      },
-      depth: 0,
-      limit: 1000,
-      sort: 'collectionDate',
-      overrideAccess: true,
-      req: input.req,
-    })
-
-    for (const test of unpaidTests.docs) {
+    const unpaidTests = await unpaidClientTests(input.payload, input.clientId, input.req)
+    for (const test of unpaidTests) {
       if (remaining <= 0) break
       if (test.payment?.status === 'invoiced' || test.payment?.referralInvoice) continue
+      if ((await resolveBillingResponsibility(input.payload, test, input.clientId, input.req)).payer === 'referral')
+        continue
 
       const balanceDue = normalizeMoney(test.payment?.balanceDue)
       if (balanceDue <= 0) continue
@@ -265,32 +269,12 @@ export async function applyAvailableClientCredit(input: {
 
   const allocations: PaymentAllocation[] = []
   if (remainingCredit > 0) {
-    const unpaidTests = await input.payload.find({
-      collection: 'drug-tests',
-      where: {
-        and: [
-          {
-            relatedClient: {
-              equals: input.clientId,
-            },
-          },
-          {
-            'payment.balanceDue': {
-              greater_than: 0,
-            },
-          },
-        ],
-      },
-      depth: 0,
-      limit: 1000,
-      sort: 'collectionDate',
-      overrideAccess: true,
-      req: input.req,
-    })
-
-    for (const test of unpaidTests.docs) {
+    const unpaidTests = await unpaidClientTests(input.payload, input.clientId, input.req)
+    for (const test of unpaidTests) {
       if (remainingCredit <= 0) break
       if (test.payment?.status === 'invoiced' || test.payment?.referralInvoice) continue
+      if ((await resolveBillingResponsibility(input.payload, test, input.clientId, input.req)).payer === 'referral')
+        continue
 
       const balanceDue = normalizeMoney(test.payment?.balanceDue)
       if (balanceDue <= 0) continue

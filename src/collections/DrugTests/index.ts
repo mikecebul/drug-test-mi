@@ -5,6 +5,8 @@ import { superAdminFieldAccess } from '@/access/superAdminFieldAccess'
 import { computeTestResults } from './hooks/computeTestResults'
 import { syncClientBalanceAfterChange, syncClientBalanceAfterDelete } from './hooks/syncClientBalance'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
+import { billingResponsibilityField } from '@/fields/billingResponsibility'
+import { captureTestBillingResponsibility } from '@/hooks/captureBillingResponsibility'
 
 export const DrugTests: CollectionConfig = {
   slug: 'drug-tests',
@@ -13,7 +15,7 @@ export const DrugTests: CollectionConfig = {
     plural: 'Drug Tests',
   },
   hooks: {
-    beforeChange: [computeTestResults],
+    beforeChange: [captureTestBillingResponsibility, computeTestResults],
     afterChange: [syncClientBalanceAfterChange],
     afterDelete: [syncClientBalanceAfterDelete],
   },
@@ -62,6 +64,7 @@ export const DrugTests: CollectionConfig = {
     },
   },
   fields: [
+    billingResponsibilityField,
     // Computed field for display title (stored in DB)
     {
       name: 'clientName',

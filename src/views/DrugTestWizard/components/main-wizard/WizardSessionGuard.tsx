@@ -29,6 +29,7 @@ export function useWizardSession() {
 export function WizardSessionGuard({ children }: { children: ReactNode }) {
   const refreshPromiseRef = useRef<Promise<boolean> | null>(null)
   const [isChecking, setIsChecking] = useState(false)
+  const [ready, setReady] = useState(false)
 
   const verifySession = useCallback(
     (notifyOnError: boolean) => {
@@ -66,11 +67,12 @@ export function WizardSessionGuard({ children }: { children: ReactNode }) {
 
   const requireActiveSession = useCallback(() => verifySession(true), [verifySession])
   const contextValue = useMemo(
-    () => ({ isCheckingSession: isChecking, requireActiveSession }),
-    [isChecking, requireActiveSession],
+    () => ({ isCheckingSession: isChecking || !ready, requireActiveSession }),
+    [isChecking, ready, requireActiveSession],
   )
 
   useEffect(() => {
+    setReady(true)
     const verifyAfterResume = () => {
       if (document.visibilityState === 'visible') {
         void verifySession(false)
@@ -90,7 +92,7 @@ export function WizardSessionGuard({ children }: { children: ReactNode }) {
 
   return (
     <WizardSessionContext.Provider value={contextValue}>
-      <div aria-busy={isChecking}>{children}</div>
+      <div aria-busy={isChecking || !ready} data-wizard-ready={ready}>{children}</div>
     </WizardSessionContext.Provider>
   )
 }

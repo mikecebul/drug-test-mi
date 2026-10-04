@@ -62,6 +62,7 @@ export const EmailsFieldGroup = withFieldGroup({
   props: {
     title: 'Review Collection Notification',
     description: 'Configure email notifications for this collection',
+    hideHeader: false,
     previewData: null as EmailPreviewData | null,
     isLoading: false,
     error: null as string | null,
@@ -81,6 +82,7 @@ export const EmailsFieldGroup = withFieldGroup({
     group,
     title,
     description,
+    hideHeader,
     previewData,
     isLoading,
     error,
@@ -253,7 +255,7 @@ export const EmailsFieldGroup = withFieldGroup({
     if (isLoading) {
       return (
         <div className="space-y-6">
-          <FieldGroupHeader title={title} description={description} />
+          {!hideHeader && <FieldGroupHeader title={title} description={description} />}
           <Card>
             <div className="flex items-center justify-center py-12">
               <div className="flex flex-col items-center gap-4">
@@ -269,7 +271,7 @@ export const EmailsFieldGroup = withFieldGroup({
     if (error || !previewData) {
       return (
         <div className="space-y-6">
-          <FieldGroupHeader title={title} description={description} />
+          {!hideHeader && <FieldGroupHeader title={title} description={description} />}
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error || 'Failed to load email preview'}</AlertDescription>
@@ -280,7 +282,7 @@ export const EmailsFieldGroup = withFieldGroup({
 
     return (
       <div className="space-y-6">
-        <FieldGroupHeader title={title} description={description} />
+        {!hideHeader && <FieldGroupHeader title={title} description={description} />}
         <div className="space-y-6 text-base md:text-lg">
           {/* Client Email Section */}
           {showClientEmail && (
@@ -434,6 +436,7 @@ export const EmailsFieldGroup = withFieldGroup({
                                 savedReferralRecipients.map((recipient) => (
                                   <div
                                     key={recipient.email}
+                                    data-testid="referral-recipient-row"
                                     className="border-border bg-background rounded-lg border p-4"
                                   >
                                     <div className="min-w-0">
@@ -462,51 +465,81 @@ export const EmailsFieldGroup = withFieldGroup({
             </FieldGroup>
           </Card>
 
-          {/* Summary */}
-          <Alert variant="info">
-            <CheckCircle2 className="size-5" />
-            <AlertTitle>Ready to send</AlertTitle>
-            <AlertDescription>
-              {(() => {
-                const clientCount =
-                  clientEmailEnabled && clientRecipients && clientRecipients.length > 0 ? clientRecipients.length : 0
-                const referralCount = referralEmailEnabled ? savedReferralRecipients.length : 0
-                const totalCount = clientCount + referralCount
+          {!hideHeader ? (
+            <>
+              {' '}
+              {/* Summary */}
+              <Alert variant="info">
+                <CheckCircle2 className="size-5" />
+                <AlertTitle>Ready to send</AlertTitle>
+                <AlertDescription>
+                  {(() => {
+                    const clientCount =
+                      clientEmailEnabled && clientRecipients && clientRecipients.length > 0
+                        ? clientRecipients.length
+                        : 0
+                    const referralCount = referralEmailEnabled ? savedReferralRecipients.length : 0
+                    const totalCount = clientCount + referralCount
 
-                if (totalCount === 0) {
-                  return <span className="text-destructive">No notifications will be sent</span>
-                }
+                    if (totalCount === 0) {
+                      return <span className="text-destructive">No notifications will be sent</span>
+                    }
 
-                return (
-                  <>
-                    {clientCount > 0 && <span>Client recipients: {clientCount}</span>}
-                    {referralEmailEnabled && <span>Referral recipients: {referralCount}</span>}
-                  </>
-                )
-              })()}
-            </AlertDescription>
-            {referralEmailEnabled && savedReferralRecipients.length > 0 ? (
-              <AlertAction>
-                <Button type="button" variant="outline" onClick={() => setShowPreview(true)}>
-                  <Eye className="mr-2 h-4 w-4" />
-                  Preview Referral Email
-                </Button>
-              </AlertAction>
-            ) : clientEmailEnabled && clientRecipients.length > 0 ? (
-              <AlertAction>
+                    return (
+                      <>
+                        {clientCount > 0 && <span>Client recipients: {clientCount}</span>}
+                        {referralEmailEnabled && <span>Referral recipients: {referralCount}</span>}
+                      </>
+                    )
+                  })()}
+                </AlertDescription>
+                {referralEmailEnabled && savedReferralRecipients.length > 0 ? (
+                  <AlertAction>
+                    <Button type="button" variant="outline" onClick={() => setShowPreview(true)}>
+                      <Eye className="mr-2 h-4 w-4" />
+                      Preview Referral Email
+                    </Button>
+                  </AlertAction>
+                ) : clientEmailEnabled && clientRecipients.length > 0 ? (
+                  <AlertAction>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowClientPreview(true)}
+                      disabled={!previewData.clientHtml || !previewData.clientSubject}
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      Preview Client Email
+                    </Button>
+                  </AlertAction>
+                ) : null}
+              </Alert>
+            </>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {(!clientEmailEnabled || !clientRecipients.length) &&
+                (!referralEmailEnabled || !savedReferralRecipients.length) && (
+                  <p className="text-muted-foreground text-sm">No notifications will be sent</p>
+                )}
+              {clientEmailEnabled && clientRecipients.length > 0 && (
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setShowClientPreview(true)}
                   disabled={!previewData.clientHtml || !previewData.clientSubject}
                 >
-                  <Eye className="mr-2 h-4 w-4" />
-                  Preview Client Email
+                  <Eye data-icon="inline-start" />
+                  Preview client email
                 </Button>
-              </AlertAction>
-            ) : null}
-          </Alert>
-
+              )}
+              {referralEmailEnabled && savedReferralRecipients.length > 0 && (
+                <Button type="button" variant="outline" onClick={() => setShowPreview(true)}>
+                  <Eye data-icon="inline-start" />
+                  Preview referral email
+                </Button>
+              )}
+            </div>
+          )}
           {/* Email Preview Modals */}
           {showPreview && (
             <EmailPreviewModal

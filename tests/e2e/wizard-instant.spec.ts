@@ -53,17 +53,18 @@ test.describe('Wizard Instant Workflow', () => {
     await uploadSinglePdf(page, env.pdfInstantPath)
     await clickNext(page)
     await waitForExtractStepReady(page, {
-      readyHeadings: [/Extract Data/i],
+      readyHeadings: [/Review report data/i],
     })
+    await page.getByRole('button', { name: 'Report details', exact: true }).click()
     await expect(page.getByText(/Parsed with high confidence \(100%\)/i)).toBeVisible()
-    await expect(page.getByText('All Negative', { exact: true })).toBeVisible()
+    await expect(page.getByText('Detected: None', { exact: true })).toBeVisible()
     await expect(page.getByText(/Results Incomplete/i)).toHaveCount(0)
     await clickNext(page)
 
     await expect(page.getByRole('heading', { name: /Choose a Client/i })).toBeVisible({ timeout: 30_000 })
     await selectClientFromSearchDialog(page, fixtures.clients.instant.fullName)
     await clickNext(page)
-    await expect(page.getByText('Verify Medications')).toBeVisible()
+    await expect(page.getByText('Verify medications')).toBeVisible()
     await page.setViewportSize({ width: 768, height: 1024 })
 
     const medicationCard = page.getByRole('group', { name: 'Medication: Suboxone' })
@@ -139,7 +140,7 @@ test.describe('Wizard Instant Workflow', () => {
     await uploadSinglePdf(page, env.pdfInstantPath)
     await clickNext(page)
     await waitForExtractStepReady(page, {
-      readyHeadings: [/Extract Data/i],
+      readyHeadings: [/Review report data/i],
     })
     await clickNext(page)
 
@@ -150,8 +151,9 @@ test.describe('Wizard Instant Workflow', () => {
     await clickNext(page)
     await clickNext(page)
 
-    await expect(page.getByText('Verify Test Data')).toBeVisible()
+    await expect(page.getByText('Verify instant test')).toBeVisible()
 
+    await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
     const testTypeInput = page.getByRole('textbox', { name: /Test Type/i })
     await expect(testTypeInput).toBeVisible()
     await expect(testTypeInput).toHaveValue('17-Panel Instant')
@@ -162,28 +164,30 @@ test.describe('Wizard Instant Workflow', () => {
     await expect(page.getByLabel(/^PCP$/i)).toBeChecked()
 
     await page.getByLabel(/Fentanyl/i).check()
-    await expect(page.getByText('$30/substance.', { exact: false })).toBeVisible()
+    await expect(page.getByText('Result decision', { exact: true })).toBeVisible()
     await expect(page.getByText('$45/substance.', { exact: false })).toHaveCount(0)
     await triggerNextValidation(page)
     await expect(page.getByText('Must select an option')).toBeVisible()
 
-    await page.getByRole('radio', { name: /Request Confirmation Testing/i }).check()
+    await page.getByRole('radio', { name: /Request confirmation/i }).check()
+    await page.getByRole('button', { name: 'Change', exact: true }).click()
     await page.getByRole('button', { name: /Clear/i }).click()
     await triggerNextValidation(page)
     await expect(page.getByText('Please select at least one substance for confirmation testing')).toBeVisible()
 
-    await page.getByRole('radio', { name: /Accept Results/i }).check()
+    await page.getByRole('radio', { name: /Accept result/i }).check()
     const nextButton = page.getByTestId('wizard-next-button')
     if (await nextButton.isEnabled().catch(() => false)) {
       await nextButton.click()
     }
 
     await clickBack(page)
-    await expect(page.getByText('Verify Test Data')).toBeVisible()
+    await expect(page.getByText('Verify instant test')).toBeVisible()
     await clickBack(page)
-    await expect(page.getByText('Verify Medications')).toBeVisible()
+    await expect(page.getByText('Verify medications')).toBeVisible()
     await clickNext(page)
-    await expect(page.getByText('Verify Test Data')).toBeVisible()
+    await expect(page.getByText('Verify instant test')).toBeVisible()
+    await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
     await expect(page.getByLabel(/^PCP$/i)).toBeChecked()
     await expect(page.getByLabel(/Fentanyl/i)).toBeChecked()
   })
@@ -194,7 +198,7 @@ test.describe('Wizard Instant Workflow', () => {
     await uploadSinglePdf(page, env.pdfInstantPath)
     await clickNext(page)
     await waitForExtractStepReady(page, {
-      readyHeadings: [/Extract Data/i],
+      readyHeadings: [/Review report data/i],
     })
     await clickNext(page)
 
@@ -205,11 +209,11 @@ test.describe('Wizard Instant Workflow', () => {
 
     await clickNext(page)
     await clickNext(page)
-    await expect(page.getByText('Verify Test Data')).toBeVisible()
+    await expect(page.getByText('Verify instant test')).toBeVisible()
 
     await page.reload({ waitUntil: 'domcontentloaded' })
 
-    await expect(page.getByRole('heading', { name: /Upload Instant Drug Test Report/i })).toBeVisible({
+    await expect(page.getByRole('heading', { name: /Upload instant report/i })).toBeVisible({
       timeout: 30_000,
     })
     await expect.poll(() => new URL(page.url()).searchParams.get('step')).toBeNull()
@@ -223,7 +227,7 @@ test.describe('Wizard Instant Workflow', () => {
     await uploadSinglePdf(page, env.pdfInstantPath)
     await clickNext(page)
     await waitForExtractStepReady(page, {
-      readyHeadings: [/Extract Data/i],
+      readyHeadings: [/Review report data/i],
     })
     await clickNext(page)
 
@@ -236,9 +240,9 @@ test.describe('Wizard Instant Workflow', () => {
 
     await expect(page.getByRole('heading', { name: /Selected Client/i })).toBeVisible({ timeout: 30_000 })
     await clickNext(page)
-    await expect(page.getByText('Verify Medications')).toBeVisible()
+    await expect(page.getByText('Verify medications')).toBeVisible()
     await clickNext(page)
-    await expect(page.getByText('Verify Test Data')).toBeVisible()
+    await expect(page.getByText('Verify instant test')).toBeVisible()
     await expect(page.getByRole('textbox', { name: /Test Type/i })).toHaveValue('17-Panel Instant')
   })
 
@@ -252,7 +256,7 @@ test.describe('Wizard Instant Workflow', () => {
 
     await page.getByRole('button', { name: /^Create Drug Test$/i }).click()
 
-    await expect(page.getByRole('heading', { name: 'Drug Test Created Successfully!' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Collection saved' })).toBeVisible({
       timeout: 30_000,
     })
 

@@ -79,6 +79,18 @@
 
 @custom-variant dark (&:is([data-theme=dark] *));
 
+/* Approved collection and staff views use the existing blue information token. */
+.staff-interface {
+  --primary: var(--info);
+  --primary-foreground: var(--color-white);
+  --ring: var(--info);
+}
+
+/* Summary cards provide their own identity heading; retain the native document tabs. */
+body:has(.staff-summary) .doc-header__title {
+  display: none;
+}
+
 :root {
   --brand: 163 88% 20%;
   --brand-foreground: 164 86% 16%;

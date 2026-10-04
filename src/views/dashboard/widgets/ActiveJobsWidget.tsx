@@ -154,7 +154,7 @@ function getHistoryStatusLabel(status: JobRunStatus): string {
 }
 
 export default async function ActiveJobsWidget({ req }: WidgetServerProps) {
-  if (!req.user || req.user.collection !== 'admins') {
+  if (!req.user || req.user.collection !== 'admins' || req.user.role !== 'superAdmin') {
     return null
   }
 
@@ -273,10 +273,12 @@ export default async function ActiveJobsWidget({ req }: WidgetServerProps) {
             )}
           </section>
 
-          <section className="space-y-4 border-t border-border/60 pt-4">
+          <section className="border-border/60 space-y-4 border-t pt-4">
             <div>
               <h3 className="text-sm font-semibold">Recent History</h3>
-              <p className="text-muted-foreground text-sm">Tracked Redwood job outcomes stay here after the queue clears.</p>
+              <p className="text-muted-foreground text-sm">
+                Tracked Redwood job outcomes stay here after the queue clears.
+              </p>
             </div>
 
             {historyLoadError ? (

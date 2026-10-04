@@ -3,17 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { formOptions, useStore } from '@tanstack/react-form'
-import {
-  AtSign,
-  BriefcaseBusiness,
-  Camera,
-  CalendarDays,
-  Loader2,
-  Pencil,
-  Phone,
-  UserRound,
-  UserX,
-} from 'lucide-react'
+import { AtSign, BriefcaseBusiness, Camera, CalendarDays, Loader2, Pencil, Phone, UserRound, UserX } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAppForm } from '@/blocks/Form/hooks/form'
@@ -80,6 +70,8 @@ type ClientDetailsCardProps = {
   editable?: boolean
   eyebrow?: string
   className?: string
+  compact?: boolean
+  testLabel?: string
   onClientUpdated?: (client: Partial<ClientDetailsValue>) => void
   onChangeClient?: () => void
   onHeadshotCaptureReady?: (openEditor: (() => void) | null) => void
@@ -112,6 +104,8 @@ export function ClientDetailsCard({
   editable = false,
   eyebrow = 'Client',
   className,
+  compact = false,
+  testLabel,
   onClientUpdated,
   onChangeClient,
   onHeadshotCaptureReady,
@@ -201,19 +195,22 @@ export function ClientDetailsCard({
     invalidateWizardClientDerivedData(queryClient, { clientId: client.id })
   }
 
-  const handleEditorOpenChange = useCallback((nextOpen: boolean) => {
-    setSaveStage('idle')
+  const handleEditorOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      setSaveStage('idle')
 
-    if (nextOpen) {
-      clientForm.reset(createClientDraft(client))
-      setHeadshotDraft({
-        headshot: client.headshot || null,
-        headshotId: client.headshotId || null,
-      })
-    }
+      if (nextOpen) {
+        clientForm.reset(createClientDraft(client))
+        setHeadshotDraft({
+          headshot: client.headshot || null,
+          headshotId: client.headshotId || null,
+        })
+      }
 
-    setEditorOpen(nextOpen)
-  }, [client, clientForm])
+      setEditorOpen(nextOpen)
+    },
+    [client, clientForm],
+  )
 
   const openHeadshotEditor = useCallback(() => {
     handleEditorOpenChange(true)
@@ -237,70 +234,119 @@ export function ClientDetailsCard({
 
   return (
     <>
-      <Card className={cn('rounded-lg', className)}>
-        <CardHeader className="flex-row items-start justify-between gap-3 p-4 pb-2">
-          <div>
-            <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">{eyebrow}</p>
-            <CardTitle className="mt-1 text-lg">{fullName}</CardTitle>
-          </div>
-          <div className="flex flex-wrap justify-end gap-2">
-            {editable && !client.headshot && (
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => handleEditorOpenChange(true)}
-                data-testid="add-headshot-button"
-              >
-                <Camera className="size-4" />
-                Add headshot
-              </Button>
-            )}
-            {onChangeClient && (
-              <Button type="button" variant="outline" size="sm" onClick={onChangeClient}>
-                <UserX className="size-4" />
-                Change client
-              </Button>
-            )}
-            {editable && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => handleEditorOpenChange(true)}
-                aria-label={`Edit ${fullName}`}
-              >
-                <Pencil className="size-4" />
-                Edit
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="grid gap-y-4 p-4 pt-0 sm:grid-cols-[4rem_minmax(0,1fr)] sm:gap-x-6">
-          <Avatar className="size-16 shrink-0">
-            <AvatarImage src={client.headshot || undefined} alt={fullName} />
-            <AvatarFallback className="text-xl">{initials}</AvatarFallback>
-          </Avatar>
-          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-            <Detail icon={AtSign} label="Email" value={client.email} />
-            <Detail
-              icon={CalendarDays}
-              label="Date of birth"
-              value={client.dob ? formatDobInput(client.dob) : 'Not set'}
-            />
-            <Detail icon={Phone} label="Phone" value={client.phone ? formatPhoneNumber(client.phone) : 'Not set'} />
-            <Detail
-              icon={UserRound}
-              label="Gender"
-              value={
-                <Badge variant="outline" className={getClientGenderBadgeClass(client.gender)}>
-                  {formatClientGender(client.gender)}
-                </Badge>
-              }
-            />
-            <Detail icon={BriefcaseBusiness} label="Referral" value={referralLabel} />
-          </div>
-        </CardContent>
-      </Card>
+      {compact ? (
+        <Card className={cn('rounded-lg', className)}>
+          <CardContent className="flex flex-wrap items-center gap-4 p-4">
+            <Avatar className="size-14 shrink-0 sm:size-16">
+              <AvatarImage src={client.headshot || undefined} alt={fullName} />
+              <AvatarFallback>{initials}</AvatarFallback>
+            </Avatar>
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <p className="text-lg font-semibold">{fullName}</p>
+              <p className="text-muted-foreground text-sm">
+                DOB {client.dob ? formatDobInput(client.dob) : 'Not set'}
+                {testLabel ? ` · ${testLabel}` : ''}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {onChangeClient && (
+                <Button type="button" variant="ghost" size="sm" onClick={onChangeClient}>
+                  Change client
+                </Button>
+              )}
+              {editable && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleEditorOpenChange(true)}
+                  aria-label={`Edit ${fullName}`}
+                >
+                  <Pencil data-icon="inline-start" />
+                  Edit
+                </Button>
+              )}
+              {editable && !client.headshot && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEditorOpenChange(true)}
+                  data-testid="add-headshot-button"
+                >
+                  <Camera data-icon="inline-start" />
+                  Add headshot
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className={cn('rounded-lg', className)}>
+          <CardHeader className="flex-row items-start justify-between gap-3 p-4 pb-2">
+            <div>
+              <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">{eyebrow}</p>
+              <CardTitle className="mt-1 text-lg">{fullName}</CardTitle>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              {editable && !client.headshot && (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => handleEditorOpenChange(true)}
+                  data-testid="add-headshot-button"
+                >
+                  <Camera className="size-4" />
+                  Add headshot
+                </Button>
+              )}
+              {onChangeClient && (
+                <Button type="button" variant="outline" size="sm" onClick={onChangeClient}>
+                  <UserX className="size-4" />
+                  Change client
+                </Button>
+              )}
+              {editable && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEditorOpenChange(true)}
+                  aria-label={`Edit ${fullName}`}
+                >
+                  <Pencil className="size-4" />
+                  Edit
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-y-4 p-4 pt-0 sm:grid-cols-[4rem_minmax(0,1fr)] sm:gap-x-6">
+            <Avatar className="size-16 shrink-0">
+              <AvatarImage src={client.headshot || undefined} alt={fullName} />
+              <AvatarFallback className="text-xl">{initials}</AvatarFallback>
+            </Avatar>
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+              <Detail icon={AtSign} label="Email" value={client.email} />
+              <Detail
+                icon={CalendarDays}
+                label="Date of birth"
+                value={client.dob ? formatDobInput(client.dob) : 'Not set'}
+              />
+              <Detail icon={Phone} label="Phone" value={client.phone ? formatPhoneNumber(client.phone) : 'Not set'} />
+              <Detail
+                icon={UserRound}
+                label="Gender"
+                value={
+                  <Badge variant="outline" className={getClientGenderBadgeClass(client.gender)}>
+                    {formatClientGender(client.gender)}
+                  </Badge>
+                }
+              />
+              <Detail icon={BriefcaseBusiness} label="Referral" value={referralLabel} />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Drawer swipeDirection="right" open={editorOpen} onOpenChange={handleEditorOpenChange}>
         <DrawerContent className="bg-background data-[swipe-direction=right]:w-[min(640px,calc(100vw-16px))] data-[swipe-direction=right]:sm:max-w-none">

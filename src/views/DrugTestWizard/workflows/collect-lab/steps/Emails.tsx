@@ -6,6 +6,8 @@ import { useStore } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
 import { getCollectLabFormOpts } from '../shared-form'
 import { useEmailPreview } from '../../components/emails/useEmailPreview'
+import { FieldGroupHeader } from '../../components/FieldGroupHeader'
+import { ClientDetailsCard } from '../../components/client/ClientDetailsCard'
 import { EmailsFieldGroup } from '../../components/emails/EmailsFieldGroup'
 import { invalidateWizardClientDerivedData } from '../../../queries'
 
@@ -67,21 +69,44 @@ export const EmailsStep = withForm({
     }, [formValues?.client?.id, queryClient, refetch])
 
     return (
-      <EmailsFieldGroup
-        form={form}
-        fields="emails"
-        title="Review Collection Notification"
-        description="Configure email notifications for this collection"
-        previewData={previewData}
-        isLoading={isLoading}
-        error={error}
-        showPreview={showReferralPreview}
-        setShowPreview={setShowReferralPreview}
-        showClientEmail={false}
-        clientId={formValues?.client?.id || null}
-        onReferralProfileSaved={handleReferralProfileSaved}
-        onClientEmailSaved={handleReferralProfileSaved}
-      />
+      <div className="flex flex-col gap-6">
+        <FieldGroupHeader title="Review collection notification" />
+        <ClientDetailsCard
+          compact
+          client={formValues.client}
+          editable
+          onClientUpdated={(updated) => {
+            if (updated.firstName !== undefined) form.setFieldValue('client.firstName', updated.firstName)
+            if (updated.middleInitial !== undefined) form.setFieldValue('client.middleInitial', updated.middleInitial)
+            if (updated.lastName !== undefined) form.setFieldValue('client.lastName', updated.lastName)
+            if (updated.email !== undefined) form.setFieldValue('client.email', updated.email)
+            if (updated.dob !== undefined) form.setFieldValue('client.dob', updated.dob)
+            if (updated.phone !== undefined) form.setFieldValue('client.phone', updated.phone)
+            if (updated.gender !== undefined) form.setFieldValue('client.gender', updated.gender)
+            if (updated.headshot !== undefined) form.setFieldValue('client.headshot', updated.headshot)
+            if (updated.headshotId !== undefined) form.setFieldValue('client.headshotId', updated.headshotId)
+            if (updated.referralType !== undefined) form.setFieldValue('client.referralType', updated.referralType)
+            if (updated.referralTitle !== undefined) form.setFieldValue('client.referralTitle', updated.referralTitle)
+          }}
+        />
+
+        <EmailsFieldGroup
+          hideHeader
+          form={form}
+          fields="emails"
+          title="Review Collection Notification"
+          description="Configure email notifications for this collection"
+          previewData={previewData}
+          isLoading={isLoading}
+          error={error}
+          showPreview={showReferralPreview}
+          setShowPreview={setShowReferralPreview}
+          showClientEmail={false}
+          clientId={formValues?.client?.id || null}
+          onReferralProfileSaved={handleReferralProfileSaved}
+          onClientEmailSaved={handleReferralProfileSaved}
+        />
+      </div>
     )
   },
 })

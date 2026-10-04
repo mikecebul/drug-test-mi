@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs'
 import { toast } from 'sonner'
@@ -26,10 +26,9 @@ import {
   TriangleAlert,
   Undo2,
   UserPlus,
-  XCircle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,15 +70,19 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@/components/ui/input-group'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
 import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { APP_TIMEZONE } from '@/lib/date-utils'
+import { APP_TIMEZONE, formatDobInput } from '@/lib/date-utils'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 import { cn } from '@/utilities/cn'
 import { RegisterClientDialog } from '../../components/RegisterClientDialog'
 import type { ClientMatch } from '../../types'
+import { CollectionProgress } from '../../components/CollectionProgress'
+import { OptionalDetails } from '../../components/OptionalDetails'
+import QuickBookLink from '@/views/beforeNavLinks/QuickBookLink'
 import { ClientDetailsCard } from '../components/client/ClientDetailsCard'
 import type { SimpleClient } from '../components/client/getClients'
 import {
@@ -100,7 +103,6 @@ import { ScheduleInfoBadges } from './components/ScheduleInfoBadges'
 import { PendingPaymentRecoveryActions } from './components/PendingPaymentRecoveryActions'
 import {
   buildGuidedPaymentAllocationPreview,
-  compactPreviousPaymentAllocations,
   getGuidedCreditMaximum,
   getGuidedPaymentQuickAmounts,
   isValidGuidedCreditAmount,
@@ -109,7 +111,7 @@ import {
   type GuidedPaymentEntryMethod,
 } from './payment-state'
 import { ReferralProfileDrawer } from '../components/emails/referrals/ReferralProfileDrawer'
-import { RedwoodProvisioningCard } from './RedwoodProvisioningCard'
+import { LabPreparation } from '../../components/LabPreparation'
 import { WalkInClientDrawer } from './WalkInClientDrawer'
 import { useWizardSession } from '../../components/main-wizard/WizardSessionGuard'
 
@@ -140,15 +142,6 @@ function formatTime(value: string) {
   return new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
     minute: '2-digit',
-    timeZone: APP_TIMEZONE,
-  }).format(new Date(value))
-}
-
-function formatPaymentDate(value: string) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
     timeZone: APP_TIMEZONE,
   }).format(new Date(value))
 }
@@ -386,7 +379,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     staleTime: 5_000,
   })
   const [paymentDraft, setPaymentDraft] = useState<ReturnType<typeof getPaymentDefaults> | null>(null)
-  const [showAdditionalPayment, setShowAdditionalPayment] = useState(false)
+  const [, setShowAdditionalPayment] = useState(false)
   const [undoPaymentDialogOpen, setUndoPaymentDialogOpen] = useState(false)
   const [noPaymentDialogOpen, setNoPaymentDialogOpen] = useState(false)
   const [noHeadshotDialogOpen, setNoHeadshotDialogOpen] = useState(false)
@@ -420,6 +413,10 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const paymentMutation = useMutation({
     mutationFn: (input: Parameters<typeof guidedWorkflowApi.recordPayment>[0]) =>
       guidedWorkflowApi.recordPayment(input),
+    retry: false,
+  })
+  const payerMutation = useMutation({
+    mutationFn: (input: Parameters<typeof guidedWorkflowApi.setPayer>[0]) => guidedWorkflowApi.setPayer(input),
     retry: false,
   })
   const terminalPaymentMutation = useMutation({
@@ -461,8 +458,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   })
   const payment = paymentDraft ?? getPaymentDefaults(selectedBooking)
   const paymentAmountIsValid = isValidGuidedPaymentAmount(payment.amountReceived)
-  const amountReceived = selectedBooking?.referral?.isBillable ? 0 : parseGuidedPaymentAmount(payment.amountReceived)
-  const creditToApply = selectedBooking?.referral?.isBillable ? 0 : parseGuidedPaymentAmount(payment.creditToApply)
+  const selectedReferralPays = selectedBooking?.billingResponsibility.payer === 'referral'
+  const amountReceived = selectedReferralPays ? 0 : parseGuidedPaymentAmount(payment.amountReceived)
+  const creditToApply = selectedReferralPays ? 0 : parseGuidedPaymentAmount(payment.creditToApply)
   const clientPayableBalances = outstandingPaymentBalances.filter((balance) => balance.billingState !== 'invoiced')
   const paymentTotalDue = clientPayableBalances.reduce(
     (total, balance) => total + balance.balanceDue,
@@ -484,9 +482,6 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   const clientReceiptEmail = selectedBooking?.client?.disableClientEmails
     ? null
     : selectedBooking?.client?.email || null
-  const terminalReceiptEmail = selectedBooking?.client?.disableClientEmails
-    ? null
-    : terminalPaymentStatus?.receiptEmail || clientReceiptEmail
   const selectedClientMismatchKey = selectedBooking ? getClientIdentityMismatchKey(selectedBooking) : null
   const clientIdentityIsVerified =
     !selectedClientMismatchKey || verifiedClientMismatchKeys.has(selectedClientMismatchKey)
@@ -553,7 +548,13 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     }
   }, [queryClient, selectedBooking?.id, selectedClientId, setQuery, terminalPaymentStatus])
   useEffect(() => {
-    if (currentStep !== 'toxaccess' || !selectedClientId || !selectedTestTypeValue) return
+    if (
+      currentStep !== 'toxaccess' ||
+      selectedBooking?.testType?.category === 'instant' ||
+      !selectedClientId ||
+      !selectedTestTypeValue
+    )
+      return
     if (!redwoodProvisioningBookingKey) return
     if (redwoodProvisioningStartedForBooking.current === redwoodProvisioningBookingKey) return
 
@@ -579,6 +580,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     currentStep,
     ensureRedwood,
     redwoodProvisioningBookingKey,
+    selectedBooking?.testType?.category,
     refetchRedwoodProvisioning,
     selectedClientId,
     selectedTestTypeValue,
@@ -837,7 +839,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       amountReceived === 0 &&
       creditToApply === 0 &&
       paymentTotalDue > 0 &&
-      !selectedBooking.referral?.isBillable &&
+      !selectedReferralPays &&
       !confirmedNoPayment
     ) {
       setNoPaymentDialogOpen(true)
@@ -1144,7 +1146,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     if (!validateClientIdentity()) return
 
     try {
-      if (!redwoodProvisioning?.canContinue) {
+      if (selectedBooking.testType.category !== 'instant' && !redwoodProvisioning?.canContinue) {
         toast.warning('ToxAccess setup is not verified. Complete the collection manually if needed.')
       }
 
@@ -1174,6 +1176,15 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     }
   }
 
+  const continueInstantCollection = useEffectEvent(() => handleContinueToCollection())
+  const automaticInstantEntry = useRef<string | null>(null)
+  useEffect(() => {
+    if (currentStep !== 'toxaccess' || selectedBooking?.testType?.category !== 'instant' || !paymentRecorded) return
+    if (automaticInstantEntry.current === selectedBooking.id) return
+    automaticInstantEntry.current = selectedBooking.id
+    void continueInstantCollection()
+  }, [currentStep, paymentRecorded, selectedBooking?.id, selectedBooking?.testType?.category])
+
   const goBackOneStep = async () => {
     if (currentStep === 'schedule') {
       onBack()
@@ -1198,10 +1209,23 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     setQuery({ step: 'schedule' })
   }
 
-  const renderHeader = (eyebrow: string, title = 'Complete Scheduled Collection') => (
-    <div className="flex min-w-0 flex-col gap-1">
-      <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">{eyebrow}</p>
-      <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
+  const renderHeader = (eyebrow: string, title = currentStep === 'schedule' ? "Today's work" : 'Create collection') => (
+    <div className="flex flex-col gap-6">
+      {currentStep !== 'schedule' && (
+        <CollectionProgress
+          phase={currentStep === 'payment' ? 'Payment' : currentStep === 'toxaccess' ? 'Prepare' : 'Client'}
+        />
+      )}
+      <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+      {eyebrow === 'Payment' && selectedBooking?.client && (
+        <ClientDetailsCard
+          compact
+          client={selectedBooking.client}
+          editable
+          testLabel={selectedBooking.testType?.label}
+          onClientUpdated={() => void refreshBookings()}
+        />
+      )}
     </div>
   )
 
@@ -1387,6 +1411,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
         {client ? (
           <div className="space-y-3">
             <ClientDetailsCard
+              compact
               client={{
                 ...client,
                 referralTitle: selectedBooking.referral?.name || null,
@@ -1449,7 +1474,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
     return (
       <div className="flex flex-col gap-4">
-        {renderHeader('Today')}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {renderHeader('Today')}
+          <div className="w-full sm:w-auto">
+            <QuickBookLink />
+          </div>
+        </div>
 
         <Card className="rounded-lg">
           <CardHeader className="p-4 pb-2">
@@ -1458,7 +1488,14 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
               Today&apos;s Schedule
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-2 p-4 pt-0">
+          <CardContent className="flex flex-col gap-0 px-0 pb-0">
+            <div className="text-muted-foreground bg-muted/30 hidden grid-cols-[minmax(0,1fr)_48px] border-y text-sm font-medium xl:grid">
+              <div className="grid grid-cols-[80px_minmax(150px,1.5fr)_minmax(110px,1fr)_minmax(100px,1fr)_130px_58px] gap-3 px-4 py-3">
+                {['Time', 'Client', 'Referral', 'Test', 'Status', 'Action'].map((label) => (
+                  <span key={label}>{label}</span>
+                ))}
+              </div>
+            </div>
             {isLoading ? (
               <p className="text-muted-foreground text-sm">Loading appointments...</p>
             ) : bookings.length === 0 ? (
@@ -1475,7 +1512,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   <div
                     key={booking.id}
                     className={cn(
-                      'border-border bg-card grid w-full grid-cols-[minmax(0,1fr)_auto] rounded-lg border transition',
+                      'border-border bg-card grid w-full grid-cols-[minmax(0,1fr)_48px] border-b transition last:border-b-0',
                       isCompleted || isPaymentHold
                         ? 'border-border/60 bg-muted/40 text-muted-foreground'
                         : 'hover:bg-muted/50',
@@ -1485,49 +1522,54 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       type="button"
                       onClick={() => handleSelectBooking(booking)}
                       disabled={isCompleted || isPaymentHold}
-                      className="hover:text-foreground focus-visible:ring-ring flex min-w-0 items-center gap-3 rounded-md p-3 pr-2 text-left transition focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default"
+                      className="hover:text-foreground focus-visible:ring-ring grid min-w-0 grid-cols-1 gap-3 p-4 text-left transition focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default xl:grid-cols-[80px_minmax(150px,1.5fr)_minmax(110px,1fr)_minmax(100px,1fr)_130px_58px] xl:items-center"
                     >
-                      <Avatar
-                        className={cn('size-10 shrink-0', (isCompleted || isPaymentHold) && 'opacity-60 grayscale')}
-                      >
-                        <AvatarImage src={booking.client?.headshot || undefined} alt={booking.attendeeName} />
-                        <AvatarFallback>
-                          {booking.attendeeName
-                            .split(/\s+/)
-                            .slice(0, 2)
-                            .map((part) => part.charAt(0))
-                            .join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="flex min-w-0 flex-col gap-1">
-                        <span
+                      <span className="flex items-center gap-1 text-sm font-semibold">
+                        <Clock className="size-4 xl:hidden" />
+                        {formatTime(booking.startTime)}
+                      </span>
+                      <span className="flex min-w-0 items-center gap-3">
+                        <Avatar
                           className={cn(
-                            'line-clamp-2 font-semibold',
-                            isCompleted && 'line-through decoration-current/60 decoration-1',
+                            'size-12 shrink-0 rounded-lg',
+                            (isCompleted || isPaymentHold) && 'opacity-60 grayscale',
                           )}
                         >
-                          {booking.attendeeName}
-                        </span>
-                        <ScheduleInfoBadges
-                          gender={booking.gender ?? booking.client?.gender}
-                          isCompleted={isCompleted}
-                          needsRegistration={needsRegistration}
-                          paymentLabel={paymentLabel}
-                        />
-                        <span className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1',
-                              isCompleted && 'line-through decoration-current/60 decoration-1',
-                            )}
-                          >
-                            <Clock className="size-4" />
-                            {formatTime(booking.startTime)}
+                          <AvatarImage src={booking.client?.headshot || undefined} alt={booking.attendeeName} />
+                          <AvatarFallback className="rounded-lg">
+                            {booking.attendeeName
+                              .split(/\s+/)
+                              .slice(0, 2)
+                              .map((part) => part.charAt(0))
+                              .join('')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="flex min-w-0 flex-col gap-1">
+                          <span className="line-clamp-2 font-semibold">{booking.attendeeName}</span>
+                          <span className="text-muted-foreground text-sm">
+                            {booking.client?.dob
+                              ? 'DOB ' + formatDobInput(booking.client.dob)
+                              : needsRegistration
+                                ? 'Choose a client'
+                                : 'DOB not recorded'}
                           </span>
                         </span>
                       </span>
+                      <span className="text-muted-foreground truncate text-sm">
+                        {booking.referral?.name || 'Not linked'}
+                      </span>
+                      <span className="text-muted-foreground text-sm">{booking.testType?.label || 'Choose test'}</span>
+                      <ScheduleInfoBadges
+                        gender={booking.gender ?? booking.client?.gender}
+                        isCompleted={isCompleted}
+                        needsRegistration={needsRegistration}
+                        paymentLabel={paymentLabel}
+                      />
+                      <span className="text-primary text-sm font-medium">
+                        {isCompleted ? 'Collected' : isPaymentHold ? '' : 'Collect'}
+                      </span>
                     </button>
-                    <div className="flex items-start p-3 pl-0">
+                    <div className="flex items-center p-3 pl-0">
                       {isPaymentHold ? (
                         <PendingPaymentRecoveryActions
                           attendeeName={booking.attendeeName}
@@ -1756,169 +1798,384 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       clientCreditAvailable: clientCreditBalance,
       clientCreditApplied: creditToApply,
     })
-    const compactPreviousAllocations = compactPreviousPaymentAllocations(allocationPreview.previousAllocations)
+    const maximumCredit = getGuidedCreditMaximum(clientCreditBalance, allocationPreview.totalDue)
     const quickAmounts = getGuidedPaymentQuickAmounts(
       allocationPreview.currentBalanceAfterCredit,
       allocationPreview.dueAfterCredit,
     )
     const activeQuickAmount = quickAmounts.includes(amountReceived) ? [String(amountReceived)] : []
-    const maximumCredit = getGuidedCreditMaximum(clientCreditBalance, allocationPreview.totalDue)
-    const futureCreditBalance = allocationPreview.clientCreditRemaining + allocationPreview.creditAmount
+    const prepaid =
+      allocationPreview.totalDue === 0 && !isFetchingOutstandingPaymentBalances && !hasOutstandingPaymentBalanceError
+    const referralPays = selectedReferralPays
+    const entry = (
+      <FieldGroup>
+        {clientCreditBalance > 0 && maximumCredit > 0 && (
+          <Field data-invalid={!creditAmountIsValid || undefined}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <FieldLabel htmlFor="credit-to-apply">
+                Credit available: {currency.format(clientCreditBalance)}
+              </FieldLabel>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={terminalPaymentIsActive}
+                onClick={() => {
+                  const nextCredit = creditToApply > 0 ? 0 : maximumCredit
+                  setPaymentDraft((current) => ({
+                    ...(current ?? payment),
+                    creditToApply: String(nextCredit),
+                    amountReceived: String(Math.max(0, amountReceived - Math.max(0, nextCredit - creditToApply))),
+                  }))
+                }}
+              >
+                {creditToApply > 0 ? 'Remove credit' : 'Apply credit'}
+              </Button>
+            </div>
+            <InputGroup>
+              <InputGroupAddon>
+                <InputGroupText>$</InputGroupText>
+              </InputGroupAddon>
+              <InputGroupInput
+                id="credit-to-apply"
+                name="creditToApply"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                max={maximumCredit}
+                step="0.01"
+                value={payment.creditToApply}
+                disabled={terminalPaymentIsActive}
+                aria-invalid={!creditAmountIsValid || undefined}
+                onChange={(event) =>
+                  setPaymentDraft((current) => ({ ...(current ?? payment), creditToApply: event.target.value }))
+                }
+              />
+            </InputGroup>
+            <FieldError
+              errors={creditAmountIsValid ? [] : ['Credit cannot exceed the available credit or total balance due.']}
+            />
+          </Field>
+        )}
+        <section className="flex flex-col gap-4">
+          {!isLoadingOutstandingPaymentBalances && !hasOutstandingPaymentBalanceError && (
+            <ToggleGroup
+              value={activeQuickAmount}
+              disabled={terminalPaymentIsActive}
+              onValueChange={(values) => {
+                const value = values.at(-1)
+                if (value === undefined) return
+                setPaymentDraft((current) => ({
+                  ...(current ?? payment),
+                  amountReceived: value,
+                }))
+              }}
+              variant="outline"
+              className="bg-muted/30 h-11 w-full"
+              aria-label="Quick amount received"
+            >
+              {quickAmounts.map((amount) => (
+                <ToggleGroupItem
+                  key={amount}
+                  value={String(amount)}
+                  aria-label={`Set amount received to ${currency.format(amount)}`}
+                  className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-11 opacity-60 data-pressed:opacity-100"
+                >
+                  {currency.format(amount)}
+                  {amount > 0 && amount === allocationPreview.dueAfterCredit ? ' · Pay all' : ''}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          )}
 
-    if (selectedBooking.referral?.isBillable && !hasRecordedPayment) {
-      const previousTotal = outstandingPaymentBalances.reduce((sum, balance) => sum + balance.balanceDue, 0)
-      return (
-        <div className="flex flex-col gap-4" data-testid="guided-referral-billing">
-          {renderHeader('Payment', 'Referral billing')}
-          <Card className="rounded-lg">
-            <CardHeader className="border-b p-4">
-              <CardTitle>Billed to {selectedBooking.referral.name}</CardTitle>
-              <CardDescription>
-                This referral pays for the client&apos;s tests. Collect no payment from the client here; unpaid tests
-                are added to the referral&apos;s monthly invoice. A test is marked paid when the invoice is paid.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5 p-4">
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-lg border p-3">
-                  <p className="text-muted-foreground text-sm">Previous tests</p>
-                  <p className="text-xl font-semibold">{currency.format(previousTotal)}</p>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <p className="text-muted-foreground text-sm">Today&apos;s test</p>
-                  <p className="text-xl font-semibold">{currency.format(payment.currentBalanceDue)}</p>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <p className="text-muted-foreground text-sm">Due from client today</p>
-                  <p className="text-xl font-semibold">{currency.format(0)}</p>
-                </div>
-              </div>
-              <div className="divide-y rounded-lg border">
-                {outstandingPaymentBalances.map((balance) => (
-                  <div key={balance.id} className="flex items-center justify-between gap-3 p-3">
-                    <div>
-                      <p className="font-medium">
-                        {formatPaymentDate(balance.collectionDate)} · {balance.testTypeLabel}
-                      </p>
-                      <p className="text-muted-foreground text-sm">
-                        {currency.format(balance.balanceDue)} owed by referral
-                      </p>
-                    </div>
-                    <Badge variant={balance.billingState === 'invoiced' ? 'warning' : 'outline'}>
-                      {balance.billingState === 'invoiced' ? 'Invoiced' : 'Unpaid'}
-                    </Badge>
-                  </div>
-                ))}
-                <div className="flex items-center justify-between gap-3 p-3">
-                  <div>
-                    <p className="font-medium">Today · {selectedBooking.testType.label}</p>
+          <FieldGroup className="grid gap-4 sm:grid-cols-2">
+            <Field data-invalid={!paymentAmountIsValid || undefined}>
+              <FieldLabel htmlFor="amount-received" className="font-semibold">
+                Amount received now
+              </FieldLabel>
+              <InputGroup
+                className="border-primary/50 bg-background h-12! shadow-sm"
+                data-testid="amount-received-control"
+              >
+                <InputGroupInput
+                  id="amount-received"
+                  name="amountReceived"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step={1}
+                  value={payment.amountReceived}
+                  disabled={terminalPaymentIsActive}
+                  aria-invalid={!paymentAmountIsValid || undefined}
+                  onChange={(event) =>
+                    setPaymentDraft((current) => ({
+                      ...(current ?? payment),
+                      amountReceived: event.target.value,
+                    }))
+                  }
+                  className="text-xl font-bold"
+                />
+                <InputGroupAddon>
+                  <InputGroupText className="font-semibold">$</InputGroupText>
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldError errors={paymentAmountIsValid ? [] : ['Enter zero or a positive amount received.']} />
+            </Field>
+
+            <Field>
+              <FieldLabel id="payment-method-label" className="font-semibold">
+                Payment method
+              </FieldLabel>
+              <ToggleGroup
+                aria-labelledby="payment-method-label"
+                variant="outline"
+                value={[payment.method]}
+                onValueChange={(methods) => {
+                  const method = methods[0] as GuidedPaymentEntryMethod | undefined
+                  if (!method) return
+                  setPaymentDraft((current) => ({
+                    ...(current ?? payment),
+                    method,
+                  }))
+                }}
+                className="bg-muted/30 h-12 w-full"
+                data-testid="payment-method-control"
+                disabled={terminalPaymentIsActive}
+              >
+                <ToggleGroupItem
+                  value="cash"
+                  aria-label="Cash payment method"
+                  className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-12 px-3 opacity-60 data-pressed:opacity-100"
+                >
+                  <Banknote />
+                  Cash
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="card"
+                  aria-label="Card payment method"
+                  className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-12 px-3 opacity-60 data-pressed:opacity-100"
+                >
+                  <CreditCard />
+                  Card · Chx Desk
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </Field>
+          </FieldGroup>
+          {payment.method === 'card' && clientReceiptEmail && (
+            <p className="text-muted-foreground flex w-full items-center gap-2 text-sm">
+              <Mail /> Email receipt sending to {clientReceiptEmail}
+            </p>
+          )}
+          {payment.method === 'cash' && (
+            <Field orientation="horizontal" data-disabled={!clientReceiptEmail || undefined} className="w-full">
+              <Checkbox
+                id="send-payment-receipt"
+                checked={clientReceiptEmail ? payment.sendReceipt : false}
+                disabled={!clientReceiptEmail}
+                onCheckedChange={(checked) =>
+                  setPaymentDraft((current) => ({
+                    ...(current ?? payment),
+                    sendReceipt: checked === true,
+                  }))
+                }
+              />
+              <FieldContent>
+                <FieldLabel htmlFor="send-payment-receipt" className={cn(clientReceiptEmail && 'cursor-pointer')}>
+                  {clientReceiptEmail ? `Email receipt to ${clientReceiptEmail}` : 'Email receipt unavailable'}
+                </FieldLabel>
+                {!clientReceiptEmail && (
+                  <FieldDescription>Client emails are disabled for this profile.</FieldDescription>
+                )}
+              </FieldContent>
+            </Field>
+          )}
+          {payment.method === 'card' && amountReceived > 0 && (
+            <>
+              <Separator />
+              <div
+                className="bg-background flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+                data-testid="guided-terminal-payment-action"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-md border">
+                    <CreditCard className="size-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-semibold">Card payment · Chx Desk</p>
                     <p className="text-muted-foreground text-sm">
-                      {currency.format(payment.currentBalanceDue)} owed by referral
+                      Send {currency.format(amountReceived)} to the reader. Wait for the reader to approve the payment.
                     </p>
                   </div>
-                  <Badge variant="outline">Unpaid</Badge>
                 </div>
+                <Button
+                  type="button"
+                  className="w-full sm:w-auto"
+                  onClick={handleTerminalPayment}
+                  disabled={
+                    terminalPaymentIsActive ||
+                    terminalPaymentMutation.isPending ||
+                    terminalPaymentCancelMutation.isPending ||
+                    !paymentAmountIsValid ||
+                    !creditAmountIsValid ||
+                    isFetchingOutstandingPaymentBalances ||
+                    hasOutstandingPaymentBalanceError
+                  }
+                  data-testid="send-terminal-payment-button"
+                >
+                  {terminalPaymentIsActive ? (
+                    <>
+                      <Loader2 data-icon="inline-start" className="animate-spin" />
+                      Waiting for card...
+                    </>
+                  ) : terminalPaymentMutation.isPending ? (
+                    <>
+                      <Loader2 data-icon="inline-start" className="animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard data-icon="inline-start" />
+                      Send {currency.format(amountReceived)} to Chx Desk
+                    </>
+                  )}
+                </Button>
               </div>
+            </>
+          )}
+        </section>
+      </FieldGroup>
+    )
+    return (
+      <div className="flex flex-col gap-6">
+        {renderHeader('Payment', 'Payment')}
+        {(selectedBooking.referral?.isBillable || selectedReferralPays) && (
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+            <div>
+              <label htmlFor="bill-referral" className="font-medium">
+                Bill this referral
+              </label>
+              <p className="text-muted-foreground text-sm">
+                For this test only.{' '}
+                {selectedBooking.payerLocked
+                  ? 'Billing is locked after payment.'
+                  : 'Turn off when the client needs to pay.'}
+              </p>
+            </div>
+            <Switch
+              id="bill-referral"
+              checked={selectedReferralPays}
+              disabled={
+                selectedBooking.payerLocked ||
+                payerMutation.isPending ||
+                terminalPaymentIsActive ||
+                paymentMutation.isPending ||
+                terminalPaymentMutation.isPending
+              }
+              onCheckedChange={async (checked) => {
+                const result = await payerMutation
+                  .mutateAsync({
+                    bookingId: selectedBooking.id,
+                    payer: checked ? 'referral' : 'client',
+                    expectedPayer: selectedReferralPays ? 'referral' : 'client',
+                  })
+                  .catch(() => null)
+                if (!result?.success) {
+                  toast.error(
+                    result && 'error' in result ? result.error : 'Unable to change billing. Refresh and try again.',
+                  )
+                  return
+                }
+                setPaymentDraft(null)
+                await queryClient.invalidateQueries({ queryKey: ['guided'] })
+              }}
+            />
+          </div>
+        )}
+        {hasOutstandingPaymentBalanceError && (
+          <Alert variant="destructive">
+            <AlertTitle>Balances could not be loaded</AlertTitle>
+            <AlertDescription>Refresh before recording payment.</AlertDescription>
+          </Alert>
+        )}
+        {isLoadingOutstandingPaymentBalances ? (
+          <Skeleton className="h-24 w-full" />
+        ) : referralPays ? (
+          <Card data-testid="guided-referral-billing">
+            <CardHeader>
+              <CardTitle>Referral will be invoiced</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <p>
+                {selectedBooking.billingReferralName || selectedBooking.referral?.name} ·{' '}
+                {currency.format(payment.currentBalanceDue)}
+              </p>
+              <p className="text-muted-foreground text-sm">
+                Due from client for this test: $0. This test remains unpaid until the invoice is paid.
+              </p>
             </CardContent>
           </Card>
-        </div>
-      )
-    }
-
-    if (hasRecordedPayment && recordedPayment && !showAdditionalPayment) {
-      const totalRecorded = recordedPayment.newMoneyAmount + recordedPayment.creditAppliedAmount
-      const remainingBookingBalance = Math.max(
-        0,
-        (selectedBooking.payment?.amountDue ?? selectedBooking.testType.price) -
-          (selectedBooking.payment?.amountPaid ?? 0),
-      )
-      const moneyMethod =
-        recordedPayment.method === 'stripe' ? 'Terminal card' : recordedPayment.method === 'card' ? 'Card' : 'Cash'
-
-      return (
-        <div className="flex flex-col gap-4">
-          {renderHeader('Payment', 'Collect Payment')}
-
-          <Card className="rounded-lg" data-testid="guided-recorded-payment">
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <CheckCircle2 className="text-success size-5" />
-                Payment recorded
-              </CardTitle>
-              <CardDescription>This payment has been applied and remains in the audit history.</CardDescription>
+        ) : prepaid ? (
+          <Alert variant="success">
+            <CheckCircle2 />
+            <AlertTitle>No payment needed</AlertTitle>
+            <AlertDescription>
+              <p>{currency.format(0)} remaining</p>
+              {clientCreditBalance > 0 && <p>Account credit available: {currency.format(clientCreditBalance)}</p>}
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Total due: {currency.format(allocationPreview.dueAfterCredit)}</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-4 p-4 pt-0">
-              <div className="border-border overflow-hidden rounded-lg border">
-                <div className="bg-muted/20 flex items-start justify-between gap-4 p-4">
-                  <div>
-                    <p className="text-lg font-semibold">{selectedBooking.testType.label}</p>
-                    {recordedPayment.collectedAt && (
-                      <p className="text-muted-foreground text-sm">
-                        Recorded {formatPaymentDate(recordedPayment.collectedAt)}
-                      </p>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <p className="text-muted-foreground text-sm font-medium">Total recorded</p>
-                    <p className="text-xl font-semibold">{currency.format(totalRecorded)}</p>
-                  </div>
-                </div>
-                <Separator />
-                <div className="space-y-3 p-4">
-                  {recordedPayment.creditAppliedAmount > 0 && (
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="flex items-center gap-2 font-medium">
-                        <CreditCard className="text-success size-4" /> Client credit
-                      </span>
-                      <span className="text-success font-semibold">
-                        {currency.format(recordedPayment.creditAppliedAmount)}
-                      </span>
-                    </div>
-                  )}
-                  {recordedPayment.newMoneyAmount > 0 && (
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="font-medium">{moneyMethod}</span>
-                      <span className="font-semibold">{currency.format(recordedPayment.newMoneyAmount)}</span>
-                    </div>
-                  )}
-                  {recordedPayment.appliedToPreviousBalancesAmount > 0 && (
-                    <div className="text-muted-foreground flex items-center justify-between gap-4 text-sm">
-                      <span>Applied to previous tests</span>
-                      <span>{currency.format(recordedPayment.appliedToPreviousBalancesAmount)}</span>
-                    </div>
-                  )}
-                  <div className="text-muted-foreground flex items-center justify-between gap-4 text-sm">
-                    <span>Applied to today&apos;s test</span>
-                    <span>{currency.format(recordedPayment.appliedToBookingAmount)}</span>
-                  </div>
-                  {recordedPayment.creditCreatedAmount > 0 && (
-                    <div className="text-success flex items-center justify-between gap-4 text-sm font-medium">
-                      <span>Added to client credit</span>
-                      <span>{currency.format(recordedPayment.creditCreatedAmount)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="border-border bg-muted/20 grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
-                <div>
-                  <p className="text-muted-foreground text-sm font-medium">Credit remaining</p>
-                  <p className="text-success text-xl font-semibold">{currency.format(clientCreditBalance)}</p>
-                </div>
-                <div className="sm:text-right">
-                  <p className="text-muted-foreground text-sm font-medium">Today&apos;s balance remaining</p>
-                  <p className={cn('text-xl font-semibold', remainingBookingBalance > 0 && 'text-destructive')}>
-                    {currency.format(remainingBookingBalance)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row">
-                {remainingBookingBalance > 0 && (
-                  <Button type="button" className="flex-1" onClick={() => setShowAdditionalPayment(true)}>
-                    Add another payment
-                  </Button>
-                )}
+            <CardContent className="flex flex-col gap-3">
+              {allocationPreview.previousBalanceTotal > 0 && (
+                <p>Previous client balance: {currency.format(allocationPreview.previousBalanceTotal)}</p>
+              )}
+              <p>
+                Today&apos;s test: {currency.format(payment.currentBalanceDue)}
+                {payment.currentBalanceDue === 0 ? ' — prepaid' : ''}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+        {terminalPaymentFailed && (
+          <Alert variant="warning">
+            <AlertTitle>Card payment {terminalPaymentStatus?.status}</AlertTitle>
+            <AlertDescription>
+              {terminalPaymentStatus?.failureMessage || 'No successful payment was recorded. Try again or choose cash.'}
+            </AlertDescription>
+          </Alert>
+        )}
+        {!referralPays &&
+          (prepaid ? (
+            <OptionalDetails title="Add account credit" invalid={!paymentAmountIsValid}>
+              {entry}
+            </OptionalDetails>
+          ) : (
+            <Card>
+              <CardContent className="p-4 sm:p-6">{entry}</CardContent>
+            </Card>
+          ))}
+        {!referralPays && (
+          <OptionalDetails title="Payment details">
+            <p>
+              Credit remaining:{' '}
+              {currency.format(allocationPreview.clientCreditRemaining + allocationPreview.creditAmount)}
+            </p>
+            <p>
+              Payment applies to the oldest eligible client balance first, then today&apos;s test. Extra money becomes
+              account credit.
+            </p>
+            {allocationPreview.previousAllocations.map((row) => (
+              <p key={row.id}>
+                {row.testTypeLabel}: {currency.format(row.amountApplied)} applied
+              </p>
+            ))}
+            {hasRecordedPayment && recordedPayment && (
+              <div data-testid="guided-recorded-payment" className="flex flex-col gap-3">
+                <h3 className="text-lg font-semibold">Payment recorded</h3>
+                <p>{currency.format(recordedPayment.newMoneyAmount + recordedPayment.creditAppliedAmount)} recorded</p>
                 <AlertDialog
                   open={undoPaymentDialogOpen}
                   onOpenChange={(open) => {
@@ -1970,532 +2227,9 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )
-    }
-
-    return (
-      <div className="flex flex-col gap-4">
-        {renderHeader('Payment', 'Collect Payment')}
-
-        <Card className="border-primary/20 overflow-hidden rounded-lg">
-          <CardHeader className="border-border bg-muted/20 border-b p-4">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <span className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-full">
-                <CreditCard className="size-4" />
-              </span>
-              Collect payment
-            </CardTitle>
-            <CardDescription>
-              Review the balance, then record cash or send a card payment to the Chx Desk Terminal.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-5 p-4">
-            {terminalPaymentIsActive && (
-              <Alert variant="warning" className="sm:pr-56" data-testid="guided-terminal-payment-alert">
-                <Loader2 className="animate-spin" />
-                <AlertTitle>Waiting for payment on {terminalPaymentStatus?.readerLabel || 'Chx Desk'}</AlertTitle>
-                <AlertDescription>
-                  Ask the client to tap, insert, or swipe their card. This page will continue automatically after Stripe
-                  confirms the payment.
-                  {terminalReceiptEmail && (
-                    <span className="mt-2 flex items-center gap-2">
-                      <Mail /> Receipt will be emailed to {terminalReceiptEmail}.
-                    </span>
-                  )}
-                </AlertDescription>
-                <AlertAction>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => void handleCancelTerminalPayment()}
-                    disabled={terminalPaymentCancelMutation.isPending}
-                    data-testid="cancel-terminal-payment-button"
-                  >
-                    {terminalPaymentCancelMutation.isPending ? (
-                      <>
-                        <Loader2 data-icon="inline-start" className="animate-spin" />
-                        Cancelling...
-                      </>
-                    ) : (
-                      <>
-                        <XCircle data-icon="inline-start" />
-                        Cancel terminal payment
-                      </>
-                    )}
-                  </Button>
-                </AlertAction>
-              </Alert>
             )}
-            {terminalPaymentFailed && terminalPaymentStatus && (
-              <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle>Terminal payment did not complete</AlertTitle>
-                <AlertDescription>
-                  {terminalPaymentStatus.failureMessage || 'Try the card again or choose another payment method.'}
-                </AlertDescription>
-              </Alert>
-            )}
-            {hasOutstandingPaymentBalanceError ? (
-              <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle>Balances could not be loaded</AlertTitle>
-                <AlertDescription>Refresh the page before recording this payment.</AlertDescription>
-              </Alert>
-            ) : (
-              <div
-                className={cn(
-                  'border-border bg-muted/30 grid gap-4 rounded-lg border p-4',
-                  clientCreditBalance > 0 ? 'sm:grid-cols-4' : 'sm:grid-cols-3',
-                )}
-              >
-                <div className="flex flex-col gap-1">
-                  <p className="text-muted-foreground text-sm font-medium">Previous balance</p>
-                  {isLoadingOutstandingPaymentBalances ? (
-                    <Skeleton className="h-8 w-20" />
-                  ) : (
-                    <p className="text-xl font-semibold">{currency.format(allocationPreview.previousBalanceTotal)}</p>
-                  )}
-                </div>
-                <div className="flex flex-col gap-1">
-                  <p className="text-muted-foreground text-sm font-medium">Today&apos;s test</p>
-                  <p className="text-xl font-semibold">{currency.format(allocationPreview.currentBalanceDue)}</p>
-                </div>
-                {clientCreditBalance > 0 && (
-                  <div className="flex flex-col gap-1">
-                    <p className="text-muted-foreground text-sm font-medium">Credit available</p>
-                    <p className="text-success text-xl font-semibold">{currency.format(clientCreditBalance)}</p>
-                  </div>
-                )}
-                <div className="border-primary/30 bg-background flex flex-col gap-1 rounded-lg border p-3 sm:col-span-1">
-                  <p className="text-primary text-sm font-semibold tracking-wide uppercase">Total Due</p>
-                  {isLoadingOutstandingPaymentBalances ? (
-                    <Skeleton className="h-9 w-24" />
-                  ) : (
-                    <p className="text-2xl font-bold">
-                      {currency.format(
-                        clientCreditBalance > 0 ? allocationPreview.dueAfterCredit : allocationPreview.totalDue,
-                      )}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {clientCreditBalance > 0 && (
-              <div className="border-success/50 bg-success/5 space-y-4 rounded-lg border p-4">
-                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                  <div className="flex gap-3">
-                    <div className="border-success/50 bg-success/10 flex size-9 shrink-0 items-center justify-center rounded-full border">
-                      <CreditCard className="text-success size-4" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">Client credit</p>
-                      <p className="text-success text-xl font-semibold">
-                        {currency.format(clientCreditBalance)} available
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant={creditToApply > 0 ? 'outline' : 'default'}
-                    aria-pressed={creditToApply > 0}
-                    disabled={terminalPaymentIsActive}
-                    onClick={() => {
-                      const nextCredit = creditToApply > 0 ? 0 : maximumCredit
-                      const creditIncrease = Math.max(0, nextCredit - creditToApply)
-                      setPaymentDraft((current) => ({
-                        ...(current ?? payment),
-                        creditToApply: String(nextCredit),
-                        amountReceived: String(Math.max(0, amountReceived - creditIncrease)),
-                      }))
-                    }}
-                  >
-                    {creditToApply > 0 ? 'Remove credit' : `Apply ${currency.format(maximumCredit)} credit`}
-                  </Button>
-                </div>
-
-                <Field data-invalid={!creditAmountIsValid || undefined}>
-                  <FieldLabel htmlFor="credit-to-apply">Credit to apply</FieldLabel>
-                  <InputGroup className="h-11!">
-                    <InputGroupInput
-                      id="credit-to-apply"
-                      name="creditToApply"
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      max={maximumCredit}
-                      step={1}
-                      value={payment.creditToApply}
-                      disabled={terminalPaymentIsActive}
-                      aria-invalid={!creditAmountIsValid || undefined}
-                      onChange={(event) =>
-                        setPaymentDraft((current) => ({
-                          ...(current ?? payment),
-                          creditToApply: event.target.value,
-                        }))
-                      }
-                    />
-                    <InputGroupAddon>
-                      <InputGroupText>$</InputGroupText>
-                    </InputGroupAddon>
-                  </InputGroup>
-                  <FieldError
-                    errors={
-                      creditAmountIsValid ? [] : ['Credit cannot exceed the available credit or total balance due.']
-                    }
-                  />
-                </Field>
-              </div>
-            )}
-
-            <section className="border-primary/40 bg-primary/5 flex flex-col gap-4 rounded-xl border p-4">
-              <div>
-                <p className="text-lg font-semibold">Enter payment received</p>
-                <p className="text-muted-foreground text-sm">
-                  Choose a quick amount or type the exact amount the client is paying now.
-                </p>
-              </div>
-
-              {!isLoadingOutstandingPaymentBalances && !hasOutstandingPaymentBalanceError && (
-                <ToggleGroup
-                  value={activeQuickAmount}
-                  disabled={terminalPaymentIsActive}
-                  onValueChange={(values) => {
-                    const value = values.at(-1)
-                    if (value === undefined) return
-                    setPaymentDraft((current) => ({
-                      ...(current ?? payment),
-                      amountReceived: value,
-                    }))
-                  }}
-                  variant="outline"
-                  className="bg-muted/30 h-11 w-full"
-                  aria-label="Quick amount received"
-                >
-                  {quickAmounts.map((amount) => (
-                    <ToggleGroupItem
-                      key={amount}
-                      value={String(amount)}
-                      aria-label={`Set amount received to ${currency.format(amount)}`}
-                      className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-11 opacity-60 data-pressed:opacity-100"
-                    >
-                      {currency.format(amount)}
-                      {amount > 0 && amount === allocationPreview.dueAfterCredit ? ' · Pay all' : ''}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              )}
-
-              <FieldGroup className="grid gap-4 sm:grid-cols-2">
-                <Field data-invalid={!paymentAmountIsValid || undefined}>
-                  <FieldLabel htmlFor="amount-received" className="font-semibold">
-                    Amount received now
-                  </FieldLabel>
-                  <InputGroup
-                    className="border-primary/50 bg-background h-12! shadow-sm"
-                    data-testid="amount-received-control"
-                  >
-                    <InputGroupInput
-                      id="amount-received"
-                      name="amountReceived"
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      step={1}
-                      value={payment.amountReceived}
-                      disabled={terminalPaymentIsActive}
-                      aria-invalid={!paymentAmountIsValid || undefined}
-                      onChange={(event) =>
-                        setPaymentDraft((current) => ({
-                          ...(current ?? payment),
-                          amountReceived: event.target.value,
-                        }))
-                      }
-                      className="text-xl font-bold"
-                    />
-                    <InputGroupAddon>
-                      <InputGroupText className="font-semibold">$</InputGroupText>
-                    </InputGroupAddon>
-                  </InputGroup>
-                  <FieldError errors={paymentAmountIsValid ? [] : ['Enter zero or a positive amount received.']} />
-                </Field>
-
-                <Field>
-                  <FieldLabel id="payment-method-label" className="font-semibold">
-                    Payment method
-                  </FieldLabel>
-                  <ToggleGroup
-                    aria-labelledby="payment-method-label"
-                    variant="outline"
-                    value={[payment.method]}
-                    onValueChange={(methods) => {
-                      const method = methods[0] as GuidedPaymentEntryMethod | undefined
-                      if (!method) return
-                      setPaymentDraft((current) => ({
-                        ...(current ?? payment),
-                        method,
-                      }))
-                    }}
-                    className="bg-muted/30 h-12 w-full"
-                    data-testid="payment-method-control"
-                    disabled={terminalPaymentIsActive}
-                  >
-                    <ToggleGroupItem
-                      value="cash"
-                      aria-label="Cash payment method"
-                      className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-12 px-3 opacity-60 data-pressed:opacity-100"
-                    >
-                      <Banknote />
-                      Cash
-                    </ToggleGroupItem>
-                    <ToggleGroupItem
-                      value="card"
-                      aria-label="Card payment method"
-                      className="text-muted-foreground data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground h-12 px-3 opacity-60 data-pressed:opacity-100"
-                    >
-                      <CreditCard />
-                      Card · Chx Desk
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                </Field>
-              </FieldGroup>
-              {payment.method === 'card' && clientReceiptEmail && (
-                <p className="text-muted-foreground flex w-full items-center gap-2 text-sm">
-                  <Mail /> Email receipt sending to {clientReceiptEmail}
-                </p>
-              )}
-              {payment.method === 'cash' && (
-                <Field orientation="horizontal" data-disabled={!clientReceiptEmail || undefined} className="w-full">
-                  <Checkbox
-                    id="send-payment-receipt"
-                    checked={clientReceiptEmail ? payment.sendReceipt : false}
-                    disabled={!clientReceiptEmail}
-                    onCheckedChange={(checked) =>
-                      setPaymentDraft((current) => ({
-                        ...(current ?? payment),
-                        sendReceipt: checked === true,
-                      }))
-                    }
-                  />
-                  <FieldContent>
-                    <FieldLabel htmlFor="send-payment-receipt" className={cn(clientReceiptEmail && 'cursor-pointer')}>
-                      {clientReceiptEmail ? `Email receipt to ${clientReceiptEmail}` : 'Email receipt unavailable'}
-                    </FieldLabel>
-                    {!clientReceiptEmail && (
-                      <FieldDescription>Client emails are disabled for this profile.</FieldDescription>
-                    )}
-                  </FieldContent>
-                </Field>
-              )}
-              {payment.method === 'card' && amountReceived > 0 && (
-                <>
-                  <Separator />
-                  <div
-                    className="bg-background flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
-                    data-testid="guided-terminal-payment-action"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-md border">
-                        <CreditCard className="size-4" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="font-semibold">Card payment · Chx Desk</p>
-                        <p className="text-muted-foreground text-sm">
-                          Send {currency.format(amountReceived)} to the reader. The footer only moves through the form.
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      className="w-full sm:w-auto"
-                      onClick={handleTerminalPayment}
-                      disabled={
-                        terminalPaymentIsActive ||
-                        terminalPaymentMutation.isPending ||
-                        terminalPaymentCancelMutation.isPending ||
-                        !paymentAmountIsValid ||
-                        !creditAmountIsValid ||
-                        isFetchingOutstandingPaymentBalances ||
-                        hasOutstandingPaymentBalanceError
-                      }
-                      data-testid="send-terminal-payment-button"
-                    >
-                      {terminalPaymentIsActive ? (
-                        <>
-                          <Loader2 data-icon="inline-start" className="animate-spin" />
-                          Waiting for card...
-                        </>
-                      ) : terminalPaymentMutation.isPending ? (
-                        <>
-                          <Loader2 data-icon="inline-start" className="animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <CreditCard data-icon="inline-start" />
-                          Send {currency.format(amountReceived)} to Chx Desk
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </section>
-
-            <div className="border-border overflow-hidden rounded-lg border">
-              <div className="p-4">
-                <p className="text-lg font-semibold">Payment allocation</p>
-              </div>
-              <Separator />
-
-              {isLoadingOutstandingPaymentBalances ? (
-                <div className="flex flex-col gap-4 p-4">
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                </div>
-              ) : hasOutstandingPaymentBalanceError ? (
-                <p className="text-destructive p-4 text-sm">Allocation preview is unavailable.</p>
-              ) : (
-                <div className="divide-border divide-y">
-                  {compactPreviousAllocations.map((row) => {
-                    if (row.kind === 'summary') {
-                      return (
-                        <div
-                          key={row.key}
-                          className="bg-muted/20 grid gap-2 p-4 sm:grid-cols-[1fr_auto] sm:items-center"
-                        >
-                          <div className="flex flex-col gap-1">
-                            <p className="font-medium">{row.count} other previous tests</p>
-                            <p className="text-muted-foreground text-sm">{currency.format(row.amountDue)} total due</p>
-                          </div>
-                          <div className="text-left sm:text-right">
-                            <p className="font-medium">{currency.format(row.amountApplied)} applied</p>
-                            {row.creditApplied > 0 && (
-                              <p className="text-success text-sm font-medium">
-                                {currency.format(row.creditApplied)} credit
-                                {row.newMoneyApplied > 0 ? ` + ${currency.format(row.newMoneyApplied)} new money` : ''}
-                              </p>
-                            )}
-                            {row.balanceRemaining > 0 && (
-                              <p className="text-destructive text-sm">
-                                {currency.format(row.balanceRemaining)} remaining
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    }
-
-                    const allocationNumber =
-                      allocationPreview.previousAllocations.findIndex(
-                        (allocation) => allocation.id === row.allocation.id,
-                      ) + 1
-
-                    return (
-                      <div
-                        key={row.allocation.id}
-                        className="grid gap-3 p-4 sm:grid-cols-[auto_1fr_auto] sm:items-center"
-                      >
-                        <Badge variant="outline" className="size-8 rounded-full p-0">
-                          {allocationNumber}
-                        </Badge>
-                        <div className="flex min-w-0 flex-col gap-1">
-                          <p className="font-medium">
-                            {formatPaymentDate(row.allocation.collectionDate)} · {row.allocation.testTypeLabel}
-                          </p>
-                          <p className="text-muted-foreground text-sm">
-                            Previous test · {currency.format(row.allocation.balanceDue)} due
-                          </p>
-                        </div>
-                        <div className="text-left sm:text-right">
-                          <p className="font-medium">{currency.format(row.allocation.amountApplied)} applied</p>
-                          {row.allocation.creditApplied > 0 && (
-                            <p className="text-success text-sm font-medium">
-                              {currency.format(row.allocation.creditApplied)} credit
-                              {row.allocation.newMoneyApplied > 0
-                                ? ` + ${currency.format(row.allocation.newMoneyApplied)} new money`
-                                : ''}
-                            </p>
-                          )}
-                          {row.allocation.balanceRemaining <= 0 ? (
-                            <Badge variant="success">Paid</Badge>
-                          ) : (
-                            <p className="text-destructive text-sm font-medium">
-                              {currency.format(row.allocation.balanceRemaining)} remaining
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-
-                  <div className="grid gap-3 p-4 sm:grid-cols-[auto_1fr_auto] sm:items-center">
-                    <Badge variant="outline" className="size-8 rounded-full p-0">
-                      {allocationPreview.previousAllocations.length + 1}
-                    </Badge>
-                    <div className="flex min-w-0 flex-col gap-1">
-                      <p className="font-medium">Today · {selectedBooking.testType.label}</p>
-                      <p className="text-muted-foreground text-sm">
-                        Current test · {currency.format(allocationPreview.currentBalanceDue)} due
-                      </p>
-                    </div>
-                    <div className="text-left sm:text-right">
-                      <p className="font-medium">{currency.format(allocationPreview.currentAmountApplied)} applied</p>
-                      {allocationPreview.currentCreditApplied > 0 && (
-                        <p className="text-success text-sm font-medium">
-                          {currency.format(allocationPreview.currentCreditApplied)} credit
-                          {allocationPreview.currentNewMoneyApplied > 0
-                            ? ` + ${currency.format(allocationPreview.currentNewMoneyApplied)} new money`
-                            : ''}
-                        </p>
-                      )}
-                      {allocationPreview.currentBalanceRemaining <= 0 ? (
-                        <Badge variant="success">Paid</Badge>
-                      ) : (
-                        <p className="text-destructive text-sm font-medium">
-                          {currency.format(allocationPreview.currentBalanceRemaining)} remaining
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {!isLoadingOutstandingPaymentBalances && !hasOutstandingPaymentBalanceError && (
-              <div className="border-border bg-muted/20 grid gap-4 rounded-lg border p-4 sm:grid-cols-3">
-                <div>
-                  <p className="text-muted-foreground text-sm font-medium">Balance still due</p>
-                  <p
-                    className={cn(
-                      'text-xl font-semibold',
-                      allocationPreview.remainingClientBalance > 0 && 'text-destructive',
-                    )}
-                  >
-                    {currency.format(allocationPreview.remainingClientBalance)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-sm font-medium">Credit remaining</p>
-                  <p className="text-success text-xl font-semibold">{currency.format(futureCreditBalance)}</p>
-                  {allocationPreview.creditAmount > 0 && (
-                    <p className="text-muted-foreground text-sm">
-                      Includes {currency.format(allocationPreview.creditAmount)} new credit
-                    </p>
-                  )}
-                </div>
-                <div className="sm:text-right">
-                  <p className="text-muted-foreground text-sm font-medium">New money collected</p>
-                  <p className="text-xl font-semibold">{currency.format(amountReceived)}</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          </OptionalDetails>
+        )}
       </div>
     )
   }
@@ -2507,19 +2241,13 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
     const client = selectedBooking.client
     const isFirstTest = !client?.firstDrugTestDate
     const fullName = getToxAccessName(selectedBooking, isFirstTest)
-    const toxAccessRows: Array<{ label: string; value: string }> = [
-      { label: 'Name', value: fullName },
-      {
-        label: selectedBooking.testType?.category === 'lab' ? 'Test Code' : 'Test',
-        value: getToxAccessTestValue(selectedBooking.testType),
-      },
-    ]
 
     return (
       <div className="flex flex-col gap-4">
-        {renderHeader('ToxAccess', 'Collect Sample in ToxAccess')}
+        {renderHeader('ToxAccess', 'Prepare lab collection')}
         {selectedBooking.client && (
           <ClientDetailsCard
+            compact
             client={{
               ...selectedBooking.client,
               referralTitle: selectedBooking.referral?.name || null,
@@ -2531,30 +2259,12 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             }}
           />
         )}
-        <RedwoodProvisioningCard status={redwoodProvisioning} isLoading={isRedwoodProvisioningLoading} />
-
-        {!isFirstTest && (
-          <Card className="rounded-lg">
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <ClipboardList className="size-5" />
-                ToxAccess Reference
-              </CardTitle>
-              <CardDescription>Use these values to find the client and select the test.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-2 p-4 pt-0">
-              {toxAccessRows.map(({ label, value }) => (
-                <div
-                  key={label}
-                  className="border-border bg-background grid gap-1 rounded-lg border p-3 sm:grid-cols-[120px_1fr] sm:items-center"
-                >
-                  <p className="text-muted-foreground text-sm font-semibold tracking-wider uppercase">{label}</p>
-                  <p className="font-semibold">{value}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+        <LabPreparation
+          status={redwoodProvisioning}
+          isLoading={isRedwoodProvisioningLoading}
+          donorName={fullName}
+          testCode={getToxAccessTestValue(selectedBooking.testType)}
+        />
       </div>
     )
   }
@@ -2595,7 +2305,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           : amountReceived > 0 || creditToApply > 0
             ? 'Record Payment & Continue'
             : 'Continue to Collection Setup'
-        : 'Continue Collection'
+        : 'Continue to medications'
   const canGoNext =
     currentStep === 'review' || currentStep === 'registration'
       ? Boolean(selectedBooking)
@@ -2612,10 +2322,20 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
           ? Boolean(paymentRecorded && selectedBooking?.testType && selectedBooking.client?.id)
           : false
 
-  const backLabel = currentStep === 'schedule' ? 'Cancel' : currentStep === 'payment' ? 'Back to Review' : 'Back'
+  const backLabel =
+    currentStep === 'schedule'
+      ? 'Cancel'
+      : currentStep === 'payment'
+        ? 'Back to Review'
+        : currentStep === 'toxaccess'
+          ? 'Back to payment'
+          : 'Back'
   const footerIsPending =
     currentStep === 'payment'
-      ? paymentMutation.isPending || terminalPaymentMutation.isPending || terminalPaymentCancelMutation.isPending
+      ? payerMutation.isPending ||
+        paymentMutation.isPending ||
+        terminalPaymentMutation.isPending ||
+        terminalPaymentCancelMutation.isPending
       : currentStep === 'toxaccess'
         ? continueMutation.isPending
         : false
@@ -2638,7 +2358,13 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
   return (
     <>
-      <div ref={guidedWorkflowRef} className="mx-auto flex w-full max-w-4xl flex-col px-2 pb-8 sm:px-4 md:px-0">
+      <div
+        ref={guidedWorkflowRef}
+        className={cn(
+          'mx-auto flex w-full flex-col px-2 pb-8 sm:px-4 md:px-0',
+          currentStep === 'schedule' ? 'max-w-6xl' : 'max-w-4xl',
+        )}
+      >
         {renderCurrentStep()}
 
         <div className="mt-6 flex items-start justify-between gap-4 border-t pt-4">

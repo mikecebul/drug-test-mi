@@ -28,8 +28,7 @@ function isoDateTimeForInput(date: string) {
 }
 
 async function expectReferralRecipientsReady(page: Page, count: number) {
-  const readyAlert = page.getByRole('alert').filter({ hasText: /Ready to send/i })
-  await expect(readyAlert).toContainText(new RegExp(`Referral recipients:\\s*${count}`, 'i'))
+  await expect(page.getByTestId('referral-recipient-row')).toHaveCount(count)
 }
 
 test.describe('Wizard Collect Lab Workflow', () => {
@@ -61,8 +60,9 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await clickNext(page)
     await clickNext(page)
 
-    await expect(page.getByRole('heading', { name: 'Confirm Details' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Confirm lab collection' })).toBeVisible()
 
+    await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
     const collectionDate = page.locator('#collection-date')
     await expect(collectionDate).not.toBeEmpty()
     await collectionDate.fill('')
@@ -82,12 +82,12 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await page.locator('#breathalyzerResult').fill('0.000')
     await clickNext(page)
 
-    await expect(page.getByRole('heading', { name: 'Review Collection Notification' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review collection notification' })).toBeVisible()
     await clickBack(page)
-    await expect(page.getByRole('heading', { name: 'Confirm Details' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Confirm lab collection' })).toBeVisible()
     await clickNext(page)
 
-    await expect(page.getByRole('heading', { name: 'Review Collection Notification' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review collection notification' })).toBeVisible()
 
     await page.getByLabel(/Send referral notifications/i).uncheck()
     await expect(page.getByText('No notifications will be sent')).toBeVisible()
@@ -102,13 +102,11 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await page.setViewportSize({ width: 1024, height: 768 })
     await selectClientFromSearchDialog(page, fixtures.clients.collectLab.fullName)
     await clickNext(page)
-    await expect(page.getByText('Verify Medications')).toBeVisible()
+    await expect(page.getByText('Verify medications')).toBeVisible()
     await clickNext(page)
-    await expect(page.getByRole('heading', { name: 'Confirm Details' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Confirm lab collection' })).toBeVisible()
 
-    await page
-      .getByRole('button', { name: new RegExp(`Edit ${fixtures.clients.collectLab.fullName}`, 'i') })
-      .click()
+    await page.getByRole('button', { name: new RegExp(`Edit ${fixtures.clients.collectLab.fullName}`, 'i') }).click()
     const clientEditor = page.getByRole('dialog', { name: 'Edit Client Details' })
     await expect(clientEditor).toBeVisible()
 
@@ -181,14 +179,14 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await page.locator('#collection-date').press('Tab')
     await clickNext(page)
 
-    await expect(page.getByRole('heading', { name: 'Review Collection Notification' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review collection notification' })).toBeVisible()
 
     await page.getByLabel(/Send referral notifications/i).check()
     await expectReferralRecipientsReady(page, 1)
 
     await page.getByRole('button', { name: /^Submit$/i }).click()
 
-    await expect(page.getByRole('heading', { name: 'Drug Test Created Successfully!' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Collection saved' })).toBeVisible({
       timeout: 30_000,
     })
 

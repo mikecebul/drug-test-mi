@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useStore } from '@tanstack/react-form'
+import { OptionalDetails } from '../../../components/OptionalDetails'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { ClientDetailsCard } from '../../components/client/ClientDetailsCard'
 import { getCollectLabFormOpts } from '../shared-form'
@@ -49,12 +50,19 @@ export const CollectionStep = withForm({
         }
       : undefined
 
+    const detailsInvalid = useStore(form.store, (state) =>
+      Object.entries(state.fieldMeta).some(
+        ([name, meta]) => name.startsWith('collection.') && Boolean(meta?.errors.length),
+      ),
+    )
+    const selectedType = useStore(form.store, (state) => state.values.collection.testType)
     return (
-      <div className="space-y-8">
-        <FieldGroupHeader title="Confirm Details" description="Confirm the client, test, and collection details." />
+      <div className="flex flex-col gap-6">
+        <FieldGroupHeader title="Confirm lab collection" />
 
         {client && (
           <ClientDetailsCard
+            compact
             client={client}
             editable
             onClientUpdated={(updated) => {
@@ -74,101 +82,105 @@ export const CollectionStep = withForm({
         )}
 
         <Card>
-          <CardContent className="pt-6">
-            <div className="space-y-6">
-              {/* Test Type Selection */}
-              <form.Field name="collection.testType">
-                {(field) => (
-                  <Field data-invalid={field.state.meta.errors.length > 0}>
-                    <FieldLabel>Lab Test Type</FieldLabel>
-                    <RadioGroup
-                      defaultValue="11-panel-lab"
-                      value={field.state.value}
-                      onValueChange={(value) => field.handleChange(value as any)}
-                      aria-invalid={field.state.meta.errors.length > 0}
-                    >
-                      {labTests.map((test) => (
-                        <div key={test} className="flex items-center space-x-2">
-                          <RadioGroupItem value={test} id={test} />
-                          <FieldLabel htmlFor={test} className="text-base font-light">
-                            {TEST_LABELS[test]}
-                          </FieldLabel>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                    <FieldError errors={field.state.meta.errors} />
-                  </Field>
-                )}
-              </form.Field>
-
-              {/* Collection Date & Time */}
-              <form.AppField name="collection.collectionDate">
-                {(field) => (
-                  <Field data-invalid={field.state.meta.errors.length > 0} className="max-w-sm">
-                    <InputDateTimePicker
-                      id="collection-date"
-                      label="Collection Date & Time"
-                      value={collectionDateTime}
-                      onChange={(date) => field.handleChange(date?.toISOString() || '')}
-                      placeholder="Select date"
-                      required
-                      aria-invalid={field.state.meta.errors.length > 0}
-                    />
-                    <FieldError errors={field.state.meta.errors} />
-                  </Field>
-                )}
-              </form.AppField>
-
-              {/* Breathalyzer Section */}
-              <FieldSet>
-                <FieldLegend>Breathalyzer Test (Optional)</FieldLegend>
-                <form.Field name="collection.breathalyzerTaken">
-                  {(field) => (
-                    <Field orientation="horizontal">
-                      <Checkbox
-                        id="breathalyzerTaken"
-                        checked={field.state.value ?? false}
-                        onCheckedChange={(checked) => {
-                          const isChecked = checked === true
-                          form.setFieldValue('collection.breathalyzerTaken', isChecked, { dontValidate: true })
-                          // Clear result when unchecking - validation errors clear automatically
-                          if (!isChecked) {
-                            form.setFieldValue('collection.breathalyzerResult', null, { dontValidate: true })
-                          }
-                        }}
-                      />
-                      <FieldLabel htmlFor="breathalyzerTaken" className="cursor-pointer font-normal">
-                        Breathalyzer test was administered
-                      </FieldLabel>
-                    </Field>
-                  )}
-                </form.Field>
-              </FieldSet>
-              {breathalyzerTaken && (
-                <form.Field name="collection.breathalyzerResult">
-                  {(field) => (
-                    <Field data-invalid={field.state.meta.errors.length > 0}>
-                      <FieldLabel htmlFor="breathalyzerResult">BAC Result</FieldLabel>
-                      <Input
-                        type="number"
-                        step="0.001"
-                        id="breathalyzerResult"
-                        value={field.state.value ?? ''}
-                        onChange={(e) => field.handleChange(e.target.value ? parseFloat(e.target.value) : null)}
-                        placeholder="0.000"
-                        aria-invalid={field.state.meta.errors.length > 0}
-                      />
-                      <FieldDescription>
-                        Enter result with up to 3 decimal places. Threshold: 0.000 (any detectable alcohol = positive)
-                      </FieldDescription>
-                      <FieldError errors={field.state.meta.errors} />
-                    </Field>
-                  )}
-                </form.Field>
-              )}
-            </div>
+          <CardContent className="flex flex-col gap-3 p-4">
+            <p>
+              {TEST_LABELS[selectedType]} Lab · {collectionDateTime?.toLocaleString() || 'Collection date required'}
+            </p>
+            <p className="text-muted-foreground text-sm">Awaiting lab results</p>
           </CardContent>
         </Card>
+        <OptionalDetails invalid={detailsInvalid}>
+          {/* Test Type Selection */}
+          <form.Field name="collection.testType">
+            {(field) => (
+              <Field data-invalid={field.state.meta.errors.length > 0}>
+                <FieldLabel>Lab Test Type</FieldLabel>
+                <RadioGroup
+                  defaultValue="11-panel-lab"
+                  value={field.state.value}
+                  onValueChange={(value) => field.handleChange(value as (typeof labTests)[number])}
+                  aria-invalid={field.state.meta.errors.length > 0}
+                >
+                  {labTests.map((test) => (
+                    <div key={test} className="flex items-center space-x-2">
+                      <RadioGroupItem value={test} id={test} />
+                      <FieldLabel htmlFor={test} className="text-base font-light">
+                        {TEST_LABELS[test]}
+                      </FieldLabel>
+                    </div>
+                  ))}
+                </RadioGroup>
+                <FieldError errors={field.state.meta.errors} />
+              </Field>
+            )}
+          </form.Field>
+
+          {/* Collection Date & Time */}
+          <form.AppField name="collection.collectionDate">
+            {(field) => (
+              <Field data-invalid={field.state.meta.errors.length > 0} className="max-w-sm">
+                <InputDateTimePicker
+                  id="collection-date"
+                  label="Collection Date & Time"
+                  value={collectionDateTime}
+                  onChange={(date) => field.handleChange(date?.toISOString() || '')}
+                  placeholder="Select date"
+                  required
+                  aria-invalid={field.state.meta.errors.length > 0}
+                />
+                <FieldError errors={field.state.meta.errors} />
+              </Field>
+            )}
+          </form.AppField>
+
+          {/* Breathalyzer Section */}
+          <FieldSet>
+            <FieldLegend>Breathalyzer Test (Optional)</FieldLegend>
+            <form.Field name="collection.breathalyzerTaken">
+              {(field) => (
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="breathalyzerTaken"
+                    checked={field.state.value ?? false}
+                    onCheckedChange={(checked) => {
+                      const isChecked = checked === true
+                      form.setFieldValue('collection.breathalyzerTaken', isChecked, { dontValidate: true })
+                      // Clear result when unchecking - validation errors clear automatically
+                      if (!isChecked) {
+                        form.setFieldValue('collection.breathalyzerResult', null, { dontValidate: true })
+                      }
+                    }}
+                  />
+                  <FieldLabel htmlFor="breathalyzerTaken" className="cursor-pointer font-normal">
+                    Breathalyzer test was administered
+                  </FieldLabel>
+                </Field>
+              )}
+            </form.Field>
+          </FieldSet>
+          {breathalyzerTaken && (
+            <form.Field name="collection.breathalyzerResult">
+              {(field) => (
+                <Field data-invalid={field.state.meta.errors.length > 0}>
+                  <FieldLabel htmlFor="breathalyzerResult">BAC Result</FieldLabel>
+                  <Input
+                    type="number"
+                    step="0.001"
+                    id="breathalyzerResult"
+                    value={field.state.value ?? ''}
+                    onChange={(e) => field.handleChange(e.target.value ? parseFloat(e.target.value) : null)}
+                    placeholder="0.000"
+                    aria-invalid={field.state.meta.errors.length > 0}
+                  />
+                  <FieldDescription>
+                    Enter result with up to 3 decimal places. Threshold: 0.000 (any detectable alcohol = positive)
+                  </FieldDescription>
+                  <FieldError errors={field.state.meta.errors} />
+                </Field>
+              )}
+            </form.Field>
+          )}
+        </OptionalDetails>
       </div>
     )
   },

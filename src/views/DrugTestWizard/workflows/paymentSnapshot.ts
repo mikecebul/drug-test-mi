@@ -2,6 +2,7 @@
 
 import { getTestTypeByValue } from '@/config/test-types'
 import type { getPayload } from 'payload'
+import { payerRelationshipId, resolveBillingResponsibility } from '@/lib/referral-invoices/payer'
 
 type Payload = Awaited<ReturnType<typeof getPayload>>
 
@@ -57,12 +58,16 @@ export async function getDrugTestPaymentSnapshot(input: {
   bookingId?: string | null
   fallbackAmountDue?: number
   testType?: string | null
+  clientId?: string
 }) {
   const fallbackAmountDue = getFallbackAmountDue(input.testType, input.fallbackAmountDue)
 
   if (!input.bookingId) {
     return {
       payment: paidUnknownPayment(fallbackAmountDue),
+      billingResponsibility: input.clientId
+        ? await resolveBillingResponsibility(input.payload, {}, input.clientId)
+        : undefined,
     }
   }
 
@@ -73,8 +78,14 @@ export async function getDrugTestPaymentSnapshot(input: {
     overrideAccess: true,
   })
 
+  const clientId = payerRelationshipId(booking.relatedClient)
+  if (input.clientId && clientId !== input.clientId) throw new Error('The booking belongs to another client.')
+
   return {
     sourceBooking: booking.id,
     payment: normalizePayment(booking.payment, fallbackAmountDue),
+    billingResponsibility: clientId
+      ? await resolveBillingResponsibility(input.payload, booking, clientId, undefined, true)
+      : undefined,
   }
 }

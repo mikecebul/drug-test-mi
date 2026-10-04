@@ -14,7 +14,7 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
 import { baseUrl } from '@/utilities/baseUrl'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
 import { closePendingClientCheckoutSessions } from '@/collections/Payments/services/closePendingClientCheckoutSessions'
-import { isClientBilledToReferral } from '@/lib/referral-invoices/payer'
+import { isTestBilledToReferral } from '@/lib/referral-invoices/payer'
 
 function getRelationshipId(value: unknown): string | null {
   if (typeof value === 'string' || typeof value === 'number') return String(value)
@@ -105,7 +105,7 @@ async function fetchTrackerTest(payload: Awaited<ReturnType<typeof getPayload>>,
   const clientId = getRelationshipId(test.relatedClient)
   return {
     ...result,
-    billedToReferral: clientId ? await isClientBilledToReferral(payload, clientId) : false,
+    billedToReferral: clientId ? await isTestBilledToReferral(payload, test) : false,
   }
 }
 
@@ -132,16 +132,11 @@ async function fetchTrackerTests(payload: Awaited<ReturnType<typeof getPayload>>
     overrideAccess: true,
   })
 
-  const payerByClient = new Map<string, Promise<boolean>>()
   return Promise.all(
     result.docs.map(async (test) => {
-      const clientId = getRelationshipId(test.relatedClient)
-      if (clientId && !payerByClient.has(clientId)) {
-        payerByClient.set(clientId, isClientBilledToReferral(payload, clientId))
-      }
       return {
         ...toTrackerTest(test),
-        billedToReferral: clientId ? await payerByClient.get(clientId) : false,
+        billedToReferral: await isTestBilledToReferral(payload, test),
       }
     }),
   )
@@ -206,7 +201,7 @@ export async function recordDrugTestPayment(input: {
       if (
         test.payment?.status === 'invoiced' ||
         test.payment?.referralInvoice ||
-        (await isClientBilledToReferral(payload, clientId, req))
+        (await isTestBilledToReferral(payload, test, req))
       ) {
         throw new Error('This test is billed to a referral. Record payment on its referral invoice.')
       }
@@ -266,7 +261,7 @@ export async function requestDrugTestConfirmation(input: {
       const billedToReferral =
         test.payment?.status === 'invoiced' ||
         Boolean(test.payment?.referralInvoice) ||
-        (await isClientBilledToReferral(payload, clientId, req))
+        (await isTestBilledToReferral(payload, test, req))
 
       const feePerSubstance = test.testType === '17-panel-instant' || test.testType === '15-panel-instant' ? 30 : 45
       const confirmationFeeDue = feePerSubstance * input.confirmationSubstances.length
@@ -356,7 +351,7 @@ export async function sendDrugTestStripePaymentLink(testId: string) {
   if (
     test.payment?.status === 'invoiced' ||
     test.payment?.referralInvoice ||
-    (await isClientBilledToReferral(payload, clientId))
+    (await isTestBilledToReferral(payload, test))
   ) {
     return { success: false, error: 'This test is billed to a referral. Use its referral invoice for payment.' }
   }

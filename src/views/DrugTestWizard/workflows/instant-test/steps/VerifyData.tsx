@@ -2,13 +2,10 @@
 
 import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import InputDateTimePicker from '@/components/input-datetime-picker'
-import { MedicationDisplayField, FieldGroupHeader } from '../../components'
+import { FieldGroupHeader } from '../../components'
 import { ClientDetailsCard } from '../../components/client/ClientDetailsCard'
-import { ClassificationAlert } from './confirm/components'
 import { getInstantTestFormOpts } from '../shared-form'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -18,9 +15,12 @@ import { useComputeTestResultPreviewQuery } from '../../../queries'
 import { formatSubstance } from '@/lib/substances'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { ConfirmationSubstanceSelector } from '@/blocks/Form/field-components/confirmation-substance-selector'
-import { cn } from '@/utilities/cn'
-import { AlertTriangle } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { FieldSet } from '@/components/ui/field'
+import { OptionalDetails } from '../../../components/OptionalDetails'
+import { CollectionResultStrip } from '../../../components/CollectionResultStrip'
+import { ReportLink } from '../../../components/ReportLink'
 
 export const VerifyDataStep = withForm({
   ...getInstantTestFormOpts(),
@@ -47,7 +47,11 @@ export const VerifyDataStep = withForm({
       : undefined
 
     // Compute test result preview to detect unexpected positives
-    const { data: preview } = useComputeTestResultPreviewQuery(
+    const {
+      data: preview,
+      isFetching,
+      isError,
+    } = useComputeTestResultPreviewQuery(
       client?.id,
       (verifyData?.detectedSubstances ?? []) as SubstanceValue[],
       verifyData?.testType ?? '17-panel-instant',
@@ -60,6 +64,7 @@ export const VerifyDataStep = withForm({
     const requiresDecision = hasUnexpectedPositives && !preview?.autoAccept
     // Clear error if no decision required
     useEffect(() => {
+      if (!preview || isFetching || isError) return
       if (requiresDecision === true) {
         form.setFieldValue('verifyData.confirmationDecisionRequired', true)
         form.validate('submit')
@@ -70,7 +75,7 @@ export const VerifyDataStep = withForm({
         form.setFieldValue('verifyData.confirmationSubstances', [])
         form.validate('submit')
       }
-    }, [requiresDecision, form])
+    }, [requiresDecision, form, preview, isFetching, isError])
 
     // Get confirmation decision from form state
     const confirmationDecisionValue = verifyData?.confirmationDecision
@@ -92,16 +97,19 @@ export const VerifyDataStep = withForm({
       form.validate('submit')
     }
 
+    const [changeSubstances, setChangeSubstances] = useState(false)
+    const detailsInvalid = useStore(form.store, (state) =>
+      Object.entries(state.fieldMeta).some(
+        ([name, meta]) =>
+          name.startsWith('verifyData.') && !name.includes('confirmation') && Boolean(meta?.errors.length),
+      ),
+    )
     return (
-      <div className="space-y-6">
-        <FieldGroupHeader
-          title="Verify Test Data"
-          description="Review and adjust the extracted data before creating the test record"
-        />
-
-        {/* Client Info & Medications */}
+      <div className="flex flex-col gap-6">
+        <FieldGroupHeader title="Verify instant test" />
         {client && (
           <ClientDetailsCard
+            compact
             client={client}
             editable
             onClientUpdated={(updated) => {
@@ -120,277 +128,228 @@ export const VerifyDataStep = withForm({
           />
         )}
 
-        {medications.length > 0 && <MedicationDisplayField medications={medications} />}
-
-        {/* Test Data Form */}
-        <Card className="@container shadow-md">
-          <CardContent className="grid gap-6 pt-6">
-            <FieldGroup className="grid @lg:grid-cols-2">
-              <form.Field name="verifyData.testType">
-                {(field) => {
-                  const hasErrors = field.state.meta.errors.length > 0
-
-                  return (
-                    <Field data-invalid={hasErrors} className="@lg:col-span-1">
-                      <FieldLabel htmlFor="instant-test-type">Test Type</FieldLabel>
-                      <Input id="instant-test-type" value="17-Panel Instant" readOnly aria-invalid={hasErrors} />
-                      <FieldError errors={field.state.meta.errors} />
-                    </Field>
-                  )
-                }}
-              </form.Field>
-            </FieldGroup>
-
-            {/* Collection Date/Time */}
-            <FieldGroup className="grid @lg:grid-cols-2">
-              <form.Field name="verifyData.collectionDate">
-                {(field) => {
-                  const hasErrors = field.state.meta.errors.length > 0
-
-                  return (
-                    <Field data-invalid={hasErrors} className="@lg:col-span-1">
-                      <FieldLabel htmlFor="collectionDate">Collection Date &amp; Time</FieldLabel>
-                      <InputDateTimePicker
-                        id="collectionDate"
-                        value={field.state.value ? new Date(field.state.value) : undefined}
-                        onChange={(value) => field.handleChange(value?.toISOString() ?? '')}
-                        aria-invalid={hasErrors}
-                      />
-                      <FieldError errors={field.state.meta.errors} />
-                    </Field>
-                  )
-                }}
-              </form.Field>
-            </FieldGroup>
-
-            {/* Detected Substances */}
-            <form.AppField
-              name="verifyData.detectedSubstances"
-              listeners={{
-                onChange: () => {
-                  // Reset confirmation decision when detected substances change
-                  // This ensures the user makes a fresh decision when test results change
-                  if (confirmationDecisionValue) {
-                    form.setFieldValue('verifyData.confirmationDecision', undefined)
-                    form.setFieldValue('verifyData.confirmationSubstances', [])
-                  }
-                },
-              }}
-            >
-              {(field) => <field.SubstanceChecklistField testType={verifyData?.testType ?? '17-panel-instant'} />}
-            </form.AppField>
-
-            {/* Dilute Sample */}
-            <Field orientation="horizontal">
-              <form.Field name="verifyData.isDilute">
-                {(field) => (
-                  <Checkbox
-                    id="isDilute"
-                    checked={field.state.value}
-                    onCheckedChange={(checked) => field.handleChange(checked as boolean)}
-                  />
-                )}
-              </form.Field>
-              <FieldLabel htmlFor="isDilute" className="cursor-pointer font-normal">
-                Sample is Dilute
-              </FieldLabel>
-            </Field>
-
-            {/* Breathalyzer Section */}
-            <div className="bg-muted/50 border-border space-y-4 rounded-lg border p-4">
-              <FieldLegend>Breathalyzer Test (Optional)</FieldLegend>
-              <Field orientation="horizontal">
-                <form.Field name="verifyData.breathalyzerTaken">
-                  {(field) => (
-                    <Checkbox
-                      id="breathalyzerTaken"
-                      checked={field.state.value}
-                      onCheckedChange={(checked) => {
-                        field.handleChange(checked as boolean)
-                        // Clear result when unchecking - validation errors clear automatically
-                        if (!checked) {
-                          form.setFieldValue('verifyData.breathalyzerResult', null)
-                        }
-                      }}
-                    />
-                  )}
-                </form.Field>
-                <FieldLabel htmlFor="breathalyzerTaken" className="cursor-pointer font-normal">
-                  Breathalyzer test was administered
-                </FieldLabel>
-              </Field>
-
-              {verifyData?.breathalyzerTaken && (
-                <form.Field name="verifyData.breathalyzerResult">
-                  {(field) => {
-                    const hasErrors = field.state.meta.errors.length > 0
-
-                    return (
-                      <Field data-invalid={hasErrors}>
-                        <FieldLabel htmlFor="breathalyzerResult">
-                          BAC Result <span className="text-destructive">*</span>
-                        </FieldLabel>
-                        <Input
-                          id="breathalyzerResult"
-                          type="number"
-                          step="0.001"
-                          value={field.state.value ?? ''}
-                          onChange={(e) => {
-                            const value = e.target.value === '' ? null : parseFloat(e.target.value)
-                            field.handleChange(value)
-                          }}
-                          placeholder="0.000"
-                          aria-invalid={hasErrors}
-                        />
-                        <p className="text-muted-foreground text-xs">
-                          Enter result with 3 decimal places. Threshold: 0.000 (any detectable alcohol = positive)
-                        </p>
-                        <FieldError errors={field.state.meta.errors} />
-                      </Field>
-                    )
-                  }}
-                </form.Field>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Confirmation Decision Section - only show when there are unexpected positives */}
+        <CollectionResultStrip
+          preview={preview}
+          detected={verifyData.detectedSubstances}
+          isLoading={isFetching}
+          error={isError}
+          isDilute={verifyData.isDilute}
+          breathalyzerTaken={verifyData.breathalyzerTaken}
+          breathalyzerResult={verifyData.breathalyzerResult}
+          action={<ReportLink file={formValues.upload.file} />}
+        />
         {requiresDecision && (
-          <div className="border-warning/50 bg-warning-muted/50 w-full rounded-xl border p-6 shadow-md">
-            {/* Header */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2.5">
-                <div className="bg-warning/20 flex h-8 w-8 items-center justify-center rounded-full">
-                  <AlertTriangle className="text-warning h-4 w-4" />
-                </div>
-                <h3 className="text-foreground text-xl font-semibold">Confirmation Decision Required</h3>
-              </div>
-              <p className="text-warning-foreground mt-2 text-sm">
-                Unexpected positive substances detected. Choose how to proceed.
-              </p>
-            </div>
-
-            {/* Unexpected Positives */}
-            <div className="mb-5">
-              <p className="text-muted-foreground mb-2 text-sm font-medium">Unexpected Positives:</p>
-              <div className="flex flex-wrap gap-2">
-                {preview?.unexpectedPositives?.map((substance) => (
-                  <Badge key={substance} variant="destructive">
-                    {formatSubstance(substance)}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-
-            {/* Decision Options */}
+          <FieldSet>
+            <FieldLegend>Result decision</FieldLegend>
             <form.Field name="verifyData.confirmationDecision">
+              {(field) => (
+                <Field data-invalid={field.state.meta.errors.length > 0}>
+                  <RadioGroup
+                    value={confirmationDecisionValue || ''}
+                    onValueChange={(value) =>
+                      handleConfirmationDecisionChange(value as 'accept' | 'request-confirmation' | 'pending-decision')
+                    }
+                    className="flex flex-wrap gap-6"
+                    aria-label="Result decision"
+                    aria-invalid={field.state.meta.errors.length > 0}
+                  >
+                    {(
+                      [
+                        { value: 'accept', label: 'Accept result' },
+                        { value: 'request-confirmation', label: 'Request confirmation' },
+                        { value: 'pending-decision', label: 'Decide later' },
+                      ] as const
+                    ).map((option) => (
+                      <Label key={option.value} htmlFor={option.value} className="flex items-center gap-3">
+                        <RadioGroupItem id={option.value} value={option.value} />
+                        {option.label}
+                      </Label>
+                    ))}
+                  </RadioGroup>
+                  <FieldError errors={field.state.meta.errors} />
+                </Field>
+              )}
+            </form.Field>
+            {confirmationDecisionValue === 'accept' && (
+              <p className="text-muted-foreground text-sm">
+                Accept as final. First-time unexpected failures are retained for 14 days for later confirmation.
+              </p>
+            )}
+            {confirmationDecisionValue === 'pending-decision' && (
+              <p className="text-muted-foreground text-sm">
+                Sample held for 30 days. Confirmation costs $30 per substance.
+              </p>
+            )}
+            {confirmationDecisionValue === 'request-confirmation' && (
+              <form.Field name="verifyData.confirmationSubstances">
+                {(field) => {
+                  const invalid = field.state.meta.errors.length > 0 || confirmationSubstancesValue.length === 0
+                  return (
+                    <Field data-invalid={invalid}>
+                      <div className="flex flex-wrap items-center gap-4">
+                        <span>
+                          {confirmationSubstancesValue.length === preview?.unexpectedPositives.length
+                            ? 'Confirm all unexpected substances'
+                            : 'Confirm: ' +
+                              confirmationSubstancesValue.map((value) => formatSubstance(value)).join(', ')}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="link"
+                          onClick={() => setChangeSubstances((value) => !value)}
+                          aria-expanded={changeSubstances || invalid}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                      {(changeSubstances || invalid) && (
+                        <ConfirmationSubstanceSelector
+                          unexpectedPositives={preview?.unexpectedPositives ?? []}
+                          selectedSubstances={confirmationSubstancesValue}
+                          onSelectionChange={(substances) => {
+                            form.setFieldValue('verifyData.confirmationSubstances', substances)
+                            form.validate('submit')
+                          }}
+                          invalid={invalid}
+                        />
+                      )}
+                      <FieldError errors={field.state.meta.errors} />
+                    </Field>
+                  )
+                }}
+              </form.Field>
+            )}
+          </FieldSet>
+        )}
+        <OptionalDetails invalid={detailsInvalid}>
+          <FieldGroup className="grid @lg:grid-cols-2">
+            <form.Field name="verifyData.testType">
               {(field) => {
                 const hasErrors = field.state.meta.errors.length > 0
 
                 return (
-                  <Field data-invalid={hasErrors}>
-                    <FieldLabel>How would you like to proceed?</FieldLabel>
-                    <RadioGroup
-                      value={confirmationDecisionValue || ''}
-                      onValueChange={(value) => {
-                        const decision = value as 'accept' | 'request-confirmation' | 'pending-decision'
-                        handleConfirmationDecisionChange(decision)
-                      }}
-                      className="space-y-2.5"
-                    >
-                      <Label
-                        htmlFor="accept"
-                        className={cn(
-                          'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
-                          confirmationDecisionValue === 'accept' && 'border-foreground/50 ring-foreground/20 ring-2',
-                        )}
-                      >
-                        <RadioGroupItem value="accept" id="accept" className="mt-0.5" aria-invalid={hasErrors} />
-                        <div className="flex-1">
-                          <span className="text-foreground font-medium">Accept Results</span>
-                          <p className="text-muted-foreground mt-0.5 text-sm">
-                            Accept as final. First-time unexpected failures are retained for 14 days if confirmation is
-                            requested later.
-                          </p>
-                        </div>
-                      </Label>
-
-                      <Label
-                        htmlFor="request-confirmation"
-                        className={cn(
-                          'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
-                          confirmationDecisionValue === 'request-confirmation' &&
-                            'border-foreground/50 ring-foreground/20 ring-2',
-                        )}
-                      >
-                        <RadioGroupItem value="request-confirmation" id="request-confirmation" className="mt-0.5" />
-                        <div className="flex-1">
-                          <span className="text-foreground font-medium">Request Confirmation Testing</span>
-                          <p className="text-muted-foreground mt-0.5 text-sm">
-                            Send sample to lab for LC-MS/MS confirmation testing on selected substances.
-                          </p>
-                        </div>
-                      </Label>
-
-                      <Label
-                        htmlFor="pending-decision"
-                        className={cn(
-                          'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
-                          confirmationDecisionValue === 'pending-decision' &&
-                            'border-foreground/50 ring-foreground/20 ring-2',
-                        )}
-                      >
-                        <RadioGroupItem value="pending-decision" id="pending-decision" className="mt-0.5" />
-                        <div className="flex-1">
-                          <span className="text-foreground font-medium">Pending Decision</span>
-                          <p className="text-muted-foreground mt-0.5 text-sm">
-                            Decision not yet made. Sample will be held for 30 days. $30/substance.
-                          </p>
-                        </div>
-                      </Label>
-                    </RadioGroup>
-                    {requiresDecision && !confirmationDecisionValue && field.state.meta.errors.length === 0 && (
-                      <p className="text-destructive text-sm">Must select an option</p>
-                    )}
+                  <Field data-invalid={hasErrors} className="@lg:col-span-1">
+                    <FieldLabel htmlFor="instant-test-type">Test Type</FieldLabel>
+                    <Input id="instant-test-type" value="17-Panel Instant" readOnly aria-invalid={hasErrors} />
                     <FieldError errors={field.state.meta.errors} />
                   </Field>
                 )
               }}
             </form.Field>
+          </FieldGroup>
 
-            {/* Substance selection when request-confirmation is chosen */}
-            {confirmationDecisionValue === 'request-confirmation' && (
-              <form.Field name="verifyData.confirmationSubstances">
-                {(field) => (
-                  <div className="mt-5">
-                    <ConfirmationSubstanceSelector
-                      unexpectedPositives={preview?.unexpectedPositives ?? []}
-                      selectedSubstances={confirmationSubstancesValue ?? []}
-                      onSelectionChange={(substances) => {
-                        form.setFieldValue('verifyData.confirmationSubstances', substances)
-                        form.validate('submit')
-                      }}
-                      error={
-                        typeof field.state.meta.errors?.[0] === 'string'
-                          ? field.state.meta.errors[0]
-                          : (field.state.meta.errors?.[0] as { message?: string } | undefined)?.message
-                      }
-                      invalid={field.state.meta.errors.length > 0}
+          {/* Collection Date/Time */}
+          <FieldGroup className="grid @lg:grid-cols-2">
+            <form.Field name="verifyData.collectionDate">
+              {(field) => {
+                const hasErrors = field.state.meta.errors.length > 0
+
+                return (
+                  <Field data-invalid={hasErrors} className="@lg:col-span-1">
+                    <FieldLabel htmlFor="collectionDate">Collection Date &amp; Time</FieldLabel>
+                    <InputDateTimePicker
+                      id="collectionDate"
+                      value={field.state.value ? new Date(field.state.value) : undefined}
+                      onChange={(value) => field.handleChange(value?.toISOString() ?? '')}
+                      aria-invalid={hasErrors}
                     />
-                    {!confirmationSubstancesValue?.length && field.state.meta.errors.length === 0 ? (
-                      <p className="text-destructive mt-2 text-sm">
-                        Please select at least one substance for confirmation testing
-                      </p>
-                    ) : null}
-                  </div>
+                    <FieldError errors={field.state.meta.errors} />
+                  </Field>
+                )
+              }}
+            </form.Field>
+          </FieldGroup>
+
+          {/* Detected Substances */}
+          <form.AppField
+            name="verifyData.detectedSubstances"
+            listeners={{
+              onChange: () => {
+                // Reset confirmation decision when detected substances change
+                // This ensures the user makes a fresh decision when test results change
+                if (confirmationDecisionValue) {
+                  form.setFieldValue('verifyData.confirmationDecision', undefined)
+                  form.setFieldValue('verifyData.confirmationSubstances', [])
+                }
+              },
+            }}
+          >
+            {(field) => <field.SubstanceChecklistField testType={verifyData?.testType ?? '17-panel-instant'} />}
+          </form.AppField>
+
+          {/* Dilute Sample */}
+          <Field orientation="horizontal">
+            <form.Field name="verifyData.isDilute">
+              {(field) => (
+                <Checkbox
+                  id="isDilute"
+                  checked={field.state.value}
+                  onCheckedChange={(checked) => field.handleChange(checked as boolean)}
+                />
+              )}
+            </form.Field>
+            <FieldLabel htmlFor="isDilute" className="cursor-pointer font-normal">
+              Sample is Dilute
+            </FieldLabel>
+          </Field>
+
+          {/* Breathalyzer Section */}
+          <div className="bg-muted/50 border-border space-y-4 rounded-lg border p-4">
+            <FieldLegend>Breathalyzer Test (Optional)</FieldLegend>
+            <Field orientation="horizontal">
+              <form.Field name="verifyData.breathalyzerTaken">
+                {(field) => (
+                  <Checkbox
+                    id="breathalyzerTaken"
+                    checked={field.state.value}
+                    onCheckedChange={(checked) => {
+                      field.handleChange(checked as boolean)
+                      // Clear result when unchecking - validation errors clear automatically
+                      if (!checked) {
+                        form.setFieldValue('verifyData.breathalyzerResult', null)
+                      }
+                    }}
+                  />
                 )}
+              </form.Field>
+              <FieldLabel htmlFor="breathalyzerTaken" className="cursor-pointer font-normal">
+                Breathalyzer test was administered
+              </FieldLabel>
+            </Field>
+
+            {verifyData?.breathalyzerTaken && (
+              <form.Field name="verifyData.breathalyzerResult">
+                {(field) => {
+                  const hasErrors = field.state.meta.errors.length > 0
+
+                  return (
+                    <Field data-invalid={hasErrors}>
+                      <FieldLabel htmlFor="breathalyzerResult">
+                        BAC Result <span className="text-destructive">*</span>
+                      </FieldLabel>
+                      <Input
+                        id="breathalyzerResult"
+                        type="number"
+                        step="0.001"
+                        value={field.state.value ?? ''}
+                        onChange={(e) => {
+                          const value = e.target.value === '' ? null : parseFloat(e.target.value)
+                          field.handleChange(value)
+                        }}
+                        placeholder="0.000"
+                        aria-invalid={hasErrors}
+                      />
+                      <p className="text-muted-foreground text-xs">
+                        Enter result with 3 decimal places. Threshold: 0.000 (any detectable alcohol = positive)
+                      </p>
+                      <FieldError errors={field.state.meta.errors} />
+                    </Field>
+                  )
+                }}
               </form.Field>
             )}
           </div>
-        )}
-
-        <ClassificationAlert preview={preview} />
+        </OptionalDetails>
       </div>
     )
   },

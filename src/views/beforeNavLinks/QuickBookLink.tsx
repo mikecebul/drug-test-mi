@@ -17,9 +17,7 @@ import {
 
 const AdminQuickBookWidgetClient = dynamic(
   () =>
-    import('@/views/dashboard/widgets/AdminQuickBookWidget.client').then(
-      (module) => module.AdminQuickBookWidgetClient,
-    ),
+    import('@/views/dashboard/widgets/AdminQuickBookWidget.client').then((module) => module.AdminQuickBookWidgetClient),
   {
     loading: () => (
       <div className="text-muted-foreground flex min-h-32 items-center justify-center gap-2 text-sm">
@@ -60,16 +58,14 @@ export default function QuickBookLink() {
   }, [])
 
   return (
-    <ShadcnWrapper className="w-full py-1.5">
+    <ShadcnWrapper className="staff-interface w-full py-1.5">
       <Drawer
         swipeDirection="right"
         open={open}
         onOpenChange={handleOpenChange}
         onOpenChangeComplete={handleOpenChangeComplete}
       >
-        <DrawerTrigger
-          render={<Button type="button" variant="secondary" className="w-full min-w-0 justify-start" />}
-        >
+        <DrawerTrigger render={<Button type="button" variant="secondary" className="w-full min-w-0 justify-start" />}>
           <Search data-icon="inline-start" />
           Quick Book
         </DrawerTrigger>

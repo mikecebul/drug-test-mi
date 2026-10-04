@@ -68,11 +68,8 @@ export function DrugTestWizardClient() {
       resetGuidedScheduleCache(queryClient)
       setStates({
         workflow: 'guided',
-        step: 'schedule',
-        clientId: null,
-        bookingId: null,
-        returnTo: null,
-        testType: null,
+        step: workflow === 'collect-lab' ? 'toxaccess' : 'payment',
+        returnTo: 'guided',
       })
       return
     }

@@ -67,12 +67,18 @@ async function waitForAdminShell(page: Page) {
     page.getByRole('link', { name: /Collect Test/i }),
     page.getByRole('link', { name: /Drug Test Tracker/i }),
     page.getByRole('heading', { name: /Total Clients/i }),
+    page.getByRole('heading', { name: /Today's Schedule/i }),
   ]
 
   const end = Date.now() + 30_000
   while (Date.now() < end) {
     for (const locator of indicators) {
-      if (await locator.first().isVisible().catch(() => false)) {
+      if (
+        await locator
+          .first()
+          .isVisible()
+          .catch(() => false)
+      ) {
         return
       }
     }
@@ -101,6 +107,8 @@ export async function loginAdmin(page: Page, creds: AdminCredentials) {
   const cachedCookies = adminCookieCache.get(cacheKey)
   if (cachedCookies && cachedCookies.length > 0) {
     await page.context().addCookies(cachedCookies)
+  } else {
+    await loginAdminViaAPI(page, creds)
   }
 
   await page.goto('/admin/drug-test-upload', { waitUntil: 'domcontentloaded' })

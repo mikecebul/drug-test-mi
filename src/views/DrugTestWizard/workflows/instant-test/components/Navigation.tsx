@@ -2,7 +2,9 @@
 
 import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
-import { useQueryState, parseAsStringLiteral } from 'nuqs'
+import { useQueryState, parseAsString, parseAsStringLiteral } from 'nuqs'
+import type { SubstanceValue } from '@/fields/substanceOptions'
+import { useComputeTestResultPreviewQuery } from '../../../queries'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, Check, Loader2 } from 'lucide-react'
 import { instantTestFormOpts } from '../shared-form'
@@ -30,21 +32,38 @@ export const InstantTestNavigation = withForm({
 
   render: function Render({ form, onBack, group }) {
     const { isCheckingSession, requireActiveSession } = useWizardSession()
-    const [currentStep, setCurrentStep] = useQueryState(
-      'step',
-      parseAsStringLiteral(steps).withDefault('upload'),
-    )
+    const [currentStep, setCurrentStep] = useQueryState('step', parseAsStringLiteral(steps).withDefault('upload'))
 
     const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
+    const values = useStore(form.store, (state) => state.values)
+    const [bookingId] = useQueryState('bookingId', parseAsString)
+    const needsPreview = currentStep === 'verifyData' || currentStep === 'reviewEmails'
+    const {
+      data: preview,
+      isFetching,
+      isError,
+    } = useComputeTestResultPreviewQuery(
+      needsPreview ? values.client.id : null,
+      values.verifyData.detectedSubstances as SubstanceValue[],
+      values.verifyData.testType,
+      values.verifyData.breathalyzerTaken,
+      values.verifyData.breathalyzerResult,
+      values.medications,
+    )
     const currentIndex = steps.indexOf(currentStep)
     const isFirstStep = currentIndex === 0
     const isLastStep = currentIndex === steps.length - 1
-    const nextDisabled = isSubmitting || group.state.meta.isSubmitting || isCheckingSession
+    const nextDisabled =
+      isSubmitting ||
+      group.state.meta.isSubmitting ||
+      isCheckingSession ||
+      (bookingId && currentStep === 'upload' && !values.upload.file) ||
+      (needsPreview && (!preview || isFetching || isError))
     const handleBack = () => {
       if (isFirstStep) {
         onBack()
       } else {
-        const prevStep = steps[currentIndex - 1]
+        const prevStep = bookingId && currentStep === 'medications' ? 'extract' : steps[currentIndex - 1]
         setCurrentStep(prevStep, { history: 'push' })
       }
     }
@@ -64,7 +83,7 @@ export const InstantTestNavigation = withForm({
           data-testid="wizard-back-button"
         >
           <ChevronLeft className="mr-2 h-5 w-5" />
-          {isFirstStep ? 'Cancel' : 'Back'}
+          {isFirstStep ? (bookingId ? 'Back to payment' : 'Cancel') : 'Back'}
         </Button>
 
         <Button
