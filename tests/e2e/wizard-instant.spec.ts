@@ -168,12 +168,14 @@ test.describe('Wizard Instant Workflow', () => {
       await expect(page.locator('#accept')).toBeVisible()
       await triggerNextValidation(page)
       await expectValidationError(page)
+      await expectWizardStep(page, 'verifyData')
 
       await selectResultDecision(page, 'request-confirmation')
       await page.getByRole('button', { name: 'Change', exact: true }).click()
       await page.getByRole('button', { name: /Clear/i }).click()
       await triggerNextValidation(page)
       await expectValidationError(page)
+      await expectWizardStep(page, 'verifyData')
 
       await selectResultDecision(page, 'accept')
       await clickNext(page)

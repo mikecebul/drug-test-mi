@@ -122,11 +122,11 @@ export async function triggerNextValidation(page: Page) {
     try {
       await nextButton.click({ timeout: 4_000 })
     } catch (error) {
-      if (await nextButton.isDisabled().catch(() => false)) {
-        return
-      }
-      throw error
+      if (!(await nextButton.isDisabled().catch(() => false))) throw error
     }
+    // An existing field error can appear before the session check and this
+    // submission finish. Wait for the action to settle before editing again.
+    await expect(nextButton).toBeEnabled()
   }
 }
 
