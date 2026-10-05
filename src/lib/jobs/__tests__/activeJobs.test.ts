@@ -10,7 +10,7 @@ describe('dashboard job timing', () => {
       '2026-10-05T10:05:00.000Z', // Monday holds
       '2026-11-01T19:00:00.000Z', // Next monthly invoices (after DST changes)
       '2026-10-05T10:00:00.000Z', // Today's donor bookings
-      '2026-10-05T05:00:00.000Z', // Hourly invoice payments
+      '2026-10-05T07:00:00.000Z', // Nightly invoice payments at 3 a.m. EDT
     ]
     expect(dueDates.map((waitUntil) => getActiveJobStatus({ processing: false, waitUntil }, now))).toEqual([
       'scheduled',
@@ -38,6 +38,7 @@ describe('dashboard job timing', () => {
   })
 
   it('formats due times in Eastern time across the daylight saving transition', () => {
+    expect(formatJobWaitUntil('2026-10-05T07:00:00.000Z')).toBe('Oct 5, 2026, 3:00 AM EDT')
     expect(formatJobWaitUntil('2026-10-05T10:05:00.000Z')).toBe('Oct 5, 2026, 6:05 AM EDT')
     expect(formatJobWaitUntil('2026-11-01T19:00:00.000Z')).toBe('Nov 1, 2026, 2:00 PM EST')
     expect(formatJobWaitUntil(null)).toBeUndefined()

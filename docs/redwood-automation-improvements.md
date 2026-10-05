@@ -61,9 +61,10 @@ Manual queue buttons require a super-admin, refuse to run before the in-session 
   6:05 a.m. Eastern and reserves anonymous private, busy Google events. Both defaults can be overridden by their
   documented runtime cron variables. Successful history includes processed or created/retained/moved/cancelled counts.
 - **Invoice cadence:** **Monthly Referral Invoices** runs on the first of each month at 2:00 p.m. Eastern to email
-  completed-month referral invoices. **Referral Invoice Payment Sync** runs hourly to reconcile paid Stripe invoices
-  if a webhook was delayed. It does not send invoice email. The production
-  worker's `TZ=America/Detroit` controls cron interpretation, including daylight saving time.
+  completed-month referral invoices. **Referral Invoice Payment Sync** runs daily at 3:00 a.m. Eastern to reconcile
+  paid Stripe invoices if a webhook was delayed. This runs before the 6:00/6:05 a.m. random-testing jobs. It does not
+  send invoice email. The production worker's `TZ=America/Detroit` controls cron interpretation, including daylight
+  saving time.
 - **Invoice email verification:** `referral-invoices.emailSentAt` is written after the email provider accepts the
   PDF email. Confirm delivery in Resend using the invoice number, recipient, and timestamp. Stripe's invoice state
   alone does not prove email delivery: this app sends the PDF through Resend with Stripe `auto_advance=false`.
