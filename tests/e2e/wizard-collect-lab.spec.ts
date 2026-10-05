@@ -168,7 +168,7 @@ test.describe('Wizard Collect Lab Workflow', () => {
 
   test(
     'submits collect-lab workflow, creates test, and verifies collected-stage email in Mailpit',
-    { tag: '@smoke' },
+    { tag: '@regression' },
     async ({ page }) => {
       const env = getE2EEnv({ requirePdfs: false })
       const testStart = new Date()

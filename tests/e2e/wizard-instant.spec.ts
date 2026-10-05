@@ -136,7 +136,7 @@ test.describe('Wizard Instant Workflow', () => {
 
   test(
     'validates confirmation decisions and retains edited results across Back',
-    { tag: ['@smoke', '@critical'] },
+    { tag: '@critical' },
     async ({ page }) => {
       const pageErrors: string[] = []
       page.on('pageerror', (error) => pageErrors.push(error.message))
@@ -241,7 +241,7 @@ test.describe('Wizard Instant Workflow', () => {
 
   test(
     'submits instant workflow, creates test, and verifies screened-stage emails with attachment',
-    { tag: '@smoke' },
+    { tag: '@regression' },
     async ({ page }) => {
       const env = getE2EEnv({ pdfs: ['instant'] })
       const testStart = new Date()

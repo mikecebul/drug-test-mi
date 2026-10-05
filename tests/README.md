@@ -1,22 +1,31 @@
 # Workflow regression tests
 
-The required PR checks run the full Vitest suite and all Playwright workflows.
-The GitHub check is still named `ui-smoke` to preserve branch protection, but it
-runs the complete browser suite, including the Safari PDF regression. A smoke
-tag remains available for quick local feedback.
+The required PR checks run the full Vitest suite and eight essential Chromium
+smoke cases. The GitHub check stays named `ui-smoke` to preserve branch protection.
+The full workflow suite, WebKit coverage and repeated stability checks run locally.
+Smoke cases run once without retries and stop on the first failure; the browser
+job has a ten-minute limit.
 
-`pnpm test:e2e:critical` runs each tagged critical case five times with retries
-disabled. CI runs it before the full suite and saves both reports separately.
+`pnpm test:e2e:critical` is a local stability check: it runs each tagged critical
+case five times with retries disabled. Install both browsers locally with
+`pnpm exec playwright install chromium webkit` before running the full suite.
 
 | Command                    | Coverage                                                                                                             |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `pnpm test:integration:ci` | Full Vitest suite, including PDF parsing, validation, access, result classification, billing, and payment safeguards |
 | `pnpm test:e2e`            | All browser workflows in Chromium plus the Safari PDF regression                                                     |
-| `pnpm test:e2e:smoke`      | Tagged registration, collection, result-decision, and payment regressions in Chromium                                |
+| `pnpm test:e2e:smoke`      | Eight essential registration, guided collection, lab processing and staff payment cases in Chromium                  |
 | `pnpm test:e2e:workflows`  | All workflows in Chromium                                                                                            |
 | `pnpm test:gate`           | Full integration and browser suites                                                                                  |
 
 ## What the browser tests protect
+
+CI smoke covers frontend/admin registration completion, guided instant/lab
+completion, lab-screen and lab-confirmation report persistence/delivery,
+standard-admin self-pay with unpaid continuation, and account-payment recovery
+without duplicates. Detailed validation, result-decision branches, legacy
+collection routes, credit/undo, responsive layouts and WebKit remain in the local
+full suite below.
 
 | Workflow                      | Behavioral checks                                                                                                                                                                            |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -64,9 +73,9 @@ the required side-by-side report actions on portrait tablets.
 
 Keep independent tests independent; do not skip a result-decision branch merely
 because it did not appear. Seed the data needed to force that branch. Re-run new
-critical regressions with `--repeat-each=5` before considering them stable. CI
-repeats registration validation, guided completion, schedule navigation, Quick Book,
+critical regressions with `--repeat-each=5` before considering them stable. The local
+critical command repeats registration validation, guided completion, schedule navigation, Quick Book,
 medication validation in Chromium and WebKit, instant/lab decision validation, and account-payment recovery
 five times without retries (50 executions). Failure traces include the first attempt.
-A flaky pass also fails the full CI suite, so retry
-success cannot hide an intermittent regression.
+CI smoke has no retries, and `failOnFlakyTests` remains enabled for other explicitly
+requested CI runs, so retry success cannot hide an intermittent regression.

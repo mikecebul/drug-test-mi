@@ -18,7 +18,7 @@ The selected simplified mockups are the implementation reference. Visible client
 ## Verification
 
 - Full unit suite: 131 files, 890 tests passed after consolidating redundant PDF assertions. TypeScript and ESLint passed; no errors. Existing lint warnings remain.
-- CI now runs every Chromium workflow and the WebKit PDF regression, including guided completion and saved result decisions. The 13-case smoke tag remains available for quick local feedback. The PR contains final browser counts and its live required-check results.
+- CI runs eight essential Chromium smoke cases once, with no retries and a ten-minute browser-job limit. All 56 browser cases, WebKit and the 50-execution stability command remain available locally. The PR records the verified browser results and current required-check status separately.
 - Required synthetic PDF fixtures cover every supported panel, incomplete/dilute screens, and confirmation outcomes; missing reports fail CI instead of silently returning from tests.
 - Browser assertions use active routes, accessible controls, validation state and saved data. Cosmetic color/font/spacing checks and stale full-message matches were removed. The lab-screen decision step revalidates its active FormGroup and keeps conditional fields registered.
 - Browser regressions cover portrait/phone layout, report replacement and identity acknowledgement, payment/credit/undo, client registration, actual local-mail delivery and PDF attachment, standard-admin payer switching and unpaid continuation, native editing/no deletion, and lost-response recovery without duplicate payments or bookings.

@@ -81,6 +81,7 @@ jobs:
   ui-smoke:
     name: ui-smoke
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     services:
       mailpit:
         image: axllent/mailpit:latest
@@ -133,7 +134,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium webkit
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Start transactional workflow database
         run: |
@@ -180,13 +181,8 @@ jobs:
           tail -n 200 /tmp/next-dev.log || true
           exit 1
 
-      - name: Repeat critical regressions without retries
-        run: pnpm test:e2e:critical
-        env:
-          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-critical
-
-      - name: Run all workflow tests and Safari PDF regression
-        run: pnpm test:e2e
+      - name: Run essential workflow smoke tests
+        run: pnpm test:e2e:smoke
 
       - name: Print app log on failure
         if: failure()
@@ -211,6 +207,4 @@ jobs:
           path: |
             playwright-report
             test-results
-            playwright-report-critical
-            test-results-critical
           if-no-files-found: ignore

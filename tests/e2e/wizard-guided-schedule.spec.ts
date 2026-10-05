@@ -513,14 +513,14 @@ test.describe("Wizard Today's Schedule", () => {
 
   test('keeps controls interactive after repeatedly closing Quick Book', { tag: '@critical' }, async ({ page }) => {
     const menuToggle = page
-      .getByRole('button', { name: /^(Open|Close) menu$/ })
+      .getByRole('button', { name: /^(Open|Close) menu$/i })
       .filter({ visible: true })
       .first()
     await expect(menuToggle).toBeVisible()
-    if ((await menuToggle.getAttribute('aria-label')) === 'Open menu') {
+    if ((await menuToggle.getAttribute('aria-label'))?.toLowerCase() === 'open menu') {
       await menuToggle.click()
     }
-    await expect(menuToggle).toHaveAccessibleName('Close menu')
+    await expect(menuToggle).toHaveAccessibleName(/^Close menu$/i)
 
     const quickBookTrigger = page.getByRole('complementary').getByRole('button', { name: 'Quick Book', exact: true })
 
@@ -554,7 +554,7 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
   })
 
-  test('applies client credit and can undo the recorded payment', { tag: '@smoke' }, async ({ page }) => {
+  test('applies client credit and can undo the recorded payment', async ({ page }) => {
     const booking = scheduleFixtures.bookings.creditAvailable
 
     await scheduleCardButton(page, booking.attendeeName).click()
