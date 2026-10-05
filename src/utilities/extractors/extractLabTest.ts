@@ -1,16 +1,26 @@
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { TZDate } from '@date-fns/tz'
 import { ALL_CAPS_FULL_NAME_PATTERN, FULL_NAME_PATTERN, normalizeExtractedDonorName } from './donorName'
+import { extractPositionedPdfText, normalizeSubstanceLabel, type PositionedTextLine } from './pdfText'
+import { extractLabTableRows, labSummaryLines, readLabField, type LabTableRow } from './labReportLayout'
 import {
-  extractPositionedPdfText,
-  findAnchoredLine,
-  findAnchoredValue,
-  normalizeSubstanceLabel,
-  type PositionedTextLine,
-} from './pdfText'
+  interpretConfirmation,
+  parseLabMeasurement,
+  type ConfirmationResult,
+  type LabMeasurement,
+} from './labConfirmation'
 
 type LabTestType = '11-panel-lab' | '11-panel-lab-no-etg' | '8-panel-lab' | '17-panel-sos-lab' | 'etg-lab'
-type ConfirmationResult = 'confirmed-positive' | 'confirmed-negative' | 'inconclusive'
+export interface LabConfirmationAnalyte {
+  analyte: string
+  substance: SubstanceValue | null
+  method: string
+  cutoff: LabMeasurement | null
+  resultText: string
+  result: ConfirmationResult | null
+  measured: LabMeasurement | null
+  source: { page: number; bounds: LabTableRow['resultBounds'] }
+}
 
 export interface ExtractedLabData {
   donorName: string | null
@@ -26,7 +36,12 @@ export interface ExtractedLabData {
   resultsComplete: boolean
   extractedFields: string[]
   testType: LabTestType
+  reportKind: 'screening' | 'confirmation' | 'screening-and-confirmation' | 'unknown'
+  dob: string | null
+  hasScreening: boolean
   hasConfirmation: boolean
+  confirmationComplete: boolean
+  confirmationAnalytes: LabConfirmationAnalyte[]
   confirmationResults: Array<{
     substance: SubstanceValue
     result: ConfirmationResult
@@ -54,7 +69,19 @@ const LAB_SUBSTANCE_ALIASES: Array<{ aliases: string[]; value: SubstanceValue }>
   { aliases: ['alcohol ethanol', 'alcohol', 'ethanol'], value: 'alcohol' },
   { aliases: ['methylenedioxymethamphetamine', 'mdma'], value: 'mdma' },
   { aliases: ['methamphetamine', 'amphetamine', 'amphetamines 500'], value: 'amphetamines' },
-  { aliases: ['benzodiazepines'], value: 'benzodiazepines' },
+  {
+    aliases: [
+      'benzodiazepines',
+      'alpha hydroxyalprazolam',
+      'alpha hydroxytriazolam',
+      '7 aminoclonazepam',
+      'oxazepam',
+      'temazepam',
+      'nordiazepam',
+      'lorazepam',
+    ],
+    value: 'benzodiazepines',
+  },
   { aliases: ['norbuprenorphine', 'buprenorphine'], value: 'buprenorphine' },
   { aliases: ['benzoylecgonine', 'cocaine'], value: 'cocaine' },
   { aliases: ['norfentanyl', 'fentanyl'], value: 'fentanyl' },
@@ -65,7 +92,7 @@ const LAB_SUBSTANCE_ALIASES: Array<{ aliases: string[]; value: SubstanceValue }>
   { aliases: ['phencyclidine', 'pcp'], value: 'pcp' },
   { aliases: ['barbiturates'], value: 'barbiturates' },
   { aliases: ['propoxyphene'], value: 'propoxyphene' },
-  { aliases: ['methaqualone', 'tricyclic antidepressants'], value: 'tricyclic_antidepressants' },
+  { aliases: ['tricyclic antidepressants'], value: 'tricyclic_antidepressants' },
 ]
 
 const EXPECTED_SCREEN_ROWS: Record<LabTestType, number> = {
@@ -99,45 +126,45 @@ export function extractLabDonorName(text: string): string | null {
 }
 
 function detectLabTestType(text: string): LabTestType {
-  if (/(049|050)\s*-?\s*(?:Ethyl Glucuronide|EtG)/i.test(text)) return 'etg-lab'
   if (/B829\s*-?/i.test(text)) return '11-panel-lab-no-etg'
   if (/B814\s*-?/i.test(text)) return '8-panel-lab'
   if (/B306\s*-?\s*Urine 17 Panel/i.test(text)) return '17-panel-sos-lab'
+  // An EtG confirmation order can accompany a full panel. Keep that panel's
+  // identity rather than treating its add-on confirmation as an EtG-only test.
+  if (/\bB729\b/i.test(text)) return '11-panel-lab'
+  if (/\b(?:049|050)\b\s*-?\s*(?:Ethyl Glucuronide|EtG)/i.test(text)) return 'etg-lab'
   return '11-panel-lab'
 }
 
 function mapLabSubstance(label: string): SubstanceValue | null {
   const normalized = normalizeSubstanceLabel(label)
-  return LAB_SUBSTANCE_ALIASES.find(({ aliases }) => aliases.some((alias) => normalized.includes(alias)))?.value ?? null
+  return (
+    LAB_SUBSTANCE_ALIASES.find(({ aliases }) =>
+      aliases.some((alias) => normalized.replace(/\s/g, '').includes(alias.replace(/\s/g, ''))),
+    )?.value ?? null
+  )
 }
 
 interface PositionedResultRow {
   label: string
   resultText: string
   substance: SubstanceValue | null
+  cutoffText: string
+  source: LabTableRow
 }
 
 function extractMethodRows(lines: PositionedTextLine[], methodPattern: RegExp): PositionedResultRow[] {
   const rows: PositionedResultRow[] = []
 
-  for (const line of lines) {
-    const methodIndex = line.items.findIndex((item) => methodPattern.test(item.text))
-    if (methodIndex <= 0) continue
-
-    const afterMethod = line.items.slice(methodIndex + 1)
-    // Redwood tables place cutoff immediately after method and the result in the
-    // following column. Requiring both excludes LC-MS/MS glossary/footer text.
-    if (afterMethod.length < 2) continue
-
-    const label = line.items
-      .slice(0, methodIndex)
-      .map((item) => item.text)
-      .join(' ')
-    const resultText = afterMethod
-      .slice(1)
-      .map((item) => item.text)
-      .join(' ')
-    rows.push({ label, resultText, substance: mapLabSubstance(label) })
+  for (const source of extractLabTableRows(lines)) {
+    if (!methodPattern.test(source.method)) continue
+    rows.push({
+      label: source.label,
+      resultText: source.resultText,
+      cutoffText: source.cutoffText,
+      substance: mapLabSubstance(source.label),
+      source,
+    })
   }
 
   return rows
@@ -149,41 +176,36 @@ export function parseScreenRows(lines: PositionedTextLine[]) {
   // EIA for the remaining immunoassay rows.
   const methodRows = extractMethodRows(lines, /^(?:EA|EIA)$/i)
   let parsedRowCount = 0
+  const conflicts = new Set<SubstanceValue>()
 
   for (const row of methodRows) {
     if (!row.substance) continue
+    if (/\bpositive\b/i.test(row.resultText) && /negative|not detected/i.test(row.resultText)) continue
+    const status = /\bpositive\b/i.test(row.resultText)
+      ? 'positive'
+      : /negative|not detected/i.test(row.resultText)
+        ? 'negative'
+        : null
+    if (status && rows.has(row.substance) && rows.get(row.substance) !== status) conflicts.add(row.substance)
     if (/screened positive|presumptive positive|\bpositive\b/i.test(row.resultText)) {
       parsedRowCount += 1
       rows.set(row.substance, 'positive')
     } else if (/negative|not detected/i.test(row.resultText)) {
       parsedRowCount += 1
-      rows.set(row.substance, 'negative')
+      // A later negative duplicate must never erase an earlier positive screen.
+      if (rows.get(row.substance) !== 'positive') rows.set(row.substance, 'negative')
     }
   }
 
-  return { rows, methodRows, parsedRowCount }
+  return { rows, methodRows, parsedRowCount, conflicts }
 }
 
 export function parseCreatinineResult(lines: PositionedTextLine[]) {
-  for (const line of lines) {
-    const methodIndex = line.items.findIndex((item) => /^Colorimetric$/i.test(item.text))
-    if (methodIndex <= 0) continue
-
-    const label = normalizeSubstanceLabel(
-      line.items
-        .slice(0, methodIndex)
-        .map((item) => item.text)
-        .join(' '),
-    )
+  for (const row of extractLabTableRows(lines)) {
+    if (!/^Colorimetric$/i.test(row.method)) continue
+    const label = normalizeSubstanceLabel(row.label)
     if (label !== 'creatinine') continue
-
-    // The cell immediately after the method is the reference range. The
-    // remaining cell(s) contain the measured result.
-    const resultText = line.items
-      .slice(methodIndex + 2)
-      .map((item) => item.text)
-      .join(' ')
-    const resultMatch = resultText.match(/([<≤]?)\s*(\d+(?:\.\d+)?)\s*mg\s*\/\s*dL/i)
+    const resultMatch = row.resultText.match(/([<≤]?)\s*(\d+(?:\.\d+)?)\s*mg\s*\/\s*dL/i)
     if (!resultMatch) continue
 
     const valueMgDl = Number.parseFloat(resultMatch[2])
@@ -196,41 +218,90 @@ export function parseCreatinineResult(lines: PositionedTextLine[]) {
   return null
 }
 
-function parseConfirmationResult(value: string): ConfirmationResult | null {
-  if (/confirmed positive|\bpositive\b/i.test(value)) return 'confirmed-positive'
-  if (/negative|not detected/i.test(value)) return 'confirmed-negative'
-  if (/inconclusive|invalid|insufficient|unable|cancelled|canceled/i.test(value)) return 'inconclusive'
-  if (/^\s*[<>]?\d+(?:\.\d+)?(?:\s*ng\/mL)?\s*$/i.test(value)) return 'confirmed-positive'
-  return null
-}
-
 function parseConfirmationRows(lines: PositionedTextLine[]) {
-  const methodRows = extractMethodRows(lines, /^LC\s*\/\s*MS\s*\/\s*MS$/i)
+  const methodRows = extractMethodRows(lines, /^(?:LC\s*[/-]\s*MS\s*[/-]\s*MS|GC\s*[/-]\s*MS)$/i)
   const grouped = new Map<SubstanceValue, Array<{ result: ConfirmationResult; note: string }>>()
-  let parsedRowCount = 0
-
+  const unresolved = new Set<SubstanceValue>()
+  const confirmationAnalytes: LabConfirmationAnalyte[] = []
+  const summary = labSummaryLines(lines)
   for (const row of methodRows) {
+    const parsedResult = interpretConfirmation(row.resultText, row.cutoffText)
+    // Quantitative values may appear only in the Summary while the table says
+    // CONFIRMED POSITIVE. Match the individual analyte; never use a class-wide
+    // number or the normalized creatinine ratio as its concentration.
+    const summaryValue = summary
+      .flatMap((line) => {
+        const match = line.text.match(
+          /^(.*?)\s*\(([<>≤≥]?\s*\d+(?:,\d{3})*(?:\.\d+)?\s*(?:[nuµμm]?g)\s*\/\s*mL)\)\s*$/i,
+        )
+        return match && normalizeSubstanceLabel(match[1]) === normalizeSubstanceLabel(row.label)
+          ? [parseLabMeasurement(match[2])]
+          : []
+      })
+      .filter((value): value is LabMeasurement => Boolean(value))
+    const distinctValues = new Set(summaryValue.map((value) => `${value.comparator}:${value.value}:${value.unit}`))
+    const measured = parseLabMeasurement(row.resultText) ?? (distinctValues.size === 1 ? summaryValue[0] : null)
+    const contradictory =
+      parsedResult &&
+      measured &&
+      interpretConfirmation(measured.text, row.cutoffText) &&
+      interpretConfirmation(measured.text, row.cutoffText) !== parsedResult
+    const result = distinctValues.size > 1 || contradictory ? null : parsedResult
+    confirmationAnalytes.push({
+      analyte: row.label,
+      substance: row.substance,
+      method: row.source.method,
+      cutoff: parseLabMeasurement(row.cutoffText),
+      resultText: row.resultText,
+      result,
+      measured,
+      source: { page: row.source.page, bounds: row.source.resultBounds },
+    })
     if (!row.substance) continue
-    const parsedResult = parseConfirmationResult(row.resultText)
-    if (!parsedResult) continue
+    if (!result) {
+      unresolved.add(row.substance)
+      continue
+    }
 
-    parsedRowCount += 1
     const existing = grouped.get(row.substance) ?? []
-    existing.push({ result: parsedResult, note: row.resultText })
+    existing.push({
+      result,
+      note: `${row.label}: ${row.resultText}${measured && measured.text !== row.resultText ? `; ${measured.text}` : ''}${row.cutoffText ? ` (cutoff ${row.cutoffText})` : ''}`,
+    })
     grouped.set(row.substance, existing)
   }
 
-  const confirmationResults = [...grouped.entries()].map(([substance, results]) => {
-    const result = results.some((entry) => entry.result === 'confirmed-positive')
-      ? ('confirmed-positive' as const)
-      : results.some((entry) => entry.result === 'inconclusive')
-        ? ('inconclusive' as const)
-        : ('confirmed-negative' as const)
-    const notes = [...new Set(results.map((entry) => entry.note))].join('; ')
-    return { substance, result, notes }
-  })
+  for (const analyte of confirmationAnalytes) {
+    const duplicates = confirmationAnalytes.filter(
+      (other) => normalizeSubstanceLabel(other.analyte) === normalizeSubstanceLabel(analyte.analyte),
+    )
+    if (new Set(duplicates.map((other) => JSON.stringify([other.result, other.measured]))).size > 1) {
+      duplicates.forEach((other) => {
+        other.result = null
+        if (other.substance) unresolved.add(other.substance)
+      })
+    }
+  }
 
-  return { confirmationResults, methodRows, parsedRowCount }
+  const confirmationResults = [...grouped.entries()]
+    .filter(([substance]) => !unresolved.has(substance))
+    .map(([substance, results]) => {
+      const result = results.some((entry) => entry.result === 'confirmed-positive')
+        ? ('confirmed-positive' as const)
+        : results.some((entry) => entry.result === 'inconclusive')
+          ? ('inconclusive' as const)
+          : ('confirmed-negative' as const)
+      const notes = [...new Set(results.map((entry) => entry.note))].join('; ')
+      return { substance, result, notes }
+    })
+
+  return {
+    confirmationResults,
+    confirmationAnalytes,
+    methodRows,
+    parsedRowCount: confirmationAnalytes.filter((analyte) => analyte.substance && analyte.result).length,
+    complete: methodRows.length > 0 && confirmationAnalytes.every((analyte) => analyte.substance && analyte.result),
+  }
 }
 
 export function calculateLabConfidence(args: {
@@ -241,6 +312,7 @@ export function calculateLabConfidence(args: {
   resultsComplete: boolean
   creatinineResultFound: boolean
   confirmationRowCount: number
+  confirmationOnly?: boolean
 }) {
   let score = 10
   const reasons = ['test type identified']
@@ -257,7 +329,11 @@ export function calculateLabConfidence(args: {
   }
   if (args.resultsComplete) {
     score += 30
-    reasons.push(`${args.resultRowCount} screening rows matched by method and coordinates`)
+    reasons.push(
+      args.confirmationOnly
+        ? `${args.confirmationRowCount} confirmation analytes matched by coordinates`
+        : `${args.resultRowCount} screening rows matched by method and coordinates`,
+    )
   } else if (args.resultRowCount > 0) {
     score += 15
     reasons.push(`only ${args.resultRowCount} screening rows matched by method and coordinates`)
@@ -286,18 +362,27 @@ export function calculateLabConfidence(args: {
 export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> {
   try {
     const document = await extractPositionedPdfText(buffer)
+    const donors = new Set(
+      document.lines
+        .map((line) => readLabField([line], /^(?:Identification|Donor Name):$/i))
+        .filter((value): value is string => Boolean(value))
+        .map((value) => normalizeExtractedDonorName(value).toLowerCase()),
+    )
+    const collections = new Set(
+      document.lines
+        .map((line) => readLabField([line], /^Collected:$/i))
+        .filter((value): value is string => Boolean(value)),
+    )
+    if (donors.size > 1 || collections.size > 1)
+      throw new Error('This PDF contains multiple donors or collections. Upload one report at a time.')
     const text = document.rawText
     const testType = detectLabTestType(text)
+    const knownPanel = /\b(?:B729|B829|B814|B306)\b|\b(?:049|050)\b\s*-?\s*(?:Ethyl Glucuronide|EtG)/i.test(text)
     const expectedRowCount = EXPECTED_SCREEN_ROWS[testType]
-    const anchoredDonorName = findAnchoredValue(document.lines, /^Identification:$/i)
+    const anchoredDonorName = readLabField(document.lines, /^(?:Identification|Donor Name):$/i)
     const donorName = anchoredDonorName ? normalizeExtractedDonorName(anchoredDonorName) : extractLabDonorName(text)
 
-    const collectedLine = findAnchoredLine(document.lines, /^Collected:$/i)
-    const collectedLabelIndex = collectedLine?.items.findIndex((item) => /^Collected:$/i.test(item.text)) ?? -1
-    const collectedText = collectedLine?.items
-      .slice(collectedLabelIndex + 1)
-      .map((item) => item.text)
-      .join(' ')
+    const collectedText = readLabField(document.lines, /^Collected:$/i)
     const collectedMatch = collectedText?.match(/(\d{1,2}\/\d{1,2}\/\d{4}).*?(\d{1,2}:\d{2}\s*(?:AM|PM))/i)
     const collectionDate = collectedMatch
       ? (parseDateTimeInEST(collectedMatch[1], collectedMatch[2])?.toISOString() ?? null)
@@ -306,18 +391,47 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
     const screenData = parseScreenRows(document.lines)
     const creatinineResult = parseCreatinineResult(document.lines)
     const confirmationData = parseConfirmationRows(document.lines)
-    const resultRowCount = screenData.parsedRowCount
-    const resultsComplete = resultRowCount >= expectedRowCount
+    const hasScreening = screenData.methodRows.length > 0
+    const summaryHasConfirmation = labSummaryLines(document.lines).some((line) =>
+      /Confirmed (?:Positive|Negative) for the following drug/i.test(line.text),
+    )
+    const hasConfirmation = confirmationData.methodRows.length > 0 || summaryHasConfirmation
+    const reportKind = hasScreening
+      ? hasConfirmation
+        ? 'screening-and-confirmation'
+        : 'screening'
+      : hasConfirmation
+        ? 'confirmation'
+        : 'unknown'
+    const resultRowCount = screenData.rows.size
+    const resultsComplete =
+      knownPanel &&
+      (hasScreening
+        ? resultRowCount >= expectedRowCount &&
+          screenData.methodRows.length === screenData.parsedRowCount &&
+          screenData.conflicts.size === 0 &&
+          (!hasConfirmation || confirmationData.complete)
+        : reportKind === 'confirmation' && confirmationData.complete)
     const detectedSubstances = [...screenData.rows.entries()]
       .filter(([, status]) => status === 'positive')
       .map(([substance]) => substance)
     const parseWarnings: string[] = []
+    if (!knownPanel) parseWarnings.push('The panel code could not be identified; verify the test type manually.')
 
-    if (!resultsComplete) {
+    if (hasScreening && resultRowCount < expectedRowCount) {
       parseWarnings.push(
         `Only ${resultRowCount} of ${expectedRowCount} expected screening rows were identified; verify every result manually.`,
       )
     }
+    if (reportKind === 'unknown')
+      parseWarnings.push('No supported screening or confirmation result table was identified.')
+    const unreadScreenRows = screenData.methodRows.length - screenData.parsedRowCount
+    if (unreadScreenRows > 0)
+      parseWarnings.push(
+        `${unreadScreenRows} screening row${unreadScreenRows === 1 ? '' : 's'} could not be interpreted; verify the PDF.`,
+      )
+    if (screenData.conflicts.size)
+      parseWarnings.push(`Conflicting screening rows for ${[...screenData.conflicts].join(', ')}; verify the PDF.`)
 
     const unmappedConfirmationRows = confirmationData.methodRows.filter((row) => !row.substance).length
     if (unmappedConfirmationRows > 0) {
@@ -332,7 +446,10 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
         `${count} mapped LC-MS/MS analyte row${count === 1 ? '' : 's'} had an unrecognized result value.`,
       )
     }
-    if (/Confirmed Positive for the following drug/i.test(text) && confirmationData.confirmationResults.length === 0) {
+    const positiveSummary = labSummaryLines(document.lines).some((line) =>
+      /Confirmed Positive for the following drug/i.test(line.text),
+    )
+    if (positiveSummary && confirmationData.confirmationResults.length === 0) {
       parseWarnings.push('The report summary indicates a confirmed positive, but no confirmation row could be parsed.')
     }
 
@@ -344,13 +461,18 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
       resultsComplete,
       creatinineResultFound: Boolean(creatinineResult),
       confirmationRowCount: confirmationData.methodRows.length,
+      confirmationOnly: reportKind === 'confirmation',
     })
     if (parseWarnings.some((warning) => /confirmed positive/i.test(warning))) {
       confidence.confidenceScore = Math.min(confidence.confidenceScore, 55)
       confidence.confidence = 'low'
-    } else if (uninterpretedConfirmationRows > 0) {
+    } else if (uninterpretedConfirmationRows > 0 || unreadScreenRows > 0 || screenData.conflicts.size > 0) {
       confidence.confidenceScore = Math.min(confidence.confidenceScore, 84)
       confidence.confidence = 'medium'
+    }
+    if (!knownPanel) {
+      confidence.confidenceScore = Math.min(confidence.confidenceScore, 55)
+      confidence.confidence = 'low'
     }
 
     const isDilute = creatinineResult?.isDilute === true || /\b(?:specimen is dilute|dilute specimen)\b/i.test(text)
@@ -360,6 +482,9 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
     if (screenData.rows.size > 0) extractedFields.push('detectedSubstances')
     if (isDilute) extractedFields.push('isDilute')
     if (confirmationData.confirmationResults.length > 0) extractedFields.push('confirmationResults')
+    const dobText = readLabField(document.lines, /^(?:DOB|Date of Birth):$/i)
+    const dob = dobText?.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)?.[0] ?? null
+    if (dob) extractedFields.push('dob')
 
     return {
       donorName,
@@ -375,7 +500,12 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
       resultsComplete,
       extractedFields,
       testType,
-      hasConfirmation: confirmationData.confirmationResults.length > 0,
+      reportKind,
+      dob,
+      hasScreening,
+      hasConfirmation,
+      confirmationComplete: confirmationData.complete,
+      confirmationAnalytes: confirmationData.confirmationAnalytes,
       confirmationResults: confirmationData.confirmationResults,
     }
   } catch (error) {

@@ -10,6 +10,20 @@ export async function updateLabScreenAction(
   formValues: FormValues,
   extractedData: ExtractedPdfData | undefined,
 ): Promise<{ success: boolean; testId?: string; error?: string }> {
+  if (extractedData?.hasConfirmation && extractedData.confirmationComplete === false) {
+    return {
+      success: false,
+      error:
+        'Confirmation results need review. Use Enter Lab Confirmation Data to check and correct the results before saving.',
+    }
+  }
+  if (extractedData?.reportKind === 'confirmation') {
+    return {
+      success: false,
+      error:
+        'This is a confirmation-only report. Use Enter Lab Confirmation Data to attach it to the existing screening test.',
+    }
+  }
   try {
     // Convert File to buffer array
     const arrayBuffer = await formValues.upload.file.arrayBuffer()

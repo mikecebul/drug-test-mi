@@ -66,6 +66,10 @@ export interface ParsedPDFData {
   // Lab-specific fields
   testType?: TestType
   hasConfirmation?: boolean
+  hasScreening?: boolean
+  reportKind?: 'screening' | 'confirmation' | 'screening-and-confirmation' | 'unknown'
+  confirmationComplete?: boolean
+  confirmationAnalytes?: import('@/utilities/extractors/extractLabTest').LabConfirmationAnalyte[]
   confirmationResults?: Array<{
     substance: SubstanceValue
     result: 'confirmed-positive' | 'confirmed-negative' | 'inconclusive'
