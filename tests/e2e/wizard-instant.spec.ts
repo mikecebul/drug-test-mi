@@ -46,7 +46,7 @@ test.describe('Wizard Instant Workflow', () => {
 
   test(
     'reveals discontinued medication errors and animates consecutive additions on portrait iPad',
-    { tag: '@pdf-browser' },
+    { tag: ['@pdf-browser', '@critical'] },
     async ({ page }) => {
       const env = getE2EEnv({ pdfs: ['instant'] })
 

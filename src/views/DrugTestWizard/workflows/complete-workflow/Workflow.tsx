@@ -518,6 +518,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
       : null
   const labReportIsConfirmed = Boolean(selectedLabReportKey && createdLabReportKeys.includes(selectedLabReportKey))
   const guidedWorkflowRef = useRef<HTMLDivElement>(null)
+  const [invalidFocusRequest, setInvalidFocusRequest] = useState(0)
 
   useStepFocus({
     containerRef: guidedWorkflowRef,
@@ -525,10 +526,15 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
   })
 
   const focusGuidedInvalidField = () => {
-    requestAnimationFrame(() => {
-      focusFirstInvalidField(guidedWorkflowRef.current)
-    })
+    setInvalidFocusRequest((request) => request + 1)
   }
+  useEffect(() => {
+    if (!invalidFocusRequest) return
+    // Validation state and this request commit together; inspect the rendered
+    // error controls instead of racing the state update in an event handler.
+    const frame = requestAnimationFrame(() => focusFirstInvalidField(guidedWorkflowRef.current))
+    return () => cancelAnimationFrame(frame)
+  }, [invalidFocusRequest])
 
   const validateClientIdentity = () => {
     if (clientIdentityIsVerified) return true

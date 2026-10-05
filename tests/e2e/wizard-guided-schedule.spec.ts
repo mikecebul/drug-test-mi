@@ -2,7 +2,13 @@ import { devices, expect, test, type Page } from '@playwright/test'
 import { cleanupFixtures } from './helpers/cleanup'
 import { loginAdmin } from './helpers/auth'
 import { getE2EEnv } from './helpers/env'
-import { clickNext, selectClientFromSearchDialog, uploadSinglePdf, waitForExtractStepReady } from './helpers/wizard'
+import {
+  clickNext,
+  expectWizardStep,
+  selectClientFromSearchDialog,
+  uploadSinglePdf,
+  waitForExtractStepReady,
+} from './helpers/wizard'
 import {
   seedFixtures,
   seedGuidedScheduleFixtures,
@@ -32,6 +38,7 @@ function scheduleCard(page: Page, attendeeName: string) {
 async function openGuidedSchedule(page: Page) {
   await page.goto('/admin/drug-test-upload?workflow=guided&step=schedule', { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('heading', { name: "Today's Schedule" })).toBeVisible({ timeout: 30_000 })
+  await expectWizardStep(page, 'schedule')
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -69,8 +76,6 @@ async function verifyGuidedClientMismatch(page: Page) {
 }
 
 test.describe("Wizard Today's Schedule", () => {
-  test.describe.configure({ mode: 'serial' })
-
   test.beforeAll(async () => {
     fixtures = await seedFixtures()
     scheduleFixtures = await seedGuidedScheduleFixtures(fixtures)
@@ -354,7 +359,7 @@ test.describe("Wizard Today's Schedule", () => {
     }
   })
 
-  test('opens the correct next step from each schedule card', async ({ page }) => {
+  test('opens the correct next step from each schedule card', { tag: '@critical' }, async ({ page }) => {
     await scheduleCardButton(page, scheduleFixtures.bookings.unlinked.attendeeName).click()
     await expect(page.getByRole('heading', { name: 'Review Client & Appointment' })).toBeVisible()
     await expect(page.getByText('No client profile is linked')).toBeVisible()
@@ -506,12 +511,16 @@ test.describe("Wizard Today's Schedule", () => {
     }
   })
 
-  test('keeps controls interactive after repeatedly closing Quick Book', async ({ page }) => {
-    const openMenuButton = page.getByRole('button', { name: 'Open menu' }).last()
-    if (await openMenuButton.isVisible()) {
-      await openMenuButton.click()
-      await expect(page.getByRole('button', { name: 'Close menu' }).last()).toBeVisible()
+  test('keeps controls interactive after repeatedly closing Quick Book', { tag: '@critical' }, async ({ page }) => {
+    const menuToggle = page
+      .getByRole('button', { name: /^(Open|Close) menu$/ })
+      .filter({ visible: true })
+      .first()
+    await expect(menuToggle).toBeVisible()
+    if ((await menuToggle.getAttribute('aria-label')) === 'Open menu') {
+      await menuToggle.click()
     }
+    await expect(menuToggle).toHaveAccessibleName('Close menu')
 
     const quickBookTrigger = page.getByRole('complementary').getByRole('button', { name: 'Quick Book', exact: true })
 

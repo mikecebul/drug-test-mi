@@ -23,7 +23,7 @@ export default defineConfig({
   use: {
     baseURL,
     launchOptions: slowMo ? { slowMo } : undefined,
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },

@@ -65,6 +65,8 @@ the required side-by-side report actions on portrait tablets.
 Keep independent tests independent; do not skip a result-decision branch merely
 because it did not appear. Seed the data needed to force that branch. Re-run new
 critical regressions with `--repeat-each=5` before considering them stable. CI
-repeats registration validation, guided completion, instant/lab decision-validation, and account-payment recovery
-five times without retries. A flaky pass also fails the full CI suite, so retry
+repeats registration validation, guided completion, schedule navigation, Quick Book,
+medication validation in Chromium and WebKit, instant/lab decision validation, and account-payment recovery
+five times without retries (50 executions). Failure traces include the first attempt.
+A flaky pass also fails the full CI suite, so retry
 success cannot hide an intermittent regression.

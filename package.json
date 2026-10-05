@@ -30,7 +30,7 @@
     "test:e2e:registration": "playwright test tests/e2e/frontend-registration.spec.ts",
     "test:e2e:smoke": "playwright test --grep @smoke --project=chromium",
     "test:e2e:workflows": "playwright test --project=chromium",
-    "test:e2e:critical": "playwright test --grep @critical --project=chromium --repeat-each=5 --retries=0 --output=test-results-critical",
+    "test:e2e:critical": "playwright test --grep @critical --repeat-each=5 --retries=0 --output=test-results-critical",
     "test:e2e:pdf-browser": "playwright test tests/e2e/wizard-instant.spec.ts --grep @pdf-browser --project=chromium --project=webkit",
     "test:e2e:all": "pnpm test:e2e",
     "test:e2e:headed": "playwright test --headed --workers=1",
