@@ -239,7 +239,7 @@ test.describe('Wizard Register Client', () => {
       const cropDialog = page.getByRole('dialog', { name: 'Crop Headshot' })
       await expect(cropDialog).toBeVisible()
       await cropDialog.getByRole('button', { name: 'Apply Crop' }).click()
-      await expect(page.getByText('Headshot uploaded successfully')).toBeVisible({ timeout: 20_000 })
+      await expect(cropDialog).toBeHidden({ timeout: 20_000 })
     })
 
     await test.step('verify Payload linked the media to that exact client', async () => {

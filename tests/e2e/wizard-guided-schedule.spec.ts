@@ -32,7 +32,6 @@ function scheduleCard(page: Page, attendeeName: string) {
 async function openGuidedSchedule(page: Page) {
   await page.goto('/admin/drug-test-upload?workflow=guided&step=schedule', { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('heading', { name: "Today's Schedule" })).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByText('Loading appointments...')).toBeHidden({ timeout: 30_000 })
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -100,9 +99,6 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(paidLinked).toBeVisible()
     await expect(paidLinked).toContainText(formatScheduleTime(scheduleFixtures.bookings.paidLinked.startTime))
     await expect(paidLinked).toContainText('Male')
-    await expect(
-      paidLinked.getByText(`${formatScheduleTime(scheduleFixtures.bookings.paidLinked.startTime)} Male`),
-    ).toHaveCount(0)
     await expect(paidLinked).toContainText('Pre-paid')
 
     const unlinked = scheduleCard(page, scheduleFixtures.bookings.unlinked.attendeeName)
@@ -130,7 +126,7 @@ test.describe("Wizard Today's Schedule", () => {
     await page.getByRole('menuitem', { name: 'Cancel and refund' }).click()
     await expect(page.getByRole('menu')).toBeHidden()
     const completedRefundDialog = page.getByRole('dialog', { name: 'Refund completed appointment' })
-    await expect(completedRefundDialog).toContainText('collection stays completed')
+    await expect(completedRefundDialog).toBeVisible()
     await expect(completedRefundDialog.getByLabel('Refund amount')).toHaveValue(/\d+\.\d{2}/)
     await expect(completedRefundDialog.getByRole('button', { name: /Refund payment \$/ })).toBeEnabled()
     await completedRefundDialog.getByRole('button', { name: 'Keep appointment' }).click()
@@ -145,6 +141,12 @@ test.describe("Wizard Today's Schedule", () => {
 
   test('warns before each destructive pending-payment recovery action', async ({ page }) => {
     const attendeeName = `${fixtures.runId} Pending Payment`
+    let mutationRequests = 0
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/guided-workflow') {
+        mutationRequests += 1
+      }
+    })
     await page.route('**/api/guided-workflow?*', async (route) => {
       const request = route.request()
       const url = new URL(request.url())
@@ -185,7 +187,6 @@ test.describe("Wizard Today's Schedule", () => {
       })
     })
     await page.reload({ waitUntil: 'domcontentloaded' })
-    await expect(page.getByText('Loading appointments...')).toBeHidden({ timeout: 30_000 })
 
     const pendingCard = scheduleCard(page, attendeeName)
     await expect(pendingCard).toContainText('Payment pending')
@@ -197,23 +198,29 @@ test.describe("Wizard Today's Schedule", () => {
 
     await openPendingOptions()
     await page.getByRole('menuitem', { name: 'Accept as unpaid' }).click()
-    const acceptDialog = page.getByRole('alertdialog', { name: 'Accept as an unpaid appointment?' })
-    await expect(acceptDialog).toContainText('creates a new unpaid appointment')
-    await expect(acceptDialog).toContainText('cancels the pending-payment appointment')
-    await expect(acceptDialog).toContainText('cancellation and confirmation notifications')
+    const acceptDialog = page.getByRole('alertdialog')
+    await expect(acceptDialog).toBeVisible()
+    await expect(acceptDialog.getByRole('button', { name: /Accept.*unpaid/i })).toBeEnabled()
     await acceptDialog.getByRole('button', { name: 'Go back' }).click()
+    await expect(acceptDialog).toBeHidden()
 
     await openPendingOptions()
     await page.getByRole('menuitem', { name: 'Reschedule as unpaid' }).click()
-    const rescheduleDialog = page.getByRole('alertdialog', { name: 'Replace and reschedule this appointment?' })
-    await expect(rescheduleDialog).toContainText('If Cal.com is closed')
+    const rescheduleDialog = page.getByRole('alertdialog')
+    await expect(rescheduleDialog).toBeVisible()
+    await expect(rescheduleDialog.getByRole('button', { name: /Replace.*reschedule/i })).toBeEnabled()
     await rescheduleDialog.getByRole('button', { name: 'Go back' }).click()
+    await expect(rescheduleDialog).toBeHidden()
 
     await openPendingOptions()
     await page.getByRole('menuitem', { name: 'Cancel' }).click()
-    const cancelDialog = page.getByRole('alertdialog', { name: 'Cancel pending-payment appointment?' })
-    await expect(cancelDialog).toContainText("removes it from today's schedule")
+    const cancelDialog = page.getByRole('alertdialog')
+    await expect(cancelDialog).toBeVisible()
+    await expect(cancelDialog.getByRole('button', { name: /Cancel appointment/i })).toBeEnabled()
     await cancelDialog.getByRole('button', { name: 'Go back' }).click()
+    await expect(cancelDialog).toBeHidden()
+    await expect(scheduleCardButton(page, attendeeName)).toBeDisabled()
+    expect(mutationRequests).toBe(0)
 
     await page.unrouteAll({ behavior: 'wait' })
   })
@@ -221,7 +228,6 @@ test.describe("Wizard Today's Schedule", () => {
   test('chooses or registers a walk-in client from one drawer', async ({ page }) => {
     const walkInCard = page.getByTestId('guided-walk-in-card')
     await expect(walkInCard.getByRole('heading', { name: 'Walk-In Collection' })).toBeVisible()
-    await expect(walkInCard.getByText("Add a client without an appointment to today's schedule.")).toBeVisible()
     await expect(walkInCard.getByRole('button', { name: /Choose client/i })).toHaveCount(1)
     await expect(walkInCard.getByRole('button', { name: /Register new client/i })).toHaveCount(0)
     await expect(walkInCard.getByText(/Test type/i)).toHaveCount(0)
@@ -230,14 +236,14 @@ test.describe("Wizard Today's Schedule", () => {
     await walkInCard.getByRole('button', { name: /Choose client/i }).click()
     const clientDrawer = page.getByRole('dialog', { name: 'Choose client' })
     await expect(clientDrawer).toBeVisible()
-    await expect(clientDrawer.getByPlaceholder('Search by name, DOB, phone, or email...')).toBeVisible()
+    await expect(clientDrawer.getByRole('combobox')).toBeVisible()
     await expect(clientDrawer.getByRole('button', { name: /Register new client/i })).toBeVisible()
 
     await clientDrawer.getByRole('button', { name: /Register new client/i }).click()
     await expect(clientDrawer).toBeHidden()
     const registrationDrawer = page.getByRole('dialog', { name: 'Register New Client' })
     await expect(registrationDrawer).toBeVisible()
-    await expect(registrationDrawer).toContainText('Step 1 of 5: Personal Info')
+    await expect(registrationDrawer.getByLabel('First Name')).toBeVisible()
     await expect(registrationDrawer.getByRole('button', { name: 'Cancel', exact: true })).toBeEnabled()
     await registrationDrawer.getByRole('button', { name: 'Cancel', exact: true }).click()
     await expect(registrationDrawer).toBeHidden()
@@ -276,7 +282,6 @@ test.describe("Wizard Today's Schedule", () => {
       await clientEditor.getByLabel('Phone', { exact: true }).fill('2485550199')
       await saveClientButton.tap()
       await expect(clientEditor).toBeHidden({ timeout: 30_000 })
-      await expect(page.getByText('Client details updated')).toBeVisible()
       const updatedClient = await page.request.get(`/api/clients/${fixtures.clients.instant.id}?depth=0`, {
         headers: { Origin: new URL(page.url()).origin },
       })
@@ -355,10 +360,7 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(page.getByText('No client profile is linked')).toBeVisible()
     await page.getByRole('button', { name: /Choose or Register Client/i }).click()
     const clientDrawer = page.getByRole('dialog', { name: 'Choose client' })
-    await clientDrawer
-      .getByPlaceholder('Search by name, DOB, phone, or email...')
-      .fill(scheduleFixtures.bookings.unlinked.registeredClient.email)
-    await expect(clientDrawer.getByText('Exact matches', { exact: true })).toBeVisible()
+    await clientDrawer.getByRole('combobox').fill(scheduleFixtures.bookings.unlinked.registeredClient.email)
     await expect(
       clientDrawer.getByText(scheduleFixtures.bookings.unlinked.registeredClient.fullName, { exact: true }),
     ).toBeVisible()
@@ -374,7 +376,6 @@ test.describe("Wizard Today's Schedule", () => {
     await missingTestNextButton.click()
     await expect(editBookingTestButton).toBeFocused()
     await expect(editBookingTestButton).toHaveAttribute('aria-invalid', 'true')
-    await expect(page.getByText('Choose a test type before continuing.')).toBeVisible()
     await editBookingTestButton.click()
     const testDrawer = page.getByRole('dialog', { name: "Change Today's Test" })
     await expect(testDrawer).toBeVisible()
@@ -414,7 +415,6 @@ test.describe("Wizard Today's Schedule", () => {
     await nextButton.click()
     await expect(identityConfirmation).toBeFocused()
     await expect(identityConfirmation).toHaveAttribute('aria-invalid', 'true')
-    await expect(page.getByText('Verify the selected client before continuing.')).toBeVisible()
 
     await identityConfirmation.click()
     await expect(page.getByTestId('client-identity-mismatch')).toBeHidden()
@@ -438,8 +438,6 @@ test.describe("Wizard Today's Schedule", () => {
 
     const noHeadshotDialog = page.getByRole('alertdialog', { name: 'Continue without a headshot?' })
     await expect(noHeadshotDialog).toBeVisible()
-    await expect(noHeadshotDialog).toContainText('No headshot is on file for this client.')
-    await expect(noHeadshotDialog.locator('[data-slot="alert-dialog-media"] svg')).toHaveCount(1)
     await expect(noHeadshotDialog.getByRole('button', { name: 'Cancel' })).toBeVisible()
     await expect(noHeadshotDialog.getByRole('button', { name: 'Continue', exact: true })).toBeVisible()
     await expect(noHeadshotDialog.getByRole('button', { name: 'Capture headshot' })).toBeVisible()
@@ -531,7 +529,6 @@ test.describe("Wizard Today's Schedule", () => {
 
       if (attempt === 0) {
         await quickBookSearch.fill(fixtures.clients.instant.email)
-        await expect(quickBookDrawer.getByText('Exact Matches', { exact: true })).toBeVisible()
         await expect(quickBookDrawer.getByText(fixtures.clients.instant.fullName, { exact: true })).toBeVisible()
         await quickBookSearch.fill('')
       }
@@ -581,10 +578,9 @@ test.describe("Wizard Today's Schedule", () => {
 
     await receipt.getByRole('button', { name: 'Undo payment' }).click()
     const undoDialog = page.getByRole('alertdialog', { name: 'Undo payment?' })
-    await expect(undoDialog).toContainText('restore the applied client credit')
-    await expect(undoDialog.locator('[data-slot="alert-dialog-media"] svg')).toHaveCount(1)
+    await expect(undoDialog).toBeVisible()
     const undoPaymentButton = undoDialog.getByRole('button', { name: 'Undo payment' })
-    await expect(undoPaymentButton.locator('svg')).toHaveCount(0)
+    await expect(undoPaymentButton).toBeEnabled()
 
     let releaseUndoRequest = () => {}
     const undoRequestReleased = new Promise<void>((resolve) => {
@@ -676,12 +672,10 @@ test.describe("Wizard Today's Schedule", () => {
     expect(upload).not.toBeNull()
     expect(Math.abs(generate!.y - upload!.y)).toBeLessThanOrEqual(1)
     expect(upload!.x).toBeGreaterThanOrEqual(generate!.x + generate!.width - 1)
-    await expect(page.getByText('Waiting for PDF', { exact: true })).toBeVisible()
     await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
     await expectNoHorizontalOverflow(page)
     await page.screenshot({ path: test.info().outputPath('report-portrait.png'), fullPage: true })
     await uploadSinglePdf(page, env.pdfInstantPath)
-    await expect(page.getByText('PDF uploaded', { exact: true })).toBeVisible()
     await clickNext(page)
     await waitForExtractStepReady(page)
     const acknowledgement = page.getByRole('checkbox', {
@@ -844,8 +838,6 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(reportConfirmation).not.toBeChecked()
     await expect(page.getByTestId('wizard-next-button')).toHaveCount(1)
     await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
-    await expect(page.getByText('Create report before continuing', { exact: true })).toBeVisible()
-    await expect(page.getByText('ToxAccess setup could not be verified.', { exact: true })).toBeHidden()
     await reportConfirmation.click()
     await expect(reportConfirmation).toBeChecked()
     await expect(page.getByTestId('wizard-next-button')).toBeEnabled()

@@ -180,13 +180,13 @@ jobs:
           tail -n 200 /tmp/next-dev.log || true
           exit 1
 
-      - name: Run all workflow tests and Safari PDF regression
-        run: pnpm test:e2e
-
       - name: Repeat critical regressions without retries
         run: pnpm test:e2e:critical
         env:
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-critical
+
+      - name: Run all workflow tests and Safari PDF regression
+        run: pnpm test:e2e
 
       - name: Print app log on failure
         if: failure()

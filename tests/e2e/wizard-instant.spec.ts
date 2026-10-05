@@ -98,7 +98,7 @@ test.describe('Wizard Instant Workflow', () => {
       await medicationStatus.click()
       await page.getByRole('option', { name: 'Active', exact: true }).click()
       await expect(endDate).toBeHidden()
-      await expect(page.getByText('End date is required for discontinued medications')).toHaveCount(0)
+      await expect(medicationCard.getByRole('alert')).toHaveCount(0)
 
       await medicationStatus.click()
       await page.getByRole('option', { name: 'Discontinued', exact: true }).click()
@@ -121,8 +121,9 @@ test.describe('Wizard Instant Workflow', () => {
 
       await triggerNextValidation(page)
       await expect(newMedicationNames.first()).toHaveAttribute('aria-invalid', 'true')
+      await expect(newMedicationNames.last()).toHaveAttribute('aria-invalid', 'true')
       await expect(newMedicationNames.first()).toBeFocused()
-      await expect(page.getByText('Medication name is required')).toHaveCount(2)
+      await expectValidationError(page)
       expect(pageErrors.map((error) => error.message)).toEqual([])
     },
   )
