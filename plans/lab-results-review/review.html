@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lab results workflow — design review</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      background: #f5f6f8;
+      color: #17233b;
+      font:
+        16px system-ui,
+        sans-serif;
+    }
+    header {
+      padding: 24px;
+      max-width: 1280px;
+      margin: auto;
+    }
+    h1 {
+      font-size: 26px;
+      margin: 0 0 8px;
+    }
+    p {
+      margin: 0 0 16px;
+      color: #59647a;
+    }
+    nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    button {
+      padding: 10px 16px;
+      border: 1px solid #cbd2df;
+      border-radius: 8px;
+      background: white;
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+    }
+    button[aria-pressed='true'] {
+      background: #064ede;
+      color: white;
+      border-color: #064ede;
+    }
+    main {
+      max-width: 1086px;
+      margin: auto;
+      padding: 0 16px 32px;
+    }
+    img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border: 1px solid #e2e6ee;
+      border-radius: 10px;
+      background: white;
+    }
+    a {
+      color: #064ede;
+    }
+  </style>
+  <header>
+    <h1>One workflow for lab results</h1>
+    <p>
+      Upload → Match collection → Results → Review. A screen, confirmation, or combined report uses the same entry
+      point.
+    </p>
+    <nav aria-label="Mockups">
+      <button aria-pressed="true" data-screen="01-match-lab-report-v2">Match collection</button
+      ><button aria-pressed="false" data-screen="02-review-screening">Screening results</button
+      ><button aria-pressed="false" data-screen="03-review-confirmation">Confirmation results</button>
+    </nav>
+  </header>
+  <main><img id="mockup" src="images/01-match-lab-report-v2.png" alt="Proposed report matching screen" /></main>
+  <script>
+    const buttons = [...document.querySelectorAll('button')],
+      img = document.getElementById('mockup')
+    for (const button of buttons)
+      button.addEventListener('click', () => {
+        for (const other of buttons) other.setAttribute('aria-pressed', String(other === button))
+        img.src = `images/${button.dataset.screen}.png`
+        img.alt = `Proposed ${button.textContent.toLowerCase()} screen`
+        history.replaceState(null, '', `?screen=${button.dataset.screen}`)
+      })
+    const selected = new URLSearchParams(location.search).get('screen')
+    if (selected) buttons.find((button) => button.dataset.screen === selected)?.click()
+  </script>
+</html>
