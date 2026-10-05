@@ -112,6 +112,7 @@ export async function clickNext(page: Page) {
 
   if (await missingHeadshotDialog.isVisible().catch(() => false)) {
     await missingHeadshotDialog.getByRole('button', { name: 'Continue', exact: true }).click()
+    await expect(missingHeadshotDialog).toBeHidden()
   } else if (
     page.url() === beforeUrl &&
     !(await page
