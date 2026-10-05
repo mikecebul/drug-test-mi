@@ -91,6 +91,7 @@ export const EmailsStep = withForm({
 
     return (
       <EmailsFieldGroup
+        attachment={null}
         hideHeader={false}
         form={form}
         fields="emails"

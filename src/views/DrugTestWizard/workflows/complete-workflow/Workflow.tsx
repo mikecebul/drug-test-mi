@@ -15,7 +15,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Clock,
   CreditCard,
   Ellipsis,
   Mail,
@@ -76,7 +75,7 @@ import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLab
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { APP_TIMEZONE, formatDobInput } from '@/lib/date-utils'
+import { APP_TIMEZONE } from '@/lib/date-utils'
 import { focusFirstInvalidField, useStepFocus } from '@/lib/form-scroll-focus'
 import { cn } from '@/utilities/cn'
 import { RegisterClientDialog } from '../../components/RegisterClientDialog'
@@ -1524,7 +1523,7 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
 
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 pr-12">
           {renderHeader('Today')}
           <div className="w-full sm:w-auto">
             <QuickBookLink />
@@ -1539,17 +1538,17 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-0 px-0 pb-0">
-            <div className="text-muted-foreground bg-muted/30 hidden grid-cols-[minmax(0,1fr)_48px] border-y text-sm font-medium xl:grid">
-              <div className="grid grid-cols-[80px_minmax(150px,1.5fr)_minmax(110px,1fr)_minmax(100px,1fr)_130px_58px] gap-3 px-4 py-3">
-                {['Time', 'Client', 'Referral', 'Test', 'Status', 'Action'].map((label) => (
+            <div className="text-muted-foreground bg-muted/30 hidden grid-cols-[minmax(0,1fr)_48px] border-y text-sm font-medium lg:grid">
+              <div className="grid grid-cols-[72px_minmax(0,1fr)_120px] gap-3 px-4 py-3">
+                {['Time', 'Client / Test', 'Status / Action'].map((label) => (
                   <span key={label}>{label}</span>
                 ))}
               </div>
             </div>
             {isLoading ? (
-              <p className="text-muted-foreground text-sm">Loading appointments...</p>
+              <p className="text-muted-foreground px-4 py-5 text-sm">Loading appointments...</p>
             ) : bookings.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No Cal.com appointments scheduled for today.</p>
+              <p className="text-muted-foreground px-4 py-5 text-sm">No Cal.com appointments scheduled for today.</p>
             ) : (
               bookings.map((booking) => {
                 const paymentLabel = getPaymentLabel(booking)
@@ -1572,16 +1571,15 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                       type="button"
                       onClick={() => handleSelectBooking(booking)}
                       disabled={isCompleted || isPaymentHold}
-                      className="hover:text-foreground focus-visible:ring-ring grid min-w-0 grid-cols-1 gap-3 p-4 text-left transition focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default xl:grid-cols-[80px_minmax(150px,1.5fr)_minmax(110px,1fr)_minmax(100px,1fr)_130px_58px] xl:items-center"
+                      className="hover:text-foreground focus-visible:ring-ring grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 p-3 text-left transition focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default min-[600px]:grid-cols-[60px_minmax(0,1fr)_auto] sm:grid-cols-[72px_minmax(0,1fr)_120px] sm:p-4"
                     >
-                      <span className="flex items-center gap-1 text-sm font-semibold">
-                        <Clock className="size-4 xl:hidden" />
+                      <span className="col-start-1 row-start-1 flex items-center gap-1 text-sm font-semibold">
                         {formatTime(booking.startTime)}
                       </span>
-                      <span className="flex min-w-0 items-center gap-3">
+                      <span className="col-start-1 row-start-2 flex min-w-0 items-center gap-3 min-[600px]:col-start-2 min-[600px]:row-start-1">
                         <Avatar
                           className={cn(
-                            'size-12 shrink-0 rounded-lg',
+                            'size-10 shrink-0 rounded-lg',
                             (isCompleted || isPaymentHold) && 'opacity-60 grayscale',
                           )}
                         >
@@ -1596,27 +1594,21 @@ export function GuidedWorkflow({ onBack }: GuidedWorkflowProps) {
                         </Avatar>
                         <span className="flex min-w-0 flex-col gap-1">
                           <span className="line-clamp-2 font-semibold">{booking.attendeeName}</span>
-                          <span className="text-muted-foreground text-sm">
-                            {booking.client?.dob
-                              ? 'DOB ' + formatDobInput(booking.client.dob)
-                              : needsRegistration
-                                ? 'Choose a client'
-                                : 'DOB not recorded'}
+                          <span className="text-muted-foreground truncate text-sm">
+                            {booking.testType?.label || 'Choose test'}
                           </span>
                         </span>
                       </span>
-                      <span className="text-muted-foreground truncate text-sm">
-                        {booking.referral?.name || 'Not linked'}
-                      </span>
-                      <span className="text-muted-foreground text-sm">{booking.testType?.label || 'Choose test'}</span>
-                      <ScheduleInfoBadges
-                        gender={booking.gender ?? booking.client?.gender}
-                        isCompleted={isCompleted}
-                        needsRegistration={needsRegistration}
-                        paymentLabel={paymentLabel}
-                      />
-                      <span className="text-primary text-sm font-medium">
-                        {isCompleted ? 'Collected' : isPaymentHold ? '' : 'Collect'}
+                      <span className="col-start-2 row-span-2 row-start-1 flex flex-col items-end gap-1.5 min-[600px]:col-start-3 min-[600px]:row-span-1">
+                        <ScheduleInfoBadges
+                          showGender={false}
+                          isCompleted={isCompleted}
+                          needsRegistration={needsRegistration}
+                          paymentLabel={paymentLabel}
+                        />
+                        {!isCompleted && !isPaymentHold && (
+                          <span className="text-primary text-sm font-medium">Collect</span>
+                        )}
                       </span>
                     </button>
                     <div className="flex items-center p-3 pl-0">

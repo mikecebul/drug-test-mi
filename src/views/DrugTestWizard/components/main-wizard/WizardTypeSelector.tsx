@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Zap, Beaker, ClipboardList, CheckCircle, UserPlus, CalendarCheck } from 'lucide-react'
+import { ClipboardList, CheckCircle, UserPlus, CalendarCheck } from 'lucide-react'
 import { cn } from '@/utilities/cn'
 import type { WizardType } from '../../types'
 import { Separator } from '@/components/ui/separator'
@@ -22,7 +22,8 @@ const wizardOptions: WizardOption[] = [
     id: 'guided',
     icon: CalendarCheck,
     title: 'Complete Scheduled Collection',
-    description: "Start from today's Cal.com appointments, confirm test details, record payment, and continue collection",
+    description:
+      "Start from today's Cal.com appointments, confirm test details, record payment, and continue collection",
     color: 'text-teal-600',
     borderColor: 'border-teal-300 dark:border-teal-700',
     bgColor: 'bg-teal-50 dark:bg-teal-950/30',
@@ -35,24 +36,6 @@ const wizardOptions: WizardOption[] = [
     color: 'text-purple-600',
     borderColor: 'border-purple-300 dark:border-purple-700',
     bgColor: 'bg-purple-50 dark:bg-purple-950/30',
-  },
-  {
-    id: 'collect-lab',
-    icon: Beaker,
-    title: 'Collect Sample for Lab',
-    description: 'Collect specimen for 11-panel, 11-panel no EtG, 17-panel, or EtG laboratory testing',
-    color: 'text-blue-600',
-    borderColor: 'border-blue-300 dark:border-blue-700',
-    bgColor: 'bg-blue-50 dark:bg-blue-950/30',
-  },
-  {
-    id: 'instant-test',
-    icon: Zap,
-    title: 'Screen Instant Test',
-    description: 'Upload an instant report and verify the detected panel type',
-    color: 'text-green-600',
-    borderColor: 'border-green-300 dark:border-green-700',
-    bgColor: 'bg-green-50 dark:bg-green-950/30',
   },
   {
     id: 'enter-lab-screen',
@@ -85,23 +68,27 @@ export function WizardTypeSelector({ onSelect }: WizardTypeSelectorProps) {
     const Icon = option.icon
 
     return (
-      <Card
+      <button
         key={option.id}
-        className={cn('cursor-pointer transition-all hover:translate-x-1 hover:shadow-md', 'border')}
+        type="button"
+        aria-label={option.title}
+        className="focus-visible:ring-ring w-full rounded-lg text-left focus-visible:ring-2 focus-visible:outline-none"
         onClick={() => onSelect(option.id)}
       >
-        <CardHeader className="p-4">
-          <div className="flex items-center gap-6">
-            <div className={cn('flex size-12 shrink-0 items-center justify-center rounded-lg', option.bgColor)}>
-              <Icon className={cn('size-6', option.color)} />
+        <Card className="transition-shadow hover:shadow-md">
+          <CardHeader className="p-4">
+            <div className="flex items-center gap-6">
+              <div className={cn('flex size-12 shrink-0 items-center justify-center rounded-lg', option.bgColor)}>
+                <Icon className={cn('size-6', option.color)} />
+              </div>
+              <div className="flex-1">
+                <CardTitle className="text-xl">{option.title}</CardTitle>
+                <CardDescription className="mt-1.5 text-base">{option.description}</CardDescription>
+              </div>
             </div>
-            <div className="flex-1">
-              <CardTitle className="text-xl">{option.title}</CardTitle>
-              <CardDescription className="mt-1.5 text-base">{option.description}</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+          </CardHeader>
+        </Card>
+      </button>
     )
   }
   return (
@@ -115,15 +102,6 @@ export function WizardTypeSelector({ onSelect }: WizardTypeSelectorProps) {
       <div className="space-y-3">
         <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Onboarding</h3>
         {renderOption('register-client')}
-      </div>
-      {/* Group 2: Physical Actions */}
-      <Separator />
-      <div className="space-y-3">
-        <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Specimen Collection</h3>
-        <div className="grid gap-4">
-          {renderOption('instant-test')}
-          {renderOption('collect-lab')}
-        </div>
       </div>
       <Separator />
       {/* Group 3: Administrative / Data Entry */}

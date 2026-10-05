@@ -91,6 +91,7 @@ export const EmailsStep = withForm({
         <FieldGroupHeader title="Review collection notification" />
 
         <EmailsFieldGroup
+          attachment={null}
           hideHeader
           form={form}
           fields="emails"

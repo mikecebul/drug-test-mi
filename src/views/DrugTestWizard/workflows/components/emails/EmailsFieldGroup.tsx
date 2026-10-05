@@ -3,7 +3,7 @@
 import React from 'react'
 import { withFieldGroup } from '@/blocks/Form/hooks/form'
 import { useQueryClient } from '@tanstack/react-query'
-import { Card } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -63,6 +63,7 @@ export const EmailsFieldGroup = withFieldGroup({
     title: 'Review Collection Notification',
     description: 'Configure email notifications for this collection',
     hideHeader: false,
+    attachment: null as React.ReactNode,
     previewData: null as EmailPreviewData | null,
     isLoading: false,
     error: null as string | null,
@@ -83,6 +84,7 @@ export const EmailsFieldGroup = withFieldGroup({
     title,
     description,
     hideHeader,
+    attachment,
     previewData,
     isLoading,
     error,
@@ -280,6 +282,188 @@ export const EmailsFieldGroup = withFieldGroup({
       )
     }
 
+    const editors = (
+      <>
+        {showPreview && (
+          <EmailPreviewModal
+            isOpen={showPreview}
+            onClose={() => setShowPreview(false)}
+            emailHtml={previewData.referralHtml}
+            subject={previewData.referralSubject}
+            recipients={savedReferralEmails}
+            emailType="referral"
+          />
+        )}
+        {showClientPreview && previewData.clientHtml && (
+          <EmailPreviewModal
+            isOpen={showClientPreview}
+            onClose={() => setShowClientPreview(false)}
+            emailHtml={previewData.clientHtml}
+            subject={previewData.clientSubject || 'Client notification'}
+            recipients={clientRecipients}
+            emailType="client"
+          />
+        )}
+        <ReferralProfileDrawer
+          open={showReferralEditor}
+          onOpenChange={setShowReferralEditor}
+          clientId={clientId}
+          previewData={previewData}
+          fallbackReferralEmails={referralRecipients?.length ? referralRecipients : previewData.referralEmails}
+          onSaved={handleReferralProfileSavedFromDrawer}
+        />
+        <ClientEmailDialog
+          open={showClientEmailEditor}
+          onOpenChange={setShowClientEmailEditor}
+          clientId={clientId}
+          currentEmail={clientRecipients?.[0] || previewData.clientEmail || ''}
+          onSaved={handleClientEmailSavedFromDialog}
+        />
+      </>
+    )
+
+    if (hideHeader) {
+      return (
+        <>
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle>Result emails</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <FieldGroup>
+                {showClientEmail && (
+                  <FieldSet>
+                    <div className="flex items-start justify-between gap-3">
+                      <group.Field name="clientEmailEnabled">
+                        {(field) => (
+                          <Field orientation="horizontal" data-invalid={field.state.meta.errors.length > 0}>
+                            <Checkbox
+                              id="client-enabled"
+                              checked={field.state.value}
+                              disabled={!canSendClientEmail}
+                              onCheckedChange={(checked) => {
+                                field.handleChange(checked === true)
+                                validateSubmitState()
+                              }}
+                            />
+                            <div className="flex min-w-0 flex-col gap-1">
+                              <FieldLabel htmlFor="client-enabled">
+                                {canSendClientEmail ? 'Send client notification' : 'Client notification disabled'}
+                              </FieldLabel>
+                              <group.Field name="clientRecipients">
+                                {(recipientField) => (
+                                  <Field data-invalid={recipientField.state.meta.errors.length > 0}>
+                                    <p className="text-muted-foreground text-sm break-all">
+                                      {recipientField.state.value?.[0] || previewData.clientEmail || 'No email address'}
+                                    </p>
+                                    <FieldError errors={recipientField.state.meta.errors} />
+                                  </Field>
+                                )}
+                              </group.Field>
+                            </div>
+                          </Field>
+                        )}
+                      </group.Field>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={!clientId}
+                        onClick={() => setShowClientEmailEditor(true)}
+                      >
+                        <Pencil data-icon="inline-start" />
+                        Edit Client Email
+                      </Button>
+                    </div>
+                  </FieldSet>
+                )}
+                <FieldSet className="border-border border-t pt-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                      <group.Field name="referralEmailEnabled">
+                        {(field) => (
+                          <Field orientation="horizontal" data-invalid={field.state.meta.errors.length > 0}>
+                            <Checkbox
+                              id="referral-enabled"
+                              checked={field.state.value}
+                              disabled={!savedReferralEmails.length}
+                              onCheckedChange={(checked) => {
+                                field.handleChange(checked === true)
+                                if (checked === true) setEmailFieldValue('referralRecipients', savedReferralEmails)
+                                validateSubmitState()
+                              }}
+                            />
+                            <FieldLabel htmlFor="referral-enabled">Send referral notifications</FieldLabel>
+                          </Field>
+                        )}
+                      </group.Field>
+                      <group.Field name="referralRecipients">
+                        {(field) => (
+                          <Field data-invalid={field.state.meta.errors.length > 0} className="pl-7">
+                            {savedReferralRecipients.map((recipient) => (
+                              <p
+                                key={recipient.email}
+                                data-testid="referral-recipient-row"
+                                className="text-muted-foreground text-sm break-all"
+                              >
+                                {recipient.name && <span className="text-foreground">{recipient.name} · </span>}
+                                {recipient.email}
+                              </p>
+                            ))}
+                            {!savedReferralRecipients.length && (
+                              <p className="text-muted-foreground text-sm">No additional recipients.</p>
+                            )}
+                            <FieldError id="referral-recipients-error" errors={field.state.meta.errors} />
+                          </Field>
+                        )}
+                      </group.Field>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={!clientId || !previewData.referralType}
+                      onClick={() => setShowReferralEditor(true)}
+                      aria-describedby={referralRecipientsMissing ? 'referral-recipients-error' : undefined}
+                      aria-invalid={referralRecipientsMissing || undefined}
+                    >
+                      <Pencil data-icon="inline-start" />
+                      Edit Referral
+                    </Button>
+                  </div>
+                </FieldSet>
+              </FieldGroup>
+              {attachment}
+              {!clientEmailEnabled && !referralEmailEnabled && (
+                <p className="text-muted-foreground text-sm">No notifications will be sent</p>
+              )}
+            </CardContent>
+            <CardFooter className="flex flex-wrap justify-end gap-2 px-4 pb-4">
+              {clientEmailEnabled && clientRecipients.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowClientPreview(true)}
+                  disabled={!previewData.clientHtml || !previewData.clientSubject}
+                >
+                  <Eye data-icon="inline-start" />
+                  Preview client email
+                </Button>
+              )}
+              {referralEmailEnabled && savedReferralRecipients.length > 0 && (
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowPreview(true)}>
+                  <Eye data-icon="inline-start" />
+                  Preview referral email
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
+          {editors}
+        </>
+      )
+    }
+
     return (
       <div className="space-y-6">
         {!hideHeader && <FieldGroupHeader title={title} description={description} />}
@@ -465,117 +649,50 @@ export const EmailsFieldGroup = withFieldGroup({
             </FieldGroup>
           </Card>
 
-          {!hideHeader ? (
-            <>
-              {' '}
-              {/* Summary */}
-              <Alert variant="info">
-                <CheckCircle2 className="size-5" />
-                <AlertTitle>Ready to send</AlertTitle>
-                <AlertDescription>
-                  {(() => {
-                    const clientCount =
-                      clientEmailEnabled && clientRecipients && clientRecipients.length > 0
-                        ? clientRecipients.length
-                        : 0
-                    const referralCount = referralEmailEnabled ? savedReferralRecipients.length : 0
-                    const totalCount = clientCount + referralCount
+          <Alert variant="info">
+            <CheckCircle2 className="size-5" />
+            <AlertTitle>Ready to send</AlertTitle>
+            <AlertDescription>
+              {(() => {
+                const clientCount =
+                  clientEmailEnabled && clientRecipients && clientRecipients.length > 0 ? clientRecipients.length : 0
+                const referralCount = referralEmailEnabled ? savedReferralRecipients.length : 0
+                const totalCount = clientCount + referralCount
 
-                    if (totalCount === 0) {
-                      return <span className="text-destructive">No notifications will be sent</span>
-                    }
+                if (totalCount === 0) {
+                  return <span className="text-destructive">No notifications will be sent</span>
+                }
 
-                    return (
-                      <>
-                        {clientCount > 0 && <span>Client recipients: {clientCount}</span>}
-                        {referralEmailEnabled && <span>Referral recipients: {referralCount}</span>}
-                      </>
-                    )
-                  })()}
-                </AlertDescription>
-                {referralEmailEnabled && savedReferralRecipients.length > 0 ? (
-                  <AlertAction>
-                    <Button type="button" variant="outline" onClick={() => setShowPreview(true)}>
-                      <Eye className="mr-2 h-4 w-4" />
-                      Preview Referral Email
-                    </Button>
-                  </AlertAction>
-                ) : clientEmailEnabled && clientRecipients.length > 0 ? (
-                  <AlertAction>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowClientPreview(true)}
-                      disabled={!previewData.clientHtml || !previewData.clientSubject}
-                    >
-                      <Eye className="mr-2 h-4 w-4" />
-                      Preview Client Email
-                    </Button>
-                  </AlertAction>
-                ) : null}
-              </Alert>
-            </>
-          ) : (
-            <div className="flex flex-wrap gap-3">
-              {(!clientEmailEnabled || !clientRecipients.length) &&
-                (!referralEmailEnabled || !savedReferralRecipients.length) && (
-                  <p className="text-muted-foreground text-sm">No notifications will be sent</p>
-                )}
-              {clientEmailEnabled && clientRecipients.length > 0 && (
+                return (
+                  <>
+                    {clientCount > 0 && <span>Client recipients: {clientCount}</span>}
+                    {referralEmailEnabled && <span>Referral recipients: {referralCount}</span>}
+                  </>
+                )
+              })()}
+            </AlertDescription>
+            {referralEmailEnabled && savedReferralRecipients.length > 0 ? (
+              <AlertAction>
+                <Button type="button" variant="outline" onClick={() => setShowPreview(true)}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  Preview Referral Email
+                </Button>
+              </AlertAction>
+            ) : clientEmailEnabled && clientRecipients.length > 0 ? (
+              <AlertAction>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setShowClientPreview(true)}
                   disabled={!previewData.clientHtml || !previewData.clientSubject}
                 >
-                  <Eye data-icon="inline-start" />
-                  Preview client email
+                  <Eye className="mr-2 h-4 w-4" />
+                  Preview Client Email
                 </Button>
-              )}
-              {referralEmailEnabled && savedReferralRecipients.length > 0 && (
-                <Button type="button" variant="outline" onClick={() => setShowPreview(true)}>
-                  <Eye data-icon="inline-start" />
-                  Preview referral email
-                </Button>
-              )}
-            </div>
-          )}
-          {/* Email Preview Modals */}
-          {showPreview && (
-            <EmailPreviewModal
-              isOpen={showPreview}
-              onClose={() => setShowPreview(false)}
-              emailHtml={previewData.referralHtml}
-              subject={previewData.referralSubject}
-              recipients={savedReferralEmails}
-              emailType="referral"
-            />
-          )}
-          {showClientPreview && previewData.clientHtml && (
-            <EmailPreviewModal
-              isOpen={showClientPreview}
-              onClose={() => setShowClientPreview(false)}
-              emailHtml={previewData.clientHtml}
-              subject={previewData.clientSubject || 'Client notification'}
-              recipients={clientRecipients}
-              emailType="client"
-            />
-          )}
-          <ReferralProfileDrawer
-            open={showReferralEditor}
-            onOpenChange={setShowReferralEditor}
-            clientId={clientId}
-            previewData={previewData}
-            fallbackReferralEmails={referralRecipients?.length ? referralRecipients : previewData.referralEmails}
-            onSaved={handleReferralProfileSavedFromDrawer}
-          />
-          <ClientEmailDialog
-            open={showClientEmailEditor}
-            onOpenChange={setShowClientEmailEditor}
-            clientId={clientId}
-            currentEmail={clientRecipients?.[0] || previewData.clientEmail || ''}
-            onSaved={handleClientEmailSavedFromDialog}
-          />
+              </AlertAction>
+            ) : null}
+          </Alert>
+          {editors}
         </div>
       </div>
     )

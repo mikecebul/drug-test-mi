@@ -29,7 +29,13 @@ function isoDateTimeForInput(date: string) {
 }
 
 async function expectReferralRecipientsReady(page: Page, count: number) {
-  await expect(page.getByTestId('referral-recipient-row')).toHaveCount(count)
+  const notifications = page.getByRole('checkbox', { name: /Send referral notifications/i })
+  if (count === 0) {
+    await expect(notifications).not.toBeChecked()
+  } else {
+    await expect(notifications).toBeChecked()
+    await expect(page.getByTestId('referral-recipient-row')).toHaveCount(count)
+  }
 }
 
 test.describe('Wizard Collect Lab Workflow', () => {

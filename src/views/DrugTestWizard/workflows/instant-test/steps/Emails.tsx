@@ -134,9 +134,9 @@ export const EmailsStep = withForm({
             formValues.verifyData.confirmationDecision === 'pending-decision'
           }
         />
-        <ReportLink file={formValues.upload.file} filename />
         <EmailsFieldGroup
           hideHeader
+          attachment={<ReportLink file={formValues.upload.file} filename />}
           form={form}
           fields="emails"
           previewData={previewData}

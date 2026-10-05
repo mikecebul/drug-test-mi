@@ -38,7 +38,7 @@ full suite below.
 | Lab screening                 | Matching a pending collection, missing-decision/empty-confirmation validation, retained edits, saved results and report attachments                                                          |
 | Lab confirmation              | Matching a pending test, required confirmation results, saved analytes, preserved unpaid balance and report attachments                                                                      |
 | Result decisions              | Persisting accept/request-confirmation/pending-decision for unexpected positives in both instant and lab flows                                                                               |
-| Staff/account payments        | Native navigation/edit access, denied deletion, per-test self-pay and unpaid continuation, real-database concurrency/rollback, and recovery after a lost response without duplicate payments |
+| Staff/account payments        | Default client Summary, test-history routes, staff editing without deletion, hidden staff API Keys, full super-admin navigation, guided chooser, per-test self-pay and unpaid continuation, real-database concurrency/rollback, and payment response recovery |
 
 ## Running safely
 

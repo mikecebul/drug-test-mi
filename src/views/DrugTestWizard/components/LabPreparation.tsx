@@ -28,7 +28,6 @@ export function LabPreparation({
     <ReportPreparationLayout
       status={status}
       isLoading={isLoading}
-      instructions={['Complete the lab collection', 'Generate the collection report', 'Close that tab and return here']}
       generationDetails={
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
           <dt className="text-muted-foreground">Donor name</dt>

@@ -45,7 +45,6 @@ export function ReportPreparation({
       status={status}
       isLoading={isLoading}
       isError={isError}
-      instructions={['Complete the instant test', 'Generate and save the PDF', 'Close that tab and return here']}
       nextTitle="2. Upload the saved PDF"
       reportComplete={hasReport}
       reportStatus={hasReport ? 'PDF uploaded' : 'Waiting for PDF'}

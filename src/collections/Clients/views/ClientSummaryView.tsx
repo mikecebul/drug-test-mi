@@ -72,30 +72,30 @@ export default async function ClientSummaryView({
     ...recipients.referralEmails,
   ].filter(Boolean)
   return (
-    <ShadcnWrapper className="staff-interface staff-summary mx-auto flex max-w-6xl flex-col gap-4 py-6">
+    <ShadcnWrapper className="staff-interface staff-summary mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6">
       <div className="flex flex-wrap items-start gap-4 border-b pb-5">
-        <Avatar className="size-24 rounded-lg sm:size-32">
+        <Avatar className="size-20 shrink-0 rounded-lg sm:size-24">
           <AvatarImage src={headshotUrl(client)} alt={clientName(client)} />
           <AvatarFallback className="rounded-lg">
             {client.firstName[0]}
             {client.lastName[0]}
           </AvatarFallback>
         </Avatar>
-        <div className="flex-1 space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight">{clientName(client)}</h1>
-          <p>DOB {client.dob ? formatDobInput(client.dob) : 'Not recorded'}</p>
-          <p>Referral {referral?.name || 'Self'}</p>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight [overflow-wrap:anywhere]">{clientName(client)}</h1>
+          <p className="text-sm">DOB {client.dob ? formatDobInput(client.dob) : 'Not recorded'}</p>
+          <p className="text-sm">Referral {referral?.name || 'Self'}</p>
           <div className="flex flex-wrap gap-4 text-sm">
             <a href={`mailto:${client.email}`}>{client.email}</a>
             {client.phone && <a href={`tel:${client.phone}`}>{client.phone}</a>}
           </div>
         </div>
-        <Button variant="outline" render={<Link href={editHref} />} nativeButton={false}>
+        <Button size="sm" variant="outline" render={<Link href={editHref} />} nativeButton={false}>
           Edit client
         </Button>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+        <Card size="sm">
           <CardHeader>
             <CardTitle>Quick actions</CardTitle>
           </CardHeader>
@@ -119,7 +119,7 @@ export default async function ClientSummaryView({
             </Button>
           </CardContent>
         </Card>
-        <Card>
+        <Card size="sm">
           <CardHeader>
             <CardTitle>Balances</CardTitle>
           </CardHeader>
@@ -127,10 +127,19 @@ export default async function ClientSummaryView({
             {[
               ['Client balance', balances.clientBalance],
               ['Account credit', client.creditBalance || 0],
-              ['Referral-billed balance', balances.referralBalance],
+              ['Referral owes', balances.referralBalance],
             ].map(([label, amount]) => (
               <div key={label}>
-                <p className="text-muted-foreground text-sm">{label}</p>
+                <p
+                  className="text-muted-foreground text-sm"
+                  title={
+                    label === 'Referral owes'
+                      ? 'Unpaid test charges assigned to the referral, including tests awaiting invoicing.'
+                      : undefined
+                  }
+                >
+                  {label}
+                </p>
                 <p className="text-xl font-semibold">{money.format(Number(amount))}</p>
               </div>
             ))}
@@ -138,8 +147,8 @@ export default async function ClientSummaryView({
         </Card>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="flex items-center justify-between gap-2">
+        <Card size="sm">
+          <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
             <CardTitle>Current medications</CardTitle>
             <Link href={editHref} className="text-primary text-sm">
               Edit medications
@@ -159,8 +168,8 @@ export default async function ClientSummaryView({
             )}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex items-center justify-between gap-2">
+        <Card size="sm">
+          <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
             <CardTitle>Result notification recipients</CardTitle>
             <Link href={editHref} className="text-primary text-sm">
               Edit recipients
@@ -171,7 +180,7 @@ export default async function ClientSummaryView({
           </CardContent>
         </Card>
       </div>
-      <Card>
+      <Card size="sm">
         <CardHeader>
           <CardTitle>Test history</CardTitle>
         </CardHeader>
@@ -249,7 +258,7 @@ export default async function ClientSummaryView({
           </div>
         </CardContent>
       </Card>
-      <Card>
+      <Card size="sm">
         <CardContent className="flex items-center justify-between gap-3 p-4">
           <div>
             <p className="font-semibold">Payments</p>

@@ -243,19 +243,32 @@ test.describe('Standard staff views and account payments', () => {
 
   test('uses native staff navigation and summary/edit tabs without staff deletion', async ({ page }) => {
     await loginAdmin(page, fixtures.admin)
-    await page.goto(`/admin/collections/clients/${fixtures.clients.instant.id}/summary`)
+    await page.goto('/admin/collections/clients')
+    await page.getByRole('textbox', { name: /search/i }).fill(fixtures.clients.instant.email)
+    await expect(page).toHaveURL((url) => url.searchParams.get('search') === fixtures.clients.instant.email)
+    const clientLink = page
+      .locator(`a[href="/admin/collections/clients/${fixtures.clients.instant.id}/summary"]`)
+      .first()
+    await expect(clientLink).toBeVisible({ timeout: 30_000 })
+    await clientLink.click()
+    await expect(page).toHaveURL(new RegExp(`/clients/${fixtures.clients.instant.id}/summary`), { timeout: 20_000 })
     await expect(page.getByRole('heading', { name: fixtures.clients.instant.fullName, exact: true })).toBeVisible({
       timeout: 30_000,
     })
     await expect(page.getByText('Balances', { exact: true })).toBeVisible()
-    await expect(page.getByText('Referral-billed balance', { exact: true })).toBeVisible()
     await expect(page.getByText(fixtures.clients.instant.id, { exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: /delete/i })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Collect Payment', exact: true })).toHaveCount(2)
     await expect(page.getByRole('link', { name: 'Analytics', exact: true })).toHaveCount(0)
     await expect(page.getByRole('link', { name: 'Referral Billing', exact: true })).toHaveCount(0)
     await expect(page.getByRole('link', { name: 'Pages', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'API Keys', exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Quick Book', exact: true })).toHaveCount(2) // Sidebar and one client action.
+    await page.setViewportSize({ width: 768, height: 1024 })
+    await page.screenshot({ path: test.info().outputPath('client-summary-portrait.png'), fullPage: true })
+    await page.locator(`a[href="/admin/collections/drug-tests/${clientDebtId}/summary"]`).click()
+    await expect(page.getByRole('heading', { name: 'Drug Test Summary', exact: true })).toBeVisible()
+    await page.goto(`/admin/collections/clients/${fixtures.clients.instant.id}/summary`)
     const edit = page.getByRole('button', { name: 'Edit client', exact: true })
     await edit.click()
     await expect(page.locator('input[name="firstName"]')).toHaveValue(fixtures.clients.instant.firstName, {
@@ -271,6 +284,47 @@ test.describe('Standard staff views and account payments', () => {
     expect(
       (await page.request.delete(`/api/courts/${fixtures.referrals.court.id}`, { headers: browserHeaders })).status(),
     ).toBe(403)
+    await page.screenshot({ path: test.info().outputPath('referral-summary.png'), fullPage: true })
+  })
+
+  test('keeps all native collections available to the super admin', async ({ page }) => {
+    const payload = await getPayloadClient()
+    const admin = await payload.findByID({ collection: 'admins', id: fixtures.admin.id, overrideAccess: true })
+    // Seed this isolated fixture through the local API with an authorized principal.
+    const req = {
+      headers: { 'X-Payload-Migration': 'true' },
+      user: { ...admin, collection: 'admins', role: 'superAdmin' },
+    } as never
+    await payload.update({ collection: 'admins', id: fixtures.admin.id, data: { role: 'superAdmin' }, req })
+    try {
+      await loginAdmin(page, fixtures.admin)
+      const menuToggle = page.getByRole('button', { name: /^Open menu$/i }).filter({ visible: true })
+      if (await menuToggle.count()) await menuToggle.click()
+      for (const slug of [
+        'clients',
+        'courts',
+        'employers',
+        'drug-tests',
+        'bookings',
+        'payments',
+        'pages',
+        'payload-mcp-api-keys',
+      ]) {
+        await expect(page.locator(`.nav a[href="/admin/collections/${slug}"]`)).toBeVisible()
+      }
+      await page.screenshot({ path: test.info().outputPath('super-admin-navigation.png'), fullPage: true })
+    } finally {
+      await payload.update({ collection: 'admins', id: fixtures.admin.id, data: { role: 'admin' }, req })
+    }
+  })
+
+  test('offers guided collection and result entry without the retired specimen workflows', async ({ page }) => {
+    await loginAdmin(page, fixtures.admin)
+    await expect(page.getByText('Complete Scheduled Collection', { exact: true })).toBeVisible()
+    await expect(page.getByText('Screen Instant Test', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('Collect Sample for Lab', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('Enter Lab Screen Data', { exact: true })).toBeVisible()
+    await expect(page.getByText('Enter Lab Confirmation Data', { exact: true })).toBeVisible()
   })
 
   test('rolls back the complete account payment after an allocation failure and deduplicates concurrent retries', async () => {

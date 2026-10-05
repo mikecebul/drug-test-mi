@@ -26,7 +26,7 @@ export function ReportLink({ file, filename = false }: { file: File | null; file
       if (url) URL.revokeObjectURL(url)
     }
   }, [file])
-  return (
+  const reviewButton = (
     <Button
       type="button"
       variant="link"
@@ -34,8 +34,16 @@ export function ReportLink({ file, filename = false }: { file: File | null; file
       nativeButton={!href}
       disabled={!href}
     >
-      {filename ? file?.name || 'Report PDF' : 'Review PDF'}
+      Review PDF
       <ExternalLink data-icon="inline-end" />
     </Button>
+  )
+  return filename ? (
+    <div className="border-border flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+      <span className="text-muted-foreground min-w-0 text-sm break-all">{file?.name || 'Report PDF'}</span>
+      {reviewButton}
+    </div>
+  ) : (
+    reviewButton
   )
 }

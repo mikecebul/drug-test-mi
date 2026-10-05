@@ -1,14 +1,15 @@
-import type { Config, Plugin } from 'payload'
+import { definePlugin, type Config, type Plugin } from 'payload'
 
 export function isSuperAdminUser(user: { collection?: string; role?: string | null } | null | undefined) {
   return user?.collection === 'admins' && user.role === 'superAdmin'
 }
 
 const staffCollections = new Set(['clients', 'courts', 'employers'])
-// These native routes remain available for report, headshot, tracker and booking links.
+// group:false removes native navigation entries without disabling staff document routes.
+// The existing Operations links expose these collections to super admins.
 const staffDocumentRoutes = new Set(['drug-tests', 'private-media', 'payments', 'bookings'])
 
-export const staffNavigation: Plugin = (config: Config) => ({
+const applyStaffNavigation = (config: Config): Config => ({
   ...config,
   collections: config.collections?.map((collection) => {
     if (staffCollections.has(collection.slug))
@@ -39,3 +40,10 @@ export const staffNavigation: Plugin = (config: Config) => ({
     },
   },
 })
+
+// Run after Payload's built-in plugins have added their generated collections.
+export const staffNavigation: Plugin = definePlugin({
+  slug: 'staff-navigation',
+  order: 100,
+  plugin: ({ config }) => applyStaffNavigation(config),
+})()

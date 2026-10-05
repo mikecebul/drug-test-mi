@@ -159,7 +159,7 @@ export const Clients: CollectionConfig = {
     ],
   },
   admin: {
-    defaultColumns: ['headshot', 'lastName', 'email', 'referralType', 'moneyOwed'],
+    defaultColumns: ['fullName', 'headshot', 'email', 'referralType', 'moneyOwed'],
     useAsTitle: 'fullName',
     listSearchableFields: ['email', 'firstName', 'lastName'],
     components: {
@@ -206,6 +206,7 @@ export const Clients: CollectionConfig = {
       type: 'text',
       admin: {
         description: 'Full name (computed from first and last name)',
+        components: { Cell: '@/views/staff/SummaryLinkCell' },
         position: 'sidebar',
         readOnly: true,
       },
@@ -226,6 +227,7 @@ export const Clients: CollectionConfig = {
       relationTo: 'private-media',
       admin: {
         description: 'Client headshot photo for identification during testing',
+        components: { Cell: '@/views/staff/SummaryLinkCell' },
         position: 'sidebar',
       },
       filterOptions: {

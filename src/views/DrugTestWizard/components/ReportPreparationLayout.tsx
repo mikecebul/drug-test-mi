@@ -16,7 +16,6 @@ export function ReportPreparationLayout({
   status,
   isLoading,
   isError = false,
-  instructions,
   generationDetails,
   nextTitle,
   reportComplete,
@@ -26,7 +25,6 @@ export function ReportPreparationLayout({
   status?: GuidedRedwoodProvisioningStatus
   isLoading: boolean
   isError?: boolean
-  instructions: string[]
   generationDetails?: ReactNode
   nextTitle: string
   reportComplete: boolean
@@ -72,16 +70,6 @@ export function ReportPreparationLayout({
               Open ToxAccess
             </Button>
             {generationDetails}
-            <ol className="text-muted-foreground flex flex-col gap-3 text-sm">
-              {instructions.map((instruction, index) => (
-                <li key={instruction} className="flex items-start gap-3">
-                  <span className="bg-muted text-foreground flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium">
-                    {index + 1}
-                  </span>
-                  <span className="pt-0.5">{instruction}</span>
-                </li>
-              ))}
-            </ol>
           </section>
           <section className="border-border flex min-w-0 flex-col gap-4 border-t p-4 min-[600px]:border-t-0 min-[600px]:border-l sm:p-6">
             <h3 className="text-lg font-semibold">{nextTitle}</h3>

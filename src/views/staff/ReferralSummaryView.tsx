@@ -91,21 +91,21 @@ export default async function ReferralSummaryView({
     }),
   )
   return (
-    <ShadcnWrapper className="staff-interface staff-summary mx-auto flex max-w-6xl flex-col gap-6 py-6">
+    <ShadcnWrapper className="staff-interface staff-summary mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6">
       <header className="flex flex-wrap items-center gap-3">
-        <h1 className="text-3xl font-semibold tracking-tight">{referral.name}</h1>
+        <h1 className="min-w-0 text-2xl font-semibold tracking-tight [overflow-wrap:anywhere]">{referral.name}</h1>
         <Badge variant="outline">{slug === 'courts' ? 'Court' : 'Employer'}</Badge>
         <Badge variant={referral.isActive ? 'success' : 'warning'}>{referral.isActive ? 'Active' : 'Inactive'}</Badge>
-        <Button className="ml-auto" render={<Link href={editHref} />} nativeButton={false}>
+        <Button size="sm" variant="outline" className="ml-auto" render={<Link href={editHref} />} nativeButton={false}>
           Edit referral
         </Button>
       </header>
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card size="sm">
           <CardHeader>
             <CardTitle>Preferred test</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="flex flex-col gap-3">
             <p className="font-semibold">
               {referral.preferredTestType ? getTestTypeLabel(referral.preferredTestType) : 'Not configured'}
             </p>
@@ -117,11 +117,11 @@ export default async function ReferralSummaryView({
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card size="sm">
           <CardHeader>
             <CardTitle>Result notification contacts</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="flex flex-col gap-3">
             {referral.contacts?.map((contact) => (
               <div key={contact.id || contact.email}>
                 <p className="text-sm font-medium">{contact.name || 'Recipient'}</p>
@@ -130,12 +130,13 @@ export default async function ReferralSummaryView({
                 </a>
               </div>
             ))}
+            {!referral.contacts?.length && <p className="text-muted-foreground text-sm">No contacts configured.</p>}
             <Link href={editHref} className="text-primary text-sm">
               Edit contacts
             </Link>
           </CardContent>
         </Card>
-        <Card>
+        <Card size="sm">
           <CardHeader>
             <CardTitle>Billing information</CardTitle>
           </CardHeader>
@@ -146,13 +147,13 @@ export default async function ReferralSummaryView({
         </Card>
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <Card>
+        <Card size="sm">
           <CardContent className="flex items-center gap-3 p-4">
             <strong className="text-3xl">{clients.totalDocs}</strong>
             <span>linked clients</span>
           </CardContent>
         </Card>
-        <Card>
+        <Card size="sm">
           <CardContent className="flex items-center gap-3 p-4">
             <strong className="text-3xl">{awaiting.totalDocs}</strong>
             <span>tests awaiting results</span>

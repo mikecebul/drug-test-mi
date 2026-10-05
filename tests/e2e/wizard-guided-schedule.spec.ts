@@ -103,13 +103,11 @@ test.describe("Wizard Today's Schedule", () => {
     const paidLinked = scheduleCard(page, scheduleFixtures.bookings.paidLinked.attendeeName)
     await expect(paidLinked).toBeVisible()
     await expect(paidLinked).toContainText(formatScheduleTime(scheduleFixtures.bookings.paidLinked.startTime))
-    await expect(paidLinked).toContainText('Male')
     await expect(paidLinked).toContainText('Pre-paid')
 
     const unlinked = scheduleCard(page, scheduleFixtures.bookings.unlinked.attendeeName)
     await expect(unlinked).toBeVisible()
     await expect(unlinked).toContainText(formatScheduleTime(scheduleFixtures.bookings.unlinked.startTime))
-    await expect(unlinked).toContainText('Unknown')
     await expect(unlinked).toContainText('Still owes')
     await expect(unlinked).toContainText('Register')
 
@@ -355,7 +353,9 @@ test.describe("Wizard Today's Schedule", () => {
       await expectNoHorizontalOverflow(page)
 
       await openGuidedSchedule(page)
+      await expect(scheduleCardButton(page, scheduleFixtures.bookings.paidLinked.attendeeName)).toBeVisible()
       await expectNoHorizontalOverflow(page)
+      await page.screenshot({ path: test.info().outputPath(`schedule-${viewport.width}.png`), fullPage: true })
     }
   })
 

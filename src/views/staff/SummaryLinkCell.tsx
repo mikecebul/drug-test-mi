@@ -1,14 +1,14 @@
 'use client'
 
-import Link from 'next/link'
-import { useAuth } from '@payloadcms/ui'
+import { DefaultCell } from '@payloadcms/ui'
 import type { DefaultCellComponentProps } from 'payload'
 
-export default function SummaryLinkCell({ cellData, rowData, collectionSlug }: DefaultCellComponentProps) {
-  const { user } = useAuth()
+export default function SummaryLinkCell(props: DefaultCellComponentProps) {
   return (
-    <Link href={`/admin/collections/${collectionSlug}/${rowData.id}${user?.role === 'superAdmin' ? '' : '/summary'}`}>
-      {typeof cellData === 'string' ? cellData : 'View record'}
-    </Link>
+    <DefaultCell
+      {...props}
+      link={props.link ?? true}
+      linkURL={`/admin/collections/${props.collectionSlug}/${props.rowData.id}/summary`}
+    />
   )
 }
