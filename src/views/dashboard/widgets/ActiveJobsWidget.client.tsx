@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import type { ActiveJobStatus } from '@/lib/jobs/activeJobs'
 import { cancelPayloadJobAction } from './cancelPayloadJob'
 
 export type ActiveDashboardJob = {
@@ -14,13 +15,16 @@ export type ActiveDashboardJob = {
   clientId?: string
   createdAt: string
   id: string
-  processing: boolean
+  status: ActiveJobStatus
   queue: string
   requestedByAdminId?: string
   taskLabel: string
   taskSlug: string
   totalTried?: number | null
+  waitUntilLabel?: string
 }
+
+const STATUS_LABELS = { queued: 'Queued', running: 'Running', scheduled: 'Scheduled' } as const
 
 export function ActiveJobsWidgetClient({ canCancel, jobs }: { canCancel: boolean; jobs: ActiveDashboardJob[] }) {
   const router = useRouter()
@@ -60,7 +64,7 @@ export function ActiveJobsWidgetClient({ canCancel, jobs }: { canCancel: boolean
     return (
       <div className="space-y-4">
         <div className="border-border/80 bg-background/60 text-muted-foreground rounded-xl border border-dashed p-4 text-sm">
-          No queued or running jobs right now.
+          No queued, running, or scheduled jobs right now.
         </div>
         <Button type="button" variant="outline" size="sm" onClick={handleRefresh}>
           <RefreshCw className="mr-2 h-4 w-4" />
@@ -85,8 +89,12 @@ export function ActiveJobsWidgetClient({ canCancel, jobs }: { canCancel: boolean
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={job.processing ? 'default' : 'outline'}>
-                    {job.processing ? 'Running' : 'Queued'}
+                  <Badge
+                    variant={
+                      job.status === 'running' ? 'default' : job.status === 'scheduled' ? 'secondary' : 'outline'
+                    }
+                  >
+                    {STATUS_LABELS[job.status]}
                   </Badge>
                   <Badge variant="secondary">{job.queue}</Badge>
                   <p className="text-sm font-semibold">{job.taskLabel}</p>
@@ -98,9 +106,14 @@ export function ActiveJobsWidgetClient({ canCancel, jobs }: { canCancel: boolean
                   {job.requestedByAdminId && <p>Requested by admin: {job.requestedByAdminId}</p>}
                   <div className="flex items-center gap-2">
                     <Clock3 className="h-3.5 w-3.5" />
-                    <span>{job.ageLabel}</span>
+                    <span>Created {job.ageLabel}</span>
                     {typeof job.totalTried === 'number' && job.totalTried > 0 && <span>Attempt {job.totalTried}</span>}
                   </div>
+                  {job.waitUntilLabel && (
+                    <p>
+                      {job.status === 'scheduled' ? 'Scheduled for' : 'Due'} {job.waitUntilLabel}
+                    </p>
+                  )}
                 </div>
               </div>
 
