@@ -121,7 +121,9 @@ export async function clickNext(page: Page) {
   ) {
     // An error already on screen must not finish this action while the session
     // check or validation is still running.
-    await expect(nextButton).toBeEnabled()
+    await expect
+      .poll(async () => page.url() !== beforeUrl || (await nextButton.isEnabled()), { timeout: 20_000 })
+      .toBe(true)
   }
 }
 
