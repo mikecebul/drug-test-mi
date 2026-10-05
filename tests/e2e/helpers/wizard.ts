@@ -58,6 +58,7 @@ export async function expectWizardStep(page: Page, step: string) {
       timeout: 20_000,
     })
     .toBe(step)
+  await expect(page.locator('[data-wizard-ready="true"]')).toHaveAttribute('data-wizard-step', step)
 }
 
 export async function expectValidationError(page: Page, control?: Locator) {
@@ -111,6 +112,16 @@ export async function clickNext(page: Page) {
 
   if (await missingHeadshotDialog.isVisible().catch(() => false)) {
     await missingHeadshotDialog.getByRole('button', { name: 'Continue', exact: true }).click()
+  } else if (
+    page.url() === beforeUrl &&
+    !(await page
+      .getByRole('alertdialog')
+      .isVisible()
+      .catch(() => false))
+  ) {
+    // An error already on screen must not finish this action while the session
+    // check or validation is still running.
+    await expect(nextButton).toBeEnabled()
   }
 }
 
@@ -144,6 +155,7 @@ export async function clickBack(page: Page) {
 export async function uploadSinglePdf(page: Page, filePath: string) {
   const input = page.locator('[data-slot="file-upload"] input[type="file"]').first()
   await expect(input).toBeAttached()
+  await expect(page.locator('[data-wizard-ready="true"]')).toBeVisible({ timeout: 30_000 })
   await input.setInputFiles(filePath)
   await expect(page.getByText(filePath.split('/').pop()!, { exact: true }).first()).toBeVisible()
 }
