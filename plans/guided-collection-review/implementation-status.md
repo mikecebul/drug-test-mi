@@ -1,6 +1,6 @@
 # Approved implementation
 
-Approved October 3, 2026. Implemented on `codex/guided-test-collection-review`, based on `origin/main` at `54f5d58`. Review: [PR #93](https://github.com/mikecebul/drug-test-mi/pull/93).
+Approved October 3, 2026. Implemented on `codex/guided-test-collection-review`, based on `origin/main` at `54f5d58`. The original PR #93 is superseded by the combined [PR #95](https://github.com/mikecebul/drug-test-mi/pull/95), which contains every guided UI commit and its dependent parser/lab UI/tests.
 
 The selected simplified mockups are the implementation reference. Visible client IDs and the completion booking CTA are omitted. Quick Book remains in native navigation and Today. Payload's built-in account/theme controls remain available.
 

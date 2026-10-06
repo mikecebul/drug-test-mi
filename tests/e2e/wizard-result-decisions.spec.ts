@@ -38,11 +38,7 @@ for (const workflow of ['instant', 'lab'] as const) {
       await page.getByRole('checkbox', { name: /^Fentanyl\b/i }).check()
       await selectResultDecision(page, decision)
       await clickNext(page)
-      if (workflow === 'lab') {
-        await expectWizardStep(page, 'confirm')
-        await clickNext(page)
-      }
-      await expectWizardStep(page, workflow === 'instant' ? 'reviewEmails' : 'emails')
+      await expectWizardStep(page, workflow === 'instant' ? 'reviewEmails' : 'review')
       const started = new Date()
       await page.getByTestId('wizard-next-button').click()
       const testId = await extractTestIdFromSuccess(page)

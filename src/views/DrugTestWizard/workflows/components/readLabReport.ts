@@ -7,3 +7,21 @@ export async function readLabReportFile(file: File) {
   if (report.reportFamily !== 'lab') throw new Error('Select a lab report')
   return { buffer, report }
 }
+
+export interface ReportIdentityAcknowledgement {
+  confirmed: boolean
+  key: string | null
+}
+export async function verifyLabReportIdentity(
+  report: import('../../types').ParsedPDFData,
+  client: { firstName?: string | null; lastName?: string | null; middleInitial?: string | null; dob?: string | null },
+  acknowledgement: ReportIdentityAcknowledgement | undefined,
+) {
+  const { getReportClientMatch, getReportClientMismatchKey } = await import('../instant-test/utils/reportClientMatch')
+  const match = getReportClientMatch(report.donorName, client, report.dob)
+  if (
+    match.requiresConfirmation &&
+    (!acknowledgement?.confirmed || acknowledgement.key !== getReportClientMismatchKey(match))
+  )
+    throw new Error('Verify the report belongs to this client before saving')
+}

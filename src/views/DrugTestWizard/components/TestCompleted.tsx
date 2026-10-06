@@ -15,6 +15,8 @@ export const TestCompleted = ({
   client,
   awaitingLab = false,
   deliveryError,
+  progress,
+  title = 'Collection saved',
 }: {
   testId: string
   onBack: () => void
@@ -22,11 +24,13 @@ export const TestCompleted = ({
   client?: ClientDetailsValue
   awaitingLab?: boolean
   deliveryError?: string | null
+  progress?: React.ReactNode
+  title?: string
 }) => {
   const router = useRouter()
   return (
     <>
-      <CollectionProgress phase="Review" completed />
+      {progress ?? <CollectionProgress phase="Review" completed />}
       <div className="flex flex-col gap-6">
         {client && <ClientDetailsCard compact client={client} />}
         <Card>
@@ -34,7 +38,7 @@ export const TestCompleted = ({
             <Alert variant="success">
               <Check />
               <AlertTitle>
-                <h1 className="text-xl font-semibold">Collection saved</h1>
+                <h1 className="text-xl font-semibold">{title}</h1>
               </AlertTitle>
             </Alert>
             {awaitingLab && <p className="text-muted-foreground">Awaiting lab results</p>}

@@ -12,7 +12,10 @@ const mocks = vi.hoisted(() => ({
 }))
 vi.mock('payload', () => ({ getPayload: mocks.getPayload }))
 vi.mock('@payload-config', () => ({ default: {} }))
-vi.mock('../../components/readLabReport', () => ({ readLabReportFile: mocks.readReport }))
+vi.mock('../../components/readLabReport', () => ({
+  readLabReportFile: mocks.readReport,
+  verifyLabReportIdentity: vi.fn(),
+}))
 vi.mock('@/views/DrugTestWizard/actions', () => ({
   updateTestWithScreening: mocks.updateTest,
   computeTestResultPreview: vi.fn(),

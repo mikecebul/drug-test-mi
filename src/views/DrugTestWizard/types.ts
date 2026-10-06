@@ -6,6 +6,7 @@ export const WIZARD_OPTIONS = [
   'collect-lab',
   'instant-test',
   '17-panel-instant',
+  'lab-results',
   'enter-lab-screen',
   'enter-lab-confirmation',
 ] as const
@@ -73,6 +74,7 @@ export interface ParsedPDFData {
   testType?: TestType
   hasConfirmation?: boolean
   hasScreening?: boolean
+  screeningComplete?: boolean
   reportKind?: 'screening' | 'confirmation' | 'screening-and-confirmation' | 'unknown'
   confirmationComplete?: boolean
   confirmationSummarySubstances?: SubstanceValue[]

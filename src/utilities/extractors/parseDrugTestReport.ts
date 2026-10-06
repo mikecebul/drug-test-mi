@@ -71,6 +71,7 @@ export async function parseDrugTestReport(
       `${unknownMethods.length} result row${unknownMethods.length === 1 ? ' has' : 's have'} a missing or unsupported assay method; verify the PDF.`,
     )
     parsed.resultsComplete = false
+    if ('screeningComplete' in parsed) parsed.screeningComplete = false
     parsed.confidenceScore = Math.min(parsed.confidenceScore, 84)
     parsed.confidence = parsed.confidenceScore >= 60 ? 'medium' : 'low'
     if ('hasConfirmation' in parsed && parsed.hasConfirmation) parsed.confirmationComplete = false

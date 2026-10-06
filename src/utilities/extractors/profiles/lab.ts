@@ -47,6 +47,7 @@ export interface ExtractedLabData {
   reportKind: 'screening' | 'confirmation' | 'screening-and-confirmation' | 'unknown'
   dob: string | null
   hasScreening: boolean
+  screeningComplete: boolean
   hasConfirmation: boolean
   confirmationComplete: boolean
   confirmationSummarySubstances: SubstanceValue[]
@@ -467,6 +468,13 @@ export function parseLabReport(
     const missing = [...expected].filter((substance) => !screenData.rows.has(substance))
     const unexpected = [...screenData.rows.keys()].filter((substance) => !expected.has(substance))
     const resultRowCount = screenData.rows.size
+    const screeningComplete =
+      knownPanel &&
+      hasScreening &&
+      missing.length === 0 &&
+      unexpected.length === 0 &&
+      screenData.methodRows.length === screenData.parsedRowCount &&
+      screenData.conflicts.size === 0
     const resultsComplete =
       knownPanel &&
       (hasScreening
@@ -575,6 +583,7 @@ export function parseLabReport(
       reportKind,
       dob,
       hasScreening,
+      screeningComplete,
       hasConfirmation,
       confirmationComplete: confirmationData.complete,
       confirmationSummarySubstances: confirmationData.summarySubstances,

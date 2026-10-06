@@ -46,6 +46,7 @@ export async function openWizard(page: Page) {
 const directWorkflowRoutes: Record<string, { workflow: string; step: string }> = {
   'Register New Client': { workflow: 'register-client', step: 'personalInfo' },
   'Collect Sample for Lab': { workflow: 'collect-lab', step: 'client' },
+  'Lab results': { workflow: 'lab-results', step: 'upload' },
   'Enter Lab Screen Data': { workflow: 'enter-lab-screen', step: 'upload' },
   'Enter Lab Confirmation Data': { workflow: 'enter-lab-confirmation', step: 'upload' },
   'Screen Instant Test': { workflow: 'instant-test', step: 'upload' },
@@ -72,7 +73,9 @@ export async function selectWorkflow(page: Page, title: string) {
   await page.goto(`/admin/drug-test-upload?${new URLSearchParams(route)}`, { waitUntil: 'domcontentloaded' })
   await expect(page.locator('[data-wizard-ready="true"]')).toBeVisible({ timeout: 30_000 })
   await expectWizardStep(page, route.step)
-  await expect(await getNextButton(page)).toBeEnabled({ timeout: 20_000 })
+  if (route.workflow === 'lab-results' || route.workflow.startsWith('enter-lab-'))
+    await expect(await getNextButton(page)).toBeDisabled({ timeout: 20_000 })
+  else await expect(await getNextButton(page)).toBeEnabled({ timeout: 20_000 })
 }
 
 export async function clickNext(page: Page) {
@@ -194,7 +197,8 @@ async function clickNextToStep(page: Page, step: string) {
 
 export async function waitForExtractStepReady(page: Page, options?: { timeoutMs?: number }) {
   await expect(page.getByTestId('parsed-report')).toBeVisible({ timeout: options?.timeoutMs ?? 45_000 })
-  await expect(page.getByTestId('parsed-report')).toHaveAttribute('data-results-complete', 'true')
+  if (new URL(page.url()).searchParams.get('workflow') !== 'lab-results')
+    await expect(page.getByTestId('parsed-report')).toHaveAttribute('data-results-complete', 'true')
 }
 
 async function ensureInstantExtractReady(page: Page) {
@@ -258,16 +262,23 @@ export async function goToEmailsStepFromInstant(page: Page, pdfPath: string, cli
   await clickNextToStep(page, 'reviewEmails')
 }
 
+export async function confirmLabIdentity(page: Page) {
+  await expect(page.getByTestId('lab-client-context')).toBeVisible()
+  const acknowledgement = page.getByTestId('lab-report-identity-confirmation')
+  if (await acknowledgement.isVisible()) await acknowledgement.check()
+}
+
 export async function goToLabScreenData(page: Page, pdfPath: string, testId: string) {
   await uploadSinglePdf(page, pdfPath)
-  await clickNextToStep(page, 'extract')
   await waitForExtractStepReady(page)
-  await clickNextToStep(page, 'matchCollection')
+  await clickNextToStep(page, 'match')
   const candidate = page.getByTestId(`pending-test-${testId}`)
   await candidate.focus()
   await candidate.press('Space')
   await expect(candidate).toHaveAttribute('aria-pressed', 'true')
-  await clickNextToStep(page, 'labScreenData')
+  await confirmLabIdentity(page)
+  await clickNextToStep(page, 'results')
+  await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
 }
 
 export async function extractTestIdFromSuccess(page: Page): Promise<string> {

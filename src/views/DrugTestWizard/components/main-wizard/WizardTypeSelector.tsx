@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ClipboardList, CheckCircle, UserPlus, CalendarCheck } from 'lucide-react'
+import { ClipboardList, UserPlus, CalendarCheck } from 'lucide-react'
 import { cn } from '@/utilities/cn'
 import type { WizardType } from '../../types'
 import { Separator } from '@/components/ui/separator'
@@ -38,22 +38,13 @@ const wizardOptions: WizardOption[] = [
     bgColor: 'bg-purple-50 dark:bg-purple-950/30',
   },
   {
-    id: 'enter-lab-screen',
+    id: 'lab-results',
     icon: ClipboardList,
-    title: 'Enter Lab Screen Data',
-    description: 'Enter results for an 11-panel, 11-panel no EtG, 17-panel, or EtG screen',
-    color: 'text-indigo-600',
-    borderColor: 'border-indigo-300 dark:border-indigo-700',
-    bgColor: 'bg-indigo-50 dark:bg-indigo-950/30',
-  },
-  {
-    id: 'enter-lab-confirmation',
-    icon: CheckCircle,
-    title: 'Enter Lab Confirmation Data',
-    description: 'Enter confirmation results for 11-panel, 11-panel no EtG, 17-panel, or EtG lab',
-    color: 'text-orange-600',
-    borderColor: 'border-orange-300 dark:border-orange-700',
-    bgColor: 'bg-orange-50 dark:bg-orange-950/30',
+    title: 'Lab results',
+    description: 'Upload a screening, confirmation, or combined lab report',
+    color: 'text-primary',
+    borderColor: 'border-border',
+    bgColor: 'bg-muted',
   },
 ]
 
@@ -72,6 +63,7 @@ export function WizardTypeSelector({ onSelect }: WizardTypeSelectorProps) {
         key={option.id}
         type="button"
         aria-label={option.title}
+        data-testid={`workflow-option-${option.id}`}
         className="focus-visible:ring-ring w-full rounded-lg text-left focus-visible:ring-2 focus-visible:outline-none"
         onClick={() => onSelect(option.id)}
       >
@@ -107,10 +99,7 @@ export function WizardTypeSelector({ onSelect }: WizardTypeSelectorProps) {
       {/* Group 3: Administrative / Data Entry */}
       <div className="space-y-3">
         <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Data Entry & Results</h3>
-        <div className="grid gap-4">
-          {renderOption('enter-lab-screen')}
-          {renderOption('enter-lab-confirmation')}
-        </div>
+        <div className="grid gap-4">{renderOption('lab-results')}</div>
       </div>
     </div>
   )

@@ -24,6 +24,7 @@ export function CollectionResultStrip({
   breathalyzerResult,
   action,
   finalPending = false,
+  presentation,
 }: {
   preview?: CollectionResultPreview | null
   detected?: string[]
@@ -34,9 +35,13 @@ export function CollectionResultStrip({
   breathalyzerResult?: number | null
   action?: ReactNode
   finalPending?: boolean
+  presentation?: ReturnType<typeof getResultPresentation>
 }) {
-  const status = getResultPresentation(preview?.initialScreenResult, error ? 'error' : isLoading ? 'loading' : 'ready')
   const ready = !error && !isLoading && Boolean(preview)
+  const status =
+    ready && presentation
+      ? presentation
+      : getResultPresentation(preview?.initialScreenResult, error ? 'error' : isLoading ? 'loading' : 'ready')
   const expected = [...new Set([...(preview?.expectedPositives ?? []), ...(preview?.unexpectedNegatives ?? [])])]
   const substances = (values: string[]) =>
     values.length ? values.map((value) => formatSubstance(value)).join(', ') : 'None'

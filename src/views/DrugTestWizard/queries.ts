@@ -38,6 +38,7 @@ const WIZARD_QUERY_ROOTS = [
   'test-result-preview',
   'medications',
   'extract-pdf',
+  'lab-entry-collections',
 ] as const
 
 export function clearWizardQueryCache(queryClient: QueryClient) {

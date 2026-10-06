@@ -6,14 +6,13 @@ import { loginAdmin } from './helpers/auth'
 import { ensureMailpitReachable, findMailpitMessages } from './helpers/mailpit'
 import { seedFixtures, type FixtureContext } from './helpers/seed'
 import {
+  confirmLabIdentity,
   clickBack,
   clickNext,
   extractTestIdFromSuccess,
   openWizard,
   selectWorkflow,
-  triggerNextValidation,
   expectWizardStep,
-  expectValidationError,
   uploadSinglePdf,
   waitForExtractStepReady,
 } from './helpers/wizard'
@@ -24,6 +23,7 @@ async function ensureMatchSelected(page: Page) {
   const candidate = page.getByTestId(`pending-test-${fixtures.tests.labConfirmPendingTestId}`)
   await candidate.click()
   await expect(candidate).toHaveAttribute('aria-pressed', 'true')
+  await confirmLabIdentity(page)
 }
 
 test.describe('Wizard Lab Confirmation Workflow', () => {
@@ -52,28 +52,26 @@ test.describe('Wizard Lab Confirmation Workflow', () => {
   }) => {
     const env = getE2EEnv({ pdfs: ['labScreen'] })
 
-    await clickNext(page)
-    await expectValidationError(page)
+    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
     await expectWizardStep(page, 'upload')
 
     // Use the lab-screen PDF to force empty confirmation results in this workflow.
     await uploadSinglePdf(page, env.pdfLabScreenPath)
-    await clickNext(page)
     await waitForExtractStepReady(page)
     await clickNext(page)
 
     await ensureMatchSelected(page)
     await clickNext(page)
 
-    await expectWizardStep(page, 'labConfirmationData')
-    await triggerNextValidation(page)
-    await expectValidationError(page)
-    await expectWizardStep(page, 'labConfirmationData')
+    await expectWizardStep(page, 'results')
+    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
+    await expect(page.getByTestId('confirmation-row-0')).toBeVisible()
+    await expectWizardStep(page, 'results')
 
     await clickBack(page)
-    await expectWizardStep(page, 'matchCollection')
+    await expectWizardStep(page, 'match')
     await clickNext(page)
-    await expectWizardStep(page, 'labConfirmationData')
+    await expectWizardStep(page, 'results')
   })
 
   test(
@@ -83,17 +81,14 @@ test.describe('Wizard Lab Confirmation Workflow', () => {
       const env = getE2EEnv({ pdfs: ['labConfirm'] })
 
       await uploadSinglePdf(page, env.pdfLabConfirmPath)
-      await clickNext(page)
       await waitForExtractStepReady(page)
       await clickNext(page)
       await ensureMatchSelected(page)
       await clickNext(page)
 
-      await expectWizardStep(page, 'labConfirmationData')
+      await expectWizardStep(page, 'results')
       await clickNext(page)
-      await clickNext(page)
-
-      await expectWizardStep(page, 'emails')
+      await expectWizardStep(page, 'review')
 
       const testStart = new Date()
       await page.getByTestId('wizard-next-button').click()

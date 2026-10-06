@@ -323,8 +323,10 @@ test.describe('Standard staff views and account payments', () => {
     await expect(page.getByText('Complete Scheduled Collection', { exact: true })).toBeVisible()
     await expect(page.getByText('Screen Instant Test', { exact: true })).toHaveCount(0)
     await expect(page.getByText('Collect Sample for Lab', { exact: true })).toHaveCount(0)
-    await expect(page.getByText('Enter Lab Screen Data', { exact: true })).toBeVisible()
-    await expect(page.getByText('Enter Lab Confirmation Data', { exact: true })).toBeVisible()
+    await expect(page.getByTestId('workflow-option-lab-results')).toHaveCount(1)
+    await expect(page.getByTestId('workflow-option-lab-results')).toBeVisible()
+    await expect(page.getByTestId('workflow-option-enter-lab-screen')).toHaveCount(0)
+    await expect(page.getByTestId('workflow-option-enter-lab-confirmation')).toHaveCount(0)
   })
 
   test('rolls back the complete account payment after an allocation failure and deduplicates concurrent retries', async () => {

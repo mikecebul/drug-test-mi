@@ -60,7 +60,7 @@ export async function extractPdfData(
     const buffer = Buffer.from(await file.arrayBuffer())
 
     const expectedFamily =
-      wizardType === 'enter-lab-confirmation' || wizardType === 'enter-lab-screen'
+      wizardType === 'lab-results' || wizardType === 'enter-lab-confirmation' || wizardType === 'enter-lab-screen'
         ? 'lab'
         : wizardType === 'instant-test' || wizardType === '17-panel-instant'
           ? 'instant'

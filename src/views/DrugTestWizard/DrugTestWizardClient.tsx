@@ -5,8 +5,7 @@ import { parseAsStringLiteral, parseAsString, useQueryStates } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
 import { WizardTypeSelector } from './components/main-wizard/WizardTypeSelector'
 import { WizardTypeSelectorSkeleton } from './components/main-wizard/WizardTypeSelectorSkeleton'
-import { LabScreenWorkflow } from './workflows/lab-screen/Workflow'
-import { LabConfirmationWorkflow } from './workflows/lab-confirmation/Workflow'
+import { LabResultsWorkflow } from './workflows/lab-results/Workflow'
 import { InstantTestWorkflow } from './workflows/instant-test/Workflow'
 import type { WizardType } from './types'
 import { WizardHeader } from './components/main-wizard/WizardHeader'
@@ -25,6 +24,7 @@ const workflowTypes = [
   'complete-workflow',
   'register-client',
   'collect-lab',
+  'lab-results',
   'enter-lab-screen',
   'enter-lab-confirmation',
   'instant-test',
@@ -58,6 +58,7 @@ export function DrugTestWizardClient() {
     'collect-lab': collectLabSteps[0],
     'instant-test': instantTestSteps[0],
     '17-panel-instant': instantTestSteps[0],
+    'lab-results': 'upload',
     'enter-lab-screen': labScreenSteps[0],
     'enter-lab-confirmation': labConfirmationSteps[0],
   }
@@ -123,12 +124,19 @@ export function DrugTestWizardClient() {
     return <CollectLabWorkflow onBack={handleBack} />
   }
 
-  if (workflow === 'enter-lab-screen') {
-    return <LabScreenWorkflow onBack={handleBack} />
-  }
-
-  if (workflow === 'enter-lab-confirmation') {
-    return <LabConfirmationWorkflow onBack={handleBack} />
+  if (workflow === 'lab-results' || workflow === 'enter-lab-screen' || workflow === 'enter-lab-confirmation') {
+    return (
+      <LabResultsWorkflow
+        onBack={handleBack}
+        legacyMode={
+          workflow === 'enter-lab-screen'
+            ? 'screening'
+            : workflow === 'enter-lab-confirmation'
+              ? 'confirmation'
+              : undefined
+        }
+      />
+    )
   }
 
   if (workflow === 'instant-test' || workflow === '17-panel-instant') {

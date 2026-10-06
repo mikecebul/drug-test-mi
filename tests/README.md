@@ -35,8 +35,8 @@ full suite below.
 | Guided lab collection         | Manual report-created gate, Back/Reset behavior, unpaid continuation, completed collection and booking/payment linkage                                                                                                                                        |
 | Standalone instant collection | PDF upload, validation, client-registration detour, Back/refresh behavior, result decisions, saved test and report email attachments                                                                                                                          |
 | Standalone lab collection     | Client/date/breathalyzer validation, editing and headshot cropping, saved collection and recipient delivery                                                                                                                                                   |
-| Lab screening                 | Matching a pending collection, missing-decision/empty-confirmation validation, retained edits, saved results and report attachments                                                                                                                           |
-| Lab confirmation              | Matching a pending test, required confirmation results, saved analytes, preserved unpaid balance and report attachments                                                                                                                                       |
+| Lab screening                 | Single Lab results entry, Upload → Match → Results → Review, screening/combined detection, decision validation, retained edits, saved results and report attachments                                                                                          |
+| Lab confirmation              | Confirmation/combined detection, pending collection matching, required results and analyte review, historical screen/medications, preserved unpaid balance and report attachments                                                                             |
 | Result decisions              | Persisting accept/request-confirmation/pending-decision for unexpected positives in both instant and lab flows                                                                                                                                                |
 | Staff/account payments        | Default client Summary, test-history routes, staff editing without deletion, hidden staff API Keys, full super-admin navigation, guided chooser, per-test self-pay and unpaid continuation, real-database concurrency/rollback, and payment response recovery |
 
@@ -76,7 +76,7 @@ because it did not appear. Seed the data needed to force that branch. Re-run new
 critical regressions with `--repeat-each=5` before considering them stable. The local
 critical command repeats registration validation, guided completion, schedule navigation, Quick Book,
 medication validation in Chromium and WebKit, instant/lab decision validation, and account-payment recovery
-five times without retries (75 executions). Failure traces include the first attempt.
-Five additional local critical cases cover lab report replacement, unresolved confirmation validation, request preservation, correction of initial combined reports, confirmation-only display and failed-extraction readiness.
+five times without retries (95 executions). Failure traces include the first attempt.
+Nine additional local critical cases cover automatic screen/confirmation/combined routing, historical medication/screen preservation, lab report replacement, unresolved confirmation validation, request preservation, correction of initial combined reports, confirmation-only display and failed-extraction readiness.
 CI smoke has no retries, and `failOnFlakyTests` remains enabled for other explicitly
 requested CI runs, so retry success cannot hide an intermittent regression.

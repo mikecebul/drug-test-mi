@@ -7,7 +7,11 @@ import { computeTestResultPreview } from '@/views/DrugTestWizard/actions'
 import { fetchDocument, sendEmails } from '@/collections/DrugTests/services'
 import { createAdminAlert } from '@/lib/admin-alerts'
 import { labScreenDataSchema, type FormValues } from '../validators'
-import { readLabReportFile } from '../../components/readLabReport'
+import {
+  readLabReportFile,
+  verifyLabReportIdentity,
+  type ReportIdentityAcknowledgement,
+} from '../../components/readLabReport'
 import { reconcileConfirmationSubmission, storedConfirmationRows } from '../../components/confirmation-review'
 import type { ExtractedPdfData } from '@/views/DrugTestWizard/queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
@@ -18,6 +22,7 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
 export async function updateLabScreenWithEmailReview(
   formValues: FormValues,
   _extractedData: ExtractedPdfData | undefined,
+  acknowledgement?: ReportIdentityAcknowledgement,
 ): Promise<{ success: boolean; testId?: string; error?: string }> {
   const payload = await getPayload({ config })
 
@@ -59,6 +64,7 @@ export async function updateLabScreenWithEmailReview(
       if (!input.success)
         return { success: false, error: 'Review the screening and confirmation results before saving' }
       const file = await readLabReportFile(formValues.upload.file)
+      await verifyLabReportIdentity(file.report, existingClient, acknowledgement)
       if (file.report.reportKind === 'confirmation')
         return {
           success: false,
