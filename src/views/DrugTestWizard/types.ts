@@ -49,6 +49,12 @@ export interface SimpleClient {
 }
 
 export interface ParsedPDFData {
+  reportFamily?: 'instant' | 'lab'
+  parserVersion?: 'pdfjs-regions-v2'
+  requiresReview?: boolean
+  reviewReasons?: string[]
+  specimenValidityStatus?: import('@/utilities/extractors/reportValidity').SpecimenValidityStatus
+  screeningRows?: import('@/utilities/extractors/profiles/instant').InstantScreeningRow[]
   donorName: string | null
   collectionDate: string | null // ISO string with timezone offset (or UTC Z)
   dob?: string | null // Date of birth in MM/DD/YYYY format when present on instant reports

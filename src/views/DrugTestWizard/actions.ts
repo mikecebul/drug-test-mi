@@ -2,8 +2,7 @@
 
 import { getPayload } from 'payload'
 import config from '@payload-config'
-import { extract15PanelInstant } from '@/utilities/extractors/extract15PanelInstant'
-import { extractLabTest } from '@/utilities/extractors/extractLabTest'
+import { MAX_REPORT_BYTES, parseDrugTestReport } from '@/utilities/extractors/parseDrugTestReport'
 import type { ParsedPDFData, ClientMatch, WizardType } from './types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { computeTestResults, computeFinalStatus, fetchDocument, sendEmails } from '@/collections/DrugTests/services'
@@ -42,7 +41,7 @@ export async function extractPdfData(
   }
 
   // Validate file size BEFORE attempting extraction (10MB limit)
-  const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB in bytes
+  const MAX_FILE_SIZE = MAX_REPORT_BYTES
   if (file.size > MAX_FILE_SIZE) {
     payload.logger.error({
       msg: 'PDF file too large',
@@ -59,20 +58,13 @@ export async function extractPdfData(
   try {
     const buffer = Buffer.from(await file.arrayBuffer())
 
-    // Route to the appropriate parser based on test type
-    let extracted: ParsedPDFData
-
-    switch (wizardType) {
-      case 'enter-lab-confirmation':
-      case 'enter-lab-screen':
-        extracted = await extractLabTest(buffer)
-        break
-      case 'instant-test':
-      case '17-panel-instant':
-      default:
-        extracted = await extract15PanelInstant(buffer)
-        break
-    }
+    const expectedFamily =
+      wizardType === 'enter-lab-confirmation' || wizardType === 'enter-lab-screen'
+        ? 'lab'
+        : wizardType === 'instant-test' || wizardType === '17-panel-instant'
+          ? 'instant'
+          : undefined
+    const extracted = await parseDrugTestReport(buffer, expectedFamily)
 
     return { success: true, data: extracted }
   } catch (error) {

@@ -103,10 +103,22 @@ lab(`${fixtures}/11-panel-lab-no-etg/screening.pdf`, {
   substances: labSubstances.map((s) => (s === 'EtG' ? 'Alcohol (Ethanol)' : s)),
   positives: ['Alcohol (Ethanol)'],
 })
-lab(`${fixtures}/8-panel-lab/screening.pdf`, { code: 'B814 - Urine 8 Panel', substances: labSubstances.slice(0, 7) })
+lab(`${fixtures}/8-panel-lab/screening.pdf`, {
+  code: 'B814 - Urine 8 Panel',
+  substances: ['Amphetamines 500', 'Benzodiazepines', 'Buprenorphine', 'Cocaine', 'Fentanyl', 'MDMA', 'Opiates'],
+})
 lab(`${fixtures}/17-panel-sos-lab/screening.pdf`, {
   code: 'B306 - Urine 17 Panel',
-  substances: [...labSubstances, 'MDMA', 'Barbiturates', 'PCP', 'Oxycodone'],
+  substances: [
+    'Alcohol (Ethanol)',
+    ...labSubstances.filter((name) => !['EtG', 'Fentanyl', 'Mitragynine'].includes(name)),
+    'MDMA',
+    'Barbiturates',
+    'PCP',
+    'Oxycodone',
+    'Propoxyphene',
+    'Tricyclic Antidepressants',
+  ],
   positives: ['MDMA', 'Barbiturates', 'PCP'],
 })
 lab(`${fixtures}/etg-lab/screening.pdf`, {
@@ -159,6 +171,10 @@ function instant(path, { substances = instantSubstances, positives = ['Buprenorp
 }
 instant(`${fixtures}/15-panel-instant/screening.pdf`)
 instant(`${fixtures}/17-panel-instant/multi-positive.pdf`, {
-  substances: [...instantSubstances, 'Kratom', 'PCP'],
+  substances: [
+    ...instantSubstances.map((name) => (name === 'Opiates' ? 'Morphine' : name === '6-MAM' ? 'Barbiturates' : name)),
+    'Kratom',
+    'PCP',
+  ],
   positives: ['THC', 'EtG'],
 })

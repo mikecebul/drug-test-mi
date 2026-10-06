@@ -1,8 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { extract15PanelInstant } from '../src/utilities/extractors/extract15PanelInstant'
-import { extractLabTest } from '../src/utilities/extractors/extractLabTest'
-import { extractPositionedPdfText } from '../src/utilities/extractors/pdfText'
+import { parseDrugTestReport } from '../src/utilities/extractors/parseDrugTestReport'
 
 type Confidence = 'high' | 'medium' | 'low'
 
@@ -15,6 +13,7 @@ type AuditSummary = {
   incomplete: number
   warnings: number
   confirmations: number
+  manualReview: number
   confidence: Record<Confidence, number>
   incompletePatterns: Record<string, number>
 }
@@ -51,6 +50,7 @@ async function main() {
     incomplete: 0,
     warnings: 0,
     confirmations: 0,
+    manualReview: 0,
     confidence: { high: 0, medium: 0, low: 0 },
     incompletePatterns: {},
   }
@@ -58,38 +58,20 @@ async function main() {
   for (const file of files) {
     try {
       const buffer = await fs.readFile(file)
-      const positioned = await extractPositionedPdfText(buffer)
-      const isInstant = positioned.lines.some((line) => line.items.some((item) => /^CIA$/i.test(item.text)))
-      const isLab = positioned.lines.some((line) =>
-        line.items.some((item) => /^(?:EIA|LC\s*\/\s*MS\s*\/\s*MS)$/i.test(item.text)),
-      )
-
-      if (isInstant) {
-        const result = await extract15PanelInstant(buffer)
-        summary.instant += 1
-        summary.incomplete += result.resultsComplete ? 0 : 1
-        if (!result.resultsComplete) {
-          const key = `${result.testType}:${result.resultRowCount}`
-          summary.incompletePatterns[key] = (summary.incompletePatterns[key] ?? 0) + 1
-        }
-        summary.warnings += result.parseWarnings.length
-        incrementConfidence(summary, result.confidence)
-      } else if (isLab) {
-        const result = await extractLabTest(buffer)
-        summary.lab += 1
-        summary.incomplete += result.resultsComplete ? 0 : 1
-        if (!result.resultsComplete) {
-          const key = `${result.testType}:${result.resultRowCount}`
-          summary.incompletePatterns[key] = (summary.incompletePatterns[key] ?? 0) + 1
-        }
-        summary.warnings += result.parseWarnings.length
-        summary.confirmations += result.hasConfirmation ? 1 : 0
-        incrementConfidence(summary, result.confidence)
-      } else {
-        summary.unsupported += 1
+      const result = await parseDrugTestReport(buffer)
+      summary[result.reportFamily] += 1
+      summary.incomplete += result.resultsComplete ? 0 : 1
+      summary.manualReview += result.requiresReview ? 1 : 0
+      if (!result.resultsComplete) {
+        const key = `${result.testType}:${result.resultRowCount}`
+        summary.incompletePatterns[key] = (summary.incompletePatterns[key] ?? 0) + 1
       }
-    } catch {
-      summary.failures += 1
+      summary.warnings += result.parseWarnings.length
+      summary.confirmations += result.reportFamily === 'lab' && result.hasConfirmation ? 1 : 0
+      incrementConfidence(summary, result.confidence)
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('Unsupported PDF:')) summary.unsupported += 1
+      else summary.failures += 1
     }
   }
 

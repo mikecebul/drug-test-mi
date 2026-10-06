@@ -416,6 +416,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       >
         {(group) => (
           <>
+            {name === 'extract' && <form.Field name="extract.extracted">{() => null}</form.Field>}
             <div className="wizard-content mb-8 flex-1">{typeof content === 'function' ? content(group) : content}</div>
             <InstantTestNavigation form={form} group={group} onBack={handleBack} />
           </>

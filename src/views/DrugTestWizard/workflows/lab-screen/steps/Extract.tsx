@@ -22,8 +22,8 @@ export const ExtractStep = withForm({
 
     // Auto-sync extracted data to form when available
     useEffect(() => {
-      if (extractedData) {
-        form.setFieldValue('extract.extracted', true)
+      form.setFieldValue('extract.extracted', Boolean(extractedData) && !error)
+      if (extractedData && !error) {
         // Pre-populate labScreenData with extracted values
         if (extractedData.collectionDate) {
           form.setFieldValue('labScreenData.collectionDate', extractedData.collectionDate)
@@ -38,7 +38,7 @@ export const ExtractStep = withForm({
           form.setFieldValue('labScreenData.testType', extractedData.testType)
         }
       }
-    }, [extractedData, form])
+    }, [extractedData, error, form])
 
     // Loading state
     if (isLoading) {

@@ -117,6 +117,7 @@ export function LabScreenWorkflow({ onBack }: LabScreenWorkflowProps) {
       >
         {(group) => (
           <>
+            {name === 'extract' && <form.Field name="extract.extracted">{() => null}</form.Field>}
             <div className="wizard-content mb-8 flex-1">{typeof content === 'function' ? content(group) : content}</div>
             <LabScreenNavigation form={form} group={group} onBack={onBack} />
           </>

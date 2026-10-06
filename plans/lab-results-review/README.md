@@ -23,6 +23,8 @@ The mockups use fictional client details. Generated with the built-in image tool
 
 ## Implemented parser changes
 
+Subsequent work consolidated **instant and lab reports** behind `parseDrugTestReport`, with one PDF.js read, one shared table-region engine, and explicit parse-review metadata. Compatibility function names forward to that same pipeline. The application and audit use the unified API. See [the current parser contract](../../docs/pdf-report-parsing.md) for the format profiles, completeness checks and future automation requirements. The proposed lab UI remains unchanged.
+
 The code already loaded PDF.js directly, with the worker and Node geometry support needed by deployment. Those runtime imports are retained. The rebuild replaces fixed item-order interpretation with regions anchored to the PDF's own Method, Cutoff and Result headers. Screening and confirmation column groups are independent; table movement, split cells and repeated page headings do not change field ownership. A bounded fallback retains supported older reports without headings.
 
 The parser returns `reportKind`, DOB, separate screening/confirmation presence, confirmation completeness, and detailed analytes with cutoff, measured quantity, laboratory result and source page/bounds. It preserves the existing grouped confirmation results consumed by the current forms. Quantities shown in Summary are matched to an individual analyte; normalized creatinine ratios are excluded. Positive screening data stays separate from confirmation outcomes.
@@ -35,7 +37,7 @@ The current screening save actions reject incomplete confirmation and confirmati
 
 Regression tests exercise PDF.js with fictional in-memory PDFs drawn out of order, variable table locations, dual columns, split cells, repeated headers, summary-only concentrations, duplicates, malformed values, multiple clients/collections, every existing supported panel, and the no-write confirmation safeguard.
 
-Local verification: 932 tests across 133 files passed; TypeScript passed. Scoped ESLint has no errors and four existing `any` warnings in the screening actions. The private-report audit found six readable reports (three lab, one with confirmation, and three instant), with no incomplete extractions or warnings. The existing eight-case CI smoke suite remains unchanged; CI status is recorded in the PR separately.
+Latest local verification: 975 tests across 135 files passed; TypeScript passed. Scoped ESLint has no errors; existing `any` warnings remain in action files. The unified private-report audit found six readable reports (three lab, one with confirmation, and three instant), with no incomplete extractions, warnings or manual-review flags. The existing eight-case CI smoke suite remains unchanged; CI status is recorded in the PR separately.
 
 Local private-report auditing emits aggregate counts only. The available examples include three lab reports, one with confirmation, and three instant reports; production PDFs and identifying data are not copied into this branch. Broader real confirmation examples are still useful to validate additional vendor layouts. This is text-based extraction, not OCR: image-only or unfamiliar reports require review.
 

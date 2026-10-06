@@ -117,6 +117,7 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
       >
         {(group) => (
           <>
+            {name === 'extract' && <form.Field name="extract.extracted">{() => null}</form.Field>}
             <div className="wizard-content mb-8 flex-1">{content}</div>
             <LabConfirmationNavigation form={form} group={group} onBack={onBack} />
           </>

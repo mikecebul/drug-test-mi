@@ -1,90 +1,75 @@
 # PDF report parsing
 
-Drug-test reports are parsed on the server with PDF.js directly. The implementation imports `pdfjs-dist/legacy/build/pdf.mjs`; `pdf-parse` is intentionally not used.
+All report parsing uses **PDF.js directly**, through one application entry point:
 
-## Why coordinates matter
+```ts
+const report = await parseDrugTestReport(pdfBuffer)
+```
 
-Flattened PDF text does not preserve table relationships. On Redwood reports, a screen row and an LC-MS/MS row may contain the same substance while their results live in different columns. Additional positive analytes also insert rows and move every later result vertically. Matching a substance against the next occurrence of `Positive` or `Negative` in flattened text can therefore associate it with another row or with the report glossary.
+An optional expected family rejects files uploaded to the wrong workflow:
 
-`pdfText.ts` retains each text item's page, x/y origin, width, and height. Items with the same page and baseline are reconstructed into a row and ordered by x-coordinate. The report parsers then use stable column anchors:
+```ts
+const report = await parseDrugTestReport(pdfBuffer, 'instant')
+```
 
-- Instant reports: the `CIA` method cell anchors a row; the result is the status cell to its left and the substance is the leftmost cell.
-- Lab screens: the `EIA` method cell anchors most rows, while B829 Alcohol (Ethanol) uses `EA`; the next cell is the cutoff and the following cell is the screen result.
-- Specimen validity: the `Colorimetric` method cell anchors the creatinine row; the next cell is the reference range and the following cell is the measured result.
-- Lab confirmations: an exact `LC/MS/MS` method cell anchors a row; the next cell is the cutoff and the following cell is the confirmation result.
+The application and private-report audit use this same API. `extract15PanelInstant` and `extractLabTest` remain compatibility adapters that delegate to it. They do not read PDFs independently. No `pdf-parse`, `pdf-ts`, `pdf2json`, or `unpdf` dependency/import is present in the application or lockfile.
 
-Requiring a complete same-row structure prevents footer definitions such as “LC-MS/MS - Liquid Chromatography Tandem Mass Spectrometry” from being treated as test results.
+## One pipeline
 
-## Confirmation aggregation
+1. `pdfText.ts` loads `pdfjs-dist/legacy/build/pdf.mjs` once per process and reads each document once. It keeps text and page/x/y/width/height coordinates, and destroys the PDF loading task after extraction. The existing Node geometry polyfills and static fake-worker import remain necessary for production tracing.
+2. `reportLayout.ts` is the shared table-region engine. It finds Drug/Substance, Result, Method and Cutoff/Reference Range headings, supports different column order and separate screening/confirmation column groups, and reconstructs split/wrapped cells. Repeated headers and shifted tables are handled by their own coordinates. Disclaimers and glossaries are excluded from known table regions.
+3. The instant and lab format profiles interpret those same rows. Their assay rules differ: CIA screens report qualitative results; lab LC-MS/MS confirmations can include measurements and cutoffs. This is format-specific interpretation within one parsing pipeline.
+4. The parser returns the interpreted data and explicit review reasons. It rejects mixed report families, conflicting client/collection identities and ambiguous panel profiles rather than defaulting to an instant test.
 
-A requested substance can produce several LC-MS/MS analyte rows. Fentanyl, for example, may have rows for fentanyl, norfentanyl, and analogs. Rows are mapped to the parent substance and aggregated using this precedence:
+Supported headerless reports use a bounded inference path in the same region engine. They remain available for human review and are marked as requiring review for automated processing.
 
-1. Any confirmed-positive analyte makes the parent confirmed positive.
-2. Otherwise, any inconclusive analyte makes the parent inconclusive.
-3. Otherwise, parsed analytes are confirmed negative.
+## Dependable result checks
 
-Metabolite labels such as THC-COOH and Mitragynine are mapped to the application's `thc` and `kratom` values.
+Completeness requires every expected substance in the configured panel. Having 15 or 17 rows is insufficient if a row is duplicated or a different substance replaced a required one. Unknown results, unsupported methods and conflicting positives/negatives remain flagged; a later negative duplicate cannot erase a positive.
 
-## Confidence
+Instant results retain individual rows with substance, laboratory result, method, cutoff text and source page/bounds. Lab confirmations retain individual analytes, numeric comparisons, printed cutoff, measured value and source bounds, plus the grouped substance results used by existing forms. Summary concentrations are matched to their individual analyte. Calculated creatinine ratios are not drug concentrations or assay results.
 
-Confidence is evidence-based rather than “name and date were found.” The score includes:
+Numeric confirmation is interpreted only with a usable printed cutoff and compatible units. `<5 ng/mL` against a 5 ng/mL cutoff is below cutoff; `<100 ng/mL` against that cutoff is ambiguous. Unknown extraction is distinct from an actual inconclusive laboratory result.
 
-- Test type identification: 10 points
-- Donor name anchored to its report label: 25 points
-- Collection timestamp anchored to its report label: 25 points
-- Expected screening rows reconstructed from method/result columns: 30-35 points
-- Creatinine specimen-validity row reconstructed from method/result columns: 10 points for lab reports
-- Confirmation analyte rows reconstructed from method/result columns: 5 points for lab reports
-- Instant DOB and sex anchors: 5 points
+Identity fields are read from label regions, including split labels/names and neighboring columns. Collection timestamps must come from Collected, not the first date anywhere in the PDF. Calendar errors, nonexistent or ambiguous Eastern-time timestamps, and conflicting identities require correction/review. Dates are date-only when used as DOB.
 
-Scores of 85 or more are high, 60-84 are medium, and lower scores are low. A complete lab screen with anchored identity fields and its creatinine result reaches 100. Missing result rows are capped below high confidence, generate a visible manual-review warning, and prevent the UI from displaying “All Negative.”
+Specimen validity uses shared rules. `specimenValidityStatus` explicitly distinguishes `dilute`, `not-dilute`, `unreported` and `unverified`. Statements in disclaimers are ignored. Ambiguous creatinine bounds and conflicting validity statements require review. The legacy `isDilute` boolean remains for current manual forms; **an automated importer must not use its default false to overwrite existing validity when the status is unreported or unverified**.
 
-Label-anchored identity fields receive more weight than compatibility fallbacks. Any LC-MS/MS row with an unmapped analyte or unrecognized result prevents a high-confidence confirmation parse.
+## Preparing for automation
 
-A report summary that says “Confirmed Positive” while yielding no confirmation row forces low confidence and a manual-review warning.
+The response includes:
 
-## Regression matrix
+```ts
+{
+  parserVersion: 'pdfjs-regions-v2',
+  reportFamily: 'instant' | 'lab',
+  requiresReview: boolean,
+  reviewReasons: string[],
+  resultsComplete: boolean,
+  // identity, panel, screening/confirmation data and source coordinates
+}
+```
 
-Synthetic or explicitly sanitized PDFs may be committed. Production reports must remain outside the repository. The automated matrix uses required committed fixtures, so every case runs in CI:
+`assertReportParsedWithoutReview(report)` rejects incomplete, ambiguous, unanchored or inferred reads. Review reasons are machine-readable, rather than requiring a caller to interpret UI wording or a confidence percentage. Confidence is an evidence score, not a calibrated probability, and cannot authorize an import by itself.
 
-| Fixture | Required case |
-| --- | --- |
-| `15-panel-instant/screening.pdf` | 15-panel instant screen with anchored DOB/sex |
-| `17-panel-instant/all-neg.pdf` | 17-panel all-negative screen |
-| `17-panel-instant/pos-kratom-morphine.pdf` | Kratom/morphine name mapping |
-| `17-panel-instant/multi-positive.pdf` | Instant report positive for THC and EtG |
-| `11-panel-lab/screening.pdf` | Complete 11-panel lab screen with creatinine |
-| `11-panel-lab/multi-positive.pdf` | Lab screen positive for THC and EtG |
-| `11-panel-lab/confirmed-positive.pdf` | LC-MS/MS confirmed-positive THC metabolite |
-| `11-panel-lab/confirmation.pdf` | Multiple negative fentanyl analytes aggregated to confirmed negative |
-| `11-panel-lab/inconclusive.pdf` | Insufficient specimen confirmation |
-| `11-panel-lab/incomplete.pdf` | Missing screening row requires manual review |
-| `11-panel-lab/dilute.pdf` | Dilute creatinine measurement |
-| `11-panel-lab-no-etg/screening.pdf` | B829 ethanol EA panel |
-| `8-panel-lab/screening.pdf` | B814 8-panel lab screen |
-| `17-panel-sos-lab/screening.pdf` | B306 17-panel SOS screen |
-| `etg-lab/screening.pdf` | 049 EtG-only screen |
+This is a parse-quality gate, not an automatic upload or publication workflow. A future importer must parse the actual bytes server-side, uniquely match the verified client/DOB/collection/panel and expected record stage, preserve unreported fields and pending requested confirmations, and deduplicate uploads. Ambiguous record matches require review. Client JSON or cached parser flags are not authorization. Medication expectations, result decisions, payments and notification rules remain outside PDF interpretation. Automation is not enabled by this change.
 
-The matrix asserts exact extracted substances, physical result-row counts, row completeness, confirmation aggregation, confidence, and warnings. Missing fixtures fail the suite. Regenerate synthetic files with `node scripts/generate-test-report-fixtures.mjs`. Actual reports and client-identifying file paths must not appear in commits, snapshots, Playwright traces, or CI artifacts.
+Human entry continues to allow corrections after a partial but readable extraction. A failed/loading extraction cannot advance: the readiness flag is cleared and the active step schema requires successful extraction. This prevents a previous report's readiness state from accepting a failed replacement.
 
-Run the privacy-safe corpus audit against one or more directories outside the repository:
+## Verification
+
+- Every configured instant/lab panel has required PDF coverage. Missing fixtures fail rather than skipping assertions.
+- Fictional in-memory PDFs exercise actual PDF.js, reversed drawing order, different column order, split/wrapped cells, repeated pages, missing/extra/duplicate substances, conflicting results, unsupported methods, wrong-family uploads, invalid timestamps and validity bounds.
+- Regression tests prove one PDF.js read per public call and compatibility adapter, and enforce the same 10MB limit before reading.
+- The 17-panel instant, 8-panel lab and 17-panel SOS synthetic fixture lists were corrected to their actual configured substances. The corrected PDFs were rendered and inspected.
+- Existing report parsing, confirmation aggregation, classification and import safeguards remain covered. Source fixtures use fictional or explicitly sanitized data; production files are never committed.
+
+Run the aggregate-only private corpus audit:
 
 ```sh
 pnpm audit:pdf-parsing -- /path/to/private/reports
 ```
 
-The audit prints aggregate counts only. It never prints donor names, report text, or input paths.
+It uses the same parser and reports counts, completeness, confidence and manual-review totals without names, report text or private paths. The available six real examples (three instant, three lab including one confirmation) pass without warnings or manual-review flags. Additional provider layouts are still useful validation input. Image-only PDFs have no supported text layout and require a readable replacement or a future explicit manual/OCR path.
 
-## Browser coverage
-
-PDF.js executes in the server action, so parsing output is browser-independent. Browser tests still cover the upload and server-action boundary in Chromium and WebKit because Safari differs in file input, multipart request, and response handling. Playwright WebKit is regression coverage, not a substitute for a final smoke test in real Safari.
-
-## Production runtime
-
-PDF.js 6 requires `DOMMatrix` and `Path2D` while its legacy module initializes in Node. The extractor loads those APIs from the direct production dependency `@napi-rs/canvas` before importing PDF.js. It also preloads PDF.js' in-process worker so Next's standalone output tracer includes `pdf.worker.mjs`. The Docker build validates that both runtime pieces survived tracing and fails before deployment if either is missing.
-
-## Remaining limits
-
-- Scanned/image-only PDFs require OCR and intentionally return incomplete/low-confidence results.
-- A newly introduced lab method or analyte label may remain unmapped; this produces a warning instead of silently marking the report negative.
-- Absolute page positions are deliberately avoided. Same-row geometry and method-column anchors tolerate vertical movement as positive analyte rows are added.
+Local verification passed 975 tests across 135 files, TypeScript, and scoped ESLint with no errors. Existing `any` warnings remain in the wizard action files. CI remains the eight essential Chromium smoke cases; current CI status is recorded separately in the PR. Detailed validation and WebKit remain local. Result-classification, payment and notification services are unchanged. No migration, deployment or automatic uploader is included.

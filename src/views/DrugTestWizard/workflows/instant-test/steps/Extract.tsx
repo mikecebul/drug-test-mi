@@ -76,8 +76,8 @@ export const ExtractStep = withForm({
 
     // Auto-sync extracted data to form when available
     useEffect(() => {
-      if (extractedData) {
-        form.setFieldValue('extract.extracted', true)
+      form.setFieldValue('extract.extracted', Boolean(extractedData) && !error)
+      if (extractedData && !error) {
         if (extractedData.testType === '17-panel-instant') {
           form.setFieldValue('verifyData.testType', extractedData.testType)
         }
@@ -92,7 +92,7 @@ export const ExtractStep = withForm({
           form.setFieldValue('verifyData.isDilute', extractedData.isDilute)
         }
       }
-    }, [extractedData, form])
+    }, [extractedData, error, form])
 
     // Loading state
     if (isLoading) {
