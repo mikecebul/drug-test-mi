@@ -3,12 +3,10 @@
 ## Runtime requirements
 
 - Set `REDWOOD_AUTOMATION_ENABLED=true` only after the dedicated worker and credentials are deployed.
-- Run `pnpm worker:redwood` continuously. It keeps one Payload process alive, checks an idle queue every
-  `REDWOOD_WORKER_POLL_MS` milliseconds (one second by default), and drains follow-up work immediately after a job
-  succeeds. The same process calls Payload’s schedule handler before each queue drain, so recurring random-testing
-  jobs do not require another worker or container. This avoids repeated Payload startup work and removes an extra
-  polling delay between donor creation and the required default-test sync. The guided workflow normally reports
-  donor readiness within 1–20 seconds when direct HTTP succeeds.
+- Run `pnpm worker:redwood` continuously. Payload's protected cron runner invokes one bounded batch every five
+  seconds and skips overlapping ticks. Each tick handles recurring schedules before processing ready jobs in the
+  `redwood` queue. Follow-up work is picked up on the next tick. The same worker processes random-testing and
+  referral-invoice schedules; another worker or container is unnecessary.
 - Keep Redwood credentials server-only. Never expose them through client props, logs, or admin alert context.
 - Keep `REDWOOD_ACCOUNT_NUMBER` in `REDWOOD_ALLOWED_ACCOUNT_NUMBERS`; mutations fail closed for other accounts.
 
@@ -51,6 +49,25 @@ Manual queue buttons require a super-admin, refuse to run before the in-session 
 - Manual-review and exhausted states show the operator error, an **Open ToxAccess** fallback, and **Retry and verify**. After manual creation, retry uses the same search-first path to link the donor without duplicating it.
 
 ## Operator triage
+
+- **Scheduled jobs:** Payload queues the next occurrence in advance using `waitUntil`. The dashboard shows these
+  as **Scheduled**, separately from ready **Queued** work, with the due time in Eastern time. A job created a week
+  ago can be the next Monday run. Leave future scheduled jobs in place; cancelling them does not repair the worker.
+- **Ready jobs are not progressing:** compare the due time with the current time, check worker container health,
+  and run the dashboard's harmless **Queue Probe**. Review **Job History** and failed Payload jobs before retrying.
+  A stale worker heartbeat calls for worker/log investigation; it is not a reason to run invoice jobs early.
+- **Random-testing cadence:** **Today's Random Testing Schedule** runs daily at 6:00 a.m. Eastern and converts
+  identified donors into unpaid Cal.com bookings. **Upcoming Random Testing Calendar Holds** runs Mondays at
+  6:05 a.m. Eastern and reserves anonymous private, busy Google events. Both defaults can be overridden by their
+  documented runtime cron variables. Successful history includes processed or created/retained/moved/cancelled counts.
+- **Invoice cadence:** **Monthly Referral Invoices** runs on the first of each month at 2:00 p.m. Eastern to email
+  completed-month referral invoices. **Referral Invoice Payment Sync** runs daily at 3:00 a.m. Eastern to reconcile
+  paid Stripe invoices if a webhook was delayed. This runs before the 6:00/6:05 a.m. random-testing jobs. It does not
+  send invoice email. The production worker's `TZ=America/Detroit` controls cron interpretation, including daylight
+  saving time.
+- **Invoice email verification:** `referral-invoices.emailSentAt` is written after the email provider accepts the
+  PDF email. Confirm delivery in Resend using the invoice number, recipient, and timestamp. Stripe's invoice state
+  alone does not prove email delivery: this app sends the PDF through Resend with Stripe `auto_advance=false`.
 
 - **Ambiguous match:** compare name, middle initial, DOB, active status, and account in ToxAccess. Correct the donor/client data, then retry verification.
 - **Different account:** do not create a duplicate. Leave or move the donor deliberately in ToxAccess, ensure that account is present in `REDWOOD_ALLOWED_ACCOUNT_NUMBERS`, then retry so the website records the donor's actual account.
