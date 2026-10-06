@@ -15,6 +15,8 @@ export const JOB_TASK_LABELS = {
   'redwood-upload-headshot': 'Headshot Push',
   'redwood-sync-upcoming-random-testing': 'Upcoming Random Testing Calendar Holds',
   'redwood-sync-todays-random-testing': 'Today’s Random Testing Schedule',
+  'send-monthly-referral-invoices': 'Monthly Referral Invoices',
+  'sync-referral-invoice-payments': 'Referral Invoice Payment Sync',
 } as const
 
 export type JobRunStatus = 'cancelled' | 'failed' | 'manual-review' | 'queued' | 'running' | 'succeeded'

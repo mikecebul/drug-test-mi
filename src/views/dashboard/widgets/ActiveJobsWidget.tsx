@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { JOB_RUNS_COLLECTION_SLUG, getJobTaskLabel, type JobRunRecord, type JobRunStatus } from '@/lib/jobs/jobRuns'
 import type { PayloadJob } from '@/payload-types'
 import { cn } from '@/utilities/cn'
+import { formatJobWaitUntil, getActiveJobStatus, getActiveJobWhere } from '@/lib/jobs/activeJobs'
 import { ActiveJobsWidgetClient, type ActiveDashboardJob } from './ActiveJobsWidget.client'
 
 const ACTIVE_JOB_LIMIT = 8
@@ -24,31 +25,6 @@ type RecentDashboardJobRun = {
   status: JobRunStatus
   summary?: string
   taskLabel: string
-}
-
-function getActiveJobWhere(processing?: boolean): Where {
-  const and: Where[] = [
-    {
-      hasError: {
-        not_equals: true,
-      },
-    },
-    {
-      completedAt: {
-        equals: null,
-      },
-    },
-  ]
-
-  if (typeof processing === 'boolean') {
-    and.push({
-      processing: {
-        equals: processing,
-      },
-    })
-  }
-
-  return { and }
 }
 
 function getRecentJobHistoryWhere(): Where {
@@ -80,7 +56,7 @@ function readJobInput(job: PayloadJob): Record<string, unknown> | null {
   return readRecord(job.input)
 }
 
-function summarizeJob(job: PayloadJob): ActiveDashboardJob {
+function summarizeJob(job: PayloadJob, now: Date): ActiveDashboardJob {
   const input = readJobInput(job)
 
   return {
@@ -88,12 +64,13 @@ function summarizeJob(job: PayloadJob): ActiveDashboardJob {
     clientId: readString(input?.clientId),
     createdAt: job.createdAt,
     id: String(job.id),
-    processing: job.processing === true,
+    status: getActiveJobStatus(job, now),
     queue: job.queue || 'default',
     requestedByAdminId: readString(input?.requestedByAdminId),
     taskLabel: getJobTaskLabel(job.taskSlug || ''),
     taskSlug: job.taskSlug || 'unknown',
     totalTried: job.totalTried,
+    waitUntilLabel: formatJobWaitUntil(job.waitUntil),
   }
 }
 
@@ -163,11 +140,13 @@ export default async function ActiveJobsWidget({ req }: WidgetServerProps) {
   let activeCount = 0
   let queuedCount = 0
   let runningCount = 0
+  let scheduledCount = 0
   let activeLoadError = false
   let historyLoadError = false
 
   try {
-    const [activeJobs, queuedJobs, runningJobs] = await Promise.all([
+    const now = new Date()
+    const [activeJobs, queuedJobs, runningJobs, scheduledJobs] = await Promise.all([
       req.payload.find({
         collection: 'payload-jobs',
         where: getActiveJobWhere(),
@@ -178,20 +157,26 @@ export default async function ActiveJobsWidget({ req }: WidgetServerProps) {
       }),
       req.payload.count({
         collection: 'payload-jobs',
-        where: getActiveJobWhere(false),
+        where: getActiveJobWhere('queued', now),
         overrideAccess: true,
       }),
       req.payload.count({
         collection: 'payload-jobs',
-        where: getActiveJobWhere(true),
+        where: getActiveJobWhere('running', now),
+        overrideAccess: true,
+      }),
+      req.payload.count({
+        collection: 'payload-jobs',
+        where: getActiveJobWhere('scheduled', now),
         overrideAccess: true,
       }),
     ])
 
-    jobs = activeJobs.docs.map((job) => summarizeJob(job as PayloadJob))
+    jobs = activeJobs.docs.map((job) => summarizeJob(job as PayloadJob, now))
     activeCount = activeJobs.totalDocs
     queuedCount = queuedJobs.totalDocs
     runningCount = runningJobs.totalDocs
+    scheduledCount = scheduledJobs.totalDocs
   } catch (error) {
     activeLoadError = true
     req.payload.logger.error({ err: error, msg: 'Failed to load active jobs dashboard widget' })
@@ -223,7 +208,7 @@ export default async function ActiveJobsWidget({ req }: WidgetServerProps) {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle>Active Jobs</CardTitle>
-              <CardDescription>Live queue health plus durable Redwood job history.</CardDescription>
+              <CardDescription>Running, ready, and scheduled work with durable job history.</CardDescription>
             </div>
             <Link
               href="/admin/collections/job-runs"
@@ -234,9 +219,9 @@ export default async function ActiveJobsWidget({ req }: WidgetServerProps) {
           </div>
 
           {!activeLoadError && (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <div className="border-border/70 bg-background/40 rounded-md border px-3 py-2">
-                <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">Active</p>
+                <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">Total</p>
                 <p className="mt-1 text-xl font-semibold tabular-nums">{activeCount}</p>
               </div>
               <div className="border-border/70 bg-background/40 rounded-md border px-3 py-2">
@@ -246,6 +231,10 @@ export default async function ActiveJobsWidget({ req }: WidgetServerProps) {
               <div className="border-border/70 bg-background/40 rounded-md border px-3 py-2">
                 <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">Queued</p>
                 <p className="mt-1 text-xl font-semibold tabular-nums">{queuedCount}</p>
+              </div>
+              <div className="border-border/70 bg-background/40 rounded-md border px-3 py-2">
+                <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">Scheduled</p>
+                <p className="mt-1 text-xl font-semibold tabular-nums">{scheduledCount}</p>
               </div>
             </div>
           )}
@@ -264,6 +253,11 @@ export default async function ActiveJobsWidget({ req }: WidgetServerProps) {
                   </div>
                 )}
                 <ActiveJobsWidgetClient canCancel={canCancel} jobs={jobs} />
+                {scheduledCount > 0 && (
+                  <p className="text-muted-foreground text-xs">
+                    Scheduled jobs wait until the time shown. Their creation age does not indicate a delay.
+                  </p>
+                )}
                 {!canCancel && jobs.length > 0 && (
                   <p className="text-muted-foreground text-xs">
                     Admins can monitor queue health here. Super-admins can cancel stuck jobs directly.
@@ -273,17 +267,17 @@ export default async function ActiveJobsWidget({ req }: WidgetServerProps) {
             )}
           </section>
 
-          <section className="space-y-4 border-t border-border/60 pt-4">
+          <section className="border-border/60 space-y-4 border-t pt-4">
             <div>
               <h3 className="text-sm font-semibold">Recent History</h3>
-              <p className="text-muted-foreground text-sm">Tracked Redwood job outcomes stay here after the queue clears.</p>
+              <p className="text-muted-foreground text-sm">Tracked job outcomes stay here after the queue clears.</p>
             </div>
 
             {historyLoadError ? (
               <p className="text-muted-foreground text-sm">Unable to load recent job history right now.</p>
             ) : history.length === 0 ? (
               <div className="border-border/80 bg-background/60 text-muted-foreground rounded-xl border border-dashed p-4 text-sm">
-                No tracked Redwood job history yet.
+                No tracked job history yet.
               </div>
             ) : (
               <div className="space-y-3">

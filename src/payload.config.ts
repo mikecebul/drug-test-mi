@@ -443,7 +443,7 @@ export default buildConfig({
       {
         slug: 'sync-referral-invoice-payments',
         retries: 1,
-        schedule: process.env.STRIPE_SECRET_KEY ? [{ cron: '0 0 * * * *', queue: 'redwood' }] : [],
+        schedule: process.env.STRIPE_SECRET_KEY ? [{ cron: '0 0 3 * * *', queue: 'redwood' }] : [],
         handler: async ({ req }) => {
           const key = process.env.STRIPE_SECRET_KEY
           if (!key) throw new Error('Stripe is not configured.')
