@@ -23,6 +23,7 @@ import {
 import { formatSubstance } from '@/lib/substances'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { ConfirmationSubstanceSelector } from '@/blocks/Form/field-components/confirmation-substance-selector'
+import { ConfirmationResultsEditor } from '../../components/ConfirmationResultsEditor'
 import { cn } from '@/utilities/cn'
 import { AlertTriangle } from 'lucide-react'
 import { format } from 'date-fns'
@@ -66,7 +67,7 @@ export const LabScreenDataStep = withForm({
     )
 
     const hasUnexpectedPositives = (preview?.unexpectedPositives?.length ?? 0) > 0
-    const requiresDecision = hasUnexpectedPositives && !preview?.autoAccept
+    const requiresDecision = hasUnexpectedPositives && !preview?.autoAccept && !labScreenData.reportHasConfirmation
     const matchedCollectionDate = matchCollection?.collectionDate ? new Date(matchCollection.collectionDate) : null
     const matchedCollectionDateLabel =
       matchedCollectionDate && !Number.isNaN(matchedCollectionDate.getTime())
@@ -242,6 +243,20 @@ export const LabScreenDataStep = withForm({
             </Field>
           </CardContent>
         </Card>
+
+        {labScreenData.reportHasConfirmation && (
+          <form.Field name="labScreenData.confirmationResults">
+            {(field) => (
+              <ConfirmationResultsEditor
+                rows={field.state.value}
+                file={formValues.upload.file}
+                required={labScreenData.requiredConfirmationSubstances}
+                onChange={field.handleChange}
+                errors={field.state.meta.errors}
+              />
+            )}
+          </form.Field>
+        )}
 
         {/* Confirmation Decision Section - only show when there are unexpected positives */}
         <div

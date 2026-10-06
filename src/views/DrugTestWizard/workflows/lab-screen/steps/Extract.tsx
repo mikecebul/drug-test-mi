@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, FileX2 } from 'lucide-react'
 import ParsedDataDisplayField from '@/blocks/Form/field-components/parsed-data-display-field'
 import type { ParsedPDFData } from '@/views/DrugTestWizard/types'
-import type { SubstanceValue } from '@/fields/substanceOptions'
+import { createConfirmationReviewRows, getConfirmationRequirements } from '../../components/confirmation-review'
 import { useExtractPdfQuery } from '@/views/DrugTestWizard/queries'
 import { FieldGroupHeader } from '../../components/FieldGroupHeader'
 import { getLabScreenFormOpts } from '../shared-form'
@@ -24,6 +24,18 @@ export const ExtractStep = withForm({
     useEffect(() => {
       form.setFieldValue('extract.extracted', Boolean(extractedData) && !error)
       if (extractedData && !error) {
+        const key = JSON.stringify([uploadedFile?.name, uploadedFile?.size, uploadedFile?.lastModified])
+        if (form.getFieldValue('labScreenData.reviewSourceKey') === key) return
+        form.setFieldValue('labScreenData.reviewSourceKey', key)
+        form.setFieldValue('labScreenData.reportHasConfirmation', Boolean(extractedData.hasConfirmation))
+        form.setFieldValue(
+          'labScreenData.requiredConfirmationSubstances',
+          getConfirmationRequirements(extractedData).substances,
+        )
+        form.setFieldValue(
+          'labScreenData.confirmationResults',
+          extractedData.hasConfirmation ? createConfirmationReviewRows(extractedData) : [],
+        )
         // Pre-populate labScreenData with extracted values
         if (extractedData.collectionDate) {
           form.setFieldValue('labScreenData.collectionDate', extractedData.collectionDate)
@@ -38,7 +50,7 @@ export const ExtractStep = withForm({
           form.setFieldValue('labScreenData.testType', extractedData.testType)
         }
       }
-    }, [extractedData, error, form])
+    }, [extractedData, error, uploadedFile, form])
 
     // Loading state
     if (isLoading) {
@@ -85,23 +97,7 @@ export const ExtractStep = withForm({
     }
 
     // Build ParsedPDFData object for display
-    const parsedData: ParsedPDFData = {
-      donorName: extractedData.donorName,
-      collectionDate: extractedData.collectionDate,
-      detectedSubstances: extractedData.detectedSubstances as SubstanceValue[],
-      isDilute: extractedData.isDilute,
-      rawText: extractedData.rawText,
-      confidence: extractedData.confidence,
-      confidenceScore: extractedData.confidenceScore,
-      confidenceReasons: extractedData.confidenceReasons,
-      parseWarnings: extractedData.parseWarnings,
-      resultRowCount: extractedData.resultRowCount,
-      resultsComplete: extractedData.resultsComplete,
-      extractedFields: extractedData.extractedFields,
-      testType: extractedData.testType,
-      hasConfirmation: extractedData.hasConfirmation,
-      confirmationResults: extractedData.confirmationResults as ParsedPDFData['confirmationResults'],
-    }
+    const parsedData: ParsedPDFData = extractedData
 
     return (
       <div className="space-y-8">

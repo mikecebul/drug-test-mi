@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { confirmationReviewArraySchema, validateConfirmationReview } from '../components/confirmation-review'
 import { emailsGroupSchema, emailsSchema, uploadSchema, extractSchema } from '../shared-validators'
 import { TEST_TYPES } from '../../utils/testMatching'
 
@@ -26,11 +27,22 @@ export const labScreenDataSchema = z.object({
       collectionDate: z.string().min(1, 'Collection date is required'),
       detectedSubstances: z.array(z.string()),
       isDilute: z.boolean(),
+      reportHasConfirmation: z.boolean().default(false),
+      requiredConfirmationSubstances: z.array(z.string()).default([]),
+      confirmationResults: confirmationReviewArraySchema.default([]),
+      reviewSourceKey: z.string().nullable().default(null),
       confirmationDecisionRequired: z.boolean(),
       confirmationDecision: z.enum(['accept', 'request-confirmation', 'pending-decision']).optional(),
       confirmationSubstances: z.array(z.string()).optional(),
     })
     .superRefine((data, ctx) => {
+      if (data.reportHasConfirmation) {
+        try {
+          validateConfirmationReview(data.confirmationResults, data.requiredConfirmationSubstances)
+        } catch (error) {
+          ctx.addIssue({ code: 'custom', message: (error as Error).message, path: ['confirmationResults'] })
+        }
+      }
       // Validate confirmation decision when unexpected positives are detected
       if (data.confirmationDecisionRequired === true && data.confirmationDecision === undefined) {
         ctx.addIssue({

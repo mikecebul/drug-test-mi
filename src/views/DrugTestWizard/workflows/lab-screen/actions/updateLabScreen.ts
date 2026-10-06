@@ -2,32 +2,29 @@
 
 import { updateTestWithScreening } from '@/views/DrugTestWizard/actions'
 import { generateTestFilename } from '@/views/DrugTestWizard/utils/generateFilename'
-import type { FormValues } from '../validators'
+import { labScreenDataSchema, type FormValues } from '../validators'
+import { readLabReportFile } from '../../components/readLabReport'
+import { reconcileConfirmationSubmission } from '../../components/confirmation-review'
 import type { ExtractedPdfData } from '@/views/DrugTestWizard/queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 
 export async function updateLabScreenAction(
   formValues: FormValues,
-  extractedData: ExtractedPdfData | undefined,
+  _extractedData: ExtractedPdfData | undefined,
 ): Promise<{ success: boolean; testId?: string; error?: string }> {
-  if (extractedData?.hasConfirmation && extractedData.confirmationComplete === false) {
-    return {
-      success: false,
-      error:
-        'Confirmation results need review. Use Enter Lab Confirmation Data to check and correct the results before saving.',
-    }
-  }
-  if (extractedData?.reportKind === 'confirmation') {
-    return {
-      success: false,
-      error:
-        'This is a confirmation-only report. Use Enter Lab Confirmation Data to attach it to the existing screening test.',
-    }
-  }
   try {
-    // Convert File to buffer array
-    const arrayBuffer = await formValues.upload.file.arrayBuffer()
-    const pdfBuffer = Array.from(new Uint8Array(arrayBuffer))
+    const input = labScreenDataSchema.shape.labScreenData.safeParse(formValues.labScreenData)
+    if (!input.success) return { success: false, error: 'Review the screening and confirmation results before saving' }
+    const file = await readLabReportFile(formValues.upload.file)
+    if (file.report.reportKind === 'confirmation')
+      return {
+        success: false,
+        error: 'This report only contains confirmation results. Attach it using Enter Lab Confirmation Data.',
+      }
+    const reviewed = file.report.hasConfirmation
+      ? reconcileConfirmationSubmission(file.report, input.data.confirmationResults)
+      : undefined
+    const pdfBuffer = Array.from(file.buffer)
 
     // Generate filename
     // Parse client name into first and last name
@@ -42,14 +39,7 @@ export async function updateLabScreenAction(
       isConfirmation: false,
     })
 
-    // Build confirmation results from extracted data (if available)
-    const confirmationResults = extractedData?.confirmationResults
-      ? extractedData.confirmationResults.map((r) => ({
-          substance: r.substance as SubstanceValue,
-          result: r.result,
-          notes: r.notes,
-        }))
-      : undefined
+    const confirmationResults = reviewed?.results
 
     // Call existing action
     const result = await updateTestWithScreening({
@@ -58,7 +48,7 @@ export async function updateLabScreenAction(
       isDilute: formValues.labScreenData.isDilute,
       pdfBuffer,
       pdfFilename: filename,
-      hasConfirmation: extractedData?.hasConfirmation,
+      hasConfirmation: Boolean(reviewed),
       confirmationResults,
       confirmationDecision: formValues.labScreenData.confirmationDecision,
       confirmationSubstances: formValues.labScreenData.confirmationSubstances as SubstanceValue[],

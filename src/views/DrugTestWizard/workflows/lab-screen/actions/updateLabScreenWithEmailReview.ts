@@ -6,7 +6,9 @@ import { generateTestFilename } from '@/views/DrugTestWizard/utils/generateFilen
 import { computeTestResultPreview } from '@/views/DrugTestWizard/actions'
 import { fetchDocument, sendEmails } from '@/collections/DrugTests/services'
 import { createAdminAlert } from '@/lib/admin-alerts'
-import type { FormValues } from '../validators'
+import { labScreenDataSchema, type FormValues } from '../validators'
+import { readLabReportFile } from '../../components/readLabReport'
+import { reconcileConfirmationSubmission, storedConfirmationRows } from '../../components/confirmation-review'
 import type { ExtractedPdfData } from '@/views/DrugTestWizard/queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 
@@ -15,22 +17,8 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
  */
 export async function updateLabScreenWithEmailReview(
   formValues: FormValues,
-  extractedData: ExtractedPdfData | undefined,
+  _extractedData: ExtractedPdfData | undefined,
 ): Promise<{ success: boolean; testId?: string; error?: string }> {
-  if (extractedData?.hasConfirmation && extractedData.confirmationComplete === false) {
-    return {
-      success: false,
-      error:
-        'Confirmation results need review. Use Enter Lab Confirmation Data to check and correct the results before saving.',
-    }
-  }
-  if (extractedData?.reportKind === 'confirmation') {
-    return {
-      success: false,
-      error:
-        'This is a confirmation-only report. Use Enter Lab Confirmation Data to attach it to the existing screening test.',
-    }
-  }
   const payload = await getPayload({ config })
 
   try {
@@ -64,14 +52,33 @@ export async function updateLabScreenWithEmailReview(
     }
     const disableClientEmails = (existingClient as { disableClientEmails?: boolean }).disableClientEmails === true
 
-    // Import email functions
+    let buffer: Buffer
+    let reviewed: ReturnType<typeof reconcileConfirmationSubmission> | undefined
+    try {
+      const input = labScreenDataSchema.shape.labScreenData.safeParse(formValues.labScreenData)
+      if (!input.success)
+        return { success: false, error: 'Review the screening and confirmation results before saving' }
+      const file = await readLabReportFile(formValues.upload.file)
+      if (file.report.reportKind === 'confirmation')
+        return {
+          success: false,
+          error: 'This report only contains confirmation results. Attach it using Enter Lab Confirmation Data.',
+        }
+      buffer = file.buffer
+      if (file.report.hasConfirmation)
+        reviewed = reconcileConfirmationSubmission(
+          file.report,
+          input.data.confirmationResults,
+          existingTest.confirmationSubstances ?? [],
+          storedConfirmationRows(existingTest.confirmationResults ?? []),
+        )
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Review the lab report' }
+    }
+    const confirmationResults = reviewed?.results
+
     const { buildScreenedEmail } = await import('@/collections/DrugTests/email/render')
     const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
-
-    // 2. Convert File to buffer and upload PDF
-    const arrayBuffer = await formValues.upload.file.arrayBuffer()
-    const pdfBuffer = Array.from(new Uint8Array(arrayBuffer))
-    const buffer = Buffer.from(pdfBuffer)
 
     // Generate filename
     const nameParts = formValues.matchCollection.clientName.split(' ')
@@ -100,15 +107,6 @@ export async function updateLabScreenWithEmailReview(
       overrideAccess: true,
     })
 
-    // 3. Build confirmation results from extracted data (if available)
-    const confirmationResults = extractedData?.confirmationResults
-      ? extractedData.confirmationResults.map((r) => ({
-          substance: r.substance as SubstanceValue,
-          result: r.result,
-          notes: r.notes,
-        }))
-      : undefined
-
     // 4. Prepare update data
     const updateData: any = {
       detectedSubstances: formValues.labScreenData.detectedSubstances as SubstanceValue[],
@@ -119,8 +117,8 @@ export async function updateLabScreenWithEmailReview(
     }
 
     // Add confirmation data if present (from PDF extraction)
-    if (extractedData?.hasConfirmation && confirmationResults && confirmationResults.length > 0) {
-      const confirmationSubstances = confirmationResults.map((r) => r.substance)
+    if (reviewed && confirmationResults && confirmationResults.length > 0) {
+      const confirmationSubstances = reviewed.substances
       updateData.confirmationDecision = 'request-confirmation'
       updateData.confirmationSubstances = confirmationSubstances
       updateData.confirmationResults = confirmationResults

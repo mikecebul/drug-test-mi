@@ -403,3 +403,70 @@ describe('quantitative confirmation interpretation', () => {
     expect(parseLabMeasurement('≥ 1,250 µg/mL')).toMatchObject({ comparator: '>=', value: 1250, unit: 'ug/ml' })
   })
 })
+
+describe('qualitative confirmation summary reconciliation', () => {
+  test.each([
+    ['Positive', '<5 ng/mL'],
+    ['Negative', '10 ng/mL'],
+    ['Positive', 'Negative'],
+  ])('requires review when a %s summary conflicts with %s in the table', async (summary, value) => {
+    const result = await extractLabTest(
+      pdf([
+        [
+          ...identity,
+          ...cells(660, [[195, 'Summary']]),
+          ...cells(640, [[40, `Confirmed ${summary} for the following drug(s):`]]),
+          ...cells(620, [[40, 'Fentanyl']]),
+          ...headings(500),
+          ...confirmation(475, 'Fentanyl', value),
+        ],
+      ]),
+    )
+    expect(result.confirmationComplete).toBe(false)
+    expect(result.resultsComplete).toBe(false)
+    expect(result.confirmationResults).toEqual([])
+    expect(result.confirmationSummarySubstances).toEqual(['fentanyl'])
+    expect(result.parseWarnings.some((warning) => /summary.*table/i.test(warning))).toBe(true)
+  })
+  test('keeps consistent summary classifications and different metabolite outcomes usable', async () => {
+    const result = await extractLabTest(
+      pdf([
+        [
+          ...identity,
+          ...cells(660, [[195, 'Summary']]),
+          ...cells(640, [[40, 'Confirmed Positive for the following drug(s):']]),
+          ...cells(620, [[40, 'Fentanyl']]),
+          ...headings(500),
+          ...confirmation(475, 'Fentanyl', '10 ng/mL'),
+          ...confirmation(445, 'Norfentanyl', 'Negative'),
+        ],
+      ]),
+    )
+    expect(result.confirmationComplete).toBe(true)
+    expect(result.confirmationResults[0].result).toBe('confirmed-positive')
+    expect(result.parseWarnings).toEqual([])
+  })
+})
+
+test('ends the confirmation summary before comparison notes and table headings', async () => {
+  const result = await extractLabTest(
+    pdf([
+      [
+        ...identity,
+        ...cells(660, [[195, 'Summary']]),
+        ...cells(640, [[40, 'Confirmed Positive for the following drug(s):']]),
+        ...cells(620, [[40, 'THC-COOH (Marijuana) (937 ng/mL)']]),
+        ...cells(600, [[40, 'THC-COOH/Creatinine Ratio (480 ng THC-COOH/mg Creat)']]),
+        ...cells(580, [[40, 'Normalized THC-COOH value for comparison purposes only.']]),
+        ...cells(560, [[40, 'See the Important Note and Comment below.']]),
+        ...cells(540, [[40, 'Drug Tests']]),
+        ...cells(520, [[40, 'SCREEN']]),
+        ...headings(500),
+        ...confirmation(475, 'THC-COOH', 'Confirmed Positive'),
+      ],
+    ]),
+  )
+  expect(result.confirmationComplete).toBe(true)
+  expect(result.unmappedConfirmationLabels).toEqual([])
+  expect(result.parseWarnings).toEqual([])
+})

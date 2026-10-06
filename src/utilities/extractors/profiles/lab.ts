@@ -49,6 +49,8 @@ export interface ExtractedLabData {
   hasScreening: boolean
   hasConfirmation: boolean
   confirmationComplete: boolean
+  confirmationSummarySubstances: SubstanceValue[]
+  unmappedConfirmationLabels: string[]
   confirmationAnalytes: LabConfirmationAnalyte[]
   confirmationResults: Array<{
     substance: SubstanceValue
@@ -204,6 +206,35 @@ export function parseScreenRows(lines: PositionedTextLine[], tableRows = extract
   return { rows, methodRows, parsedRowCount, conflicts }
 }
 
+function readConfirmationSummary(lines: PositionedTextLine[]) {
+  const entries: Array<{ label: string; substance: SubstanceValue | null; result: ConfirmationResult }> = []
+  let result: ConfirmationResult | null = null
+  for (const line of labSummaryLines(lines)) {
+    const heading = line.text.match(/^Confirmed (Positive|Negative) for the following drug(?:\(s\)|s)?\s*:\s*(.*)$/i)
+    let text = line.text
+    if (heading) {
+      result = heading[1].toLowerCase() === 'positive' ? 'confirmed-positive' : 'confirmed-negative'
+      text = heading[2]
+    } else if (
+      /^(?:Screened|Presumptive|Specimen|Comments?|Notes?|Normalized|See|Drug Tests?|SCREEN|CONFIRMATION|Tests Ordered)\b/i.test(
+        text,
+      ) ||
+      /creatinine\s*ratio/i.test(text)
+    ) {
+      result = null
+    }
+    if (!result || !text.trim() || /creatinine\s*ratio/i.test(text)) continue
+    for (const label of text
+      .replace(/\([^)]*\)/g, '')
+      .split(/[;,]/)
+      .map((value) => value.trim())
+      .filter(Boolean)) {
+      entries.push({ label, substance: mapLabSubstance(label), result })
+    }
+  }
+  return entries
+}
+
 function parseConfirmationRows(lines: PositionedTextLine[], tableRows = extractReportTableRows(lines)) {
   const methodRows = extractMethodRows(lines, /^(?:LC\s*[/-]\s*MS\s*[/-]\s*MS|GC\s*[/-]\s*MS)$/i, tableRows)
   const grouped = new Map<SubstanceValue, Array<{ result: ConfirmationResult; note: string }>>()
@@ -269,6 +300,56 @@ function parseConfirmationRows(lines: PositionedTextLine[], tableRows = extractR
     }
   }
 
+  const summaryEntries = readConfirmationSummary(lines)
+  const summaryWarnings: string[] = []
+  const unmappedConfirmationLabels = summaryEntries.filter((entry) => !entry.substance).map((entry) => entry.label)
+  for (const entry of summaryEntries) {
+    if (!entry.substance) continue
+    const exact = confirmationAnalytes.filter(
+      (analyte) => normalizeSubstanceLabel(analyte.analyte) === normalizeSubstanceLabel(entry.label),
+    )
+    const matching = exact.length
+      ? exact
+      : confirmationAnalytes.filter((analyte) => analyte.substance === entry.substance)
+    const observed = matching.some((analyte) => analyte.result === 'confirmed-positive')
+      ? 'confirmed-positive'
+      : matching.length && matching.every((analyte) => analyte.result === 'confirmed-negative')
+        ? 'confirmed-negative'
+        : null
+    if (observed !== entry.result) {
+      unresolved.add(entry.substance)
+      matching.forEach((analyte) => {
+        analyte.result = null
+      })
+      summaryWarnings.push(`The confirmation summary and result table do not agree for ${entry.label}; verify the PDF.`)
+    }
+  }
+  if (unmappedConfirmationLabels.length) {
+    summaryWarnings.push('A confirmation in the report summary could not be mapped; verify the PDF.')
+  }
+  // A qualitative summary with no analyte list must still agree with the table.
+  for (const result of ['confirmed-positive', 'confirmed-negative'] as const) {
+    const word = result === 'confirmed-positive' ? 'Positive' : 'Negative'
+    const hasStatement = summary.some((line) =>
+      new RegExp(`Confirmed ${word} for the following drug`, 'i').test(line.text),
+    )
+    if (!hasStatement || summaryEntries.some((entry) => entry.result === result)) continue
+    const agrees =
+      result === 'confirmed-positive'
+        ? confirmationAnalytes.some((analyte) => analyte.result === result)
+        : confirmationAnalytes.length > 0 && confirmationAnalytes.every((analyte) => analyte.result === result)
+    if (!agrees) {
+      confirmationAnalytes.forEach((analyte) => {
+        analyte.result = null
+        if (analyte.substance) unresolved.add(analyte.substance)
+      })
+      if (!confirmationAnalytes.length) unmappedConfirmationLabels.push('Confirmation summary')
+      summaryWarnings.push(
+        `The report summary indicates a confirmed ${word.toLowerCase()}, but the confirmation table does not agree; verify the PDF.`,
+      )
+    }
+  }
+
   const confirmationResults = [...grouped.entries()]
     .filter(([substance]) => !unresolved.has(substance))
     .map(([substance, results]) => {
@@ -285,8 +366,14 @@ function parseConfirmationRows(lines: PositionedTextLine[], tableRows = extractR
     confirmationResults,
     confirmationAnalytes,
     methodRows,
+    summaryWarnings,
+    summarySubstances: [...new Set(summaryEntries.flatMap((entry) => (entry.substance ? [entry.substance] : [])))],
+    unmappedConfirmationLabels: [...new Set(unmappedConfirmationLabels)],
     parsedRowCount: confirmationAnalytes.filter((analyte) => analyte.substance && analyte.result).length,
-    complete: methodRows.length > 0 && confirmationAnalytes.every((analyte) => analyte.substance && analyte.result),
+    complete:
+      methodRows.length > 0 &&
+      summaryWarnings.length === 0 &&
+      confirmationAnalytes.every((analyte) => analyte.substance && analyte.result),
   }
 }
 
@@ -392,7 +479,7 @@ export function parseLabReport(
     const detectedSubstances = [...screenData.rows.entries()]
       .filter(([, status]) => status === 'positive')
       .map(([substance]) => substance)
-    const parseWarnings: string[] = [...validity.warnings]
+    const parseWarnings: string[] = [...validity.warnings, ...confirmationData.summaryWarnings]
     if (!knownPanel) parseWarnings.push('The panel code could not be identified; verify the test type manually.')
 
     if (hasScreening && missing.length > 0) {
@@ -490,6 +577,8 @@ export function parseLabReport(
       hasScreening,
       hasConfirmation,
       confirmationComplete: confirmationData.complete,
+      confirmationSummarySubstances: confirmationData.summarySubstances,
+      unmappedConfirmationLabels: confirmationData.unmappedConfirmationLabels,
       confirmationAnalytes: confirmationData.confirmationAnalytes,
       confirmationResults: confirmationData.confirmationResults,
     }

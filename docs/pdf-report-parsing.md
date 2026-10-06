@@ -54,6 +54,14 @@ The response includes:
 
 This is a parse-quality gate, not an automatic upload or publication workflow. A future importer must parse the actual bytes server-side, uniquely match the verified client/DOB/collection/panel and expected record stage, preserve unreported fields and pending requested confirmations, and deduplicate uploads. Ambiguous record matches require review. Client JSON or cached parser flags are not authorization. Medication expectations, result decisions, payments and notification rules remain outside PDF interpretation. Automation is not enabled by this change.
 
+Manual confirmation entry includes all originally requested substances, all identified report confirmations and explicit mapping rows for unknown analytes. Unresolved results start blank and must be selected after checking the PDF; adding a result never defaults to negative. Combined reports expose the same editor within the screening data step, so a first combined report can be corrected without switching to a workflow that cannot select the collected record.
+
+Both data-entry workflows clear matched collections, reviewed results and recipients when a report is removed/replaced. Hydration occurs once per report/collection so Back preserves deliberate corrections. Extraction cache keys include the File object's identity; matching name, size and modification time cannot reuse another report's results.
+
+Save actions reparse the submitted PDF bytes through the same API. They reconcile manual results against the server's existing confirmation requests and the actual report before uploads, writes or emails. Earlier stored results can be retained for substances absent from a later report; an ambiguous current result must be corrected. The original request is preserved, and all required results must resolve before a final-stage notification. Unknown report rows require explicit substance mapping. Confirmation-only reports no longer display a screening-negative classification.
+
+Qualitative confirmation summaries are checked against the named analytes/table classifications as well as numeric summary concentrations. Contradictions remain unverified even when the table alone yields a valid numeric result. Known comparison notes and table headings terminate that summary region.
+
 Human entry continues to allow corrections after a partial but readable extraction. A failed/loading extraction cannot advance: the readiness flag is cleared and the active step schema requires successful extraction. This prevents a previous report's readiness state from accepting a failed replacement.
 
 ## Verification
@@ -72,4 +80,4 @@ pnpm audit:pdf-parsing -- /path/to/private/reports
 
 It uses the same parser and reports counts, completeness, confidence and manual-review totals without names, report text or private paths. The available six real examples (three instant, three lab including one confirmation) pass without warnings or manual-review flags. Additional provider layouts are still useful validation input. Image-only PDFs have no supported text layout and require a readable replacement or a future explicit manual/OCR path.
 
-Local verification passed 975 tests across 135 files, TypeScript, and scoped ESLint with no errors. Existing `any` warnings remain in the wizard action files. CI remains the eight essential Chromium smoke cases; current CI status is recorded separately in the PR. Detailed validation and WebKit remain local. Result-classification, payment and notification services are unchanged. No migration, deployment or automatic uploader is included.
+Validation counts and browser results are recorded in the PR after each update; the regression suite includes unresolved requests, retained historical results, same-metadata file replacement, summary contradictions and combined-report correction. Existing `any` warnings remain in the wizard action files. CI remains the eight essential Chromium smoke cases; current CI status is recorded separately in the PR. Detailed validation and WebKit remain local. Result-classification, payment and notification services are unchanged. No migration, deployment or automatic uploader is included.

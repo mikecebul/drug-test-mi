@@ -2,6 +2,7 @@
 
 import { getPayload } from 'payload'
 import config from '@payload-config'
+import { validateConfirmationReview, storedConfirmationRows } from './workflows/components/confirmation-review'
 import { MAX_REPORT_BYTES, parseDrugTestReport } from '@/utilities/extractors/parseDrugTestReport'
 import type { ParsedPDFData, ClientMatch, WizardType } from './types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
@@ -1327,6 +1328,27 @@ export async function updateTestWithScreening(data: {
     const clientId =
       typeof existingTest.relatedClient === 'string' ? existingTest.relatedClient : existingTest.relatedClient.id
 
+    let confirmationResults = data.confirmationResults
+    const confirmationSubstances = [
+      ...new Set([
+        ...(existingTest.confirmationSubstances ?? []),
+        ...(confirmationResults?.map((row) => row.substance) ?? []),
+      ]),
+    ]
+    if (data.hasConfirmation) {
+      try {
+        const retained = storedConfirmationRows(existingTest.confirmationResults ?? []).filter(
+          (row) => !confirmationResults?.some((incoming) => incoming.substance === row.substance),
+        )
+        confirmationResults = validateConfirmationReview(
+          [...(confirmationResults ?? []), ...retained],
+          confirmationSubstances,
+        )
+      } catch (error) {
+        return { success: false, error: (error as Error).message }
+      }
+    }
+
     // 2. Upload PDF to private-media
     const buffer = Buffer.from(data.pdfBuffer)
     const uploadedFile = await payload.create({
@@ -1354,11 +1376,10 @@ export async function updateTestWithScreening(data: {
     }
 
     // 4. Add confirmation data if present (from PDF extraction)
-    if (data.hasConfirmation && data.confirmationResults && data.confirmationResults.length > 0) {
-      const confirmationSubstances = data.confirmationResults.map((r) => r.substance)
+    if (data.hasConfirmation && confirmationResults && confirmationResults.length > 0) {
       updateData.confirmationDecision = 'request-confirmation'
       updateData.confirmationSubstances = confirmationSubstances
-      updateData.confirmationResults = data.confirmationResults.map((r) => ({
+      updateData.confirmationResults = confirmationResults.map((r) => ({
         substance: r.substance,
         result: r.result,
         notes: r.notes || undefined,

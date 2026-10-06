@@ -1,5 +1,6 @@
 'use client'
 
+import { resolvedConfirmationReview } from '../../components/confirmation-review'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { withForm } from '@/blocks/Form/hooks/form'
 import { useStore } from '@tanstack/react-form'
@@ -30,10 +31,11 @@ export const EmailsStep = withForm({
       error,
     } = useLabConfirmationEmailPreview({
       testId: formValues?.matchCollection?.testId,
-      confirmationResults: formValues?.labConfirmationData?.confirmationResults?.map((r) => ({
-        ...r,
-        substance: r.substance as SubstanceValue,
-      })),
+      confirmationResults:
+        resolvedConfirmationReview(
+          formValues.labConfirmationData.confirmationResults,
+          formValues.labConfirmationData.requiredSubstances,
+        ) ?? [],
       originalDetectedSubstances: (formValues?.labConfirmationData?.originalDetectedSubstances ||
         []) as SubstanceValue[],
     })

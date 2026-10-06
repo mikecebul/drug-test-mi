@@ -75,6 +75,8 @@ export interface ParsedPDFData {
   hasScreening?: boolean
   reportKind?: 'screening' | 'confirmation' | 'screening-and-confirmation' | 'unknown'
   confirmationComplete?: boolean
+  confirmationSummarySubstances?: SubstanceValue[]
+  unmappedConfirmationLabels?: string[]
   confirmationAnalytes?: import('@/utilities/extractors/extractLabTest').LabConfirmationAnalyte[]
   confirmationResults?: Array<{
     substance: SubstanceValue
