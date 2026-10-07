@@ -5,7 +5,15 @@ import { ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { materializeBrowserFile } from '../utils/materializeBrowserFile'
 
-export function ReportLink({ file, filename = false }: { file: File | null; filename?: boolean }) {
+export function ReportLink({
+  file,
+  filename = false,
+  compact = false,
+}: {
+  file: File | null
+  filename?: boolean
+  compact?: boolean
+}) {
   const [report, setReport] = useState<{ file: File; href: string } | null>(null)
   const href = report?.file === file ? report?.href : null
   useEffect(() => {
@@ -30,6 +38,8 @@ export function ReportLink({ file, filename = false }: { file: File | null; file
     <Button
       type="button"
       variant="link"
+      size={compact ? 'sm' : 'default'}
+      className={compact ? 'h-auto min-h-8 px-0' : undefined}
       render={href ? <a href={href} target="_blank" rel="noopener noreferrer" /> : undefined}
       nativeButton={!href}
       disabled={!href}

@@ -243,16 +243,18 @@ export function ClientDetailsCard({
               <Button
                 type="button"
                 variant="ghost"
-                className="relative size-14 shrink-0 rounded-full p-0 sm:size-16"
+                className="group/headshot hover:ring-primary/30 relative size-14 shrink-0 cursor-pointer rounded-full p-0 transition-shadow hover:ring-2 sm:size-16"
                 onClick={() => handleEditorOpenChange(true)}
                 data-testid="add-headshot-button"
                 aria-label="Add headshot"
                 title="Add headshot"
               >
                 <Avatar className="size-full">
-                  <AvatarFallback>{initials}</AvatarFallback>
+                  <AvatarFallback className="group-hover/headshot:bg-primary/10 group-hover/headshot:text-primary group-focus-visible/headshot:bg-primary/10 group-focus-visible/headshot:text-primary transition-colors">
+                    {initials}
+                  </AvatarFallback>
                 </Avatar>
-                <span className="border-border bg-background absolute -right-1 -bottom-1 flex rounded-full border p-1">
+                <span className="border-border bg-background group-hover/headshot:border-primary/40 group-hover/headshot:text-primary group-focus-visible/headshot:text-primary absolute -right-1 -bottom-1 flex rounded-full border p-1 transition-colors">
                   <Camera />
                 </span>
               </Button>

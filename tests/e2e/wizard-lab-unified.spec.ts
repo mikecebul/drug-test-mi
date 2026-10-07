@@ -167,15 +167,41 @@ test('collection choices pin the match, hide alternatives, and retain a newly ch
   await expect(page.getByTestId('parsed-report')).toBeVisible()
   await clickNext(page)
   await expectWizardStep(page, 'match')
+  const progress = page.getByRole('navigation', { name: 'Lab result steps' })
+  await expect(progress.getByRole('listitem')).toHaveCount(4)
+  await expect(progress.locator('[aria-current="step"]')).toHaveCount(1)
   const choices = page.getByTestId('lab-collection-choices').locator('button')
   await expect(choices).toHaveCount(3)
   await expect(choices.first()).toHaveAttribute('data-testid', `pending-test-${selectedId}`)
   await expect(choices.first()).toHaveAttribute('aria-pressed', 'true')
+  const clientName = new RegExp(
+    fixtures.clients.labScreen.fullName
+      .split(/\s+/)
+      .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('[\\s.]+'),
+    'i',
+  )
+  await expect(choices.first()).toContainText(clientName)
+  await expect(choices.first()).toContainText('Jan 7, 2026')
+  await expect(choices.first()).toContainText('11:11 PM')
+  await expect(choices.first()).not.toContainText('11:11:00')
   await expect(page.locator('#lab-report-type')).toBeVisible()
+  await page.locator('#lab-report-type').click()
+  await expect(page.getByRole('option')).toHaveCount(3)
+  await expect(page.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('Escape')
   await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
   await expect(page.getByText('01/14/1990', { exact: true })).toBeVisible()
+  await expect(page.getByTestId('identity-notice').getByTestId('lab-report-identity-confirmation')).toBeVisible()
   const clientCard = page.getByTestId('lab-client-context')
   await expect(clientCard.getByRole('button', { name: 'Change client', exact: true })).toBeVisible()
+  const headshotButton = clientCard.getByTestId('add-headshot-button')
+  await expect(headshotButton).toHaveCSS('cursor', 'pointer')
+  await headshotButton.hover()
+  await headshotButton.evaluate(async (element) => {
+    await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished))
+  })
+  await page.screenshot({ path: test.info().outputPath('headshot-hover.png'), fullPage: true })
   await clientCard.getByTestId('add-headshot-button').click()
   await expect(
     page.getByRole('dialog', { name: 'Edit Client Details' }).getByRole('button', { name: 'Take Photo' }),

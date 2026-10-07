@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 
 import {
   APP_TIMEZONE,
+  formatCollectionDateTimeCompact,
   formatDobForPayload,
   formatDobInput,
   formatDobISO,
@@ -9,6 +10,22 @@ import {
   getAppTimezoneDayWindow,
   parseDob,
 } from './date-utils'
+
+describe('compact collection timestamps', () => {
+  test.each([
+    ['2026-01-08T04:11:59.000Z', 'Jan 7, 2026', '11:11 PM'],
+    ['2026-07-08T03:11:59.000Z', 'Jul 7, 2026', '11:11 PM'],
+  ])('keeps the clinic day and time across standard/daylight time (%s)', (input, day, time) => {
+    const label = formatCollectionDateTimeCompact(input)
+    expect(label).toContain(day)
+    expect(label).toContain(time)
+    expect(label).not.toContain(':59')
+  })
+  test('missing or unreadable timestamps remain visibly unset', () => {
+    expect(formatCollectionDateTimeCompact(null)).toBe('Not set')
+    expect(formatCollectionDateTimeCompact('invalid')).toBe('Not set')
+  })
+})
 
 describe('DOB parsing and formatting', () => {
   const referenceDate = new Date(2026, 6, 18)

@@ -693,7 +693,7 @@ test.describe("Wizard Today's Schedule", () => {
     await expect(acknowledgement).not.toBeChecked()
     await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
     const comparison = page.getByRole('table', { name: 'Client identification comparison' })
-    await expect(comparison.getByRole('columnheader', { name: 'Website client' })).toBeVisible()
+    await expect(comparison.getByRole('columnheader', { name: 'Client profile' })).toBeVisible()
     await expect(comparison.getByRole('columnheader', { name: 'ToxAccess report' })).toBeVisible()
     await expect(comparison.getByRole('rowheader', { name: 'Name', exact: true })).toBeVisible()
     await expect(comparison.getByRole('rowheader', { name: 'Birth date', exact: true })).toBeVisible()

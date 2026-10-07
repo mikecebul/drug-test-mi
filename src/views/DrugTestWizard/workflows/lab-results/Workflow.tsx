@@ -16,6 +16,7 @@ import { Field, FieldGroup, FieldLabel, FieldError } from '@/components/ui/field
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatSubstance } from '@/lib/substances'
+import { formatCollectionDateTimeCompact } from '@/lib/date-utils'
 import { mapTestTypeValue } from '@/config/test-types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { focusFirstInvalidFieldWithToast, useStepFocus } from '@/lib/form-scroll-focus'
@@ -70,8 +71,8 @@ import { LabProgress } from './Progress'
 import { ConfirmationTable } from './ConfirmationTable'
 import { submitLabResults } from './actions'
 
-const date = (value?: string | null) =>
-  value && !Number.isNaN(new Date(value).getTime()) ? new Date(value).toLocaleString() : 'Not set'
+const date = formatCollectionDateTimeCompact
+const reportTypeLabels = { auto: 'Detect from PDF', screening: 'Screening', confirmation: 'Confirmation' }
 const panel = (value?: string | null) => mapTestTypeValue(value)?.label || value?.replaceAll('-', ' ') || 'Test'
 
 export function LabResultsWorkflow({
@@ -473,40 +474,49 @@ export function LabResultsWorkflow({
   }
   const reportBar = report && (
     <Card>
-      <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
-        <div className="flex max-w-full min-w-0 items-center gap-3">
-          <FileText className="size-5 shrink-0" />
-          <span className="truncate font-medium">{values.upload.file?.name}</span>
+      <CardContent className="grid items-start gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="flex min-w-0 items-start gap-3">
+          <FileText className="mt-0.5 size-5 shrink-0" />
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="truncate font-medium" title={values.upload.file?.name}>
+              {values.upload.file?.name}
+            </span>
+            <div className="flex flex-wrap items-center gap-4">
+              <ReportLink file={values.upload.file} compact />
+              <Button type="button" variant="link" size="sm" className="h-auto min-h-8 px-0" onClick={changeReport}>
+                Replace PDF
+              </Button>
+            </div>
+          </div>
         </div>
         <form.Field name="reportType">
           {(field) => (
-            <Field className="w-auto">
-              <FieldLabel htmlFor="lab-report-type">Report type</FieldLabel>
+            <Field className="w-auto gap-1">
+              <FieldLabel htmlFor="lab-report-type" className="text-muted-foreground text-xs">
+                Report type
+              </FieldLabel>
               <Select
                 items={reportTypes.map((value) => ({
                   value,
-                  label:
-                    value === 'auto'
-                      ? `${reportTypeLabel(report).replace(' report', '')} (auto)`
-                      : value === 'screening'
-                        ? 'Screening'
-                        : 'Confirmation',
+                  label: reportTypeLabels[value],
                 }))}
                 value={field.state.value}
                 onValueChange={(value) => field.handleChange((value ?? 'auto') as ReportType)}
               >
-                <SelectTrigger id="lab-report-type" className="w-auto min-w-44">
-                  <SelectValue />
+                <SelectTrigger id="lab-report-type" size="sm" className="w-36">
+                  <SelectValue>
+                    {field.state.value === 'auto'
+                      ? report.reportKind === 'screening-and-confirmation'
+                        ? 'Combined'
+                        : reportTypeLabel(report).replace(' report', '')
+                      : reportTypeLabels[field.state.value]}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
                     {reportTypes.map((value) => (
                       <SelectItem key={value} value={value}>
-                        {value === 'auto'
-                          ? `${reportTypeLabel(report).replace(' report', '')} (auto)`
-                          : value === 'screening'
-                            ? 'Screening'
-                            : 'Confirmation'}
+                        {reportTypeLabels[value]}
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -515,14 +525,8 @@ export function LabResultsWorkflow({
             </Field>
           )}
         </form.Field>
-        <div className="flex items-center gap-2">
-          <ReportLink file={values.upload.file} />
-          <Button type="button" variant="link" onClick={changeReport}>
-            Change report
-          </Button>
-        </div>
         {!!report.parseWarnings?.length && (
-          <Alert variant="warning">
+          <Alert variant="warning" className="sm:col-span-2">
             <AlertDescription>
               {report.parseWarnings.map((warning) => (
                 <p key={warning}>{warning}</p>
@@ -653,8 +657,8 @@ export function LabResultsWorkflow({
                   identity.nameDifferent
                     ? identity.dobDifferent
                       ? 'Check client identity'
-                      : 'Check name'
-                    : 'Check birth date'
+                      : 'Name differs'
+                    : 'Birth date differs'
                 }
                 sourceLabel="Lab report"
                 rows={[
@@ -691,7 +695,7 @@ export function LabResultsWorkflow({
                           )
                         }}
                       />
-                      <FieldLabel htmlFor="lab-identity">This is the same person</FieldLabel>
+                      <FieldLabel htmlFor="lab-identity">I verified this is the same person</FieldLabel>
                     </Field>
                   )}
                 </form.Field>
@@ -741,21 +745,15 @@ export function LabResultsWorkflow({
                               )}
                             </span>
                             <span className="flex flex-col gap-1">
-                              <span>
-                                {chosenClientId
-                                  ? `${panel(collection.testType)} · ${date(collection.collectionDate)}`
-                                  : collection.clientName}
+                              <span>{collection.clientName}</span>
+                              <span className="text-muted-foreground text-sm">
+                                {panel(collection.testType)} · {date(collection.collectionDate)}
                               </span>
-                              {!chosenClientId && (
-                                <span className="text-muted-foreground text-sm">
-                                  {panel(collection.testType)} · {date(collection.collectionDate)}
-                                </span>
-                              )}
                             </span>
                           </span>
-                          <Badge variant={collection.screeningStatus === 'collected' ? 'secondary' : 'warning'}>
+                          <span className="text-muted-foreground shrink-0 text-xs font-normal">
                             {collection.screeningStatus === 'collected' ? 'Awaiting results' : 'Awaiting confirmation'}
-                          </Badge>
+                          </span>
                         </Button>
                       ))}
                     </div>

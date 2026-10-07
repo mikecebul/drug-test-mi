@@ -17,6 +17,8 @@ The old screening and confirmation URLs are aliases into this same flow, not sep
 
 Payload's native navigation remains in place. Client IDs are not displayed. Medications are text, not pictures. Green means a clear/expected result, amber means a warning, inconclusive or unresolved result, and red means an unexpected result. Loading, failed, incomplete or unread screening data is not presented as negative. Confirmation status is derived with the existing final-status service.
 
+Guided collection and lab entry share a configurable progress renderer with their own step keys and labels. PDF actions sit below the filename beside a small report-type selector. The empty avatar has hover/focus feedback, and identity verification stays inside the comparison panel. Collection choices always show the client name, a readable timestamp in the clinic timezone without seconds, and plain status text.
+
 ## Save safeguards
 
 The unified submit action authenticates an admin and rechecks the selected record's stage before delegating to the established screening/confirmation save actions. Those actions read the actual uploaded bytes through the shared PDF.js parser and verify identity acknowledgement against the current client, before uploads, writes or emails. Originally requested confirmations and previously received results are retained; every required result must be resolved before final delivery. Missing results leave the existing record pending.
