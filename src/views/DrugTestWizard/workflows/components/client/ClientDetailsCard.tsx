@@ -74,6 +74,7 @@ type ClientDetailsCardProps = {
   testLabel?: string
   onClientUpdated?: (client: Partial<ClientDetailsValue>) => void
   onChangeClient?: () => void
+  changeClientAction?: React.ReactNode
   onHeadshotCaptureReady?: (openEditor: (() => void) | null) => void
 }
 
@@ -108,6 +109,7 @@ export function ClientDetailsCard({
   testLabel,
   onClientUpdated,
   onChangeClient,
+  changeClientAction,
   onHeadshotCaptureReady,
 }: ClientDetailsCardProps) {
   const [editorOpen, setEditorOpen] = useState(false)
@@ -237,10 +239,29 @@ export function ClientDetailsCard({
       {compact ? (
         <Card className={cn('rounded-lg', className)}>
           <CardContent className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-3 p-4 sm:flex sm:flex-wrap sm:gap-4">
-            <Avatar className="size-14 shrink-0 sm:size-16">
-              <AvatarImage src={client.headshot || undefined} alt={fullName} />
-              <AvatarFallback>{initials}</AvatarFallback>
-            </Avatar>
+            {editable && !client.headshot ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="relative size-14 shrink-0 rounded-full p-0 sm:size-16"
+                onClick={() => handleEditorOpenChange(true)}
+                data-testid="add-headshot-button"
+                aria-label="Add headshot"
+                title="Add headshot"
+              >
+                <Avatar className="size-full">
+                  <AvatarFallback>{initials}</AvatarFallback>
+                </Avatar>
+                <span className="border-border bg-background absolute -right-1 -bottom-1 flex rounded-full border p-1">
+                  <Camera />
+                </span>
+              </Button>
+            ) : (
+              <Avatar className="size-14 shrink-0 sm:size-16">
+                <AvatarImage src={client.headshot || undefined} alt={fullName} />
+                <AvatarFallback>{initials}</AvatarFallback>
+              </Avatar>
+            )}
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <p className="text-lg font-semibold">{fullName}</p>
               <p className="text-muted-foreground text-sm">
@@ -266,18 +287,7 @@ export function ClientDetailsCard({
                   Edit
                 </Button>
               )}
-              {editable && !client.headshot && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEditorOpenChange(true)}
-                  data-testid="add-headshot-button"
-                >
-                  <Camera data-icon="inline-start" />
-                  Add headshot
-                </Button>
-              )}
+              {changeClientAction}
             </div>
           </CardContent>
         </Card>

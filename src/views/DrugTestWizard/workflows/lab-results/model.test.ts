@@ -1,5 +1,12 @@
 import { expect, test } from 'vitest'
-import { resolveEntryMode, eligibleLabCollection, legacyLabStep, getLabResultsFormOpts, resultsSchema } from './model'
+import {
+  resolveEntryMode,
+  eligibleLabCollection,
+  legacyLabStep,
+  getLabResultsFormOpts,
+  resultsSchema,
+  sortLabCollections,
+} from './model'
 import type { ParsedPDFData } from '../../types'
 import type { DrugTest } from '@/payload-types'
 const report = (kind: ParsedPDFData['reportKind']) =>
@@ -8,6 +15,27 @@ const collection = (
   screeningStatus: DrugTest['screeningStatus'],
   decision: DrugTest['confirmationDecision'] = 'request-confirmation',
 ) => ({ screeningStatus, confirmationDecision: decision })
+const choices = [
+  { id: 'z', clientName: 'Zoe Jones', collectionDate: '2026-01-01T12:00:00Z' },
+  { id: 'a-new', clientName: 'Avery Stone', collectionDate: '2026-05-24T12:00:00Z' },
+  { id: 'm', clientName: 'Mike Smith', collectionDate: '2025-12-01T12:00:00Z' },
+  { id: 'a-old', clientName: 'avery stone', collectionDate: '2026-05-23T12:00:00Z' },
+]
+test('collection choices sort by client name and then oldest date, regardless of fetch order', () => {
+  expect(sortLabCollections(choices, '').map((choice) => choice.id)).toEqual(['a-old', 'a-new', 'm', 'z'])
+})
+test('the selected collection is pinned first without mutating the fetched list', () => {
+  expect(sortLabCollections(choices, 'z').map((choice) => choice.id)).toEqual(['z', 'a-old', 'a-new', 'm'])
+  expect(choices.map((choice) => choice.id)).toEqual(['z', 'a-new', 'm', 'a-old'])
+})
+test('unreadable dates follow dated collections for the same client', () => {
+  const rows = [
+    { id: 'missing', clientName: 'Avery Stone', collectionDate: null },
+    { id: 'invalid', clientName: 'Avery Stone', collectionDate: 'invalid' },
+    choices[1],
+  ]
+  expect(sortLabCollections(rows, '').map((choice) => choice.id)).toEqual(['a-new', 'invalid', 'missing'])
+})
 test('auto selects the appropriate result stage without changing a stored screen', () => {
   expect(resolveEntryMode('auto', report('screening'), 'collected')).toBe('screening')
   expect(resolveEntryMode('auto', report('confirmation'), 'confirmation-pending')).toBe('confirmation')

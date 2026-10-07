@@ -15,14 +15,13 @@ import {
   expectWizardStep,
   uploadSinglePdf,
   waitForExtractStepReady,
+  selectLabCollection,
 } from './helpers/wizard'
 
 let fixtures: FixtureContext
 
 async function ensureMatchSelected(page: Page) {
-  const candidate = page.getByTestId(`pending-test-${fixtures.tests.labConfirmPendingTestId}`)
-  await candidate.click()
-  await expect(candidate).toHaveAttribute('aria-pressed', 'true')
+  await selectLabCollection(page, fixtures.tests.labConfirmPendingTestId)
   await confirmLabIdentity(page)
 }
 

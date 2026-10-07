@@ -268,14 +268,20 @@ export async function confirmLabIdentity(page: Page) {
   if (await acknowledgement.isVisible()) await acknowledgement.check()
 }
 
+export async function selectLabCollection(page: Page, testId: string) {
+  await expect(page.getByTestId('lab-collection-choices')).toBeVisible()
+  const candidate = page.getByTestId(`pending-test-${testId}`)
+  if (!(await candidate.isVisible())) await page.getByTestId('lab-collection-more').click()
+  await candidate.focus()
+  await candidate.press('Space')
+  await expect(candidate).toHaveAttribute('aria-pressed', 'true')
+}
+
 export async function goToLabScreenData(page: Page, pdfPath: string, testId: string) {
   await uploadSinglePdf(page, pdfPath)
   await waitForExtractStepReady(page)
   await clickNextToStep(page, 'match')
-  const candidate = page.getByTestId(`pending-test-${testId}`)
-  await candidate.focus()
-  await candidate.press('Space')
-  await expect(candidate).toHaveAttribute('aria-pressed', 'true')
+  await selectLabCollection(page, testId)
   await confirmLabIdentity(page)
   await clickNextToStep(page, 'results')
   await page.getByRole('button', { name: 'Edit test details', exact: true }).click()

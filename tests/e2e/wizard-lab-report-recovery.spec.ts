@@ -4,7 +4,14 @@ import { cleanupFixtures } from './helpers/cleanup'
 import { loginAdmin } from './helpers/auth'
 import { getPayloadClient } from './helpers/payload'
 import { getDrugTestById, assertNotificationSent } from './helpers/db-assert'
-import { clickBack, clickNext, expectWizardStep, extractTestIdFromSuccess, selectWorkflow } from './helpers/wizard'
+import {
+  clickBack,
+  clickNext,
+  expectWizardStep,
+  extractTestIdFromSuccess,
+  selectWorkflow,
+  selectLabCollection,
+} from './helpers/wizard'
 import { makeReportPdf, type Cell } from '../../src/utilities/extractors/__tests__/helpers/reportPdf'
 
 const cell = (y: number, values: [number, string][]): Cell[] => values.map(([x, text]) => ({ x, y, text }))
@@ -81,7 +88,7 @@ async function extract(page: Page) {
 async function match(page: Page, testId: string, _legacyStep: string) {
   await clickNext(page)
   await expectWizardStep(page, 'match')
-  await page.getByTestId(`pending-test-${testId}`).click()
+  await selectLabCollection(page, testId)
   await expect(page.getByTestId('lab-client-context')).toBeVisible()
   const identity = page.getByTestId('lab-report-identity-confirmation')
   if (await identity.isVisible()) await identity.check()

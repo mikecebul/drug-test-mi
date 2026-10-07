@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { parseAsString, parseAsStringLiteral, useQueryState } from 'nuqs'
 import { SetStepNav } from '@payloadcms/ui'
-import { ChevronRight, FileText, Loader2, Pill } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, Loader2, Pill } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { Button } from '@/components/ui/button'
@@ -56,6 +56,7 @@ import {
   reportIdentity,
   getReportClientMismatchKey,
   getLabResultsFormOpts,
+  sortLabCollections,
   matchSchema,
   resultsSchema,
   uploadSchema,
@@ -88,6 +89,7 @@ export function LabResultsWorkflow({
     parseAsStringLiteral(labSteps).withDefault('upload').withOptions({ clearOnDefault: false }),
   )
   const [chosenClientId, setChosenClientId] = useState<string | null>(null)
+  const [showAllCollections, setShowAllCollections] = useState(false)
   const [completed, setCompleted] = useState<string | null>(null)
   const [deliveryError, setDeliveryError] = useState<string | null>(null)
   const [showEmailPreview, setShowEmailPreview] = useState(false)
@@ -128,6 +130,11 @@ export function LabResultsWorkflow({
   const submitting = useStore(form.store, (state) => state.isSubmitting)
   const extraction = useExtractPdfQuery(values.upload.file, 'lab-results')
   const collections = useLabCollections(extraction.data, values.reportType, chosenClientId)
+  const orderedCollections = useMemo(
+    () => sortLabCollections(collections.data ?? [], values.matchCollection.testId),
+    [collections.data, values.matchCollection.testId],
+  )
+  const visibleCollections = showAllCollections ? orderedCollections : orderedCollections.slice(0, 3)
   const clientQuery = useGetClientFromTestQuery(values.matchCollection.testId)
   const testQuery = useGetDrugTestQuery(values.matchCollection.testId)
   const client = clientQuery.data
@@ -201,6 +208,7 @@ export function LabResultsWorkflow({
       form.setFieldValue('emails', defaults.emails)
       seeded.current = null
       lastRecipients.current = null
+      setShowAllCollections(false)
     }
     lastFile.current = values.upload.file
     lastType.current = values.reportType
@@ -211,6 +219,7 @@ export function LabResultsWorkflow({
       seeded.current = null
       lastRecipients.current = null
       setChosenClientId(null)
+      setShowAllCollections(false)
       void setStep('upload')
     }
     window.addEventListener('drug-test-wizard-reset', reset)
@@ -375,6 +384,20 @@ export function LabResultsWorkflow({
     )
     invalidateWizardClientDerivedData(queryClient, { clientId: client?.id, testId: test?.id })
   }
+  const clientPicker = (
+    <ClientSearchDialog
+      selectedClientId={chosenClientId ?? client?.id ?? ''}
+      onSelect={(chosen) => {
+        setChosenClientId(chosen.id)
+        setShowAllCollections(false)
+        form.setFieldValue('matchCollection', getLabResultsFormOpts().defaultValues.matchCollection)
+      }}
+    >
+      <Button type="button" variant={client ? 'ghost' : 'outline'} size={client ? 'sm' : 'default'}>
+        {client ? 'Change client' : 'Choose client'}
+      </Button>
+    </ClientSearchDialog>
+  )
   const context = client ? (
     <div data-testid="lab-client-context">
       <ClientDetailsCard
@@ -383,6 +406,7 @@ export function LabResultsWorkflow({
         client={client}
         testLabel={step === 'match' ? undefined : panel(test?.testType)}
         onClientUpdated={updateClient}
+        changeClientAction={step === 'match' ? clientPicker : undefined}
       />
     </div>
   ) : null
@@ -449,57 +473,65 @@ export function LabResultsWorkflow({
   }
   const reportBar = report && (
     <Card>
-      <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <FileText className="size-5" />
-          <span className="font-medium">{values.upload.file?.name}</span>
-          <Badge variant={report.requiresReview ? 'warning' : 'secondary'}>{reportTypeLabel(report)}</Badge>
+      <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
+        <div className="flex max-w-full min-w-0 items-center gap-3">
+          <FileText className="size-5 shrink-0" />
+          <span className="truncate font-medium">{values.upload.file?.name}</span>
         </div>
+        <form.Field name="reportType">
+          {(field) => (
+            <Field className="w-auto">
+              <FieldLabel htmlFor="lab-report-type">Report type</FieldLabel>
+              <Select
+                items={reportTypes.map((value) => ({
+                  value,
+                  label:
+                    value === 'auto'
+                      ? `${reportTypeLabel(report).replace(' report', '')} (auto)`
+                      : value === 'screening'
+                        ? 'Screening'
+                        : 'Confirmation',
+                }))}
+                value={field.state.value}
+                onValueChange={(value) => field.handleChange((value ?? 'auto') as ReportType)}
+              >
+                <SelectTrigger id="lab-report-type" className="w-auto min-w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {reportTypes.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {value === 'auto'
+                          ? `${reportTypeLabel(report).replace(' report', '')} (auto)`
+                          : value === 'screening'
+                            ? 'Screening'
+                            : 'Confirmation'}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
+        </form.Field>
         <div className="flex items-center gap-2">
           <ReportLink file={values.upload.file} />
           <Button type="button" variant="link" onClick={changeReport}>
             Change report
           </Button>
         </div>
+        {!!report.parseWarnings?.length && (
+          <Alert variant="warning">
+            <AlertDescription>
+              {report.parseWarnings.map((warning) => (
+                <p key={warning}>{warning}</p>
+              ))}
+            </AlertDescription>
+          </Alert>
+        )}
       </CardContent>
     </Card>
-  )
-  const options = (
-    <OptionalDetails title="Report options">
-      <form.Field name="reportType">
-        {(field) => (
-          <Field>
-            <FieldLabel>Report type</FieldLabel>
-            <Select
-              items={reportTypes.map((value) => ({
-                value,
-                label: value === 'auto' ? 'Detect from PDF' : value === 'screening' ? 'Screening' : 'Confirmation',
-              }))}
-              value={field.state.value}
-              onValueChange={(value) => field.handleChange((value ?? 'auto') as ReportType)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {reportTypes.map((value) => (
-                    <SelectItem key={value} value={value}>
-                      {value === 'auto' ? 'Detect from PDF' : value === 'screening' ? 'Screening' : 'Confirmation'}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </Field>
-        )}
-      </form.Field>
-      {report?.parseWarnings?.map((warning) => (
-        <p key={warning} className="text-sm">
-          {warning}
-        </p>
-      ))}
-    </OptionalDetails>
   )
   const renderGroup = (
     name: 'upload' | 'matchCollection' | 'results' | 'emails',
@@ -604,7 +636,6 @@ export function LabResultsWorkflow({
                 )}
               </CardContent>
             </Card>
-            {report && options}
           </>,
         )}
       {step === 'match' &&
@@ -614,22 +645,17 @@ export function LabResultsWorkflow({
           <>
             <FieldGroupHeader title="Match lab report" />
             {reportBar}
-            {options}
             {context}
-            <ClientSearchDialog
-              selectedClientId={chosenClientId ?? client?.id ?? ''}
-              onSelect={(chosen) => {
-                setChosenClientId(chosen.id)
-                form.setFieldValue('matchCollection', getLabResultsFormOpts().defaultValues.matchCollection)
-              }}
-            >
-              <Button type="button" variant="outline">
-                Choose client
-              </Button>
-            </ClientSearchDialog>
+            {!client && clientPicker}
             {identity?.requiresConfirmation && (
               <IdentityNotice
-                title="Check client identity"
+                title={
+                  identity.nameDifferent
+                    ? identity.dobDifferent
+                      ? 'Check client identity'
+                      : 'Check name'
+                    : 'Check birth date'
+                }
                 sourceLabel="Lab report"
                 rows={[
                   {
@@ -648,7 +674,7 @@ export function LabResultsWorkflow({
                         },
                       ]
                     : []),
-                ]}
+                ].filter((row) => row.different)}
               >
                 <form.Field name="matchCollection.clientMismatchConfirmed">
                   {(field) => (
@@ -683,45 +709,75 @@ export function LabResultsWorkflow({
                     <AlertDescription>Collections could not be loaded. Try again.</AlertDescription>
                   </Alert>
                 ) : collections.data?.length ? (
-                  collections.data.map((collection) => (
-                    <Button
-                      key={collection.id}
-                      type="button"
-                      variant="outline"
-                      className={cn(
-                        'h-auto min-h-16 w-full justify-between p-4 text-left whitespace-normal',
-                        values.matchCollection.testId === collection.id && 'border-primary bg-primary/5',
-                      )}
-                      data-testid={`pending-test-${collection.id}`}
-                      aria-pressed={values.matchCollection.testId === collection.id}
-                      onClick={() => choose(collection)}
+                  <>
+                    <div
+                      id="lab-collection-choices"
+                      data-testid="lab-collection-choices"
+                      className="flex flex-col gap-3"
                     >
-                      <span className="flex items-center gap-3">
-                        <span
-                          aria-hidden
+                      {visibleCollections.map((collection) => (
+                        <Button
+                          key={collection.id}
+                          type="button"
+                          variant="outline"
                           className={cn(
-                            'border-border flex size-5 shrink-0 items-center justify-center rounded-full border',
-                            values.matchCollection.testId === collection.id && 'border-primary',
+                            'h-auto min-h-16 w-full justify-between p-4 text-left whitespace-normal',
+                            values.matchCollection.testId === collection.id && 'border-primary bg-primary/5',
                           )}
+                          data-testid={`pending-test-${collection.id}`}
+                          aria-pressed={values.matchCollection.testId === collection.id}
+                          onClick={() => choose(collection)}
                         >
-                          {values.matchCollection.testId === collection.id && (
-                            <span className="bg-primary size-2.5 rounded-full" />
-                          )}
-                        </span>
-                        <span className="flex flex-col gap-1">
-                          <span>
-                            {panel(collection.testType)} · {date(collection.collectionDate)}
+                          <span className="flex items-center gap-3">
+                            <span
+                              aria-hidden
+                              className={cn(
+                                'border-border flex size-5 shrink-0 items-center justify-center rounded-full border',
+                                values.matchCollection.testId === collection.id && 'border-primary',
+                              )}
+                            >
+                              {values.matchCollection.testId === collection.id && (
+                                <span className="bg-primary size-2.5 rounded-full" />
+                              )}
+                            </span>
+                            <span className="flex flex-col gap-1">
+                              <span>
+                                {chosenClientId
+                                  ? `${panel(collection.testType)} · ${date(collection.collectionDate)}`
+                                  : collection.clientName}
+                              </span>
+                              {!chosenClientId && (
+                                <span className="text-muted-foreground text-sm">
+                                  {panel(collection.testType)} · {date(collection.collectionDate)}
+                                </span>
+                              )}
+                            </span>
                           </span>
-                          {!chosenClientId && (
-                            <span className="text-muted-foreground text-sm">{collection.clientName}</span>
-                          )}
-                        </span>
-                      </span>
-                      <Badge variant={collection.screeningStatus === 'collected' ? 'secondary' : 'warning'}>
-                        {collection.screeningStatus === 'collected' ? 'Awaiting results' : 'Awaiting confirmation'}
-                      </Badge>
-                    </Button>
-                  ))
+                          <Badge variant={collection.screeningStatus === 'collected' ? 'secondary' : 'warning'}>
+                            {collection.screeningStatus === 'collected' ? 'Awaiting results' : 'Awaiting confirmation'}
+                          </Badge>
+                        </Button>
+                      ))}
+                    </div>
+                    {orderedCollections.length > 3 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        data-testid="lab-collection-more"
+                        aria-expanded={showAllCollections}
+                        aria-controls="lab-collection-choices"
+                        onClick={() => setShowAllCollections((open) => !open)}
+                      >
+                        <ChevronDown
+                          data-icon="inline-start"
+                          className={cn('transition-transform', showAllCollections && 'rotate-180')}
+                        />
+                        {showAllCollections
+                          ? 'Show fewer collections'
+                          : `Show ${orderedCollections.length - 3} more collections`}
+                      </Button>
+                    )}
+                  </>
                 ) : (
                   <p className="text-muted-foreground">
                     No eligible collections. Choose another client or check the report type.

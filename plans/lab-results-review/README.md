@@ -4,10 +4,12 @@ Implemented in the combined [PR #95](https://github.com/mikecebul/drug-test-mi/p
 
 [Open the original gallery](review.html).
 
+[Latest matching mockup](images/04-match-lab-report-simple.png) — visible report type, avatar headshot action, Change client inside the profile card, only mismatching identity fields, and three collection choices initially. The selected collection is pinned first; alternatives sort by client name and then oldest date, with the rest available through Show more.
+
 ## Four screens
 
-1. **Upload** — one Lab results option for screening, confirmation and combined PDFs. Extraction runs on this screen. Unsupported or failed extraction cannot advance. Report type is detected from the PDF, with a collapsed override for occasional manual correction.
-2. **Match** — compact client headshot/DOB/Edit, eligible collection choices, the existing explicit name/DOB comparison and acknowledgement, report viewer and replacement. Completed collections and incompatible stages are excluded. Client search can narrow the collection list. Strong unique matches can be suggested; ambiguous matches require selection.
+1. **Upload** — one Lab results option for screening, confirmation and combined PDFs. Extraction runs on this screen. Unsupported or failed extraction cannot advance. Report type is detected from the PDF.
+2. **Match** — visible report-type override beside the report viewer and replacement, compact client headshot/DOB/Edit/Change client, three eligible collection choices initially and expandable alternatives. The selected collection is pinned first; others sort by client name and then oldest date. Only differing identity fields are compared, with acknowledgement still required. The empty avatar opens headshot capture. Completed collections and incompatible stages are excluded. Client search can narrow the collection list. Strong unique matches can be suggested; ambiguous matches require selection.
 3. **Results** — one compact result strip with medication expectations from the collection-time snapshot. Screening uses the existing decision choices and collapsed test edits. Confirmation uses a substance/status/measurement table with expandable analytes and a small correction dialog. Multiple analytes are shown as a count, never as one class-wide concentration. Unknown results start blank and block final delivery until reviewed; adding a result never defaults to negative. Combined reports use the selected record's stage: a first report updates the collected screening record; a later confirmation retains its original screen and specimen validity.
 4. **Review** — compact client/result context, one recipient card, PDF viewer and separate client/referral email previews. No duplicate confirmation-summary step or payment step is added. Existing opt-out, recipient editing, unpaid confirmation balances and attachment behavior remain.
 

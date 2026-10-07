@@ -17,6 +17,26 @@ export type EntryMode = Exclude<ReportType, 'auto'>
 export type ScreenValues = ReturnType<typeof getLabScreenFormOpts>['defaultValues']['labScreenData']
 export type ConfirmationValues = ReturnType<typeof getLabConfirmationFormOpts>['defaultValues']['labConfirmationData']
 
+export function sortLabCollections<
+  T extends { id: string; clientName?: string | null; collectionDate?: string | null },
+>(collections: readonly T[], selectedId: string): T[] {
+  const timestamp = (value?: string | null) => {
+    const time = value ? new Date(value).getTime() : NaN
+    return Number.isFinite(time) ? time : Infinity
+  }
+  return [...collections].sort((a, b) => {
+    if ((a.id === selectedId) !== (b.id === selectedId)) return a.id === selectedId ? -1 : 1
+    return (
+      (a.clientName?.trim() ?? '').localeCompare(b.clientName?.trim() ?? '', 'en', {
+        sensitivity: 'base',
+        numeric: true,
+      }) ||
+      timestamp(a.collectionDate) - timestamp(b.collectionDate) ||
+      a.id.localeCompare(b.id)
+    )
+  })
+}
+
 export function resolveEntryMode(type: ReportType, report: ParsedPDFData | undefined, status?: string): EntryMode {
   if (type !== 'auto') return type
   if (status === 'screened' || status === 'confirmation-pending' || report?.reportKind === 'confirmation')
