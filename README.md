@@ -238,6 +238,7 @@ docker compose up -d --wait mongo
 
 Notes:
 - Use the replica-set URLs in `.env.example`, including `replicaSet=rs0&directConnection=true`. Payload requires the replica-set option to enable transactions; direct connection lets a host-run app reach the single Docker endpoint.
+- The examples use the `drug-test-mi` database. Point `DATABASE_URI` and `DOCKER_DATABASE_URI` at the same project database; the worker requires an explicit URL and has no database fallback. Keep an existing project database name when updating connection options.
 - The MongoDB healthcheck initializes an unconfigured replica set and waits for a writable primary. Existing records remain in the same `mongo-data` volume. Back up an existing local database before converting it; never remove its volume to enable transactions.
 - After changing the MongoDB configuration or connection URLs, restart the app and any running worker. Their existing connections may have transactions disabled.
 - This setup is for local development; keep your production MongoDB/Atlas connection configuration.

@@ -39,7 +39,7 @@ services:
         condition: service_healthy
     environment:
       - NODE_ENV=production
-      - DATABASE_URI=${DOCKER_DATABASE_URI:-mongodb://mongo:27017/cvx-junior-golf?replicaSet=rs0&directConnection=true}
+      - DATABASE_URI=${DOCKER_DATABASE_URI:?Set DOCKER_DATABASE_URI to the drug-test-mi database}
       - TZ=America/Detroit
     env_file: .env
 
