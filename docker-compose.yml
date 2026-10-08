@@ -39,23 +39,26 @@ services:
         condition: service_healthy
     environment:
       - NODE_ENV=production
-      - DATABASE_URI=${DOCKER_DATABASE_URI:-mongodb://mongo:27017/cvx-junior-golf}
+      - DATABASE_URI=${DOCKER_DATABASE_URI:-mongodb://mongo:27017/cvx-junior-golf?replicaSet=rs0&directConnection=true}
       - TZ=America/Detroit
     env_file: .env
 
-  # Ensure your DATABASE_URI uses 'mongo' as the hostname ie. mongodb://mongo/my-db-name
+  # Payments require transactions. Keep the single-node replica set for local use.
   mongo:
     image: mongo:latest
     ports:
       - '27017:27017'
     command:
       - --storageEngine=wiredTiger
+      - --replSet=rs0
+      - --bind_ip_all
     volumes:
       - mongo-data:/data/db
+      - ./scripts/mongo-replica-healthcheck.js:/usr/local/bin/mongo-replica-healthcheck.js:ro
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test: ['CMD', 'mongosh', '--quiet', '--file', '/usr/local/bin/mongo-replica-healthcheck.js']
       interval: 10s
       timeout: 5s
       retries: 5

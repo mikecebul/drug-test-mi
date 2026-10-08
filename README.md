@@ -228,17 +228,22 @@ Notes:
 
 #### Start MongoDB (recommended via Docker Compose)
 
-This repo includes a `docker-compose.yml` with `mongo` and a production-style `payload` service.
+This repo includes a `docker-compose.yml` with a single-node MongoDB replica set for local development. Confirmation fees, account credit, and payment posting require transactions.
 
 For normal local development, start only MongoDB and run the app with `pnpm dev`:
 
 ```bash
-docker compose up -d mongo
+docker compose up -d --wait mongo
 ```
 
 Notes:
-- The compose file also defines a `payload` container intended for containerized/prod-like runs.
+- Use the replica-set URLs in `.env.example`, including `replicaSet=rs0&directConnection=true`. Payload requires the replica-set option to enable transactions; direct connection lets a host-run app reach the single Docker endpoint.
+- The MongoDB healthcheck initializes an unconfigured replica set and waits for a writable primary. Existing records remain in the same `mongo-data` volume. Back up an existing local database before converting it; never remove its volume to enable transactions.
+- After changing the MongoDB configuration or connection URLs, restart the app and any running worker. Their existing connections may have transactions disabled.
+- This setup is for local development; keep your production MongoDB/Atlas connection configuration.
 - Most local development is simpler with a local Node process (`pnpm dev`) plus the compose MongoDB container.
+
+MongoDB references: [convert an existing standalone database](https://www.mongodb.com/docs/manual/tutorial/convert-standalone-to-replica-set/) and [connect to a Docker replica set](https://www.mongodb.com/docs/drivers/node/current/connect/connection-targets/#replica-set).
 
 #### Optional: Run Mailpit for local email inspection
 
