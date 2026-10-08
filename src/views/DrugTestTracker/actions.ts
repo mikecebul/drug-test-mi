@@ -1,6 +1,13 @@
 'use server'
 
 import Stripe from 'stripe'
+import { prepareConfirmation } from '@/collections/DrugTests/confirmation/prepare'
+import { sendConfirmationPaymentLink } from '@/collections/DrugTests/confirmation/paymentLink'
+import {
+  confirmationHoldExpired,
+  confirmationHoldUntil,
+  knownScreeningDate,
+} from '@/collections/DrugTests/confirmation/policy'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { headers } from 'next/headers'
@@ -39,6 +46,10 @@ type TrackerDoc = {
   collectionDate?: unknown
   testType?: unknown
   initialScreenResult?: unknown
+  notificationsSent?: Array<{ stage?: string | null; sentAt?: string | null }> | null
+  screenedAt?: unknown
+  confirmationHoldUntil?: unknown
+  billingResponsibility?: unknown
   confirmationDecision?: unknown
   confirmationResults?: unknown
   confirmationSubstances?: unknown
@@ -71,6 +82,14 @@ function toTrackerTest(doc: TrackerDoc) {
 
   return {
     id: String(doc.id),
+    screenedAt: typeof doc.screenedAt === 'string' ? doc.screenedAt : undefined,
+    confirmationHoldUntil:
+      typeof doc.confirmationHoldUntil === 'string'
+        ? doc.confirmationHoldUntil
+        : knownScreeningDate({ notificationsSent: doc.notificationsSent })
+          ? confirmationHoldUntil(knownScreeningDate({ notificationsSent: doc.notificationsSent })!)
+          : undefined,
+    billingResponsibility: doc.billingResponsibility as { payer?: string },
     relatedClient: relatedClient
       ? {
           id: String(relatedClient.id),
@@ -133,12 +152,21 @@ async function fetchTrackerTests(payload: Awaited<ReturnType<typeof getPayload>>
   })
 
   return Promise.all(
-    result.docs.map(async (test) => {
-      return {
-        ...toTrackerTest(test),
-        billedToReferral: await isTestBilledToReferral(payload, test),
-      }
-    }),
+    result.docs
+      .filter(
+        (test) =>
+          !(
+            test.confirmationDecision === 'pending-decision' &&
+            confirmationHoldExpired(toTrackerTest(test)) &&
+            readBalanceDue(test) === 0
+          ),
+      )
+      .map(async (test) => {
+        return {
+          ...toTrackerTest(test),
+          billedToReferral: await isTestBilledToReferral(payload, test),
+        }
+      }),
   )
 }
 
@@ -245,71 +273,14 @@ export async function requestDrugTestConfirmation(input: {
 
   const payload = await getAdminPayload()
   try {
-    await withPayloadTransaction(payload, async (req) => {
-      const test = await payload.findByID({
-        collection: 'drug-tests',
-        id: input.testId,
-        depth: 1,
-        overrideAccess: true,
-        req,
-      })
-      const clientId = getRelationshipId(test.relatedClient)
-
-      if (!clientId) {
-        throw new Error('Unable to identify the client for this test.')
-      }
-      const billedToReferral =
-        test.payment?.status === 'invoiced' ||
-        Boolean(test.payment?.referralInvoice) ||
-        (await isTestBilledToReferral(payload, test, req))
-
-      const feePerSubstance = test.testType === '17-panel-instant' || test.testType === '15-panel-instant' ? 30 : 45
-      const confirmationFeeDue = feePerSubstance * input.confirmationSubstances.length
-      const currentPayment = test.payment || {}
-      const currentAmountDue = typeof currentPayment.amountDue === 'number' ? currentPayment.amountDue : 0
-      const currentAmountPaid = typeof currentPayment.amountPaid === 'number' ? currentPayment.amountPaid : 0
-      const previousConfirmationFee =
-        typeof currentPayment.confirmationFeeDue === 'number' ? currentPayment.confirmationFeeDue : 0
-      const nextAmountDue = Math.max(0, currentAmountDue - previousConfirmationFee + confirmationFeeDue)
-      const nextBalanceDue = Math.max(0, nextAmountDue - currentAmountPaid)
-      const bypassPaymentRequirement = input.bypassPaymentRequirement === true
-
-      await payload.update({
-        collection: 'drug-tests',
-        id: input.testId,
-        data: {
-          confirmationDecision: 'request-confirmation',
-          confirmationSubstances: input.confirmationSubstances as SubstanceValue[],
-          payment: {
-            ...currentPayment,
-            status:
-              nextBalanceDue <= 0
-                ? 'paid'
-                : test.payment?.status === 'invoiced'
-                  ? 'invoiced'
-                  : currentAmountPaid > 0
-                    ? 'partial'
-                    : 'unpaid',
-            amountDue: nextAmountDue,
-            amountPaid: currentAmountPaid,
-            balanceDue: nextBalanceDue,
-            confirmationFeeDue,
-            confirmationPaymentBypassed: bypassPaymentRequirement,
-            confirmationPaymentBypassedAt: bypassPaymentRequirement ? new Date().toISOString() : null,
-          },
-        },
-        overrideAccess: true,
-        req,
-      })
-
-      if (!billedToReferral) {
-        await applyAvailableClientCredit({
-          payload,
-          clientId,
-          relatedDrugTest: input.testId,
-          req,
-        })
-      }
+    const { user } = await payload.auth({ headers: await headers() })
+    await prepareConfirmation({
+      payload,
+      user,
+      testId: input.testId,
+      decision: 'request-confirmation',
+      substances: input.confirmationSubstances,
+      bypassPaymentRequirement: input.bypassPaymentRequirement,
     })
   } catch (error) {
     return {
@@ -341,6 +312,17 @@ export async function sendDrugTestStripePaymentLink(testId: string) {
     depth: 1,
     overrideAccess: true,
   })
+  if (test.confirmationRequestKey && test.confirmationDecision === 'request-confirmation') {
+    try {
+      const sent = await sendConfirmationPaymentLink(payload, testId, undefined, true)
+      return { success: true, checkoutUrl: sent.checkoutUrl, test: await fetchTrackerTest(payload, testId) }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unable to send confirmation payment link.',
+      }
+    }
+  }
   const client = typeof test.relatedClient === 'object' && test.relatedClient ? test.relatedClient : null
   const clientId = getRelationshipId(test.relatedClient)
   const balanceDue = readBalanceDue(test)

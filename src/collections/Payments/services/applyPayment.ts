@@ -1,4 +1,9 @@
 import type { Payload, PayloadRequest } from 'payload'
+import {
+  confirmationPaid,
+  confirmationRemaining,
+  confirmationHoldExpired,
+} from '@/collections/DrugTests/confirmation/policy'
 import type { DrugTest } from '@/payload-types'
 import { resolveBillingResponsibility } from '@/lib/referral-invoices/payer'
 
@@ -17,6 +22,7 @@ export type PaymentSource =
 type PaymentAllocation = {
   drugTest: string
   amount: number
+  confirmationAmount?: number
 }
 
 type ApplyIncomingPaymentInput = {
@@ -34,6 +40,9 @@ type ApplyIncomingPaymentInput = {
   stripePaymentIntentId?: string | null
   stripeCheckoutUrl?: string | null
   paymentLinkEmailSentAt?: string | null
+  purpose?: 'confirmation'
+  confirmationRequestKey?: string | null
+  confirmationAllocationDisabled?: boolean
   existingPaymentId?: RelationshipId | null
   req?: Partial<PayloadRequest>
 }
@@ -83,10 +92,43 @@ async function unpaidClientTests(payload: Payload, clientId: string, req?: Parti
   return tests
 }
 
+async function allocationTests(input: {
+  payload: Payload
+  clientId: string
+  relatedDrugTest?: string | null
+  purpose?: 'confirmation'
+  confirmationRequestKey?: string | null
+  confirmationAllocationDisabled?: boolean
+  req?: Partial<PayloadRequest>
+}) {
+  if (input.purpose !== 'confirmation') return unpaidClientTests(input.payload, input.clientId, input.req)
+  if (input.confirmationAllocationDisabled) return []
+  if (!input.relatedDrugTest || !input.confirmationRequestKey)
+    throw new Error('A confirmation payment must identify its test and request.')
+  const test = await input.payload.findByID({
+    collection: 'drug-tests',
+    id: input.relatedDrugTest,
+    depth: 0,
+    overrideAccess: true,
+    req: input.req,
+  })
+  if (readRelationshipId(test.relatedClient) !== input.clientId)
+    throw new Error('Confirmation payment belongs to a different client.')
+  // Settled money from cancelled/expired links becomes credit, never an authorization for a different request.
+  if (
+    test.confirmationRequestKey !== input.confirmationRequestKey ||
+    test.confirmationDecision !== 'request-confirmation' ||
+    confirmationHoldExpired(test)
+  )
+    return []
+  return [test]
+}
+
 async function updateDrugTestPayment(input: {
   payload: Payload
   drugTest: Pick<DrugTest, 'id' | 'payment'>
   amountApplied: number
+  purpose?: 'confirmation'
   method: PaymentMethod
   req?: Partial<PayloadRequest>
 }) {
@@ -94,6 +136,13 @@ async function updateDrugTestPayment(input: {
   const amountDue = normalizeMoney(existingPayment.amountDue)
   const previousAmountPaid = normalizeMoney(existingPayment.amountPaid)
   const nextAmountPaid = addMoney(previousAmountPaid, input.amountApplied)
+  const feePaid = confirmationPaid(input.drugTest)
+  const nextFeePaid = Math.min(
+    existingPayment.confirmationFeeDue || 0,
+    input.purpose === 'confirmation'
+      ? addMoney(feePaid, input.amountApplied)
+      : Math.max(feePaid, nextAmountPaid - Math.max(0, amountDue - (existingPayment.confirmationFeeDue || 0))),
+  )
   const nextBalanceDue = Math.max(0, subtractMoney(amountDue, nextAmountPaid))
 
   const nextStatus = nextBalanceDue <= 0 ? 'paid' : nextAmountPaid > 0 ? 'partial' : existingPayment.status || 'unpaid'
@@ -107,6 +156,7 @@ async function updateDrugTestPayment(input: {
         status: nextStatus,
         method: input.method,
         amountDue,
+        confirmationFeePaid: nextFeePaid,
         amountPaid: Math.min(nextAmountPaid, amountDue),
         balanceDue: nextBalanceDue,
         lastPaymentAt: new Date().toISOString(),
@@ -114,6 +164,7 @@ async function updateDrugTestPayment(input: {
     },
     overrideAccess: true,
     req: input.req,
+    context: { confirmationAllocation: true },
   })
 }
 
@@ -167,21 +218,24 @@ export async function applyIncomingPayment(input: ApplyIncomingPaymentInput) {
   const allocations: PaymentAllocation[] = []
 
   if (remaining > 0) {
-    const unpaidTests = await unpaidClientTests(input.payload, input.clientId, input.req)
+    const unpaidTests = await allocationTests(input)
     for (const test of unpaidTests) {
       if (remaining <= 0) break
       if (test.payment?.status === 'invoiced' || test.payment?.referralInvoice) continue
       if ((await resolveBillingResponsibility(input.payload, test, input.clientId, input.req)).payer === 'referral')
         continue
 
-      const balanceDue = normalizeMoney(test.payment?.balanceDue)
+      const balanceDue =
+        input.purpose === 'confirmation' ? confirmationRemaining(test) : normalizeMoney(test.payment?.balanceDue)
       if (balanceDue <= 0) continue
 
       const amountApplied = Math.min(balanceDue, remaining)
-      await updateDrugTestPayment({
+      const previousConfirmationPaid = confirmationPaid(test)
+      const updatedTest = await updateDrugTestPayment({
         payload: input.payload,
         drugTest: test,
         amountApplied,
+        purpose: input.purpose,
         method: input.method,
         req: input.req,
       })
@@ -189,6 +243,7 @@ export async function applyIncomingPayment(input: ApplyIncomingPaymentInput) {
       allocations.push({
         drugTest: String(test.id),
         amount: amountApplied,
+        confirmationAmount: Math.max(0, subtractMoney(confirmationPaid(updatedTest), previousConfirmationPaid)),
       })
       remaining = subtractMoney(remaining, amountApplied)
     }
@@ -206,7 +261,28 @@ export async function applyIncomingPayment(input: ApplyIncomingPaymentInput) {
     await addClientCredit(input.payload, input.clientId, creditAmount, input.req)
   }
 
+  if (input.purpose === 'confirmation' && creditAmount > 0) {
+    await input.payload.create({
+      collection: 'admin-alerts',
+      overrideAccess: true,
+      req: input.req,
+      data: {
+        title: 'Confirmation payment needs review',
+        severity: 'high',
+        alertType: 'data-integrity',
+        message: `A confirmation payment retained $${creditAmount.toFixed(2)} as account credit because its request was changed, expired, or already funded. Review for a refund. No lab request was authorized by this credit.`,
+        context: {
+          testId: input.relatedDrugTest,
+          paymentId: input.existingPaymentId,
+          confirmationRequestKey: input.confirmationRequestKey,
+        },
+        resolved: false,
+      },
+    })
+  }
   const paymentData = {
+    purpose: input.purpose,
+    confirmationRequestKey: input.confirmationRequestKey || undefined,
     relatedClient: input.clientId,
     relatedDrugTest: input.relatedDrugTest || undefined,
     relatedBooking: input.relatedBooking || undefined,
@@ -246,6 +322,8 @@ export async function applyAvailableClientCredit(input: {
   payload: Payload
   clientId: RelationshipId
   amount?: number
+  purpose?: 'confirmation'
+  confirmationRequestKey?: string | null
   relatedBooking?: RelationshipId | null
   relatedDrugTest?: RelationshipId | null
   bookingBalanceDue?: number
@@ -269,21 +347,24 @@ export async function applyAvailableClientCredit(input: {
 
   const allocations: PaymentAllocation[] = []
   if (remainingCredit > 0) {
-    const unpaidTests = await unpaidClientTests(input.payload, input.clientId, input.req)
+    const unpaidTests = await allocationTests(input)
     for (const test of unpaidTests) {
       if (remainingCredit <= 0) break
       if (test.payment?.status === 'invoiced' || test.payment?.referralInvoice) continue
       if ((await resolveBillingResponsibility(input.payload, test, input.clientId, input.req)).payer === 'referral')
         continue
 
-      const balanceDue = normalizeMoney(test.payment?.balanceDue)
+      const balanceDue =
+        input.purpose === 'confirmation' ? confirmationRemaining(test) : normalizeMoney(test.payment?.balanceDue)
       if (balanceDue <= 0) continue
 
       const amountApplied = Math.min(balanceDue, remainingCredit)
-      await updateDrugTestPayment({
+      const previousConfirmationPaid = confirmationPaid(test)
+      const updatedTest = await updateDrugTestPayment({
         payload: input.payload,
         drugTest: test,
         amountApplied,
+        purpose: input.purpose,
         method: 'credit',
         req: input.req,
       })
@@ -291,6 +372,7 @@ export async function applyAvailableClientCredit(input: {
       allocations.push({
         drugTest: String(test.id),
         amount: amountApplied,
+        confirmationAmount: Math.max(0, subtractMoney(confirmationPaid(updatedTest), previousConfirmationPaid)),
       })
       remainingCredit = subtractMoney(remainingCredit, amountApplied)
     }
@@ -322,6 +404,8 @@ export async function applyAvailableClientCredit(input: {
   const payment = await input.payload.create({
     collection: 'payments',
     data: {
+      purpose: input.purpose,
+      confirmationRequestKey: input.confirmationRequestKey || undefined,
       relatedClient: input.clientId,
       relatedBooking: input.relatedBooking || undefined,
       relatedDrugTest: input.relatedDrugTest || undefined,

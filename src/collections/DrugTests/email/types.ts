@@ -21,6 +21,10 @@ export type ScreenedEmailData = CollectedEmailData & {
   unexpectedPositives: string[]
   unexpectedNegatives: string[]
   isDilute: boolean
+  confirmationCompleted?: boolean
+  confirmationSubstances?: string[]
+  confirmationPaymentRequired?: boolean
+  confirmationHoldUntil?: string | null
   confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
 }
 

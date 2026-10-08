@@ -199,6 +199,7 @@ export interface Config {
   user: Admin | Client | PayloadMcpApiKey;
   jobs: {
     tasks: {
+      'notify-confirmation-paid': TaskNotifyConfirmationPaid;
       'send-monthly-referral-invoices': TaskSendMonthlyReferralInvoices;
       'sync-referral-invoice-payments': TaskSyncReferralInvoicePayments;
       'redwood-diagnostics-probe': TaskRedwoodDiagnosticsProbe;
@@ -1815,6 +1816,15 @@ export interface DrugTest {
     changedAt?: string | null;
     changedBy?: (string | null) | Admin;
   };
+  /**
+   * First screening result date; starts the 30-day laboratory hold.
+   */
+  screenedAt?: string | null;
+  confirmationHoldUntil?: string | null;
+  confirmationRequestKey?: string | null;
+  confirmationNotificationAdmin?: (string | null) | Admin;
+  confirmationPaidNotificationKey?: string | null;
+  confirmationPaidNotifiedAt?: string | null;
   clientName?: string | null;
   /**
    * AUTO-UPDATED: Current workflow status based on entered data (SuperAdmin can override)
@@ -1910,6 +1920,10 @@ export interface DrugTest {
      * Confirmation testing fee added to this test balance.
      */
     confirmationFeeDue?: number | null;
+    /**
+     * Money applied specifically to the confirmation fee.
+     */
+    confirmationFeePaid?: number | null;
     /**
      * Allows confirmation workflow to proceed before the confirmation fee is paid.
      */
@@ -2317,6 +2331,8 @@ export interface ReferralInvoice {
  */
 export interface Payment {
   id: string;
+  purpose?: 'confirmation' | null;
+  confirmationRequestKey?: string | null;
   accountOperationId?: string | null;
   collectedBy?: (string | null) | Admin;
   title?: string | null;
@@ -2370,6 +2386,7 @@ export interface Payment {
    */
   allocations?:
     | {
+        confirmationAmount?: number | null;
         drugTest: string | DrugTest;
         amount: number;
         id?: string | null;
@@ -2888,6 +2905,7 @@ export interface PayloadJob {
         completedAt: string;
         taskSlug:
           | 'inline'
+          | 'notify-confirmation-paid'
           | 'send-monthly-referral-invoices'
           | 'sync-referral-invoice-payments'
           | 'redwood-diagnostics-probe'
@@ -2936,6 +2954,7 @@ export interface PayloadJob {
   taskSlug?:
     | (
         | 'inline'
+        | 'notify-confirmation-paid'
         | 'send-monthly-referral-invoices'
         | 'sync-referral-invoice-payments'
         | 'redwood-diagnostics-probe'
@@ -4258,6 +4277,12 @@ export interface DrugTestsSelect<T extends boolean = true> {
         changedAt?: T;
         changedBy?: T;
       };
+  screenedAt?: T;
+  confirmationHoldUntil?: T;
+  confirmationRequestKey?: T;
+  confirmationNotificationAdmin?: T;
+  confirmationPaidNotificationKey?: T;
+  confirmationPaidNotifiedAt?: T;
   clientName?: T;
   screeningStatus?: T;
   isInconclusive?: T;
@@ -4280,6 +4305,7 @@ export interface DrugTestsSelect<T extends boolean = true> {
         balanceDue?: T;
         notes?: T;
         confirmationFeeDue?: T;
+        confirmationFeePaid?: T;
         confirmationPaymentBypassed?: T;
         confirmationPaymentBypassedAt?: T;
         lastPaymentAt?: T;
@@ -4334,6 +4360,8 @@ export interface DrugTestsSelect<T extends boolean = true> {
  * via the `definition` "payments_select".
  */
 export interface PaymentsSelect<T extends boolean = true> {
+  purpose?: T;
+  confirmationRequestKey?: T;
   accountOperationId?: T;
   collectedBy?: T;
   title?: T;
@@ -4357,6 +4385,7 @@ export interface PaymentsSelect<T extends boolean = true> {
   allocations?:
     | T
     | {
+        confirmationAmount?: T;
         drugTest?: T;
         amount?: T;
         id?: T;
@@ -4881,6 +4910,17 @@ export interface CollectionsWidget {
     [k: string]: unknown;
   };
   width: 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskNotify-confirmation-paid".
+ */
+export interface TaskNotifyConfirmationPaid {
+  input: {
+    testId: string;
+    notificationKey: string;
+  };
+  output?: unknown;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

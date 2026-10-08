@@ -8,6 +8,10 @@ type ConfirmationDecision = 'accept' | 'request-confirmation' | 'pending-decisio
 type ConfirmationDecisionNoticeProps = {
   audience: 'client' | 'referral'
   confirmationDecision?: ConfirmationDecision
+  confirmationCompleted?: boolean
+  confirmationSubstances?: string[]
+  confirmationPaymentRequired?: boolean
+  confirmationHoldUntil?: string | null
   initialScreenResult?: string | null
   testType: string
   unexpectedPositives: string[]
@@ -21,6 +25,10 @@ function formatSubstanceList(substances: string[]) {
 export function ConfirmationDecisionNotice({
   audience,
   confirmationDecision,
+  confirmationCompleted,
+  confirmationSubstances,
+  confirmationPaymentRequired,
+  confirmationHoldUntil,
   initialScreenResult,
   testType,
   unexpectedPositives,
@@ -55,7 +63,9 @@ export function ConfirmationDecisionNotice({
 
   const isInstantTest = testType === '15-panel-instant' || testType === '17-panel-instant'
   const substances = formatSubstanceList(unexpectedPositives)
-  const confirmationWindow = '30 days'
+  const confirmationWindow = confirmationHoldUntil
+    ? `the laboratory hold ends ${new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: 'America/New_York' }).format(new Date(confirmationHoldUntil))}`
+    : '30 days from the screening result date'
   const confirmationPrice = isInstantTest ? '$30' : '$45'
 
   let title = 'Confirmation Decision Pending'
@@ -63,8 +73,8 @@ export function ConfirmationDecisionNotice({
     ? `Waiting on your decision to get confirmation testing for ${substances}.`
     : `Waiting on the client's decision to get confirmation testing for ${substances}.`
   let detail = isClient
-    ? `Confirmation is available for ${confirmationPrice} within ${confirmationWindow}.`
-    : `Confirmation is available for ${confirmationPrice} within ${confirmationWindow}.`
+    ? `Confirmation costs ${confirmationPrice} per substance; ${confirmationWindow}.`
+    : `Confirmation costs ${confirmationPrice} per substance; ${confirmationWindow}.`
 
   if (confirmationDecision === 'accept') {
     title = 'Screen Results Accepted'
@@ -73,16 +83,24 @@ export function ConfirmationDecisionNotice({
       : `The client accepted the screen result for ${substances} without confirmation testing.`
     detail = isInstantTest
       ? 'The sample has been disposed and confirmation testing is no longer available for this test.'
-      : `The laboratory sample may still be eligible for confirmation within ${confirmationWindow}.`
+      : 'This test is finished and is no longer tracked for confirmation.'
   }
 
   if (confirmationDecision === 'request-confirmation') {
-    title = 'Confirmation Testing Requested'
+    title = confirmationCompleted
+      ? 'Confirmation Results Received'
+      : confirmationPaymentRequired
+        ? 'Confirmation Payment Required'
+        : 'Confirmation Testing Selected'
+    const selected = formatSubstanceList(confirmationSubstances?.length ? confirmationSubstances : unexpectedPositives)
     message = isClient
-      ? `You requested confirmation testing for ${substances}.`
-      : `The client requested confirmation testing for ${substances}.`
-    detail =
-      'The sample has been sent to the laboratory for LC-MS/MS confirmation testing. A final result will be sent when confirmation is complete.'
+      ? `You selected confirmation testing for ${selected}.`
+      : `The client selected confirmation testing for ${selected}.`
+    detail = confirmationCompleted
+      ? 'Confirmation results are included in this report.'
+      : confirmationPaymentRequired
+        ? 'Staff will request confirmation from the laboratory after payment clears. A final result will be sent when confirmation is complete.'
+        : 'Staff will coordinate confirmation with the laboratory. A final result will be sent when confirmation is complete.'
   }
 
   return (

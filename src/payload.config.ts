@@ -1,3 +1,4 @@
+import { notifyConfirmationPaidTask } from './collections/DrugTests/confirmation/notification'
 import { staffNavigation } from '@/plugins/staffNavigation'
 import { mongooseAdapter } from '@payloadcms/db-mongodb'
 import { nodemailerAdapter } from '@payloadcms/email-nodemailer'
@@ -432,6 +433,7 @@ export default buildConfig({
   jobs: {
     enableConcurrencyControl: true,
     tasks: [
+      notifyConfirmationPaidTask,
       {
         slug: 'send-monthly-referral-invoices',
         retries: 1,

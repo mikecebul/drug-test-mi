@@ -77,6 +77,10 @@ export function ScreenedEmail(data: ScreenedEmailData) {
       <ConfirmationDecisionNotice
         audience="client"
         confirmationDecision={confirmationDecision}
+        confirmationCompleted={data.confirmationCompleted}
+        confirmationSubstances={data.confirmationSubstances}
+        confirmationPaymentRequired={data.confirmationPaymentRequired}
+        confirmationHoldUntil={data.confirmationHoldUntil}
         initialScreenResult={initialScreenResult}
         testType={testType}
         unexpectedPositives={unexpectedPositives}

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   sendEmails: vi.fn(),
 }))
 vi.mock('payload', () => ({ getPayload: mocks.getPayload }))
+vi.mock('next/headers', () => ({ headers: async () => new Headers() }))
 vi.mock('@payload-config', () => ({ default: {} }))
 vi.mock('../../components/readLabReport', () => ({
   readLabReportFile: mocks.readReport,
@@ -39,6 +40,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.readReport.mockResolvedValue({ buffer: Buffer.from('PDF'), report })
   mocks.getPayload.mockResolvedValue({
+    auth: vi.fn().mockResolvedValue({ user: { id: 'admin', collection: 'admins', role: 'admin' } }),
     findByID: vi.fn(({ collection }) =>
       Promise.resolve(
         collection === 'drug-tests'
@@ -90,4 +92,13 @@ test('a reviewed combined report can use the screening save path without a workf
       confirmationResults: [expect.objectContaining({ substance: 'fentanyl', result: 'confirmed-negative' })],
     }),
   )
+})
+
+test('denies an unauthenticated direct save before parsing or any mutation', async () => {
+  mocks.getPayload.mockResolvedValue({ auth: vi.fn().mockResolvedValue({ user: null }) })
+  const result = await updateLabScreenWithEmailReview(form(), undefined)
+  expect(result.success).toBe(false)
+  expect(mocks.readReport).not.toHaveBeenCalled()
+  expect(mocks.create).not.toHaveBeenCalled()
+  expect(mocks.update).not.toHaveBeenCalled()
 })

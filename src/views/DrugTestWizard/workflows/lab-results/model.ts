@@ -98,6 +98,7 @@ export const resultsSchema = z
     screening: z.custom<ScreenValues>(),
     confirmation: z.custom<ConfirmationValues>(),
     screeningVerified: z.boolean(),
+    emailConfirmationPaymentLink: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
     const schema =
@@ -129,6 +130,7 @@ export function getLabResultsFormOpts() {
         screening: screen.labScreenData,
         confirmation: confirmation.labConfirmationData,
         screeningVerified: false,
+        emailConfirmationPaymentLink: false,
       },
       emails: screen.emails,
     },

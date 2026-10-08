@@ -250,8 +250,8 @@ describe('payment allocation service', () => {
           appliedAmount: 60,
           creditAmount: 0,
           allocations: [
-            { drugTest: 'old-test', amount: 40 },
-            { drugTest: 'new-test', amount: 20 },
+            { drugTest: 'old-test', amount: 40, confirmationAmount: 0 },
+            { drugTest: 'new-test', amount: 20, confirmationAmount: 0 },
           ],
         }),
       }),
@@ -305,7 +305,7 @@ describe('payment allocation service', () => {
           appliedAmount: 35,
           reservedForBookingAmount: 15,
           creditAmount: 0,
-          allocations: [{ drugTest: 'old-test', amount: 35 }],
+          allocations: [{ drugTest: 'old-test', amount: 35, confirmationAmount: 0 }],
         }),
       }),
     )
@@ -367,8 +367,8 @@ describe('payment allocation service', () => {
           appliedAmount: 50,
           creditAmount: 0,
           allocations: [
-            { drugTest: 'oldest-test', amount: 35 },
-            { drugTest: 'second-oldest-test', amount: 15 },
+            { drugTest: 'oldest-test', amount: 35, confirmationAmount: 0 },
+            { drugTest: 'second-oldest-test', amount: 15, confirmationAmount: 0 },
           ],
         }),
       }),
@@ -548,8 +548,8 @@ describe('payment allocation service', () => {
           appliedAmount: 50,
           creditAmount: 0,
           allocations: [
-            { drugTest: 'old-test', amount: 40 },
-            { drugTest: 'new-test', amount: 10 },
+            { drugTest: 'old-test', amount: 40, confirmationAmount: 0 },
+            { drugTest: 'new-test', amount: 10, confirmationAmount: 0 },
           ],
         }),
       }),
@@ -596,7 +596,7 @@ describe('payment allocation service', () => {
           amount: 50,
           appliedAmount: 35,
           reservedForBookingAmount: 15,
-          allocations: [{ drugTest: 'old-test', amount: 35 }],
+          allocations: [{ drugTest: 'old-test', amount: 35, confirmationAmount: 0 }],
         }),
       }),
     )

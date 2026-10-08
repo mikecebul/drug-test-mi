@@ -25,6 +25,13 @@ export const labScreenDataSchema = z.object({
     .object({
       testType: z.enum(TEST_TYPES),
       collectionDate: z.string().min(1, 'Collection date is required'),
+      screeningResultDate: z
+        .string()
+        .optional()
+        .refine(
+          (value) => value === undefined || (!!value && Number.isFinite(new Date(value).getTime())),
+          'Enter a valid screening result date',
+        ),
       detectedSubstances: z.array(z.string()),
       isDilute: z.boolean(),
       reportHasConfirmation: z.boolean().default(false),

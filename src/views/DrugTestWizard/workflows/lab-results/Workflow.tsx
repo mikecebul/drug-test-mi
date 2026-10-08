@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Field, FieldGroup, FieldLabel, FieldError } from '@/components/ui/field'
+import { Field, FieldGroup, FieldLabel, FieldDescription, FieldError } from '@/components/ui/field'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatSubstance } from '@/lib/substances'
@@ -69,7 +69,11 @@ import { computeFinalStatus } from '@/collections/DrugTests/services/testResults
 import { getResultPresentation } from '../../components/result-presentation'
 import { LabProgress } from './Progress'
 import { ConfirmationTable } from './ConfirmationTable'
-import { submitLabResults } from './actions'
+import { Input } from '@/components/ui/input'
+import { confirmationPrice, referralPaysConfirmation } from '@/collections/DrugTests/confirmation/policy'
+import { TZDate } from '@date-fns/tz'
+import { APP_TIMEZONE, formatDateOnlyISO } from '@/lib/date-utils'
+import { submitLabResults, prepareLabResultDecision } from './actions'
 
 const date = formatCollectionDateTimeCompact
 const reportTypeLabels = { auto: 'Detect from PDF', screening: 'Screening', confirmation: 'Confirmation' }
@@ -94,6 +98,13 @@ export function LabResultsWorkflow({
   const [completed, setCompleted] = useState<string | null>(null)
   const [deliveryError, setDeliveryError] = useState<string | null>(null)
   const [showEmailPreview, setShowEmailPreview] = useState(false)
+  const [preparedDecision, setPreparedDecision] = useState<{
+    testId: string
+    screenedAt?: string | null
+    confirmationHoldUntil?: string | null
+    paymentRequired: boolean
+    billedToReferral: boolean
+  } | null>(null)
   const formRef = useRef<HTMLFormElement | null>(null)
   useStepFocus({ containerRef: formRef, stepKey: step })
   const initialFormOpts = useMemo(() => getLabResultsFormOpts(), [])
@@ -187,7 +198,7 @@ export function LabResultsWorkflow({
   const requiresDecision =
     mode === 'screening' &&
     !values.results.screening.reportHasConfirmation &&
-    !!preview.data?.unexpectedPositives.length &&
+    !!preview.data &&
     !preview.data.autoAccept
   const lastFile = useRef(values.upload.file)
   const lastType = useRef(values.reportType)
@@ -206,6 +217,7 @@ export function LabResultsWorkflow({
       const defaults = getLabResultsFormOpts().defaultValues
       form.setFieldValue('matchCollection', defaults.matchCollection)
       form.setFieldValue('results', defaults.results)
+      setPreparedDecision(null)
       form.setFieldValue('emails', defaults.emails)
       seeded.current = null
       lastRecipients.current = null
@@ -247,6 +259,7 @@ export function LabResultsWorkflow({
         ...getLabResultsFormOpts().defaultValues.results.screening,
         testType: test.testType,
         collectionDate: test.collectionDate ?? '',
+        screeningResultDate: test.screenedAt || new Date().toISOString(),
         detectedSubstances: report.detectedSubstances,
         isDilute: report.specimenValidityStatus === 'unreported' ? (test.isDilute ?? false) : report.isDilute,
         reportHasConfirmation: !!report.hasConfirmation,
@@ -265,6 +278,7 @@ export function LabResultsWorkflow({
           storedConfirmationRows(test.confirmationResults ?? []),
         ),
       },
+      emailConfirmationPaymentLink: false,
       screeningVerified: report.screeningComplete === true && report.specimenValidityStatus !== 'unverified',
     })
     seeded.current = key
@@ -360,6 +374,13 @@ export function LabResultsWorkflow({
     testType: test?.testType,
     detectedSubstances: values.results.screening.detectedSubstances as SubstanceValue[],
     isDilute: values.results.screening.isDilute,
+    confirmationDecision: values.results.screening.confirmationDecision,
+    confirmationSubstances: values.results.screening.confirmationSubstances,
+    confirmationPaymentRequired:
+      preparedDecision && preparedDecision.testId === test?.id ? preparedDecision.paymentRequired : false,
+    confirmationHoldUntil:
+      preparedDecision && preparedDecision.testId === test?.id ? preparedDecision.confirmationHoldUntil : undefined,
+    confirmationCompleted: !!confirmations?.length && values.results.screening.reportHasConfirmation,
   })
   const confirmationEmail = useLabConfirmationEmailPreview({
     testId: mode === 'confirmation' ? test?.id : undefined,
@@ -537,6 +558,37 @@ export function LabResultsWorkflow({
       </CardContent>
     </Card>
   )
+  const screeningDateField = (
+    <form.Field name="results.screening.screeningResultDate">
+      {(field) => (
+        <Field className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+          <FieldLabel htmlFor="screening-result-date">Screening result date</FieldLabel>
+          <Input
+            id="screening-result-date"
+            type="date"
+            className="sm:w-44"
+            disabled={!!test?.screenedAt || preparedDecision?.testId === test?.id}
+            value={field.state.value ? formatDateOnlyISO(new TZDate(field.state.value, APP_TIMEZONE)) : ''}
+            onChange={(event) =>
+              field.handleChange(
+                event.target.value
+                  ? new TZDate(
+                      ...(event.target.value
+                        .split('-')
+                        .map(Number)
+                        .map((n, i) => (i === 1 ? n - 1 : n)) as [number, number, number]),
+                      APP_TIMEZONE,
+                    ).toISOString()
+                  : '',
+              )
+            }
+          />
+          <FieldDescription className="sm:col-span-2">Use the date on the screening report.</FieldDescription>
+          <FieldError errors={field.state.meta.errors} />
+        </Field>
+      )}
+    </form.Field>
+  )
   const renderGroup = (
     name: 'upload' | 'matchCollection' | 'results' | 'emails',
     schema: Parameters<typeof form.FormGroup>[0]['validators'],
@@ -552,6 +604,21 @@ export function LabResultsWorkflow({
           focusFirstInvalidFieldWithToast(formRef.current, 'lab-identity-required')
           return
         }
+        if (step === 'results' && mode === 'screening') {
+          if (!(await requireActiveSession())) return
+          const prepared = await prepareLabResultDecision(form.state.values)
+          if (!prepared.success) {
+            toast.error(prepared.error)
+            return
+          }
+          if (prepared.prepared) {
+            setPreparedDecision(prepared.prepared)
+            if (prepared.prepared.screenedAt)
+              form.setFieldValue('results.screening.screeningResultDate', prepared.prepared.screenedAt)
+          }
+          // Keep the reviewed form snapshot stable while the prepared fee updates the tracker.
+          void queryClient.invalidateQueries({ queryKey: ['pending-tests'] })
+        }
         if (step === 'review') await form.handleSubmit()
         else await setStep(labSteps[labSteps.indexOf(step) + 1], { history: 'push' })
       }}
@@ -565,7 +632,7 @@ export function LabResultsWorkflow({
               type="button"
               variant="outline"
               data-testid="wizard-back-button"
-              disabled={submitting}
+              disabled={submitting || group.state.meta.isSubmitting}
               onClick={() => (step === 'upload' ? onBack() : void setStep(labSteps[labSteps.indexOf(step) - 1]))}
             >
               Back
@@ -591,7 +658,9 @@ export function LabResultsWorkflow({
                 if (await requireActiveSession()) await group.handleSubmit()
               }}
             >
-              {submitting && <Loader2 className="animate-spin" data-icon="inline-start" />}
+              {(submitting || group.state.meta.isSubmitting) && (
+                <Loader2 className="animate-spin" data-icon="inline-start" />
+              )}
               {step === 'upload'
                 ? 'Continue to match'
                 : step === 'match'
@@ -853,6 +922,7 @@ export function LabResultsWorkflow({
             {mode === 'screening' && (
               <>
                 <div hidden={!requiresDecision}>
+                  {requiresDecision && screeningDateField}
                   <form.Field name="results.screening.confirmationDecision">
                     {(field) => (
                       <FieldGroup>
@@ -866,21 +936,49 @@ export function LabResultsWorkflow({
                               value === 'request-confirmation' &&
                               !values.results.screening.confirmationSubstances?.length
                             )
-                              form.setFieldValue(
-                                'results.screening.confirmationSubstances',
-                                preview.data?.unexpectedPositives ?? [],
-                              )
+                              form.setFieldValue('results.screening.confirmationSubstances', [
+                                ...new Set([
+                                  ...(preview.data?.unexpectedPositives ?? []),
+                                  ...(preview.data?.unexpectedNegatives ?? []),
+                                ]),
+                              ])
                           }}
-                          className="flex flex-wrap gap-6"
+                          className="grid gap-2"
                         >
                           {[
-                            { id: 'accept', label: 'Accept result' },
-                            { id: 'request-confirmation', label: 'Request confirmation' },
-                            { id: 'pending-decision', label: 'Decide later' },
+                            {
+                              id: 'accept',
+                              label: 'Accept result',
+                              description: 'Finish this test. Stop tracking it.',
+                            },
+                            {
+                              id: 'request-confirmation',
+                              label: 'Request confirmation',
+                              description: referralPaysConfirmation(test || {})
+                                ? `$${confirmationPrice(test?.testType || '')} per substance. Billed to the referral.`
+                                : `$${confirmationPrice(test?.testType || '')} per substance. Payment before the lab request.`,
+                            },
+                            {
+                              id: 'pending-decision',
+                              label: 'Decide later',
+                              description: 'Track for 30 days from the screening result date.',
+                            },
                           ].map((choice) => (
-                            <Field key={choice.id} orientation="horizontal">
+                            <Field
+                              key={choice.id}
+                              orientation="horizontal"
+                              className={cn(
+                                'rounded-lg border p-4',
+                                field.state.value === choice.id && 'border-primary bg-primary/5',
+                              )}
+                            >
                               <RadioGroupItem value={choice.id} id={choice.id} />
-                              <FieldLabel htmlFor={choice.id}>{choice.label}</FieldLabel>
+                              <div className="min-w-0">
+                                <FieldLabel htmlFor={choice.id} className="cursor-pointer">
+                                  {choice.label}
+                                </FieldLabel>
+                                <FieldDescription>{choice.description}</FieldDescription>
+                              </div>
                             </Field>
                           ))}
                         </RadioGroup>
@@ -892,7 +990,12 @@ export function LabResultsWorkflow({
                     {(field) =>
                       values.results.screening.confirmationDecision === 'request-confirmation' ? (
                         <ConfirmationSubstanceSelector
-                          unexpectedPositives={preview.data?.unexpectedPositives ?? []}
+                          unexpectedPositives={[
+                            ...new Set([
+                              ...(preview.data?.unexpectedPositives ?? []),
+                              ...(preview.data?.unexpectedNegatives ?? []),
+                            ]),
+                          ]}
                           selectedSubstances={field.state.value ?? []}
                           onSelectionChange={field.handleChange}
                           error={field.state.meta.errors[0] ? 'Choose at least one substance' : undefined}
@@ -900,11 +1003,34 @@ export function LabResultsWorkflow({
                       ) : null
                     }
                   </form.Field>
+                  {values.results.screening.confirmationDecision === 'request-confirmation' &&
+                    !referralPaysConfirmation(test || {}) && (
+                      <form.Field name="results.emailConfirmationPaymentLink">
+                        {(field) => (
+                          <Field orientation="horizontal" className="mt-3">
+                            <Checkbox
+                              id="email-confirmation-payment"
+                              checked={field.state.value}
+                              onCheckedChange={(value) => field.handleChange(value === true)}
+                            />
+                            <div>
+                              <FieldLabel htmlFor="email-confirmation-payment">
+                                Email client a Stripe payment link
+                              </FieldLabel>
+                              <FieldDescription>
+                                Next sends the email. Admin notified when payment clears.
+                              </FieldDescription>
+                            </div>
+                          </Field>
+                        )}
+                      </form.Field>
+                    )}
                 </div>
                 <OptionalDetails title="Edit test details">
                   <p className="text-sm">
                     {panel(test?.testType)} · Collected {date(test?.collectionDate)}
                   </p>
+                  {!requiresDecision && screeningDateField}
                   <form.AppField name="results.screening.detectedSubstances">
                     {(field) => <field.SubstanceChecklistField testType={test?.testType ?? '11-panel-lab'} />}
                   </form.AppField>
@@ -948,10 +1074,12 @@ export function LabResultsWorkflow({
               showClientEmail
               clientId={client?.id ?? null}
               onClientEmailSaved={() =>
-                invalidateWizardClientDerivedData(queryClient, { clientId: client?.id, testId: test?.id })
+                // Keep the reviewed form snapshot stable while the prepared fee updates the tracker.
+                void queryClient.invalidateQueries({ queryKey: ['pending-tests'] })
               }
               onReferralProfileSaved={() =>
-                invalidateWizardClientDerivedData(queryClient, { clientId: client?.id, testId: test?.id })
+                // Keep the reviewed form snapshot stable while the prepared fee updates the tracker.
+                void queryClient.invalidateQueries({ queryKey: ['pending-tests'] })
               }
             />
           </>,

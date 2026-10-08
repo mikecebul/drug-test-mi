@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   build: vi.fn(),
 }))
 vi.mock('payload', () => ({ getPayload: mocks.getPayload }))
+vi.mock('next/headers', () => ({ headers: async () => new Headers() }))
 vi.mock('@payload-config', () => ({ default: {} }))
 vi.mock('../../components/readLabReport', () => ({
   readLabReportFile: mocks.readReport,
@@ -66,6 +67,7 @@ beforeEach(() => {
     ),
   )
   mocks.getPayload.mockResolvedValue({
+    auth: vi.fn().mockResolvedValue({ user: { id: 'admin', collection: 'admins', role: 'admin' } }),
     findByID: mocks.find,
     create: mocks.create,
     update: mocks.update,
@@ -140,4 +142,13 @@ test('retains an earlier received result when a later report completes the reque
       }),
     }),
   )
+})
+
+test('denies an unauthenticated direct save before parsing or any mutation', async () => {
+  mocks.getPayload.mockResolvedValue({ auth: vi.fn().mockResolvedValue({ user: null }) })
+  const result = await updateLabConfirmationWithEmailReview(form(), undefined)
+  expect(result.success).toBe(false)
+  expect(mocks.readReport).not.toHaveBeenCalled()
+  expect(mocks.create).not.toHaveBeenCalled()
+  expect(mocks.update).not.toHaveBeenCalled()
 })

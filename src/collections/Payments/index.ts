@@ -24,6 +24,19 @@ export const Payments: CollectionConfig = {
   },
   fields: [
     {
+      name: 'purpose',
+      type: 'select',
+      options: [{ label: 'Confirmation', value: 'confirmation' }],
+      admin: { readOnly: true },
+      access: { create: () => false, update: () => false },
+    },
+    {
+      name: 'confirmationRequestKey',
+      type: 'text',
+      admin: { hidden: true },
+      access: { create: () => false, update: () => false },
+    },
+    {
       name: 'accountOperationId',
       type: 'text',
       unique: true,
@@ -232,6 +245,13 @@ export const Payments: CollectionConfig = {
             description: 'Drug-test balances paid by this record, oldest first.',
           },
           fields: [
+            {
+              name: 'confirmationAmount',
+              type: 'number',
+              min: 0,
+              admin: { readOnly: true },
+              access: { create: () => false, update: () => false },
+            },
             {
               name: 'drugTest',
               type: 'relationship',

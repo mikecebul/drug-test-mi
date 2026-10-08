@@ -345,6 +345,10 @@ export async function getEmailPreview(data: {
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
   confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
+  confirmationSubstances?: string[]
+  confirmationPaymentRequired?: boolean
+  confirmationHoldUntil?: string | null
+  confirmationCompleted?: boolean
   medications?: FormMedications
 }): Promise<{
   success: boolean
@@ -430,6 +434,10 @@ export async function getEmailPreview(data: {
       breathalyzerTaken: data.breathalyzerTaken ?? false,
       breathalyzerResult: data.breathalyzerResult ?? null,
       confirmationDecision: data.confirmationDecision,
+      confirmationSubstances: data.confirmationSubstances,
+      confirmationPaymentRequired: data.confirmationPaymentRequired,
+      confirmationHoldUntil: data.confirmationHoldUntil,
+      confirmationCompleted: data.confirmationCompleted,
       clientHeadshotDataUri,
       clientDob,
     })
