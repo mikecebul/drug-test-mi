@@ -73,9 +73,7 @@ export async function selectWorkflow(page: Page, title: string) {
   await page.goto(`/admin/drug-test-upload?${new URLSearchParams(route)}`, { waitUntil: 'domcontentloaded' })
   await expect(page.locator('[data-wizard-ready="true"]')).toBeVisible({ timeout: 30_000 })
   await expectWizardStep(page, route.step)
-  if (route.workflow === 'lab-results' || route.workflow.startsWith('enter-lab-'))
-    await expect(await getNextButton(page)).toBeDisabled({ timeout: 20_000 })
-  else await expect(await getNextButton(page)).toBeEnabled({ timeout: 20_000 })
+  await expect(await getNextButton(page)).toBeEnabled({ timeout: 20_000 })
 }
 
 export async function clickNext(page: Page) {

@@ -77,3 +77,17 @@ test.each([
   ['confirm', 'results'],
   ['emails', 'review'],
 ])('old step %s maps into the four-screen flow', (old, step) => expect(legacyLabStep(old)).toBe(step))
+
+test('match validation requires an acknowledgement of the current identity mismatch', async () => {
+  const { matchStepSchema } = await import('./model')
+  const value = getLabResultsFormOpts().defaultValues.matchCollection
+  value.testId = 'test'
+  const required = matchStepSchema('current-report-and-client')
+  expect(required.safeParse(value).success).toBe(false)
+  value.clientMismatchConfirmed = true
+  value.clientMismatchConfirmationKey = 'previous-report-and-client'
+  expect(required.safeParse(value).success).toBe(false)
+  value.clientMismatchConfirmationKey = 'current-report-and-client'
+  expect(required.safeParse(value).success).toBe(true)
+  expect(matchStepSchema(null).safeParse({ ...value, clientMismatchConfirmed: false }).success).toBe(true)
+})

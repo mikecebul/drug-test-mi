@@ -92,6 +92,20 @@ export const matchSchema = z.object({
   clientMismatchConfirmed: z.boolean(),
   clientMismatchConfirmationKey: z.string().nullable(),
 })
+/** Identity acknowledgement belongs to the active match group, so Next reveals its inline error. */
+export function matchStepSchema(requiredMismatchKey: string | null) {
+  return matchSchema.superRefine((value, ctx) => {
+    if (
+      requiredMismatchKey &&
+      (!value.clientMismatchConfirmed || value.clientMismatchConfirmationKey !== requiredMismatchKey)
+    )
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Verify this is the same person before continuing',
+        path: ['clientMismatchConfirmed'],
+      })
+  })
+}
 export const resultsSchema = z
   .object({
     mode: z.enum(['screening', 'confirmation']),
@@ -130,7 +144,7 @@ export function getLabResultsFormOpts() {
         screening: screen.labScreenData,
         confirmation: confirmation.labConfirmationData,
         screeningVerified: false,
-        emailConfirmationPaymentLink: false,
+        emailConfirmationPaymentLink: true,
       },
       emails: screen.emails,
     },

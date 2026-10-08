@@ -1,4 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
+import { TZDate } from '@date-fns/tz'
+import { getPayloadClient } from './helpers/payload'
+import { APP_TIMEZONE, formatDateOnlyISO } from '../../src/lib/date-utils'
 import { cleanupFixtures } from './helpers/cleanup'
 import { assertNotificationSent } from './helpers/db-assert'
 import { getE2EEnv } from './helpers/env'
@@ -45,7 +48,9 @@ test.describe('Wizard Lab Screen Workflow', () => {
     async ({ page }) => {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
-      await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
+      await expect(page.getByTestId('wizard-next-button')).toBeEnabled()
+      await clickNext(page)
+      await expectWizardStep(page, 'upload')
       await expectWizardStep(page, 'upload')
       await openScreenData(page)
 
@@ -57,7 +62,10 @@ test.describe('Wizard Lab Screen Workflow', () => {
       await expect(page.getByRole('radiogroup')).toHaveAttribute('aria-invalid', 'true')
 
       await selectResultDecision(page, 'request-confirmation')
-      await page.getByRole('button', { name: /Clear/i }).click()
+      await page
+        .getByTestId('confirmation-request-options')
+        .getByRole('checkbox', { name: /^Fentanyl\b/i })
+        .uncheck()
       await clickNext(page)
       await expectValidationError(page)
       await expectWizardStep(page, 'results')
@@ -75,6 +83,36 @@ test.describe('Wizard Lab Screen Workflow', () => {
       expect(errors).toEqual([])
     },
   )
+
+  test('Next reveals an invalid date even when test edits are collapsed', async ({ page }) => {
+    const payload = await getPayloadClient()
+    const collection = await payload.create({
+      collection: 'drug-tests',
+      overrideAccess: true,
+      data: {
+        relatedClient: fixtures.clients.labScreen.id,
+        testType: '11-panel-lab',
+        collectionDate: '2026-01-08T12:00:00Z',
+        screeningStatus: 'collected',
+        payment: { status: 'unpaid', amountDue: 0, amountPaid: 0, balanceDue: 0 },
+      },
+    })
+    fixtures.created.drugTestIds.push(collection.id)
+    await goToLabScreenData(page, getE2EEnv({ pdfs: ['labScreen'] }).pdfLabScreenPath, collection.id)
+    const dateInput = page.getByLabel('Screening result date', { exact: true })
+    await dateInput.fill('')
+    const details = page.getByRole('button', { name: 'Edit test details', exact: true })
+    await details.click()
+    await expect(dateInput).toBeHidden()
+    await clickNext(page)
+    await expectWizardStep(page, 'results')
+    await expect(dateInput).toBeVisible()
+    await expect(dateInput).toHaveAttribute('aria-invalid', 'true')
+    await expect(dateInput).toBeFocused()
+    await dateInput.fill(formatDateOnlyISO(new TZDate(new Date(), APP_TIMEZONE)))
+    await clickNext(page)
+    await expectWizardStep(page, 'review')
+  })
 
   test(
     'saves screening results on the selected collection and sends report attachments',

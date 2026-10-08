@@ -88,6 +88,7 @@ test(
   'Results Next prepares a fee without waiting, and Back/Next does not duplicate it',
   { tag: '@critical' },
   async ({ page }) => {
+    await page.setViewportSize({ width: 779, height: 1080 })
     await loginAdmin(page, fixtures.admin)
     await selectWorkflow(page, 'Enter Lab Screen Data')
     await goToLabScreenData(
@@ -97,6 +98,18 @@ test(
     )
     await page.getByRole('checkbox', { name: /^Fentanyl\b/i }).check()
     await selectResultDecision(page, 'request-confirmation')
+    const requestOptions = page.getByTestId('confirmation-request-options')
+    const paymentEmail = requestOptions.getByRole('checkbox', { name: 'Email client a Stripe payment link' })
+    await expect(paymentEmail).toBeChecked()
+    // The UI's default is checked; this flow exercises unpaid continuation without calling live Stripe.
+    await expect(requestOptions.getByRole('checkbox', { name: /^Fentanyl\b/i })).toBeChecked()
+    const requestCard = page.getByTestId('confirmation-decision-request-confirmation')
+    await expect(requestCard.getByTestId('confirmation-request-options')).toBeVisible()
+    await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
+    await expect(page.getByRole('checkbox', { name: 'Sample is dilute' })).toBeHidden()
+    await page.screenshot({ path: test.info().outputPath('screening-results-request.png'), fullPage: true })
+    await paymentEmail.uncheck()
+    await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
     await clickNext(page)
     await expectWizardStep(page, 'review')
     const payload = await getPayloadClient()

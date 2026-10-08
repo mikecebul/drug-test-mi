@@ -51,7 +51,9 @@ test.describe('Wizard Lab Confirmation Workflow', () => {
   }) => {
     const env = getE2EEnv({ pdfs: ['labScreen'] })
 
-    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
+    await expect(page.getByTestId('wizard-next-button')).toBeEnabled()
+    await clickNext(page)
+    await expectWizardStep(page, 'upload')
     await expectWizardStep(page, 'upload')
 
     // Use the lab-screen PDF to force empty confirmation results in this workflow.
@@ -63,7 +65,9 @@ test.describe('Wizard Lab Confirmation Workflow', () => {
     await clickNext(page)
 
     await expectWizardStep(page, 'results')
-    await expect(page.getByTestId('wizard-next-button')).toBeDisabled()
+    await expect(page.getByTestId('wizard-next-button')).toBeEnabled()
+    await clickNext(page)
+    await expectWizardStep(page, 'results')
     await expect(page.getByTestId('confirmation-row-0')).toBeVisible()
     await expectWizardStep(page, 'results')
 

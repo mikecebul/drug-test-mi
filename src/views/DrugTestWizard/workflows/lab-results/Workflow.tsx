@@ -58,7 +58,7 @@ import {
   getReportClientMismatchKey,
   getLabResultsFormOpts,
   sortLabCollections,
-  matchSchema,
+  matchStepSchema,
   resultsSchema,
   uploadSchema,
   emailsGroupSchema,
@@ -68,6 +68,7 @@ import { useLabCollections, type LabCollection } from './collections'
 import { computeFinalStatus } from '@/collections/DrugTests/services/testResults'
 import { getResultPresentation } from '../../components/result-presentation'
 import { LabProgress } from './Progress'
+import { ScreeningResults } from './ScreeningResults'
 import { ConfirmationTable } from './ConfirmationTable'
 import { Input } from '@/components/ui/input'
 import { confirmationPrice, referralPaysConfirmation } from '@/collections/DrugTests/confirmation/policy'
@@ -140,6 +141,10 @@ export function LabResultsWorkflow({
   })
   const values = useStore(form.store, (state) => state.values)
   const submitting = useStore(form.store, (state) => state.isSubmitting)
+  const screenDetailsInvalid = useStore(
+    form.store,
+    (state) => !!state.fieldMeta['results.screening.screeningResultDate']?.errors?.length,
+  )
   const extraction = useExtractPdfQuery(values.upload.file, 'lab-results')
   const collections = useLabCollections(extraction.data, values.reportType, chosenClientId)
   const orderedCollections = useMemo(
@@ -152,6 +157,10 @@ export function LabResultsWorkflow({
   const client = clientQuery.data
   const test = testQuery.data
   const mode = values.results.mode
+  const referralBilled =
+    preparedDecision && preparedDecision.testId === test?.id
+      ? preparedDecision.billedToReferral
+      : referralPaysConfirmation(test || {})
   const report = extraction.data
   const identity = reportIdentity(report, client)
   const identityKey = getReportClientMismatchKey(identity)
@@ -278,7 +287,7 @@ export function LabResultsWorkflow({
           storedConfirmationRows(test.confirmationResults ?? []),
         ),
       },
-      emailConfirmationPaymentLink: false,
+      emailConfirmationPaymentLink: true,
       screeningVerified: report.screeningComplete === true && report.specimenValidityStatus !== 'unverified',
     })
     seeded.current = key
@@ -561,10 +570,14 @@ export function LabResultsWorkflow({
   const screeningDateField = (
     <form.Field name="results.screening.screeningResultDate">
       {(field) => (
-        <Field className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+        <Field
+          data-invalid={field.state.meta.errors.length > 0}
+          className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center"
+        >
           <FieldLabel htmlFor="screening-result-date">Screening result date</FieldLabel>
           <Input
             id="screening-result-date"
+            aria-invalid={field.state.meta.errors.length > 0}
             type="date"
             className="sm:w-44"
             disabled={!!test?.screenedAt || preparedDecision?.testId === test?.id}
@@ -640,22 +653,16 @@ export function LabResultsWorkflow({
             <Button
               type="button"
               data-testid="wizard-next-button"
-              disabled={
-                submitting ||
-                isCheckingSession ||
-                group.state.meta.isSubmitting ||
-                (step === 'upload' && (!report || extraction.isFetching || !!extraction.error)) ||
-                (step === 'match' && (!client || !test || !identityConfirmed)) ||
-                ((step === 'results' || step === 'review') &&
-                  (preview.isFetching ||
-                    preview.isError ||
-                    !preview.data ||
-                    (mode === 'confirmation' && !confirmations) ||
-                    (mode === 'screening' && values.results.screening.reportHasConfirmation && !confirmations))) ||
-                (step === 'review' && (email.isLoading || !!email.error || !email.data))
-              }
+              aria-busy={submitting || group.state.meta.isSubmitting || isCheckingSession}
               onClick={async () => {
-                if (await requireActiveSession()) await group.handleSubmit()
+                if (submitting || group.state.meta.isSubmitting) return
+                if (await requireActiveSession()) {
+                  if (form.state.isSubmitting || group.state.meta.isSubmitting) return
+                  // Async checks can finish without a field value change; refresh the active group's readiness errors.
+                  await group.validate('submit', { skipRelatedFieldValidation: true })
+                  if (form.state.isSubmitting || group.state.meta.isSubmitting) return
+                  await group.handleSubmit()
+                }
               }}
             >
               {(submitting || group.state.meta.isSubmitting) && (
@@ -683,7 +690,18 @@ export function LabResultsWorkflow({
       {step === 'upload' &&
         renderGroup(
           'upload',
-          { onDynamic: uploadSchema.shape.upload },
+          {
+            onDynamic: uploadSchema.shape.upload.superRefine((_, ctx) => {
+              if (!report || extraction.isFetching || extraction.error)
+                ctx.addIssue({
+                  code: 'custom',
+                  message: extraction.error
+                    ? 'This PDF could not be read. Replace it with a readable report.'
+                    : 'Wait for the PDF to finish reading before continuing',
+                  path: ['file'],
+                })
+            }),
+          },
           <>
             <FieldGroupHeader title="Upload lab report" />
             <Card>
@@ -714,62 +732,81 @@ export function LabResultsWorkflow({
       {step === 'match' &&
         renderGroup(
           'matchCollection',
-          { onDynamic: matchSchema },
+          {
+            onDynamic: matchStepSchema(identity?.requiresConfirmation ? identityKey : null).superRefine(
+              (value, ctx) => {
+                if (value.testId && (!client || !test))
+                  ctx.addIssue({
+                    code: 'custom',
+                    message:
+                      clientQuery.isError || testQuery.isError
+                        ? 'Client or collection could not be loaded. Choose the collection again.'
+                        : 'Choose a collection and wait for its client to load',
+                    path: ['testId'],
+                  })
+              },
+            ),
+          },
           <>
             <FieldGroupHeader title="Match lab report" />
             {reportBar}
             {context}
             {!client && clientPicker}
-            {identity?.requiresConfirmation && (
-              <IdentityNotice
-                title={
-                  identity.nameDifferent
-                    ? identity.dobDifferent
-                      ? 'Check client identity'
-                      : 'Name differs'
-                    : 'Birth date differs'
-                }
-                sourceLabel="Lab report"
-                rows={[
-                  {
-                    label: 'Name',
-                    clientValue: identity.clientName,
-                    sourceValue: identity.reportName,
-                    different: identity.nameDifferent,
-                  },
-                  ...(report?.dob
-                    ? [
-                        {
-                          label: 'Birth date',
-                          clientValue: identity.clientDob,
-                          sourceValue: identity.reportDob,
-                          different: identity.dobDifferent,
-                        },
-                      ]
-                    : []),
-                ].filter((row) => row.different)}
-              >
-                <form.Field name="matchCollection.clientMismatchConfirmed">
-                  {(field) => (
-                    <Field orientation="horizontal">
-                      <Checkbox
-                        id="lab-identity"
-                        data-testid="lab-report-identity-confirmation"
-                        checked={identityConfirmed}
-                        onCheckedChange={(checked) => {
-                          field.handleChange(checked === true)
-                          form.setFieldValue(
-                            'matchCollection.clientMismatchConfirmationKey',
-                            checked === true ? identityKey : null,
-                          )
-                        }}
-                      />
-                      <FieldLabel htmlFor="lab-identity">I verified this is the same person</FieldLabel>
-                    </Field>
-                  )}
-                </form.Field>
-              </IdentityNotice>
-            )}
+            <form.Field name="matchCollection.clientMismatchConfirmed">
+              {(field) =>
+                identity?.requiresConfirmation ? (
+                  <IdentityNotice
+                    title={
+                      identity.nameDifferent
+                        ? identity.dobDifferent
+                          ? 'Check client identity'
+                          : 'Name differs'
+                        : 'Birth date differs'
+                    }
+                    sourceLabel="Lab report"
+                    rows={[
+                      {
+                        label: 'Name',
+                        clientValue: identity.clientName,
+                        sourceValue: identity.reportName,
+                        different: identity.nameDifferent,
+                      },
+                      ...(report?.dob
+                        ? [
+                            {
+                              label: 'Birth date',
+                              clientValue: identity.clientDob,
+                              sourceValue: identity.reportDob,
+                              different: identity.dobDifferent,
+                            },
+                          ]
+                        : []),
+                    ].filter((row) => row.different)}
+                  >
+                    <FieldGroup className="gap-2">
+                      <Field orientation="horizontal" data-invalid={field.state.meta.errors.length > 0}>
+                        <Checkbox
+                          aria-invalid={field.state.meta.errors.length > 0}
+                          aria-describedby="lab-identity-error"
+                          id="lab-identity"
+                          data-testid="lab-report-identity-confirmation"
+                          checked={identityConfirmed}
+                          onCheckedChange={(checked) => {
+                            field.handleChange(checked === true)
+                            form.setFieldValue(
+                              'matchCollection.clientMismatchConfirmationKey',
+                              checked === true ? identityKey : null,
+                            )
+                          }}
+                        />
+                        <FieldLabel htmlFor="lab-identity">I verified this is the same person</FieldLabel>
+                      </Field>
+                      <FieldError id="lab-identity-error" errors={field.state.meta.errors} />
+                    </FieldGroup>
+                  </IdentityNotice>
+                ) : null
+              }
+            </form.Field>
             <Card>
               <CardHeader>
                 <CardTitle>Choose the collection</CardTitle>
@@ -860,7 +897,18 @@ export function LabResultsWorkflow({
       {step === 'results' &&
         renderGroup(
           'results',
-          { onDynamic: resultsSchema },
+          {
+            onDynamic: resultsSchema.superRefine((value, ctx) => {
+              if (!preview.data || preview.isFetching || preview.isError)
+                ctx.addIssue({
+                  code: 'custom',
+                  message: preview.isError
+                    ? 'Results could not be verified. Retry before continuing.'
+                    : 'Wait for the results to finish checking',
+                  path: value.mode === 'screening' ? ['screeningVerified'] : ['confirmation', 'confirmationResults'],
+                })
+            }),
+          },
           <>
             <FieldGroupHeader title="Review lab results" />
             {context}
@@ -870,8 +918,24 @@ export function LabResultsWorkflow({
                 <ReportLink file={values.upload.file} />
               </CardHeader>
               <CardContent className="flex flex-col gap-5">
-                {resultStrip}
-                {medicationLine}
+                {mode === 'screening' ? (
+                  <ScreeningResults
+                    preview={preview.data}
+                    detected={detected}
+                    medications={meds}
+                    verified={values.results.screeningVerified}
+                    isLoading={preview.isFetching}
+                    error={preview.isError}
+                    isDilute={values.results.screening.isDilute}
+                    breathalyzerTaken={test?.breathalyzerTaken}
+                    breathalyzerResult={test?.breathalyzerResult}
+                  />
+                ) : (
+                  <>
+                    {resultStrip}
+                    {medicationLine}
+                  </>
+                )}
                 {mode === 'confirmation' ? (
                   <form.Field name="results.confirmation.confirmationResults">
                     {(field) => (
@@ -914,21 +978,25 @@ export function LabResultsWorkflow({
                         <FieldLabel htmlFor="verify-lab-screen">I checked the screening results in the PDF</FieldLabel>
                         <FieldError errors={field.state.meta.errors} />
                       </Field>
-                    ) : null
+                    ) : (
+                      <FieldError errors={field.state.meta.errors} />
+                    )
                   }
                 </form.Field>
               </CardContent>
             </Card>
             {mode === 'screening' && (
               <>
-                <div hidden={!requiresDecision}>
+                <FieldGroup hidden={!requiresDecision} className={cn('gap-4', !requiresDecision && 'hidden')}>
                   {requiresDecision && screeningDateField}
                   <form.Field name="results.screening.confirmationDecision">
                     {(field) => (
                       <FieldGroup>
-                        <FieldLabel>Result decision</FieldLabel>
+                        <FieldLabel id="lab-result-decision-label">Result decision</FieldLabel>
                         <RadioGroup
                           value={field.state.value ?? ''}
+                          aria-labelledby="lab-result-decision-label"
+                          tabIndex={-1}
                           aria-invalid={field.state.meta.errors.length > 0}
                           onValueChange={(value) => {
                             field.handleChange(value as 'accept' | 'request-confirmation' | 'pending-decision')
@@ -954,7 +1022,7 @@ export function LabResultsWorkflow({
                             {
                               id: 'request-confirmation',
                               label: 'Request confirmation',
-                              description: referralPaysConfirmation(test || {})
+                              description: referralBilled
                                 ? `$${confirmationPrice(test?.testType || '')} per substance. Billed to the referral.`
                                 : `$${confirmationPrice(test?.testType || '')} per substance. Payment before the lab request.`,
                             },
@@ -966,19 +1034,80 @@ export function LabResultsWorkflow({
                           ].map((choice) => (
                             <Field
                               key={choice.id}
-                              orientation="horizontal"
+                              data-testid={`confirmation-decision-${choice.id}`}
+                              orientation="vertical"
                               className={cn(
                                 'rounded-lg border p-4',
                                 field.state.value === choice.id && 'border-primary bg-primary/5',
                               )}
                             >
-                              <RadioGroupItem value={choice.id} id={choice.id} />
-                              <div className="min-w-0">
-                                <FieldLabel htmlFor={choice.id} className="cursor-pointer">
-                                  {choice.label}
-                                </FieldLabel>
-                                <FieldDescription>{choice.description}</FieldDescription>
-                              </div>
+                              <Field orientation="horizontal">
+                                <RadioGroupItem
+                                  value={choice.id}
+                                  id={choice.id}
+                                  aria-describedby={`${choice.id}-description`}
+                                />
+                                <div className="min-w-0">
+                                  <FieldLabel id={`${choice.id}-label`} htmlFor={choice.id} className="cursor-pointer">
+                                    {choice.label}
+                                  </FieldLabel>
+                                  <FieldDescription id={`${choice.id}-description`}>
+                                    {choice.description}
+                                  </FieldDescription>
+                                </div>
+                              </Field>
+                              {choice.id === 'request-confirmation' && (
+                                <FieldGroup
+                                  aria-labelledby="request-confirmation-label"
+                                  data-testid="confirmation-request-options"
+                                  hidden={field.state.value !== choice.id}
+                                  className={cn(
+                                    'border-border gap-4 border-t pt-4 sm:pl-7',
+                                    field.state.value !== choice.id && 'hidden',
+                                  )}
+                                >
+                                  <form.Field name="results.screening.confirmationSubstances">
+                                    {(field) =>
+                                      values.results.screening.confirmationDecision === 'request-confirmation' ? (
+                                        <ConfirmationSubstanceSelector
+                                          compact
+                                          unexpectedPositives={[
+                                            ...new Set([
+                                              ...(preview.data?.unexpectedPositives ?? []),
+                                              ...(preview.data?.unexpectedNegatives ?? []),
+                                            ]),
+                                          ]}
+                                          selectedSubstances={field.state.value ?? []}
+                                          onSelectionChange={field.handleChange}
+                                          invalid={field.state.meta.errors.length > 0}
+                                          error={
+                                            field.state.meta.errors[0] ? 'Choose at least one substance' : undefined
+                                          }
+                                        />
+                                      ) : null
+                                    }
+                                  </form.Field>
+                                  {!referralBilled && (
+                                    <form.Field name="results.emailConfirmationPaymentLink">
+                                      {(field) => (
+                                        <Field orientation="horizontal">
+                                          <Checkbox
+                                            id="email-confirmation-payment"
+                                            checked={field.state.value}
+                                            onCheckedChange={(value) => field.handleChange(value === true)}
+                                          />
+                                          <div>
+                                            <FieldLabel htmlFor="email-confirmation-payment">
+                                              Email client a Stripe payment link
+                                            </FieldLabel>
+                                            <FieldDescription>Admin notified when payment clears.</FieldDescription>
+                                          </div>
+                                        </Field>
+                                      )}
+                                    </form.Field>
+                                  )}
+                                </FieldGroup>
+                              )}
                             </Field>
                           ))}
                         </RadioGroup>
@@ -986,47 +1115,8 @@ export function LabResultsWorkflow({
                       </FieldGroup>
                     )}
                   </form.Field>
-                  <form.Field name="results.screening.confirmationSubstances">
-                    {(field) =>
-                      values.results.screening.confirmationDecision === 'request-confirmation' ? (
-                        <ConfirmationSubstanceSelector
-                          unexpectedPositives={[
-                            ...new Set([
-                              ...(preview.data?.unexpectedPositives ?? []),
-                              ...(preview.data?.unexpectedNegatives ?? []),
-                            ]),
-                          ]}
-                          selectedSubstances={field.state.value ?? []}
-                          onSelectionChange={field.handleChange}
-                          error={field.state.meta.errors[0] ? 'Choose at least one substance' : undefined}
-                        />
-                      ) : null
-                    }
-                  </form.Field>
-                  {values.results.screening.confirmationDecision === 'request-confirmation' &&
-                    !referralPaysConfirmation(test || {}) && (
-                      <form.Field name="results.emailConfirmationPaymentLink">
-                        {(field) => (
-                          <Field orientation="horizontal" className="mt-3">
-                            <Checkbox
-                              id="email-confirmation-payment"
-                              checked={field.state.value}
-                              onCheckedChange={(value) => field.handleChange(value === true)}
-                            />
-                            <div>
-                              <FieldLabel htmlFor="email-confirmation-payment">
-                                Email client a Stripe payment link
-                              </FieldLabel>
-                              <FieldDescription>
-                                Next sends the email. Admin notified when payment clears.
-                              </FieldDescription>
-                            </div>
-                          </Field>
-                        )}
-                      </form.Field>
-                    )}
-                </div>
-                <OptionalDetails title="Edit test details">
+                </FieldGroup>
+                <OptionalDetails title="Edit test details" invalid={!requiresDecision && screenDetailsInvalid}>
                   <p className="text-sm">
                     {panel(test?.testType)} · Collected {date(test?.collectionDate)}
                   </p>
@@ -1054,7 +1144,18 @@ export function LabResultsWorkflow({
       {step === 'review' &&
         renderGroup(
           'emails',
-          { onDynamic: emailsGroupSchema },
+          {
+            onDynamic: emailsGroupSchema.superRefine((_, ctx) => {
+              if (email.isLoading || email.error || !email.data)
+                ctx.addIssue({
+                  code: 'custom',
+                  message: email.error
+                    ? 'Email preview could not be loaded. Retry before sending.'
+                    : 'Wait for the email preview to finish loading',
+                  path: ['clientRecipients'],
+                })
+            }),
+          },
           <>
             <FieldGroupHeader title="Review result & recipients" />
             {context}
