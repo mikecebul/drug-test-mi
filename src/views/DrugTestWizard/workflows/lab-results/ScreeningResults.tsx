@@ -119,7 +119,7 @@ export function ScreeningResults({
               key={row.substance}
               data-testid={`screening-result-${row.substance}`}
               className={cn(
-                'flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border px-4 py-3',
+                'grid grid-cols-[minmax(0,1fr)_10rem] items-center gap-x-4 gap-y-2 rounded-lg border px-4 py-3',
                 surface,
               )}
             >
@@ -129,7 +129,7 @@ export function ScreeningResults({
                   <p className="text-muted-foreground text-sm">Medication: {row.medicationNames.join(', ')}</p>
                 )}
               </div>
-              <span className={cn('flex items-center gap-2 text-sm font-medium', color)}>
+              <span className={cn('flex items-center justify-start gap-2 text-sm font-medium', color)}>
                 <Icon className="size-5 shrink-0" />
                 {label}
               </span>

@@ -74,9 +74,7 @@ for (const kind of ['screening', 'confirmation', 'combined-collected', 'combined
       await expectWizardStep(page, 'results')
       if (kind === 'screening') await expect(page.getByTestId('confirmation-results-editor')).toHaveCount(0)
       else await expect(page.getByTestId('confirmation-row-0')).toBeVisible()
-      await expect(page.getByRole('button', { name: 'Edit test details', exact: true })).toHaveCount(
-        isConfirmation ? 0 : 1,
-      )
+      await expect(page.getByTestId('edit-screening-report')).toHaveCount(isConfirmation ? 0 : 1)
       if (kind === 'screening' || kind === 'confirmation')
         await page.screenshot({ path: test.info().outputPath(`lab-${kind}-results.png`), fullPage: true })
       await clickNext(page)

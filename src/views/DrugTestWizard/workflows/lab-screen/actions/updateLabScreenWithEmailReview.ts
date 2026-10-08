@@ -99,15 +99,22 @@ export async function updateLabScreenWithEmailReview(
     const decision = formValues.labScreenData.confirmationDecision || (previewResult.autoAccept ? 'accept' : undefined)
     if (!reviewed) {
       if (!decision) return { success: false, error: 'Choose a result decision before saving.' }
-      const { prepareConfirmation } = await import('@/collections/DrugTests/confirmation/prepare')
-      await prepareConfirmation({
-        payload,
-        user,
-        testId: existingTest.id,
-        decision,
-        substances: decision === 'request-confirmation' ? formValues.labScreenData.confirmationSubstances || [] : [],
-        screenedAt: existingTest.screenedAt || formValues.labScreenData.screeningResultDate || new Date().toISOString(),
-      })
+      if (
+        decision === 'request-confirmation' ||
+        existingTest.confirmationRequestKey ||
+        (existingTest.payment?.confirmationFeeDue || 0) > 0
+      ) {
+        const { prepareConfirmation } = await import('@/collections/DrugTests/confirmation/prepare')
+        await prepareConfirmation({
+          payload,
+          user,
+          testId: existingTest.id,
+          decision,
+          substances: decision === 'request-confirmation' ? formValues.labScreenData.confirmationSubstances || [] : [],
+          screenedAt:
+            existingTest.screenedAt || formValues.labScreenData.screeningResultDate || new Date().toISOString(),
+        })
+      }
     }
 
     const { buildScreenedEmail } = await import('@/collections/DrugTests/email/render')

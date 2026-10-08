@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { revalidateLogic, useStore } from '@tanstack/react-form'
 import { parseAsString, parseAsStringLiteral, useQueryState } from 'nuqs'
 import { SetStepNav } from '@payloadcms/ui'
-import { ChevronDown, ChevronRight, FileText, Loader2, Pill } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, Loader2, Pill, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,6 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
 import { focusFirstInvalidFieldWithToast, useStepFocus } from '@/lib/form-scroll-focus'
 import { CollectionResultStrip } from '../../components/CollectionResultStrip'
 import { ReportLink } from '../../components/ReportLink'
-import { OptionalDetails } from '../../components/OptionalDetails'
 import { IdentityNotice } from '../../components/IdentityNotice'
 import { TestCompleted } from '../../components/TestCompleted'
 import { useWizardSession } from '../../components/main-wizard/WizardSessionGuard'
@@ -70,10 +69,15 @@ import { getResultPresentation } from '../../components/result-presentation'
 import { LabProgress } from './Progress'
 import { ScreeningResults } from './ScreeningResults'
 import { ConfirmationTable } from './ConfirmationTable'
-import { Input } from '@/components/ui/input'
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerFooter,
+} from '@/components/ui/drawer'
 import { confirmationPrice, referralPaysConfirmation } from '@/collections/DrugTests/confirmation/policy'
-import { TZDate } from '@date-fns/tz'
-import { APP_TIMEZONE, formatDateOnlyISO } from '@/lib/date-utils'
 import { submitLabResults, prepareLabResultDecision } from './actions'
 
 const date = formatCollectionDateTimeCompact
@@ -106,6 +110,8 @@ export function LabResultsWorkflow({
     paymentRequired: boolean
     billedToReferral: boolean
   } | null>(null)
+  const [reportEditorOpen, setReportEditorOpen] = useState(false)
+  const reportEditorSnapshot = useRef<ReturnType<typeof getLabResultsFormOpts>['defaultValues']['results'] | null>(null)
   const formRef = useRef<HTMLFormElement | null>(null)
   useStepFocus({ containerRef: formRef, stepKey: step })
   const initialFormOpts = useMemo(() => getLabResultsFormOpts(), [])
@@ -141,10 +147,6 @@ export function LabResultsWorkflow({
   })
   const values = useStore(form.store, (state) => state.values)
   const submitting = useStore(form.store, (state) => state.isSubmitting)
-  const screenDetailsInvalid = useStore(
-    form.store,
-    (state) => !!state.fieldMeta['results.screening.screeningResultDate']?.errors?.length,
-  )
   const extraction = useExtractPdfQuery(values.upload.file, 'lab-results')
   const collections = useLabCollections(extraction.data, values.reportType, chosenClientId)
   const orderedCollections = useMemo(
@@ -567,40 +569,53 @@ export function LabResultsWorkflow({
       </CardContent>
     </Card>
   )
-  const screeningDateField = (
-    <form.Field name="results.screening.screeningResultDate">
-      {(field) => (
-        <Field
-          data-invalid={field.state.meta.errors.length > 0}
-          className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center"
-        >
-          <FieldLabel htmlFor="screening-result-date">Screening result date</FieldLabel>
-          <Input
-            id="screening-result-date"
-            aria-invalid={field.state.meta.errors.length > 0}
-            type="date"
-            className="sm:w-44"
-            disabled={!!test?.screenedAt || preparedDecision?.testId === test?.id}
-            value={field.state.value ? formatDateOnlyISO(new TZDate(field.state.value, APP_TIMEZONE)) : ''}
-            onChange={(event) =>
-              field.handleChange(
-                event.target.value
-                  ? new TZDate(
-                      ...(event.target.value
-                        .split('-')
-                        .map(Number)
-                        .map((n, i) => (i === 1 ? n - 1 : n)) as [number, number, number]),
-                      APP_TIMEZONE,
-                    ).toISOString()
-                  : '',
-              )
-            }
-          />
-          <FieldDescription className="sm:col-span-2">Use the date on the screening report.</FieldDescription>
-          <FieldError errors={field.state.meta.errors} />
-        </Field>
-      )}
-    </form.Field>
+  const openReportEditor = () => {
+    reportEditorSnapshot.current = structuredClone(form.state.values.results)
+    setReportEditorOpen(true)
+  }
+  const closeReportEditor = (apply: boolean) => {
+    if (!apply && reportEditorSnapshot.current) form.setFieldValue('results', reportEditorSnapshot.current)
+    reportEditorSnapshot.current = null
+    setReportEditorOpen(false)
+  }
+  const reportEditor = (
+    <Drawer open={reportEditorOpen} onOpenChange={(open) => !open && closeReportEditor(false)} swipeDirection="right">
+      <DrawerContent
+        // Keep TanStack correction fields registered when the drawer is closed.
+        keepMounted
+        className="[--drawer-content-width:min(100vw,32rem)] sm:[--drawer-content-width:32rem]"
+      >
+        <DrawerHeader>
+          <DrawerTitle>Edit screening results</DrawerTitle>
+          <DrawerDescription>Correct the results to match the PDF.</DrawerDescription>
+        </DrawerHeader>
+        <FieldGroup className="min-h-0 flex-1 overflow-y-auto p-4">
+          <form.AppField name="results.screening.detectedSubstances">
+            {(field) => <field.SubstanceChecklistField testType={test?.testType ?? '11-panel-lab'} />}
+          </form.AppField>
+          <form.Field name="results.screening.isDilute">
+            {(field) => (
+              <Field orientation="horizontal">
+                <Checkbox
+                  id="isDilute"
+                  checked={field.state.value}
+                  onCheckedChange={(checked) => field.handleChange(checked === true)}
+                />
+                <FieldLabel htmlFor="isDilute">Sample is dilute</FieldLabel>
+              </Field>
+            )}
+          </form.Field>
+        </FieldGroup>
+        <DrawerFooter className="flex-row justify-end">
+          <Button type="button" variant="outline" onClick={() => closeReportEditor(false)}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={() => closeReportEditor(true)}>
+            Apply changes
+          </Button>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   )
   const renderGroup = (
     name: 'upload' | 'matchCollection' | 'results' | 'emails',
@@ -640,6 +655,7 @@ export function LabResultsWorkflow({
       {(group) => (
         <>
           <div className="flex flex-col gap-6">{content}</div>
+          {step === 'results' && mode === 'screening' && reportEditor}
           <div className="border-border mt-8 flex items-center justify-between gap-3 border-t pt-5">
             <Button
               type="button"
@@ -915,7 +931,21 @@ export function LabResultsWorkflow({
             <Card>
               <CardHeader className="flex-row items-center justify-between">
                 <CardTitle>{mode === 'confirmation' ? 'Confirmation report' : reportTypeLabel(report)}</CardTitle>
-                <ReportLink file={values.upload.file} />
+                <div className="flex items-center gap-2">
+                  {mode === 'screening' && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={openReportEditor}
+                      data-testid="edit-screening-report"
+                    >
+                      <Pencil data-icon="inline-start" />
+                      Edit
+                    </Button>
+                  )}
+                  <ReportLink file={values.upload.file} />
+                </div>
               </CardHeader>
               <CardContent className="flex flex-col gap-5">
                 {mode === 'screening' ? (
@@ -988,7 +1018,6 @@ export function LabResultsWorkflow({
             {mode === 'screening' && (
               <>
                 <FieldGroup hidden={!requiresDecision} className={cn('gap-4', !requiresDecision && 'hidden')}>
-                  {requiresDecision && screeningDateField}
                   <form.Field name="results.screening.confirmationDecision">
                     {(field) => (
                       <FieldGroup>
@@ -1036,8 +1065,29 @@ export function LabResultsWorkflow({
                               key={choice.id}
                               data-testid={`confirmation-decision-${choice.id}`}
                               orientation="vertical"
+                              onClick={(event) => {
+                                const target = event.target as HTMLElement
+                                if (
+                                  target.closest(
+                                    'button,input,select,textarea,a,label,[role="checkbox"],[role="radio"],[data-testid="confirmation-request-options"]',
+                                  )
+                                )
+                                  return
+                                if (field.state.value === choice.id) return
+                                field.handleChange(choice.id as 'accept' | 'request-confirmation' | 'pending-decision')
+                                if (
+                                  choice.id === 'request-confirmation' &&
+                                  !form.state.values.results.screening.confirmationSubstances?.length
+                                )
+                                  form.setFieldValue('results.screening.confirmationSubstances', [
+                                    ...new Set([
+                                      ...(preview.data?.unexpectedPositives || []),
+                                      ...(preview.data?.unexpectedNegatives || []),
+                                    ]),
+                                  ])
+                              }}
                               className={cn(
-                                'rounded-lg border p-4',
+                                'cursor-pointer rounded-lg border p-4',
                                 field.state.value === choice.id && 'border-primary bg-primary/5',
                               )}
                             >
@@ -1116,27 +1166,6 @@ export function LabResultsWorkflow({
                     )}
                   </form.Field>
                 </FieldGroup>
-                <OptionalDetails title="Edit test details" invalid={!requiresDecision && screenDetailsInvalid}>
-                  <p className="text-sm">
-                    {panel(test?.testType)} · Collected {date(test?.collectionDate)}
-                  </p>
-                  {!requiresDecision && screeningDateField}
-                  <form.AppField name="results.screening.detectedSubstances">
-                    {(field) => <field.SubstanceChecklistField testType={test?.testType ?? '11-panel-lab'} />}
-                  </form.AppField>
-                  <form.Field name="results.screening.isDilute">
-                    {(field) => (
-                      <Field orientation="horizontal">
-                        <Checkbox
-                          id="isDilute"
-                          checked={field.state.value}
-                          onCheckedChange={(checked) => field.handleChange(checked === true)}
-                        />
-                        <FieldLabel htmlFor="isDilute">Sample is dilute</FieldLabel>
-                      </Field>
-                    )}
-                  </form.Field>
-                </OptionalDetails>
               </>
             )}
           </>,

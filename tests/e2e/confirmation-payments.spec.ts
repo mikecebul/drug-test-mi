@@ -7,6 +7,8 @@ import { getPayloadClient } from './helpers/payload'
 import { getE2EEnv } from './helpers/env'
 import { loginAdmin } from './helpers/auth'
 import {
+  editScreeningReport,
+  applyScreeningReportEdits,
   clickBack,
   clickNext,
   expectWizardStep,
@@ -96,7 +98,9 @@ test(
       getE2EEnv({ pdfs: ['labScreen'] }).pdfLabScreenPath,
       fixtures.tests.labScreenCollectedTestId,
     )
-    await page.getByRole('checkbox', { name: /^Fentanyl\b/i }).check()
+    const editor = await editScreeningReport(page)
+    await editor.getByRole('checkbox', { name: /^Fentanyl\b/i }).check()
+    await applyScreeningReportEdits(page)
     await selectResultDecision(page, 'request-confirmation')
     const requestOptions = page.getByTestId('confirmation-request-options')
     const paymentEmail = requestOptions.getByRole('checkbox', { name: 'Email client a Stripe payment link' })
@@ -105,11 +109,9 @@ test(
     await expect(requestOptions.getByRole('checkbox', { name: /^Fentanyl\b/i })).toBeChecked()
     const requestCard = page.getByTestId('confirmation-decision-request-confirmation')
     await expect(requestCard.getByTestId('confirmation-request-options')).toBeVisible()
-    await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
     await expect(page.getByRole('checkbox', { name: 'Sample is dilute' })).toBeHidden()
     await page.screenshot({ path: test.info().outputPath('screening-results-request.png'), fullPage: true })
     await paymentEmail.uncheck()
-    await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
     await clickNext(page)
     await expectWizardStep(page, 'review')
     const payload = await getPayloadClient()
@@ -125,8 +127,9 @@ test(
     await clickBack(page)
     await expectWizardStep(page, 'results')
     await expect(page.locator('#request-confirmation')).toBeChecked()
-    await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
-    await expect(page.getByRole('checkbox', { name: /^Fentanyl\b/i }).first()).toBeChecked()
+    await editScreeningReport(page)
+    await expect(editor.getByRole('checkbox', { name: /^Fentanyl\b/i })).toBeChecked()
+    await applyScreeningReportEdits(page)
     await clickNext(page)
     await expectWizardStep(page, 'review')
     const repeated = await payload.findByID({ collection: 'drug-tests', id: first.id, depth: 0 })

@@ -1,7 +1,4 @@
 import { expect, test, type Page } from '@playwright/test'
-import { TZDate } from '@date-fns/tz'
-import { getPayloadClient } from './helpers/payload'
-import { APP_TIMEZONE, formatDateOnlyISO } from '../../src/lib/date-utils'
 import { cleanupFixtures } from './helpers/cleanup'
 import { assertNotificationSent } from './helpers/db-assert'
 import { getE2EEnv } from './helpers/env'
@@ -9,6 +6,8 @@ import { loginAdmin } from './helpers/auth'
 import { ensureMailpitReachable, findMailpitMessages } from './helpers/mailpit'
 import { seedFixtures, type FixtureContext } from './helpers/seed'
 import {
+  editScreeningReport,
+  applyScreeningReportEdits,
   clickBack,
   clickNext,
   expectValidationError,
@@ -27,7 +26,9 @@ async function openScreenData(page: Page) {
     getE2EEnv({ pdfs: ['labScreen'] }).pdfLabScreenPath,
     fixtures.tests.labScreenCollectedTestId,
   )
-  await expect(page.getByRole('checkbox', { name: /^Buprenorphine\b/i })).toBeChecked()
+  const editor = await editScreeningReport(page)
+  await expect(editor.getByRole('checkbox', { name: /^Buprenorphine\b/i })).toBeChecked()
+  await applyScreeningReportEdits(page)
 }
 
 test.describe('Wizard Lab Screen Workflow', () => {
@@ -54,8 +55,10 @@ test.describe('Wizard Lab Screen Workflow', () => {
       await expectWizardStep(page, 'upload')
       await openScreenData(page)
 
-      const fentanyl = page.getByRole('checkbox', { name: /^Fentanyl\b/i })
+      const editor = await editScreeningReport(page)
+      const fentanyl = editor.getByRole('checkbox', { name: /^Fentanyl\b/i })
       await fentanyl.check()
+      await applyScreeningReportEdits(page)
       await expect(page.locator('#accept')).toBeVisible()
       await clickNext(page)
       await expectWizardStep(page, 'results')
@@ -76,40 +79,42 @@ test.describe('Wizard Lab Screen Workflow', () => {
       await clickBack(page)
       await expectWizardStep(page, 'results')
       await expect(page.locator('#accept')).toBeChecked()
-      await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
+      await editScreeningReport(page)
       await expect(fentanyl).toBeChecked()
+      await applyScreeningReportEdits(page)
       await clickNext(page)
       await expectWizardStep(page, 'review')
       expect(errors).toEqual([])
     },
   )
 
-  test('Next reveals an invalid date even when test edits are collapsed', async ({ page }) => {
-    const payload = await getPayloadClient()
-    const collection = await payload.create({
-      collection: 'drug-tests',
-      overrideAccess: true,
-      data: {
-        relatedClient: fixtures.clients.labScreen.id,
-        testType: '11-panel-lab',
-        collectionDate: '2026-01-08T12:00:00Z',
-        screeningStatus: 'collected',
-        payment: { status: 'unpaid', amountDue: 0, amountPaid: 0, balanceDue: 0 },
-      },
-    })
-    fixtures.created.drugTestIds.push(collection.id)
-    await goToLabScreenData(page, getE2EEnv({ pdfs: ['labScreen'] }).pdfLabScreenPath, collection.id)
-    const dateInput = page.getByLabel('Screening result date', { exact: true })
-    await dateInput.fill('')
-    const details = page.getByRole('button', { name: 'Edit test details', exact: true })
-    await details.click()
-    await expect(dateInput).toBeHidden()
-    await clickNext(page)
-    await expectWizardStep(page, 'results')
-    await expect(dateInput).toBeVisible()
-    await expect(dateInput).toHaveAttribute('aria-invalid', 'true')
-    await expect(dateInput).toBeFocused()
-    await dateInput.fill(formatDateOnlyISO(new TZDate(new Date(), APP_TIMEZONE)))
+  test('screening drawer applies corrections and restores the draft on cancel', async ({ page }) => {
+    await page.setViewportSize({ width: 779, height: 1080 })
+    await openScreenData(page)
+    await expect(page.getByLabel('Screening result date', { exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Edit test details', exact: true })).toHaveCount(0)
+    const editor = await editScreeningReport(page)
+    const fentanyl = editor.getByRole('checkbox', { name: /^Fentanyl\b/i })
+    await fentanyl.check()
+    await page.screenshot({ path: test.info().outputPath('screening-results-editor.png') })
+    await editor.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(editor).toBeHidden()
+    await expect(page.getByTestId('screening-result-fentanyl')).toHaveCount(0)
+    await editScreeningReport(page)
+    await fentanyl.check()
+    await applyScreeningReportEdits(page)
+    await expect(page.getByTestId('screening-result-fentanyl')).toBeVisible()
+    const expected = await page.getByTestId('screening-result-buprenorphine').locator('span').last().boundingBox()
+    const unexpected = await page.getByTestId('screening-result-fentanyl').locator('span').last().boundingBox()
+    expect(Math.abs(expected!.x - unexpected!.x)).toBeLessThanOrEqual(1)
+    // Card descriptions, not just the tiny radio control, select the decision.
+    await page
+      .getByTestId('confirmation-decision-pending-decision')
+      .getByText('Track for 30 days', { exact: false })
+      .click()
+    await expect(page.locator('#pending-decision')).toBeChecked()
+    await page.getByTestId('confirmation-decision-accept').click({ position: { x: 6, y: 6 } })
+    await expect(page.locator('#accept')).toBeChecked()
     await clickNext(page)
     await expectWizardStep(page, 'review')
   })

@@ -282,7 +282,6 @@ export async function goToLabScreenData(page: Page, pdfPath: string, testId: str
   await selectLabCollection(page, testId)
   await confirmLabIdentity(page)
   await clickNextToStep(page, 'results')
-  await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
 }
 
 export async function extractTestIdFromSuccess(page: Page): Promise<string> {
@@ -291,4 +290,16 @@ export async function extractTestIdFromSuccess(page: Page): Promise<string> {
   const id = await button.getAttribute('data-drug-test-id')
   if (!id) throw new Error('The completed collection must identify the saved test record')
   return id
+}
+
+export async function editScreeningReport(page: Page) {
+  await page.getByTestId('edit-screening-report').click()
+  const editor = page.getByRole('dialog', { name: 'Edit screening results' })
+  await expect(editor).toBeVisible()
+  return editor
+}
+export async function applyScreeningReportEdits(page: Page) {
+  const editor = page.getByRole('dialog', { name: 'Edit screening results' })
+  await editor.getByRole('button', { name: 'Apply changes', exact: true }).click()
+  await expect(editor).toBeHidden()
 }

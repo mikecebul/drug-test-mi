@@ -1,5 +1,12 @@
 import { beforeEach, expect, test, vi } from 'vitest'
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), prepare: vi.fn(), send: vi.fn(), read: vi.fn(), classify: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  auth: vi.fn(),
+  prepare: vi.fn(),
+  send: vi.fn(),
+  read: vi.fn(),
+  classify: vi.fn(),
+  feeDue: 45,
+}))
 vi.mock('next/headers', () => ({ headers: async () => new Headers() }))
 vi.mock('@payload-config', () => ({ default: {} }))
 vi.mock('payload', () => ({
@@ -14,7 +21,7 @@ vi.mock('payload', () => ({
             screeningStatus: 'collected',
             screenedAt: '2026-10-07T00:00:00Z',
             confirmationHoldUntil: '2026-11-06T00:00:00Z',
-            payment: { confirmationFeeDue: 45, confirmationFeePaid: 0 },
+            payment: { confirmationFeeDue: mocks.feeDue, confirmationFeePaid: 0 },
           }
         : { id: 'client' },
   }),
@@ -41,6 +48,7 @@ function values(email = true) {
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.feeDue = 45
   mocks.auth.mockResolvedValue({ user: { id: 'tech', collection: 'admins', role: 'admin' } })
   mocks.read.mockResolvedValue({ report: { reportKind: 'screening', hasConfirmation: false } })
   mocks.classify.mockResolvedValue({ autoAccept: false })
@@ -66,4 +74,30 @@ test('actual confirmation-only bytes and unauthenticated calls cannot prepare a 
   expect((await prepareLabResultDecision(values())).success).toBe(false)
   expect(mocks.prepare).not.toHaveBeenCalled()
   expect(mocks.send).not.toHaveBeenCalled()
+})
+
+test.each(['accept', 'pending-decision'] as const)(
+  '%s without a confirmation charge does not require a payment transaction',
+  async (decision) => {
+    mocks.feeDue = 0
+    mocks.prepare.mockRejectedValue(new Error('Transactions unavailable'))
+    const data = values()
+    data.results.screening.confirmationDecision = decision
+    const result = await prepareLabResultDecision(data)
+    expect(result.success).toBe(true)
+    expect(result.prepared).toMatchObject({
+      screenedAt: '2026-10-07T00:00:00Z',
+      confirmationHoldUntil: '2026-11-06T00:00:00.000Z',
+      paymentRequired: false,
+    })
+    expect(mocks.prepare).not.toHaveBeenCalled()
+    expect(mocks.send).not.toHaveBeenCalled()
+  },
+)
+test('accepting an existing charged request still requires its financial safeguard', async () => {
+  mocks.prepare.mockRejectedValue(new Error('Transactions unavailable'))
+  const data = values()
+  data.results.screening.confirmationDecision = 'accept'
+  expect((await prepareLabResultDecision(data)).success).toBe(false)
+  expect(mocks.prepare).toHaveBeenCalled()
 })

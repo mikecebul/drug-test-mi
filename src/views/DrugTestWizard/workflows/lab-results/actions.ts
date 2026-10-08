@@ -89,6 +89,28 @@ export async function prepareLabResultDecision(values: LabResultsValues, sendPay
     })
     const decision = values.results.screening.confirmationDecision || (classification.autoAccept ? 'accept' : undefined)
     if (!decision) throw new Error('Choose a result decision before continuing.')
+    // Acceptance/deferment with no existing confirmation charge only changes the report draft.
+    // Persist it with the final report; navigating to Review must not start a payment transaction.
+    if (
+      decision !== 'request-confirmation' &&
+      !test.confirmationRequestKey &&
+      !(test.payment?.confirmationFeeDue || 0)
+    ) {
+      const { knownScreeningDate, confirmationHoldUntil, referralPaysConfirmation } =
+        await import('@/collections/DrugTests/confirmation/policy')
+      const screenedAt =
+        knownScreeningDate(test) || values.results.screening.screeningResultDate || new Date().toISOString()
+      return {
+        success: true,
+        prepared: {
+          testId: test.id,
+          screenedAt,
+          confirmationHoldUntil: confirmationHoldUntil(screenedAt),
+          paymentRequired: false,
+          billedToReferral: referralPaysConfirmation(test),
+        },
+      }
+    }
     const { prepareConfirmation } = await import('@/collections/DrugTests/confirmation/prepare')
     await prepareConfirmation({
       payload,
