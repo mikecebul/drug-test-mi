@@ -717,6 +717,7 @@ export function LabResultsWorkflow({
             toast.error(prepared.error)
             return
           }
+          setCreditFailure(null)
           if (prepared.prepared) {
             setPreparedDecision(prepared.prepared)
             if (prepared.prepared.creditRemaining !== undefined)
