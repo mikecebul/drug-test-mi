@@ -27,7 +27,6 @@ import { TestCompleted } from '../../components/TestCompleted'
 import { useWizardSession } from '../../components/main-wizard/WizardSessionGuard'
 import { FieldGroupHeader } from '../components/FieldGroupHeader'
 import { ClientDetailsCard, type ClientDetailsValue } from '../components/client/ClientDetailsCard'
-import { ClientSearchDialog } from '../components/client/ClientSearchDialog'
 import { ConfirmationSubstanceSelector } from '@/blocks/Form/field-components/confirmation-substance-selector'
 import { EmailsFieldGroup } from '../components/emails/EmailsFieldGroup'
 import { useLabScreenEmailPreview } from '../components/emails/useLabScreenEmailPreview'
@@ -98,7 +97,6 @@ export function LabResultsWorkflow({
     'step',
     parseAsStringLiteral(labSteps).withDefault('upload').withOptions({ clearOnDefault: false }),
   )
-  const [chosenClientId, setChosenClientId] = useState<string | null>(null)
   const [showAllCollections, setShowAllCollections] = useState(false)
   const [completed, setCompleted] = useState<string | null>(null)
   const [deliveryError, setDeliveryError] = useState<string | null>(null)
@@ -148,10 +146,11 @@ export function LabResultsWorkflow({
   const values = useStore(form.store, (state) => state.values)
   const submitting = useStore(form.store, (state) => state.isSubmitting)
   const extraction = useExtractPdfQuery(values.upload.file, 'lab-results')
-  const collections = useLabCollections(extraction.data, values.reportType, chosenClientId)
-  const orderedCollections = useMemo(
-    () => sortLabCollections(collections.data ?? [], values.matchCollection.testId),
-    [collections.data, values.matchCollection.testId],
+  const collections = useLabCollections(extraction.data, values.reportType)
+  const orderedCollections = sortLabCollections(
+    collections.data ?? [],
+    values.matchCollection.testId,
+    extraction.data?.donorName,
   )
   const visibleCollections = showAllCollections ? orderedCollections : orderedCollections.slice(0, 3)
   const clientQuery = useGetClientFromTestQuery(values.matchCollection.testId)
@@ -242,7 +241,6 @@ export function LabResultsWorkflow({
       form.reset()
       seeded.current = null
       lastRecipients.current = null
-      setChosenClientId(null)
       setShowAllCollections(false)
       void setStep('upload')
     }
@@ -416,20 +414,64 @@ export function LabResultsWorkflow({
       current ? { ...current, ...updated } : current,
     )
     invalidateWizardClientDerivedData(queryClient, { clientId: client?.id, testId: test?.id })
+    queryClient.invalidateQueries({ queryKey: ['lab-entry-collections'] })
   }
-  const clientPicker = (
-    <ClientSearchDialog
-      selectedClientId={chosenClientId ?? client?.id ?? ''}
-      onSelect={(chosen) => {
-        setChosenClientId(chosen.id)
-        setShowAllCollections(false)
-        form.setFieldValue('matchCollection', getLabResultsFormOpts().defaultValues.matchCollection)
-      }}
-    >
-      <Button type="button" variant={client ? 'ghost' : 'outline'} size={client ? 'sm' : 'default'}>
-        {client ? 'Change client' : 'Choose client'}
-      </Button>
-    </ClientSearchDialog>
+  const identityNotice = (
+    <form.Field name="matchCollection.clientMismatchConfirmed">
+      {(field) =>
+        identity?.requiresConfirmation ? (
+          <IdentityNotice
+            title={
+              identity.nameDifferent
+                ? identity.dobDifferent
+                  ? 'Check client identity'
+                  : 'Name differs'
+                : 'Birth date differs'
+            }
+            sourceLabel="Lab report"
+            rows={[
+              {
+                label: 'Name',
+                clientValue: identity.clientName,
+                sourceValue: identity.reportName,
+                different: identity.nameDifferent,
+              },
+              ...(report?.dob
+                ? [
+                    {
+                      label: 'Birth date',
+                      clientValue: identity.clientDob,
+                      sourceValue: identity.reportDob,
+                      different: identity.dobDifferent,
+                    },
+                  ]
+                : []),
+            ].filter((row) => row.different)}
+          >
+            <FieldGroup className="gap-2">
+              <Field orientation="horizontal" data-invalid={field.state.meta.errors.length > 0}>
+                <Checkbox
+                  aria-invalid={field.state.meta.errors.length > 0}
+                  aria-describedby="lab-identity-error"
+                  id="lab-identity"
+                  data-testid="lab-report-identity-confirmation"
+                  checked={identityConfirmed}
+                  onCheckedChange={(checked) => {
+                    field.handleChange(checked === true)
+                    form.setFieldValue(
+                      'matchCollection.clientMismatchConfirmationKey',
+                      checked === true ? identityKey : null,
+                    )
+                  }}
+                />
+                <FieldLabel htmlFor="lab-identity">I verified this is the same person</FieldLabel>
+              </Field>
+              <FieldError id="lab-identity-error" errors={field.state.meta.errors} />
+            </FieldGroup>
+          </IdentityNotice>
+        ) : null
+      }
+    </form.Field>
   )
   const context = client ? (
     <div data-testid="lab-client-context">
@@ -439,7 +481,7 @@ export function LabResultsWorkflow({
         client={client}
         testLabel={step === 'match' ? undefined : panel(test?.testType)}
         onClientUpdated={updateClient}
-        changeClientAction={step === 'match' ? clientPicker : undefined}
+        identityNotice={step === 'match' && identity?.requiresConfirmation ? identityNotice : undefined}
       />
     </div>
   ) : null
@@ -767,62 +809,6 @@ export function LabResultsWorkflow({
             <FieldGroupHeader title="Match lab report" />
             {reportBar}
             {context}
-            {!client && clientPicker}
-            <form.Field name="matchCollection.clientMismatchConfirmed">
-              {(field) =>
-                identity?.requiresConfirmation ? (
-                  <IdentityNotice
-                    title={
-                      identity.nameDifferent
-                        ? identity.dobDifferent
-                          ? 'Check client identity'
-                          : 'Name differs'
-                        : 'Birth date differs'
-                    }
-                    sourceLabel="Lab report"
-                    rows={[
-                      {
-                        label: 'Name',
-                        clientValue: identity.clientName,
-                        sourceValue: identity.reportName,
-                        different: identity.nameDifferent,
-                      },
-                      ...(report?.dob
-                        ? [
-                            {
-                              label: 'Birth date',
-                              clientValue: identity.clientDob,
-                              sourceValue: identity.reportDob,
-                              different: identity.dobDifferent,
-                            },
-                          ]
-                        : []),
-                    ].filter((row) => row.different)}
-                  >
-                    <FieldGroup className="gap-2">
-                      <Field orientation="horizontal" data-invalid={field.state.meta.errors.length > 0}>
-                        <Checkbox
-                          aria-invalid={field.state.meta.errors.length > 0}
-                          aria-describedby="lab-identity-error"
-                          id="lab-identity"
-                          data-testid="lab-report-identity-confirmation"
-                          checked={identityConfirmed}
-                          onCheckedChange={(checked) => {
-                            field.handleChange(checked === true)
-                            form.setFieldValue(
-                              'matchCollection.clientMismatchConfirmationKey',
-                              checked === true ? identityKey : null,
-                            )
-                          }}
-                        />
-                        <FieldLabel htmlFor="lab-identity">I verified this is the same person</FieldLabel>
-                      </Field>
-                      <FieldError id="lab-identity-error" errors={field.state.meta.errors} />
-                    </FieldGroup>
-                  </IdentityNotice>
-                ) : null
-              }
-            </form.Field>
             <Card>
               <CardHeader>
                 <CardTitle>Choose the collection</CardTitle>

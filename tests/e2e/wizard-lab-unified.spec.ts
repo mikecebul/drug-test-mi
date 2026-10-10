@@ -196,7 +196,8 @@ test('collection choices pin the match, hide alternatives, and retain a newly ch
   await expect(page.getByText('01/14/1990', { exact: true })).toBeVisible()
   await expect(page.getByTestId('identity-notice').getByTestId('lab-report-identity-confirmation')).toBeVisible()
   const clientCard = page.getByTestId('lab-client-context')
-  await expect(clientCard.getByRole('button', { name: 'Change client', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^(Choose|Change) client$/ })).toHaveCount(0)
+  await expect(clientCard.getByTestId('identity-notice')).toBeVisible()
   const headshotButton = clientCard.getByTestId('add-headshot-button')
   await expect(headshotButton).toHaveCSS('cursor', 'pointer')
   await headshotButton.hover()
@@ -209,9 +210,6 @@ test('collection choices pin the match, hide alternatives, and retain a newly ch
     page.getByRole('dialog', { name: 'Edit Client Details' }).getByRole('button', { name: 'Take Photo' }),
   ).toBeVisible()
   await page.keyboard.press('Escape')
-  await clientCard.getByRole('button', { name: 'Change client', exact: true }).click()
-  await expect(page.getByRole('dialog', { name: 'Search and Select Client' })).toBeVisible()
-  await page.keyboard.press('Escape')
   const more = page.getByTestId('lab-collection-more')
   await expect(more).toHaveAttribute('aria-expanded', 'false')
   await page.screenshot({ path: test.info().outputPath('lab-match-simple-actual.png'), fullPage: true })
@@ -220,7 +218,7 @@ test('collection choices pin the match, hide alternatives, and retain a newly ch
   await more.click()
   await expect(choices).toHaveCount(5)
   expect(await choices.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-testid')))).toEqual(
-    [selectedId, ...extra].map((id) => `pending-test-${id}`),
+    [selectedId, extra[2], extra[3], extra[0], extra[1]].map((id) => `pending-test-${id}`),
   )
   await selectLabCollection(page, extra[3])
   await more.click()

@@ -75,6 +75,7 @@ type ClientDetailsCardProps = {
   onClientUpdated?: (client: Partial<ClientDetailsValue>) => void
   onChangeClient?: () => void
   changeClientAction?: React.ReactNode
+  identityNotice?: React.ReactNode
   onHeadshotCaptureReady?: (openEditor: (() => void) | null) => void
 }
 
@@ -110,6 +111,7 @@ export function ClientDetailsCard({
   onClientUpdated,
   onChangeClient,
   changeClientAction,
+  identityNotice,
   onHeadshotCaptureReady,
 }: ClientDetailsCardProps) {
   const [editorOpen, setEditorOpen] = useState(false)
@@ -292,6 +294,7 @@ export function ClientDetailsCard({
               {changeClientAction}
             </div>
           </CardContent>
+          {identityNotice && <CardContent className="px-4 pb-4">{identityNotice}</CardContent>}
         </Card>
       ) : (
         <Card className={cn('rounded-lg', className)}>

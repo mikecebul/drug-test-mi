@@ -28,6 +28,31 @@ test('the selected collection is pinned first without mutating the fetched list'
   expect(sortLabCollections(choices, 'z').map((choice) => choice.id)).toEqual(['z', 'a-old', 'a-new', 'm'])
   expect(choices.map((choice) => choice.id)).toEqual(['z', 'a-new', 'm', 'a-old'])
 })
+test('exact report names precede alphabetical alternatives even when the collection date differs', () => {
+  expect(sortLabCollections(choices, '', 'Mike Smith').map((choice) => choice.id)).toEqual(['m', 'a-old', 'a-new', 'z'])
+  expect(sortLabCollections(choices, 'z', 'Mike Smith').map((choice) => choice.id)).toEqual([
+    'z',
+    'm',
+    'a-old',
+    'a-new',
+  ])
+})
+test('name matching ignores case, spacing and punctuation and retains oldest-first ordering', () => {
+  const rows = [
+    ...choices,
+    { id: 'tom-new', clientName: 'Tom V. Vachon', collectionDate: '2026-02-01T12:00:00Z' },
+    { id: 'tom-old', clientName: 'Tom V Vachon', collectionDate: '2025-12-01T12:00:00Z' },
+  ]
+  expect(sortLabCollections(rows, '', '  TOM   V VACHON  ').map((choice) => choice.id)).toEqual([
+    'tom-old',
+    'tom-new',
+    'a-old',
+    'a-new',
+    'm',
+    'z',
+  ])
+  expect(sortLabCollections(choices, '', '   ')).toEqual(sortLabCollections(choices, ''))
+})
 test('unreadable dates follow dated collections for the same client', () => {
   const rows = [
     { id: 'missing', clientName: 'Avery Stone', collectionDate: null },

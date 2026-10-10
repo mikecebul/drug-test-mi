@@ -11,6 +11,7 @@ import { prepareConfirmation } from '../../src/collections/DrugTests/confirmatio
 import { sendConfirmationPaymentLink } from '../../src/collections/DrugTests/confirmation/paymentLink'
 import { postAccountPayment } from '../../src/collections/Payments/services/accountPayment'
 import { confirmationPaymentRequired } from '../../src/collections/DrugTests/confirmation/policy'
+import { makeReportPdf } from '../../src/utilities/extractors/__tests__/helpers/reportPdf'
 import {
   selectWorkflow,
   uploadSinglePdf,
@@ -324,4 +325,101 @@ test('identity checkbox and unselected collection circles have visible boundarie
     expect(stats.contrast).toBeGreaterThanOrEqual(3)
   }
   await page.screenshot({ path: test.info().outputPath('lab-match-controls-portrait.png'), fullPage: true })
+})
+
+test('admins match by collection: live exact names lead and changing collections resets identity verification', async ({
+  page,
+}) => {
+  const payload = await getPayloadClient()
+  // Change the profile without rewriting the test's cached clientName.
+  await payload.update({
+    collection: 'clients',
+    id: fixtures.clients.labScreen.id,
+    user: admin,
+    overrideAccess: true,
+    data: { firstName: 'Zelda', middleInitial: 'Q', lastName: 'Donor' },
+  })
+  const alternatives: string[] = []
+  for (const [clientId, collectionDate] of [
+    [fixtures.clients.collectLab.id, '2026-05-23T12:00:00Z'],
+    [fixtures.clients.instant.id, '2026-05-24T12:00:00Z'],
+    [fixtures.clients.instant.id, '2026-05-25T12:00:00Z'],
+  ]) {
+    const record = await payload.create({
+      collection: 'drug-tests',
+      overrideAccess: true,
+      user: admin,
+      data: {
+        relatedClient: clientId,
+        testType: '11-panel-lab',
+        screeningStatus: 'collected',
+        collectionDate,
+        payment: { amountDue: 0, amountPaid: 0, status: 'unpaid' },
+      },
+    })
+    fixtures.created.drugTestIds.push(record.id)
+    alternatives.push(record.id)
+  }
+  await page.setViewportSize({ width: 768, height: 1024 })
+  await loginAdmin(page, fixtures.admin)
+  const accessible = await payload.findByID({
+    collection: 'drug-tests',
+    id: fixtures.tests.labScreenCollectedTestId,
+    user: admin,
+    overrideAccess: false,
+    depth: 0,
+  })
+  expect(accessible.clientName).not.toContain('Zelda')
+  await selectWorkflow(page, 'Enter Lab Screen Data')
+  const buffer = makeReportPdf([
+    [
+      { x: 40, y: 760, text: 'B729 - Urine 11 Panel' },
+      { x: 40, y: 740, text: 'Identification:' },
+      { x: 160, y: 740, text: 'Zelda Q. Donor' },
+      { x: 40, y: 720, text: 'Collected:' },
+      { x: 160, y: 720, text: '01/01/1999 11:11 PM' },
+      { x: 40, y: 700, text: 'DOB:' },
+      { x: 160, y: 700, text: '01/14/1990' },
+      { x: 40, y: 500, text: 'Drug Class' },
+      { x: 240, y: 500, text: 'Method' },
+      { x: 350, y: 500, text: 'Cutoff' },
+      { x: 470, y: 500, text: 'Result' },
+      { x: 40, y: 475, text: 'Amphetamines 500' },
+      { x: 240, y: 475, text: 'EIA' },
+      { x: 350, y: 475, text: '5 ng/mL' },
+      { x: 470, y: 475, text: 'Negative' },
+    ],
+  ])
+  await page
+    .locator('[data-slot="file-upload"] input[type="file"]')
+    .first()
+    .setInputFiles({ name: 'name-match.pdf', mimeType: 'application/pdf', buffer })
+  await waitForExtractStepReady(page)
+  await clickNext(page)
+  await expectWizardStep(page, 'match')
+  const choices = page.getByTestId('lab-collection-choices').getByRole('button')
+  const matchedId = fixtures.tests.labScreenCollectedTestId
+  await expect(choices).toHaveCount(3)
+  await expect(choices.first()).toHaveAttribute('data-testid', `pending-test-${matchedId}`)
+  await expect(choices.first()).toContainText('Zelda Q Donor')
+  // Name ranking alone cannot auto-select a collection with a different date.
+  await expect(page.getByTestId('lab-collection-choices').locator('button[aria-pressed="true"]')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /^(Choose|Change) client$/ })).toHaveCount(0)
+  await selectLabCollection(page, matchedId)
+  const context = page.getByTestId('lab-client-context')
+  const verification = context.getByTestId('lab-report-identity-confirmation')
+  await expect(context).toContainText('Zelda Q Donor')
+  await expect(context.getByTestId('identity-notice')).toBeVisible()
+  await verification.check()
+  await expect(verification).toBeChecked()
+  await page.screenshot({ path: test.info().outputPath('lab-match-grouped-client.png'), fullPage: true })
+  await selectLabCollection(page, alternatives[0])
+  await expect(context).toContainText(fixtures.clients.collectLab.fullName)
+  await expect(verification).not.toBeChecked()
+  await clickNext(page)
+  await expectWizardStep(page, 'match')
+  await expect(verification).toHaveAttribute('aria-invalid', 'true')
+  await selectLabCollection(page, matchedId)
+  await expect(context).toContainText('Zelda Q Donor')
+  await expect(verification).not.toBeChecked()
 })

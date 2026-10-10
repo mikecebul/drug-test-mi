@@ -11,9 +11,9 @@ export type LabCollection = Pick<
   'id' | 'clientName' | 'testType' | 'collectionDate' | 'screeningStatus' | 'confirmationDecision' | 'relatedClient'
 >
 
-export function useLabCollections(report: ParsedPDFData | undefined, type: ReportType, clientId: string | null) {
+export function useLabCollections(report: ParsedPDFData | undefined, type: ReportType) {
   return useQuery({
-    queryKey: ['lab-entry-collections', report?.reportKind, type, clientId],
+    queryKey: ['lab-entry-collections', report?.reportKind, type],
     enabled: Boolean(report),
     queryFn: async () => {
       const awaitingConfirmation: Where = {
@@ -31,7 +31,8 @@ export function useLabCollections(report: ParsedPDFData | undefined, type: Repor
             : { or: [awaitingScreen, awaitingConfirmation] }
       const result = await sdk.find({
         collection: 'drug-tests',
-        depth: 0,
+        depth: 1,
+        populate: { clients: { firstName: true, middleInitial: true, lastName: true } },
         limit: 100,
         sort: '-collectionDate',
         select: {
@@ -43,11 +44,21 @@ export function useLabCollections(report: ParsedPDFData | undefined, type: Repor
           screeningStatus: true,
           confirmationDecision: true,
         },
-        where: {
-          and: [stages, ...(clientId ? [{ relatedClient: { equals: clientId } }] : [])],
-        },
+        where: stages,
       })
-      return result.docs.filter((test) => eligibleLabCollection(test, type, report))
+      return result.docs
+        .filter((test) => eligibleLabCollection(test, type, report))
+        .map((test) => {
+          const client = typeof test.relatedClient === 'object' ? test.relatedClient : null
+          // The stored clientName can be stale after profile edits. Use the
+          // collection's current client, with normal SDK access controls.
+          return {
+            ...test,
+            clientName: client
+              ? [client.firstName, client.middleInitial, client.lastName].filter(Boolean).join(' ')
+              : test.clientName,
+          }
+        })
     },
     refetchOnMount: 'always',
     staleTime: 0,

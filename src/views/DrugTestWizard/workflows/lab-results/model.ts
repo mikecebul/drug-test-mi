@@ -19,15 +19,26 @@ export type ConfirmationValues = ReturnType<typeof getLabConfirmationFormOpts>['
 
 export function sortLabCollections<
   T extends { id: string; clientName?: string | null; collectionDate?: string | null },
->(collections: readonly T[], selectedId: string): T[] {
+>(collections: readonly T[], selectedId: string, reportName?: string | null): T[] {
+  // Ignore presentation differences such as a period after a middle initial.
+  // This only orders choices; it never verifies identity or selects a test.
+  const normalizeName = (name?: string | null) =>
+    (name ?? '')
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, '')
+      .trim()
+      .replace(/\s+/g, ' ')
+  const donorName = normalizeName(reportName)
+  const matchesName = (name?: string | null) => Boolean(donorName) && normalizeName(name) === donorName
   const timestamp = (value?: string | null) => {
     const time = value ? new Date(value).getTime() : NaN
     return Number.isFinite(time) ? time : Infinity
   }
   return [...collections].sort((a, b) => {
     if ((a.id === selectedId) !== (b.id === selectedId)) return a.id === selectedId ? -1 : 1
+    if (matchesName(a.clientName) !== matchesName(b.clientName)) return matchesName(a.clientName) ? -1 : 1
     return (
-      (a.clientName?.trim() ?? '').localeCompare(b.clientName?.trim() ?? '', 'en', {
+      normalizeName(a.clientName).localeCompare(normalizeName(b.clientName), 'en', {
         sensitivity: 'base',
         numeric: true,
       }) ||
