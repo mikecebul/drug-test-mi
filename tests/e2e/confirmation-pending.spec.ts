@@ -327,6 +327,40 @@ test('identity checkbox and unselected collection circles have visible boundarie
   await page.screenshot({ path: test.info().outputPath('lab-match-controls-portrait.png'), fullPage: true })
 })
 
+test('standalone lab credit rejects safely while pending confirmation remains available', async ({ page }) => {
+  test.skip(process.env.E2E_STANDALONE_CONFIRMATION !== 'true', 'Needs the dedicated standalone test database')
+  const payload = await getPayloadClient(),
+    clientId = fixtures.clients.labScreen.id
+  await payload.update({ collection: 'clients', id: clientId, overrideAccess: true, data: { creditBalance: 90 } })
+  await loginAdmin(page, fixtures.admin)
+  await selectWorkflow(page, 'Enter Lab Screen Data')
+  await goToLabScreenData(
+    page,
+    getE2EEnv({ pdfs: ['labScreen'] }).pdfLabScreenPath,
+    fixtures.tests.labScreenCollectedTestId,
+  )
+  const editor = await editScreeningReport(page)
+  await editor.getByRole('checkbox', { name: /^Fentanyl\b/i }).check()
+  await applyScreeningReportEdits(page)
+  await selectResultDecision(page, 'request-confirmation')
+  const credit = page.getByRole('checkbox', { name: 'Use $45.00 account credit', exact: true })
+  await credit.check()
+  await clickNext(page)
+  await expectWizardStep(page, 'results')
+  await expect(page.getByRole('alert').filter({ hasText: /credit.*transactions/i })).toBeVisible()
+  expect((await payload.findByID({ collection: 'clients', id: clientId, depth: 0 })).creditBalance).toBe(90)
+  await credit.uncheck()
+  await clickNext(page)
+  await expectWizardStep(page, 'review')
+  const record = await payload.findByID({
+    collection: 'drug-tests',
+    id: fixtures.tests.labScreenCollectedTestId,
+    depth: 0,
+  })
+  expect(record.payment).toMatchObject({ confirmationFeeDue: 45, confirmationFeePaid: 0 })
+  expect((await payload.findByID({ collection: 'clients', id: clientId, depth: 0 })).creditBalance).toBe(90)
+})
+
 test('admins match by collection: live exact names lead and changing collections resets identity verification', async ({
   page,
 }) => {

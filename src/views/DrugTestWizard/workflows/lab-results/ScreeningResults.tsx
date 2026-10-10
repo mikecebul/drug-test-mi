@@ -6,6 +6,7 @@ import { cn } from '@/utilities/cn'
 import { formatSubstance } from '@/lib/substances'
 import type { CollectionResultPreview } from '../../components/CollectionResultStrip'
 import { getResultPresentation } from '../../components/result-presentation'
+import { ResultStatusIcon, resultDangerText } from './ResultStatusIcon'
 
 type Medication = { medicationName?: string | null; detectedAs?: string[] | null; required?: boolean | null }
 export function screeningResultRows(preview: CollectionResultPreview, detected: string[], medications: Medication[]) {
@@ -45,7 +46,7 @@ const rowStates = {
   unexpected: {
     label: 'Unexpected',
     Icon: AlertCircle,
-    color: 'text-destructive-foreground',
+    color: resultDangerText,
     surface: 'border-destructive-border bg-destructive-muted',
   },
   unverified: {
@@ -63,7 +64,7 @@ const rowStates = {
   'critical-missing': {
     label: 'Not detected · critical',
     Icon: AlertCircle,
-    color: 'text-destructive-foreground',
+    color: resultDangerText,
     surface: 'border-destructive-border bg-destructive-muted',
   },
 }
@@ -79,6 +80,7 @@ export function ScreeningResults({
   isDilute,
   breathalyzerTaken,
   breathalyzerResult,
+  review = false,
 }: {
   preview?: CollectionResultPreview | null
   detected: string[]
@@ -89,6 +91,7 @@ export function ScreeningResults({
   isDilute?: boolean
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
+  review?: boolean
 }) {
   if (!verified || !preview || isLoading || error)
     return (
@@ -109,9 +112,9 @@ export function ScreeningResults({
     ...new Set(medications.map((m) => m.medicationName).filter((name): name is string => !!name && !covered.has(name))),
   ]
   const renderRows = (items: typeof rows.positives | typeof rows.missing, label: string) => (
-    <section aria-label={label} className="flex flex-col gap-2">
-      <h3 className="text-muted-foreground text-sm font-medium">{label}</h3>
-      <ul className="flex flex-col gap-2">
+    <section aria-label={label} className={cn('flex flex-col', !review && 'gap-2')}>
+      <h3 className={review ? 'sr-only' : 'text-muted-foreground text-sm font-medium'}>{label}</h3>
+      <ul className={cn('flex flex-col', !review && 'gap-2')}>
         {items.map((row) => {
           const { label, Icon, color, surface } = rowStates[row.status]
           return (
@@ -119,8 +122,8 @@ export function ScreeningResults({
               key={row.substance}
               data-testid={`screening-result-${row.substance}`}
               className={cn(
-                'grid grid-cols-[minmax(0,1fr)_10rem] items-center gap-x-4 gap-y-2 rounded-lg border px-4 py-3',
-                surface,
+                'grid grid-cols-[minmax(0,1fr)_10rem] items-center gap-x-4 gap-y-2 px-4 py-3',
+                review ? 'border-border border-b px-0 py-2 last:border-b-0' : cn('rounded-lg border', surface),
               )}
             >
               <div className="min-w-0 flex-1">
@@ -129,8 +132,18 @@ export function ScreeningResults({
                   <p className="text-muted-foreground text-sm">Medication: {row.medicationNames.join(', ')}</p>
                 )}
               </div>
-              <span className={cn('flex items-center justify-start gap-2 text-sm font-medium', color)}>
-                <Icon className="size-5 shrink-0" />
+              <span
+                className={cn(
+                  'flex items-center justify-start gap-2 text-sm font-medium',
+                  color,
+                  (row.status === 'unexpected' || row.status === 'critical-missing') && 'font-bold',
+                )}
+              >
+                {row.status === 'unexpected' || row.status === 'critical-missing' ? (
+                  <ResultStatusIcon variant="destructive" />
+                ) : (
+                  <Icon className="size-5 shrink-0" />
+                )}
                 {label}
               </span>
             </li>
@@ -156,7 +169,7 @@ export function ScreeningResults({
         </Alert>
       )}
       {rows.positives.length
-        ? renderRows(rows.positives, 'Detected positives')
+        ? renderRows(rows.positives, review ? 'Screening positives' : 'Detected positives')
         : classificationKnown && (
             <Alert
               variant={

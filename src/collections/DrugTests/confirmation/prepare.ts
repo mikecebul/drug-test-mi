@@ -9,10 +9,17 @@ import {
   applyAvailableClientCredit,
   readRelationshipId,
   normalizeMoney,
+  getClientCreditBalance,
 } from '@/collections/Payments/services/applyPayment'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
 import { resolveBillingResponsibility } from '@/lib/referral-invoices/payer'
-import { confirmationHoldUntil, knownScreeningDate, confirmationPaid, confirmationPrice } from './policy'
+import {
+  confirmationHoldUntil,
+  knownScreeningDate,
+  confirmationPaid,
+  confirmationPrice,
+  confirmationRemaining,
+} from './policy'
 import { savePendingDecision } from './savePendingDecision'
 
 /** Prepare a decision without saving the uploaded report or claiming a lab order has been placed. */
@@ -24,6 +31,8 @@ export async function prepareConfirmation(input: {
   substances: string[]
   screenedAt?: string
   bypassPaymentRequirement?: boolean
+  /** Lab entry opts out by default; full funding is an explicit, atomic payment. */
+  creditPayment?: 'automatic' | 'none' | 'full'
 }) {
   if (!input.user || input.user.collection !== 'admins') throw new Error('Admin access required.')
   const allowed = new Set(allSubstanceOptions.filter((s) => s.value !== 'none').map((s) => s.value))
@@ -42,8 +51,8 @@ export async function prepareConfirmation(input: {
     before.confirmationRequestKey &&
     (before.confirmationDecision !== input.decision ||
       [...(before.confirmationSubstances || [])].sort().join(',') !== substances.join(','))
-  if (changed) {
-    if (confirmationPaid(before) > 0)
+  if (changed || (input.creditPayment === 'full' && confirmationRemaining(before) > 0)) {
+    if (changed && confirmationPaid(before) > 0)
       throw new Error('Confirmation has a payment applied. Refund or undo it before changing the request.')
     const pending = await input.payload.find({
       collection: 'payments',
@@ -58,6 +67,24 @@ export async function prepareConfirmation(input: {
       overrideAccess: true,
     })
     if (pending.docs.length) {
+      if (input.creditPayment === 'full') {
+        // Check funding capability before expiring a link that the client may
+        // still need. The actual debit rechecks the balance in its transaction.
+        await withPayloadTransaction(
+          input.payload,
+          async (req) => {
+            const clientId = readRelationshipId(before.relatedClient)
+            if (!clientId) throw new Error('Client not found.')
+            const remaining = Math.max(
+              0,
+              confirmationPrice(before.testType) * substances.length - confirmationPaid(before),
+            )
+            if ((await getClientCreditBalance(input.payload, clientId, req)) < remaining)
+              throw new Error('Account credit no longer covers this confirmation. Choose another payment option.')
+          },
+          { user: input.user, requireTransaction: true },
+        )
+      }
       if (!process.env.STRIPE_SECRET_KEY)
         throw new Error('Stripe must be configured to close the existing payment link.')
       await closePendingClientCheckoutSessions(
@@ -141,7 +168,7 @@ export async function prepareConfirmation(input: {
       const requestKey =
         input.decision === 'request-confirmation' ? (sameRequest && test.confirmationRequestKey) || randomUUID() : null
       const preserveException = sameRequest && test.payment?.confirmationPaymentBypassed === true
-      const bypass = input.bypassPaymentRequirement ?? preserveException
+      const bypass = input.creditPayment === 'full' ? false : (input.bypassPaymentRequirement ?? preserveException)
       const decisionContext = { ...req.context }
       const data: Partial<DrugTest> = {
         screenedAt,
@@ -179,24 +206,40 @@ export async function prepareConfirmation(input: {
             : null,
         },
       }
+      const creditRequired = confirmationRemaining({ ...test, ...data })
+      if (input.creditPayment === 'full') {
+        if (input.decision !== 'request-confirmation' || payer.payer !== 'client')
+          throw new Error('Account credit is only available for a client-paid confirmation request.')
+        const available = await getClientCreditBalance(input.payload, clientId, req)
+        if (available < creditRequired)
+          throw new Error('Account credit no longer covers this confirmation. Choose another payment option.')
+      }
       const updated = hasTransaction
         ? await input.payload.update({ collection: 'drug-tests', id: test.id, overrideAccess: true, req, data })
         : await savePendingDecision(req, test, data)
       // Nested balance hooks use context flags; they must not suppress the subsequent credit allocation's balance sync.
       req.context = decisionContext
-      if (hasTransaction && !bypass && input.decision === 'request-confirmation' && payer.payer === 'client') {
-        await applyAvailableClientCredit({
+      if (
+        hasTransaction &&
+        input.creditPayment !== 'none' &&
+        !bypass &&
+        input.decision === 'request-confirmation' &&
+        payer.payer === 'client'
+      ) {
+        const funded = await applyAvailableClientCredit({
           payload: input.payload,
           clientId,
           relatedDrugTest: test.id,
           purpose: 'confirmation',
           confirmationRequestKey: requestKey!,
-          amount: undefined,
+          amount: input.creditPayment === 'full' ? creditRequired : undefined,
           req,
         })
+        if (input.creditPayment === 'full' && creditRequired > 0 && funded?.usedCredit !== creditRequired)
+          throw new Error('The confirmation could not be fully paid with credit. No credit was used.')
       }
       return updated
     },
-    { user: input.user },
+    { user: input.user, requireTransaction: input.creditPayment === 'full' },
   )
 }

@@ -62,11 +62,12 @@ import {
   emailsGroupSchema,
   type ReportType,
 } from './model'
-import { useLabCollections, type LabCollection } from './collections'
+import { useLabCollections, useLabConfirmationCredit, type LabCollection } from './collections'
 import { computeFinalStatus } from '@/collections/DrugTests/services/testResults'
 import { getResultPresentation } from '../../components/result-presentation'
 import { LabProgress } from './Progress'
 import { ScreeningResults } from './ScreeningResults'
+import { ResultReviewCard } from './ResultReviewCard'
 import { ConfirmationTable } from './ConfirmationTable'
 import {
   Drawer,
@@ -76,7 +77,11 @@ import {
   DrawerDescription,
   DrawerFooter,
 } from '@/components/ui/drawer'
-import { confirmationPrice, referralPaysConfirmation } from '@/collections/DrugTests/confirmation/policy'
+import {
+  confirmationPrice,
+  confirmationPaid,
+  referralPaysConfirmation,
+} from '@/collections/DrugTests/confirmation/policy'
 import { submitLabResults, prepareLabResultDecision } from './actions'
 
 const date = formatCollectionDateTimeCompact
@@ -101,12 +106,15 @@ export function LabResultsWorkflow({
   const [completed, setCompleted] = useState<string | null>(null)
   const [deliveryError, setDeliveryError] = useState<string | null>(null)
   const [showEmailPreview, setShowEmailPreview] = useState(false)
+  const [creditFailure, setCreditFailure] = useState<{ key: string; message: string } | null>(null)
   const [preparedDecision, setPreparedDecision] = useState<{
     testId: string
     screenedAt?: string | null
     confirmationHoldUntil?: string | null
     paymentRequired: boolean
     billedToReferral: boolean
+    creditRemaining?: number
+    creditPaid?: number
   } | null>(null)
   const [reportEditorOpen, setReportEditorOpen] = useState(false)
   const reportEditorSnapshot = useRef<ReturnType<typeof getLabResultsFormOpts>['defaultValues']['results'] | null>(null)
@@ -157,11 +165,32 @@ export function LabResultsWorkflow({
   const testQuery = useGetDrugTestQuery(values.matchCollection.testId)
   const client = clientQuery.data
   const test = testQuery.data
+  const accountCredit = useLabConfirmationCredit(client?.id)
   const mode = values.results.mode
   const referralBilled =
     preparedDecision && preparedDecision.testId === test?.id
       ? preparedDecision.billedToReferral
       : referralPaysConfirmation(test || {})
+  const confirmationFee =
+    confirmationPrice(test?.testType || '') * new Set(values.results.screening.confirmationSubstances).size
+  const sameSubstances =
+    [...(test?.confirmationSubstances ?? [])].sort().join(',') ===
+    [...(values.results.screening.confirmationSubstances ?? [])].sort().join(',')
+  const creditNeeded = Math.max(0, confirmationFee - (sameSubstances ? confirmationPaid(test || {}) : 0))
+  const creditErrorKey = JSON.stringify([
+    test?.id,
+    values.results.screening.confirmationDecision,
+    values.results.screening.confirmationSubstances,
+    values.results.useConfirmationCredit,
+  ])
+  const creditError = creditFailure?.key === creditErrorKey ? creditFailure.message : undefined
+  const creditAlreadyApplied = preparedDecision?.testId === test?.id && (preparedDecision?.creditPaid ?? 0) > 0
+  const canUseCredit =
+    !referralBilled &&
+    creditNeeded > 0 &&
+    !accountCredit.isFetching &&
+    !accountCredit.isError &&
+    (accountCredit.data ?? 0) >= creditNeeded
   const report = extraction.data
   const identity = reportIdentity(report, client)
   const identityKey = getReportClientMismatchKey(identity)
@@ -288,6 +317,7 @@ export function LabResultsWorkflow({
         ),
       },
       emailConfirmationPaymentLink: true,
+      useConfirmationCredit: false,
       screeningVerified: report.screeningComplete === true && report.specimenValidityStatus !== 'unverified',
     })
     seeded.current = key
@@ -359,7 +389,7 @@ export function LabResultsWorkflow({
   }, [collections.data, values.matchCollection.testId, report, choose])
   const finalStatus = useMemo(
     () =>
-      mode === 'confirmation' && confirmations && preview.data
+      confirmations && preview.data
         ? computeFinalStatus({
             initialScreenResult: preview.data.initialScreenResult,
             expectedPositives: preview.data.expectedPositives,
@@ -369,7 +399,7 @@ export function LabResultsWorkflow({
             breathalyzerResult: test?.breathalyzerResult,
           })
         : null,
-    [mode, confirmations, preview.data, test?.breathalyzerTaken, test?.breathalyzerResult],
+    [confirmations, preview.data, test?.breathalyzerTaken, test?.breathalyzerResult],
   )
   const confirmationPresentation = !confirmations
     ? { label: 'Check confirmation results', variant: 'warning' as const }
@@ -678,11 +708,19 @@ export function LabResultsWorkflow({
           if (!(await requireActiveSession())) return
           const prepared = await prepareLabResultDecision(form.state.values)
           if (!prepared.success) {
+            if (form.state.values.results.useConfirmationCredit) {
+              setCreditFailure({ key: creditErrorKey, message: prepared.error || 'Account credit could not be used.' })
+              requestAnimationFrame(() =>
+                formRef.current?.querySelector<HTMLElement>('#use-confirmation-credit')?.focus(),
+              )
+            }
             toast.error(prepared.error)
             return
           }
           if (prepared.prepared) {
             setPreparedDecision(prepared.prepared)
+            if (prepared.prepared.creditRemaining !== undefined)
+              queryClient.setQueryData(['lab-confirmation-credit', client?.id], prepared.prepared.creditRemaining)
             if (prepared.prepared.screenedAt)
               form.setFieldValue('results.screening.screeningResultDate', prepared.prepared.screenedAt)
           }
@@ -732,7 +770,7 @@ export function LabResultsWorkflow({
                   ? 'Continue to results'
                   : step === 'results'
                     ? 'Continue to review'
-                    : 'Save & send report'}
+                    : 'Save & send results'}
               <ChevronRight data-icon="inline-end" />
             </Button>
           </div>
@@ -909,6 +947,18 @@ export function LabResultsWorkflow({
                     ? 'Results could not be verified. Retry before continuing.'
                     : 'Wait for the results to finish checking',
                   path: value.mode === 'screening' ? ['screeningVerified'] : ['confirmation', 'confirmationResults'],
+                })
+              if (
+                value.mode === 'screening' &&
+                value.screening.confirmationDecision === 'request-confirmation' &&
+                value.useConfirmationCredit &&
+                !creditAlreadyApplied &&
+                !canUseCredit
+              )
+                ctx.addIssue({
+                  code: 'custom',
+                  message: 'Account credit must cover the confirmation fee. Choose another payment option.',
+                  path: ['useConfirmationCredit'],
                 })
             }),
           },
@@ -1125,23 +1175,75 @@ export function LabResultsWorkflow({
                                     }
                                   </form.Field>
                                   {!referralBilled && (
-                                    <form.Field name="results.emailConfirmationPaymentLink">
-                                      {(field) => (
-                                        <Field orientation="horizontal">
-                                          <Checkbox
-                                            id="email-confirmation-payment"
-                                            checked={field.state.value}
-                                            onCheckedChange={(value) => field.handleChange(value === true)}
-                                          />
-                                          <div>
-                                            <FieldLabel htmlFor="email-confirmation-payment">
-                                              Email client a Stripe payment link
-                                            </FieldLabel>
-                                            <FieldDescription>Admin notified when payment clears.</FieldDescription>
-                                          </div>
-                                        </Field>
+                                    <>
+                                      {(canUseCredit ||
+                                        creditAlreadyApplied ||
+                                        values.results.useConfirmationCredit) && (
+                                        <form.Field name="results.useConfirmationCredit">
+                                          {(creditField) => (
+                                            <Field
+                                              orientation="horizontal"
+                                              data-invalid={creditField.state.meta.errors.length > 0 || !!creditError}
+                                            >
+                                              <Checkbox
+                                                id="use-confirmation-credit"
+                                                checked={creditField.state.value}
+                                                disabled={creditAlreadyApplied}
+                                                aria-invalid={creditField.state.meta.errors.length > 0 || !!creditError}
+                                                aria-describedby="lab-confirmation-credit-error"
+                                                onCheckedChange={(checked) => {
+                                                  setCreditFailure(null)
+                                                  creditField.handleChange(checked === true)
+                                                  if (checked)
+                                                    form.setFieldValue('results.emailConfirmationPaymentLink', false)
+                                                }}
+                                              />
+                                              <div>
+                                                <FieldLabel htmlFor="use-confirmation-credit">
+                                                  {creditAlreadyApplied
+                                                    ? `$${preparedDecision?.creditPaid?.toFixed(2)} paid with account credit`
+                                                    : `Use $${creditNeeded.toFixed(2)} account credit`}
+                                                </FieldLabel>
+                                                {!creditAlreadyApplied && (
+                                                  <FieldDescription>
+                                                    ${accountCredit.data?.toFixed(2)} available
+                                                  </FieldDescription>
+                                                )}
+                                                <FieldError
+                                                  id="lab-confirmation-credit-error"
+                                                  errors={[
+                                                    ...creditField.state.meta.errors,
+                                                    ...(creditError ? [{ message: creditError }] : []),
+                                                  ]}
+                                                />
+                                              </div>
+                                            </Field>
+                                          )}
+                                        </form.Field>
                                       )}
-                                    </form.Field>
+                                      {!creditAlreadyApplied && (
+                                        <form.Field name="results.emailConfirmationPaymentLink">
+                                          {(field) => (
+                                            <Field orientation="horizontal">
+                                              <Checkbox
+                                                id="email-confirmation-payment"
+                                                checked={field.state.value}
+                                                onCheckedChange={(value) => {
+                                                  field.handleChange(value === true)
+                                                  if (value) form.setFieldValue('results.useConfirmationCredit', false)
+                                                }}
+                                              />
+                                              <div>
+                                                <FieldLabel htmlFor="email-confirmation-payment">
+                                                  Email client a Stripe payment link
+                                                </FieldLabel>
+                                                <FieldDescription>Admin notified when payment clears.</FieldDescription>
+                                              </div>
+                                            </Field>
+                                          )}
+                                        </form.Field>
+                                      )}
+                                    </>
                                   )}
                                 </FieldGroup>
                               )}
@@ -1173,16 +1275,56 @@ export function LabResultsWorkflow({
             }),
           },
           <>
-            <FieldGroupHeader title="Review result & recipients" />
+            <FieldGroupHeader title="Review & send results" />
             {context}
-            {resultStrip}
+            <ResultReviewCard
+              reportLabel={mode === 'confirmation' ? 'Confirmation report' : reportTypeLabel(report)}
+              presentation={
+                confirmations?.length
+                  ? confirmationPresentation
+                  : getResultPresentation(
+                      preview.data?.initialScreenResult,
+                      preview.isError ? 'error' : preview.isFetching ? 'loading' : 'ready',
+                    )
+              }
+              screening={
+                mode === 'screening'
+                  ? {
+                      preview: preview.data,
+                      detected,
+                      medications: meds,
+                      verified: values.results.screeningVerified,
+                      isLoading: preview.isFetching,
+                      error: preview.isError,
+                      isDilute: values.results.screening.isDilute,
+                      breathalyzerTaken: test?.breathalyzerTaken,
+                      breathalyzerResult: test?.breathalyzerResult,
+                    }
+                  : undefined
+              }
+              confirmations={confirmations ?? undefined}
+              isDilute={values.results.confirmation.originalIsDilute}
+              breathalyzerTaken={test?.breathalyzerTaken}
+              breathalyzerResult={test?.breathalyzerResult}
+              decision={mode === 'screening' ? values.results.screening.confirmationDecision : undefined}
+              holdUntil={preparedDecision?.confirmationHoldUntil || test?.confirmationHoldUntil}
+              reportAction={<ReportLink file={values.upload.file} variant="outline" />}
+            />
             <EmailsFieldGroup
               title="Review recipients"
               description=""
               form={form}
               fields="emails"
               hideHeader
-              attachment={<ReportLink file={values.upload.file} filename />}
+              compactLabReview
+              attachment={
+                <div className="flex min-w-0 flex-1 items-center gap-3 text-sm">
+                  <span className="text-muted-foreground">Attachment</span>
+                  <span className="truncate" title={values.upload.file?.name}>
+                    {values.upload.file?.name || 'Report PDF'}
+                  </span>
+                </div>
+              }
               previewData={email.data ?? null}
               isLoading={email.isLoading}
               error={email.error?.message ?? null}

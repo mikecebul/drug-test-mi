@@ -1,12 +1,18 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Payload } from 'payload'
 const credit = vi.hoisted(() => vi.fn())
+const balance = vi.hoisted(() => vi.fn())
+const closeLinks = vi.hoisted(() => vi.fn())
+vi.mock('@/collections/Payments/services/closePendingClientCheckoutSessions', () => ({
+  closePendingClientCheckoutSessions: closeLinks,
+}))
 vi.mock('@/collections/Payments/services/withPayloadTransaction', () => ({
   withPayloadTransaction: async (_payload: unknown, fn: (req: unknown) => unknown) => fn({ transactionID: 'txn' }),
 }))
 vi.mock('@/collections/Payments/services/applyPayment', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   applyAvailableClientCredit: credit,
+  getClientCreditBalance: balance,
 }))
 import { prepareConfirmation } from './prepare'
 const user = {
@@ -48,8 +54,68 @@ function setup(overrides: Record<string, unknown> = {}) {
     },
   }
 }
-beforeEach(() => credit.mockClear())
+beforeEach(() => {
+  credit.mockClear()
+  closeLinks.mockClear()
+  balance.mockResolvedValue(90)
+})
 describe('prepare confirmation decision', () => {
+  test('explicit credit closes an existing unpaid checkout before replacing it with account credit', async () => {
+    const { input, payload } = setup({
+      confirmationDecision: 'request-confirmation',
+      confirmationSubstances: ['amphetamines'],
+      confirmationRequestKey: 'request',
+      payment: { amountDue: 80, amountPaid: 35, confirmationFeeDue: 45, confirmationFeePaid: 0 },
+    })
+    payload.find.mockResolvedValueOnce({ docs: [{ id: 'pending-link' }] } as never)
+    credit.mockResolvedValueOnce({ usedCredit: 45 })
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_unit')
+    try {
+      await prepareConfirmation({ ...input, creditPayment: 'full' })
+      expect(closeLinks).toHaveBeenCalledWith(payload, expect.anything(), 'test', 'confirmation')
+      expect(closeLinks.mock.invocationCallOrder[0]).toBeLessThan(payload.update.mock.invocationCallOrder[0])
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+  test('lab entry can leave a pending fee without automatically spending available credit', async () => {
+    const { input } = setup()
+    const pending = await prepareConfirmation({ ...input, creditPayment: 'none' })
+    expect(pending.payment).toMatchObject({ confirmationFeeDue: 45, confirmationFeePaid: 0 })
+    expect(credit).not.toHaveBeenCalled()
+  })
+  test('explicit credit funds only the remaining fee for the selected request', async () => {
+    credit.mockResolvedValueOnce({ usedCredit: 25 })
+    const { input } = setup({
+      confirmationDecision: 'request-confirmation',
+      confirmationSubstances: ['amphetamines'],
+      confirmationRequestKey: 'request',
+      payment: { amountDue: 80, amountPaid: 55, confirmationFeeDue: 45, confirmationFeePaid: 20 },
+    })
+    await prepareConfirmation({ ...input, creditPayment: 'full' })
+    expect(credit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 25,
+        relatedDrugTest: 'test',
+        purpose: 'confirmation',
+        confirmationRequestKey: 'request',
+      }),
+    )
+  })
+  test('insufficient credit rejects the explicit payment before changing the request or spending anything', async () => {
+    const { input, payload } = setup({
+      confirmationDecision: 'request-confirmation',
+      confirmationSubstances: ['amphetamines'],
+      confirmationRequestKey: 'request',
+      payment: { amountDue: 80, amountPaid: 35, confirmationFeeDue: 45, confirmationFeePaid: 0 },
+    })
+    payload.find.mockResolvedValueOnce({ docs: [{ id: 'pending-link' }] } as never)
+    balance.mockResolvedValue(44)
+    await expect(prepareConfirmation({ ...input, creditPayment: 'full' })).rejects.toThrow(/credit/i)
+    expect(payload.update).not.toHaveBeenCalled()
+    expect(credit).not.toHaveBeenCalled()
+    expect(closeLinks).not.toHaveBeenCalled()
+  })
   test('deduplicates fees and preserves the first date/request across Back and Next', async () => {
     const { payload, input } = setup()
     const first = await prepareConfirmation(input)

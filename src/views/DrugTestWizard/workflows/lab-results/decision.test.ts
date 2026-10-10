@@ -60,7 +60,26 @@ test('Next sends the selected email and succeeds while the confirmation fee is s
   expect(result.success).toBe(true)
   expect(result.prepared?.paymentRequired).toBe(true)
   expect(mocks.prepare).toHaveBeenCalledOnce()
+  expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ creditPayment: 'none' }))
   expect(mocks.send).toHaveBeenCalledOnce()
+})
+test('explicit account credit replaces the payment email even if a stale form still selects it', async () => {
+  const data = values()
+  data.results.useConfirmationCredit = true
+  expect((await prepareLabResultDecision(data)).success).toBe(true)
+  expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ creditPayment: 'full' }))
+  expect(mocks.send).not.toHaveBeenCalled()
+})
+test('unavailable transactions reject credit and leave the payment-email fallback unsent', async () => {
+  const data = values()
+  data.results.useConfirmationCredit = true
+  const error = new Error('Unavailable')
+  error.name = 'PaymentTransactionsUnavailableError'
+  mocks.prepare.mockRejectedValueOnce(error)
+  const result = await prepareLabResultDecision(data)
+  expect(result.success).toBe(false)
+  expect(result.error).toMatch(/No credit was used/)
+  expect(mocks.send).not.toHaveBeenCalled()
 })
 test('the payment email is optional and final-save preparation does not send it a second time', async () => {
   await prepareLabResultDecision(values(false))

@@ -25,6 +25,7 @@ export async function updateLabScreenWithEmailReview(
   formValues: FormValues,
   _extractedData: ExtractedPdfData | undefined,
   acknowledgement?: ReportIdentityAcknowledgement,
+  creditOptions?: { applyCredit: boolean },
 ): Promise<{ success: boolean; testId?: string; error?: string }> {
   const payload = await getPayload({ config })
   const { user } = await payload.auth({ headers: await headers() })
@@ -106,6 +107,7 @@ export async function updateLabScreenWithEmailReview(
       ) {
         const { prepareConfirmation } = await import('@/collections/DrugTests/confirmation/prepare')
         await prepareConfirmation({
+          creditPayment: creditOptions?.applyCredit === false ? 'none' : undefined,
           payload,
           user,
           testId: existingTest.id,

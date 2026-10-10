@@ -33,7 +33,9 @@ export async function submitLabResults(values: LabResultsValues) {
   }
   const base = { upload, extract: { extracted: true }, matchCollection: values.matchCollection, emails: values.emails }
   return requiredType === 'screening'
-    ? updateLabScreenWithEmailReview({ ...base, labScreenData: values.results.screening }, undefined, acknowledgement)
+    ? updateLabScreenWithEmailReview({ ...base, labScreenData: values.results.screening }, undefined, acknowledgement, {
+        applyCredit: false,
+      })
     : updateLabConfirmationWithEmailReview(
         { ...base, labConfirmationData: values.results.confirmation },
         undefined,
@@ -119,6 +121,7 @@ export async function prepareLabResultDecision(values: LabResultsValues, sendPay
       decision,
       substances: decision === 'request-confirmation' ? values.results.screening.confirmationSubstances || [] : [],
       screenedAt: values.results.screening.screeningResultDate || new Date().toISOString(),
+      creditPayment: decision === 'request-confirmation' && values.results.useConfirmationCredit ? 'full' : 'none',
     })
     const prepared = await payload.findByID({
       collection: 'drug-tests',
@@ -127,11 +130,12 @@ export async function prepareLabResultDecision(values: LabResultsValues, sendPay
       user,
       overrideAccess: false,
     })
-    const { confirmationPaymentRequired, referralPaysConfirmation } =
+    const { confirmationPaymentRequired, confirmationPaid, referralPaysConfirmation } =
       await import('@/collections/DrugTests/confirmation/policy')
     if (
       sendPaymentEmail &&
       values.results.emailConfirmationPaymentLink &&
+      !values.results.useConfirmationCredit &&
       decision === 'request-confirmation' &&
       !referralPaysConfirmation(prepared)
     ) {
@@ -146,9 +150,26 @@ export async function prepareLabResultDecision(values: LabResultsValues, sendPay
         confirmationHoldUntil: prepared.confirmationHoldUntil,
         paymentRequired: confirmationPaymentRequired(prepared),
         billedToReferral: referralPaysConfirmation(prepared),
+        creditRemaining:
+          (await payload.findByID({ collection: 'clients', id: clientId, depth: 0, user, overrideAccess: false }))
+            .creditBalance ?? 0,
+        creditPaid:
+          values.results.useConfirmationCredit && prepared.payment?.method === 'credit'
+            ? confirmationPaid(prepared)
+            : 0,
       },
     }
   } catch (error) {
+    if (
+      values.results.useConfirmationCredit &&
+      error instanceof Error &&
+      error.name === 'PaymentTransactionsUnavailableError'
+    )
+      return {
+        success: false,
+        error:
+          'Account credit needs database transactions. No credit was used. Uncheck account credit to continue unpaid.',
+      }
     return { success: false, error: error instanceof Error ? error.message : 'Unable to prepare the result decision.' }
   }
 }

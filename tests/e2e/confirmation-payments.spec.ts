@@ -15,6 +15,7 @@ import {
   goToLabScreenData,
   selectWorkflow,
   selectResultDecision,
+  extractTestIdFromSuccess,
 } from './helpers/wizard'
 import { findMailpitMessages } from './helpers/mailpit'
 import { prepareConfirmation } from '../../src/collections/DrugTests/confirmation/prepare'
@@ -27,6 +28,20 @@ import { currentBillingMonth } from '../../src/lib/referral-invoices/date'
 import { confirmationPaymentRequired } from '../../src/collections/DrugTests/confirmation/policy'
 let fixtures: FixtureContext
 let owner: Admin & { collection: 'admins' }
+
+async function openLabConfirmationDecision(page: import('@playwright/test').Page) {
+  await loginAdmin(page, fixtures.admin)
+  await selectWorkflow(page, 'Enter Lab Screen Data')
+  await goToLabScreenData(
+    page,
+    getE2EEnv({ pdfs: ['labScreen'] }).pdfLabScreenPath,
+    fixtures.tests.labScreenCollectedTestId,
+  )
+  const editor = await editScreeningReport(page)
+  await editor.getByRole('checkbox', { name: /^Fentanyl\b/i }).check()
+  await applyScreeningReportEdits(page)
+  await selectResultDecision(page, 'request-confirmation')
+}
 test.beforeEach(async () => {
   fixtures = await seedFixtures()
   const payload = await getPayloadClient()
@@ -69,6 +84,114 @@ test.beforeEach(async () => {
     data: { role: 'admin' },
   })
 })
+
+for (const useCredit of [false, true]) {
+  test(`lab results ${useCredit ? 'explicit credit funds once across Back and save' : 'does not spend available credit by default, including final save'}`, async ({
+    page,
+  }) => {
+    const payload = await getPayloadClient()
+    const clientId = fixtures.clients.labScreen.id,
+      testId = fixtures.tests.labScreenCollectedTestId
+    await payload.update({ collection: 'clients', id: clientId, overrideAccess: true, data: { creditBalance: 90 } })
+    await page.setViewportSize({ width: 857, height: 853 })
+    await openLabConfirmationDecision(page)
+    const credit = page.getByRole('checkbox', { name: 'Use $45.00 account credit', exact: true })
+    const email = page.getByRole('checkbox', { name: 'Email client a Stripe payment link' })
+    await expect(credit).not.toBeChecked()
+    await expect(email).toBeChecked()
+    if (useCredit) {
+      await credit.check()
+      await expect(email).not.toBeChecked()
+      await email.check()
+      await expect(credit).not.toBeChecked()
+      await credit.check()
+    } else await email.uncheck()
+    await page.screenshot({ path: test.info().outputPath('lab-results-credit-choice.png'), fullPage: true })
+    await clickNext(page)
+    await expectWizardStep(page, 'review')
+    const review = page.getByTestId('lab-review-results')
+    await expect(review.getByTestId('screening-result-fentanyl')).toBeVisible()
+    await expect(review).toContainText('Final result pending')
+    await expect(page.getByRole('button', { name: 'Preview email', exact: true })).toHaveCount(1)
+    await page.getByRole('button', { name: 'Edit recipients', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Client email', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    const previewButton = page.getByRole('button', { name: 'Preview email', exact: true })
+    const previewHasMenu = (await previewButton.getAttribute('aria-haspopup')) === 'menu'
+    await previewButton.click()
+    if (previewHasMenu) await page.getByRole('menuitem', { name: 'Referral email', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await page.screenshot({ path: test.info().outputPath('lab-result-review-card.png'), fullPage: true })
+    let client = await payload.findByID({ collection: 'clients', id: clientId, depth: 0 })
+    let record = await payload.findByID({ collection: 'drug-tests', id: testId, depth: 0 })
+    expect(client.creditBalance).toBe(useCredit ? 45 : 90)
+    expect(record.payment?.confirmationFeePaid).toBe(useCredit ? 45 : 0)
+    if (useCredit) {
+      await clickBack(page)
+      await expectWizardStep(page, 'results')
+      const applied = page.getByRole('checkbox', { name: '$45.00 paid with account credit', exact: true })
+      await expect(applied).toBeChecked()
+      await expect(applied).toBeDisabled()
+      await expect(email).toHaveCount(0)
+      await clickNext(page)
+      await expectWizardStep(page, 'review')
+    }
+    await page.getByTestId('wizard-next-button').click()
+    expect(await extractTestIdFromSuccess(page)).toBe(testId)
+    client = await payload.findByID({ collection: 'clients', id: clientId, depth: 0 })
+    record = await payload.findByID({ collection: 'drug-tests', id: testId, depth: 0 })
+    expect(client.creditBalance).toBe(useCredit ? 45 : 90)
+    expect(record.payment?.confirmationFeePaid).toBe(useCredit ? 45 : 0)
+    const entries = await payload.find({
+      collection: 'payments',
+      depth: 0,
+      overrideAccess: true,
+      where: { and: [{ relatedDrugTest: { equals: testId } }, { purpose: { equals: 'confirmation' } }] },
+    })
+    expect(entries.docs).toHaveLength(useCredit ? 1 : 0)
+    if (useCredit)
+      expect(entries.docs[0]).toMatchObject({
+        method: 'credit',
+        status: 'posted',
+        amount: 45,
+        allocations: [expect.objectContaining({ drugTest: testId, confirmationAmount: 45 })],
+      })
+  })
+}
+
+for (const referralBilled of [false, true]) {
+  test(`lab results hides account credit for ${referralBilled ? 'referral-billed requests' : 'insufficient credit'}`, async ({
+    page,
+  }) => {
+    const payload = await getPayloadClient()
+    await payload.update({
+      collection: 'clients',
+      id: fixtures.clients.labScreen.id,
+      overrideAccess: true,
+      data: { creditBalance: referralBilled ? 90 : 44 },
+    })
+    if (referralBilled)
+      await payload.update({
+        collection: 'drug-tests',
+        id: fixtures.tests.labScreenCollectedTestId,
+        overrideAccess: true,
+        data: {
+          billingResponsibility: {
+            payer: 'referral',
+            referral: { relationTo: 'courts', value: fixtures.referrals.court.id },
+          },
+        },
+      })
+    await openLabConfirmationDecision(page)
+    await expect(page.locator('#use-confirmation-credit')).toHaveCount(0)
+    await expect(page.getByRole('checkbox', { name: 'Email client a Stripe payment link' })).toHaveCount(
+      referralBilled ? 0 : 1,
+    )
+  })
+}
 test.afterEach(async () => {
   if (fixtures) {
     const payload = await getPayloadClient()

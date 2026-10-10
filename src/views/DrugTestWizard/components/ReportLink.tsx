@@ -9,10 +9,12 @@ export function ReportLink({
   file,
   filename = false,
   compact = false,
+  variant = 'link',
 }: {
   file: File | null
   filename?: boolean
   compact?: boolean
+  variant?: 'link' | 'outline'
 }) {
   const [report, setReport] = useState<{ file: File; href: string } | null>(null)
   const href = report?.file === file ? report?.href : null
@@ -37,9 +39,15 @@ export function ReportLink({
   const reviewButton = (
     <Button
       type="button"
-      variant="link"
+      variant={variant}
       size={compact ? 'sm' : 'default'}
-      className={compact ? 'h-auto min-h-8 px-0' : undefined}
+      className={
+        variant === 'outline'
+          ? 'border-primary/40 text-primary hover:text-primary'
+          : compact
+            ? 'h-auto min-h-8 px-0'
+            : undefined
+      }
       render={href ? <a href={href} target="_blank" rel="noopener noreferrer" /> : undefined}
       nativeButton={!href}
       disabled={!href}

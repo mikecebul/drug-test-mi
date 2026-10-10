@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Loader2, Eye, AlertCircle, CheckCircle2, Pencil, Mail, Building2 } from 'lucide-react'
 import { EmailPreviewModal } from './EmailPreviewModal'
@@ -56,6 +57,8 @@ const defaultValues: {
   referralRecipients: [],
 }
 
+const labReviewDefaults: { compactLabReview?: boolean } = { compactLabReview: false }
+
 export const EmailsFieldGroup = withFieldGroup({
   defaultValues,
 
@@ -63,6 +66,7 @@ export const EmailsFieldGroup = withFieldGroup({
     title: 'Review Collection Notification',
     description: 'Configure email notifications for this collection',
     hideHeader: false,
+    ...labReviewDefaults,
     attachment: null as React.ReactNode,
     previewData: null as EmailPreviewData | null,
     isLoading: false,
@@ -84,6 +88,7 @@ export const EmailsFieldGroup = withFieldGroup({
     title,
     description,
     hideHeader,
+    compactLabReview,
     attachment,
     previewData,
     isLoading,
@@ -325,12 +330,30 @@ export const EmailsFieldGroup = withFieldGroup({
     if (hideHeader) {
       return (
         <>
-          <Card size="sm">
-            <CardHeader>
+          <Card size={compactLabReview ? 'default' : 'sm'}>
+            <CardHeader className={compactLabReview ? 'flex-row items-center justify-between p-4 pb-3' : undefined}>
               <CardTitle>Result emails</CardTitle>
+              {compactLabReview && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger render={<Button type="button" variant="link" size="sm" />}>
+                    Edit recipients
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem disabled={!clientId} onClick={() => setShowClientEmailEditor(true)}>
+                      Client email
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={!clientId || !previewData.referralType}
+                      onClick={() => setShowReferralEditor(true)}
+                    >
+                      Referral contacts
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <FieldGroup>
+            <CardContent className={compactLabReview ? 'flex flex-col gap-3 px-4 pb-3' : 'flex flex-col gap-4'}>
+              <FieldGroup className={compactLabReview ? 'gap-3' : undefined}>
                 {showClientEmail && (
                   <FieldSet>
                     <div className="flex items-start justify-between gap-3">
@@ -348,7 +371,13 @@ export const EmailsFieldGroup = withFieldGroup({
                             />
                             <div className="flex min-w-0 flex-col gap-1">
                               <FieldLabel htmlFor="client-enabled">
-                                {canSendClientEmail ? 'Send client notification' : 'Client notification disabled'}
+                                {compactLabReview
+                                  ? canSendClientEmail
+                                    ? 'Send to client'
+                                    : 'Client email unavailable'
+                                  : canSendClientEmail
+                                    ? 'Send client notification'
+                                    : 'Client notification disabled'}
                               </FieldLabel>
                               <group.Field name="clientRecipients">
                                 {(recipientField) => (
@@ -364,20 +393,22 @@ export const EmailsFieldGroup = withFieldGroup({
                           </Field>
                         )}
                       </group.Field>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        disabled={!clientId}
-                        onClick={() => setShowClientEmailEditor(true)}
-                      >
-                        <Pencil data-icon="inline-start" />
-                        Edit Client Email
-                      </Button>
+                      {!compactLabReview && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={!clientId}
+                          onClick={() => setShowClientEmailEditor(true)}
+                        >
+                          <Pencil data-icon="inline-start" />
+                          Edit Client Email
+                        </Button>
+                      )}
                     </div>
                   </FieldSet>
                 )}
-                <FieldSet className="border-border border-t pt-4">
+                <FieldSet className={compactLabReview ? 'border-border border-t pt-3' : 'border-border border-t pt-4'}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-1 flex-col gap-2">
                       <group.Field name="referralEmailEnabled">
@@ -393,7 +424,9 @@ export const EmailsFieldGroup = withFieldGroup({
                                 validateSubmitState()
                               }}
                             />
-                            <FieldLabel htmlFor="referral-enabled">Send referral notifications</FieldLabel>
+                            <FieldLabel htmlFor="referral-enabled">
+                              {compactLabReview ? 'Send to referral' : 'Send referral notifications'}
+                            </FieldLabel>
                           </Field>
                         )}
                       </group.Field>
@@ -406,7 +439,9 @@ export const EmailsFieldGroup = withFieldGroup({
                                 data-testid="referral-recipient-row"
                                 className="text-muted-foreground text-sm break-all"
                               >
-                                {recipient.name && <span className="text-foreground">{recipient.name} · </span>}
+                                {!compactLabReview && recipient.name && (
+                                  <span className="text-foreground">{recipient.name} · </span>
+                                )}
                                 {recipient.email}
                               </p>
                             ))}
@@ -418,28 +453,83 @@ export const EmailsFieldGroup = withFieldGroup({
                         )}
                       </group.Field>
                     </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={!clientId || !previewData.referralType}
-                      onClick={() => setShowReferralEditor(true)}
-                      aria-describedby={referralRecipientsMissing ? 'referral-recipients-error' : undefined}
-                      aria-invalid={referralRecipientsMissing || undefined}
-                    >
-                      <Pencil data-icon="inline-start" />
-                      Edit Referral
-                    </Button>
+                    {!compactLabReview && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={!clientId || !previewData.referralType}
+                        onClick={() => setShowReferralEditor(true)}
+                        aria-describedby={referralRecipientsMissing ? 'referral-recipients-error' : undefined}
+                        aria-invalid={referralRecipientsMissing || undefined}
+                      >
+                        <Pencil data-icon="inline-start" />
+                        Edit Referral
+                      </Button>
+                    )}
                   </div>
                 </FieldSet>
               </FieldGroup>
-              {attachment}
+              {!compactLabReview && attachment}
               {!clientEmailEnabled && !referralEmailEnabled && (
                 <p className="text-muted-foreground text-sm">No notifications will be sent</p>
               )}
             </CardContent>
-            <CardFooter className="flex flex-wrap justify-end gap-2 px-4 pb-4">
-              {clientEmailEnabled && clientRecipients.length > 0 && (
+            <CardFooter
+              className={
+                compactLabReview
+                  ? 'border-border flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3'
+                  : 'flex flex-wrap justify-end gap-2 px-4 pb-4'
+              }
+            >
+              {compactLabReview && (
+                <>
+                  {attachment}
+                  {clientEmailEnabled &&
+                  clientRecipients.length > 0 &&
+                  referralEmailEnabled &&
+                  savedReferralRecipients.length > 0 ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="border-primary/40 text-primary hover:text-primary"
+                          />
+                        }
+                      >
+                        Preview email
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          disabled={!previewData.clientHtml || !previewData.clientSubject}
+                          onClick={() => setShowClientPreview(true)}
+                        >
+                          Client email
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setShowPreview(true)}>Referral email</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    ((clientEmailEnabled && clientRecipients.length > 0) ||
+                      (referralEmailEnabled && savedReferralRecipients.length > 0)) && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="border-primary/40 text-primary hover:text-primary"
+                        onClick={() => (referralEmailEnabled ? setShowPreview(true) : setShowClientPreview(true))}
+                        disabled={!referralEmailEnabled && (!previewData.clientHtml || !previewData.clientSubject)}
+                      >
+                        Preview email
+                      </Button>
+                    )
+                  )}
+                </>
+              )}
+              {!compactLabReview && clientEmailEnabled && clientRecipients.length > 0 && (
                 <Button
                   type="button"
                   variant="outline"
@@ -451,7 +541,7 @@ export const EmailsFieldGroup = withFieldGroup({
                   Preview client email
                 </Button>
               )}
-              {referralEmailEnabled && savedReferralRecipients.length > 0 && (
+              {!compactLabReview && referralEmailEnabled && savedReferralRecipients.length > 0 && (
                 <Button type="button" variant="outline" size="sm" onClick={() => setShowPreview(true)}>
                   <Eye data-icon="inline-start" />
                   Preview referral email
