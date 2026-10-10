@@ -1704,7 +1704,7 @@ export async function recordBookingPayment(
           receiptType,
         },
       }
-    })
+    }, { requireTransaction: input.amountReceived > 0 || creditApplied > 0 })
 
     revalidateBookingViews()
 

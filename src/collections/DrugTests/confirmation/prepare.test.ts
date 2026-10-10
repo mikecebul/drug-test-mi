@@ -101,11 +101,30 @@ describe('prepare confirmation decision', () => {
     await expect(prepareConfirmation({ ...input, decision: 'accept', substances: [] })).rejects.toThrow()
     expect(payload.update).not.toHaveBeenCalled()
   })
-  test('admins can request but cannot bypass payment, and clients cannot request', async () => {
-    const { input } = setup()
+  test('admins can authorize an unpaid confirmation, and clients cannot request one', async () => {
+    const { payload, input } = setup({ confirmationNotificationAdmin: 'owner' })
     await expect(
       prepareConfirmation({ ...input, user: { ...user, role: 'admin' }, bypassPaymentRequirement: true }),
-    ).rejects.toThrow()
+    ).resolves.toMatchObject({
+      payment: expect.objectContaining({
+        confirmationFeeDue: 45,
+        confirmationFeePaid: 0,
+        confirmationPaymentBypassed: true,
+      }),
+    })
+    expect(payload.update).toHaveBeenCalled()
+    expect(credit).not.toHaveBeenCalled()
+    await prepareConfirmation({ ...input, user: { ...user, role: 'admin' } })
+    expect(payload.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          payment: expect.objectContaining({
+            confirmationPaymentBypassed: true,
+            confirmationPaymentBypassedBy: user.id,
+          }),
+        }),
+      }),
+    )
     await expect(prepareConfirmation({ ...input, user: { ...user, collection: 'clients' } as never })).rejects.toThrow()
   })
 })

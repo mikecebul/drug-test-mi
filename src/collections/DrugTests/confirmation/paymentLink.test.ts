@@ -29,6 +29,19 @@ function setup() {
       if (collection === 'payments') payment = { ...payment, ...data }
       return collection === 'payments' ? payment : { ...testRecord, ...data }
     }),
+    db: {
+      findOne: vi.fn(async () => ({ ...testRecord, updatedAt: new Date().toISOString() })),
+      updateOne: vi.fn(async ({ collection, data }: { collection: string; data: Record<string, unknown> }) => {
+        if (collection === 'drug-tests') return testRecord
+        if (payment && data.paymentLinkEmailSendingAt === null) {
+          payment = { ...payment, ...data }
+          return payment
+        }
+        if (!payment || payment.paymentLinkEmailSentAt || payment.paymentLinkEmailSendingAt) return null
+        payment = { ...payment, ...data }
+        return payment
+      }),
+    },
     sendEmail: vi.fn().mockResolvedValue(undefined),
   }
   const session = { id: 'cs', url: 'https://checkout.stripe.com/example', status: 'open' }
@@ -53,6 +66,14 @@ beforeEach(() => {
   vi.stubEnv('EMAIL_TEST_MODE', 'false')
 })
 describe('confirmation payment emails', () => {
+  test('a failed email can retry the same checkout without creating another payment', async () => {
+    const { payload, stripe, run } = setup()
+    payload.sendEmail.mockRejectedValueOnce(new Error('SMTP unavailable'))
+    await expect(run()).rejects.toThrow('SMTP unavailable')
+    expect(await run()).toMatchObject({ sent: true })
+    expect(payload.create).toHaveBeenCalledTimes(1)
+    expect(stripe.checkout.sessions.create).toHaveBeenCalledTimes(1)
+  })
   test('emails only the selected fee once, uses a stable Stripe idempotency key, and returns immediately', async () => {
     const { payload, stripe, run } = setup()
     expect(await run()).toMatchObject({ sent: true })

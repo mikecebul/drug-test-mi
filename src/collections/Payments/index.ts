@@ -349,6 +349,12 @@ export const Payments: CollectionConfig = {
           type: 'text',
         },
         {
+          name: 'paymentLinkEmailSendingAt',
+          type: 'date',
+          admin: { hidden: true },
+          access: { create: () => false, update: () => false },
+        },
+        {
           name: 'paymentLinkEmailSentAt',
           type: 'date',
           admin: {

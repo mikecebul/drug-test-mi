@@ -1929,6 +1929,7 @@ export interface DrugTest {
      */
     confirmationPaymentBypassed?: boolean | null;
     confirmationPaymentBypassedAt?: string | null;
+    confirmationPaymentBypassedBy?: (string | null) | Admin;
     /**
      * Last time money was applied to this test balance.
      */
@@ -2406,6 +2407,7 @@ export interface Payment {
    */
   workflowOperationId?: string | null;
   stripeCheckoutUrl?: string | null;
+  paymentLinkEmailSendingAt?: string | null;
   paymentLinkEmailSentAt?: string | null;
   stripeRefundId?: string | null;
   /**
@@ -4308,6 +4310,7 @@ export interface DrugTestsSelect<T extends boolean = true> {
         confirmationFeePaid?: T;
         confirmationPaymentBypassed?: T;
         confirmationPaymentBypassedAt?: T;
+        confirmationPaymentBypassedBy?: T;
         lastPaymentAt?: T;
         lastPaymentLinkSentAt?: T;
         lastPaymentLinkUrl?: T;
@@ -4398,6 +4401,7 @@ export interface PaymentsSelect<T extends boolean = true> {
   stripePaymentIntentId?: T;
   workflowOperationId?: T;
   stripeCheckoutUrl?: T;
+  paymentLinkEmailSendingAt?: T;
   paymentLinkEmailSentAt?: T;
   stripeRefundId?: T;
   stripeRefundOperationId?: T;

@@ -43,22 +43,19 @@ services:
       - TZ=America/Detroit
     env_file: .env
 
-  # Payments require transactions. Keep the single-node replica set for local use.
+  # Local standalone MongoDB. Use a separate replica set for actual payment posting.
   mongo:
     image: mongo:latest
     ports:
       - '27017:27017'
     command:
       - --storageEngine=wiredTiger
-      - --replSet=rs0
-      - --bind_ip_all
     volumes:
       - mongo-data:/data/db
-      - ./scripts/mongo-replica-healthcheck.js:/usr/local/bin/mongo-replica-healthcheck.js:ro
     networks:
       - app-network
     healthcheck:
-      test: ['CMD', 'mongosh', '--quiet', '--file', '/usr/local/bin/mongo-replica-healthcheck.js']
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping').ok"]
       interval: 10s
       timeout: 5s
       retries: 5

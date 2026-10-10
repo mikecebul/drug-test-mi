@@ -444,6 +444,13 @@ export const DrugTests: CollectionConfig = {
                   },
                 },
                 {
+                  name: 'confirmationPaymentBypassedBy',
+                  type: 'relationship',
+                  relationTo: 'admins',
+                  admin: { readOnly: true },
+                  access: { create: () => false, update: () => false },
+                },
+                {
                   name: 'lastPaymentAt',
                   type: 'date',
                   admin: {

@@ -228,7 +228,7 @@ Notes:
 
 #### Start MongoDB (recommended via Docker Compose)
 
-This repo includes a `docker-compose.yml` with a single-node MongoDB replica set for local development. Confirmation fees, account credit, and payment posting require transactions.
+The default `docker-compose.yml` starts standalone MongoDB for local development. Admins can prepare pending confirmation charges and continue collection unpaid on this setup. Posting money or applying account credit requires a transaction-capable MongoDB replica set.
 
 For normal local development, start only MongoDB and run the app with `pnpm dev`:
 
@@ -237,9 +237,9 @@ docker compose up -d --wait mongo
 ```
 
 Notes:
-- Use the replica-set URLs in `.env.example`, including `replicaSet=rs0&directConnection=true`. Payload requires the replica-set option to enable transactions; direct connection lets a host-run app reach the single Docker endpoint.
 - The examples use the `drug-test-mi` database. Point `DATABASE_URI` and `DOCKER_DATABASE_URI` at the same project database; the worker requires an explicit URL and has no database fallback. Keep an existing project database name when updating connection options.
-- The MongoDB healthcheck initializes an unconfigured replica set and waits for a writable primary. Existing records remain in the same `mongo-data` volume. Back up an existing local database before converting it; never remove its volume to enable transactions.
+- Compose keeps the existing `mongo-data` volume and does not initialize or convert a replica set. For actual local payment testing, use a separate disposable replica set; do not convert a MongoDB server shared with other projects.
+- When using a replica set, include its `replicaSet` name in both URLs so Payload enables transactions. A single Docker endpoint also needs `directConnection=true`.
 - After changing the MongoDB configuration or connection URLs, restart the app and any running worker. Their existing connections may have transactions disabled.
 - This setup is for local development; keep your production MongoDB/Atlas connection configuration.
 - Most local development is simpler with a local Node process (`pnpm dev`) plus the compose MongoDB container.

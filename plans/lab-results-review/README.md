@@ -65,6 +65,16 @@ Validation covers real workflow outcomes and field error state rather than disab
 
 Expected and unexpected status labels share a fixed status column, with both labels left-aligned. The entire result decision card selects its radio; nested confirmation and email controls remain independently interactive. The main screen has no screening-date input or edit-details accordion. Corrections use the report card's Edit button and a side drawer with Apply and Cancel.
 
-The reported acceptance error came from routing a nonfinancial decision through the confirmation payment service while local MongoDB was standalone. Fresh acceptance and deferred decisions now skip that payment service both when advancing and when saving. Existing charged confirmations still use it for safe cancellation. Financial requests, credit transfers, refunds, and payment posting retain their transaction requirement.
+The reported acceptance error came from routing a nonfinancial decision through the confirmation payment service while local MongoDB was standalone. Fresh acceptance and deferred decisions now skip that payment service both when advancing and when saving. Existing charged confirmations still use it for safe cancellation. Actual funding, credit transfers, refunds, and payment posting retain their transaction safeguards. Unpaid charge preparation and pending checkout records do not move money and can use the standalone path.
 
 The complete screening browser suite passed against an isolated standalone MongoDB, including final report save and attachment email. Separate replica-set tests cover confirmation payments, cancellation, referral invoicing, webhooks and ledger reversal. Regression coverage checks drawer apply/cancel, retained edits, card-background selection, status alignment, and all unified lab report branches.
+
+## Pending charges and visible controls
+
+Standard admins can prepare unpaid confirmation charges and advance to Review. When transactions are unavailable, a version-checked test update preserves paid amounts and private cached fields, runs the existing collection hooks, and leaves client credit untouched. Concurrent edits fail for review rather than overwriting a balance. Pending checkout records use the existing unique account-operation key, Stripe idempotency, and an atomic email lease to avoid ordinary duplicate links/emails. Failed email delivery can retry the same checkout. Link display metadata preserves the complete payment state with a version check.
+
+Admins can authorize the existing unpaid-confirmation exception. Its author and timestamp are recorded and retained on retries; it leaves the fee outstanding and does not consume credit. Guided unpaid continuation remains available to standard admins. Genuine guided payment/credit operations require a transaction.
+
+Unchecked checkbox/radio boundaries use a stronger semantic border and a solid surface. The identity checkbox and unselected collection circles meet 3:1 contrast before errors are displayed. [Portrait verification](verification/lab-match-controls-contrast-portrait.png).
+
+The default Docker MongoDB setup stays standalone; it does not automatically convert an existing database. Actual funding still needs a transaction-capable MongoDB configuration. Local environment values and existing databases were not modified for this follow-up.

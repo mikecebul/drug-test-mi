@@ -1,6 +1,7 @@
 import Stripe from 'stripe'
 import { closePendingClientCheckoutSessions } from '@/collections/Payments/services/closePendingClientCheckoutSessions'
-import type { Payload } from 'payload'
+import type { Payload, Where } from 'payload'
+import type { DrugTest } from '@/payload-types'
 import { createElement } from 'react'
 import { render } from '@react-email/components'
 import { baseUrl } from '@/utilities/baseUrl'
@@ -20,73 +21,97 @@ export async function sendConfirmationPaymentLink(payload: Payload, testId: stri
   const key = process.env.STRIPE_SECRET_KEY
   if (!stripe && !key) throw new Error('Stripe is not configured.')
   stripe ||= new Stripe(key!, {})
-  const prepared = await withPayloadTransaction(
-    payload,
-    async (req) => {
-      const test = await payload.findByID({ collection: 'drug-tests', id: testId, depth: 0, overrideAccess: true, req })
-      if (referralPaysConfirmation(test))
-        throw new Error('Confirmation is billed to the referral; do not send a client payment link.')
-      if (test.confirmationDecision !== 'request-confirmation' || !test.confirmationRequestKey)
-        throw new Error('Choose confirmation before sending a payment link.')
-      if (!confirmationPaymentRequired(test)) return null
-      if (confirmationHoldExpired(test)) throw new Error('The laboratory hold has ended.')
-      const clientId = readRelationshipId(test.relatedClient)
-      if (!clientId) throw new Error('Client not found.')
-      const client = await payload.findByID({
-        collection: 'clients',
-        id: clientId,
-        depth: 0,
-        overrideAccess: true,
-        req,
-      })
-      const email = resolveClientReceiptEmail(client)
-      if (!email) throw new Error('The client needs an enabled email address to receive a payment link.')
-      const amount = confirmationRemaining(test)
-      const pending = await payload.find({
+  const prepared = await withPayloadTransaction(payload, async (req) => {
+    const test = await payload.findByID({ collection: 'drug-tests', id: testId, depth: 0, overrideAccess: true, req })
+    if (referralPaysConfirmation(test))
+      throw new Error('Confirmation is billed to the referral; do not send a client payment link.')
+    if (test.confirmationDecision !== 'request-confirmation' || !test.confirmationRequestKey)
+      throw new Error('Choose confirmation before sending a payment link.')
+    if (!confirmationPaymentRequired(test)) return null
+    if (confirmationHoldExpired(test)) throw new Error('The laboratory hold has ended.')
+    const clientId = readRelationshipId(test.relatedClient)
+    if (!clientId) throw new Error('Client not found.')
+    const client = await payload.findByID({
+      collection: 'clients',
+      id: clientId,
+      depth: 0,
+      overrideAccess: true,
+      req,
+    })
+    const email = resolveClientReceiptEmail(client)
+    if (!email) throw new Error('The client needs an enabled email address to receive a payment link.')
+    const amount = confirmationRemaining(test)
+    const pending = await payload.find({
+      collection: 'payments',
+      where: {
+        and: [
+          { relatedDrugTest: { equals: testId } },
+          { purpose: { equals: 'confirmation' } },
+          { confirmationRequestKey: { equals: test.confirmationRequestKey } },
+          { status: { equals: 'pending' } },
+        ],
+      },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+      req,
+    })
+    let payment = pending.docs[0]
+    if (!payment) {
+      const history = await payload.find({
         collection: 'payments',
         where: {
           and: [
             { relatedDrugTest: { equals: testId } },
             { purpose: { equals: 'confirmation' } },
             { confirmationRequestKey: { equals: test.confirmationRequestKey } },
-            { status: { equals: 'pending' } },
           ],
         },
+        sort: ['-createdAt', '-id'],
         limit: 1,
         depth: 0,
         overrideAccess: true,
         req,
       })
-      let payment = pending.docs[0]
-      if (!payment) {
-        // Serialize concurrent link creation against this test in the same transaction.
-        await payload.update({
-          collection: 'drug-tests',
-          id: testId,
-          overrideAccess: true,
-          req,
-          data: { payment: { ...test.payment, lastPaymentLinkUrl: null } },
-        })
-        payment = await payload.create({
-          collection: 'payments',
-          overrideAccess: true,
-          req,
-          data: {
-            relatedClient: clientId,
-            relatedDrugTest: testId,
-            purpose: 'confirmation',
-            confirmationRequestKey: test.confirmationRequestKey,
-            amount,
-            method: 'stripe',
-            source: 'stripe-checkout',
-            status: 'pending',
-          },
-        })
-      }
-      return { test, client, email, payment, amount, clientId }
-    },
-    { requireTransaction: true },
-  )
+      // The existing unique ledger key prevents two pending records for one checkout attempt,
+      // including on standalone MongoDB. Expired/voided attempts get a new key.
+      const previous = history.docs[0]
+      const operationId = `confirmation-link:${testId}:${test.confirmationRequestKey}:${previous?.id || 'first'}`
+      if (previous?.status === 'pending') payment = previous
+      else
+        try {
+          payment = await payload.create({
+            collection: 'payments',
+            overrideAccess: true,
+            req,
+            data: {
+              relatedClient: clientId,
+              relatedDrugTest: testId,
+              purpose: 'confirmation',
+              confirmationRequestKey: test.confirmationRequestKey,
+              amount,
+              method: 'stripe',
+              source: 'stripe-checkout',
+              status: 'pending',
+              accountOperationId: operationId,
+            },
+          })
+        } catch (error) {
+          if (await req.transactionID) throw error
+          const saved = await payload.find({
+            collection: 'payments',
+            where: { accountOperationId: { equals: operationId } },
+            limit: 1,
+            depth: 0,
+            overrideAccess: true,
+            req,
+          })
+          if (!saved.docs[0] || saved.docs[0].status !== 'pending') throw error
+          payment = saved.docs[0]
+        }
+    }
+    return { test, client, email, payment, amount, clientId }
+  })
   if (!prepared) return { sent: false }
   const { test, client, email, payment, amount, clientId } = prepared
   if (payment.amount !== amount) {
@@ -181,24 +206,67 @@ export async function sendConfirmationPaymentLink(payload: Payload, testId: stri
     ),
   )
   const recipients = resolveOutboundNotificationRecipients([email])
-  await payload.sendEmail({
-    to: recipients.recipients,
-    subject: prefixNonLiveEmailSubject('Confirmation testing payment link'),
-    html,
+  const claimAt = new Date().toISOString()
+  const claim: Where[] = [
+    { id: { equals: payment.id } },
+    { status: { equals: 'pending' } },
+    {
+      or: [
+        { paymentLinkEmailSendingAt: { exists: false } },
+        { paymentLinkEmailSendingAt: { equals: null } },
+        { paymentLinkEmailSendingAt: { less_than: new Date(Date.now() - 5 * 60_000).toISOString() } },
+      ],
+    },
+  ]
+  if (!resend)
+    claim.push({ or: [{ paymentLinkEmailSentAt: { exists: false } }, { paymentLinkEmailSentAt: { equals: null } }] })
+  const claimed = await payload.db.updateOne({
+    collection: 'payments',
+    where: { and: claim },
+    data: { paymentLinkEmailSendingAt: claimAt },
   })
+  if (!claimed) return { sent: false, checkoutUrl: session.url }
+  try {
+    await payload.sendEmail({
+      to: recipients.recipients,
+      subject: prefixNonLiveEmailSubject('Confirmation testing payment link'),
+      html,
+    })
+  } catch (error) {
+    await payload.db.updateOne({
+      collection: 'payments',
+      where: { and: [{ id: { equals: payment.id } }, { paymentLinkEmailSendingAt: { equals: claimAt } }] },
+      data: { paymentLinkEmailSendingAt: null },
+    })
+    throw error
+  }
   const sentAt = new Date().toISOString()
   await payload.update({
     collection: 'payments',
     id: payment.id,
     overrideAccess: true,
-    data: { paymentLinkEmailSentAt: sentAt },
+    data: { paymentLinkEmailSentAt: sentAt, paymentLinkEmailSendingAt: null },
   })
-  const current = await payload.findByID({ collection: 'drug-tests', id: testId, depth: 0, overrideAccess: true })
-  await payload.update({
-    collection: 'drug-tests',
-    id: testId,
-    overrideAccess: true,
-    data: { payment: { ...current.payment, lastPaymentLinkSentAt: sentAt, lastPaymentLinkUrl: session.url } },
-  })
+  // The adapter transforms named groups, so use the complete stored snapshot and a
+  // version check instead of dotted group fields or a stale payment object.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const current = (await payload.db.findOne({
+      collection: 'drug-tests',
+      where: { id: { equals: testId } },
+    })) as unknown as DrugTest | null
+    if (!current) break
+    const data: Record<string, unknown> = {
+      ...current,
+      payment: { ...current.payment, lastPaymentLinkSentAt: sentAt, lastPaymentLinkUrl: session.url },
+      updatedAt: new Date(Math.max(Date.now(), Date.parse(current.updatedAt) + 1)).toISOString(),
+    }
+    delete data.id
+    const updated = await payload.db.updateOne({
+      collection: 'drug-tests',
+      where: { and: [{ id: { equals: testId } }, { updatedAt: { equals: current.updatedAt } }] },
+      data,
+    })
+    if (updated) break
+  }
   return { sent: true, checkoutUrl: session.url }
 }

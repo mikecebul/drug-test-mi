@@ -80,3 +80,9 @@ five times without retries (95 executions). Failure traces include the first att
 Nine additional local critical cases cover automatic screen/confirmation/combined routing, historical medication/screen preservation, lab report replacement, unresolved confirmation validation, request preservation, correction of initial combined reports, confirmation-only display and failed-extraction readiness.
 CI smoke has no retries, and `failOnFlakyTests` remains enabled for other explicitly
 requested CI runs, so retry success cannot hide an intermittent regression.
+
+## Standalone pending-confirmation checks
+
+Use a separate disposable `drug-test-mi` test database and local Mailpit, with matching app/test environment values as above. Start standalone MongoDB without `replicaSet` in its URL and set `E2E_STANDALONE_CONFIRMATION=true`. Run `pnpm exec playwright test tests/e2e/confirmation-pending.spec.ts --project=chromium`. This covers standard-admin pending charges, concurrent checkout/email deduplication, untouched client credit, unpaid exceptions, Back/Next retention, and control contrast before validation. It also verifies that real account payment posting stays blocked without transactions.
+
+Use the replica-set configuration for `confirmation-payments.spec.ts`; those tests verify actual funding, owner notification, reversal, referral invoices, and credit allocation. Neither suite belongs in the expanded CI smoke set.

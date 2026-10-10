@@ -857,8 +857,9 @@ export function LabResultsWorkflow({
                           <span className="flex items-center gap-3">
                             <span
                               aria-hidden
+                              data-slot="collection-choice-indicator"
                               className={cn(
-                                'border-border flex size-5 shrink-0 items-center justify-center rounded-full border',
+                                'border-muted-foreground bg-background flex size-5 shrink-0 items-center justify-center rounded-full border-2',
                                 values.matchCollection.testId === collection.id && 'border-primary',
                               )}
                             >

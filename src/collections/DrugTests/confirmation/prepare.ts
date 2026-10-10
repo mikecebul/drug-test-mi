@@ -2,6 +2,7 @@ import Stripe from 'stripe'
 import { closePendingClientCheckoutSessions } from '@/collections/Payments/services/closePendingClientCheckoutSessions'
 import { randomUUID } from 'node:crypto'
 import type { Payload, PayloadRequest } from 'payload'
+import type { DrugTest } from '@/payload-types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
 import {
@@ -12,6 +13,7 @@ import {
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
 import { resolveBillingResponsibility } from '@/lib/referral-invoices/payer'
 import { confirmationHoldUntil, knownScreeningDate, confirmationPaid, confirmationPrice } from './policy'
+import { savePendingDecision } from './savePendingDecision'
 
 /** Prepare a decision without saving the uploaded report or claiming a lab order has been placed. */
 export async function prepareConfirmation(input: {
@@ -24,8 +26,6 @@ export async function prepareConfirmation(input: {
   bypassPaymentRequirement?: boolean
 }) {
   if (!input.user || input.user.collection !== 'admins') throw new Error('Admin access required.')
-  if (input.bypassPaymentRequirement && input.user.role !== 'superAdmin')
-    throw new Error('Only the super admin can bypass confirmation payment.')
   const allowed = new Set(allSubstanceOptions.filter((s) => s.value !== 'none').map((s) => s.value))
   const substances = [...new Set(input.substances)].sort() as SubstanceValue[]
   if (input.decision === 'request-confirmation' && (!substances.length || substances.some((s) => !allowed.has(s))))
@@ -71,6 +71,7 @@ export async function prepareConfirmation(input: {
   return withPayloadTransaction(
     input.payload,
     async (req) => {
+      const hasTransaction = Boolean(await req.transactionID)
       const test = await input.payload.findByID({
         collection: 'drug-tests',
         id: input.testId,
@@ -139,43 +140,51 @@ export async function prepareConfirmation(input: {
       }
       const requestKey =
         input.decision === 'request-confirmation' ? (sameRequest && test.confirmationRequestKey) || randomUUID() : null
+      const preserveException = sameRequest && test.payment?.confirmationPaymentBypassed === true
+      const bypass = input.bypassPaymentRequirement ?? preserveException
       const decisionContext = { ...req.context }
-      const updated = await input.payload.update({
-        collection: 'drug-tests',
-        id: test.id,
-        overrideAccess: true,
-        req,
-        data: {
-          screenedAt,
-          confirmationDecision: input.decision,
-          confirmationSubstances: input.decision === 'request-confirmation' ? substances : [],
-          confirmationRequestKey: requestKey,
-          confirmationNotificationAdmin: ownerId,
-          billingResponsibility: test.billingResponsibility?.payer ? test.billingResponsibility : payer,
-          payment: {
-            ...test.payment,
-            amountDue: due,
-            amountPaid: paid,
-            balanceDue: Math.max(0, due - paid),
-            referralInvoice: test.payment?.referralInvoice,
-            status:
-              payer.payer === 'referral' && test.payment?.status === 'invoiced'
-                ? 'invoiced'
-                : due <= paid
-                  ? 'paid'
-                  : paid > 0
-                    ? 'partial'
-                    : 'unpaid',
-            confirmationFeeDue: fee,
-            confirmationFeePaid: sameRequest ? feePaid : 0,
-            confirmationPaymentBypassed: input.bypassPaymentRequirement === true,
-            confirmationPaymentBypassedAt: input.bypassPaymentRequirement ? new Date().toISOString() : null,
-          },
+      const data: Partial<DrugTest> = {
+        screenedAt,
+        confirmationDecision: input.decision,
+        confirmationSubstances: input.decision === 'request-confirmation' ? substances : [],
+        confirmationRequestKey: requestKey,
+        confirmationNotificationAdmin: ownerId,
+        billingResponsibility: test.billingResponsibility?.payer ? test.billingResponsibility : payer,
+        payment: {
+          ...test.payment,
+          amountDue: due,
+          amountPaid: paid,
+          balanceDue: Math.max(0, due - paid),
+          referralInvoice: test.payment?.referralInvoice,
+          status:
+            payer.payer === 'referral' && test.payment?.status === 'invoiced'
+              ? 'invoiced'
+              : due <= paid
+                ? 'paid'
+                : paid > 0
+                  ? 'partial'
+                  : 'unpaid',
+          confirmationFeeDue: fee,
+          confirmationFeePaid: sameRequest ? feePaid : 0,
+          confirmationPaymentBypassed: bypass,
+          confirmationPaymentBypassedAt: bypass
+            ? preserveException
+              ? test.payment?.confirmationPaymentBypassedAt
+              : new Date().toISOString()
+            : null,
+          confirmationPaymentBypassedBy: bypass
+            ? preserveException
+              ? readRelationshipId(test.payment?.confirmationPaymentBypassedBy)
+              : input.user!.id
+            : null,
         },
-      })
+      }
+      const updated = hasTransaction
+        ? await input.payload.update({ collection: 'drug-tests', id: test.id, overrideAccess: true, req, data })
+        : await savePendingDecision(req, test, data)
       // Nested balance hooks use context flags; they must not suppress the subsequent credit allocation's balance sync.
       req.context = decisionContext
-      if (input.decision === 'request-confirmation' && payer.payer === 'client') {
+      if (hasTransaction && !bypass && input.decision === 'request-confirmation' && payer.payer === 'client') {
         await applyAvailableClientCredit({
           payload: input.payload,
           clientId,
@@ -188,6 +197,6 @@ export async function prepareConfirmation(input: {
       }
       return updated
     },
-    { requireTransaction: true, user: input.user },
+    { user: input.user },
   )
 }
