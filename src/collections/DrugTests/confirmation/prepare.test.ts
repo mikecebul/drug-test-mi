@@ -60,6 +60,35 @@ beforeEach(() => {
   balance.mockResolvedValue(90)
 })
 describe('prepare confirmation decision', () => {
+  test('explicit credit preserves the prior admin exception and its original author/time', async () => {
+    const { input } = setup({
+      confirmationDecision: 'request-confirmation',
+      confirmationSubstances: ['amphetamines'],
+      confirmationRequestKey: 'request',
+      confirmationNotificationAdmin: 'owner',
+      payment: {
+        amountDue: 80,
+        amountPaid: 35,
+        confirmationFeeDue: 45,
+        confirmationFeePaid: 0,
+        confirmationPaymentBypassed: true,
+        confirmationPaymentBypassedBy: 'prior-admin',
+        confirmationPaymentBypassedAt: resultDate,
+      },
+    })
+    credit.mockResolvedValueOnce({ usedCredit: 45 })
+    const prepared = await prepareConfirmation({
+      ...input,
+      creditPayment: 'full',
+      user: { ...user, id: 'paying-admin', role: 'admin' },
+    })
+    expect(credit).toHaveBeenCalledWith(expect.objectContaining({ amount: 45, purpose: 'confirmation' }))
+    expect(prepared.payment).toMatchObject({
+      confirmationPaymentBypassed: true,
+      confirmationPaymentBypassedBy: 'prior-admin',
+      confirmationPaymentBypassedAt: resultDate,
+    })
+  })
   test('explicit credit closes an existing unpaid checkout before replacing it with account credit', async () => {
     const { input, payload } = setup({
       confirmationDecision: 'request-confirmation',

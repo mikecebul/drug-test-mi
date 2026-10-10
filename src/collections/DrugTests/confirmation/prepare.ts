@@ -168,7 +168,7 @@ export async function prepareConfirmation(input: {
       const requestKey =
         input.decision === 'request-confirmation' ? (sameRequest && test.confirmationRequestKey) || randomUUID() : null
       const preserveException = sameRequest && test.payment?.confirmationPaymentBypassed === true
-      const bypass = input.creditPayment === 'full' ? false : (input.bypassPaymentRequirement ?? preserveException)
+      const bypass = input.bypassPaymentRequirement ?? preserveException
       const decisionContext = { ...req.context }
       const data: Partial<DrugTest> = {
         screenedAt,
@@ -222,7 +222,7 @@ export async function prepareConfirmation(input: {
       if (
         hasTransaction &&
         input.creditPayment !== 'none' &&
-        !bypass &&
+        (!bypass || input.creditPayment === 'full') &&
         input.decision === 'request-confirmation' &&
         payer.payer === 'client'
       ) {

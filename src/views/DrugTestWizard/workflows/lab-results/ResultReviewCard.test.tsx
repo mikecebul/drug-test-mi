@@ -2,6 +2,29 @@ import { expect, test } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { ResultReviewCard } from './ResultReviewCard'
 
+test('unverified screening cannot display a stale final success heading', () => {
+  const html = renderToStaticMarkup(
+    <ResultReviewCard
+      reportLabel="Screening report"
+      presentation={{ label: 'Final result passed', variant: 'success' }}
+      reportAction={null}
+      screening={{
+        verified: false,
+        detected: [],
+        medications: [],
+        preview: {
+          initialScreenResult: 'negative',
+          expectedPositives: [],
+          unexpectedPositives: [],
+          unexpectedNegatives: [],
+          autoAccept: true,
+        },
+      }}
+    />,
+  )
+  expect(html).not.toContain('Final result passed')
+})
+
 test('screening review retains medication context and makes a requested confirmation explicitly pending', () => {
   const html = renderToStaticMarkup(
     <ResultReviewCard

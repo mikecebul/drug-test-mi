@@ -401,7 +401,7 @@ export function LabResultsWorkflow({
         : null,
     [confirmations, preview.data, test?.breathalyzerTaken, test?.breathalyzerResult],
   )
-  const confirmationPresentation = !confirmations
+  const confirmationPresentation = !confirmations?.length
     ? { label: 'Check confirmation results', variant: 'warning' as const }
     : finalStatus === 'inconclusive'
       ? { label: 'Inconclusive', variant: 'warning' as const }
@@ -1280,7 +1280,7 @@ export function LabResultsWorkflow({
             <ResultReviewCard
               reportLabel={mode === 'confirmation' ? 'Confirmation report' : reportTypeLabel(report)}
               presentation={
-                confirmations?.length
+                mode === 'confirmation' || confirmations?.length
                   ? confirmationPresentation
                   : getResultPresentation(
                       preview.data?.initialScreenResult,

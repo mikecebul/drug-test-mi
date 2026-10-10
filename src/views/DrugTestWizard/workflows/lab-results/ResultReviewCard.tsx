@@ -35,6 +35,13 @@ export function ResultReviewCard({
   breathalyzerResult?: number | null
 }) {
   const pending = !confirmations?.length && (decision === 'request-confirmation' || decision === 'pending-decision')
+  const status = screening?.error
+    ? getResultPresentation(undefined, 'error')
+    : screening?.isLoading
+      ? getResultPresentation(undefined, 'loading')
+      : screening && !screening.verified
+        ? { label: 'Check screening results', variant: 'warning' as const }
+        : presentation
   return (
     <Card aria-label="Results to send" data-testid="lab-review-results" className="overflow-hidden">
       <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4">
@@ -43,11 +50,11 @@ export function ResultReviewCard({
           <h2
             className={cn(
               'flex items-center gap-3 text-xl font-bold',
-              presentation.variant === 'destructive' && resultDangerText,
+              status.variant === 'destructive' && resultDangerText,
             )}
           >
-            <ResultStatusIcon variant={presentation.variant} className="size-8" />
-            {presentation.label}
+            <ResultStatusIcon variant={status.variant} className="size-8" />
+            {status.label}
           </h2>
         </div>
         {reportAction}
