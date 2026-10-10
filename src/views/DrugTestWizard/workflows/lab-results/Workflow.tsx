@@ -711,7 +711,7 @@ export function LabResultsWorkflow({
             if (form.state.values.results.useConfirmationCredit) {
               setCreditFailure({ key: creditErrorKey, message: prepared.error || 'Account credit could not be used.' })
               requestAnimationFrame(() =>
-                formRef.current?.querySelector<HTMLElement>('#use-confirmation-credit')?.focus(),
+                document.getElementById('use-confirmation-credit')?.focus(),
               )
             }
             toast.error(prepared.error)
