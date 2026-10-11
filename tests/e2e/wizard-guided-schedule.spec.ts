@@ -876,6 +876,7 @@ test.describe("Wizard Today's Schedule", () => {
     await clickNext(page)
     await expect(page.getByRole('heading', { name: 'Confirm lab collection' })).toBeVisible()
     await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
-    await expect(page.getByRole('radio', { name: /^11-Panel$/i })).toBeChecked()
+    await expect(page.getByRole('dialog', { name: 'Edit test details', exact: true })).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Test type', exact: true })).toContainText('11-Panel Lab')
   })
 })

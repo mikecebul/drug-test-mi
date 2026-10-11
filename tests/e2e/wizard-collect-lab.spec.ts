@@ -17,17 +17,6 @@ import {
 
 let fixtures: FixtureContext
 
-function isoDateTimeForInput(date: string) {
-  return new Date(date).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  })
-}
-
 async function expectReferralRecipientsReady(page: Page, count: number) {
   const notifications = page.getByRole('checkbox', { name: /Send referral notifications/i })
   if (count === 0) {
@@ -68,24 +57,36 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await clickNext(page)
 
     await expectWizardStep(page, 'collection')
+    const originalDetails = await page.getByTestId('lab-collection-details').innerText()
+    await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
+    await page.getByLabel('Collection date', { exact: true }).fill('2026-12-12')
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(page.getByTestId('lab-collection-details')).toHaveText(originalDetails)
 
     await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
     const collectionDate = page.locator('#collection-date')
     await expect(collectionDate).not.toBeEmpty()
     await collectionDate.fill('')
-    await collectionDate.press('Tab')
-    await clickNext(page)
+    await page.getByRole('button', { name: 'Apply changes', exact: true }).click()
     await expectValidationError(page, page.locator('#collection-date'))
     await expect(collectionDate).toBeFocused()
 
-    await collectionDate.fill(isoDateTimeForInput('2026-01-07T23:11:00-05:00'))
-    await collectionDate.press('Tab')
+    await collectionDate.fill('2026-01-07')
+    await page.getByLabel('Time', { exact: true }).fill('23:11')
+    await page.getByRole('button', { name: 'Apply changes', exact: true }).click()
+    await expect(page.getByRole('dialog', { name: 'Edit test details', exact: true })).not.toBeVisible()
+    await expect(page.getByTestId('lab-collection-details')).toContainText('01/07/2026 11:11 PM')
 
-    await page.getByLabel(/Breathalyzer test was administered/i).check()
+    await page.getByRole('checkbox', { name: 'Does the client need a PBT?', exact: true }).check()
     await clickNext(page)
     await expectValidationError(page, page.locator('#breathalyzerResult'))
     await expect(page.locator('#breathalyzerResult')).toBeFocused()
 
+    await page.locator('#breathalyzerResult').fill('0.125')
+    await page.getByRole('checkbox', { name: 'Does the client need a PBT?', exact: true }).uncheck()
+    await expect(page.locator('#breathalyzerResult')).not.toBeVisible()
+    await page.getByRole('checkbox', { name: 'Does the client need a PBT?', exact: true }).check()
+    await expect(page.locator('#breathalyzerResult')).toBeEmpty()
     await page.locator('#breathalyzerResult').fill('0.000')
     await clickNext(page)
 
@@ -184,8 +185,8 @@ test.describe('Wizard Collect Lab Workflow', () => {
       await clickNext(page)
 
       await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
-      await page.locator('#collection-date').fill(isoDateTimeForInput(new Date().toISOString()))
-      await page.locator('#collection-date').press('Tab')
+      await expect(page.getByRole('dialog', { name: 'Edit test details', exact: true })).toBeVisible()
+      await page.getByRole('button', { name: 'Apply changes', exact: true }).click()
       await clickNext(page)
 
       await expectWizardStep(page, 'reviewEmails')
