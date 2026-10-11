@@ -1,13 +1,5 @@
 import { render } from '@react-email/components'
-import {
-  CollectedEmail,
-  ScreenedEmail,
-  ScreenedEmailReferral,
-  CompleteEmail,
-  CompleteEmailReferral,
-  InconclusiveEmail,
-  InconclusiveEmailReferral,
-} from '@/emails/drug-tests'
+import { CollectedEmail, ScreenedEmail, CompleteEmail, InconclusiveEmail } from '@/emails/drug-tests'
 import type {
   CollectedEmailData,
   ScreenedEmailData,
@@ -34,20 +26,21 @@ export async function buildCollectedEmail(data: CollectedEmailData): Promise<{
 /**
  * Build Screened Email
  * Sent when initial screening results are entered
- * Returns separate emails for client and referrals
+ * The same content is used for client and referral recipients.
  */
 export async function buildScreenedEmail(data: ScreenedEmailData): Promise<EmailOutput> {
-  const clientHtml = await render(<ScreenedEmail {...data} />)
-  const referralHtml = await render(<ScreenedEmailReferral {...data} />)
+  const deadline = data.confirmationHoldUntil ? new Date(data.confirmationHoldUntil).getTime() : NaN
+  const confirmationWindowClosed = Number.isFinite(deadline) && deadline <= Date.now()
+  const html = await render(<ScreenedEmail {...data} confirmationWindowClosed={confirmationWindowClosed} />)
 
   return {
     client: {
       subject: `Drug Test Results - ${data.clientName}`,
-      html: clientHtml,
+      html,
     },
     referrals: {
       subject: `Drug Test Results - ${data.clientName}`,
-      html: referralHtml,
+      html,
     },
   }
 }
@@ -55,20 +48,19 @@ export async function buildScreenedEmail(data: ScreenedEmailData): Promise<Email
 /**
  * Build Complete Email
  * Sent when all confirmation testing is complete
- * Returns separate emails for client and referrals
+ * The same content is used for client and referral recipients.
  */
 export async function buildCompleteEmail(data: CompleteEmailData): Promise<EmailOutput> {
-  const clientHtml = await render(<CompleteEmail {...data} />)
-  const referralHtml = await render(<CompleteEmailReferral {...data} />)
+  const html = await render(<CompleteEmail {...data} />)
 
   return {
     client: {
       subject: `Final Drug Test Results - ${data.clientName}`,
-      html: clientHtml,
+      html,
     },
     referrals: {
       subject: `Final Drug Test Results - ${data.clientName}`,
-      html: referralHtml,
+      html,
     },
   }
 }
@@ -76,20 +68,19 @@ export async function buildCompleteEmail(data: CompleteEmailData): Promise<Email
 /**
  * Build Inconclusive Email
  * Sent when a test sample is invalid and cannot be screened
- * Returns separate emails for client and referrals
+ * The same content is used for client and referral recipients.
  */
 export async function buildInconclusiveEmail(data: InconclusiveEmailData): Promise<EmailOutput> {
-  const clientHtml = await render(<InconclusiveEmail {...data} />)
-  const referralHtml = await render(<InconclusiveEmailReferral {...data} />)
+  const html = await render(<InconclusiveEmail {...data} />)
 
   return {
     client: {
       subject: `Drug Test - Inconclusive Result - ${data.clientName}`,
-      html: clientHtml,
+      html,
     },
     referrals: {
       subject: `Drug Test - Inconclusive Result - ${data.clientName}`,
-      html: referralHtml,
+      html,
     },
   }
 }

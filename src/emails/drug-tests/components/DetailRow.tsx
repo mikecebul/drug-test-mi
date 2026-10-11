@@ -1,26 +1,14 @@
-import { Text } from '@react-email/components'
+import { Column, Row } from '@react-email/components'
 import * as React from 'react'
-import { label, value } from '../utils/styles'
+import { colors, text } from '../utils/theme'
 
-interface DetailRowProps {
-  label: string
-  value: string | React.ReactNode
-}
-
-/**
- * DetailRow component displays a label-value pair
- * Used for displaying client information, test details, etc.
- */
-export function DetailRow({ label: labelText, value: valueContent }: DetailRowProps) {
+export function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <Text style={{ margin: '8px 0', fontSize: '14px', lineHeight: '20px' }}>
-      <span style={label}>{labelText}:</span>{' '}
-      <span style={value}>{valueContent}</span>
-    </Text>
+    <Row>
+      <Column style={{ ...text, width: '100px', color: colors.muted, padding: '2px 12px 2px 0', verticalAlign: 'top' }}>
+        {label}:
+      </Column>
+      <Column style={{ ...text, fontWeight: 600, padding: '2px 0', verticalAlign: 'top' }}>{value}</Column>
+    </Row>
   )
 }
-
-DetailRow.PreviewProps = {
-  label: 'Client Name',
-  value: 'John Doe',
-} as DetailRowProps

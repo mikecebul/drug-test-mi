@@ -3,6 +3,25 @@
  */
 
 import { formatCollectionDate as formatDateUtil, formatDob as formatDobUtil } from '@/lib/date-utils'
+import { formatDobISO, APP_TIMEZONE } from '@/lib/date-utils'
+
+/** Compact email metadata; timestamps use the clinic timezone, calendar dates do not shift. */
+export function formatEmailDate(value: string): string {
+  const calendar = /^\d{4}-\d{2}-\d{2}$/.test(value)
+  const date = new Date(calendar ? `${value}T12:00:00Z` : value)
+  if (!Number.isFinite(date.getTime())) return 'Not available'
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: calendar ? 'UTC' : APP_TIMEZONE,
+  }).format(date)
+}
+
+export function formatEmailDob(value: string): string {
+  const normalized = formatDobISO(value)
+  return normalized ? formatEmailDate(normalized) : 'Not available'
+}
 
 /**
  * Format date for display in emails

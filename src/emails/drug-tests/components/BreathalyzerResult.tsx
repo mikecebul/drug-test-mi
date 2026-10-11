@@ -1,60 +1,14 @@
-import { Section, Text } from '@react-email/components'
 import * as React from 'react'
-import { contentSection } from '../utils/styles'
+import { ResultRow } from './ResultRow'
 
-interface BreathalyzerResultProps {
-  bac?: number | null
-  result?: string | null
-}
-
-/**
- * BreathalyzerResult displays BAC (Blood Alcohol Content) level with pass/fail indicator
- */
-export function BreathalyzerResult({ bac, result }: BreathalyzerResultProps) {
-  if (bac === null || bac === undefined) {
-    return null
-  }
-
-  const isPass = result === 'negative'
-  const backgroundColor = isPass ? '#d1fae5' : '#fee2e2'
-  const borderColor = isPass ? '#10b981' : '#ef4444'
-  const textColor = isPass ? '#065f46' : '#991b1b'
-
+export function BreathalyzerResult({ bac }: { bac?: number | null }) {
+  if (bac === null || bac === undefined || !Number.isFinite(bac)) return null
   return (
-    <Section
-      style={{
-        ...contentSection,
-        backgroundColor,
-        border: `2px solid ${borderColor}`,
-      }}
-    >
-      <Text
-        style={{
-          fontSize: '14px',
-          fontWeight: 700,
-          color: '#1f2937',
-          margin: '0 0 8px 0',
-          textTransform: 'uppercase',
-        }}
-      >
-        Breathalyzer Result
-      </Text>
-
-      <Text
-        style={{
-          fontSize: '32px',
-          fontWeight: 700,
-          color: textColor,
-          margin: '0 0 8px 0',
-        }}
-      >
-        {bac.toFixed(3)} BAC
-      </Text>
-    </Section>
+    <ResultRow
+      name="Breathalyzer"
+      detail={`${bac.toFixed(3)} BAC`}
+      status={bac > 0 ? 'Positive' : 'Negative'}
+      tone={bac > 0 ? 'positive' : 'negative'}
+    />
   )
 }
-
-BreathalyzerResult.PreviewProps = {
-  bac: 0.0,
-  result: 'negative',
-} as BreathalyzerResultProps

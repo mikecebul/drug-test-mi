@@ -8,6 +8,7 @@ export type CollectedEmailData = {
   breathalyzerResult: number | null
   clientHeadshotDataUri?: string | null
   clientDob?: string | null
+  reportFilename?: string | null
 }
 
 export type InconclusiveEmailData = CollectedEmailData & {
