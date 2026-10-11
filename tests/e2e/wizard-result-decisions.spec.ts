@@ -9,6 +9,9 @@ import {
   clickNext,
   expectWizardStep,
   extractTestIdFromSuccess,
+  expectLabReportSavedAndReset,
+  editScreeningReport,
+  applyScreeningReportEdits,
   goToInstantResults,
   goToLabScreenData,
   selectWorkflow,
@@ -31,19 +34,26 @@ for (const workflow of ['instant', 'lab'] as const) {
       if (workflow === 'instant') {
         await goToInstantResults(page, env.pdfInstantPath, client.fullName)
         await page.getByRole('button', { name: /Edit test details/i }).click()
+        await page.getByRole('checkbox', { name: /^Fentanyl\b/i }).check()
       } else {
         await goToLabScreenData(page, env.pdfLabScreenPath, fixtures.tests.labScreenCollectedTestId)
+        const editor = await editScreeningReport(page)
+        await editor.getByRole('checkbox', { name: /^Fentanyl\b/i }).check()
+        await applyScreeningReportEdits(page)
       }
-
-      await page.getByRole('checkbox', { name: /^Fentanyl\b/i }).check()
       await selectResultDecision(page, decision)
       await clickNext(page)
       await expectWizardStep(page, workflow === 'instant' ? 'reviewEmails' : 'review')
       const started = new Date()
       await page.getByTestId('wizard-next-button').click()
-      const testId = await extractTestIdFromSuccess(page)
-      if (workflow === 'instant') fixtures.created.drugTestIds.push(testId)
-      else expect(testId).toBe(fixtures.tests.labScreenCollectedTestId)
+      let testId: string
+      if (workflow === 'instant') {
+        testId = await extractTestIdFromSuccess(page)
+        fixtures.created.drugTestIds.push(testId)
+      } else {
+        await expectLabReportSavedAndReset(page)
+        testId = fixtures.tests.labScreenCollectedTestId
+      }
 
       const record = await assertNotificationSent({ testId, stage: 'screened' })
       expect(record.relatedClient).toBe(client.id)
