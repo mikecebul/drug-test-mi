@@ -4,6 +4,7 @@ import type { Payload, Where } from 'payload'
 import type { DrugTest } from '@/payload-types'
 import { createElement } from 'react'
 import { render } from '@react-email/components'
+import { ConfirmationPaymentEmail } from '@/emails/payments/ConfirmationPaymentEmail'
 import { baseUrl } from '@/utilities/baseUrl'
 import { readRelationshipId } from '@/collections/Payments/services/applyPayment'
 import { resolveClientReceiptEmail } from '@/collections/Payments/services/clientReceipt'
@@ -187,24 +188,18 @@ export async function sendConfirmationPaymentLink(payload: Payload, testId: stri
   }
   if (payment.paymentLinkEmailSentAt && !resend) return { sent: false, checkoutUrl: session.url }
   if (!session.url) throw new Error('Stripe did not return a payment link.')
-  const html = await render(
-    createElement(
-      'div',
-      null,
-      createElement('p', null, `Hello ${client.firstName},`),
-      createElement(
-        'p',
-        null,
-        `Pay $${amount.toFixed(2)} for the requested confirmation testing. Staff will request it from the lab after payment clears.`,
-      ),
-      createElement(
-        'p',
-        null,
-        `The laboratory hold ends ${new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: 'America/Detroit' }).format(new Date(test.confirmationHoldUntil!))}.`,
-      ),
-      createElement('a', { href: session.url }, 'Pay confirmation fee securely'),
-    ),
-  )
+  const emailTemplate = createElement(ConfirmationPaymentEmail, {
+    clientName: [client.firstName, client.middleInitial, client.lastName].filter(Boolean).join(' '),
+    amountDue: amount,
+    checkoutUrl: session.url,
+    testType: test.testType,
+    collectionDate: test.collectionDate,
+    substances: test.confirmationSubstances || [],
+    holdUntil: test.confirmationHoldUntil,
+    linkExpiresAt: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+  })
+  const html = await render(emailTemplate)
+  const text = await render(emailTemplate, { plainText: true })
   const recipients = resolveOutboundNotificationRecipients([email])
   const claimAt = new Date().toISOString()
   const claim: Where[] = [
@@ -231,6 +226,7 @@ export async function sendConfirmationPaymentLink(payload: Payload, testId: stri
       to: recipients.recipients,
       subject: prefixNonLiveEmailSubject('Confirmation testing payment link'),
       html,
+      text,
     })
   } catch (error) {
     await payload.db.updateOne({

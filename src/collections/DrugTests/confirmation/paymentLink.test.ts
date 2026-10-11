@@ -9,6 +9,9 @@ function setup() {
   const testRecord = {
     id: 'test',
     relatedClient: 'client',
+    testType: '11-panel-lab',
+    collectionDate: '2026-10-09T14:30:00Z',
+    confirmationSubstances: ['amphetamines'],
     confirmationRequestKey: 'request',
     confirmationDecision: 'request-confirmation',
     confirmationHoldUntil: new Date(Date.now() + 10 * 86400000).toISOString(),
@@ -44,7 +47,12 @@ function setup() {
     },
     sendEmail: vi.fn().mockResolvedValue(undefined),
   }
-  const session = { id: 'cs', url: 'https://checkout.stripe.com/example', status: 'open' }
+  const session = {
+    id: 'cs',
+    url: 'https://checkout.stripe.com/example',
+    status: 'open',
+    expires_at: Math.floor(Date.now() / 1000) + 86400,
+  }
   const stripe = {
     checkout: {
       sessions: {
@@ -87,10 +95,17 @@ describe('confirmation payment emails', () => {
       { idempotencyKey: 'confirmation-checkout-pay' },
     )
     expect(payload.sendEmail).toHaveBeenCalledTimes(1)
-    const email = payload.sendEmail.mock.calls[0][0] as { html: string; to: string[] }
+    const email = payload.sendEmail.mock.calls[0][0] as { html: string; text: string; to: string[] }
     expect(email.to).toEqual(['client@example.com'])
     expect(email.html).toContain('&lt;Alex&gt;')
     expect(email.html).not.toContain('$80.00')
+    expect(email.html).toContain('Confirmation balance due')
+    expect(email.html).toContain('11-Panel Lab')
+    expect(email.html).toContain('Amphetamines')
+    expect(email.html).toContain('Link expires')
+    expect(email.text).toContain('$45.00')
+    expect(email.text).toContain('https://checkout.stripe.com/example')
+    expect(email.text).not.toContain('$80.00')
   })
   test('referral billing cannot send a client link or create Stripe checkout', async () => {
     const { run, stripe, testRecord } = setup()
