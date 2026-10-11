@@ -406,7 +406,7 @@ export async function getEmailPreview(data: {
     } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
-    const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
+    const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload, { preview: true })
 
     // Compute test result preview (for email content)
     const previewResult = await computeTestResultPreview(
@@ -536,7 +536,7 @@ export async function getCollectionEmailPreview(data: {
     } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
-    const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
+    const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload, { preview: true })
 
     // Build collection email HTML using existing template builder
     const clientName = `${client.firstName} ${client.lastName}`
@@ -657,7 +657,7 @@ export async function getConfirmationEmailPreview(data: {
     } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
-    const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
+    const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload, { preview: true })
 
     // Use adjusted substances if provided (confirmed negatives removed),
     // otherwise fall back to original detected substances

@@ -1,38 +1,20 @@
 import { Column, Row, Section, Text } from '@react-email/components'
 import * as React from 'react'
 import { colors, text } from '../utils/theme'
+import { EmailIcon } from './EmailIcon'
 
 export type ResultTone = 'positive' | 'negative' | 'warning' | 'neutral'
 
 export function StatusIcon({ tone }: { tone: ResultTone }) {
-  const color =
+  const name =
     tone === 'positive'
-      ? colors.red
+      ? 'circle-alert-red'
       : tone === 'negative'
-        ? colors.green
+        ? 'circle-check-green'
         : tone === 'warning'
-          ? colors.amber
-          : colors.muted
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        display: 'inline-block',
-        width: '20px',
-        height: '20px',
-        lineHeight: '20px',
-        borderRadius: '50%',
-        backgroundColor: color,
-        color: '#ffffff',
-        textAlign: 'center',
-        fontSize: '16px',
-        fontWeight: 700,
-        marginRight: '8px',
-      }}
-    >
-      {tone === 'negative' ? '✓' : tone === 'positive' ? '!' : '–'}
-    </span>
-  )
+          ? 'circle-alert-amber'
+          : 'circle-minus-gray'
+  return <EmailIcon name={name} inline />
 }
 
 export function ResultRow({

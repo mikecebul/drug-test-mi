@@ -16,6 +16,7 @@ import path from 'path'
 export async function fetchClientHeadshot(
   clientId: string,
   payload: Payload,
+  options: { preview?: boolean } = {},
 ): Promise<string | null> {
   try {
     payload.logger.info(`[HEADSHOT] Fetching headshot for client ${clientId}`)
@@ -38,18 +39,18 @@ export async function fetchClientHeadshot(
     // Get the headshot media object
     const headshot = typeof client.headshot === 'string' ? null : client.headshot
 
-    payload.logger.info(`[HEADSHOT] Headshot object: ${JSON.stringify({
-      id: headshot?.id,
-      filename: headshot?.filename,
-      mimeType: headshot?.mimeType,
-      hasSizes: !!headshot?.sizes,
-      hasThumbnail: !!headshot?.sizes?.thumbnail
-    })}`)
+    payload.logger.info(
+      `[HEADSHOT] Headshot object: ${JSON.stringify({
+        id: headshot?.id,
+        filename: headshot?.filename,
+        mimeType: headshot?.mimeType,
+        hasSizes: !!headshot?.sizes,
+        hasThumbnail: !!headshot?.sizes?.thumbnail,
+      })}`,
+    )
 
     if (!headshot || !headshot.url || !headshot.mimeType) {
-      payload.logger.warn(
-        `[HEADSHOT] Client ${clientId} has a headshot reference but media object is incomplete`,
-      )
+      payload.logger.warn(`[HEADSHOT] Client ${clientId} has a headshot reference but media object is incomplete`)
       return null
     }
 
@@ -63,13 +64,17 @@ export async function fetchClientHeadshot(
       return null
     }
 
+    // Only browser previews may use the existing authenticated media endpoint.
+    // Sent emails continue through the expiring S3 path (or omit local images).
+    if (options.preview && process.env.NODE_ENV === 'development') {
+      return `/api/private-media/file/${encodeURIComponent(filenameToFetch)}`
+    }
+
     const isS3Enabled = Boolean(process.env.NEXT_PUBLIC_S3_HOSTNAME)
 
     if (isS3Enabled) {
       // Production: Generate presigned URL from S3
-      payload.logger.info(
-        `Generating presigned URL for client headshot thumbnail: ${filenameToFetch}`,
-      )
+      payload.logger.info(`Generating presigned URL for client headshot thumbnail: ${filenameToFetch}`)
 
       const s3Client = new S3Client({
         credentials: {

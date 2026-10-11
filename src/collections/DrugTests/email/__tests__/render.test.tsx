@@ -128,6 +128,23 @@ describe('shared drug test emails', () => {
     expect(body).toContain('Request by Nov 9, 2026')
   })
 
+  test('uses equally sized rasterized Lucide icons instead of glyphs, CSS drawings, or inline SVG', async () => {
+    const email = await buildScreenedEmail(screen)
+    for (const name of ['circle-alert-red', 'circle-check-green', 'clock-amber', 'file-text-gray']) {
+      expect(email.client.html).toContain(`/email-icons/${name}.png`)
+    }
+    const icons = email.client.html.match(/<img[^>]+email-icons[^>]+>/g) || []
+    expect(icons).toHaveLength(4)
+    for (const icon of icons) {
+      expect(icon).toContain('width="24"')
+      expect(icon).toContain('height="24"')
+      expect(icon).toContain('alt=""')
+    }
+    expect(email.client.html).not.toContain('<svg')
+    expect(content(email.client.html)).not.toContain('◷')
+    expect(content(email.client.html)).not.toContain('✓')
+  })
+
   test('instant confirmation uses its own price and specimen availability', async () => {
     const email = await buildScreenedEmail({ ...screen, testType: '17-panel-instant', confirmationHoldUntil: null })
     const body = content(email.client.html)
