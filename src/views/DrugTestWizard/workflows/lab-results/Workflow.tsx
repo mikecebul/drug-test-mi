@@ -655,7 +655,7 @@ export function LabResultsWorkflow({
       <DrawerContent
         // Keep TanStack correction fields registered when the drawer is closed.
         keepMounted
-        className="[--drawer-content-width:min(100vw,32rem)] sm:[--drawer-content-width:32rem]"
+        className="data-[swipe-axis=x]:w-full data-[swipe-axis=x]:md:w-[min(90vw,48rem)]"
       >
         <DrawerHeader>
           <DrawerTitle>Edit screening results</DrawerTitle>
@@ -663,7 +663,12 @@ export function LabResultsWorkflow({
         </DrawerHeader>
         <FieldGroup className="min-h-0 flex-1 overflow-y-auto p-4">
           <form.AppField name="results.screening.detectedSubstances">
-            {(field) => <field.SubstanceChecklistField testType={test?.testType ?? '11-panel-lab'} />}
+            {(field) => (
+              <field.SubstanceChecklistField
+                testType={test?.testType ?? '11-panel-lab'}
+                optionsClassName="grid-cols-1 sm:grid-cols-2"
+              />
+            )}
           </form.AppField>
           <form.Field name="results.screening.isDilute">
             {(field) => (

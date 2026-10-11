@@ -2,7 +2,6 @@
 
 import React from 'react'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Mail, X } from 'lucide-react'
 
@@ -12,17 +11,9 @@ type EmailPreviewModalProps = {
   emailHtml: string
   subject: string
   recipients: string[]
-  emailType: 'client' | 'referral'
 }
 
-export function EmailPreviewModal({
-  isOpen,
-  onClose,
-  emailHtml,
-  subject,
-  recipients,
-  emailType,
-}: EmailPreviewModalProps) {
+export function EmailPreviewModal({ isOpen, onClose, emailHtml, subject, recipients }: EmailPreviewModalProps) {
   return (
     <Drawer swipeDirection="right" open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent className="bg-background max-h-dvh overflow-hidden shadow-2xl data-[swipe-direction=right]:w-[min(896px,calc(100vw-16px))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
@@ -38,12 +29,6 @@ export function EmailPreviewModal({
           </div>
           <DrawerDescription render={<div />} className="space-y-2">
             <div>
-              <div className="flex items-center gap-2">
-                <Badge variant={emailType === 'client' ? 'default' : 'secondary'}>
-                  {emailType === 'client' ? 'Client Email' : 'Referral Email'}
-                </Badge>
-                <Badge variant="outline">screened</Badge>
-              </div>
               <div>
                 <strong>Subject:</strong> {subject}
               </div>
