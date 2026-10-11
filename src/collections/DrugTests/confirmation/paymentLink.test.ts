@@ -34,16 +34,19 @@ function setup() {
     }),
     db: {
       findOne: vi.fn(async () => ({ ...testRecord, updatedAt: new Date().toISOString() })),
-      updateOne: vi.fn(async ({ collection, data }: { collection: string; data: Record<string, unknown> }) => {
-        if (collection === 'drug-tests') return testRecord
-        if (payment && data.paymentLinkEmailSendingAt === null) {
+      updateOne: vi.fn(
+        async ({ collection, data, where }: { collection: string; data: Record<string, unknown>; where: unknown }) => {
+          if (collection === 'drug-tests') return testRecord
+          if (payment && data.paymentLinkEmailSendingAt === null) {
+            payment = { ...payment, ...data }
+            return payment
+          }
+          if (!payment || payment.paymentLinkEmailSendingAt) return null
+          if (payment.paymentLinkEmailSentAt && JSON.stringify(where).includes('"paymentLinkEmailSentAt"')) return null
           payment = { ...payment, ...data }
           return payment
-        }
-        if (!payment || payment.paymentLinkEmailSentAt || payment.paymentLinkEmailSendingAt) return null
-        payment = { ...payment, ...data }
-        return payment
-      }),
+        },
+      ),
     },
     sendEmail: vi.fn().mockResolvedValue(undefined),
   }
@@ -66,7 +69,8 @@ function setup() {
     payload,
     stripe,
     testRecord,
-    run: () => sendConfirmationPaymentLink(payload as unknown as Payload, 'test', stripe as unknown as Stripe),
+    run: (resend = false) =>
+      sendConfirmationPaymentLink(payload as unknown as Payload, 'test', stripe as unknown as Stripe, resend),
   }
 }
 beforeEach(() => {
@@ -112,6 +116,17 @@ describe('confirmation payment emails', () => {
     testRecord.billingResponsibility.payer = 'referral'
     await expect(run()).rejects.toThrow()
     expect(stripe.checkout.sessions.create).not.toHaveBeenCalled()
+  })
+  test('an explicit resend emails the existing checkout without creating another fee or session', async () => {
+    const { payload, stripe, run } = setup()
+    expect(await run()).toMatchObject({ sent: true })
+    expect(await run(true)).toMatchObject({ sent: true })
+    expect(payload.create).toHaveBeenCalledTimes(1)
+    expect(stripe.checkout.sessions.create).toHaveBeenCalledTimes(1)
+    expect(stripe.checkout.sessions.retrieve).toHaveBeenCalledTimes(1)
+    expect(payload.sendEmail).toHaveBeenCalledTimes(2)
+    const emails = payload.sendEmail.mock.calls.map(([email]) => email as { html: string })
+    expect(emails[0].html).toBe(emails[1].html)
   })
   test('email failure leaves a reusable link for retry and does not duplicate the payment', async () => {
     const { run, payload, stripe } = setup()

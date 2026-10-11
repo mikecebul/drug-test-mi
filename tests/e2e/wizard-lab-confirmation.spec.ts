@@ -9,7 +9,7 @@ import {
   confirmLabIdentity,
   clickBack,
   clickNext,
-  extractTestIdFromSuccess,
+  expectLabReportSavedAndReset,
   openWizard,
   selectWorkflow,
   expectWizardStep,
@@ -96,8 +96,8 @@ test.describe('Wizard Lab Confirmation Workflow', () => {
       const testStart = new Date()
       await page.getByTestId('wizard-next-button').click()
 
-      const testId = await extractTestIdFromSuccess(page)
-      expect(testId).toBe(fixtures.tests.labConfirmPendingTestId)
+      await expectLabReportSavedAndReset(page)
+      const testId = fixtures.tests.labConfirmPendingTestId
 
       const testRecord = await assertNotificationSent({ testId, stage: 'complete' })
 

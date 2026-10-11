@@ -12,7 +12,7 @@ import {
   clickNext,
   expectValidationError,
   expectWizardStep,
-  extractTestIdFromSuccess,
+  expectLabReportSavedAndReset,
   goToLabScreenData,
   selectWorkflow,
   selectResultDecision,
@@ -129,8 +129,8 @@ test.describe('Wizard Lab Screen Workflow', () => {
       await expectWizardStep(page, 'review')
       const started = new Date()
       await page.getByTestId('wizard-next-button').click()
-      const testId = await extractTestIdFromSuccess(page)
-      expect(testId).toBe(fixtures.tests.labScreenCollectedTestId)
+      await expectLabReportSavedAndReset(page)
+      const testId = fixtures.tests.labScreenCollectedTestId
       const record = await assertNotificationSent({ testId, stage: 'screened' })
       expect(record.screeningStatus).toBe('complete')
       expect(record.detectedSubstances).toEqual(['buprenorphine'])

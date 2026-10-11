@@ -8,7 +8,7 @@ import {
   clickBack,
   clickNext,
   expectWizardStep,
-  extractTestIdFromSuccess,
+  expectLabReportSavedAndReset,
   selectWorkflow,
   selectLabCollection,
 } from './helpers/wizard'
@@ -105,7 +105,7 @@ async function finish(page: Page) {
   await clickNext(page)
   await expectWizardStep(page, 'review')
   await page.getByTestId('wizard-next-button').click()
-  return extractTestIdFromSuccess(page)
+  await expectLabReportSavedAndReset(page)
 }
 
 test(
@@ -138,7 +138,8 @@ test(
     await clickBack(page)
     await expectWizardStep(page, 'results')
     await expect(page.getByTestId('confirmation-row-1')).toContainText('Negative')
-    const testId = await finish(page)
+    await finish(page)
+    const testId = fixtures.tests.labConfirmPendingTestId
     const record = await assertNotificationSent({ testId, stage: 'complete' })
     expect(record.confirmationSubstances).toEqual(['fentanyl', 'thc'])
     expect(
@@ -187,8 +188,8 @@ test(
     await clickNext(page)
     await expectWizardStep(page, 'results')
     await choose(page, 0, 'Confirmed Negative')
-    const testId = await finish(page)
-    expect(testId).toBe(fixtures.tests.labScreenCollectedTestId)
+    await finish(page)
+    const testId = fixtures.tests.labScreenCollectedTestId
     const record = await assertNotificationSent({ testId, stage: 'screened' })
     expect(record.testDocument).toBeTruthy()
     expect(record.confirmationResults).toEqual([

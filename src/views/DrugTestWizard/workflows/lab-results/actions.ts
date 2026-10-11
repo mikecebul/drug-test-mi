@@ -132,6 +132,7 @@ export async function prepareLabResultDecision(values: LabResultsValues, sendPay
     })
     const { confirmationPaymentRequired, confirmationPaid, referralPaysConfirmation } =
       await import('@/collections/DrugTests/confirmation/policy')
+    let paymentEmailSent = false
     if (
       sendPaymentEmail &&
       values.results.emailConfirmationPaymentLink &&
@@ -140,10 +141,14 @@ export async function prepareLabResultDecision(values: LabResultsValues, sendPay
       !referralPaysConfirmation(prepared)
     ) {
       const { sendConfirmationPaymentLink } = await import('@/collections/DrugTests/confirmation/paymentLink')
-      await sendConfirmationPaymentLink(payload, test.id)
+      // An explicit request in a new report draft can resend a previously emailed
+      // checkout. The workflow suppresses repeated Back/Next sends for this draft.
+      const email = await sendConfirmationPaymentLink(payload, test.id, undefined, true)
+      paymentEmailSent = email.sent
     }
     return {
       success: true,
+      paymentEmailSent,
       prepared: {
         testId: test.id,
         screenedAt: prepared.screenedAt,

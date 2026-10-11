@@ -23,7 +23,6 @@ import { focusFirstInvalidFieldWithToast, useStepFocus } from '@/lib/form-scroll
 import { CollectionResultStrip } from '../../components/CollectionResultStrip'
 import { ReportLink } from '../../components/ReportLink'
 import { IdentityNotice } from '../../components/IdentityNotice'
-import { TestCompleted } from '../../components/TestCompleted'
 import { useWizardSession } from '../../components/main-wizard/WizardSessionGuard'
 import { FieldGroupHeader } from '../components/FieldGroupHeader'
 import { ClientDetailsCard, type ClientDetailsValue } from '../components/client/ClientDetailsCard'
@@ -103,9 +102,8 @@ export function LabResultsWorkflow({
     parseAsStringLiteral(labSteps).withDefault('upload').withOptions({ clearOnDefault: false }),
   )
   const [showAllCollections, setShowAllCollections] = useState(false)
-  const [completed, setCompleted] = useState<string | null>(null)
-  const [deliveryError, setDeliveryError] = useState<string | null>(null)
   const [showEmailPreview, setShowEmailPreview] = useState(false)
+  const [paymentEmailSentFor, setPaymentEmailSentFor] = useState<string | null>(null)
   const [creditFailure, setCreditFailure] = useState<{ key: string; message: string } | null>(null)
   const [preparedDecision, setPreparedDecision] = useState<{
     testId: string
@@ -144,10 +142,15 @@ export function LabResultsWorkflow({
         error: 'The report could not be saved. Please try again.',
       }))
       if (result.testId) {
-        setCompleted(result.testId)
-        setDeliveryError(result.success ? null : (result.error ?? null))
-        queryClient.invalidateQueries({ queryKey: ['lab-entry-collections'] })
-        queryClient.invalidateQueries({ queryKey: ['pending-tests'] })
+        void queryClient.invalidateQueries({ queryKey: ['lab-entry-collections'] })
+        void queryClient.invalidateQueries({ queryKey: ['pending-tests'] })
+        if (result.success) toast.success('Lab report saved')
+        else
+          toast.warning('Lab report saved; notification needs attention', {
+            description: result.error || 'Some emails could not be sent. Check delivery in the test tracker.',
+            duration: 10000,
+          })
+        resetWorkflow()
       } else toast.error(result.error || 'The report could not be saved')
     },
   })
@@ -243,6 +246,21 @@ export function LabResultsWorkflow({
   const lastType = useRef(values.reportType)
   const seeded = useRef<string | null>(null)
   const lastRecipients = useRef<string | null>(null)
+  const resetWorkflow = useCallback(() => {
+    form.reset()
+    seeded.current = null
+    lastRecipients.current = null
+    setPaymentEmailSentFor(null)
+    lastFile.current = initialFormOpts.defaultValues.upload.file
+    lastType.current = initialFormOpts.defaultValues.reportType
+    reportEditorSnapshot.current = null
+    setReportEditorOpen(false)
+    setShowAllCollections(false)
+    setShowEmailPreview(false)
+    setPreparedDecision(null)
+    setCreditFailure(null)
+    void setStep('upload', { history: 'replace' })
+  }, [form, initialFormOpts, setStep])
 
   useEffect(() => {
     if (workflow === 'lab-results') return
@@ -260,22 +278,16 @@ export function LabResultsWorkflow({
       form.setFieldValue('emails', defaults.emails)
       seeded.current = null
       lastRecipients.current = null
+      setPaymentEmailSentFor(null)
       setShowAllCollections(false)
     }
     lastFile.current = values.upload.file
     lastType.current = values.reportType
   }, [values.upload.file, values.reportType, form])
   useEffect(() => {
-    const reset = () => {
-      form.reset()
-      seeded.current = null
-      lastRecipients.current = null
-      setShowAllCollections(false)
-      void setStep('upload')
-    }
-    window.addEventListener('drug-test-wizard-reset', reset)
-    return () => window.removeEventListener('drug-test-wizard-reset', reset)
-  }, [form, setStep])
+    window.addEventListener('drug-test-wizard-reset', resetWorkflow)
+    return () => window.removeEventListener('drug-test-wizard-reset', resetWorkflow)
+  }, [resetWorkflow])
   useEffect(() => {
     if (step !== 'upload' && !values.upload.file) void setStep('upload', { history: 'replace' })
   }, [step, values.upload.file, setStep])
@@ -561,17 +573,6 @@ export function LabResultsWorkflow({
       />
     )
 
-  if (completed)
-    return (
-      <TestCompleted
-        testId={completed}
-        client={client ?? undefined}
-        deliveryError={deliveryError}
-        onBack={onBack}
-        title="Lab report saved"
-        progress={<LabProgress step="review" completed />}
-      />
-    )
   const changeReport = () => {
     form.setFieldValue('upload.file', null as unknown as File)
     void setStep('upload')
@@ -711,18 +712,23 @@ export function LabResultsWorkflow({
         }
         if (step === 'results' && mode === 'screening') {
           if (!(await requireActiveSession())) return
-          const prepared = await prepareLabResultDecision(form.state.values)
+          const paymentEmailKey = JSON.stringify([
+            form.state.values.matchCollection.testId,
+            [...(form.state.values.results.screening.confirmationSubstances ?? [])].sort(),
+          ])
+          const prepared = await prepareLabResultDecision(form.state.values, paymentEmailSentFor !== paymentEmailKey)
           if (!prepared.success) {
             if (form.state.values.results.useConfirmationCredit) {
               setCreditFailure({ key: creditErrorKey, message: prepared.error || 'Account credit could not be used.' })
-              requestAnimationFrame(() =>
-                document.getElementById('use-confirmation-credit')?.focus(),
-              )
+              requestAnimationFrame(() => document.getElementById('use-confirmation-credit')?.focus())
             }
             toast.error(prepared.error)
             return
           }
           setCreditFailure(null)
+          if (prepared.paymentEmailSent) setPaymentEmailSentFor(paymentEmailKey)
+          else if (form.state.values.results.screening.confirmationDecision !== 'request-confirmation')
+            setPaymentEmailSentFor(null)
           if (prepared.prepared) {
             setPreparedDecision(prepared.prepared)
             if (prepared.prepared.creditRemaining !== undefined)

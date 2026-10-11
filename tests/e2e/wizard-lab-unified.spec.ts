@@ -7,7 +7,7 @@ import {
   clickNext,
   expectWizardStep,
   confirmLabIdentity,
-  extractTestIdFromSuccess,
+  expectLabReportSavedAndReset,
   selectLabCollection,
 } from './helpers/wizard'
 import { getPayloadClient } from './helpers/payload'
@@ -82,7 +82,7 @@ for (const kind of ['screening', 'confirmation', 'combined-collected', 'combined
       if (kind === 'screening')
         await page.screenshot({ path: test.info().outputPath('lab-review.png'), fullPage: true })
       await page.getByTestId('wizard-next-button').click()
-      expect(await extractTestIdFromSuccess(page)).toBe(testId)
+      await expectLabReportSavedAndReset(page)
       const record = await assertNotificationSent({ testId, stage: isConfirmation ? 'complete' : 'screened' })
       expect(record.medicationsArrayAtTestTime).toEqual(before.medicationsArrayAtTestTime)
       if (isConfirmation) {

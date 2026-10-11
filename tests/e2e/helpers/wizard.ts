@@ -292,6 +292,20 @@ export async function extractTestIdFromSuccess(page: Page): Promise<string> {
   return id
 }
 
+export async function expectLabReportSavedAndReset(page: Page) {
+  await expect(
+    page.locator('[data-sonner-toast][data-type="success"]').filter({ hasText: 'Lab report saved' }),
+  ).toBeVisible({ timeout: 30_000 })
+  await expectWizardStep(page, 'upload')
+  await expect.poll(() => new URL(page.url()).searchParams.get('workflow')).toBe('lab-results')
+  await expect(page.getByRole('heading', { name: 'Upload lab report', exact: true })).toBeVisible()
+  await expect(page.locator('[data-slot="file-upload"] input[type="file"]').first()).toHaveValue('')
+  await expect(page.getByTestId('parsed-report')).toHaveCount(0)
+  await expect(page.getByTestId('lab-client-context')).toHaveCount(0)
+  await expect(page.getByTestId('wizard-view-drug-test-button')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Choose Another Workflow', exact: true })).toHaveCount(0)
+}
+
 export async function editScreeningReport(page: Page) {
   await page.getByTestId('edit-screening-report').click()
   const editor = page.getByRole('dialog', { name: 'Edit screening results' })

@@ -62,6 +62,8 @@ test('Next sends the selected email and succeeds while the confirmation fee is s
   expect(mocks.prepare).toHaveBeenCalledOnce()
   expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ creditPayment: 'none' }))
   expect(mocks.send).toHaveBeenCalledOnce()
+  expect(mocks.send).toHaveBeenCalledWith(expect.anything(), 'test', undefined, true)
+  expect(result.paymentEmailSent).toBe(true)
 })
 test('explicit account credit replaces the payment email even if a stale form still selects it', async () => {
   const data = values()

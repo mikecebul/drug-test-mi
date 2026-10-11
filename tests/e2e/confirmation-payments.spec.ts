@@ -15,7 +15,7 @@ import {
   goToLabScreenData,
   selectWorkflow,
   selectResultDecision,
-  extractTestIdFromSuccess,
+  expectLabReportSavedAndReset,
 } from './helpers/wizard'
 import { findMailpitMessages } from './helpers/mailpit'
 import { prepareConfirmation } from '../../src/collections/DrugTests/confirmation/prepare'
@@ -143,7 +143,7 @@ for (const useCredit of [false, true]) {
       await expectWizardStep(page, 'review')
     }
     await page.getByTestId('wizard-next-button').click()
-    expect(await extractTestIdFromSuccess(page)).toBe(testId)
+    await expectLabReportSavedAndReset(page)
     client = await payload.findByID({ collection: 'clients', id: clientId, depth: 0 })
     record = await payload.findByID({ collection: 'drug-tests', id: testId, depth: 0 })
     expect(client.creditBalance).toBe(useCredit ? 45 : 90)
