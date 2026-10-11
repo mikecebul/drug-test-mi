@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { parseAsString, useQueryState } from 'nuqs'
 
 import { AdminSessionExpiredError, refreshAdminSession } from '@/lib/auth/admin-session'
 
@@ -27,50 +28,50 @@ export function useWizardSession() {
 }
 
 export function WizardSessionGuard({ children }: { children: ReactNode }) {
+  const [currentStep] = useQueryState('step', parseAsString)
   const refreshPromiseRef = useRef<Promise<boolean> | null>(null)
   const [isChecking, setIsChecking] = useState(false)
+  const [ready, setReady] = useState(false)
 
-  const verifySession = useCallback(
-    (notifyOnError: boolean) => {
-      if (refreshPromiseRef.current) return refreshPromiseRef.current
+  const verifySession = useCallback((notifyOnError: boolean) => {
+    if (refreshPromiseRef.current) return refreshPromiseRef.current
 
-      setIsChecking(true)
-      const refreshPromise = refreshAdminSession()
-        .then(() => true)
-        .catch((error: unknown) => {
-          if (error instanceof AdminSessionExpiredError) {
-            window.location.assign(getLoginURL())
-          } else if (notifyOnError) {
-            toast.error(
-              error instanceof Error
-                ? error.message
-                : 'Unable to verify your session. Check the connection and try again.',
-              { id: 'wizard-session-verification' },
-            )
-          }
+    setIsChecking(true)
+    const refreshPromise = refreshAdminSession()
+      .then(() => true)
+      .catch((error: unknown) => {
+        if (error instanceof AdminSessionExpiredError) {
+          window.location.assign(getLoginURL())
+        } else if (notifyOnError) {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : 'Unable to verify your session. Check the connection and try again.',
+            { id: 'wizard-session-verification' },
+          )
+        }
 
-          return false
-        })
-        .finally(() => {
-          if (refreshPromiseRef.current === refreshPromise) {
-            refreshPromiseRef.current = null
-          }
-          setIsChecking(false)
-        })
+        return false
+      })
+      .finally(() => {
+        if (refreshPromiseRef.current === refreshPromise) {
+          refreshPromiseRef.current = null
+        }
+        setIsChecking(false)
+      })
 
-      refreshPromiseRef.current = refreshPromise
-      return refreshPromise
-    },
-    [],
-  )
+    refreshPromiseRef.current = refreshPromise
+    return refreshPromise
+  }, [])
 
   const requireActiveSession = useCallback(() => verifySession(true), [verifySession])
   const contextValue = useMemo(
-    () => ({ isCheckingSession: isChecking, requireActiveSession }),
-    [isChecking, requireActiveSession],
+    () => ({ isCheckingSession: isChecking || !ready, requireActiveSession }),
+    [isChecking, ready, requireActiveSession],
   )
 
   useEffect(() => {
+    setReady(true)
     const verifyAfterResume = () => {
       if (document.visibilityState === 'visible') {
         void verifySession(false)
@@ -90,7 +91,9 @@ export function WizardSessionGuard({ children }: { children: ReactNode }) {
 
   return (
     <WizardSessionContext.Provider value={contextValue}>
-      <div aria-busy={isChecking}>{children}</div>
+      <div aria-busy={isChecking || !ready} data-wizard-ready={ready} data-wizard-step={currentStep ?? undefined}>
+        {children}
+      </div>
     </WizardSessionContext.Provider>
   )
 }

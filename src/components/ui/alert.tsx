@@ -9,14 +9,10 @@ const alertVariants = cva(
     variants: {
       variant: {
         default: 'bg-background text-foreground',
-        destructive:
-          'border-destructive-border bg-destructive-muted text-destructive-foreground [&>svg]:text-current',
-        success:
-          'border-success-border bg-success-muted text-success-foreground [&>svg]:text-current',
-        warning:
-          'border-warning-border bg-warning-muted text-warning-foreground [&>svg]:text-current',
-        info:
-          'border-info-border bg-info-muted text-info-foreground [&>svg]:text-current',
+        destructive: 'border-destructive-border bg-destructive-muted text-destructive-foreground [&>svg]:text-current',
+        success: 'border-success-border bg-success-muted text-success-foreground [&>svg]:text-current',
+        warning: 'border-warning-border bg-warning-muted text-warning-foreground [&>svg]:text-current',
+        info: 'border-info-border bg-info-muted text-info-foreground [&>svg]:text-current',
       },
     },
     defaultVariants: {
@@ -31,7 +27,7 @@ function AlertTitle({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="alert-title"
-      className={cn('col-start-2 line-clamp-1 text-lg font-medium tracking-tight', className)}
+      className={cn('col-start-2 min-w-0 text-lg font-medium tracking-tight wrap-anywhere', className)}
       {...props}
     />
   )
@@ -41,7 +37,7 @@ function AlertDescription({ className, ...props }: React.ComponentProps<'div'>) 
     <div
       data-slot="alert-description"
       className={cn(
-        'text-muted-foreground col-start-2 grid justify-items-start gap-1 text-base [&_p]:leading-relaxed [&_[data-slot=field]]:rounded-md [&_[data-slot=field]]:border [&_[data-slot=field]]:border-border [&_[data-slot=field]]:bg-background/80 [&_[data-slot=field]]:p-3 [&_[data-slot=field]]:text-foreground [&_[data-slot=checkbox]]:border-foreground/50 [&_[data-slot=checkbox]:not([data-checked])]:bg-background',
+        'text-muted-foreground [&_[data-slot=field]]:border-border [&_[data-slot=field]]:bg-background/80 [&_[data-slot=field]]:text-foreground [&_[data-slot=checkbox]]:border-foreground/50 [&_[data-slot=checkbox]:not([data-checked])]:bg-background col-start-2 grid min-w-0 justify-items-start gap-1 text-base wrap-anywhere [&_[data-slot=field]]:rounded-md [&_[data-slot=field]]:border [&_[data-slot=field]]:p-3 [&_p]:leading-relaxed',
         className,
       )}
       {...props}

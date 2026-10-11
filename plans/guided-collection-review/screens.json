@@ -1,0 +1,135 @@
+[
+  {
+    "id": "18-staff-sidebar-final",
+    "title": "Today's work & standard staff sidebar",
+    "group": "Shared",
+    "note": "Appointments only, with collection actions. No Follow-up section or duplicate page shortcuts. Native Payload groups show Clients, Courts and Employers; supported extension links handle collection, booking, tracker and payment.",
+    "src": "images/18-staff-sidebar-final.png"
+  },
+  {
+    "id": "02-review-client-final",
+    "title": "Review client & appointment",
+    "group": "Shared",
+    "note": "Keep the original simple review layout with a compact headshot/name/DOB row. Identity checks, headshot capture and occasional client/test/referral edits remain. No medication or payment recap here.",
+    "src": "images/02-review-client-final.png"
+  },
+  {
+    "id": "17-link-client-simple",
+    "title": "Choose, change or register client",
+    "group": "Shared",
+    "note": "Conditional detour only; this example changes an already linked client. An unlinked booking shows no assumed client header. Search candidates by headshot/name/DOB before linking; registration’s five existing internal steps remain unchanged.",
+    "src": "images/17-link-client-simple.png"
+  },
+  {
+    "id": "03-payment-owed-simple",
+    "title": "Payment — client owes",
+    "group": "Payment",
+    "note": "The original payment layout is retained. No payment entered yet; continuing with debt uses the existing acknowledgement. No medication/result panels on this step.",
+    "src": "images/03-payment-owed-simple.png"
+  },
+  {
+    "id": "04-payment-prepaid-simple",
+    "title": "Payment — prepaid",
+    "group": "Payment",
+    "note": "No payment needed, $0 remaining, Add account credit collapsed. Any older client debt must remain visible. Payment is not repeated on later steps.",
+    "src": "images/04-payment-prepaid-simple.png"
+  },
+  {
+    "id": "05-payment-referral-simple",
+    "title": "Payment — bill referral ON",
+    "group": "Payment",
+    "note": "Simple per-test switch: referral owes the test, client owes zero for this test. This is invoice responsibility, not a paid status; backend proposal 007 must precede implementation.",
+    "src": "images/05-payment-referral-simple.png"
+  },
+  {
+    "id": "06-payment-client-override-simple",
+    "title": "Payment — bill referral OFF",
+    "group": "Payment",
+    "note": "The client pays this exception. Preserve normal payment controls; exclude even an unpaid/partial exception from referral invoices.",
+    "src": "images/06-payment-client-override-simple.png"
+  },
+  {
+    "id": "07-generate-upload-report-simple",
+    "title": "Generate & upload report",
+    "group": "Instant",
+    "note": "Client header plus the two generate/upload tasks only. No medication content. Waiting for PDF appears once; returning from ToxAccess never proves generation.",
+    "src": "images/07-generate-upload-report-simple.png"
+  },
+  {
+    "id": "08-prepare-lab-simple",
+    "title": "Prepare lab collection",
+    "group": "Lab",
+    "note": "Client header, donor/test code and ToxAccess preparation. No medication panel, instant PDF requirement or inferred lab result.",
+    "src": "images/08-prepare-lab-simple.png"
+  },
+  {
+    "id": "10-review-extraction-simple",
+    "title": "Review report data",
+    "group": "Instant",
+    "note": "One PDF reference, match status and small result strip. Optional extraction details collapse; actual parse/name warnings and acknowledgements remain visible. Classification remains provisional until medication verification.",
+    "src": "images/10-review-extraction-simple.png"
+  },
+  {
+    "id": "11-medications-final",
+    "title": "Verify medications",
+    "group": "Shared",
+    "note": "One active medication list with configured expectations and add/edit/discontinue actions. No medication images, duplicate list or duplicated result summary.",
+    "src": "images/11-medications-final.png"
+  },
+  {
+    "id": "12-instant-details-simple",
+    "title": "Verify instant test — simple result & decision",
+    "group": "Instant",
+    "note": "One small labeled result strip and the existing short decision choices. Optional test editing is collapsed; required confirmation choices and errors stay accessible. This example has expected AMP and unexpected THC.",
+    "src": "images/12-instant-details-simple.png"
+  },
+  {
+    "id": "13-lab-details-simple",
+    "title": "Confirm lab collection",
+    "group": "Lab",
+    "note": "Brief collection summary, optional editing collapsed. Validation opens affected controls when needed. No lab screening result exists yet.",
+    "src": "images/13-lab-details-simple.png"
+  },
+  {
+    "id": "14-instant-email-review-simple",
+    "title": "Review instant result & recipients",
+    "group": "Instant",
+    "note": "Only client/result context repeats. No medication, payment or full details recap. Keep recipients, report attachment and preview. The initial unexpected-positive screen is distinct from the pending final result.",
+    "src": "images/14-instant-email-review-simple.png"
+  },
+  {
+    "id": "15-lab-notification-review-simple",
+    "title": "Review collection notification",
+    "group": "Lab",
+    "note": "Simple referral collection notification review. No repeated payment/medication details, client result email or result PDF attachment.",
+    "src": "images/15-lab-notification-review-simple.png"
+  },
+  {
+    "id": "16-complete-final",
+    "title": "Collection saved",
+    "group": "Shared",
+    "note": "Show actual saved-record and notification outcome. Awaiting lab results is not negative. Keep next appointment/schedule actions; do not repeat payment to retry a failed receipt/email.",
+    "src": "images/16-complete-final.png"
+  },
+  {
+    "id": "19-client-summary-final-v2",
+    "title": "Client summary — retained design",
+    "group": "Staff",
+    "note": "The client design you liked is retained. Medication information appears once. Full paginated history, reports, client balance, account credit, referral-owned debt and payment history remain accessible; no staff Delete.",
+    "src": "images/19-client-summary-final-v2.png"
+  },
+  {
+    "id": "20-referral-summary-final",
+    "title": "Referral summary — retained design",
+    "group": "Staff",
+    "note": "The referral design you liked is retained. Contacts, preferred test and linked clients are digestible. Summary/Edit use Payload document tabs; any restriction of advanced billing settings is a separately reviewed access change.",
+    "src": "images/20-referral-summary-final.png"
+  },
+  {
+    "id": "21-collect-payment-simple",
+    "title": "Collect payment — independent of a test",
+    "group": "Staff",
+    "note": "Select/verify a client, enter payment and receipt, optional allocation details collapsed. No medication/result panel or fake appointment. Cash example; account-level Terminal card support needs a separate backend contract.",
+    "src": "images/21-collect-payment-simple.png"
+  }
+]

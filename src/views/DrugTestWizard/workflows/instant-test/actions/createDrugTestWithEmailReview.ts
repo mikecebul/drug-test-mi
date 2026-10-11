@@ -10,7 +10,6 @@ import { createAdminAlert } from '@/lib/admin-alerts'
 import { getDrugTestPaymentSnapshot } from '../../paymentSnapshot'
 import { applyAvailableClientCredit } from '@/collections/Payments/services/applyPayment'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
-import { isClientBilledToReferral } from '@/lib/referral-invoices/payer'
 import type { DrugTest } from '@/payload-types'
 
 /**
@@ -69,7 +68,13 @@ export async function createDrugTestWithEmailReview(
         error: 'Client not found. They may have been deleted. Please go back and select a different client.',
       }
     }
-    const billedToReferral = await isClientBilledToReferral(payload, testData.clientId)
+    const paymentSnapshot = await getDrugTestPaymentSnapshot({
+      payload,
+      clientId: testData.clientId,
+      bookingId: testData.bookingId,
+      testType: testData.testType,
+    })
+    const billedToReferral = paymentSnapshot.billingResponsibility?.payer === 'referral'
     const disableClientEmails = (existingClient as { disableClientEmails?: boolean }).disableClientEmails === true
 
     // Import email functions
@@ -143,16 +148,11 @@ export async function createDrugTestWithEmailReview(
     })
     payload.logger.info({ msg: '[createDrugTestWithEmailReview] PDF uploaded', fileId: uploadedFile.id })
 
-    const paymentSnapshot = await getDrugTestPaymentSnapshot({
-      payload,
-      bookingId: testData.bookingId,
-      testType: testData.testType,
-    })
-
     // 3. Prepare drug test data
     const drugTestData: RequiredDataFromCollectionSlug<'drug-tests'> = {
       relatedClient: testData.clientId,
       sourceBooking: paymentSnapshot.sourceBooking,
+      billingResponsibility: paymentSnapshot.billingResponsibility,
       payment: paymentSnapshot.payment,
       testType: testData.testType,
       collectionDate: testData.collectionDate,

@@ -65,6 +65,10 @@ export default defineConfig([
   ...baseConfig,
   globalIgnores([
     '.next/**',
+    '.playwright-cli/**',
+    'test-results/**',
+    'playwright-report/**',
+    'output/**',
     'out/**',
     'build/**',
     'next-env.d.ts',

@@ -6,7 +6,8 @@ const cardVariants = cva('bg-card text-card-foreground border-border rounded-lg 
   variants: {
     variant: {
       default: '',
-      admin: 'border-border/70 bg-gradient-to-b from-card via-card to-muted/20 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md focus-within:ring-2 focus-within:ring-primary/15',
+      admin:
+        'border-border/70 bg-gradient-to-b from-card via-card to-muted/20 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md focus-within:ring-2 focus-within:ring-primary/15',
     },
   },
   defaultVariants: {
@@ -16,16 +17,19 @@ const cardVariants = cva('bg-card text-card-foreground border-border rounded-lg 
 
 const Card = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof cardVariants>
->(({ className, variant, ...props }, ref) => (
-  <div className={cn(cardVariants({ variant }), className)} ref={ref} {...props} />
+  React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof cardVariants> & { size?: 'default' | 'sm' }
+>(({ className, variant, size = 'default', ...props }, ref) => (
+  <div data-size={size} className={cn('group/card', cardVariants({ variant }), className)} ref={ref} {...props} />
 ))
 Card.displayName = 'Card'
 
 const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div
-      className={cn('flex flex-col space-y-1.5 p-6', className)}
+      className={cn(
+        'flex flex-col space-y-1.5 p-6 group-data-[size=sm]/card:gap-1.5 group-data-[size=sm]/card:space-y-0 group-data-[size=sm]/card:p-4 group-data-[size=sm]/card:pb-0',
+        className,
+      )}
       ref={ref}
       {...props}
     />
@@ -36,7 +40,10 @@ CardHeader.displayName = 'CardHeader'
 const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
     <h3
-      className={cn('text-2xl leading-none font-semibold tracking-tight', className)}
+      className={cn(
+        'text-2xl leading-none font-semibold tracking-tight group-data-[size=sm]/card:text-base',
+        className,
+      )}
       ref={ref}
       {...props}
     />
@@ -44,25 +51,23 @@ const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HT
 )
 CardTitle.displayName = 'CardTitle'
 
-const CardDescription = React.forwardRef<
-  HTMLParagraphElement,
-  React.HTMLAttributes<HTMLParagraphElement>
->(({ className, ...props }, ref) => (
-  <p className={cn('text-muted-foreground text-sm', className)} ref={ref} {...props} />
-))
+const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
+  ({ className, ...props }, ref) => (
+    <p className={cn('text-muted-foreground text-sm', className)} ref={ref} {...props} />
+  ),
+)
 CardDescription.displayName = 'CardDescription'
 
-const CardDescriptionDiv = React.forwardRef<
-  HTMLParagraphElement,
-  React.HTMLAttributes<HTMLParagraphElement>
->(({ className, ...props }, ref) => (
-  <div className={cn('text-muted-foreground text-sm', className)} ref={ref} {...props} />
-))
+const CardDescriptionDiv = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
+  ({ className, ...props }, ref) => (
+    <div className={cn('text-muted-foreground text-sm', className)} ref={ref} {...props} />
+  ),
+)
 CardDescriptionDiv.displayName = 'CardDescriptionDiv'
 
 const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div className={cn('p-6 pt-0', className)} ref={ref} {...props} />
+    <div className={cn('p-6 pt-0 group-data-[size=sm]/card:p-4', className)} ref={ref} {...props} />
   ),
 )
 CardContent.displayName = 'CardContent'

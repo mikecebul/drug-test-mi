@@ -159,10 +159,19 @@ export const Clients: CollectionConfig = {
     ],
   },
   admin: {
-    defaultColumns: ['headshot', 'lastName', 'email', 'referralType', 'moneyOwed'],
+    defaultColumns: ['fullName', 'headshot', 'email', 'referralType', 'moneyOwed'],
     useAsTitle: 'fullName',
     listSearchableFields: ['email', 'firstName', 'lastName'],
     components: {
+      views: {
+        edit: {
+          summary: {
+            Component: '@/collections/Clients/views/ClientSummaryView',
+            path: '/summary',
+            tab: { label: 'Summary', href: '/summary', order: 50 },
+          },
+        },
+      },
       edit: {
         beforeDocumentControls: ['@/collections/Clients/components/QuickBookButton'],
       },
@@ -197,6 +206,7 @@ export const Clients: CollectionConfig = {
       type: 'text',
       admin: {
         description: 'Full name (computed from first and last name)',
+        components: { Cell: '@/views/staff/SummaryLinkCell' },
         position: 'sidebar',
         readOnly: true,
       },
@@ -217,6 +227,7 @@ export const Clients: CollectionConfig = {
       relationTo: 'private-media',
       admin: {
         description: 'Client headshot photo for identification during testing',
+        components: { Cell: '@/views/staff/SummaryLinkCell' },
         position: 'sidebar',
       },
       filterOptions: {
@@ -263,7 +274,8 @@ export const Clients: CollectionConfig = {
         update: ({ req }) => req.user?.collection === 'admins' && req.user.role === 'superAdmin',
       },
       admin: {
-        description: 'Auto-calculated from drug tests with a remaining balance, including amounts billed to a referral.',
+        description:
+          'Auto-calculated from drug tests with a remaining balance, including amounts billed to a referral.',
         position: 'sidebar',
         readOnly: true,
         step: 1,
@@ -313,6 +325,7 @@ export const Clients: CollectionConfig = {
             {
               name: 'lastName',
               type: 'text',
+              admin: { components: { Cell: '@/views/staff/SummaryLinkCell' } },
               required: true,
               index: true,
             },

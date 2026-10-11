@@ -39,11 +39,11 @@ services:
         condition: service_healthy
     environment:
       - NODE_ENV=production
-      - DATABASE_URI=${DOCKER_DATABASE_URI:-mongodb://mongo:27017/cvx-junior-golf}
+      - DATABASE_URI=${DOCKER_DATABASE_URI:?Set DOCKER_DATABASE_URI to the drug-test-mi database}
       - TZ=America/Detroit
     env_file: .env
 
-  # Ensure your DATABASE_URI uses 'mongo' as the hostname ie. mongodb://mongo/my-db-name
+  # Local standalone MongoDB. Use a separate replica set for actual payment posting.
   mongo:
     image: mongo:latest
     ports:
@@ -55,7 +55,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping').ok"]
       interval: 10s
       timeout: 5s
       retries: 5

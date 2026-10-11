@@ -81,11 +81,8 @@ export const MedicationFieldGroup = withFieldGroup({
   render: function Render({ group, client, isLoading, error, handleRefresh, onClientUpdated }) {
     if (!client) {
       return (
-        <div className="space-y-6">
-          <FieldGroupHeader
-            title="Verify Medications"
-            description="Review and update the client's medications for accurate drug test interpretation"
-          />
+        <div className="flex flex-col gap-6">
+          <FieldGroupHeader title="Verify medications" />
           <Card>
             <CardContent className="pt-6">
               <p className="text-muted-foreground text-center">
@@ -98,20 +95,16 @@ export const MedicationFieldGroup = withFieldGroup({
     }
 
     return (
-      <div className="space-y-6">
-        <FieldGroupHeader
-          title="Verify Medications"
-          description="Review and update the client's medications for accurate drug test interpretation"
-        />
-        <ClientDetailsCard client={client} editable onClientUpdated={onClientUpdated} />
+      <div className="flex flex-col gap-6">
+        <FieldGroupHeader title="Verify medications" />
+        <ClientDetailsCard compact client={client} editable onClientUpdated={onClientUpdated} />
 
         {/* Medications Section */}
         <Card className="shadow-md">
           <CardContent className="space-y-4 pt-6">
             <div className="flex items-start justify-between gap-4 pb-4">
               <div>
-                <h3 className="text-2xl font-semibold">Medications</h3>
-                <p className="text-muted-foreground text-base">Review active medications before the test.</p>
+                <h3 className="text-lg font-semibold">Active medications</h3>
               </div>
               <Button
                 type="button"

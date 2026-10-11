@@ -72,15 +72,7 @@ export async function ensureMailpitReachable(apiBase: string): Promise<void> {
 }
 
 export async function findMailpitMessages(criteria: FindMailpitMessagesCriteria): Promise<MailpitMessageDetail[]> {
-  const {
-    apiBase,
-    createdAfter,
-    to,
-    subject,
-    requireAttachment,
-    timeoutMs = 30_000,
-    pollMs = 1_000,
-  } = criteria
+  const { apiBase, createdAfter, to, subject, requireAttachment, timeoutMs = 30_000, pollMs = 1_000 } = criteria
 
   const expectedEmails = Array.isArray(to) ? to : [to]
   const start = Date.now()

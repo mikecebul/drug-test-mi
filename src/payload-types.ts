@@ -199,6 +199,7 @@ export interface Config {
   user: Admin | Client | PayloadMcpApiKey;
   jobs: {
     tasks: {
+      'notify-confirmation-paid': TaskNotifyConfirmationPaid;
       'send-monthly-referral-invoices': TaskSendMonthlyReferralInvoices;
       'sync-referral-invoice-payments': TaskSyncReferralInvoicePayments;
       'redwood-diagnostics-probe': TaskRedwoodDiagnosticsProbe;
@@ -1158,6 +1159,24 @@ export interface SchedulePageBlock {
  */
 export interface Booking {
   id: string;
+  /**
+   * Who pays for this test. Set in the guided collection before payment.
+   */
+  billingResponsibility?: {
+    payer?: ('client' | 'referral') | null;
+    referral?:
+      | ({
+          relationTo: 'courts';
+          value: string | Court;
+        } | null)
+      | ({
+          relationTo: 'employers';
+          value: string | Employer;
+        } | null);
+    paymentOperationId?: string | null;
+    changedAt?: string | null;
+    changedBy?: (string | null) | Admin;
+  };
   title: string;
   /**
    * Event type duration (e.g., 60min, 30min)
@@ -1271,6 +1290,56 @@ export interface Booking {
    * Exact ToxAccess donor ID used to link the scheduled collection to a client.
    */
   toxaccessDonorId?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "courts".
+ */
+export interface Court {
+  id: string;
+  name: string;
+  /**
+   * Recipient contacts. The first row is treated as the main contact for display purposes.
+   */
+  contacts: {
+    name?: string | null;
+    email: string;
+    id?: string | null;
+  }[];
+  preferredTestType?:
+    | (
+        | '17-panel-instant'
+        | '11-panel-lab'
+        | '11-panel-lab-no-etg'
+        | '8-panel-lab'
+        | '17-panel-sos-lab'
+        | 'etg-lab'
+        | '15-panel-instant'
+      )
+    | null;
+  /**
+   * Inactive courts are hidden from quick-select dropdowns, but remain usable for linked clients and email delivery.
+   */
+  isActive?: boolean | null;
+  /**
+   * Send this referral monthly Stripe invoices for its clients’ unpaid drug tests.
+   */
+  isBillable?: boolean | null;
+  /**
+   * Monthly invoice PDFs are emailed by MI Drug Test to this address. This is separate from result notification contacts.
+   */
+  billingEmail?: string | null;
+  /**
+   * Stripe customer linked to this referral.
+   */
+  stripeCustomerId?: string | null;
+  clients?: {
+    docs?: (string | Client)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -1673,56 +1742,6 @@ export interface PrivateMedia {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "courts".
- */
-export interface Court {
-  id: string;
-  name: string;
-  /**
-   * Recipient contacts. The first row is treated as the main contact for display purposes.
-   */
-  contacts: {
-    name?: string | null;
-    email: string;
-    id?: string | null;
-  }[];
-  preferredTestType?:
-    | (
-        | '17-panel-instant'
-        | '11-panel-lab'
-        | '11-panel-lab-no-etg'
-        | '8-panel-lab'
-        | '17-panel-sos-lab'
-        | 'etg-lab'
-        | '15-panel-instant'
-      )
-    | null;
-  /**
-   * Inactive courts are hidden from quick-select dropdowns, but remain usable for linked clients and email delivery.
-   */
-  isActive?: boolean | null;
-  /**
-   * Send this referral monthly Stripe invoices for its clients’ unpaid drug tests.
-   */
-  isBillable?: boolean | null;
-  /**
-   * Monthly invoice PDFs are emailed by MI Drug Test to this address. This is separate from result notification contacts.
-   */
-  billingEmail?: string | null;
-  /**
-   * Stripe customer linked to this referral.
-   */
-  stripeCustomerId?: string | null;
-  clients?: {
-    docs?: (string | Client)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "employers".
  */
 export interface Employer {
@@ -1779,6 +1798,33 @@ export interface Employer {
  */
 export interface DrugTest {
   id: string;
+  /**
+   * Who pays for this test. Set in the guided collection before payment.
+   */
+  billingResponsibility?: {
+    payer?: ('client' | 'referral') | null;
+    referral?:
+      | ({
+          relationTo: 'courts';
+          value: string | Court;
+        } | null)
+      | ({
+          relationTo: 'employers';
+          value: string | Employer;
+        } | null);
+    paymentOperationId?: string | null;
+    changedAt?: string | null;
+    changedBy?: (string | null) | Admin;
+  };
+  /**
+   * First screening result date; starts the 30-day laboratory hold.
+   */
+  screenedAt?: string | null;
+  confirmationHoldUntil?: string | null;
+  confirmationRequestKey?: string | null;
+  confirmationNotificationAdmin?: (string | null) | Admin;
+  confirmationPaidNotificationKey?: string | null;
+  confirmationPaidNotifiedAt?: string | null;
   clientName?: string | null;
   /**
    * AUTO-UPDATED: Current workflow status based on entered data (SuperAdmin can override)
@@ -1875,10 +1921,15 @@ export interface DrugTest {
      */
     confirmationFeeDue?: number | null;
     /**
+     * Money applied specifically to the confirmation fee.
+     */
+    confirmationFeePaid?: number | null;
+    /**
      * Allows confirmation workflow to proceed before the confirmation fee is paid.
      */
     confirmationPaymentBypassed?: boolean | null;
     confirmationPaymentBypassedAt?: string | null;
+    confirmationPaymentBypassedBy?: (string | null) | Admin;
     /**
      * Last time money was applied to this test balance.
      */
@@ -2190,6 +2241,34 @@ export interface DrugTest {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admins".
+ */
+export interface Admin {
+  id: string;
+  name?: string | null;
+  role?: ('admin' | 'superAdmin') | null;
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  resetPasswordRequestedAt?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
+  collection: 'admins';
+}
+/**
  * Monthly Stripe invoices sent to billable court and employer referrals.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2253,6 +2332,10 @@ export interface ReferralInvoice {
  */
 export interface Payment {
   id: string;
+  purpose?: 'confirmation' | null;
+  confirmationRequestKey?: string | null;
+  accountOperationId?: string | null;
+  collectedBy?: (string | null) | Admin;
   title?: string | null;
   /**
    * Client this payment belongs to. Cal.com prepayments can exist before a new client is linked.
@@ -2304,6 +2387,7 @@ export interface Payment {
    */
   allocations?:
     | {
+        confirmationAmount?: number | null;
         drugTest: string | DrugTest;
         amount: number;
         id?: string | null;
@@ -2323,6 +2407,7 @@ export interface Payment {
    */
   workflowOperationId?: string | null;
   stripeCheckoutUrl?: string | null;
+  paymentLinkEmailSendingAt?: string | null;
   paymentLinkEmailSentAt?: string | null;
   stripeRefundId?: string | null;
   /**
@@ -2361,34 +2446,6 @@ export interface FormSubmission {
     | null;
   updatedAt: string;
   createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "admins".
- */
-export interface Admin {
-  id: string;
-  name?: string | null;
-  role?: ('admin' | 'superAdmin') | null;
-  updatedAt: string;
-  createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  resetPasswordRequestedAt?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  sessions?:
-    | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
-      }[]
-    | null;
-  password?: string | null;
-  collection: 'admins';
 }
 /**
  * Business-critical alerts requiring admin attention
@@ -2850,6 +2907,7 @@ export interface PayloadJob {
         completedAt: string;
         taskSlug:
           | 'inline'
+          | 'notify-confirmation-paid'
           | 'send-monthly-referral-invoices'
           | 'sync-referral-invoice-payments'
           | 'redwood-diagnostics-probe'
@@ -2898,6 +2956,7 @@ export interface PayloadJob {
   taskSlug?:
     | (
         | 'inline'
+        | 'notify-confirmation-paid'
         | 'send-monthly-referral-invoices'
         | 'sync-referral-invoice-payments'
         | 'redwood-diagnostics-probe'
@@ -3531,6 +3590,15 @@ export interface SchedulePageBlockSelect<T extends boolean = true> {
  * via the `definition` "bookings_select".
  */
 export interface BookingsSelect<T extends boolean = true> {
+  billingResponsibility?:
+    | T
+    | {
+        payer?: T;
+        referral?: T;
+        paymentOperationId?: T;
+        changedAt?: T;
+        changedBy?: T;
+      };
   title?: T;
   type?: T;
   description?: T;
@@ -4202,6 +4270,21 @@ export interface ClientsSelect<T extends boolean = true> {
  * via the `definition` "drug-tests_select".
  */
 export interface DrugTestsSelect<T extends boolean = true> {
+  billingResponsibility?:
+    | T
+    | {
+        payer?: T;
+        referral?: T;
+        paymentOperationId?: T;
+        changedAt?: T;
+        changedBy?: T;
+      };
+  screenedAt?: T;
+  confirmationHoldUntil?: T;
+  confirmationRequestKey?: T;
+  confirmationNotificationAdmin?: T;
+  confirmationPaidNotificationKey?: T;
+  confirmationPaidNotifiedAt?: T;
   clientName?: T;
   screeningStatus?: T;
   isInconclusive?: T;
@@ -4224,8 +4307,10 @@ export interface DrugTestsSelect<T extends boolean = true> {
         balanceDue?: T;
         notes?: T;
         confirmationFeeDue?: T;
+        confirmationFeePaid?: T;
         confirmationPaymentBypassed?: T;
         confirmationPaymentBypassedAt?: T;
+        confirmationPaymentBypassedBy?: T;
         lastPaymentAt?: T;
         lastPaymentLinkSentAt?: T;
         lastPaymentLinkUrl?: T;
@@ -4278,6 +4363,10 @@ export interface DrugTestsSelect<T extends boolean = true> {
  * via the `definition` "payments_select".
  */
 export interface PaymentsSelect<T extends boolean = true> {
+  purpose?: T;
+  confirmationRequestKey?: T;
+  accountOperationId?: T;
+  collectedBy?: T;
   title?: T;
   relatedClient?: T;
   relatedDrugTest?: T;
@@ -4299,6 +4388,7 @@ export interface PaymentsSelect<T extends boolean = true> {
   allocations?:
     | T
     | {
+        confirmationAmount?: T;
         drugTest?: T;
         amount?: T;
         id?: T;
@@ -4311,6 +4401,7 @@ export interface PaymentsSelect<T extends boolean = true> {
   stripePaymentIntentId?: T;
   workflowOperationId?: T;
   stripeCheckoutUrl?: T;
+  paymentLinkEmailSendingAt?: T;
   paymentLinkEmailSentAt?: T;
   stripeRefundId?: T;
   stripeRefundOperationId?: T;
@@ -4823,6 +4914,17 @@ export interface CollectionsWidget {
     [k: string]: unknown;
   };
   width: 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskNotify-confirmation-paid".
+ */
+export interface TaskNotifyConfirmationPaid {
+  input: {
+    testId: string;
+    notificationKey: string;
+  };
+  output?: unknown;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

@@ -3,11 +3,12 @@
 import React from 'react'
 import { useFieldContext } from '../hooks/form-context'
 import { Button } from '@/components/ui/button'
-import { XCircle } from 'lucide-react'
+import { FileText, XCircle } from 'lucide-react'
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
 import {
   FileUpload,
   FileUploadDropzone,
+  FileUploadTrigger,
   FileUploadList,
   FileUploadItem,
   FileUploadItemPreview,
@@ -23,6 +24,7 @@ interface FileUploadFieldProps {
   maxFiles?: number
   maxSize?: number
   required?: boolean
+  reportStyle?: boolean
 }
 
 export default function FileUploadField({
@@ -32,6 +34,7 @@ export default function FileUploadField({
   maxFiles = 1,
   maxSize = 10 * 1024 * 1024, // 10MB default
   required = false,
+  reportStyle = false,
 }: FileUploadFieldProps) {
   const field = useFieldContext<File | null>()
   const fieldErrors = useStore(field.store, (state) => state.meta.errors)
@@ -94,9 +97,16 @@ export default function FileUploadField({
       >
         <FileUploadDropzone>
           <div className="flex min-h-32 flex-col items-center justify-center space-y-2 text-center">
-            <p className="text-sm font-medium">Click to upload or drag and drop</p>
+            {reportStyle && <FileText className="text-muted-foreground mb-1 size-8" />}
+            <p className="text-sm font-medium">
+              {reportStyle ? 'Drop the report here' : 'Click to upload or drag and drop'}
+            </p>
+            {reportStyle && (
+              <FileUploadTrigger render={<Button type="button" variant="outline" />}>Choose PDF</FileUploadTrigger>
+            )}
             <p className="text-muted-foreground text-xs">
-              {accept.includes('pdf') ? 'PDF files' : 'Files'} up to {(maxSize / 1024 / 1024).toFixed(0)}MB
+              {reportStyle ? 'One PDF' : accept.includes('pdf') ? 'PDF files' : 'Files'} up to{' '}
+              {(maxSize / 1024 / 1024).toFixed(0)}MB
             </p>
           </div>
         </FileUploadDropzone>
@@ -106,9 +116,7 @@ export default function FileUploadField({
             <FileUploadItem key={file.name} value={file}>
               <FileUploadItemPreview />
               <FileUploadItemMetadata />
-              <FileUploadItemDelete
-                render={<Button type="button" variant="ghost" size="default" />}
-              >
+              <FileUploadItemDelete render={<Button type="button" variant="ghost" size="default" />}>
                 <XCircle className="stroke-destructive size-5" />
               </FileUploadItemDelete>
             </FileUploadItem>

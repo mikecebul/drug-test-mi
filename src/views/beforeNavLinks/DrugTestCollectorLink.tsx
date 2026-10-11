@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 
 export default function DrugTestCollectorLink() {
   return (
-    <ShadcnWrapper className="w-full py-1.5">
+    <ShadcnWrapper className="staff-interface w-full py-1.5">
       <Button
         render={<Link href="/admin/drug-test-upload" />}
         nativeButton={false}

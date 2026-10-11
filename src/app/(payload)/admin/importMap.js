@@ -27,9 +27,12 @@ import { default as default_bca575eca602f69aa53c5f42e11636da } from '@/collectio
 import { RoleSelectClient as RoleSelectClient_538158afd69a55f062cbf2533bebd38f } from '@/collections/Admins/RoleSelect.client'
 import { default as default_50d50deb90049e8bd46f22bbca3a560d } from '@/collections/JobRuns/components/RetryJobCell.client'
 import { RetryJobField as RetryJobField_50d50deb90049e8bd46f22bbca3a560d } from '@/collections/JobRuns/components/RetryJobCell.client'
+import { default as default_1eb5fd58949a87d90bb2c6b7e0bb296d } from '@/views/staff/SummaryLinkCell'
+import { default as default_5763c7887a55c6978bca758143f53a29 } from '@/views/staff/ReferralSummaryView'
 import { ReferralPresetRecipientsAlert as ReferralPresetRecipientsAlert_d3e4a3a175eb5b39b567b86d7cc0ce9b } from '@/collections/Clients/components/ReferralPresetRecipientsAlert.client'
 import { default as default_10614e5826ed2552da1904fc41085884 } from '@/collections/Clients/RowLabel'
 import { default as default_8ada3e871304a01023e059aa2a63dc18 } from '@/collections/Clients/components/QuickBookButton'
+import { default as default_b2c773d10a6cb27111196b7f2d701b6b } from '@/collections/Clients/views/ClientSummaryView'
 import { default as default_3096841c11f481e2d8b1d51a89238cfb } from '@/collections/DrugTests/helpers/RowLabel'
 import { default as default_0274dce0b5ef9f9e3856b550818f8a6a } from '@/collections/DrugTests/views/DrugTestSummaryView'
 import { FormatField as FormatField_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
@@ -48,12 +51,15 @@ import { default as default_9734ea5d74b781c5b6e952c2aa41414f } from '@/globals/C
 import { default as default_3ffd8082d3e9477cf001d7760082c496 } from '@/globals/CompanyInfo/HoursRowLabel'
 import { default as default_a8ed57560afaff4535f43ca83a9fecbd } from '@/graphics/Icon'
 import { default as default_1ceaa075bd8323ee72a35f935e6cfcf1 } from '@/components/Logo/Graphic'
+import { default as default_7f54afd856190199644dc93050e11119 } from '@/views/afterNavLinks/OperationalCollectionLinks'
 import { default as default_f23981c7c14f3125f7b78fced0c90565 } from '@/views/afterNavLinks/LinkToAnalyticsDefaultRootView'
 import { default as default_097833d478bca303d2dce6febf359669 } from '@/views/beforeNavLinks/DrugTestCollectorLink'
 import { default as default_8331dd52841b839972744131b323247b } from '@/views/beforeNavLinks/QuickBookLink'
 import { default as default_ecb6141ba55c46753b7e0292674e17e1 } from '@/views/beforeNavLinks/DrugTestTrackerLink'
+import { default as default_4bc196d487d311652bc47075acaeab85 } from '@/views/beforeNavLinks/CollectPaymentLink'
 import { default as default_3da75b5b33890258a17d0ac02103d516 } from '@/views/beforeNavLinks/ReferralBillingLink'
 import { ImportExportProvider as ImportExportProvider_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
+import { default as default_f7070ed0d365721126b91c48d017c05f } from '@/views/CollectPayment'
 import { default as default_5b15bbc11068c744f1566d4e8e7e2b0a } from '@/views/ReferralBilling'
 import { default as default_af05419e5157afdd5ccd30100f9c9f64 } from '@/views/Analytics'
 import { default as default_fb357f89b63991d343cdc6c077a34fcf } from '@/views/DrugTestTracker'
@@ -99,9 +105,12 @@ export const importMap = {
   "@/collections/Admins/RoleSelect.client#RoleSelectClient": RoleSelectClient_538158afd69a55f062cbf2533bebd38f,
   "@/collections/JobRuns/components/RetryJobCell.client#default": default_50d50deb90049e8bd46f22bbca3a560d,
   "@/collections/JobRuns/components/RetryJobCell.client#RetryJobField": RetryJobField_50d50deb90049e8bd46f22bbca3a560d,
+  "@/views/staff/SummaryLinkCell#default": default_1eb5fd58949a87d90bb2c6b7e0bb296d,
+  "@/views/staff/ReferralSummaryView#default": default_5763c7887a55c6978bca758143f53a29,
   "@/collections/Clients/components/ReferralPresetRecipientsAlert.client#ReferralPresetRecipientsAlert": ReferralPresetRecipientsAlert_d3e4a3a175eb5b39b567b86d7cc0ce9b,
   "@/collections/Clients/RowLabel#default": default_10614e5826ed2552da1904fc41085884,
   "@/collections/Clients/components/QuickBookButton#default": default_8ada3e871304a01023e059aa2a63dc18,
+  "@/collections/Clients/views/ClientSummaryView#default": default_b2c773d10a6cb27111196b7f2d701b6b,
   "@/collections/DrugTests/helpers/RowLabel#default": default_3096841c11f481e2d8b1d51a89238cfb,
   "@/collections/DrugTests/views/DrugTestSummaryView#default": default_0274dce0b5ef9f9e3856b550818f8a6a,
   "@payloadcms/plugin-import-export/rsc#FormatField": FormatField_cdf7e044479f899a31f804427d568b36,
@@ -120,12 +129,15 @@ export const importMap = {
   "@/globals/CompanyInfo/HoursRowLabel#default": default_3ffd8082d3e9477cf001d7760082c496,
   "@/graphics/Icon#default": default_a8ed57560afaff4535f43ca83a9fecbd,
   "@/components/Logo/Graphic#default": default_1ceaa075bd8323ee72a35f935e6cfcf1,
+  "@/views/afterNavLinks/OperationalCollectionLinks#default": default_7f54afd856190199644dc93050e11119,
   "@/views/afterNavLinks/LinkToAnalyticsDefaultRootView#default": default_f23981c7c14f3125f7b78fced0c90565,
   "@/views/beforeNavLinks/DrugTestCollectorLink#default": default_097833d478bca303d2dce6febf359669,
   "@/views/beforeNavLinks/QuickBookLink#default": default_8331dd52841b839972744131b323247b,
   "@/views/beforeNavLinks/DrugTestTrackerLink#default": default_ecb6141ba55c46753b7e0292674e17e1,
+  "@/views/beforeNavLinks/CollectPaymentLink#default": default_4bc196d487d311652bc47075acaeab85,
   "@/views/beforeNavLinks/ReferralBillingLink#default": default_3da75b5b33890258a17d0ac02103d516,
   "@payloadcms/plugin-import-export/rsc#ImportExportProvider": ImportExportProvider_cdf7e044479f899a31f804427d568b36,
+  "@/views/CollectPayment#default": default_f7070ed0d365721126b91c48d017c05f,
   "@/views/ReferralBilling#default": default_5b15bbc11068c744f1566d4e8e7e2b0a,
   "@/views/Analytics#default": default_af05419e5157afdd5ccd30100f9c9f64,
   "@/views/DrugTestTracker#default": default_fb357f89b63991d343cdc6c077a34fcf,

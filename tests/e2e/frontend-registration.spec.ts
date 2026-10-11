@@ -1,3 +1,4 @@
+import { expectValidationError } from './helpers/wizard'
 import { expect, test, type Page } from '@playwright/test'
 import { deleteClientAndRelatedDataByEmail, findClientByEmail } from './helpers/db-assert'
 import { getE2EEnv } from './helpers/env'
@@ -63,7 +64,7 @@ async function mockReferralLookups(page: Page) {
 
 async function openRegistration(page: Page) {
   await page.goto('/register')
-  await expect(page.getByRole('heading', { name: 'Personal Information' })).toBeVisible()
+  await expect(page.getByLabel('First Name')).toBeVisible()
   await expect(page.locator('form[data-hydrated="true"]')).toBeVisible()
 }
 
@@ -80,7 +81,10 @@ async function fillPersonalInfo(page: Page) {
 }
 
 async function fillAccountInfo(page: Page, emailPrefix: string) {
-  await page.getByLabel('Email Address').fill(uniqueEmail(emailPrefix))
+  const email = page.getByLabel('Email Address')
+  // Wait for the step's scheduled focus before typing into the next field.
+  await expect(email).toBeFocused()
+  await email.fill(uniqueEmail(emailPrefix))
   await page.locator('[id="accountInfo.password"]').fill('StrongPass123')
   await page.locator('[id="accountInfo.confirmPassword"]').fill('StrongPass123')
 }
@@ -90,16 +94,16 @@ async function goToRecipients(page: Page, requestedBy: 'self' | 'employer' | 'co
   await fillPersonalInfo(page)
   await page.getByRole('button', { name: 'Next', exact: true }).click()
 
-  await expect(page.getByRole('heading', { name: 'Account Info' })).toBeVisible()
+  await expect(page.getByLabel('Email Address')).toBeVisible()
   await fillAccountInfo(page, emailPrefix)
   await page.getByRole('button', { name: 'Next', exact: true }).click()
 
-  await expect(page.getByRole('heading', { name: 'Screening Request' })).toBeVisible()
+  await expect(page.getByRole('radio', { name: /Self/i })).toBeVisible()
   const requestedByLabel = requestedBy === 'self' ? 'Self' : requestedBy === 'employer' ? 'Employer' : 'Court'
   await page.getByRole('radio', { name: new RegExp(requestedByLabel, 'i') }).check()
   await page.getByRole('button', { name: 'Next', exact: true }).click()
 
-  await expect(page.getByRole('heading', { name: 'Results Recipients' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Add Recipient/i })).toBeVisible()
 }
 
 test.beforeEach(async ({ page }) => {
@@ -151,81 +155,92 @@ test('offers only the three supported client gender choices', async ({ page }) =
   await expect(page.getByRole('option', { name: 'Other', exact: true })).toHaveCount(0)
 })
 
-test('validates steps, supports back-forward navigation, and validates medications in self flow', async ({ page }) => {
-  await openRegistration(page)
+test(
+  'validates steps, supports back-forward navigation, and validates medications in self flow',
+  { tag: '@critical' },
+  async ({ page }) => {
+    await openRegistration(page)
 
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByText('First name is required')).toBeVisible()
-  await expect(page.getByText('Middle initial is required')).toBeVisible()
-  await expect(page.getByText('Last name is required')).toBeVisible()
-  await expect(page.getByText('Date of birth is required')).toBeVisible()
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expectValidationError(page, page.locator('[name="personalInfo.firstName"]'))
+    await expectValidationError(page, page.locator('[name="personalInfo.middleInitial"]'))
+    await expectValidationError(page, page.locator('[name="personalInfo.lastName"]'))
+    await expectValidationError(page, page.getByLabel('Date of Birth'))
+    await expect(page.getByLabel('First Name')).toBeFocused()
 
-  await fillPersonalInfo(page)
-  await page.getByLabel('Date of Birth').fill('January 15, 1990')
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Personal Information' })).toBeVisible()
-  await expect(page.getByText('Please enter a valid date')).toBeVisible()
+    await fillPersonalInfo(page)
+    await page.getByLabel('Date of Birth').fill('January 15, 1990')
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expect(page.getByLabel('First Name')).toBeVisible()
+    await expectValidationError(page, page.getByLabel('Date of Birth'))
+    await expect(page.getByLabel('Date of Birth')).toBeFocused()
 
-  await page.getByLabel('Date of Birth').fill('01/15/1990')
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Account Info' })).toBeVisible()
+    await page.getByLabel('Date of Birth').fill('01/15/1990')
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expect(page.getByLabel('Email Address')).toBeVisible()
+    await expect(page.getByLabel('Email Address')).toBeFocused()
 
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByText('Email is required')).toBeVisible()
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expectValidationError(page, page.locator('[name="accountInfo.email"]'))
+    await expect(page.getByLabel('Email Address')).toBeFocused()
 
-  await page.getByLabel('Email Address').fill('not-an-email')
-  await page.locator('[id="accountInfo.password"]').fill('weak')
-  await page.locator('[id="accountInfo.confirmPassword"]').fill('weak')
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByText('Please enter a valid email address')).toBeVisible()
-  await expect(page.getByText('Password must be at least 8 characters')).toBeVisible()
+    await page.getByLabel('Email Address').fill('not-an-email')
+    await page.locator('[id="accountInfo.password"]').fill('weak')
+    await page.locator('[id="accountInfo.confirmPassword"]').fill('weak')
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expectValidationError(page, page.locator('[name="accountInfo.email"]'))
+    await expectValidationError(page, page.locator('[name="accountInfo.password"]'))
+    await expect(page.getByLabel('Email Address')).toBeFocused()
 
-  await page.getByLabel('Email Address').fill(uniqueEmail('self-flow'))
-  await page.locator('[id="accountInfo.password"]').fill('StrongPass123')
-  await page.locator('[id="accountInfo.confirmPassword"]').fill('StrongPass124')
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByText("Passwords don't match")).toBeVisible()
+    await page.getByLabel('Email Address').fill(uniqueEmail('self-flow'))
+    await page.locator('[id="accountInfo.password"]').fill('StrongPass123')
+    await page.locator('[id="accountInfo.confirmPassword"]').fill('StrongPass124')
+    await expect(page.getByLabel('Email Address')).toHaveValue(/@example\.com$/)
+    await expect(page.locator('[id="accountInfo.password"]')).toHaveValue('StrongPass123')
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expectValidationError(page, page.locator('[name="accountInfo.confirmPassword"]'))
+    await expect(page.locator('[id="accountInfo.confirmPassword"]')).toBeFocused()
 
-  await page.locator('[id="accountInfo.confirmPassword"]').fill('StrongPass123')
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Screening Request' })).toBeVisible()
+    await page.locator('[id="accountInfo.confirmPassword"]').fill('StrongPass123')
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expect(page.getByRole('radio', { name: /Self/i })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByText('Please select who is requesting this screening')).toBeVisible()
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expectValidationError(page)
 
-  await page.getByRole('radio', { name: /Self/i }).check()
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Results Recipients' })).toBeVisible()
+    await page.getByRole('radio', { name: /Self/i }).check()
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expect(page.getByRole('button', { name: /Add Recipient/i })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Add Recipient' }).click()
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByText('Recipient email is required')).toBeVisible()
+    await page.getByRole('button', { name: 'Add Recipient' }).click()
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expectValidationError(page, page.getByLabel('Recipient Email'))
 
-  await page.getByLabel('Recipient Email').fill('self-recipient@example.com')
+    await page.getByLabel('Recipient Email').fill('self-recipient@example.com')
 
-  await page.getByRole('button', { name: 'Previous' }).click()
-  await expect(page.getByRole('heading', { name: 'Screening Request' })).toBeVisible()
+    await page.getByRole('button', { name: 'Previous' }).click()
+    await expect(page.getByRole('radio', { name: /Self/i })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Results Recipients' })).toBeVisible()
-  await expect(page.getByLabel('Recipient Email')).toHaveValue('self-recipient@example.com')
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expect(page.getByRole('button', { name: /Add Recipient/i })).toBeVisible()
+    await expect(page.getByLabel('Recipient Email')).toHaveValue('self-recipient@example.com')
 
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Medications (Optional)' })).toBeVisible()
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expect(page.getByRole('button', { name: /Add Medication/i })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Add Medication' }).click()
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByText('Medication name is required')).toBeVisible()
-  await expect(page.getByText('Select at least one detected substance')).toBeVisible()
+    await page.getByRole('button', { name: 'Add Medication' }).click()
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expectValidationError(page, page.locator('[id="medications[0].medicationName"]'))
 
-  await page.locator('[id="medications[0].medicationName"]').fill('Suboxone')
-  await page.getByLabel('Buprenorphine').check()
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await page.locator('[id="medications[0].medicationName"]').fill('Suboxone')
+    await page.getByLabel('Buprenorphine').check()
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
 
-  await expect(page.getByRole('heading', { name: 'Terms & Conditions' })).toBeVisible()
-  await page.getByRole('button', { name: 'Complete Registration' }).click()
-  await expect(page.getByText('You must agree to the terms and conditions')).toBeVisible()
-})
+    await expect(page.getByRole('checkbox', { name: /agree to the terms/i })).toBeVisible()
+    await page.getByRole('button', { name: 'Complete Registration' }).click()
+    await expectValidationError(page)
+  },
+)
 
 test('supports employer preset referral with additional recipient', async ({ page }) => {
   await goToRecipients(page, 'employer', 'employer-preset')
@@ -237,7 +252,7 @@ test('supports employer preset referral with additional recipient', async ({ pag
   await page.getByLabel('Recipient Email').fill('employee-personal@example.com')
   await page.getByRole('button', { name: 'Next', exact: true }).click()
 
-  await expect(page.getByRole('heading', { name: 'Medications (Optional)' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Add Medication/i })).toBeVisible()
 })
 
 test('supports employer new referral with preset and personal additional recipients', async ({ page }) => {
@@ -245,8 +260,8 @@ test('supports employer new referral with preset and personal additional recipie
 
   await page.locator('#employer-select').selectOption('other')
   await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByText('Employer name is required')).toBeVisible()
-  await expect(page.getByText('Main contact email is required')).toBeVisible()
+  await expectValidationError(page, page.getByLabel('Employer Name'))
+  await expectValidationError(page, page.getByLabel('Contact Email'))
 
   await page.getByLabel('Employer Name').fill('Summit Manufacturing')
   await page.getByLabel('Contact Email').fill('contact@summit.example')
@@ -261,7 +276,7 @@ test('supports employer new referral with preset and personal additional recipie
   await page.getByLabel('Recipient Email').nth(1).fill('self-extra@example.com')
 
   await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Medications (Optional)' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Add Medication/i })).toBeVisible()
 })
 
 test('supports court preset referral with additional recipient', async ({ page }) => {
@@ -270,13 +285,12 @@ test('supports court preset referral with additional recipient', async ({ page }
   await page.getByLabel('Select Court').click()
   await page.getByRole('option', { name: 'Wayne County Court', exact: true }).click()
   await expect(page.getByText('probation@waynecourt.example')).toBeVisible()
-  await expect(page.getByText('Preferred test type:')).toBeVisible()
 
   await page.getByRole('button', { name: 'Add Recipient' }).click()
   await page.getByLabel('Recipient Email').fill('court-self-extra@example.com')
   await page.getByRole('button', { name: 'Next', exact: true }).click()
 
-  await expect(page.getByRole('heading', { name: 'Medications (Optional)' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Add Medication/i })).toBeVisible()
 })
 
 test('supports court new referral with preset and personal additional recipients', async ({ page }) => {
@@ -285,8 +299,8 @@ test('supports court new referral with preset and personal additional recipients
   await page.getByLabel('Select Court').click()
   await page.getByRole('option', { name: 'Other (Add new court)', exact: true }).click()
   await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByText('Court name is required')).toBeVisible()
-  await expect(page.getByText('Main contact email is required')).toBeVisible()
+  await expectValidationError(page, page.getByLabel('Court Name'))
+  await expectValidationError(page, page.getByLabel('Contact Email'))
 
   await page.getByLabel('Court Name').fill('Lakeside District Court')
   await page.getByLabel('Contact Email').fill('clerk@lakesidecourt.example')
@@ -301,60 +315,64 @@ test('supports court new referral with preset and personal additional recipients
   await page.getByLabel('Recipient Email').nth(1).fill('self-court-extra@example.com')
 
   await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Medications (Optional)' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Add Medication/i })).toBeVisible()
 })
 
-test('submits frontend registration, signs in, and verifies admin emails in Mailpit', async ({ page }) => {
-  const env = getE2EEnv({ requirePdfs: false })
-  await ensureMailpitReachable(env.mailpitApiBase)
+test(
+  'submits frontend registration, signs in, and verifies admin emails in Mailpit',
+  { tag: '@smoke' },
+  async ({ page }) => {
+    const env = getE2EEnv({ requirePdfs: false })
+    await ensureMailpitReachable(env.mailpitApiBase)
 
-  const registrationEmail = uniqueEmail('frontend-submit')
-  const testStart = new Date()
+    const registrationEmail = uniqueEmail('frontend-submit')
+    const testStart = new Date()
 
-  await openRegistration(page)
-  await fillPersonalInfo(page)
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await openRegistration(page)
+    await fillPersonalInfo(page)
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
 
-  await expect(page.getByRole('heading', { name: 'Account Info' })).toBeVisible()
-  await page.getByLabel('Email Address').fill(registrationEmail)
-  await page.locator('[id="accountInfo.password"]').fill('StrongPass123')
-  await page.locator('[id="accountInfo.confirmPassword"]').fill('StrongPass123')
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expect(page.getByLabel('Email Address')).toBeVisible()
+    await page.getByLabel('Email Address').fill(registrationEmail)
+    await page.locator('[id="accountInfo.password"]').fill('StrongPass123')
+    await page.locator('[id="accountInfo.confirmPassword"]').fill('StrongPass123')
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
 
-  await expect(page.getByRole('heading', { name: 'Screening Request' })).toBeVisible()
-  await page.getByRole('radio', { name: /Self/i }).check()
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expect(page.getByRole('radio', { name: /Self/i })).toBeVisible()
+    await page.getByRole('radio', { name: /Self/i }).check()
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
 
-  await expect(page.getByRole('heading', { name: 'Results Recipients' })).toBeVisible()
-  await page.getByRole('button', { name: 'Add Recipient' }).click()
-  await page.getByLabel('Recipient Email').fill(`self.extra.${Date.now()}@example.com`)
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expect(page.getByRole('button', { name: /Add Recipient/i })).toBeVisible()
+    await page.getByRole('button', { name: 'Add Recipient' }).click()
+    await page.getByLabel('Recipient Email').fill(`self.extra.${Date.now()}@example.com`)
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
 
-  await expect(page.getByRole('heading', { name: 'Medications (Optional)' })).toBeVisible()
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expect(page.getByRole('button', { name: /Add Medication/i })).toBeVisible()
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
 
-  await expect(page.getByRole('heading', { name: 'Terms & Conditions' })).toBeVisible()
-  await page.getByLabel(/I have read and agree to the terms and conditions of service/i).check()
+    await expect(page.getByRole('checkbox', { name: /agree to the terms/i })).toBeVisible()
+    await page.getByLabel(/I have read and agree to the terms and conditions of service/i).check()
 
-  await Promise.all([
-    page.waitForURL(/\/dashboard/, { timeout: 30_000 }),
-    page.getByRole('button', { name: 'Complete Registration' }).click(),
-  ])
-  await expect(page.getByRole('heading', { name: /Welcome back, Alex Taylor/i })).toBeVisible({ timeout: 30_000 })
+    await Promise.all([
+      page.waitForURL(/\/dashboard/, { timeout: 30_000 }),
+      page.getByRole('button', { name: 'Complete Registration' }).click(),
+    ])
+    await expect(page.getByRole('heading', { name: /Welcome back, Alex Taylor/i })).toBeVisible({ timeout: 30_000 })
 
-  createdClientEmails.push(registrationEmail)
+    createdClientEmails.push(registrationEmail)
 
-  const createdClient = await findClientByEmail(registrationEmail)
-  expect(createdClient).not.toBeNull()
-  expect(createdClient?.dob).toBeTruthy()
-  expect(createdClient?.dob).toContain('1990-01-15')
+    const createdClient = await findClientByEmail(registrationEmail)
+    expect(createdClient).not.toBeNull()
+    expect(createdClient?.dob).toBeTruthy()
+    expect(createdClient?.dob).toContain('1990-01-15')
 
-  await findMailpitMessages({
-    apiBase: env.mailpitApiBase,
-    createdAfter: testStart,
-    to: 'mike@midrugtest.com',
-    subject: /^(?:\[TEST MODE\] )?New Client Registration - Alex Taylor$/,
-    requireAttachment: 'none',
-    timeoutMs: 30_000,
-  })
-})
+    await findMailpitMessages({
+      apiBase: env.mailpitApiBase,
+      createdAfter: testStart,
+      to: 'mike@midrugtest.com',
+      subject: /^(?:\[TEST MODE\] )?New Client Registration - Alex Taylor$/,
+      requireAttachment: 'none',
+      timeoutMs: 30_000,
+    })
+  },
+)

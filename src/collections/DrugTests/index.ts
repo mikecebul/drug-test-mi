@@ -2,9 +2,12 @@ import { CollectionConfig } from 'payload'
 import { superAdmin } from '@/access/superAdmin'
 import { admins } from '@/access/admins'
 import { superAdminFieldAccess } from '@/access/superAdminFieldAccess'
+import { captureConfirmationState, queueConfirmationPaidNotification } from './confirmation/hooks'
 import { computeTestResults } from './hooks/computeTestResults'
 import { syncClientBalanceAfterChange, syncClientBalanceAfterDelete } from './hooks/syncClientBalance'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
+import { billingResponsibilityField } from '@/fields/billingResponsibility'
+import { captureTestBillingResponsibility } from '@/hooks/captureBillingResponsibility'
 
 export const DrugTests: CollectionConfig = {
   slug: 'drug-tests',
@@ -13,8 +16,8 @@ export const DrugTests: CollectionConfig = {
     plural: 'Drug Tests',
   },
   hooks: {
-    beforeChange: [computeTestResults],
-    afterChange: [syncClientBalanceAfterChange],
+    beforeChange: [captureTestBillingResponsibility, captureConfirmationState, computeTestResults],
+    afterChange: [syncClientBalanceAfterChange, queueConfirmationPaidNotification],
     afterDelete: [syncClientBalanceAfterDelete],
   },
   access: {
@@ -62,6 +65,44 @@ export const DrugTests: CollectionConfig = {
     },
   },
   fields: [
+    billingResponsibilityField,
+    {
+      name: 'screenedAt',
+      type: 'date',
+      admin: { readOnly: true, description: 'First screening result date; starts the 30-day laboratory hold.' },
+      access: { create: () => false, update: () => false },
+    },
+    {
+      name: 'confirmationHoldUntil',
+      type: 'date',
+      admin: { readOnly: true },
+      access: { create: () => false, update: () => false },
+    },
+    {
+      name: 'confirmationRequestKey',
+      type: 'text',
+      admin: { hidden: true },
+      access: { create: () => false, update: () => false },
+    },
+    {
+      name: 'confirmationNotificationAdmin',
+      type: 'relationship',
+      relationTo: 'admins',
+      admin: { hidden: true },
+      access: { read: ({ req }) => req.user?.collection === 'admins', create: () => false, update: () => false },
+    },
+    {
+      name: 'confirmationPaidNotificationKey',
+      type: 'text',
+      admin: { hidden: true },
+      access: { read: ({ req }) => req.user?.collection === 'admins', create: () => false, update: () => false },
+    },
+    {
+      name: 'confirmationPaidNotifiedAt',
+      type: 'date',
+      admin: { hidden: true },
+      access: { read: ({ req }) => req.user?.collection === 'admins', create: () => false, update: () => false },
+    },
     // Computed field for display title (stored in DB)
     {
       name: 'clientName',
@@ -378,6 +419,13 @@ export const DrugTests: CollectionConfig = {
                   },
                 },
                 {
+                  name: 'confirmationFeePaid',
+                  type: 'number',
+                  min: 0,
+                  admin: { readOnly: true, description: 'Money applied specifically to the confirmation fee.' },
+                  access: { create: () => false, update: () => false },
+                },
+                {
                   name: 'confirmationPaymentBypassed',
                   type: 'checkbox',
                   defaultValue: false,
@@ -394,6 +442,13 @@ export const DrugTests: CollectionConfig = {
                     },
                     condition: (_, siblingData) => siblingData?.confirmationPaymentBypassed === true,
                   },
+                },
+                {
+                  name: 'confirmationPaymentBypassedBy',
+                  type: 'relationship',
+                  relationTo: 'admins',
+                  admin: { readOnly: true },
+                  access: { create: () => false, update: () => false },
                 },
                 {
                   name: 'lastPaymentAt',

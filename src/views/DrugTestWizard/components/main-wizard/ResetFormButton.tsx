@@ -17,6 +17,7 @@ const workflowTypes = [
   'complete-workflow',
   'register-client',
   'collect-lab',
+  'lab-results',
   'enter-lab-screen',
   'enter-lab-confirmation',
   'instant-test',
@@ -30,6 +31,7 @@ const firstStepMap: Record<(typeof workflowTypes)[number], string> = {
   'collect-lab': collectLabSteps[0],
   'instant-test': instantTestSteps[0],
   '17-panel-instant': instantTestSteps[0],
+  'lab-results': 'upload',
   'enter-lab-screen': labScreenSteps[0],
   'enter-lab-confirmation': labConfirmationSteps[0],
 }
@@ -55,6 +57,7 @@ export const ResetFormButton = () => {
   }
 
   const handleReset = () => {
+    window.dispatchEvent(new Event('drug-test-wizard-reset'))
     clearWizardQueryCache(queryClient)
     clearFileStorage()
 

@@ -2,12 +2,15 @@
 
 import Link from 'next/link'
 import React from 'react'
+import { useAuth } from '@payloadcms/ui'
 
 const LinkToAnalyticsDefaultRootView: React.FC = () => {
+  const { user } = useAuth()
+  if (!user || user.collection !== 'admins' || user.role !== 'superAdmin') return null
   return (
     <Link
       href="/admin/analytics"
-      className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+      className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"

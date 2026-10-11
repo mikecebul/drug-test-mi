@@ -1,3 +1,4 @@
+import { confirmationPaid } from '@/collections/DrugTests/confirmation/policy'
 import type { DrugTest, Payment } from '@/payload-types'
 import type { Payload, PayloadRequest } from 'payload'
 
@@ -43,11 +44,22 @@ export async function reversePostedPayments(input: {
     )
   }
 
+  const legacyReversals = new Map<string, number>()
+  const confirmationReversals = new Map<string, number>()
   const allocationReversals = new Map<string, number>()
   for (const payment of payments) {
     for (const allocation of payment.allocations || []) {
       const drugTestId = readRelationshipId(allocation.drugTest)
       if (!drugTestId) continue
+      if (allocation.confirmationAmount == null)
+        legacyReversals.set(
+          drugTestId,
+          addMoney(legacyReversals.get(drugTestId) || 0, normalizeMoney(allocation.amount)),
+        )
+      confirmationReversals.set(
+        drugTestId,
+        addMoney(confirmationReversals.get(drugTestId) || 0, normalizeMoney(allocation.confirmationAmount)),
+      )
       allocationReversals.set(
         drugTestId,
         addMoney(allocationReversals.get(drugTestId) || 0, normalizeMoney(allocation.amount)),
@@ -78,11 +90,20 @@ export async function reversePostedPayments(input: {
           status: balanceDue <= 0 ? 'paid' : nextAmountPaid > 0 ? 'partial' : 'unpaid',
           amountDue,
           amountPaid: nextAmountPaid,
+          // New ledger entries include zero for base-only payments. Only legacy entries need a conservative fallback.
+          confirmationFeePaid: Math.max(
+            0,
+            subtractMoney(
+              confirmationPaid(drugTest),
+              addMoney(confirmationReversals.get(drugTestId) || 0, legacyReversals.get(drugTestId) || 0),
+            ),
+          ),
           balanceDue,
         },
       },
       overrideAccess: true,
       req: input.req,
+      context: { confirmationAllocation: true },
     })
   }
 

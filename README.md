@@ -228,17 +228,23 @@ Notes:
 
 #### Start MongoDB (recommended via Docker Compose)
 
-This repo includes a `docker-compose.yml` with `mongo` and a production-style `payload` service.
+The default `docker-compose.yml` starts standalone MongoDB for local development. Admins can prepare pending confirmation charges and continue collection unpaid on this setup. Posting money or applying account credit requires a transaction-capable MongoDB replica set.
 
 For normal local development, start only MongoDB and run the app with `pnpm dev`:
 
 ```bash
-docker compose up -d mongo
+docker compose up -d --wait mongo
 ```
 
 Notes:
-- The compose file also defines a `payload` container intended for containerized/prod-like runs.
+- The examples use the `drug-test-mi` database. Point `DATABASE_URI` and `DOCKER_DATABASE_URI` at the same project database; the worker requires an explicit URL and has no database fallback. Keep an existing project database name when updating connection options.
+- Compose keeps the existing `mongo-data` volume and does not initialize or convert a replica set. For actual local payment testing, use a separate disposable replica set; do not convert a MongoDB server shared with other projects.
+- When using a replica set, include its `replicaSet` name in both URLs so Payload enables transactions. A single Docker endpoint also needs `directConnection=true`.
+- After changing the MongoDB configuration or connection URLs, restart the app and any running worker. Their existing connections may have transactions disabled.
+- This setup is for local development; keep your production MongoDB/Atlas connection configuration.
 - Most local development is simpler with a local Node process (`pnpm dev`) plus the compose MongoDB container.
+
+MongoDB references: [convert an existing standalone database](https://www.mongodb.com/docs/manual/tutorial/convert-standalone-to-replica-set/) and [connect to a Docker replica set](https://www.mongodb.com/docs/drivers/node/current/connect/connection-targets/#replica-set).
 
 #### Optional: Run Mailpit for local email inspection
 

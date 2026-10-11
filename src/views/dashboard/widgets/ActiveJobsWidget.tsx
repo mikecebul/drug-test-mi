@@ -131,7 +131,7 @@ function getHistoryStatusLabel(status: JobRunStatus): string {
 }
 
 export default async function ActiveJobsWidget({ req }: WidgetServerProps) {
-  if (!req.user || req.user.collection !== 'admins') {
+  if (!req.user || req.user.collection !== 'admins' || req.user.role !== 'superAdmin') {
     return null
   }
 

@@ -51,6 +51,12 @@ import {
 import { deriveRedwoodProvisioningStatus, type RedwoodProvisioningStatus } from '@/lib/redwood/provisioning'
 import { buildRedwoodCollectSpecimenUrl, REDWOOD_MOBILE_DONORS_URL } from '@/lib/redwood/donor-urls'
 import { getBookingPaymentAfterRefund } from './refund-state'
+import { resolveBillingResponsibility, isTestBilledToReferral } from '@/lib/referral-invoices/payer'
+import {
+  setCollectionPayer,
+  reserveClientPaymentPayer,
+  releaseClientPaymentPayer,
+} from '@/lib/referral-invoices/booking-payer'
 import {
   hasReadyGuidedRedwoodDonor,
   shouldQueueGuidedRedwoodDonor,
@@ -601,6 +607,19 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
           ? client.headshot.thumbnailURL || client.headshot.url || null
           : null
       const headshotId = client?.headshot && typeof client.headshot === 'object' ? String(client.headshot.id) : null
+      const billingResponsibility = client
+        ? await resolveBillingResponsibility(payload, booking, String(client.id), undefined, true)
+        : { payer: 'client' as const, referral: null }
+      const billingReferral =
+        billingResponsibility.payer === 'referral' && billingResponsibility.referral
+          ? await payload.findByID({
+              collection: billingResponsibility.referral.relationTo,
+              id: billingResponsibility.referral.value,
+              depth: 0,
+              overrideAccess: true,
+              select: { name: true },
+            })
+          : null
       const bookingGender = getCalcomBookingGender(booking)
       const paymentRecoveryStatus = getCalcomPaymentRecoveryStatus(booking)
 
@@ -662,6 +681,14 @@ export async function getTodaysCollectionBookings(req?: AdminPayloadRequest) {
         bookingTestType,
         testType,
         payment: booking.payment || null,
+        billingResponsibility,
+        billingReferralName: billingReferral?.name || null,
+        payerLocked: Boolean(
+          booking.billingResponsibility?.paymentOperationId ||
+          booking.payment?.collectedAt ||
+          (booking.payment?.amountPaid || 0) > 0 ||
+          booking.payment?.status === 'paid',
+        ),
         guidedPaymentTotal: guidedPaymentSummaries.get(String(booking.id))?.newMoneyAmount || 0,
         guidedPaymentSummary: guidedPaymentSummaries.get(String(booking.id)) || null,
         sampleCollection: booking.sampleCollection || null,
@@ -1003,7 +1030,11 @@ export async function getClientOutstandingPaymentBalances(clientId: string, req?
     activeInvoices.docs.flatMap((invoice) => invoice.items?.map((item) => getRelationshipId(item.drugTest)) || []),
   )
 
-  return result.docs
+  const clientTests: typeof result.docs = []
+  for (const test of result.docs) {
+    if (!(await isTestBilledToReferral(payload, test))) clientTests.push(test)
+  }
+  return clientTests
     .map((test) => {
       const testType = mapTestTypeValue(test.testType)
       return {
@@ -1501,7 +1532,10 @@ export async function recordBookingPayment(
         (normalizeMoney(input.amountReceived) > 0 || creditApplied > 0),
       )
       const referral = await resolveReferral(payload, client)
-      if (referral?.isBillable && (input.amountReceived > 0 || creditApplied > 0))
+      const billingResponsibility = await resolveBillingResponsibility(payload, existingBooking, clientId, req, true)
+      if (existingBooking.billingResponsibility?.paymentOperationId)
+        throw new Error('Cancel the active card payment before recording another payment.')
+      if (billingResponsibility.payer === 'referral' && (input.amountReceived > 0 || creditApplied > 0))
         throw new Error('This referral pays for the test. Record its payment on the referral invoice.')
       const testType =
         mapTestTypeValue(existingBooking.scheduledTestType) ??
@@ -1516,22 +1550,26 @@ export async function recordBookingPayment(
       const existingPayment = existingBooking.payment
       const existingAmountPaid = Math.min(normalizeMoney(existingPayment?.amountPaid), amountDue)
       const currentBookingBalance = Math.max(0, normalizeMoney(amountDue - existingAmountPaid))
-      const previousBalanceBefore = shouldSendReceipt
-        ? normalizeMoney(
-            (
-              await payload.find({
-                collection: 'drug-tests',
-                where: {
-                  and: [{ relatedClient: { equals: clientId } }, { 'payment.balanceDue': { greater_than: 0 } }],
-                },
-                depth: 0,
-                limit: 1000,
-                overrideAccess: true,
-                req,
-              })
-            ).docs.reduce((total, test) => total + normalizeMoney(test.payment?.balanceDue), 0),
+      let previousBalanceBefore = 0
+      if (shouldSendReceipt) {
+        const balances = await payload.find({
+          collection: 'drug-tests',
+          where: { and: [{ relatedClient: { equals: clientId } }, { 'payment.balanceDue': { greater_than: 0 } }] },
+          depth: 0,
+          limit: 1000,
+          overrideAccess: true,
+          req,
+        })
+        for (const test of balances.docs) {
+          if (
+            test.payment?.status === 'invoiced' ||
+            test.payment?.referralInvoice ||
+            (await isTestBilledToReferral(payload, test, req))
           )
-        : 0
+            continue
+          previousBalanceBefore = normalizeMoney(previousBalanceBefore + normalizeMoney(test.payment?.balanceDue))
+        }
+      }
       const notes =
         typeof input.notes === 'string'
           ? input.notes.trim() || null
@@ -1597,6 +1635,7 @@ export async function recordBookingPayment(
         collection: 'bookings',
         id: input.bookingId,
         data: {
+          billingResponsibility,
           payment: {
             amountDue,
             amountPaid: nextAmountPaid,
@@ -1665,7 +1704,7 @@ export async function recordBookingPayment(
           receiptType,
         },
       }
-    })
+    }, { requireTransaction: input.amountReceived > 0 || creditApplied > 0 })
 
     revalidateBookingViews()
 
@@ -1777,7 +1816,7 @@ export async function startBookingTerminalPayment(
   }
 
   const referral = await resolveReferral(payload, client)
-  if (referral?.isBillable) {
+  if ((await resolveBillingResponsibility(payload, booking, clientId, undefined, true)).payer === 'referral') {
     return {
       success: false as const,
       error: 'This referral pays for the test. Record its payment on the referral invoice.',
@@ -1793,17 +1832,45 @@ export async function startBookingTerminalPayment(
   const existingAmountPaid = Math.min(normalizeMoney(booking.payment?.amountPaid), amountDue)
   const bookingBalanceDue = Math.max(0, normalizeMoney(amountDue - existingAmountPaid))
 
-  return startGuidedTerminalPayment({
-    amount: amountReceived,
-    bookingAmountDue: amountDue,
-    bookingBalanceDue,
-    bookingId: input.bookingId,
-    clientId,
-    creditAmount: creditApplied,
-    operationId: input.operationId.trim(),
-    payload,
-    receiptEmail,
-  })
+  try {
+    await reserveClientPaymentPayer(payload, input.bookingId, clientId, input.operationId.trim())
+    const result = await startGuidedTerminalPayment({
+      amount: amountReceived,
+      bookingAmountDue: amountDue,
+      bookingBalanceDue,
+      bookingId: input.bookingId,
+      clientId,
+      creditAmount: creditApplied,
+      operationId: input.operationId.trim(),
+      payload,
+      receiptEmail,
+    })
+    if (!result.success) await releaseClientPaymentPayer(payload, input.bookingId, input.operationId.trim())
+    return result
+  } catch (error) {
+    await releaseClientPaymentPayer(payload, input.bookingId, input.operationId.trim()).catch(() => {})
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : 'Unable to start the card payment.',
+    }
+  }
+}
+
+export async function setBookingBillingResponsibility(
+  input: { bookingId: string; payer: 'client' | 'referral'; expectedPayer: 'client' | 'referral' },
+  req?: AdminPayloadRequest,
+) {
+  const payload = await getAdminPayload(req)
+  try {
+    const responsibility = await setCollectionPayer({ ...input, payload, userId: req?.user?.id })
+    revalidateBookingViews()
+    return { success: true as const, billingResponsibility: responsibility }
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : 'Unable to change this test billing.',
+    }
+  }
 }
 
 export async function cancelBookingTerminalPayment(input: { paymentId: string }, req?: AdminPayloadRequest) {

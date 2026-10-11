@@ -1,13 +1,8 @@
 import type { Payload } from 'payload'
 import { getRecipients } from '../email/recipients'
 import { fetchClientHeadshot } from '../email/fetch-headshot'
-import {
-  buildCollectedEmail,
-  buildScreenedEmail,
-  buildCompleteEmail,
-  buildInconclusiveEmail,
-} from '../email/render'
-import type { ConfirmationResult } from './testResults'
+import { buildCollectedEmail, buildScreenedEmail, buildCompleteEmail, buildInconclusiveEmail } from '../email/render'
+import type { CollectedEmailData, ScreenedEmailData, CompleteEmailData, InconclusiveEmailData } from '../email/types'
 
 export type EmailStage = 'collected' | 'screened' | 'complete' | 'inconclusive'
 
@@ -74,78 +69,36 @@ export async function fetchClientData(
  * Builds collected email (sample collected, sent to lab)
  * Only sends to referrals - client doesn't need notification at this stage
  */
-export async function buildCollectedEmailData(params: {
-  clientName: string
-  collectionDate: string
-  testType: string
-  breathalyzerTaken: boolean
-  breathalyzerResult: number | null
-  clientHeadshotDataUri?: string | null
-  clientDob?: string | null
-}): Promise<{ subject: string; html: string }> {
+export async function buildCollectedEmailData(params: CollectedEmailData): Promise<{ subject: string; html: string }> {
   return await buildCollectedEmail(params)
 }
 
 /**
  * Builds screened email (initial screening results available)
- * Sends different content to client vs referrals
+ * Uses the same content for client and referral recipients
  */
-export async function buildScreenedEmailData(params: {
-  clientName: string
-  collectionDate: string
-  testType: string
-  initialScreenResult: string
-  detectedSubstances: string[]
-  expectedPositives: string[]
-  unexpectedPositives: string[]
-  unexpectedNegatives: string[]
-  isDilute: boolean
-  breathalyzerTaken: boolean
-  breathalyzerResult: number | null
-  confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
-  clientHeadshotDataUri?: string | null
-  clientDob?: string | null
-}): Promise<{ client: { subject: string; html: string }; referrals: { subject: string; html: string } }> {
+export async function buildScreenedEmailData(
+  params: ScreenedEmailData,
+): Promise<{ client: { subject: string; html: string }; referrals: { subject: string; html: string } }> {
   return await buildScreenedEmail(params)
 }
 
 /**
  * Builds complete email (final results with confirmation testing)
- * Sends different content to client vs referrals
+ * Uses the same content for client and referral recipients
  */
-export async function buildCompleteEmailData(params: {
-  clientName: string
-  collectionDate: string
-  testType: string
-  initialScreenResult: string
-  detectedSubstances: string[]
-  expectedPositives: string[]
-  unexpectedPositives: string[]
-  unexpectedNegatives: string[]
-  confirmationResults?: ConfirmationResult[]
-  finalStatus: string
-  isDilute: boolean
-  breathalyzerTaken: boolean
-  breathalyzerResult: number | null
-  clientHeadshotDataUri?: string | null
-  clientDob?: string | null
-}): Promise<{ client: { subject: string; html: string }; referrals: { subject: string; html: string } }> {
+export async function buildCompleteEmailData(
+  params: CompleteEmailData,
+): Promise<{ client: { subject: string; html: string }; referrals: { subject: string; html: string } }> {
   return await buildCompleteEmail(params)
 }
 
 /**
  * Builds inconclusive email (sample invalid/cannot be screened)
- * Sends different content to client vs referrals
+ * Uses the same content for client and referral recipients
  */
-export async function buildInconclusiveEmailData(params: {
-  clientName: string
-  collectionDate: string
-  testType: string
-  breathalyzerTaken: boolean
-  breathalyzerResult: number | null
-  reason?: string
-  clientHeadshotDataUri?: string | null
-  clientDob?: string | null
-}): Promise<{ client: { subject: string; html: string }; referrals: { subject: string; html: string } }> {
+export async function buildInconclusiveEmailData(
+  params: InconclusiveEmailData,
+): Promise<{ client: { subject: string; html: string }; referrals: { subject: string; html: string } }> {
   return await buildInconclusiveEmail(params)
 }

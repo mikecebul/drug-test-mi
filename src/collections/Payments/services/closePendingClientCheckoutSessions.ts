@@ -1,13 +1,19 @@
 import type { Payload } from 'payload'
 import type Stripe from 'stripe'
 
-export async function closePendingClientCheckoutSessions(payload: Payload, stripe: Stripe, testId: string) {
+export async function closePendingClientCheckoutSessions(
+  payload: Payload,
+  stripe: Stripe,
+  testId: string,
+  purpose?: 'confirmation',
+) {
   const pending = await payload.find({
     collection: 'payments',
     where: {
       and: [
         { relatedDrugTest: { equals: testId } },
         { source: { equals: 'stripe-checkout' } },
+        ...(purpose ? [{ purpose: { equals: purpose } }] : []),
         { status: { equals: 'pending' } },
       ],
     },
@@ -15,7 +21,8 @@ export async function closePendingClientCheckoutSessions(payload: Payload, strip
     limit: 100,
     overrideAccess: true,
   })
-  if (pending.hasNextPage) throw new Error('Too many pending payment links exist for this test. Contact an administrator.')
+  if (pending.hasNextPage)
+    throw new Error('Too many pending payment links exist for this test. Contact an administrator.')
 
   for (const payment of pending.docs) {
     if (!payment.stripeCheckoutSessionId)

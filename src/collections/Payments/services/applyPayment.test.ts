@@ -10,6 +10,7 @@ function createMockPayload({
   clientCredit?: number
   unpaidTests?: Array<{
     id: string
+    billingResponsibility?: { payer: 'client' | 'referral'; referral?: { relationTo: 'courts'; value: string } }
     payment?: {
       amountDue?: number
       amountPaid?: number
@@ -41,11 +42,108 @@ function createMockPayload({
 }
 
 describe('payment allocation service', () => {
+  test.each(['cash', 'credit'] as const)(
+    'reads later pages before allocating %s or adding account credit',
+    async (method) => {
+      const payload = createMockPayload({ clientCredit: 50 })
+      payload.find
+        .mockResolvedValueOnce({
+          docs: [
+            {
+              id: 'referral-test',
+              billingResponsibility: { payer: 'referral', referral: { relationTo: 'courts', value: 'court-1' } },
+              payment: { balanceDue: 80 },
+            },
+          ],
+          hasNextPage: true,
+        } as never)
+        .mockResolvedValueOnce({
+          docs: [
+            {
+              id: 'client-test',
+              billingResponsibility: { payer: 'client' },
+              payment: { amountDue: 50, amountPaid: 0, balanceDue: 50 },
+            },
+          ],
+          hasNextPage: false,
+        } as never)
+      if (method === 'cash')
+        await applyIncomingPayment({
+          payload: payload as unknown as Payload,
+          clientId: 'client-1',
+          amount: 50,
+          method,
+          source: 'manual',
+        })
+      else
+        await applyAvailableClientCredit({ payload: payload as unknown as Payload, clientId: 'client-1', amount: 50 })
+      expect(payload.find).toHaveBeenNthCalledWith(2, expect.objectContaining({ page: 2 }))
+      expect(payload.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          collection: 'drug-tests',
+          id: 'client-test',
+          data: expect.objectContaining({ payment: expect.objectContaining({ balanceDue: 0 }) }),
+        }),
+      )
+      expect(payload.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ appliedAmount: 50, creditAmount: 0 }) }),
+      )
+    },
+  )
+  test.each(['cash', 'credit'] as const)(
+    'does not spend %s on referral debt before an invoice exists',
+    async (method) => {
+      const payload = createMockPayload({
+        clientCredit: method === 'credit' ? 50 : 0,
+        unpaidTests: [
+          {
+            id: 'referral-test',
+            billingResponsibility: { payer: 'referral', referral: { relationTo: 'courts', value: 'court-1' } },
+            payment: { amountDue: 40, amountPaid: 0, balanceDue: 40, status: 'unpaid' },
+          },
+          {
+            id: 'client-exception',
+            billingResponsibility: { payer: 'client' },
+            payment: { amountDue: 35, amountPaid: 0, balanceDue: 35, status: 'unpaid' },
+          },
+        ],
+      })
+      if (method === 'cash')
+        await applyIncomingPayment({
+          payload: payload as unknown as Payload,
+          clientId: 'client-1',
+          amount: 50,
+          method,
+          source: 'test-tracker',
+        })
+      else
+        await applyAvailableClientCredit({ payload: payload as unknown as Payload, clientId: 'client-1', amount: 50 })
+      expect(payload.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({ collection: 'drug-tests', id: 'referral-test' }),
+      )
+      expect(payload.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          collection: 'drug-tests',
+          id: 'client-exception',
+          data: { payment: expect.objectContaining({ balanceDue: 0, amountPaid: 35 }) },
+        }),
+      )
+      expect(payload.update).toHaveBeenCalledWith(
+        expect.objectContaining({ collection: 'clients', data: { creditBalance: 15 } }),
+      )
+    },
+  )
   test('does not apply client money or credit to tests already billed on a referral invoice', async () => {
     const unpaidTests = [
       {
         id: 'referral-test',
-        payment: { amountDue: 40, amountPaid: 0, balanceDue: 40, status: 'invoiced' as const, referralInvoice: 'invoice-1' },
+        payment: {
+          amountDue: 40,
+          amountPaid: 0,
+          balanceDue: 40,
+          status: 'invoiced' as const,
+          referralInvoice: 'invoice-1',
+        },
       },
       {
         id: 'client-test',
@@ -55,15 +153,26 @@ describe('payment allocation service', () => {
     const moneyPayload = createMockPayload({ unpaidTests })
     await applyIncomingPayment({
       payload: moneyPayload as unknown as Payload,
-      clientId: 'client-1', amount: 35, method: 'cash', source: 'test-tracker',
+      clientId: 'client-1',
+      amount: 35,
+      method: 'cash',
+      source: 'test-tracker',
     })
-    expect(moneyPayload.update).toHaveBeenCalledWith(expect.objectContaining({ collection: 'drug-tests', id: 'client-test' }))
-    expect(moneyPayload.update).not.toHaveBeenCalledWith(expect.objectContaining({ collection: 'drug-tests', id: 'referral-test' }))
+    expect(moneyPayload.update).toHaveBeenCalledWith(
+      expect.objectContaining({ collection: 'drug-tests', id: 'client-test' }),
+    )
+    expect(moneyPayload.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ collection: 'drug-tests', id: 'referral-test' }),
+    )
 
     const creditPayload = createMockPayload({ clientCredit: 35, unpaidTests })
     await applyAvailableClientCredit({ payload: creditPayload as unknown as Payload, clientId: 'client-1' })
-    expect(creditPayload.update).toHaveBeenCalledWith(expect.objectContaining({ collection: 'drug-tests', id: 'client-test' }))
-    expect(creditPayload.update).not.toHaveBeenCalledWith(expect.objectContaining({ collection: 'drug-tests', id: 'referral-test' }))
+    expect(creditPayload.update).toHaveBeenCalledWith(
+      expect.objectContaining({ collection: 'drug-tests', id: 'client-test' }),
+    )
+    expect(creditPayload.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ collection: 'drug-tests', id: 'referral-test' }),
+    )
   })
 
   test('applies incoming payments to oldest unpaid drug-test balances first', async () => {
@@ -141,8 +250,8 @@ describe('payment allocation service', () => {
           appliedAmount: 60,
           creditAmount: 0,
           allocations: [
-            { drugTest: 'old-test', amount: 40 },
-            { drugTest: 'new-test', amount: 20 },
+            { drugTest: 'old-test', amount: 40, confirmationAmount: 0 },
+            { drugTest: 'new-test', amount: 20, confirmationAmount: 0 },
           ],
         }),
       }),
@@ -196,7 +305,7 @@ describe('payment allocation service', () => {
           appliedAmount: 35,
           reservedForBookingAmount: 15,
           creditAmount: 0,
-          allocations: [{ drugTest: 'old-test', amount: 35 }],
+          allocations: [{ drugTest: 'old-test', amount: 35, confirmationAmount: 0 }],
         }),
       }),
     )
@@ -258,8 +367,8 @@ describe('payment allocation service', () => {
           appliedAmount: 50,
           creditAmount: 0,
           allocations: [
-            { drugTest: 'oldest-test', amount: 35 },
-            { drugTest: 'second-oldest-test', amount: 15 },
+            { drugTest: 'oldest-test', amount: 35, confirmationAmount: 0 },
+            { drugTest: 'second-oldest-test', amount: 15, confirmationAmount: 0 },
           ],
         }),
       }),
@@ -439,8 +548,8 @@ describe('payment allocation service', () => {
           appliedAmount: 50,
           creditAmount: 0,
           allocations: [
-            { drugTest: 'old-test', amount: 40 },
-            { drugTest: 'new-test', amount: 10 },
+            { drugTest: 'old-test', amount: 40, confirmationAmount: 0 },
+            { drugTest: 'new-test', amount: 10, confirmationAmount: 0 },
           ],
         }),
       }),
@@ -487,7 +596,7 @@ describe('payment allocation service', () => {
           amount: 50,
           appliedAmount: 35,
           reservedForBookingAmount: 15,
-          allocations: [{ drugTest: 'old-test', amount: 35 }],
+          allocations: [{ drugTest: 'old-test', amount: 35, confirmationAmount: 0 }],
         }),
       }),
     )

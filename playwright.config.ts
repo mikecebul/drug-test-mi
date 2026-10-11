@@ -18,11 +18,12 @@ export default defineConfig({
   workers,
   fullyParallel: false,
   retries: process.env.CI ? 2 : 0,
+  failOnFlakyTests: Boolean(process.env.CI),
   reporter: process.env.CI ? [['github'], ['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL,
     launchOptions: slowMo ? { slowMo } : undefined,
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
@@ -48,6 +49,8 @@ export default defineConfig({
       // PDF parsing runs on the server, but the upload/server-action workflow
       // still needs coverage against Safari's browser engine.
       name: 'webkit',
+      testMatch: '**/wizard-instant.spec.ts',
+      grep: /@pdf-browser/,
       use: { ...devices['Desktop Safari'] },
     },
   ],

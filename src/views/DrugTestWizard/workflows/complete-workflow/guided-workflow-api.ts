@@ -16,6 +16,7 @@ import type {
   recoverPendingPaymentBooking,
   refreshBookingClientContext,
   setBookingScheduledTestType,
+  setBookingBillingResponsibility,
   startBookingTerminalPayment,
   undoBookingPayment,
 } from './actions'
@@ -31,8 +32,7 @@ export type GuidedRedwoodStatus = Awaited<ReturnType<typeof getClientRedwoodProv
 export type GuidedOutstandingBalance = Awaited<ReturnType<typeof getClientOutstandingPaymentBalances>>[number]
 export type GuidedBookingContext = Awaited<ReturnType<typeof refreshBookingClientContext>>
 export type GuidedScheduleActionResult =
-  | Awaited<ReturnType<typeof cancelGuidedBooking>>
-  | Awaited<ReturnType<typeof cancelAndRefundGuidedBooking>>
+  Awaited<ReturnType<typeof cancelGuidedBooking>> | Awaited<ReturnType<typeof cancelAndRefundGuidedBooking>>
 export type GuidedPendingPaymentRecoveryResult = Awaited<ReturnType<typeof recoverPendingPaymentBooking>>
 export type GuidedPaymentResult = Awaited<ReturnType<typeof recordBookingPayment>>
 export type GuidedTerminalPaymentResult = Awaited<ReturnType<typeof startBookingTerminalPayment>>
@@ -201,10 +201,7 @@ export const guidedWorkflowApi = {
     })
   },
 
-  getTerminalPaymentStatus(
-    input: { bookingId?: string; paymentId?: string },
-    signal?: AbortSignal,
-  ) {
+  getTerminalPaymentStatus(input: { bookingId?: string; paymentId?: string }, signal?: AbortSignal) {
     return requestJSON<GuidedTerminalPaymentStatus>({
       method: 'GET',
       path: getPath('terminal-payment-status', input),
@@ -248,6 +245,13 @@ export const guidedWorkflowApi = {
 
   setTestType(input: { bookingId: string; testTypeId: string }, signal?: AbortSignal) {
     return command<Awaited<ReturnType<typeof setBookingScheduledTestType>>>('set-test-type', input, signal)
+  },
+
+  setPayer(
+    input: { bookingId: string; payer: 'client' | 'referral'; expectedPayer: 'client' | 'referral' },
+    signal?: AbortSignal,
+  ) {
+    return command<Awaited<ReturnType<typeof setBookingBillingResponsibility>>>('set-payer', input, signal)
   },
 
   startTerminalPayment(
