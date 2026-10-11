@@ -16,7 +16,7 @@ try {
   const hello = await connection.db.admin().command({ hello: 1 })
   if (!hello.setName || !hello.isWritablePrimary)
     throw new Error(
-      'MongoDB must be a writable replica-set primary for payment transactions. Start docker-compose.payments.yml and check DATABASE_URI.',
+      'MongoDB must be a writable replica-set primary for payment transactions. Run docker compose up -d --wait and check DATABASE_URI.',
     )
   if (hello.setName !== 'drug-test-mi-payments')
     throw new Error('DATABASE_URI points to a different replica set; expected drug-test-mi-payments.')
@@ -26,7 +26,7 @@ try {
   const message =
     error instanceof Error && error.name === 'Error'
       ? error.message
-      : 'Cannot connect to the development database. Start Docker, run docker compose -f docker-compose.payments.yml up -d --wait, and check DATABASE_URI.'
+      : 'Cannot connect to the development database. Start Docker, run docker compose up -d --wait, and check DATABASE_URI.'
   console.error(message)
   process.exitCode = 1
 } finally {

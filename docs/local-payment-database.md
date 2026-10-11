@@ -1,57 +1,67 @@
-# Local payments database
+# Local development services
 
-Cash posting and account credit update multiple records atomically. The standalone
-development MongoDB supports pending charges and unpaid collection, but not posting
-money. Admins and super-admins use the same transaction safeguards.
+`docker-compose.yml` owns one Docker Desktop group named `drug-test-mi`:
 
-`docker-compose.payments.yml` defines a separate development replica set for this
-project. It uses MongoDB 8.0.10, matching the inspected local server, its own Docker
-project and data volume, and port 28017 bound to localhost. It does not convert or
-restart the existing MongoDB server on port 27017.
+- `mongo`: MongoDB 8.0.10 replica set, host port 28017.
+- `mailpit`: SMTP on host port 1026, inbox at http://localhost:8026.
+- `worker-redwood`: optional background worker, in the `redwood-worker` profile.
 
 ## Before running the app
 
 Open Docker Desktop, then run these commands from this repository:
 
 ```sh
-docker compose -f docker-compose.payments.yml up -d --wait
+docker compose up -d --wait
 pnpm db:check
 pnpm dev
 ```
 
-The Compose health check initializes the replica set on its first start and waits
-for a writable primary. `db:check` checks the database selected by this repo’s
-`.env`, so a healthy container with an incorrect app connection does not pass.
-Neither command posts a payment or sends email. The named volume preserves data
-between restarts; do not use `down -v` unless you intend to delete that volume.
+The Compose health check initializes a fresh replica set and waits for a writable
+primary. `db:check` verifies the database selected by this repo’s `.env` supports
+payments. Starting MongoDB and Mailpit does not post a payment or send email.
 
-The existing standalone service on port 27017 is not the payment database. Only
-copy existing data during the initial setup below, never on each startup.
+For a fresh checkout without the database volume, create it once:
 
-Before changing the running app's connection:
-
-1. Back up this project's existing database and `.env` privately.
-2. Start the separate service with
-   `docker compose -f docker-compose.payments.yml up -d --wait`.
-3. Copy only the current `drug-test-mi` project database into the initially empty
-   replica set, preserving its database name. Check collection counts and critical
-   client, booking, test, and payment records before switching.
-4. Update only this project's `DATABASE_URI` to
-   `mongodb://127.0.0.1:28017/<same-project-database>?replicaSet=drug-test-mi-payments&directConnection=true`.
-5. Restart this project's development app. Verify a transaction can begin, roll
-   back a disposable probe, and then let the operator retry the payment.
-
-Do not run collection, SMTP, Stripe, or clinic jobs while verifying the copied
-database. Keep the original database and backup intact for rollback. No real
-payment is submitted by database setup.
-
-The existing worker Compose configuration uses a different network. Before
-starting or recreating the optional worker, set `DOCKER_DATABASE_URI` to the same
-project database through Docker Desktop’s host gateway:
-
-```dotenv
-DOCKER_DATABASE_URI=mongodb://host.docker.internal:28017/<same-project-database>?replicaSet=drug-test-mi-payments&directConnection=true
+```sh
+docker volume create drug-test-mi-payments_payments-mongo-data
 ```
 
-Do not leave a worker processing the old standalone database while the app uses
-the copied replica-set database. Database setup does not start worker jobs.
+Existing installations reuse that volume directly. Its historical name is kept
+so regrouping containers does not move or replace database data. Never copy data
+again as part of normal startup, and never delete the volume to fix a startup error.
+The old standalone volume `drug-test-mi_mongo-data` remains separate for rollback.
+
+## Connection settings
+
+Keep the existing project database name when changing hosts or connection options:
+
+```dotenv
+DATABASE_URI=mongodb://127.0.0.1:28017/<same-project-database>?replicaSet=drug-test-mi-payments&directConnection=true
+DOCKER_DATABASE_URI=mongodb://mongo:27017/<same-project-database>?replicaSet=drug-test-mi-payments&directConnection=true
+EMAIL_HOST=localhost
+EMAIL_PORT=1026
+```
+
+The host app connects through the published ports. The worker connects through
+the Compose network to `mongo:27017` and `mailpit:1025`; its SMTP settings are
+explicitly overridden in Compose. All services appear under `drug-test-mi`.
+
+## Optional background worker
+
+Start this only when you want clinic jobs and notifications to run:
+
+```sh
+docker compose --profile redwood-worker up -d --build --wait
+```
+
+After changing connection settings, recreate the worker with `up`; starting an
+old stopped container in Docker Desktop does not update its environment. Restart
+a running host app after changing `.env`.
+
+## Existing standalone data
+
+Before copying an existing standalone database into a fresh replica-set volume,
+back up the database and `.env` privately, stop project writers, and copy only the
+intended `drug-test-mi` database. Verify documents, indexes, and transaction
+support before switching the app. Preserve the original volume and backups;
+neither normal startup nor container regrouping requires another database copy.
