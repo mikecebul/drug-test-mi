@@ -83,6 +83,13 @@ for (const kind of ['screening', 'confirmation', 'combined-collected', 'combined
         await page.screenshot({ path: test.info().outputPath('lab-review.png'), fullPage: true })
       await page.getByTestId('wizard-next-button').click()
       await expectLabReportSavedAndReset(page)
+      if (kind === 'screening') {
+        await page.getByRole('button', { name: 'Show drug test', exact: true }).click()
+        await expect(page).toHaveURL(new RegExp(`/admin/collections/drug-tests/${testId}/summary$`))
+        await expect(page.getByTestId('drug-test-summary')).toBeVisible()
+        await expect(page.getByTestId('test-summary-payment')).toBeVisible()
+        await expect(page.getByTestId('test-summary-medications')).toBeVisible()
+      }
       const record = await assertNotificationSent({ testId, stage: isConfirmation ? 'complete' : 'screened' })
       expect(record.medicationsArrayAtTestTime).toEqual(before.medicationsArrayAtTestTime)
       if (isConfirmation) {

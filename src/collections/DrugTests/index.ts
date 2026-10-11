@@ -46,7 +46,6 @@ export const DrugTests: CollectionConfig = {
   },
   admin: {
     defaultColumns: ['relatedClient', 'testType', 'screeningStatus', 'collectionDate', 'isComplete'],
-    description: 'Track drug test results and workflow',
     useAsTitle: 'clientName',
     components: {
       views: {

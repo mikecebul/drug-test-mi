@@ -228,17 +228,21 @@ Notes:
 
 #### Start MongoDB (recommended via Docker Compose)
 
-The default `docker-compose.yml` starts standalone MongoDB for local development. Admins can prepare pending confirmation charges and continue collection unpaid on this setup. Posting money or applying account credit requires a transaction-capable MongoDB replica set.
-
-For normal local development, start only MongoDB and run the app with `pnpm dev`:
+Use the project replica set so cash, card, and account-credit operations can use transactions:
 
 ```bash
-docker compose up -d --wait mongo
+docker compose -f docker-compose.payments.yml up -d --wait
+pnpm db:check
+pnpm dev
 ```
+
+Set `DATABASE_URI` to `mongodb://127.0.0.1:28017/drug-test-mi?replicaSet=drug-test-mi-payments&directConnection=true` for a new database. Keep your existing project database name when copying existing data. Follow [local payment database setup](docs/local-payment-database.md) for backups and the initial copy; restarting containers does not require copying data again.
+
+The original `docker-compose.yml` standalone MongoDB remains available on port 27017 for existing installations. It cannot post money or apply account credit.
 
 Notes:
 - The examples use the `drug-test-mi` database. Point `DATABASE_URI` and `DOCKER_DATABASE_URI` at the same project database; the worker requires an explicit URL and has no database fallback. Keep an existing project database name when updating connection options.
-- Compose keeps the existing `mongo-data` volume and does not initialize or convert a replica set. For actual local payment testing, use a separate disposable replica set; do not convert a MongoDB server shared with other projects.
+- The payment Compose file uses its own persistent data volume and initializes its replica set automatically. It does not convert the original server or alter other projects.
 - When using a replica set, include its `replicaSet` name in both URLs so Payload enables transactions. A single Docker endpoint also needs `directConnection=true`.
 - After changing the MongoDB configuration or connection URLs, restart the app and any running worker. Their existing connections may have transactions disabled.
 - This setup is for local development; keep your production MongoDB/Atlas connection configuration.

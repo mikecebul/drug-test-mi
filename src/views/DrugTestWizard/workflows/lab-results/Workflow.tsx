@@ -6,6 +6,7 @@ import { parseAsString, parseAsStringLiteral, useQueryState } from 'nuqs'
 import { SetStepNav } from '@payloadcms/ui'
 import { ChevronDown, ChevronRight, FileText, Loader2, Pill, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -95,6 +96,7 @@ export function LabResultsWorkflow({
   legacyMode?: Exclude<ReportType, 'auto'>
 }) {
   const queryClient = useQueryClient()
+  const router = useRouter()
   const { requireActiveSession, isCheckingSession } = useWizardSession()
   const [workflow, setWorkflow] = useQueryState('workflow', parseAsString)
   const [step, setStep] = useQueryState(
@@ -144,11 +146,16 @@ export function LabResultsWorkflow({
       if (result.testId) {
         void queryClient.invalidateQueries({ queryKey: ['lab-entry-collections'] })
         void queryClient.invalidateQueries({ queryKey: ['pending-tests'] })
-        if (result.success) toast.success('Lab report saved')
+        const showTest = {
+          label: 'Show drug test',
+          onClick: () => router.push(`/admin/collections/drug-tests/${result.testId}/summary`),
+        }
+        if (result.success) toast.success('Lab report saved', { action: showTest, duration: 10000 })
         else
           toast.warning('Lab report saved; notification needs attention', {
             description: result.error || 'Some emails could not be sent. Check delivery in the test tracker.',
             duration: 10000,
+            action: showTest,
           })
         resetWorkflow()
       } else toast.error(result.error || 'The report could not be saved')

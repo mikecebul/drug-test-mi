@@ -1501,210 +1501,216 @@ export async function recordBookingPayment(
   const operationId = input.operationId?.trim() || null
   const payload = await getAdminPayload(req)
   try {
-    const result = await withPayloadTransaction(payload, async (req) => {
-      const existingBooking = await payload.findByID({
-        collection: 'bookings',
-        id: input.bookingId,
-        depth: 4,
-        overrideAccess: true,
-        req,
-      })
-      if (
-        operationId &&
-        existingBooking.payment?.workflowOperationId === operationId &&
-        existingBooking.payment.workflowOperationType === 'record-payment'
-      ) {
-        return { payment: existingBooking.payment, receipt: null }
-      }
-
-      const clientId = getRelationshipId(existingBooking.relatedClient)
-      if (!clientId) {
-        throw new Error('Select or register the client before recording payment.')
-      }
-
-      const client =
-        typeof existingBooking.relatedClient === 'object' ? (existingBooking.relatedClient as PopulatedClient) : null
-      const receiptEmail = client ? resolveClientReceiptEmail(client) : null
-      const shouldSendReceipt = Boolean(
-        input.sendReceipt &&
-        input.method === 'cash' &&
-        receiptEmail &&
-        (normalizeMoney(input.amountReceived) > 0 || creditApplied > 0),
-      )
-      const referral = await resolveReferral(payload, client)
-      const billingResponsibility = await resolveBillingResponsibility(payload, existingBooking, clientId, req, true)
-      if (existingBooking.billingResponsibility?.paymentOperationId)
-        throw new Error('Cancel the active card payment before recording another payment.')
-      if (billingResponsibility.payer === 'referral' && (input.amountReceived > 0 || creditApplied > 0))
-        throw new Error('This referral pays for the test. Record its payment on the referral invoice.')
-      const testType =
-        mapTestTypeValue(existingBooking.scheduledTestType) ??
-        getCalcomBookingTestType(existingBooking) ??
-        getPreferredTestType(referral)
-      const amountDue = normalizeMoney(testType?.price ?? existingBooking.payment?.amountDue)
-
-      if (amountDue <= 0) {
-        throw new Error("Today's test does not have a valid payment amount.")
-      }
-
-      const existingPayment = existingBooking.payment
-      const existingAmountPaid = Math.min(normalizeMoney(existingPayment?.amountPaid), amountDue)
-      const currentBookingBalance = Math.max(0, normalizeMoney(amountDue - existingAmountPaid))
-      let previousBalanceBefore = 0
-      if (shouldSendReceipt) {
-        const balances = await payload.find({
-          collection: 'drug-tests',
-          where: { and: [{ relatedClient: { equals: clientId } }, { 'payment.balanceDue': { greater_than: 0 } }] },
-          depth: 0,
-          limit: 1000,
+    const actor = req?.user || (await payload.auth({ headers: await headers() })).user
+    if (!actor || actor.collection !== 'admins') throw new Error('Admin access required.')
+    const result = await withPayloadTransaction(
+      payload,
+      async (req) => {
+        const existingBooking = await payload.findByID({
+          collection: 'bookings',
+          id: input.bookingId,
+          depth: 4,
           overrideAccess: true,
           req,
         })
-        for (const test of balances.docs) {
-          if (
-            test.payment?.status === 'invoiced' ||
-            test.payment?.referralInvoice ||
-            (await isTestBilledToReferral(payload, test, req))
-          )
-            continue
-          previousBalanceBefore = normalizeMoney(previousBalanceBefore + normalizeMoney(test.payment?.balanceDue))
+        if (
+          operationId &&
+          existingBooking.payment?.workflowOperationId === operationId &&
+          existingBooking.payment.workflowOperationType === 'record-payment'
+        ) {
+          return { payment: existingBooking.payment, receipt: null }
         }
-      }
-      const notes =
-        typeof input.notes === 'string'
-          ? input.notes.trim() || null
-          : typeof existingPayment?.notes === 'string'
-            ? existingPayment.notes
-            : null
 
-      let creditAppliedToBooking = 0
-      let moneyAppliedToBooking = 0
-      let creditPaymentRecord: Payment | null = null
-      let moneyPaymentRecord: Payment | null = null
-      let clientCreditUsed = 0
+        const clientId = getRelationshipId(existingBooking.relatedClient)
+        if (!clientId) {
+          throw new Error('Select or register the client before recording payment.')
+        }
 
-      if (creditApplied > 0) {
-        const creditPayment = await applyAvailableClientCredit({
-          payload,
-          clientId,
-          amount: creditApplied,
-          relatedBooking: input.bookingId,
-          bookingBalanceDue: currentBookingBalance,
-          allocationOrder: 'oldest-balance-first',
-          req,
-        })
+        const client =
+          typeof existingBooking.relatedClient === 'object' ? (existingBooking.relatedClient as PopulatedClient) : null
+        const receiptEmail = client ? resolveClientReceiptEmail(client) : null
+        const shouldSendReceipt = Boolean(
+          input.sendReceipt &&
+          input.method === 'cash' &&
+          receiptEmail &&
+          (normalizeMoney(input.amountReceived) > 0 || creditApplied > 0),
+        )
+        const referral = await resolveReferral(payload, client)
+        const billingResponsibility = await resolveBillingResponsibility(payload, existingBooking, clientId, req, true)
+        if (existingBooking.billingResponsibility?.paymentOperationId)
+          throw new Error('Cancel the active card payment before recording another payment.')
+        if (billingResponsibility.payer === 'referral' && (input.amountReceived > 0 || creditApplied > 0))
+          throw new Error('This referral pays for the test. Record its payment on the referral invoice.')
+        const testType =
+          mapTestTypeValue(existingBooking.scheduledTestType) ??
+          getCalcomBookingTestType(existingBooking) ??
+          getPreferredTestType(referral)
+        const amountDue = normalizeMoney(testType?.price ?? existingBooking.payment?.amountDue)
 
-        creditAppliedToBooking = normalizeMoney(creditPayment?.payment.reservedForBookingAmount)
-        creditPaymentRecord = (creditPayment?.payment as Payment | undefined) || null
-        clientCreditUsed = normalizeMoney(creditPayment?.usedCredit)
-      }
+        if (amountDue <= 0) {
+          throw new Error("Today's test does not have a valid payment amount.")
+        }
 
-      if (input.amountReceived > 0) {
-        const ledgerPayment = await applyIncomingPayment({
-          payload,
-          clientId,
-          amount: input.amountReceived,
-          method: input.method,
-          source: 'guided-workflow',
-          relatedBooking: input.bookingId,
-          bookingBalanceDue: Math.max(0, normalizeMoney(currentBookingBalance - creditAppliedToBooking)),
-          allocationOrder: 'oldest-balance-first',
-          req,
-        })
+        const existingPayment = existingBooking.payment
+        const existingAmountPaid = Math.min(normalizeMoney(existingPayment?.amountPaid), amountDue)
+        const currentBookingBalance = Math.max(0, normalizeMoney(amountDue - existingAmountPaid))
+        let previousBalanceBefore = 0
+        if (shouldSendReceipt) {
+          const balances = await payload.find({
+            collection: 'drug-tests',
+            where: { and: [{ relatedClient: { equals: clientId } }, { 'payment.balanceDue': { greater_than: 0 } }] },
+            depth: 0,
+            limit: 1000,
+            overrideAccess: true,
+            req,
+          })
+          for (const test of balances.docs) {
+            if (
+              test.payment?.status === 'invoiced' ||
+              test.payment?.referralInvoice ||
+              (await isTestBilledToReferral(payload, test, req))
+            )
+              continue
+            previousBalanceBefore = normalizeMoney(previousBalanceBefore + normalizeMoney(test.payment?.balanceDue))
+          }
+        }
+        const notes =
+          typeof input.notes === 'string'
+            ? input.notes.trim() || null
+            : typeof existingPayment?.notes === 'string'
+              ? existingPayment.notes
+              : null
 
-        moneyAppliedToBooking = normalizeMoney(ledgerPayment.reservedForBookingAmount)
-        moneyPaymentRecord = ledgerPayment as Payment
-      }
+        let creditAppliedToBooking = 0
+        let moneyAppliedToBooking = 0
+        let creditPaymentRecord: Payment | null = null
+        let moneyPaymentRecord: Payment | null = null
+        let clientCreditUsed = 0
 
-      const amountAppliedToBooking = normalizeMoney(creditAppliedToBooking + moneyAppliedToBooking)
-      const nextAmountPaid = Math.min(amountDue, normalizeMoney(existingAmountPaid + amountAppliedToBooking))
-      const nextBalanceDue = Math.max(0, normalizeMoney(amountDue - nextAmountPaid))
-      const bookingPaymentStatus: PaymentStatus =
-        nextBalanceDue <= 0 ? 'paid' : nextAmountPaid > 0 ? 'partial' : 'unpaid'
-      const bookingPaymentMethod: PaymentMethod =
-        moneyAppliedToBooking > 0
-          ? input.method
-          : creditAppliedToBooking > 0
-            ? 'credit'
-            : existingAmountPaid > 0 && existingPayment?.method
-              ? existingPayment.method
-              : 'not-paid'
+        if (creditApplied > 0) {
+          const creditPayment = await applyAvailableClientCredit({
+            payload,
+            clientId,
+            amount: creditApplied,
+            relatedBooking: input.bookingId,
+            bookingBalanceDue: currentBookingBalance,
+            allocationOrder: 'oldest-balance-first',
+            req,
+          })
 
-      const collectedAt = new Date().toISOString()
-      const booking = await payload.update({
-        collection: 'bookings',
-        id: input.bookingId,
-        data: {
-          billingResponsibility,
-          payment: {
-            amountDue,
-            amountPaid: nextAmountPaid,
-            method: bookingPaymentMethod,
-            status: bookingPaymentStatus,
-            notes,
-            collectedAt,
-            ...(operationId
-              ? {
-                  workflowOperationId: operationId,
-                  workflowOperationType: 'record-payment' as const,
-                }
-              : {}),
-          },
-        },
-        depth: 0,
-        overrideAccess: true,
-        req,
-      })
+          creditAppliedToBooking = normalizeMoney(creditPayment?.payment.reservedForBookingAmount)
+          creditPaymentRecord = (creditPayment?.payment as Payment | undefined) || null
+          clientCreditUsed = normalizeMoney(creditPayment?.usedCredit)
+        }
 
-      const receiptPayment = moneyPaymentRecord || creditPaymentRecord
-      if (!shouldSendReceipt || !receiptEmail || !client || !receiptPayment) {
-        return { payment: booking.payment, receipt: null }
-      }
+        if (input.amountReceived > 0) {
+          const ledgerPayment = await applyIncomingPayment({
+            payload,
+            clientId,
+            amount: input.amountReceived,
+            method: input.method,
+            source: 'guided-workflow',
+            relatedBooking: input.bookingId,
+            bookingBalanceDue: Math.max(0, normalizeMoney(currentBookingBalance - creditAppliedToBooking)),
+            allocationOrder: 'oldest-balance-first',
+            req,
+          })
 
-      const appliedToPreviousBalances = normalizeMoney(
-        normalizeMoney(creditPaymentRecord?.appliedAmount) + normalizeMoney(moneyPaymentRecord?.appliedAmount),
-      )
-      const appliedToToday = normalizeMoney(creditAppliedToBooking + moneyAppliedToBooking)
-      const creditAdded = normalizeMoney(moneyPaymentRecord?.creditAmount)
-      const remainingBalance = Math.max(
-        0,
-        normalizeMoney(previousBalanceBefore + currentBookingBalance - appliedToPreviousBalances - appliedToToday),
-      )
-      const clientCreditBalance = Math.max(
-        0,
-        normalizeMoney(normalizeMoney(client.creditBalance) - clientCreditUsed + creditAdded),
-      )
-      const receiptType = classifyPaymentReceipt({ creditAdded, remainingBalance })
-      const paymentMethod =
-        input.amountReceived > 0 && clientCreditUsed > 0
-          ? 'Cash and client credit'
-          : input.amountReceived > 0
-            ? 'Cash'
-            : 'Client credit'
+          moneyAppliedToBooking = normalizeMoney(ledgerPayment.reservedForBookingAmount)
+          moneyPaymentRecord = ledgerPayment as Payment
+        }
 
-      return {
-        payment: booking.payment,
-        receipt: {
+        const amountAppliedToBooking = normalizeMoney(creditAppliedToBooking + moneyAppliedToBooking)
+        const nextAmountPaid = Math.min(amountDue, normalizeMoney(existingAmountPaid + amountAppliedToBooking))
+        const nextBalanceDue = Math.max(0, normalizeMoney(amountDue - nextAmountPaid))
+        const bookingPaymentStatus: PaymentStatus =
+          nextBalanceDue <= 0 ? 'paid' : nextAmountPaid > 0 ? 'partial' : 'unpaid'
+        const bookingPaymentMethod: PaymentMethod =
+          moneyAppliedToBooking > 0
+            ? input.method
+            : creditAppliedToBooking > 0
+              ? 'credit'
+              : existingAmountPaid > 0 && existingPayment?.method
+                ? existingPayment.method
+                : 'not-paid'
+
+        const collectedAt = new Date().toISOString()
+        const booking = await payload.update({
+          collection: 'bookings',
+          id: input.bookingId,
           data: {
-            appliedToPreviousBalances,
-            appliedToToday,
-            cashReceived: normalizeMoney(input.amountReceived),
-            clientCreditApplied: clientCreditUsed,
-            clientCreditBalance,
-            clientName: [client.firstName, client.lastName].filter(Boolean).join(' ') || client.email,
-            collectedAt,
-            creditAdded,
-            paymentMethod,
-            receiptType,
-            remainingBalance,
-            testName: testType?.label || 'Drug test',
+            billingResponsibility,
+            payment: {
+              amountDue,
+              amountPaid: nextAmountPaid,
+              method: bookingPaymentMethod,
+              status: bookingPaymentStatus,
+              notes,
+              collectedAt,
+              ...(operationId
+                ? {
+                    workflowOperationId: operationId,
+                    workflowOperationType: 'record-payment' as const,
+                  }
+                : {}),
+            },
           },
-          paymentId: String(receiptPayment.id),
-          receiptEmail,
-          receiptType,
-        },
-      }
-    }, { requireTransaction: input.amountReceived > 0 || creditApplied > 0 })
+          depth: 0,
+          overrideAccess: true,
+          req,
+        })
+
+        const receiptPayment = moneyPaymentRecord || creditPaymentRecord
+        if (!shouldSendReceipt || !receiptEmail || !client || !receiptPayment) {
+          return { payment: booking.payment, receipt: null }
+        }
+
+        const appliedToPreviousBalances = normalizeMoney(
+          normalizeMoney(creditPaymentRecord?.appliedAmount) + normalizeMoney(moneyPaymentRecord?.appliedAmount),
+        )
+        const appliedToToday = normalizeMoney(creditAppliedToBooking + moneyAppliedToBooking)
+        const creditAdded = normalizeMoney(moneyPaymentRecord?.creditAmount)
+        const remainingBalance = Math.max(
+          0,
+          normalizeMoney(previousBalanceBefore + currentBookingBalance - appliedToPreviousBalances - appliedToToday),
+        )
+        const clientCreditBalance = Math.max(
+          0,
+          normalizeMoney(normalizeMoney(client.creditBalance) - clientCreditUsed + creditAdded),
+        )
+        const receiptType = classifyPaymentReceipt({ creditAdded, remainingBalance })
+        const paymentMethod =
+          input.amountReceived > 0 && clientCreditUsed > 0
+            ? 'Cash and client credit'
+            : input.amountReceived > 0
+              ? 'Cash'
+              : 'Client credit'
+
+        return {
+          payment: booking.payment,
+          receipt: {
+            data: {
+              appliedToPreviousBalances,
+              appliedToToday,
+              cashReceived: normalizeMoney(input.amountReceived),
+              clientCreditApplied: clientCreditUsed,
+              clientCreditBalance,
+              clientName: [client.firstName, client.lastName].filter(Boolean).join(' ') || client.email,
+              collectedAt,
+              creditAdded,
+              paymentMethod,
+              receiptType,
+              remainingBalance,
+              testName: testType?.label || 'Drug test',
+            },
+            paymentId: String(receiptPayment.id),
+            receiptEmail,
+            receiptType,
+          },
+        }
+      },
+      { requireTransaction: input.amountReceived > 0 || creditApplied > 0, user: actor },
+    )
 
     revalidateBookingViews()
 

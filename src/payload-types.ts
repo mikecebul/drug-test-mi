@@ -1791,8 +1791,6 @@ export interface Employer {
   createdAt: string;
 }
 /**
- * Track drug test results and workflow
- *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "drug-tests".
  */
