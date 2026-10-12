@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
+import { useStore } from '@tanstack/react-form'
 import { revalidateLogic } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral } from 'nuqs'
@@ -73,6 +74,19 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
     },
   })
 
+  const uploadedFile = useStore(form.store, (state) => state.values.upload.file)
+  const previousReport = useRef(uploadedFile)
+  useEffect(() => {
+    if (previousReport.current !== uploadedFile) {
+      const defaults = getLabConfirmationFormOpts().defaultValues
+      form.setFieldValue('extract', defaults.extract)
+      form.setFieldValue('matchCollection', defaults.matchCollection)
+      form.setFieldValue('labConfirmationData', defaults.labConfirmationData)
+      form.setFieldValue('emails', defaults.emails)
+    }
+    previousReport.current = uploadedFile
+  }, [uploadedFile, form])
+
   // Guard against skipping into a later step without required base data
   useEffect(() => {
     if (currentStep !== 'upload' && !form.state.values.upload.file) {
@@ -117,6 +131,7 @@ export function LabConfirmationWorkflow({ onBack }: LabConfirmationWorkflowProps
       >
         {(group) => (
           <>
+            {name === 'extract' && <form.Field name="extract.extracted">{() => null}</form.Field>}
             <div className="wizard-content mb-8 flex-1">{content}</div>
             <LabConfirmationNavigation form={form} group={group} onBack={onBack} />
           </>

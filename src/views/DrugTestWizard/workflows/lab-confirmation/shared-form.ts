@@ -21,6 +21,8 @@ const defaultValues: FormValues = {
   labConfirmationData: {
     originalDetectedSubstances: [],
     originalIsDilute: false,
+    requiredSubstances: [],
+    reviewSourceKey: null,
     confirmationResults: [],
   },
   emails: {

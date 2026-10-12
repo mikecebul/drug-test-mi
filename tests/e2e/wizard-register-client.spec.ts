@@ -1,3 +1,4 @@
+import { expectValidationError, expectWizardStep } from './helpers/wizard'
 import { expect, test, type Page } from '@playwright/test'
 import { cleanupFixtures } from './helpers/cleanup'
 import { findClientByEmail, deleteClientAndRelatedDataByEmail } from './helpers/db-assert'
@@ -39,14 +40,8 @@ async function fillPersonalInfo(
 
   const genderSelect = page.getByLabel('Gender')
   const maleOption = page.getByRole('option', { name: /^Male$/i })
-  const genderDeadline = Date.now() + 10_000
-  do {
-    await genderSelect.click()
-    if (await maleOption.isVisible().catch(() => false)) {
-      break
-    }
-    await page.waitForTimeout(500)
-  } while (Date.now() < genderDeadline)
+  await genderSelect.click()
+  await expect(maleOption).toBeVisible({ timeout: 10_000 })
   await maleOption.click()
   await page.getByLabel('Phone Number').fill(phone)
   await page.getByLabel('Date of Birth').fill(dob)
@@ -92,42 +87,42 @@ test.describe('Wizard Register Client', () => {
 
   test('validates required fields and supports back-forward in recipient setup', async ({ page }) => {
     await clickNext(page)
-    await expect(page.getByText('First name is required')).toBeVisible()
-    await expect(page.getByText('Middle initial is required')).toBeVisible()
-    await expect(page.getByText('Last name is required')).toBeVisible()
+    await expectValidationError(page, page.locator('[name="personalInfo.firstName"]'))
+    await expectValidationError(page, page.locator('[name="personalInfo.middleInitial"]'))
+    await expectValidationError(page, page.locator('[name="personalInfo.lastName"]'))
 
     await fillPersonalInfo(page)
     await clickNext(page)
 
-    await expect(page.getByText('Account Information')).toBeVisible({ timeout: 20_000 })
+    await expectWizardStep(page, 'accountInfo')
     await clickNext(page)
-    await expect(page.getByText('Email is required')).toBeVisible()
+    await expectValidationError(page, page.locator('[name="accountInfo.email"]'))
 
     await fillAccountInfo(page, uniqueEmail('wizard-admin-validation'))
     await clickNext(page)
 
-    await expect(page.getByText('Screening Type')).toBeVisible({ timeout: 20_000 })
+    await expectWizardStep(page, 'screeningType')
     await page.getByRole('radio', { name: /Employer/i }).check()
     await clickNext(page)
 
-    await expect(page.getByText('Results Recipients')).toBeVisible({ timeout: 20_000 })
+    await expectWizardStep(page, 'recipients')
     await page.locator('#employer-select').selectOption(fixtures.referrals.employer.id)
 
     await page.getByRole('button', { name: /Add Recipient/i }).click()
     await clickNext(page)
-    await expect(page.getByText('Recipient email is required')).toBeVisible()
+    await expectValidationError(page, page.getByLabel('Recipient Email'))
 
     await page.getByLabel('Recipient Email').fill(`admin.recipient.${Date.now()}@example.com`)
 
     await page.getByRole('button', { name: /^Back$/i }).click()
-    await expect(page.getByText('Screening Type')).toBeVisible({ timeout: 20_000 })
+    await expectWizardStep(page, 'screeningType')
 
     await clickNext(page)
-    await expect(page.getByText('Results Recipients')).toBeVisible({ timeout: 20_000 })
+    await expectWizardStep(page, 'recipients')
     await expect(page.getByLabel('Recipient Email')).toHaveValue(/admin\.recipient\./)
   })
 
-  test('submits register-client workflow and persists referral configuration', async ({ page }) => {
+  test('submits register-client workflow and persists referral configuration', { tag: '@smoke' }, async ({ page }) => {
     const email = uniqueEmail('wizard-admin-submit')
     const uniqueSuffix = Date.now().toString(36)
 
@@ -137,7 +132,7 @@ test.describe('Wizard Register Client', () => {
       phone: '2485553434',
     })
     await clickNext(page)
-    await expect(page.getByText('Account Information')).toBeVisible({ timeout: 20_000 })
+    await expectWizardStep(page, 'accountInfo')
 
     await fillAccountInfo(page, email)
     await clickNext(page)
@@ -150,7 +145,7 @@ test.describe('Wizard Register Client', () => {
     await page.getByLabel('Recipient Email').fill(`submit.ref.${Date.now()}@example.com`)
     await clickNext(page)
 
-    await expect(page.getByText('Terms & Conditions')).toBeVisible({ timeout: 20_000 })
+    await expectWizardStep(page, 'terms')
     await page.getByLabel(/I confirm the client has been informed and consents to testing/i).check()
     await page.getByRole('button', { name: /Register Client/i }).click()
 
@@ -244,7 +239,7 @@ test.describe('Wizard Register Client', () => {
       const cropDialog = page.getByRole('dialog', { name: 'Crop Headshot' })
       await expect(cropDialog).toBeVisible()
       await cropDialog.getByRole('button', { name: 'Apply Crop' }).click()
-      await expect(page.getByText('Headshot uploaded successfully')).toBeVisible({ timeout: 20_000 })
+      await expect(cropDialog).toBeHidden({ timeout: 20_000 })
     })
 
     await test.step('verify Payload linked the media to that exact client', async () => {

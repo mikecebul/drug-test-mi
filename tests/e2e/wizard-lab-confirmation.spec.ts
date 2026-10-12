@@ -6,33 +6,23 @@ import { loginAdmin } from './helpers/auth'
 import { ensureMailpitReachable, findMailpitMessages } from './helpers/mailpit'
 import { seedFixtures, type FixtureContext } from './helpers/seed'
 import {
+  confirmLabIdentity,
   clickBack,
   clickNext,
-  extractTestIdFromSuccess,
+  expectLabReportSavedAndReset,
   openWizard,
   selectWorkflow,
-  triggerNextValidation,
+  expectWizardStep,
   uploadSinglePdf,
   waitForExtractStepReady,
+  selectLabCollection,
 } from './helpers/wizard'
 
 let fixtures: FixtureContext
 
 async function ensureMatchSelected(page: Page) {
-  const headingPattern = new RegExp(
-    `${fixtures.clients.labConfirm.firstName}\\s+.*${fixtures.clients.labConfirm.lastName}`,
-    'i',
-  )
-  const candidateHeading = page.getByRole('heading', { name: headingPattern }).first()
-  await expect(candidateHeading).toBeVisible({ timeout: 20_000 })
-
-  const headingCard = candidateHeading.locator('xpath=ancestor::*[contains(@class, "cursor-pointer")][1]')
-  if ((await headingCard.count()) > 0) {
-    await headingCard.click()
-  } else {
-    await candidateHeading.click()
-  }
-  await expect(page.getByRole('button', { name: /^next$/i })).toBeEnabled()
+  await selectLabCollection(page, fixtures.tests.labConfirmPendingTestId)
+  await confirmLabIdentity(page)
 }
 
 test.describe('Wizard Lab Confirmation Workflow', () => {
@@ -61,102 +51,93 @@ test.describe('Wizard Lab Confirmation Workflow', () => {
   }) => {
     const env = getE2EEnv({ pdfs: ['labScreen'] })
 
+    await expect(page.getByTestId('wizard-next-button')).toBeEnabled()
     await clickNext(page)
-    await expect(page.getByText('Please upload a PDF file')).toBeVisible()
+    await expectWizardStep(page, 'upload')
+    await expectWizardStep(page, 'upload')
 
     // Use the lab-screen PDF to force empty confirmation results in this workflow.
     await uploadSinglePdf(page, env.pdfLabScreenPath)
+    await waitForExtractStepReady(page)
     await clickNext(page)
-    await waitForExtractStepReady(page, {
-      readyHeadings: [/Confirmation Data Extracted/i],
-    })
-    await clickNext(page)
-
-    const matchRequiredAlert = page.getByText('Please select a test to continue')
-    if (await matchRequiredAlert.isVisible().catch(() => false)) {
-      await clickNext(page)
-      await expect(matchRequiredAlert).toBeVisible()
-    }
 
     await ensureMatchSelected(page)
     await clickNext(page)
 
-    await expect(page.getByText('Enter Confirmation Results')).toBeVisible()
-    await triggerNextValidation(page)
-    await expect(page.getByText('At least one confirmation result is required')).toBeVisible()
+    await expectWizardStep(page, 'results')
+    await expect(page.getByTestId('wizard-next-button')).toBeEnabled()
+    await clickNext(page)
+    await expectWizardStep(page, 'results')
+    await expect(page.getByTestId('confirmation-row-0')).toBeVisible()
+    await expectWizardStep(page, 'results')
 
     await clickBack(page)
-    await expect(page.getByText('Match Test for Confirmation')).toBeVisible()
+    await expectWizardStep(page, 'match')
     await clickNext(page)
-    await expect(page.getByText('Enter Confirmation Results')).toBeVisible()
+    await expectWizardStep(page, 'results')
   })
 
-  test('adds a confirmation report before payment and preserves the outstanding balance', async ({ page }) => {
-    const env = getE2EEnv({ pdfs: ['labConfirm'] })
+  test(
+    'adds a confirmation report before payment and preserves the outstanding balance',
+    { tag: '@smoke' },
+    async ({ page }) => {
+      const env = getE2EEnv({ pdfs: ['labConfirm'] })
 
-    await uploadSinglePdf(page, env.pdfLabConfirmPath)
-    await clickNext(page)
-    await waitForExtractStepReady(page, {
-      readyHeadings: [/Confirmation Data Extracted/i],
-    })
-    await expect(page.getByText(/Extracted with (HIGH|MEDIUM) Confidence/i)).toBeVisible()
-    await expect(page.getByText(/Confirmed (Positive|Negative)/i).first()).toBeVisible()
-    await clickNext(page)
-    await ensureMatchSelected(page)
-    await clickNext(page)
+      await uploadSinglePdf(page, env.pdfLabConfirmPath)
+      await waitForExtractStepReady(page)
+      await clickNext(page)
+      await ensureMatchSelected(page)
+      await clickNext(page)
 
-    await expect(page.getByText('Enter Confirmation Results')).toBeVisible()
-    await clickNext(page)
-    await clickNext(page)
+      await expectWizardStep(page, 'results')
+      await clickNext(page)
+      await expectWizardStep(page, 'review')
 
-    await expect(page.getByText('Review Confirmation Notification Emails')).toBeVisible()
+      const testStart = new Date()
+      await page.getByTestId('wizard-next-button').click()
 
-    const testStart = new Date()
-    await page.getByRole('button', { name: /^Update Test Record$/i }).click()
+      await expectLabReportSavedAndReset(page)
+      const testId = fixtures.tests.labConfirmPendingTestId
 
-    await expect(page.getByRole('heading', { name: 'Drug Test Created Successfully!' })).toBeVisible({
-      timeout: 30_000,
-    })
+      const testRecord = await assertNotificationSent({ testId, stage: 'complete' })
 
-    const testId = await extractTestIdFromSuccess(page)
-    fixtures.created.drugTestIds.push(testId)
+      expect(testRecord.screeningStatus).toBe('complete')
 
-    const testRecord = await assertNotificationSent({ testId, stage: 'complete' })
-
-    expect(testRecord.screeningStatus).toBe('complete')
-
-    const refreshed = await getDrugTestById(testId)
-    expect((refreshed.confirmationResults || []).length).toBeGreaterThan(0)
-    expect(refreshed.confirmationDocument).toBeTruthy()
-    expect(refreshed.payment).toMatchObject({
-      status: 'unpaid',
-      amountDue: 45,
-      amountPaid: 0,
-      balanceDue: 45,
-      confirmationFeeDue: 45,
-      confirmationPaymentBypassed: false,
-    })
-
-    const expectedSubject = `Final Drug Test Results - ${fixtures.clients.labConfirm.firstName} ${fixtures.clients.labConfirm.lastName}`
-
-    if (env.enableMailpitAssertions) {
-      await findMailpitMessages({
-        apiBase: env.mailpitApiBase,
-        createdAfter: testStart,
-        to: fixtures.clients.labConfirm.email,
-        subject: expectedSubject,
-        requireAttachment: 'some',
-        timeoutMs: 45_000,
+      const refreshed = await getDrugTestById(testId)
+      expect(refreshed.confirmationResults).toEqual([
+        expect.objectContaining({ substance: 'fentanyl', result: 'confirmed-negative' }),
+      ])
+      expect(refreshed.confirmationDocument).toBeTruthy()
+      expect(refreshed.payment).toMatchObject({
+        status: 'unpaid',
+        amountDue: 45,
+        amountPaid: 0,
+        balanceDue: 45,
+        confirmationFeeDue: 45,
+        confirmationPaymentBypassed: false,
       })
 
-      await findMailpitMessages({
-        apiBase: env.mailpitApiBase,
-        createdAfter: testStart,
-        to: fixtures.clients.labConfirm.referralRecipients[0],
-        subject: expectedSubject,
-        requireAttachment: 'some',
-        timeoutMs: 45_000,
-      })
-    }
-  })
+      const expectedSubject = `Final Drug Test Results - ${fixtures.clients.labConfirm.firstName} ${fixtures.clients.labConfirm.lastName}`
+
+      if (env.enableMailpitAssertions) {
+        await findMailpitMessages({
+          apiBase: env.mailpitApiBase,
+          createdAfter: testStart,
+          to: fixtures.clients.labConfirm.email,
+          subject: expectedSubject,
+          requireAttachment: 'some',
+          timeoutMs: 45_000,
+        })
+
+        await findMailpitMessages({
+          apiBase: env.mailpitApiBase,
+          createdAfter: testStart,
+          to: fixtures.clients.labConfirm.referralRecipients[0],
+          subject: expectedSubject,
+          requireAttachment: 'some',
+          timeoutMs: 45_000,
+        })
+      }
+    },
+  )
 })

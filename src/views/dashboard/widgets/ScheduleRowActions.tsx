@@ -1,6 +1,7 @@
 'use client'
 
 import { CalendarClock, CalendarX, Ellipsis, ExternalLink } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -18,6 +19,8 @@ type ScheduleRowActionsProps = {
 }
 
 export function ScheduleRowActions({ attendeeName, cancelHref, rescheduleHref }: ScheduleRowActionsProps) {
+  const [ready, setReady] = useState(false)
+  useEffect(() => setReady(true), [])
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -28,6 +31,7 @@ export function ScheduleRowActions({ attendeeName, cancelHref, rescheduleHref }:
             size="icon"
             className="-mt-2 -mr-2"
             aria-label={`${attendeeName} appointment options`}
+            disabled={!ready}
           />
         }
       >

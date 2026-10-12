@@ -8,6 +8,11 @@ interface UseLabScreenEmailPreviewParams {
   testType?: string
   detectedSubstances: SubstanceValue[]
   isDilute: boolean
+  confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
+  confirmationSubstances?: string[]
+  confirmationPaymentRequired?: boolean
+  confirmationHoldUntil?: string | null
+  confirmationCompleted?: boolean
   // Note: medications, breathalyzerTaken, and breathalyzerResult are fetched from the matched test
 }
 
@@ -48,6 +53,11 @@ export function useLabScreenEmailPreview(params: UseLabScreenEmailPreviewParams)
       client?.id,
       params.detectedSubstances,
       params.isDilute,
+      params.confirmationDecision,
+      params.confirmationSubstances,
+      params.confirmationPaymentRequired,
+      params.confirmationHoldUntil,
+      params.confirmationCompleted,
       matchedTest?.medicationsArrayAtTestTime,
       matchedTest?.breathalyzerTaken,
       matchedTest?.breathalyzerResult,
@@ -86,6 +96,11 @@ export function useLabScreenEmailPreview(params: UseLabScreenEmailPreviewParams)
           | 'etg-lab',
         collectionDate,
         isDilute: params.isDilute,
+        confirmationDecision: params.confirmationDecision,
+        confirmationSubstances: params.confirmationSubstances,
+        confirmationPaymentRequired: params.confirmationPaymentRequired,
+        confirmationHoldUntil: params.confirmationHoldUntil,
+        confirmationCompleted: params.confirmationCompleted,
         breathalyzerTaken,
         breathalyzerResult,
         medications, // Pass medications from matched test

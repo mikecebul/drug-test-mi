@@ -9,7 +9,7 @@ import { CircleDollarSign } from 'lucide-react'
 
 export default function ReferralBillingLink() {
   const { user } = useAuth()
-  if (!user || user.collection !== 'admins') return null
+  if (!user || user.collection !== 'admins' || user.role !== 'superAdmin') return null
   return (
     <ShadcnWrapper className="w-full py-1.5">
       <Button

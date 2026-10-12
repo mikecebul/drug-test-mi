@@ -1,128 +1,49 @@
-import { Button, Section, Text } from '@react-email/components'
 import * as React from 'react'
 import type { CompleteEmailData } from '@/collections/DrugTests/email/types'
-import {
-  BreathalyzerResult,
-  ClientIdentity,
-  ConfirmationSection,
-  DetailRow,
-  EmailLayout,
-  ResultBadge,
-} from './components'
-import { formatDate, formatTestType } from './utils/formatters'
-import { getResultLabel } from './utils/constants'
-import { button, errorBox } from './utils/styles'
+import { ConfirmationSection } from './components/ConfirmationSection'
+import { Notice } from './components/Notice'
+import { TestEmail } from './components/TestEmail'
 
-/**
- * CompleteEmail (Client Version)
- * Sent when all confirmation testing is complete
- * Includes dashboard link to view full report
- */
+/** One final-results template for clients and referrals. */
 export function CompleteEmail(data: CompleteEmailData) {
-  const {
-    clientName,
-    collectionDate,
-    testType,
-    initialScreenResult,
-    confirmationResults,
-    finalStatus,
-    isDilute,
-    breathalyzerTaken,
-    breathalyzerResult,
-    clientHeadshotDataUri,
-    clientDob,
-  } = data
-
   return (
-    <EmailLayout preview="Your final drug test results are ready" title="Final Drug Test Results">
-      <ResultBadge result={finalStatus} />
-
-      <ClientIdentity
-        headshotDataUri={clientHeadshotDataUri}
-        name={clientName}
-        dob={clientDob}
-      />
-
-      <Section style={{ marginBottom: '24px' }}>
-        <Text
-          style={{
-            fontSize: '18px',
-            fontWeight: 700,
-            color: '#1f2937',
-            margin: '0 0 12px 0',
-          }}
-        >
-          Test Information
-        </Text>
-        <DetailRow label="Collection Date" value={formatDate(collectionDate)} />
-        <DetailRow label="Test Type" value={formatTestType(testType)} />
-        <DetailRow label="Initial Screen Result" value={getResultLabel(initialScreenResult)} />
-      </Section>
-
-      {isDilute && (
-        <Section style={errorBox}>
-          <Text style={{ margin: '0 0 4px 0', fontWeight: 700 }}>⚠️ DILUTE SAMPLE</Text>
-          <Text style={{ margin: '0' }}>
-            This sample was dilute and may affect result accuracy.
-          </Text>
-        </Section>
-      )}
-
-      {breathalyzerTaken && breathalyzerResult !== null && (
-        <BreathalyzerResult bac={breathalyzerResult} result={breathalyzerResult > 0.0 ? 'positive' : 'negative'} />
-      )}
-
-      <ConfirmationSection confirmationResults={confirmationResults} />
-
-      <Section style={{ textAlign: 'center', marginBottom: '24px' }}>
-        <Button
-          href={`${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard/results`}
-          style={button}
-        >
-          View Test Results
-        </Button>
-      </Section>
-
-      <Section
-        style={{
-          backgroundColor: '#f9fafb',
-          padding: '16px',
-          borderRadius: '8px',
-        }}
-      >
-        <Text style={{ margin: '0 0 8px 0', fontWeight: 700 }}>
-          Your complete test report is attached to this email.
-        </Text>
-        <Text style={{ margin: '0', fontSize: '12px', color: '#6b7280' }}>
-          All testing is now complete. If you have questions, please contact MI Drug Test.
-        </Text>
-        <Text style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#6b7280' }}>
-          Notification sent: {formatDate(new Date().toISOString())}
-        </Text>
-      </Section>
-    </EmailLayout>
+    <TestEmail
+      data={data}
+      title={data.confirmationResults?.length ? 'Confirmation results' : 'Final results'}
+      preview={`Final drug test results for ${data.clientName}`}
+      isDilute={data.isDilute}
+      attachment
+    >
+      <ConfirmationSection {...data} />
+      {data.confirmationResults?.length ? (
+        <Notice title="Confirmation complete" tone="success">
+          Final report attached.
+        </Notice>
+      ) : null}
+    </TestEmail>
   )
 }
 
 CompleteEmail.PreviewProps = {
-  clientName: 'Sarah Williams',
-  collectionDate: '2025-12-05T10:00:00Z',
-  testType: '11-panel-lab',
-  initialScreenResult: 'unexpected-positive',
+  ...{
+    clientName: 'Alex Morgan',
+    clientDob: '1990-01-14',
+    collectionDate: '2026-10-09T14:30:00Z',
+    testType: '11-panel-lab',
+    initialScreenResult: 'unexpected-positive',
+    detectedSubstances: ['buprenorphine'],
+    expectedPositives: ['buprenorphine'],
+    unexpectedPositives: [],
+    unexpectedNegatives: [],
+    isDilute: false,
+    breathalyzerTaken: false,
+    breathalyzerResult: null,
+  },
   confirmationResults: [
-    { substance: 'thc', result: 'negative', notes: 'Below detection limit' },
-    { substance: 'cocaine', result: 'positive', notes: 'Confirmed at 150 ng/mL' },
+    { substance: 'amphetamines', result: 'confirmed-negative' },
+    { substance: 'buprenorphine', result: 'confirmed-positive' },
   ],
-  finalStatus: 'mixed-unexpected',
-  isDilute: false,
-  breathalyzerTaken: true,
-  breathalyzerResult: 0.0,
-  clientHeadshotDataUri: 'https://via.placeholder.com/120',
-  clientDob: '1988-11-20',
-  detectedSubstances: ['thc', 'cocaine'],
-  expectedPositives: [],
-  unexpectedPositives: ['thc', 'cocaine'],
-  unexpectedNegatives: [],
+  finalStatus: 'expected-positive',
 } satisfies CompleteEmailData
 
 export default CompleteEmail

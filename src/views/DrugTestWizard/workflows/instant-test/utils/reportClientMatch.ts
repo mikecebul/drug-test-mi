@@ -1,9 +1,12 @@
 import { calculateNameSimilarity, calculateSimilarity } from '@/views/DrugTestWizard/utils/calculateSimilarity'
+import { formatDobInput } from '@/lib/date-utils'
 
 type ClientName = {
+  id?: string | null
   firstName?: string | null
   lastName?: string | null
   middleInitial?: string | null
+  dob?: string | null
 }
 
 type ParsedName = {
@@ -12,34 +15,21 @@ type ParsedName = {
   middleInitial?: string
 }
 
-export type ReportClientMatch =
-  | {
-      status: 'match'
-      score: number
-      reportName: string
-      clientName: string
-    }
-  | {
-      status: 'warning'
-      score: number
-      reportName: string
-      clientName: string
-    }
-  | {
-      status: 'mismatch'
-      score: number
-      reportName: string
-      clientName: string
-    }
-  | {
-      status: 'unknown'
-      reportName: string | null
-      clientName: string
-    }
+export type ReportClientMatch = {
+  status: 'match' | 'warning' | 'mismatch' | 'unknown'
+  score?: number
+  reportName: string | null
+  clientName: string
+  reportDob: string | null
+  clientDob: string | null
+  nameDifferent: boolean
+  dobDifferent: boolean
+  requiresConfirmation: boolean
+  confirmationKey: string | null
+}
 
 export function getReportClientMismatchKey(match: ReportClientMatch | null | undefined) {
-  if (!match || match.status !== 'mismatch') return null
-  return `${match.reportName.trim().toLowerCase()}::${match.clientName.trim().toLowerCase()}`
+  return match?.confirmationKey ?? null
 }
 
 const MATCH_THRESHOLD = 0.9
@@ -52,7 +42,7 @@ function normalizeNamePart(value: string) {
   return value
     .trim()
     .toLowerCase()
-    .replace(/[^a-z]/g, '')
+    .replace(/[^\p{L}]/gu, '')
 }
 
 function parseName(value?: string | null): ParsedName | null {
@@ -78,16 +68,41 @@ function getClientName(client: ClientName) {
     .join(' ')
 }
 
-export function getReportClientMatch(donorName: string | null | undefined, client: ClientName): ReportClientMatch {
+export function getReportClientMatch(
+  donorName: string | null | undefined,
+  client: ClientName,
+  reportBirthDate?: string | null,
+): ReportClientMatch {
   const clientName = getClientName(client)
   const parsedReportName = parseName(donorName)
   const parsedClientName = parseName(clientName)
+  const reportDob = reportBirthDate?.trim() ? formatDobInput(reportBirthDate) || null : null
+  const clientDob = formatDobInput(client.dob) || null
+  // A missing report DOB is not evidence of a mismatch. An unreadable DOB that
+  // is present, or a DOB that cannot be compared with the profile, needs review.
+  const dobDifferent = Boolean(reportBirthDate?.trim()) && (!reportDob || !clientDob || reportDob !== clientDob)
+  const nameDifferent =
+    !parsedReportName || !parsedClientName || normalizeNamePart(donorName || '') !== normalizeNamePart(clientName)
+  const requiresConfirmation = nameDifferent || dobDifferent
+  const identity = {
+    reportName: donorName?.trim() || null,
+    clientName,
+    reportDob,
+    clientDob,
+    nameDifferent,
+    dobDifferent,
+    requiresConfirmation,
+    // Tie confirmation to the actual client and both identity fields. Edits or
+    // a different same-name client must not inherit an earlier acknowledgement.
+    confirmationKey: requiresConfirmation
+      ? JSON.stringify([client.id ?? null, clientName, clientDob, donorName ?? null, reportBirthDate ?? null])
+      : null,
+  }
 
   if (!parsedReportName || !parsedClientName) {
     return {
+      ...identity,
       status: 'unknown',
-      reportName: donorName || null,
-      clientName,
     }
   }
 
@@ -107,9 +122,14 @@ export function getReportClientMatch(donorName: string | null | undefined, clien
     lastNameScore >= CLOSE_LAST_NAME_THRESHOLD
 
   return {
-    status: score >= MATCH_THRESHOLD ? 'match' : isCloseNameTypo ? 'warning' : 'mismatch',
+    ...identity,
+    status: !requiresConfirmation
+      ? 'match'
+      : dobDifferent
+        ? 'mismatch'
+        : score >= MATCH_THRESHOLD || isCloseNameTypo
+          ? 'warning'
+          : 'mismatch',
     score,
-    reportName: donorName || '',
-    clientName,
   }
 }

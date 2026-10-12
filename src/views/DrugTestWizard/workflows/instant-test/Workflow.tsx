@@ -3,7 +3,7 @@
 import { useCallback, useState, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
-import { revalidateLogic, useStore } from '@tanstack/react-form'
+import { revalidateLogic, useStore, type AnyFormGroupApi } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { useQueryState, parseAsStringLiteral, parseAsString } from 'nuqs'
 import { useQueryClient } from '@tanstack/react-query'
@@ -36,6 +36,7 @@ import { getFileFromStorage, clearFileStorage, hasStoredFile, saveFileToStorage 
 import { focusFirstInvalidFieldWithToast, useStepFocus } from '@/lib/form-scroll-focus'
 import { getReportClientMatch, getReportClientMismatchKey } from './utils/reportClientMatch'
 import { materializeBrowserFile } from '../../utils/materializeBrowserFile'
+import { CollectionProgress } from '../../components/CollectionProgress'
 
 interface InstantTestWorkflowProps {
   onBack: () => void
@@ -45,6 +46,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
+  const [deliveryError, setDeliveryError] = useState<string | null>(null)
   const [isRestoringFile, setIsRestoringFile] = useState(true)
 
   // Wrap onBack to clear storage when navigating away
@@ -87,11 +89,11 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
           return
         }
 
-        const reportClientMatch = getReportClientMatch(extractedData?.donorName, value.client)
+        const reportClientMatch = getReportClientMatch(extractedData?.donorName, value.client, extractedData?.dob)
         const mismatchKey = getReportClientMismatchKey(reportClientMatch)
 
         if (
-          reportClientMatch.status === 'mismatch' &&
+          reportClientMatch.requiresConfirmation &&
           (!value.extract.clientMismatchConfirmed || value.extract.clientMismatchConfirmationKey !== mismatchKey)
         ) {
           toast.error('Confirm the report/client mismatch before submitting.', {
@@ -146,7 +148,8 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
 
         console.log(`[InstantTest] Server action returned:`, result)
 
-        if (result.success && result.testId) {
+        if (result.testId) {
+          setDeliveryError(result.success ? null : result.error || 'Notification delivery failed.')
           console.log(`[InstantTest] Success! Test ID: ${result.testId}`)
           setCompletedTestId(result.testId)
           // Clear stored file after successful submission
@@ -180,6 +183,15 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     [form],
   )
   const uploadedFile = useStore(form.store, (state) => state.values.upload.file)
+  const previousReport = useRef(uploadedFile)
+  useEffect(() => {
+    if (previousReport.current && previousReport.current !== uploadedFile) {
+      const defaults = getInstantTestFormOpts(initialTestType).defaultValues
+      form.setFieldValue('extract', defaults.extract)
+      form.setFieldValue('verifyData', defaults.verifyData)
+    }
+    previousReport.current = uploadedFile
+  }, [uploadedFile, form, initialTestType])
 
   // The stored PDF only bridges the register-client detour. A browser refresh
   // resets the workflow because the rest of the form cannot be restored safely.
@@ -317,6 +329,8 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     return (
       <TestCompleted
         testId={completedTestId}
+        client={form.state.values.client}
+        deliveryError={deliveryError}
         onBack={() => {
           if (bookingId) {
             clearFileStorage()
@@ -348,17 +362,25 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
         }
       }
 
-      if (currentStep === 'extract' && form.state.values.client.id) {
+      if ((currentStep === 'extract' || currentStep === 'client') && form.state.values.client.id) {
         const queryKey = extractPdfQueryKey(form.state.values.upload.file, 'instant-test')
         const extractedData = queryClient.getQueryData<ExtractedPdfData>(queryKey)
-        const reportClientMatch = getReportClientMatch(extractedData?.donorName, form.state.values.client)
+        const reportClientMatch = getReportClientMatch(
+          extractedData?.donorName,
+          form.state.values.client,
+          extractedData?.dob,
+        )
         const mismatchKey = getReportClientMismatchKey(reportClientMatch)
 
         if (
-          reportClientMatch.status === 'mismatch' &&
+          reportClientMatch.requiresConfirmation &&
           (!form.state.values.extract.clientMismatchConfirmed ||
             form.state.values.extract.clientMismatchConfirmationKey !== mismatchKey)
         ) {
+          if (currentStep === 'client') {
+            await setCurrentStep('extract', { history: 'push' })
+            return
+          }
           toast.error('Confirm the report/client mismatch before continuing.', {
             id: 'instant-test-report-client-mismatch',
           })
@@ -382,7 +404,7 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
     const renderGroup = (
       name: 'upload' | 'extract' | 'client' | 'medications' | 'verifyData' | 'emails',
       validators: Parameters<typeof form.FormGroup>[0]['validators'],
-      content: ReactNode,
+      content: ReactNode | ((group: AnyFormGroupApi) => ReactNode),
     ) => (
       <form.FormGroup
         key={currentStep}
@@ -394,7 +416,8 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       >
         {(group) => (
           <>
-            <div className="wizard-content mb-8 flex-1">{content}</div>
+            {name === 'extract' && <form.Field name="extract.extracted">{() => null}</form.Field>}
+            <div className="wizard-content mb-8 flex-1">{typeof content === 'function' ? content(group) : content}</div>
             <InstantTestNavigation form={form} group={group} onBack={handleBack} />
           </>
         )}
@@ -415,11 +438,9 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
           <MedicationsStep form={form} />,
         )
       case 'verifyData':
-        return renderGroup(
-          'verifyData',
-          { onDynamic: verifyDataSchema.shape.verifyData },
-          <VerifyDataStep form={form} />,
-        )
+        return renderGroup('verifyData', { onDynamic: verifyDataSchema.shape.verifyData }, (group) => (
+          <VerifyDataStep form={form} validateGroup={group.validate} />
+        ))
       case 'reviewEmails':
         return renderGroup('emails', { onDynamic: emailsGroupSchema }, <EmailsStep form={form} />)
       default:
@@ -435,6 +456,11 @@ export function InstantTestWorkflow({ onBack }: InstantTestWorkflowProps) {
       }}
       className="flex flex-1 flex-col"
     >
+      {bookingId && (
+        <CollectionProgress
+          phase={currentStep === 'upload' ? 'Prepare' : currentStep === 'reviewEmails' ? 'Review' : 'Details'}
+        />
+      )}
       {renderStep()}
     </form>
   )

@@ -6,6 +6,7 @@ import { buildReferralInvoiceEmail, REFERRAL_CHECK_FOOTER } from '@/emails/payme
 import { prefixNonLiveEmailSubject, resolveOutboundNotificationRecipients } from '@/lib/email-safety'
 import { billingPeriodEnd, collectionDateInDetroit, currentBillingMonth } from '@/lib/referral-invoices/date'
 import { settleReferralInvoice } from '@/lib/referral-invoices/settle'
+import { recordedBillingResponsibility } from '@/lib/referral-invoices/payer'
 export { currentBillingMonth, previousBillingMonth } from '@/lib/referral-invoices/date'
 
 export type ReferralCollection = 'courts' | 'employers'
@@ -77,7 +78,6 @@ async function eligibleItems(
       page,
     }),
   )) as Client[]
-  if (clients.length === 0) return []
 
   const clientById = new Map(clients.map((client) => [String(client.id), client]))
   const tests: DrugTest[] = []
@@ -103,6 +103,41 @@ async function eligibleItems(
     )
   }
 
+  // A captured referral remains responsible even if the client later moves to another referral.
+  const capturedTests = await findAll((page) =>
+    payload.find({
+      collection: 'drug-tests',
+      where: {
+        and: [
+          { 'billingResponsibility.payer': { equals: 'referral' } },
+          { 'billingResponsibility.referral.relationTo': { equals: relationTo } },
+          { 'billingResponsibility.referral.value': { equals: referralId } },
+          { 'payment.balanceDue': { greater_than: 0 } },
+          { collectionDate: { less_than: cutoff } },
+        ],
+      },
+      depth: 0,
+      limit: PAGE_SIZE,
+      page,
+      sort: 'collectionDate',
+    }),
+  )
+  for (const test of capturedTests) {
+    const responsibility = recordedBillingResponsibility(test)
+    if (
+      responsibility?.payer !== 'referral' ||
+      responsibility.referral?.relationTo !== relationTo ||
+      responsibility.referral.value !== referralId
+    )
+      continue
+    if (!tests.some((existing) => String(existing.id) === String(test.id))) tests.push(test)
+    const clientId = idOf(test.relatedClient)
+    if (clientId && !clientById.has(clientId)) {
+      const client = await payload.findByID({ collection: 'clients', id: clientId, depth: 0 })
+      clientById.set(clientId, client)
+    }
+  }
+
   const priorInvoices = await findAll((page) =>
     payload.find({
       collection: 'referral-invoices',
@@ -121,6 +156,13 @@ async function eligibleItems(
   )
 
   return tests.flatMap((test): InvoiceItem[] => {
+    const responsibility = recordedBillingResponsibility(test)
+    if (responsibility?.payer === 'client') return []
+    if (
+      responsibility?.payer === 'referral' &&
+      (responsibility.referral?.relationTo !== relationTo || responsibility.referral.value !== referralId)
+    )
+      return []
     const clientId = idOf(test.relatedClient)
     const client = clientId ? clientById.get(clientId) : null
     const amount = test.payment?.balanceDue

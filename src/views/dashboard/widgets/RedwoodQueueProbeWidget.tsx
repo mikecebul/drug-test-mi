@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { RedwoodQueueProbeWidgetClient } from './RedwoodQueueProbeWidget.client'
 
 export default function RedwoodQueueProbeWidget({ req }: WidgetServerProps) {
-  if (!req.user || req.user.collection !== 'admins') {
+  if (!req.user || req.user.collection !== 'admins' || req.user.role !== 'superAdmin') {
     return null
   }
 
@@ -14,7 +14,9 @@ export default function RedwoodQueueProbeWidget({ req }: WidgetServerProps) {
       <Card variant="admin">
         <CardHeader className="pb-4">
           <CardTitle>Redwood Queue Probe</CardTitle>
-          <CardDescription>Verify that the website can enqueue work and the Redwood worker can process it.</CardDescription>
+          <CardDescription>
+            Verify that the website can enqueue work and the Redwood worker can process it.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <RedwoodQueueProbeWidgetClient />

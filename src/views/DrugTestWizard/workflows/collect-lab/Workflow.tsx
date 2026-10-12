@@ -19,6 +19,7 @@ import { TestCompleted } from '../../components/TestCompleted'
 import { clientSchema, collectionSchema, emailsGroupSchema, labTests, medicationsSchema, steps } from './validators'
 import { getClientByBookingId, getClientById } from '../components/client/getClients'
 import { focusFirstInvalidFieldWithToast, useStepFocus } from '@/lib/form-scroll-focus'
+import { CollectionProgress } from '../../components/CollectionProgress'
 
 interface CollectLabWorkflowProps {
   onBack: () => void
@@ -27,6 +28,7 @@ interface CollectLabWorkflowProps {
 export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
   const router = useRouter()
   const [completedTestId, setCompletedTestId] = useState<string | null>(null)
+  const [deliveryError, setDeliveryError] = useState<string | null>(null)
   const [isHydratingClient, setIsHydratingClient] = useState(false)
 
   // URL is the single source of truth for current step
@@ -65,7 +67,8 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
           },
         )
 
-        if (result.success && result.testId) {
+        if (result.testId) {
+          setDeliveryError(result.success ? null : result.error || 'Notification delivery failed.')
           setCompletedTestId(result.testId)
         } else {
           toast.error(result.error || 'Failed to create collection record')
@@ -149,6 +152,9 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
     return (
       <TestCompleted
         testId={completedTestId}
+        client={form.state.values.client}
+        awaitingLab
+        deliveryError={deliveryError}
         onBack={() => {
           if (bookingId) {
             router.push('/admin/drug-test-upload?workflow=guided&step=schedule')
@@ -242,6 +248,7 @@ export function CollectLabWorkflow({ onBack }: CollectLabWorkflowProps) {
       >
         {() => null}
       </form.Field>
+      {bookingId && <CollectionProgress phase={currentStep === 'reviewEmails' ? 'Review' : 'Details'} />}
       {renderStep()}
     </form>
   )

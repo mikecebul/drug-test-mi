@@ -182,9 +182,9 @@ export function UpdateConfirmationDecisionDialog({
 
   return (
     <Drawer swipeDirection="right" open={open} onOpenChange={handleDialogChange}>
-      <DrawerTrigger render={<Button type="button" />}>
-        <PencilLine className="h-4 w-4" />
-        Update Confirmation Decision
+      <DrawerTrigger render={<Button type="button" variant="outline-primary" size="sm" />}>
+        <PencilLine data-icon="inline-start" />
+        Update decision
       </DrawerTrigger>
 
       <DrawerContent className="bg-background shadow-2xl data-[swipe-direction=right]:w-[min(48rem,calc(100vw-1rem))] data-[swipe-direction=right]:border-l-2 data-[swipe-direction=right]:sm:max-w-none">
@@ -264,8 +264,7 @@ export function UpdateConfirmationDecisionDialog({
                           <div className="flex-1">
                             <span className="text-foreground font-medium">Accept Results</span>
                             <p className="text-muted-foreground mt-0.5 text-sm">
-                              Accept as final. First-time unexpected failures are retained for 14 days if confirmation
-                              is requested later.
+                              Accept this screening result as final.
                             </p>
                           </div>
                         </Label>
@@ -286,7 +285,8 @@ export function UpdateConfirmationDecisionDialog({
                           <div className="flex-1">
                             <span className="text-foreground font-medium">Request Confirmation Testing</span>
                             <p className="text-muted-foreground mt-0.5 text-sm">
-                              Send sample to lab for LC-MS/MS confirmation testing on selected substances.
+                              Select substances for confirmation. Arrange payment or referral billing before the lab
+                              request.
                             </p>
                           </div>
                         </Label>
@@ -303,7 +303,9 @@ export function UpdateConfirmationDecisionDialog({
                           <div className="flex-1">
                             <span className="text-foreground font-medium">Pending Decision</span>
                             <p className="text-muted-foreground mt-0.5 text-sm">
-                              {`Decision not yet made. Sample will be held for 30 days. ${isLabTest ? '$45' : '$30'}/substance.`}
+                              {isLabTest
+                                ? 'Track for 30 days from the screening result date. $45 per substance.'
+                                : 'Request before specimen disposal. $30 per substance.'}
                             </p>
                           </div>
                         </Label>

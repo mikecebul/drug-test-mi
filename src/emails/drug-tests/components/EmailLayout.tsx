@@ -1,57 +1,87 @@
-import { Body, Container, Head, Html, Preview, Section, Text } from '@react-email/components'
+import { Body, Column, Container, Head, Hr, Html, Link, Preview, Row, Section, Text } from '@react-email/components'
 import * as React from 'react'
-import { main, container, footer } from '../utils/styles'
+import { colors, rule, text } from '../utils/theme'
 
 interface EmailLayoutProps {
   preview: string
-  title?: string
   children: React.ReactNode
 }
 
-/**
- * EmailLayout provides consistent wrapper for all drug test emails
- * Includes company branding, header, and footer
- */
-export function EmailLayout({ preview, title, children }: EmailLayoutProps) {
-  const currentYear = new Date().getFullYear()
-
+export function EmailLayout({ preview, children }: EmailLayoutProps) {
   return (
-    <Html>
-      <Head />
+    <Html lang="en">
+      <Head>
+        <style>{`
+          @media only screen and (max-width: 480px) {
+            .email-card { padding: 20px !important; }
+            .email-footer-column { display: block !important; width: 100% !important; padding: 0 !important; border: 0 !important; }
+            .email-contact { margin-top: 16px !important; }
+            .email-result-name, .email-result-status { display: block !important; width: 100% !important; }
+            .email-result-status { padding-top: 4px !important; }
+          }
+        `}</style>
+      </Head>
       <Preview>{preview}</Preview>
-      <Body style={main}>
-        <Container style={container}>
-          {/* Header */}
-          {title && (
-            <Text
+      <Body
+        style={{
+          backgroundColor: '#f4f6f8',
+          padding: '24px 8px',
+          margin: '0',
+          fontFamily: 'Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif',
+        }}
+      >
+        <Container
+          className="email-card"
+          style={{
+            maxWidth: '640px',
+            backgroundColor: '#ffffff',
+            border: `1px solid ${colors.border}`,
+            borderRadius: '8px',
+            padding: '28px',
+          }}
+        >
+          <Text style={{ ...text, color: colors.blue, fontWeight: 700 }}>MI Drug Test</Text>
+          <Hr style={rule} />
+          <Section>{children}</Section>
+          <Hr style={rule} />
+          <Row>
+            <Column
+              className="email-footer-column"
+              style={{ width: '50%', verticalAlign: 'top', paddingRight: '16px' }}
+            >
+              <Text style={{ ...text, fontWeight: 600 }}>MI Drug Test</Text>
+              <Text style={{ ...text, color: colors.muted }}>
+                201 State St, Lower level
+                <br />
+                Charlevoix, MI 49720
+              </Text>
+            </Column>
+            <Column
+              className="email-footer-column email-contact"
               style={{
-                fontSize: '24px',
-                fontWeight: 700,
-                color: '#1f2937',
-                margin: '0 0 24px 0',
+                width: '50%',
+                verticalAlign: 'top',
+                paddingLeft: '20px',
+                borderLeft: `1px solid ${colors.border}`,
               }}
             >
-              {title}
-            </Text>
-          )}
-
-          {/* Main Content */}
-          <Section>{children}</Section>
-
-          {/* Footer */}
-          <Text style={footer}>
-            MI Drug Test • 201 State St, Lower level, Charlevoix, MI 49720
-            <br />
-            {currentYear} © All rights reserved
-          </Text>
+              <Text style={{ ...text, color: colors.muted }}>Questions? Contact Mike</Text>
+              <Text style={text}>
+                <Link href="tel:+12313736341" style={{ color: colors.blue, textDecoration: 'none' }}>
+                  (231) 373-6341
+                </Link>
+              </Text>
+              <Text style={text}>
+                <Link href="mailto:mike@midrugtest.com" style={{ color: colors.blue, textDecoration: 'none' }}>
+                  mike@midrugtest.com
+                </Link>
+              </Text>
+            </Column>
+          </Row>
         </Container>
       </Body>
     </Html>
   )
 }
 
-EmailLayout.PreviewProps = {
-  preview: 'Drug Test Notification',
-  title: 'Drug Test Results',
-  children: React.createElement('p', {}, 'Email content goes here'),
-} as EmailLayoutProps
+export default EmailLayout

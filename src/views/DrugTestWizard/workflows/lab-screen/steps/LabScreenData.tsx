@@ -23,6 +23,7 @@ import {
 import { formatSubstance } from '@/lib/substances'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { ConfirmationSubstanceSelector } from '@/blocks/Form/field-components/confirmation-substance-selector'
+import { ConfirmationResultsEditor } from '../../components/ConfirmationResultsEditor'
 import { cn } from '@/utilities/cn'
 import { AlertTriangle } from 'lucide-react'
 import { format } from 'date-fns'
@@ -30,8 +31,11 @@ import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMed
 
 export const LabScreenDataStep = withForm({
   ...getLabScreenFormOpts(),
+  props: {
+    validateGroup: (_cause: 'submit', _options: { skipFormValidation: boolean }): unknown => undefined,
+  },
 
-  render: function Render({ form }) {
+  render: function Render({ form, validateGroup }) {
     const queryClient = useQueryClient()
     const formValues = useStore(form.store, (state) => state.values)
     const matchCollection = formValues.matchCollection
@@ -52,14 +56,18 @@ export const LabScreenDataStep = withForm({
       })) ?? []
 
     // Compute test result preview to detect unexpected positives
-    const { data: preview } = useComputeTestResultPreviewQuery(
+    const {
+      data: preview,
+      isFetching,
+      isError,
+    } = useComputeTestResultPreviewQuery(
       client?.id,
       (labScreenData?.detectedSubstances ?? []) as SubstanceValue[],
       labScreenData?.testType ?? '11-panel-lab',
     )
 
     const hasUnexpectedPositives = (preview?.unexpectedPositives?.length ?? 0) > 0
-    const requiresDecision = hasUnexpectedPositives && !preview?.autoAccept
+    const requiresDecision = hasUnexpectedPositives && !preview?.autoAccept && !labScreenData.reportHasConfirmation
     const matchedCollectionDate = matchCollection?.collectionDate ? new Date(matchCollection.collectionDate) : null
     const matchedCollectionDateLabel =
       matchedCollectionDate && !Number.isNaN(matchedCollectionDate.getTime())
@@ -68,17 +76,18 @@ export const LabScreenDataStep = withForm({
 
     // Clear error if no decision required
     useEffect(() => {
+      if (!preview || isFetching || isError) return
       if (requiresDecision === true) {
         form.setFieldValue('labScreenData.confirmationDecisionRequired', true)
-        form.validate('submit')
+        validateGroup('submit', { skipFormValidation: true })
       }
       if (requiresDecision === false) {
         form.setFieldValue('labScreenData.confirmationDecisionRequired', false)
         form.setFieldValue('labScreenData.confirmationDecision', undefined)
         form.setFieldValue('labScreenData.confirmationSubstances', [])
-        form.validate('submit')
+        validateGroup('submit', { skipFormValidation: true })
       }
-    }, [requiresDecision, form])
+    }, [requiresDecision, form, preview, isFetching, isError, validateGroup])
 
     // Get confirmation decision from form state
     const confirmationDecisionValue = labScreenData?.confirmationDecision
@@ -97,7 +106,7 @@ export const LabScreenDataStep = withForm({
       }
 
       // Ensure submit-mode errors clear immediately after user correction.
-      form.validate('submit')
+      validateGroup('submit', { skipFormValidation: true })
     }
 
     const handleHeadshotLinked = useCallback(
@@ -235,136 +244,152 @@ export const LabScreenDataStep = withForm({
           </CardContent>
         </Card>
 
-        {/* Confirmation Decision Section - only show when there are unexpected positives */}
-        {requiresDecision && (
-          <div className="border-warning/50 bg-warning-muted/50 w-full rounded-xl border p-6 shadow-md">
-            {/* Header */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2.5">
-                <div className="bg-warning/20 flex h-8 w-8 items-center justify-center rounded-full">
-                  <AlertTriangle className="text-warning h-4 w-4" />
-                </div>
-                <h3 className="text-foreground text-xl font-semibold">Confirmation Decision Required</h3>
-              </div>
-              <p className="text-warning-foreground mt-2 text-sm">
-                Unexpected positive substances detected. Choose how to proceed.
-              </p>
-            </div>
-
-            {/* Unexpected Positives */}
-            <div className="mb-5">
-              <p className="text-muted-foreground mb-2 text-sm font-medium">Unexpected Positives:</p>
-              <div className="flex flex-wrap gap-2">
-                {preview?.unexpectedPositives?.map((substance) => (
-                  <Badge key={substance} variant="destructive">
-                    {formatSubstance(substance)}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-
-            {/* Decision Options */}
-            <form.Field name="labScreenData.confirmationDecision">
-              {(field) => (
-                <div>
-                  <p className="text-muted-foreground mb-3 text-sm font-medium">How would you like to proceed?</p>
-                  <RadioGroup
-                    value={confirmationDecisionValue || ''}
-                    onValueChange={(value) => {
-                      const decision = value as 'accept' | 'request-confirmation' | 'pending-decision'
-                      field.handleChange(decision)
-                      handleConfirmationDecisionChange(decision)
-                    }}
-                    className="space-y-2.5"
-                  >
-                    <Label
-                      htmlFor="accept"
-                      className={cn(
-                        'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
-                        confirmationDecisionValue === 'accept' && 'border-foreground/50 ring-foreground/20 ring-2',
-                      )}
-                    >
-                      <RadioGroupItem value="accept" id="accept" className="mt-0.5" />
-                      <div className="flex-1">
-                        <span className="text-foreground font-medium">Accept Results</span>
-                        <p className="text-muted-foreground mt-0.5 text-sm">
-                          Accept as final. First-time unexpected failures are retained for 14 days if confirmation is
-                          requested later.
-                        </p>
-                      </div>
-                    </Label>
-
-                    <Label
-                      htmlFor="request-confirmation"
-                      className={cn(
-                        'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
-                        confirmationDecisionValue === 'request-confirmation' &&
-                          'border-foreground/50 ring-foreground/20 ring-2',
-                      )}
-                    >
-                      <RadioGroupItem value="request-confirmation" id="request-confirmation" className="mt-0.5" />
-                      <div className="flex-1">
-                        <span className="text-foreground font-medium">Request Confirmation Testing</span>
-                        <p className="text-muted-foreground mt-0.5 text-sm">
-                          Send sample to lab for LC-MS/MS confirmation testing on selected substances.
-                        </p>
-                      </div>
-                    </Label>
-
-                    <Label
-                      htmlFor="pending-decision"
-                      className={cn(
-                        'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
-                        confirmationDecisionValue === 'pending-decision' &&
-                          'border-foreground/50 ring-foreground/20 ring-2',
-                      )}
-                    >
-                      <RadioGroupItem value="pending-decision" id="pending-decision" className="mt-0.5" />
-                      <div className="flex-1">
-                        <span className="text-foreground font-medium">Pending Decision</span>
-                        <p className="text-muted-foreground mt-0.5 text-sm">
-                          Decision not yet made. Sample will be held for 30 days. $45/substance.
-                        </p>
-                      </div>
-                    </Label>
-                  </RadioGroup>
-                  {requiresDecision && !confirmationDecisionValue && field.state.meta.errors.length === 0 && (
-                    <p className="text-destructive text-sm">Must select an option</p>
-                  )}
-                  <FieldError errors={field.state.meta.errors} />
-                </div>
-              )}
-            </form.Field>
-
-            {/* Substance selection when request-confirmation is chosen */}
-            {confirmationDecisionValue === 'request-confirmation' && (
-              <form.Field name="labScreenData.confirmationSubstances">
-                {(field) => (
-                  <div className="mt-5">
-                    <ConfirmationSubstanceSelector
-                      unexpectedPositives={preview?.unexpectedPositives ?? []}
-                      selectedSubstances={confirmationSubstancesValue ?? []}
-                      onSelectionChange={(substances) => {
-                        form.setFieldValue('labScreenData.confirmationSubstances', substances)
-                        form.validate('submit')
-                      }}
-                      error={
-                        typeof field.state.meta.errors?.[0] === 'string'
-                          ? field.state.meta.errors[0]
-                          : (field.state.meta.errors?.[0] as { message?: string } | undefined)?.message
-                      }
-                    />
-                    {!confirmationSubstancesValue?.length && field.state.meta.errors.length === 0 ? (
-                      <p className="text-destructive mt-2 text-sm">
-                        Please select at least one substance for confirmation testing
-                      </p>
-                    ) : null}
-                  </div>
-                )}
-              </form.Field>
+        {labScreenData.reportHasConfirmation && (
+          <form.Field name="labScreenData.confirmationResults">
+            {(field) => (
+              <ConfirmationResultsEditor
+                rows={field.state.value}
+                file={formValues.upload.file}
+                required={labScreenData.requiredConfirmationSubstances}
+                onChange={field.handleChange}
+                errors={field.state.meta.errors}
+              />
             )}
-          </div>
+          </form.Field>
         )}
+
+        {/* Confirmation Decision Section - only show when there are unexpected positives */}
+        <div
+          hidden={!requiresDecision}
+          className="border-warning/50 bg-warning-muted/50 w-full rounded-xl border p-6 shadow-md"
+        >
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2.5">
+              <div className="bg-warning/20 flex h-8 w-8 items-center justify-center rounded-full">
+                <AlertTriangle className="text-warning h-4 w-4" />
+              </div>
+              <h3 className="text-foreground text-xl font-semibold">Confirmation Decision Required</h3>
+            </div>
+            <p className="text-warning-foreground mt-2 text-sm">
+              Unexpected positive substances detected. Choose how to proceed.
+            </p>
+          </div>
+
+          {/* Unexpected Positives */}
+          <div className="mb-5">
+            <p className="text-muted-foreground mb-2 text-sm font-medium">Unexpected Positives:</p>
+            <div className="flex flex-wrap gap-2">
+              {preview?.unexpectedPositives?.map((substance) => (
+                <Badge key={substance} variant="destructive">
+                  {formatSubstance(substance)}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          {/* Decision Options */}
+          <form.Field name="labScreenData.confirmationDecision">
+            {(field) => (
+              <div>
+                <p className="text-muted-foreground mb-3 text-sm font-medium">How would you like to proceed?</p>
+                <RadioGroup
+                  aria-invalid={field.state.meta.errors.length > 0}
+                  value={confirmationDecisionValue || ''}
+                  onValueChange={(value) => {
+                    const decision = value as 'accept' | 'request-confirmation' | 'pending-decision'
+                    field.handleChange(decision)
+                    handleConfirmationDecisionChange(decision)
+                  }}
+                  className="space-y-2.5"
+                >
+                  <Label
+                    htmlFor="accept"
+                    className={cn(
+                      'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
+                      confirmationDecisionValue === 'accept' && 'border-foreground/50 ring-foreground/20 ring-2',
+                    )}
+                  >
+                    <RadioGroupItem value="accept" id="accept" className="mt-0.5" />
+                    <div className="flex-1">
+                      <span className="text-foreground font-medium">Accept Results</span>
+                      <p className="text-muted-foreground mt-0.5 text-sm">
+                        Accept as final. First-time unexpected failures are retained for 14 days if confirmation is
+                        requested later.
+                      </p>
+                    </div>
+                  </Label>
+
+                  <Label
+                    htmlFor="request-confirmation"
+                    className={cn(
+                      'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
+                      confirmationDecisionValue === 'request-confirmation' &&
+                        'border-foreground/50 ring-foreground/20 ring-2',
+                    )}
+                  >
+                    <RadioGroupItem value="request-confirmation" id="request-confirmation" className="mt-0.5" />
+                    <div className="flex-1">
+                      <span className="text-foreground font-medium">Request Confirmation Testing</span>
+                      <p className="text-muted-foreground mt-0.5 text-sm">
+                        Send sample to lab for LC-MS/MS confirmation testing on selected substances.
+                      </p>
+                    </div>
+                  </Label>
+
+                  <Label
+                    htmlFor="pending-decision"
+                    className={cn(
+                      'border-border bg-card hover:border-muted-foreground/30 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm',
+                      confirmationDecisionValue === 'pending-decision' &&
+                        'border-foreground/50 ring-foreground/20 ring-2',
+                    )}
+                  >
+                    <RadioGroupItem value="pending-decision" id="pending-decision" className="mt-0.5" />
+                    <div className="flex-1">
+                      <span className="text-foreground font-medium">Pending Decision</span>
+                      <p className="text-muted-foreground mt-0.5 text-sm">
+                        Decision not yet made. Sample will be held for 30 days. $45/substance.
+                      </p>
+                    </div>
+                  </Label>
+                </RadioGroup>
+                {requiresDecision && !confirmationDecisionValue && field.state.meta.errors.length === 0 && (
+                  <p className="text-destructive text-sm">Must select an option</p>
+                )}
+                <FieldError errors={field.state.meta.errors} />
+              </div>
+            )}
+          </form.Field>
+
+          {/* Substance selection when request-confirmation is chosen */}
+          <form.Field name="labScreenData.confirmationSubstances">
+            {(field) =>
+              confirmationDecisionValue !== 'request-confirmation' ? null : (
+                <div className="mt-5">
+                  <ConfirmationSubstanceSelector
+                    unexpectedPositives={preview?.unexpectedPositives ?? []}
+                    selectedSubstances={confirmationSubstancesValue ?? []}
+                    onSelectionChange={(substances) => {
+                      form.setFieldValue('labScreenData.confirmationSubstances', substances)
+                      validateGroup('submit', { skipFormValidation: true })
+                    }}
+                    error={
+                      typeof field.state.meta.errors?.[0] === 'string'
+                        ? field.state.meta.errors[0]
+                        : (field.state.meta.errors?.[0] as { message?: string } | undefined)?.message
+                    }
+                  />
+                  {!confirmationSubstancesValue?.length && field.state.meta.errors.length === 0 ? (
+                    <p className="text-destructive mt-2 text-sm">
+                      Please select at least one substance for confirmation testing
+                    </p>
+                  ) : null}
+                </div>
+              )
+            }
+          </form.Field>
+        </div>
       </div>
     )
   },

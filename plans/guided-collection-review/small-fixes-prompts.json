@@ -1,0 +1,20 @@
+[
+  {
+    "id": "02-review-client-final",
+    "target": "02-review-client-simple.png",
+    "prompt": "Use case: ui-mockup precise image edit. Change ONLY the displayed appointment price from $40.00 to $35.00 because the selected test is 17-Panel Instant. Preserve all other text, fields, portrait, layout, sizing, colors and sidebar. Do not redesign or add anything.",
+    "targetPath": "/Users/mikecebul/Code/drug-test-mi/plans/guided-collection-review/images/02-review-client-simple.png"
+  },
+  {
+    "id": "16-complete-final",
+    "target": "16-complete-simple.png",
+    "prompt": "Use case: ui-mockup precise image edit. Delete ONLY the large Collection created heading inside the main card, so the existing green Collection saved status appears just once at the top of that card. Keep the compact client header, awaiting lab results status, sent-notification row, View test record, collapsed details and footer unchanged. Preserve all typography/sidebar/portrait elsewhere. No new heading or extra section.",
+    "targetPath": "/Users/mikecebul/Code/drug-test-mi/plans/guided-collection-review/images/16-complete-simple.png"
+  },
+  {
+    "id": "19-client-summary-final-v2",
+    "target": "19-client-summary-final.png",
+    "prompt": "Use case: ui-mockup precise image edit. Preserve this approved client summary layout exactly. Change ONLY two client-header facts: replace wrong text Current test C1042 with Client C1042; restore one small header line Referral Charlevoix Court under DOB/client ID, above email/phone. C1042 is the client's ID, not a test. Keep medication shown only once in Current Medications card. Keep all balances, actions, history, dates, status labels, unavailable report, portrait and native sidebar unchanged. Do not add any other information or redesign.",
+    "targetPath": "/Users/mikecebul/Code/drug-test-mi/plans/guided-collection-review/images/19-client-summary-final.png"
+  }
+]

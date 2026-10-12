@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload'
 
 import { admins } from '@/access/admins'
 import { superAdmin } from '@/access/superAdmin'
+import { releasePayerReservation } from './hooks/releasePayerReservation'
 
 export const Payments: CollectionConfig = {
   slug: 'payments',
@@ -22,6 +23,34 @@ export const Payments: CollectionConfig = {
     delete: superAdmin,
   },
   fields: [
+    {
+      name: 'purpose',
+      type: 'select',
+      options: [{ label: 'Confirmation', value: 'confirmation' }],
+      admin: { readOnly: true },
+      access: { create: () => false, update: () => false },
+    },
+    {
+      name: 'confirmationRequestKey',
+      type: 'text',
+      admin: { hidden: true },
+      access: { create: () => false, update: () => false },
+    },
+    {
+      name: 'accountOperationId',
+      type: 'text',
+      unique: true,
+      index: true,
+      admin: { hidden: true },
+      access: { create: () => false, update: () => false },
+    },
+    {
+      name: 'collectedBy',
+      type: 'relationship',
+      relationTo: 'admins',
+      admin: { readOnly: true },
+      access: { create: () => false, update: () => false },
+    },
     {
       name: 'title',
       type: 'text',
@@ -217,6 +246,13 @@ export const Payments: CollectionConfig = {
           },
           fields: [
             {
+              name: 'confirmationAmount',
+              type: 'number',
+              min: 0,
+              admin: { readOnly: true },
+              access: { create: () => false, update: () => false },
+            },
+            {
               name: 'drugTest',
               type: 'relationship',
               relationTo: 'drug-tests',
@@ -311,6 +347,12 @@ export const Payments: CollectionConfig = {
         {
           name: 'stripeCheckoutUrl',
           type: 'text',
+        },
+        {
+          name: 'paymentLinkEmailSendingAt',
+          type: 'date',
+          admin: { hidden: true },
+          access: { create: () => false, update: () => false },
         },
         {
           name: 'paymentLinkEmailSentAt',
@@ -439,6 +481,7 @@ export const Payments: CollectionConfig = {
     },
   ],
   hooks: {
+    afterChange: [releasePayerReservation],
     beforeChange: [
       ({ data }) => {
         const now = new Date().toISOString()

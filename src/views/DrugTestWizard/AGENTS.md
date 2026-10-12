@@ -20,7 +20,7 @@ This folder contains admin-panel multi-step workflows for client registration an
 
 ## UX / Error Handling
 
-- Current-step errors disable Next until fixed
+- Keep Next clickable so users can trigger active-step validation and see inline errors. Invalid or unready steps must stay on their step. Guard in-flight actions against duplicate submission.
 - On invalid submit, scroll/focus the first invalid field
 - Inputs should keep `aria-invalid` and stable `id`/`name` values matching TanStack field names
 - Backward navigation should clear stale validation state when possible

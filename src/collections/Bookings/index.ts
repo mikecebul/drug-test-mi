@@ -2,6 +2,8 @@ import { admins } from '@/access/admins'
 import { CollectionConfig } from 'payload'
 import { syncClient } from './hooks/syncClient'
 import { testTypeSelectOptions } from '@/config/test-types'
+import { billingResponsibilityField } from '@/fields/billingResponsibility'
+import { captureBookingBillingResponsibility } from '@/hooks/captureBillingResponsibility'
 
 export const Bookings: CollectionConfig = {
   slug: 'bookings',
@@ -20,6 +22,7 @@ export const Bookings: CollectionConfig = {
     defaultColumns: ['title', 'startTime', 'attendeeName', 'attendeeEmail', 'status', 'payment.status'],
   },
   fields: [
+    billingResponsibilityField,
     {
       name: 'title',
       type: 'text',
@@ -326,6 +329,7 @@ export const Bookings: CollectionConfig = {
     },
   ],
   hooks: {
+    beforeChange: [captureBookingBillingResponsibility],
     afterChange: [syncClient],
   },
 }

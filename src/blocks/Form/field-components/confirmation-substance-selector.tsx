@@ -11,6 +11,7 @@ import {
   FieldLegend,
   FieldSet,
 } from '@/components/ui/field'
+import { cn } from '@/utilities/cn'
 import { formatSubstance } from '@/lib/substances'
 
 interface ConfirmationSubstanceSelectorProps {
@@ -18,6 +19,7 @@ interface ConfirmationSubstanceSelectorProps {
   selectedSubstances: string[]
   onSelectionChange: (substances: string[]) => void
   error?: string
+  compact?: boolean
   invalid?: boolean
 }
 
@@ -27,6 +29,7 @@ export function ConfirmationSubstanceSelector({
   onSelectionChange,
   error,
   invalid = false,
+  compact = false,
 }: ConfirmationSubstanceSelectorProps) {
   const toggleSubstance = (substance: string) => {
     if (selectedSubstances.includes(substance)) {
@@ -45,19 +48,21 @@ export function ConfirmationSubstanceSelector({
   }
 
   return (
-    <FieldSet data-invalid={invalid} className="border-muted bg-card space-y-3 rounded-md border p-4">
-      <div className="flex items-center justify-between">
-        <FieldLegend variant="label">Select Substances for Confirmation</FieldLegend>
-        <div className="flex gap-2">
-          <button type="button" onClick={selectAll} className="text-primary text-xs hover:underline">
-            Select All
-          </button>
-          <span className="text-muted-foreground text-xs">|</span>
-          <button type="button" onClick={selectNone} className="text-primary text-xs hover:underline">
-            Clear
-          </button>
-        </div>
-      </div>
+    <FieldSet data-invalid={invalid} className={cn('gap-3', !compact && 'border-muted bg-card rounded-md border p-4')}>
+      <FieldLegend variant="label" className="mb-0 flex items-center justify-between gap-3">
+        <span>{compact ? 'Confirm substances' : 'Select Substances for Confirmation'}</span>
+        {(!compact || unexpectedPositives.length > 1) && (
+          <div className="flex gap-2">
+            <button type="button" onClick={selectAll} className="text-primary text-xs hover:underline">
+              Select All
+            </button>
+            <span className="text-muted-foreground text-xs">|</span>
+            <button type="button" onClick={selectNone} className="text-primary text-xs hover:underline">
+              Clear
+            </button>
+          </div>
+        )}
+      </FieldLegend>
 
       <FieldGroup className="grid grid-cols-2 gap-2">
         {unexpectedPositives.map((substance, index) => (
@@ -75,9 +80,11 @@ export function ConfirmationSubstanceSelector({
         ))}
       </FieldGroup>
 
-      <FieldDescription className="text-xs">
-        Selected: {selectedSubstances.length} of {unexpectedPositives.length} substances
-      </FieldDescription>
+      {!compact && (
+        <FieldDescription className="text-xs">
+          Selected: {selectedSubstances.length} of {unexpectedPositives.length} substances
+        </FieldDescription>
+      )}
 
       <FieldError>{error}</FieldError>
     </FieldSet>

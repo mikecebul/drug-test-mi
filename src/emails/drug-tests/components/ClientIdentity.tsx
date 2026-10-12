@@ -1,6 +1,7 @@
-import { Img, Section, Text } from '@react-email/components'
+import { Column, Img, Row, Section, Text } from '@react-email/components'
 import * as React from 'react'
-import { formatDob } from '../utils/formatters'
+import { formatEmailDob } from '../utils/formatters'
+import { colors, text } from '../utils/theme'
 
 interface ClientIdentityProps {
   headshotDataUri?: string | null
@@ -8,72 +9,43 @@ interface ClientIdentityProps {
   dob?: string | null
 }
 
-/**
- * ClientIdentity displays client headshot, name, and date of birth
- * Headshot is displayed as a square image
- * Layout is left-aligned with notice about image availability
- */
 export function ClientIdentity({ headshotDataUri, name, dob }: ClientIdentityProps) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  const initials = [parts[0]?.[0], parts.length > 1 ? parts.at(-1)?.[0] : ''].join('').toUpperCase()
   return (
     <Section style={{ marginBottom: '24px' }}>
-      {/* Client Headshot */}
-      {headshotDataUri && (
-        <>
-          <Img
-            src={headshotDataUri}
-            alt={`${name} headshot`}
-            width={120}
-            height={120}
-            style={{
-              display: 'block',
-              marginBottom: '0px',
-              border: '2px solid #e5e7eb',
-              borderRadius: '8px',
-            }}
-          />
-          <Text
-            style={{
-              fontSize: '12px',
-              color: '#6b7280',
-              margin: '0 0 24px 0',
-              fontStyle: 'italic',
-            }}
-          >
-            Image available for 7 days
-          </Text>
-        </>
-      )}
-
-      {/* Client Name */}
-      <Text
-        style={{
-          fontSize: '20px',
-          fontWeight: 700,
-          color: '#1f2937',
-          margin: '0 0 4px 0',
-        }}
-      >
-        {name}
-      </Text>
-
-      {/* Date of Birth */}
-      {dob && (
-        <Text
-          style={{
-            fontSize: '14px',
-            color: '#6b7280',
-            margin: '0',
-          }}
-        >
-          DOB: {formatDob(dob)}
-        </Text>
-      )}
+      <Row>
+        <Column style={{ width: '68px', verticalAlign: 'middle' }}>
+          {headshotDataUri ? (
+            <Img
+              src={headshotDataUri}
+              alt={`${name} headshot`}
+              width={52}
+              height={52}
+              style={{ display: 'block', borderRadius: '50%', objectFit: 'cover' }}
+            />
+          ) : (
+            <Text
+              style={{
+                ...text,
+                width: '52px',
+                height: '52px',
+                lineHeight: '52px',
+                borderRadius: '50%',
+                backgroundColor: '#e5e7eb',
+                textAlign: 'center',
+                fontWeight: 600,
+              }}
+            >
+              {initials}
+            </Text>
+          )}
+        </Column>
+        <Column style={{ verticalAlign: 'middle' }}>
+          <Text style={{ ...text, fontSize: '24px', lineHeight: '30px', fontWeight: 700 }}>{name}</Text>
+          {dob && <Text style={{ ...text, color: colors.muted }}>DOB {formatEmailDob(dob)}</Text>}
+        </Column>
+      </Row>
     </Section>
   )
 }
-
-ClientIdentity.PreviewProps = {
-  name: 'John Doe',
-  dob: '1990-05-15',
-  headshotDataUri: 'https://via.placeholder.com/120',
-} as ClientIdentityProps

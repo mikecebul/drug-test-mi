@@ -38,6 +38,7 @@ const WIZARD_QUERY_ROOTS = [
   'test-result-preview',
   'medications',
   'extract-pdf',
+  'lab-entry-collections',
 ] as const
 
 export function clearWizardQueryCache(queryClient: QueryClient) {
@@ -362,9 +363,21 @@ export function useGetConfirmationEmailPreviewQuery(data: {
   })
 }
 
-// Query key factory for PDF extraction
+// A replaced File can have the same name, size and modification time. Its
+// extraction must never inherit another File object's cached clinical results.
+const extractionFileIds = new WeakMap<object, number>()
+let nextExtractionFileId = 0
+function extractionFileId(file: File | null | undefined) {
+  if (!file) return null
+  let id = extractionFileIds.get(file)
+  if (id === undefined) {
+    id = ++nextExtractionFileId
+    extractionFileIds.set(file, id)
+  }
+  return id
+}
 export const extractPdfQueryKey = (file: File | null | undefined, wizardType: WizardType) =>
-  ['extract-pdf', file?.name, file?.size, file?.lastModified, wizardType] as const
+  ['extract-pdf', file?.name, file?.size, file?.lastModified, wizardType, extractionFileId(file)] as const
 
 // Shared query function for PDF extraction
 const extractPdfQueryFn = async (file: File, wizardType: WizardType) => {

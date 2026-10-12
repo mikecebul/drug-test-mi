@@ -12,7 +12,6 @@ import { getDrugTestPaymentSnapshot } from '../../paymentSnapshot'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 import { applyAvailableClientCredit } from '@/collections/Payments/services/applyPayment'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
-import { isClientBilledToReferral } from '@/lib/referral-invoices/payer'
 
 // Extract medication type from Client payload type
 type MedicationInput = NonNullable<Client['medications']>[number] & {
@@ -58,7 +57,13 @@ export async function createCollectionWithEmailReview(
       }
     }
 
-    const billedToReferral = await isClientBilledToReferral(payload, testData.clientId)
+    const paymentSnapshot = await getDrugTestPaymentSnapshot({
+      payload,
+      clientId: testData.clientId,
+      bookingId: testData.bookingId,
+      testType: testData.testType,
+    })
+    const billedToReferral = paymentSnapshot.billingResponsibility?.payer === 'referral'
 
     // 1. Update client medications if there are changes
     if (medications.length > 0) {
@@ -92,11 +97,6 @@ export async function createCollectionWithEmailReview(
 
     // 2. Fetch updated active medications for drug test snapshot
     const activeMedications = await getActiveMedications(testData.clientId, payload)
-    const paymentSnapshot = await getDrugTestPaymentSnapshot({
-      payload,
-      bookingId: testData.bookingId,
-      testType: testData.testType,
-    })
 
     // 3. Create drug test
     const drugTest: DrugTest = await withPayloadTransaction(payload, async (req) => {
@@ -105,6 +105,7 @@ export async function createCollectionWithEmailReview(
         data: {
           relatedClient: testData.clientId,
           sourceBooking: paymentSnapshot.sourceBooking,
+          billingResponsibility: paymentSnapshot.billingResponsibility,
           payment: paymentSnapshot.payment,
           testType: testData.testType,
           collectionDate: testData.collectionDate,

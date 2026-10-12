@@ -4,6 +4,7 @@ import React from 'react'
 import { useFieldContext } from '../hooks/form-context'
 import { Checkbox } from '@/components/ui/checkbox'
 import { getSubstanceOptions, type SubstanceValue } from '@/fields/substanceOptions'
+import { cn } from '@/utilities/cn'
 import {
   Field,
   FieldDescription,
@@ -18,6 +19,7 @@ interface SubstanceChecklistFieldProps {
   label?: string
   description?: string
   required?: boolean
+  optionsClassName?: string
   testType?:
     | '15-panel-instant'
     | '17-panel-instant'
@@ -32,6 +34,7 @@ export default function SubstanceChecklistField({
   label = 'Detected Substances',
   description = 'Select all substances that tested positive. Leave unchecked for negative results.',
   required = false,
+  optionsClassName,
   testType = '17-panel-instant',
 }: SubstanceChecklistFieldProps) {
   const field = useFieldContext<SubstanceValue[]>()
@@ -63,7 +66,7 @@ export default function SubstanceChecklistField({
       {description ? <FieldDescription>{description}</FieldDescription> : null}
 
       <FieldGroup className="border-border rounded-lg border p-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className={cn('grid grid-cols-2 gap-3', optionsClassName)}>
           {substanceOptions.map((substance) => (
             <Field key={substance.value} orientation="horizontal" data-invalid={hasErrors}>
               <Checkbox

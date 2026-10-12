@@ -2,8 +2,8 @@
 
 import { getPayload } from 'payload'
 import config from '@payload-config'
-import { extract15PanelInstant } from '@/utilities/extractors/extract15PanelInstant'
-import { extractLabTest } from '@/utilities/extractors/extractLabTest'
+import { validateConfirmationReview, storedConfirmationRows } from './workflows/components/confirmation-review'
+import { MAX_REPORT_BYTES, parseDrugTestReport } from '@/utilities/extractors/parseDrugTestReport'
 import type { ParsedPDFData, ClientMatch, WizardType } from './types'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { computeTestResults, computeFinalStatus, fetchDocument, sendEmails } from '@/collections/DrugTests/services'
@@ -42,7 +42,7 @@ export async function extractPdfData(
   }
 
   // Validate file size BEFORE attempting extraction (10MB limit)
-  const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB in bytes
+  const MAX_FILE_SIZE = MAX_REPORT_BYTES
   if (file.size > MAX_FILE_SIZE) {
     payload.logger.error({
       msg: 'PDF file too large',
@@ -59,20 +59,13 @@ export async function extractPdfData(
   try {
     const buffer = Buffer.from(await file.arrayBuffer())
 
-    // Route to the appropriate parser based on test type
-    let extracted: ParsedPDFData
-
-    switch (wizardType) {
-      case 'enter-lab-confirmation':
-      case 'enter-lab-screen':
-        extracted = await extractLabTest(buffer)
-        break
-      case 'instant-test':
-      case '17-panel-instant':
-      default:
-        extracted = await extract15PanelInstant(buffer)
-        break
-    }
+    const expectedFamily =
+      wizardType === 'lab-results' || wizardType === 'enter-lab-confirmation' || wizardType === 'enter-lab-screen'
+        ? 'lab'
+        : wizardType === 'instant-test' || wizardType === '17-panel-instant'
+          ? 'instant'
+          : undefined
+    const extracted = await parseDrugTestReport(buffer, expectedFamily)
 
     return { success: true, data: extracted }
   } catch (error) {
@@ -352,6 +345,10 @@ export async function getEmailPreview(data: {
   breathalyzerTaken?: boolean
   breathalyzerResult?: number | null
   confirmationDecision?: 'accept' | 'request-confirmation' | 'pending-decision' | null
+  confirmationSubstances?: string[]
+  confirmationPaymentRequired?: boolean
+  confirmationHoldUntil?: string | null
+  confirmationCompleted?: boolean
   medications?: FormMedications
 }): Promise<{
   success: boolean
@@ -409,7 +406,7 @@ export async function getEmailPreview(data: {
     } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
-    const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
+    const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload, { preview: true })
 
     // Compute test result preview (for email content)
     const previewResult = await computeTestResultPreview(
@@ -437,6 +434,10 @@ export async function getEmailPreview(data: {
       breathalyzerTaken: data.breathalyzerTaken ?? false,
       breathalyzerResult: data.breathalyzerResult ?? null,
       confirmationDecision: data.confirmationDecision,
+      confirmationSubstances: data.confirmationSubstances,
+      confirmationPaymentRequired: data.confirmationPaymentRequired,
+      confirmationHoldUntil: data.confirmationHoldUntil,
+      confirmationCompleted: data.confirmationCompleted,
       clientHeadshotDataUri,
       clientDob,
     })
@@ -535,7 +536,7 @@ export async function getCollectionEmailPreview(data: {
     } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
-    const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
+    const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload, { preview: true })
 
     // Build collection email HTML using existing template builder
     const clientName = `${client.firstName} ${client.lastName}`
@@ -656,7 +657,7 @@ export async function getConfirmationEmailPreview(data: {
     } = await getRecipients(data.clientId, payload)
 
     // Fetch client headshot for email embedding
-    const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload)
+    const clientHeadshotDataUri = await fetchClientHeadshot(data.clientId, payload, { preview: true })
 
     // Use adjusted substances if provided (confirmed negatives removed),
     // otherwise fall back to original detected substances
@@ -1335,6 +1336,27 @@ export async function updateTestWithScreening(data: {
     const clientId =
       typeof existingTest.relatedClient === 'string' ? existingTest.relatedClient : existingTest.relatedClient.id
 
+    let confirmationResults = data.confirmationResults
+    const confirmationSubstances = [
+      ...new Set([
+        ...(existingTest.confirmationSubstances ?? []),
+        ...(confirmationResults?.map((row) => row.substance) ?? []),
+      ]),
+    ]
+    if (data.hasConfirmation) {
+      try {
+        const retained = storedConfirmationRows(existingTest.confirmationResults ?? []).filter(
+          (row) => !confirmationResults?.some((incoming) => incoming.substance === row.substance),
+        )
+        confirmationResults = validateConfirmationReview(
+          [...(confirmationResults ?? []), ...retained],
+          confirmationSubstances,
+        )
+      } catch (error) {
+        return { success: false, error: (error as Error).message }
+      }
+    }
+
     // 2. Upload PDF to private-media
     const buffer = Buffer.from(data.pdfBuffer)
     const uploadedFile = await payload.create({
@@ -1362,11 +1384,10 @@ export async function updateTestWithScreening(data: {
     }
 
     // 4. Add confirmation data if present (from PDF extraction)
-    if (data.hasConfirmation && data.confirmationResults && data.confirmationResults.length > 0) {
-      const confirmationSubstances = data.confirmationResults.map((r) => r.substance)
+    if (data.hasConfirmation && confirmationResults && confirmationResults.length > 0) {
       updateData.confirmationDecision = 'request-confirmation'
       updateData.confirmationSubstances = confirmationSubstances
-      updateData.confirmationResults = data.confirmationResults.map((r) => ({
+      updateData.confirmationResults = confirmationResults.map((r) => ({
         substance: r.substance,
         result: r.result,
         notes: r.notes || undefined,

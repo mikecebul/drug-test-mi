@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1600" viewBox="0 0 1200 1600" role="img" aria-labelledby="title desc">
+<title id="title">Proposed guided collection</title><desc id="desc">Shared client and payment preparation splits into instant report processing or lab collection. Dashed arrows show recovery and exceptions. The full decision table is in README.md.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#64748b"/></marker><marker id="redarrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#b45309"/></marker></defs>
+<rect width="1200" height="1600" fill="#fff"/>
+<style>text{font-family:Arial,sans-serif;fill:#13233a} .title{font-size:28px;font-weight:700} .label{font-size:16px;fill:#53647a} .head{font-size:19px;font-weight:700} .body{font-size:16px} .connector{fill:none;stroke:#64748b;stroke-width:2;marker-end:url(#arrow)} .recovery{stroke:#b45309;stroke-dasharray:7 5;marker-end:url(#redarrow)}</style>
+<text x="50" y="45" class="title">Proposed guided collection</text>
+<text x="50" y="76" class="label" text-anchor="start">Overview chart • full branches, guards and evidence are in the accompanying flow map</text>
+<rect x="405" y="110" width="390" height="65" rx="9" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="600.0" y="149.5" class="head" text-anchor="middle">Today&#x27;s schedule / walk-in</text>
+<path class="connector" d="M600 175 V210"/>
+<rect x="405" y="210" width="390" height="90" rx="9" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="600.0" y="238" class="head" text-anchor="middle">Review client &amp; appointment</text>
+<text x="600.0" y="263" class="body" text-anchor="middle">Client, identity, headshot, test, referral</text>
+<rect x="35" y="212" width="320" height="115" rx="9" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="195.0" y="240" class="head" text-anchor="middle">Conditional detours</text>
+<text x="195.0" y="265" class="body" text-anchor="middle">Link or register client</text>
+<text x="195.0" y="290" class="body" text-anchor="middle">Select test • confirm name mismatch</text>
+<text x="195.0" y="315" class="body" text-anchor="middle">Capture photo or confirm continuation</text>
+<path class="connector recovery" d="M405 248 H355"/>
+<path class="connector recovery" d="M355 292 H380 V275 H405"/>
+<path class="connector" d="M600 300 V345"/>
+<rect x="405" y="345" width="390" height="140" rx="9" fill="#eff6ff" stroke="#8caed3"/>
+<text x="600.0" y="373" class="head" text-anchor="middle">Payment responsibility</text>
+<text x="600.0" y="398" class="body" text-anchor="middle">Bill referral: ON → referral owes this test</text>
+<text x="600.0" y="423" class="body" text-anchor="middle">OFF → client pays; exclude from invoice</text>
+<text x="600.0" y="448" class="body" text-anchor="middle">Prepaid / cash / card / explicit credit</text>
+<text x="600.0" y="473" class="body" text-anchor="middle">Older CLIENT debt remains visible</text>
+<rect x="835" y="350" width="325" height="130" rx="9" fill="#fff7ed" stroke="#e9bc80"/>
+<text x="997.5" y="378" class="head" text-anchor="middle">Separate backend change</text>
+<text x="997.5" y="403" class="body" text-anchor="middle">Persist booking → test payer</text>
+<text x="997.5" y="428" class="body" text-anchor="middle">Invoice / allocation / tracker agree</text>
+<text x="997.5" y="453" class="body" text-anchor="middle">Do not change referral profile</text>
+<path class="connector recovery" d="M795 415 H835"/>
+<path class="connector" d="M600 485 V530 H305 V575"/>
+<path class="connector" d="M600 530 H900 V575"/>
+<text x="325" y="560" class="label" text-anchor="start">17-PANEL INSTANT</text>
+<text x="920" y="560" class="label" text-anchor="start">LAB TESTS</text>
+<rect x="110" y="575" width="390" height="140" rx="9" fill="#eff6ff" stroke="#8caed3"/>
+<text x="305.0" y="603" class="head" text-anchor="middle">Generate &amp; upload report</text>
+<text x="305.0" y="628" class="body" text-anchor="middle">Open ToxAccess in another tab</text>
+<text x="305.0" y="653" class="body" text-anchor="middle">Generate / save PDF • return here</text>
+<text x="305.0" y="678" class="body" text-anchor="middle">Waiting for PDF until attached</text>
+<text x="305.0" y="703" class="body" text-anchor="middle">No tab-close or webhook inference</text>
+<rect x="715" y="575" width="370" height="115" rx="9" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="900.0" y="603" class="head" text-anchor="middle">Prepare lab specimen</text>
+<text x="900.0" y="628" class="body" text-anchor="middle">ToxAccess reference and test code</text>
+<text x="900.0" y="653" class="body" text-anchor="middle">Manual fallback retained</text>
+<text x="900.0" y="678" class="body" text-anchor="middle">Lab results come later</text>
+<rect x="35" y="757" width="220" height="85" rx="9" fill="#fff7ed" stroke="#e9bc80"/>
+<text x="145.0" y="785" class="head" text-anchor="middle">No PDF? Stay here</text>
+<text x="145.0" y="810" class="body" text-anchor="middle">Reopen ToxAccess</text>
+<path class="connector recovery" d="M110 650 H75 V755"/>
+<path class="connector recovery" d="M145 757 V735 H200 V715"/>
+<rect x="510" y="760" width="195" height="100" rx="9" fill="#fff7ed" stroke="#e9bc80"/>
+<text x="607.5" y="788" class="head" text-anchor="middle">Back to Payment</text>
+<text x="607.5" y="813" class="body" text-anchor="middle">Keep same booking</text>
+<text x="607.5" y="838" class="body" text-anchor="middle">Keep recorded payment</text>
+<path class="connector recovery" d="M500 680 H560 V760"/>
+<path class="connector recovery" d="M715 650 H710 V805 H705"/>
+<path class="connector" d="M305 715 V870"/>
+<rect x="110" y="870" width="390" height="95" rx="9" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="305.0" y="898" class="head" text-anchor="middle">Review extracted report</text>
+<text x="305.0" y="923" class="body" text-anchor="middle">Warnings visible • client match</text>
+<text x="305.0" y="948" class="body" text-anchor="middle">Mismatch acknowledgement retained</text>
+<path class="connector" d="M305 965 V1005"/>
+<rect x="110" y="1005" width="390" height="75" rx="9" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="305.0" y="1033" class="head" text-anchor="middle">Verify medications</text>
+<text x="305.0" y="1058" class="body" text-anchor="middle">Occasional edits remain available</text>
+<path class="connector" d="M305 1080 V1120"/>
+<rect x="110" y="1120" width="390" height="115" rx="9" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="305.0" y="1148" class="head" text-anchor="middle">Verify instant test</text>
+<text x="305.0" y="1173" class="body" text-anchor="middle">Date • substances • dilute • optional BAC</text>
+<text x="305.0" y="1198" class="body" text-anchor="middle">If required: accept / confirm / decide later</text>
+<text x="305.0" y="1223" class="body" text-anchor="middle">Requested substances remain required</text>
+<path class="connector" d="M305 1235 V1280"/>
+<rect x="110" y="1280" width="390" height="105" rx="9" fill="#f0fdf4" stroke="#9bc6ad"/>
+<text x="305.0" y="1308" class="head" text-anchor="middle">Review &amp; create screened test</text>
+<text x="305.0" y="1333" class="body" text-anchor="middle">Client / referral result recipients</text>
+<text x="305.0" y="1358" class="body" text-anchor="middle">Attach PDF • existing creation action</text>
+<path class="connector" d="M900 690 V870"/>
+<rect x="715" y="870" width="370" height="95" rx="9" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="900.0" y="898" class="head" text-anchor="middle">Verify medications</text>
+<text x="900.0" y="923" class="body" text-anchor="middle">Same medication checkpoint</text>
+<text x="900.0" y="948" class="body" text-anchor="middle">No PDF or result required</text>
+<path class="connector" d="M900 965 V1005"/>
+<rect x="715" y="1005" width="370" height="110" rx="9" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="900.0" y="1033" class="head" text-anchor="middle">Confirm collection</text>
+<text x="900.0" y="1058" class="body" text-anchor="middle">Test • collection date • optional BAC</text>
+<text x="900.0" y="1083" class="body" text-anchor="middle">Type changes require payment review</text>
+<text x="900.0" y="1108" class="body" text-anchor="middle">Collection remains awaiting lab results</text>
+<path class="connector" d="M900 1115 V1280"/>
+<rect x="715" y="1280" width="370" height="105" rx="9" fill="#f0fdf4" stroke="#9bc6ad"/>
+<text x="900.0" y="1308" class="head" text-anchor="middle">Review &amp; create lab collection</text>
+<text x="900.0" y="1333" class="body" text-anchor="middle">Referral collection notification only</text>
+<text x="900.0" y="1358" class="body" text-anchor="middle">Existing creation action</text>
+<path class="connector" d="M305 1385 V1435 H600 V1470"/>
+<path class="connector" d="M900 1385 V1435 H600"/>
+<rect x="405" y="1470" width="390" height="85" rx="9" fill="#f0fdf4" stroke="#9bc6ad"/>
+<text x="600.0" y="1498" class="head" text-anchor="middle">Created record + delivery outcome</text>
+<text x="600.0" y="1523" class="body" text-anchor="middle">Return to schedule • no duplicate create</text>
+<text x="1125" y="1475" class="label" text-anchor="end">One fewer instant screen</text>
+</svg>

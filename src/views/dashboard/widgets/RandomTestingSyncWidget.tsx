@@ -6,7 +6,7 @@ import { getRandomTestingSyncRuntimeState } from '@/lib/random-testing/runtime'
 import { RandomTestingSyncWidgetClient } from './RandomTestingSyncWidget.client'
 
 export default function RandomTestingSyncWidget({ req }: WidgetServerProps) {
-  if (!req.user || req.user.collection !== 'admins') {
+  if (!req.user || req.user.collection !== 'admins' || req.user.role !== 'superAdmin') {
     return null
   }
 

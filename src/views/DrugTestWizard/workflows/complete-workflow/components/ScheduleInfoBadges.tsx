@@ -4,6 +4,7 @@ import { formatGuidedGender, getGuidedGenderBadgeClass } from '../schedule-utils
 
 type ScheduleInfoBadgesProps = {
   gender?: string | null
+  showGender?: boolean
   isCompleted?: boolean
   needsRegistration?: boolean
   needsTestType?: boolean
@@ -12,6 +13,7 @@ type ScheduleInfoBadgesProps = {
 
 export function ScheduleInfoBadges({
   gender,
+  showGender = true,
   isCompleted = false,
   needsRegistration = false,
   needsTestType = false,
@@ -21,13 +23,15 @@ export function ScheduleInfoBadges({
 
   return (
     <span className="flex flex-wrap items-center gap-2">
-      <Badge
-        variant="outline"
-        className={cn(getGuidedGenderBadgeClass(gender), isCompleted && 'opacity-70')}
-        title={formatGuidedGender(gender)}
-      >
-        {formatGuidedGender(gender)}
-      </Badge>
+      {showGender && (
+        <Badge
+          variant="outline"
+          className={cn(getGuidedGenderBadgeClass(gender), isCompleted && 'opacity-70')}
+          title={formatGuidedGender(gender)}
+        >
+          {formatGuidedGender(gender)}
+        </Badge>
+      )}
       <Badge
         variant={
           isCompleted

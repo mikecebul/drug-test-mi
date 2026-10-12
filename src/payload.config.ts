@@ -1,3 +1,5 @@
+import { notifyConfirmationPaidTask } from './collections/DrugTests/confirmation/notification'
+import { staffNavigation } from '@/plugins/staffNavigation'
 import { mongooseAdapter } from '@payloadcms/db-mongodb'
 import { nodemailerAdapter } from '@payloadcms/email-nodemailer'
 import { resendAdapter } from '@payloadcms/email-resend'
@@ -190,14 +192,19 @@ export default buildConfig({
         '@/views/beforeNavLinks/DrugTestCollectorLink',
         '@/views/beforeNavLinks/QuickBookLink',
         '@/views/beforeNavLinks/DrugTestTrackerLink',
+        '@/views/beforeNavLinks/CollectPaymentLink',
         '@/views/beforeNavLinks/ReferralBillingLink',
       ],
-      afterNavLinks: ['@/views/afterNavLinks/LinkToAnalyticsDefaultRootView'],
+      afterNavLinks: [
+        '@/views/afterNavLinks/OperationalCollectionLinks',
+        '@/views/afterNavLinks/LinkToAnalyticsDefaultRootView',
+      ],
       graphics: {
         Icon: '@/graphics/Icon',
         Logo: '@/components/Logo/Graphic',
       },
       views: {
+        CollectPayment: { Component: '@/views/CollectPayment', path: '/collect-payment' },
         ReferralBilling: {
           Component: '@/views/ReferralBilling',
           path: '/referral-billing',
@@ -426,6 +433,7 @@ export default buildConfig({
   jobs: {
     enableConcurrencyControl: true,
     tasks: [
+      notifyConfirmationPaidTask,
       {
         slug: 'send-monthly-referral-invoices',
         retries: 1,
@@ -1113,6 +1121,7 @@ export default buildConfig({
         },
       },
     }),
+    staffNavigation,
   ],
   secret: process.env.PAYLOAD_SECRET!,
   sharp,

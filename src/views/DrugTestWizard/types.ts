@@ -6,6 +6,7 @@ export const WIZARD_OPTIONS = [
   'collect-lab',
   'instant-test',
   '17-panel-instant',
+  'lab-results',
   'enter-lab-screen',
   'enter-lab-confirmation',
 ] as const
@@ -49,6 +50,12 @@ export interface SimpleClient {
 }
 
 export interface ParsedPDFData {
+  reportFamily?: 'instant' | 'lab'
+  parserVersion?: 'pdfjs-regions-v2'
+  requiresReview?: boolean
+  reviewReasons?: string[]
+  specimenValidityStatus?: import('@/utilities/extractors/reportValidity').SpecimenValidityStatus
+  screeningRows?: import('@/utilities/extractors/profiles/instant').InstantScreeningRow[]
   donorName: string | null
   collectionDate: string | null // ISO string with timezone offset (or UTC Z)
   dob?: string | null // Date of birth in MM/DD/YYYY format when present on instant reports
@@ -66,6 +73,13 @@ export interface ParsedPDFData {
   // Lab-specific fields
   testType?: TestType
   hasConfirmation?: boolean
+  hasScreening?: boolean
+  screeningComplete?: boolean
+  reportKind?: 'screening' | 'confirmation' | 'screening-and-confirmation' | 'unknown'
+  confirmationComplete?: boolean
+  confirmationSummarySubstances?: SubstanceValue[]
+  unmappedConfirmationLabels?: string[]
+  confirmationAnalytes?: import('@/utilities/extractors/extractLabTest').LabConfirmationAnalyte[]
   confirmationResults?: Array<{
     substance: SubstanceValue
     result: 'confirmed-positive' | 'confirmed-negative' | 'inconclusive'

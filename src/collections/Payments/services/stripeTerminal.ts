@@ -82,9 +82,9 @@ export async function findGuidedTerminalReader(stripe: Stripe) {
 
   const location = configuredLocationId
     ? await stripe.terminal.locations.retrieve(configuredLocationId)
-    : (
-        await stripe.terminal.locations.list({ limit: 100 }).autoPagingToArray({ limit: 1000 })
-      ).find((candidate) => normalizeLookupValue(candidate.display_name) === normalizeLookupValue(locationName))
+    : (await stripe.terminal.locations.list({ limit: 100 }).autoPagingToArray({ limit: 1000 })).find(
+        (candidate) => normalizeLookupValue(candidate.display_name) === normalizeLookupValue(locationName),
+      )
 
   if (!location || 'deleted' in location) {
     throw new Error(
@@ -606,7 +606,10 @@ export async function reconcileSucceededGuidedTerminalPayment(input: {
     })) as Payment
 
     if (payment.status === 'posted') return
-    if (payment.status === 'refunded' || (payment.status === 'voided' && payment.stripeTerminalStatus === 'succeeded')) {
+    if (
+      payment.status === 'refunded' ||
+      (payment.status === 'voided' && payment.stripeTerminalStatus === 'succeeded')
+    ) {
       input.payload.logger.warn(`Ignoring succeeded Terminal PaymentIntent for ${payment.status} payment ${paymentId}`)
       return
     }

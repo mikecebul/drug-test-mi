@@ -1,12 +1,20 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { getPayload } from 'payload'
 import config from '@payload-config'
+import { confirmationPaymentRequired } from '@/collections/DrugTests/confirmation/policy'
 import { generateTestFilename } from '@/views/DrugTestWizard/utils/generateFilename'
 import { computeTestResultPreview } from '@/views/DrugTestWizard/actions'
 import { fetchDocument, sendEmails } from '@/collections/DrugTests/services'
 import { createAdminAlert } from '@/lib/admin-alerts'
-import type { FormValues } from '../validators'
+import { labScreenDataSchema, type FormValues } from '../validators'
+import {
+  readLabReportFile,
+  verifyLabReportIdentity,
+  type ReportIdentityAcknowledgement,
+} from '../../components/readLabReport'
+import { reconcileConfirmationSubmission, storedConfirmationRows } from '../../components/confirmation-review'
 import type { ExtractedPdfData } from '@/views/DrugTestWizard/queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 
@@ -15,9 +23,13 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
  */
 export async function updateLabScreenWithEmailReview(
   formValues: FormValues,
-  extractedData: ExtractedPdfData | undefined,
+  _extractedData: ExtractedPdfData | undefined,
+  acknowledgement?: ReportIdentityAcknowledgement,
+  creditOptions?: { applyCredit: boolean },
 ): Promise<{ success: boolean; testId?: string; error?: string }> {
   const payload = await getPayload({ config })
+  const { user } = await payload.auth({ headers: await headers() })
+  if (!user || user.collection !== 'admins') return { success: false, error: 'Admin access required' }
 
   try {
     // 1. Get existing test to verify it exists and get client ID
@@ -50,14 +62,65 @@ export async function updateLabScreenWithEmailReview(
     }
     const disableClientEmails = (existingClient as { disableClientEmails?: boolean }).disableClientEmails === true
 
-    // Import email functions
+    let buffer: Buffer
+    let reviewed: ReturnType<typeof reconcileConfirmationSubmission> | undefined
+    try {
+      const input = labScreenDataSchema.shape.labScreenData.safeParse(formValues.labScreenData)
+      if (!input.success)
+        return { success: false, error: 'Review the screening and confirmation results before saving' }
+      const file = await readLabReportFile(formValues.upload.file)
+      await verifyLabReportIdentity(file.report, existingClient, acknowledgement)
+      if (file.report.reportKind === 'confirmation')
+        return {
+          success: false,
+          error: 'This report only contains confirmation results. Attach it using Enter Lab Confirmation Data.',
+        }
+      buffer = file.buffer
+      if (file.report.hasConfirmation)
+        reviewed = reconcileConfirmationSubmission(
+          file.report,
+          input.data.confirmationResults,
+          existingTest.confirmationSubstances ?? [],
+          storedConfirmationRows(existingTest.confirmationResults ?? []),
+        )
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Review the lab report' }
+    }
+    const confirmationResults = reviewed?.results
+
+    const medicationsSnapshot = existingTest.medicationsArrayAtTestTime || []
+    const previewResult = await computeTestResultPreview(
+      clientId,
+      formValues.labScreenData.detectedSubstances as SubstanceValue[],
+      formValues.labScreenData.testType,
+      existingTest.breathalyzerTaken || false,
+      existingTest.breathalyzerResult ?? null,
+      medicationsSnapshot as any,
+    )
+    const decision = formValues.labScreenData.confirmationDecision || (previewResult.autoAccept ? 'accept' : undefined)
+    if (!reviewed) {
+      if (!decision) return { success: false, error: 'Choose a result decision before saving.' }
+      if (
+        decision === 'request-confirmation' ||
+        existingTest.confirmationRequestKey ||
+        (existingTest.payment?.confirmationFeeDue || 0) > 0
+      ) {
+        const { prepareConfirmation } = await import('@/collections/DrugTests/confirmation/prepare')
+        await prepareConfirmation({
+          creditPayment: creditOptions?.applyCredit === false ? 'none' : undefined,
+          payload,
+          user,
+          testId: existingTest.id,
+          decision,
+          substances: decision === 'request-confirmation' ? formValues.labScreenData.confirmationSubstances || [] : [],
+          screenedAt:
+            existingTest.screenedAt || formValues.labScreenData.screeningResultDate || new Date().toISOString(),
+        })
+      }
+    }
+
     const { buildScreenedEmail } = await import('@/collections/DrugTests/email/render')
     const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
-
-    // 2. Convert File to buffer and upload PDF
-    const arrayBuffer = await formValues.upload.file.arrayBuffer()
-    const pdfBuffer = Array.from(new Uint8Array(arrayBuffer))
-    const buffer = Buffer.from(pdfBuffer)
 
     // Generate filename
     const nameParts = formValues.matchCollection.clientName.split(' ')
@@ -86,17 +149,9 @@ export async function updateLabScreenWithEmailReview(
       overrideAccess: true,
     })
 
-    // 3. Build confirmation results from extracted data (if available)
-    const confirmationResults = extractedData?.confirmationResults
-      ? extractedData.confirmationResults.map((r) => ({
-          substance: r.substance as SubstanceValue,
-          result: r.result,
-          notes: r.notes,
-        }))
-      : undefined
-
     // 4. Prepare update data
     const updateData: any = {
+      screenedAt: existingTest.screenedAt || formValues.labScreenData.screeningResultDate || new Date().toISOString(),
       detectedSubstances: formValues.labScreenData.detectedSubstances as SubstanceValue[],
       isDilute: formValues.labScreenData.isDilute,
       testDocument: uploadedFile.id,
@@ -105,15 +160,15 @@ export async function updateLabScreenWithEmailReview(
     }
 
     // Add confirmation data if present (from PDF extraction)
-    if (extractedData?.hasConfirmation && confirmationResults && confirmationResults.length > 0) {
-      const confirmationSubstances = confirmationResults.map((r) => r.substance)
+    if (reviewed && confirmationResults && confirmationResults.length > 0) {
+      const confirmationSubstances = reviewed.substances
       updateData.confirmationDecision = 'request-confirmation'
       updateData.confirmationSubstances = confirmationSubstances
       updateData.confirmationResults = confirmationResults
     }
     // Add confirmation decision from wizard (for tests with unexpected positives)
-    else if (formValues.labScreenData.confirmationDecision) {
-      updateData.confirmationDecision = formValues.labScreenData.confirmationDecision
+    else if (decision) {
+      updateData.confirmationDecision = decision
       if (
         formValues.labScreenData.confirmationDecision === 'request-confirmation' &&
         formValues.labScreenData.confirmationSubstances &&
@@ -124,7 +179,7 @@ export async function updateLabScreenWithEmailReview(
     }
 
     // 5. Update the drug test
-    await payload.update({
+    const savedTest = await payload.update({
       collection: 'drug-tests',
       id: formValues.matchCollection.testId,
       data: updateData,
@@ -140,24 +195,6 @@ export async function updateLabScreenWithEmailReview(
 
     // 7. Fetch client headshot for email embedding
     const clientHeadshotDataUri = await fetchClientHeadshot(clientId, payload)
-
-    // 8. Get medications from existing test (already stored at collection time)
-    const medicationsSnapshot = existingTest.medicationsArrayAtTestTime || []
-    payload.logger.info({
-      msg: '[updateLabScreenWithEmailReview] Using medications snapshot from existing test',
-      count: medicationsSnapshot.length,
-      medications: medicationsSnapshot,
-    })
-
-    // 9. Compute test results for email content
-    const previewResult = await computeTestResultPreview(
-      clientId,
-      formValues.labScreenData.detectedSubstances as SubstanceValue[],
-      formValues.labScreenData.testType,
-      existingTest.breathalyzerTaken || false,
-      existingTest.breathalyzerResult ?? null,
-      medicationsSnapshot as any,
-    )
 
     payload.logger.info({
       msg: '[updateLabScreenWithEmailReview] Test result classification',
@@ -182,7 +219,11 @@ export async function updateLabScreenWithEmailReview(
       isDilute: formValues.labScreenData.isDilute,
       breathalyzerTaken: existingTest.breathalyzerTaken || false,
       breathalyzerResult: existingTest.breathalyzerResult ?? null,
-      confirmationDecision: formValues.labScreenData.confirmationDecision,
+      confirmationDecision: savedTest.confirmationDecision,
+      confirmationSubstances: savedTest.confirmationSubstances || [],
+      confirmationPaymentRequired: confirmationPaymentRequired(savedTest),
+      confirmationCompleted: !!savedTest.confirmationResults?.length && savedTest.isComplete === true,
+      confirmationHoldUntil: savedTest.confirmationHoldUntil,
       clientHeadshotDataUri,
       clientDob,
     })

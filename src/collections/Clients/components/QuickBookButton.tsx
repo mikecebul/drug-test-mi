@@ -149,6 +149,7 @@ export default async function QuickBookButton({ id }: ServerComponentProps) {
     // Render client component with client data
     return (
       <QuickBookButtonClient
+        hideOnSummary
         clientName={name}
         clientEmail={email}
         clientGender={client.gender || undefined}

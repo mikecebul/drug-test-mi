@@ -30,6 +30,14 @@ describe('restrictMcpApiKeyCollection', () => {
   const securedCollection = restrictMcpApiKeyCollection(generatedCollection)
   const securedOperations = ['admin', 'create', 'delete', 'read', 'readVersions', 'unlock', 'update'] as const
 
+  test('shows API keys in native navigation only for super admins', () => {
+    const hidden = securedCollection.admin?.hidden
+    if (typeof hidden !== 'function') throw new Error('Expected role visibility function')
+    expect(hidden({ user: { collection: 'admins', role: 'admin' } as never })).toBe(true)
+    expect(hidden({ user: { collection: 'admins', role: 'superAdmin' } as never })).toBe(false)
+    expect(hidden({ user: null as never })).toBe(true)
+  })
+
   test.each(securedOperations)('allows admins to %s MCP API keys', (operation) => {
     expect(invokeAccess(securedCollection.access?.[operation], 'admins')).toBe(true)
   })
