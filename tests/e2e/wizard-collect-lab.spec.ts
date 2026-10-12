@@ -59,7 +59,11 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await expectWizardStep(page, 'collection')
     const originalDetails = await page.getByTestId('lab-collection-details').innerText()
     await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
-    await page.getByLabel('Collection date', { exact: true }).fill('2026-12-12')
+    await page.getByRole('button', { name: 'Choose collection date', exact: true }).click()
+    await expect(page.getByRole('grid')).toBeVisible()
+    await page.getByRole('button', { name: 'Go to the Next Month', exact: true }).click()
+    await page.getByRole('grid').getByRole('button', { name: /15th,/ }).click()
+    await expect(page.getByRole('grid')).not.toBeVisible()
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     await expect(page.getByTestId('lab-collection-details')).toHaveText(originalDetails)
 

@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { revalidateLogic } from '@tanstack/react-form'
-import { Pencil, X } from 'lucide-react'
+import { format, isValid, parse } from 'date-fns'
+import { CalendarIcon, Clock4, Pencil, X } from 'lucide-react'
 import { useAppForm } from '@/blocks/Form/hooks/form'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,7 +16,9 @@ import {
   DrawerTrigger,
 } from '@/components/ui/drawer'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
+import { Calendar } from '@/components/ui/calendar'
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   collectionDateFromParts,
@@ -44,6 +47,7 @@ export function CollectionDetailsDrawer({
   const dateRef = useRef<HTMLInputElement>(null)
   const timeRef = useRef<HTMLInputElement>(null)
   const wasOpen = useRef(false)
+  const [calendarOpen, setCalendarOpen] = useState(false)
   const form = useAppForm({
     defaultValues: { testType: value.testType, ...collectionDateParts(value.collectionDate) },
     validationLogic: revalidateLogic(),
@@ -57,6 +61,7 @@ export function CollectionDetailsDrawer({
       const collectionDate = collectionDateFromParts(draft.date, draft.time, value.collectionDate)
       if (!collectionDate) return
       onApply({ testType: draft.testType, collectionDate })
+      setCalendarOpen(false)
       onOpenChange(false)
     },
   })
@@ -66,7 +71,14 @@ export function CollectionDetailsDrawer({
   }, [open, value.testType, value.collectionDate, form])
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} swipeDirection="right">
+    <Drawer
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setCalendarOpen(false)
+        onOpenChange(nextOpen)
+      }}
+      swipeDirection="right"
+    >
       <DrawerTrigger
         render={
           <Button
@@ -137,40 +149,76 @@ export function CollectionDetailsDrawer({
               )}
             </form.Field>
             <form.Field name="date">
-              {(field) => (
-                <Field data-invalid={field.state.meta.errors.length > 0}>
-                  <FieldLabel htmlFor="collection-date">Collection date</FieldLabel>
-                  <Input
-                    ref={dateRef}
-                    id="collection-date"
-                    name="collection-date"
-                    type="date"
-                    value={field.state.value}
-                    onInput={(event) => field.handleChange(event.currentTarget.value)}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    aria-invalid={field.state.meta.errors.length > 0}
-                    aria-describedby="collection-date-error"
-                  />
-                  <FieldError id="collection-date-error" errors={field.state.meta.errors} />
-                </Field>
-              )}
+              {(field) => {
+                const parsedDate = parse(field.state.value, 'yyyy-MM-dd', new Date())
+                const selectedDate = isValid(parsedDate) ? parsedDate : undefined
+                return (
+                  <Field data-invalid={field.state.meta.errors.length > 0}>
+                    <FieldLabel htmlFor="collection-date">Collection date</FieldLabel>
+                    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                      <InputGroup>
+                        <InputGroupInput
+                          ref={dateRef}
+                          id="collection-date"
+                          name="collection-date"
+                          type="date"
+                          className="[&::-webkit-calendar-picker-indicator]:hidden"
+                          value={field.state.value}
+                          onInput={(event) => field.handleChange(event.currentTarget.value)}
+                          onChange={(event) => field.handleChange(event.target.value)}
+                          aria-invalid={field.state.meta.errors.length > 0}
+                          aria-describedby="collection-date-error"
+                        />
+                        <InputGroupAddon align="inline-end">
+                          <PopoverTrigger
+                            render={<InputGroupButton size="icon-sm" aria-label="Choose collection date" />}
+                          >
+                            <CalendarIcon />
+                          </PopoverTrigger>
+                        </InputGroupAddon>
+                      </InputGroup>
+                      <PopoverContent className="staff-interface border-border w-auto p-0" align="end">
+                        <Calendar
+                          mode="single"
+                          required
+                          autoFocus
+                          selected={selectedDate}
+                          defaultMonth={selectedDate}
+                          onSelect={(date) => {
+                            if (date) field.handleChange(format(date, 'yyyy-MM-dd'))
+                            field.handleBlur()
+                            setCalendarOpen(false)
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FieldError id="collection-date-error" errors={field.state.meta.errors} />
+                  </Field>
+                )
+              }}
             </form.Field>
             <form.Field name="time">
               {(field) => (
                 <Field data-invalid={field.state.meta.errors.length > 0}>
                   <FieldLabel htmlFor="collection-time">Time</FieldLabel>
-                  <Input
-                    ref={timeRef}
-                    id="collection-time"
-                    name="collection-time"
-                    type="time"
-                    step="60"
-                    value={field.state.value}
-                    onInput={(event) => field.handleChange(event.currentTarget.value)}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    aria-invalid={field.state.meta.errors.length > 0}
-                    aria-describedby="collection-time-error"
-                  />
+                  <InputGroup>
+                    <InputGroupInput
+                      ref={timeRef}
+                      id="collection-time"
+                      name="collection-time"
+                      type="time"
+                      className="[&::-webkit-calendar-picker-indicator]:hidden"
+                      step="60"
+                      value={field.state.value}
+                      onInput={(event) => field.handleChange(event.currentTarget.value)}
+                      onChange={(event) => field.handleChange(event.target.value)}
+                      aria-invalid={field.state.meta.errors.length > 0}
+                      aria-describedby="collection-time-error"
+                    />
+                    <InputGroupAddon align="inline-end">
+                      <Clock4 aria-hidden="true" />
+                    </InputGroupAddon>
+                  </InputGroup>
                   <FieldError id="collection-time-error" errors={field.state.meta.errors} />
                 </Field>
               )}
