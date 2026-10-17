@@ -4,6 +4,7 @@ import { requireWizardAdmin } from '../server/requireWizardAdmin'
 import { randomInt } from 'node:crypto'
 import type { RequiredDataFromCollectionSlug } from 'payload'
 import type { ClientMatch } from '../types'
+import { normalizeClientGender } from '@/lib/client-gender'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
 import { formatRequiredDobISO } from '@/lib/date-utils'
 import {
@@ -131,7 +132,8 @@ export async function registerClientFromWizard(data: {
   const { payload } = await requireWizardAdmin()
 
   try {
-    if (data.gender !== 'male' && data.gender !== 'female') return { success: false, error: 'Select a valid gender.' }
+    const gender = normalizeClientGender(data.gender)
+    if (!gender) return { success: false, error: 'Select a valid gender.' }
     // Check if email already exists
     const existingClient = await payload.find({
       collection: 'clients',
@@ -162,7 +164,7 @@ export async function registerClientFromWizard(data: {
       middleInitial: formattedMiddleInitial,
       email: data.email,
       password: generatedPassword,
-      gender: data.gender,
+      gender,
       dob: formattedDob,
       phone: formattedPhone,
       referralType: data.referralType,
