@@ -2,7 +2,7 @@
 import { headers } from 'next/headers'
 import { getPayload } from 'payload'
 import config from '@payload-config'
-import { eligibleLabCollection, resultsSchema, matchSchema, type LabResultsValues } from './model'
+import { eligibleLabCollection, resultsSchema, matchSchema, emailsGroupSchema, type LabResultsValues } from './model'
 import { updateLabScreenWithEmailReview } from '../lab-screen/actions/updateLabScreenWithEmailReview'
 import { updateLabConfirmationWithEmailReview } from '../lab-confirmation/actions/updateLabConfirmationWithEmailReview'
 import { materializeBrowserFile } from '../../utils/materializeBrowserFile'
@@ -11,7 +11,11 @@ export async function submitLabResults(values: LabResultsValues) {
   const payload = await getPayload({ config })
   const { user } = await payload.auth({ headers: await headers() })
   if (!user || user.collection !== 'admins') return { success: false, error: 'Admin access required' }
-  if (!matchSchema.safeParse(values.matchCollection).success || !resultsSchema.safeParse(values.results).success)
+  if (
+    !matchSchema.safeParse(values.matchCollection).success ||
+    !resultsSchema.safeParse(values.results).success ||
+    !emailsGroupSchema.safeParse(values.emails).success
+  )
     return { success: false, error: 'Review the collection and every result before saving' }
   const test = await payload.findByID({
     collection: 'drug-tests',

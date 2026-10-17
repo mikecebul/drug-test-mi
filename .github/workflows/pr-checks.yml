@@ -78,10 +78,16 @@ jobs:
       - name: Run integration tests
         run: pnpm test:integration:ci
 
+      - name: Check TypeScript
+        run: pnpm exec next typegen && pnpm exec tsc --noEmit
+
+      - name: Lint source and tests
+        run: pnpm lint
+
   ui-smoke:
     name: ui-smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     services:
       mailpit:
         image: axllent/mailpit:latest
@@ -181,8 +187,8 @@ jobs:
           tail -n 200 /tmp/next-dev.log || true
           exit 1
 
-      - name: Run essential workflow smoke tests
-        run: pnpm test:e2e:smoke
+      - name: Run browser workflow regressions
+        run: pnpm test:e2e:workflows
 
       - name: Print app log on failure
         if: failure()

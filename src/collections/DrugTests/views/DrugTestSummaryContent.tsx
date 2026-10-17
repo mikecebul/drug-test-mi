@@ -137,6 +137,7 @@ export function DrugTestSummaryContent({
     !!test.unexpectedNegatives?.length
   const canUpdateDecision =
     !!test.id &&
+    !summary.isComplete &&
     !confirmationReportHref &&
     !test.confirmationResults?.length &&
     (!!test.unexpectedPositives?.length || test.confirmationDecision === 'request-confirmation')

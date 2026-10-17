@@ -4,6 +4,7 @@ import { withPayloadTransaction } from './withPayloadTransaction'
 import { classifyPaymentReceipt, resolveClientReceiptEmail, sendClientPaymentReceipt } from './clientReceipt'
 import { clientBalances } from './clientBalances'
 import { payerRelationshipId } from '@/lib/referral-invoices/payer'
+import { paymentAmountError, paymentAmountSchema } from './paymentAmount'
 
 export class AccountPaymentRejection extends Error {}
 
@@ -16,14 +17,7 @@ export async function postAccountPayment(input: {
   sendReceipt?: boolean
 }) {
   if (input.user?.collection !== 'admins') throw new AccountPaymentRejection('Admin access required.')
-  const cents = Math.round(input.amount * 100)
-  if (
-    !Number.isFinite(input.amount) ||
-    cents <= 0 ||
-    !Number.isSafeInteger(cents) ||
-    Math.abs(input.amount * 100 - cents) > 0.00001
-  )
-    throw new AccountPaymentRejection('Enter a positive amount with no more than two decimal places.')
+  if (!paymentAmountSchema.safeParse(input.amount).success) throw new AccountPaymentRejection(paymentAmountError)
   if (!input.operationId?.trim() || input.operationId.length < 8 || input.operationId.length > 200)
     throw new AccountPaymentRejection('A payment operation ID is required.')
   const posted = await withPayloadTransaction(

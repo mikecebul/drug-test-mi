@@ -22,6 +22,7 @@ import { baseUrl } from '@/utilities/baseUrl'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
 import { closePendingClientCheckoutSessions } from '@/collections/Payments/services/closePendingClientCheckoutSessions'
 import { isTestBilledToReferral } from '@/lib/referral-invoices/payer'
+import { paymentAmountSchema } from '@/collections/Payments/services/paymentAmount'
 
 function getRelationshipId(value: unknown): string | null {
   if (typeof value === 'string' || typeof value === 'number') return String(value)
@@ -207,43 +208,48 @@ export async function recordDrugTestPayment(input: {
     return { success: false, error: 'Drug test is required.' }
   }
 
-  if (typeof input.amount !== 'number' || input.amount <= 0) {
-    return { success: false, error: 'Payment amount must be greater than zero.' }
+  if (!paymentAmountSchema.safeParse(input.amount).success) {
+    return { success: false, error: 'Enter a positive payment with no more than two decimal places.' }
   }
 
   const payload = await getAdminPayload()
   try {
-    await withPayloadTransaction(payload, async (req) => {
-      const test = await payload.findByID({
-        collection: 'drug-tests',
-        id: input.testId,
-        depth: 1,
-        overrideAccess: true,
-        req,
-      })
-      const clientId = getRelationshipId(test.relatedClient)
+    const { user } = await payload.auth({ headers: await headers() })
+    await withPayloadTransaction(
+      payload,
+      async (req) => {
+        const test = await payload.findByID({
+          collection: 'drug-tests',
+          id: input.testId,
+          depth: 1,
+          overrideAccess: true,
+          req,
+        })
+        const clientId = getRelationshipId(test.relatedClient)
 
-      if (!clientId) {
-        throw new Error('Unable to identify the client for this test.')
-      }
-      if (
-        test.payment?.status === 'invoiced' ||
-        test.payment?.referralInvoice ||
-        (await isTestBilledToReferral(payload, test, req))
-      ) {
-        throw new Error('This test is billed to a referral. Record payment on its referral invoice.')
-      }
+        if (!clientId) {
+          throw new Error('Unable to identify the client for this test.')
+        }
+        if (
+          test.payment?.status === 'invoiced' ||
+          test.payment?.referralInvoice ||
+          (await isTestBilledToReferral(payload, test, req))
+        ) {
+          throw new Error('This test is billed to a referral. Record payment on its referral invoice.')
+        }
 
-      await applyIncomingPayment({
-        payload,
-        clientId,
-        amount: input.amount,
-        method: input.method,
-        source: 'test-tracker',
-        relatedDrugTest: input.testId,
-        req,
-      })
-    })
+        await applyIncomingPayment({
+          payload,
+          clientId,
+          amount: input.amount,
+          method: input.method,
+          source: 'test-tracker',
+          relatedDrugTest: input.testId,
+          req,
+        })
+      },
+      { requireTransaction: true, user },
+    )
   } catch (error) {
     return {
       success: false,

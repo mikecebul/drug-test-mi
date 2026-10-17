@@ -121,17 +121,21 @@ export const checkoutSessionCompleted: StripeWebhookHandler<{
       return
     }
 
-    await withPayloadTransaction(payload, async (req) => {
-      await recordCalcomStripeCheckoutPayment({
-        payload,
-        booking,
-        amount,
-        stripeCheckoutSessionId: sessionId,
-        stripePaymentIntentId,
-        collectedAt: typeof created === 'number' ? new Date(created * 1000).toISOString() : new Date().toISOString(),
-        req,
-      })
-    })
+    await withPayloadTransaction(
+      payload,
+      async (req) => {
+        await recordCalcomStripeCheckoutPayment({
+          payload,
+          booking,
+          amount,
+          stripeCheckoutSessionId: sessionId,
+          stripePaymentIntentId,
+          collectedAt: typeof created === 'number' ? new Date(created * 1000).toISOString() : new Date().toISOString(),
+          req,
+        })
+      },
+      { requireTransaction: true },
+    )
 
     return
   }

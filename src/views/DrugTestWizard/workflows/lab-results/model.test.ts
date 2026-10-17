@@ -14,7 +14,7 @@ const report = (kind: ParsedPDFData['reportKind']) =>
 const collection = (
   screeningStatus: DrugTest['screeningStatus'],
   decision: DrugTest['confirmationDecision'] = 'request-confirmation',
-) => ({ screeningStatus, confirmationDecision: decision })
+) => ({ screeningStatus, confirmationDecision: decision, testType: '11-panel-lab' as const })
 const choices = [
   { id: 'z', clientName: 'Zoe Jones', collectionDate: '2026-01-01T12:00:00Z' },
   { id: 'a-new', clientName: 'Avery Stone', collectionDate: '2026-05-24T12:00:00Z' },
@@ -68,6 +68,14 @@ test('auto selects the appropriate result stage without changing a stored screen
   expect(resolveEntryMode('auto', report('screening-and-confirmation'), 'screened')).toBe('confirmation')
 })
 test('completed tests and incompatible stages cannot be import targets', () => {
+  expect(eligibleLabCollection({ ...collection('collected'), testType: '17-panel-instant' }, 'screening')).toBe(false)
+  expect(
+    eligibleLabCollection(
+      { ...collection('screened'), testType: '17-panel-instant' },
+      'confirmation',
+      report('confirmation'),
+    ),
+  ).toBe(true)
   expect(eligibleLabCollection(collection('complete'), 'auto', report('screening-and-confirmation'))).toBe(false)
   expect(eligibleLabCollection(collection('collected'), 'auto', report('confirmation'))).toBe(false)
   expect(eligibleLabCollection(collection('screened', 'pending-decision'), 'auto', report('confirmation'))).toBe(false)

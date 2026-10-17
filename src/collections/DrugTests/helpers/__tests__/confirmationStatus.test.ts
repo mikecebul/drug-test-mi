@@ -49,21 +49,13 @@ describe('isConfirmationComplete', () => {
 
   describe('Confirmation incomplete scenarios', () => {
     test('Confirmation not requested (accept decision)', () => {
-      const result = isConfirmationComplete(
-        'accept',
-        [],
-        [],
-      )
+      const result = isConfirmationComplete('accept', [], [])
 
       expect(result).toBe(false)
     })
 
     test('Confirmation requested but no results yet', () => {
-      const result = isConfirmationComplete(
-        'request-confirmation',
-        ['thc', 'cocaine'],
-        [],
-      )
+      const result = isConfirmationComplete('request-confirmation', ['thc', 'cocaine'], [])
 
       expect(result).toBe(false)
     })
@@ -115,11 +107,7 @@ describe('isConfirmationComplete', () => {
     })
 
     test('Result missing result field', () => {
-      const result = isConfirmationComplete(
-        'request-confirmation',
-        ['thc'],
-        [{ substance: 'thc', result: '' }],
-      )
+      const result = isConfirmationComplete('request-confirmation', ['thc'], [{ substance: 'thc', result: '' }])
 
       expect(result).toBe(false)
     })
@@ -127,53 +115,58 @@ describe('isConfirmationComplete', () => {
 
   describe('Edge cases and undefined handling', () => {
     test('Undefined confirmationDecision', () => {
-      const result = isConfirmationComplete(
-        undefined,
-        ['thc'],
-        [{ substance: 'thc', result: 'confirmed-positive' }],
-      )
+      const result = isConfirmationComplete(undefined, ['thc'], [{ substance: 'thc', result: 'confirmed-positive' }])
 
       expect(result).toBe(false)
     })
 
     test('Undefined substances array', () => {
-      const result = isConfirmationComplete(
-        'request-confirmation',
-        undefined,
-        [{ substance: 'thc', result: 'confirmed-positive' }],
-      )
+      const result = isConfirmationComplete('request-confirmation', undefined, [
+        { substance: 'thc', result: 'confirmed-positive' },
+      ])
 
       expect(result).toBe(false)
     })
 
     test('Undefined results array', () => {
-      const result = isConfirmationComplete(
-        'request-confirmation',
-        ['thc'],
-        undefined,
-      )
+      const result = isConfirmationComplete('request-confirmation', ['thc'], undefined)
 
       expect(result).toBe(false)
     })
 
     test('All undefined', () => {
-      const result = isConfirmationComplete(
-        undefined,
-        undefined,
-        undefined,
-      )
+      const result = isConfirmationComplete(undefined, undefined, undefined)
 
       expect(result).toBe(false)
     })
 
     test('Empty decision string', () => {
-      const result = isConfirmationComplete(
-        '',
-        ['thc'],
-        [{ substance: 'thc', result: 'confirmed-positive' }],
-      )
+      const result = isConfirmationComplete('', ['thc'], [{ substance: 'thc', result: 'confirmed-positive' }])
 
       expect(result).toBe(false)
     })
   })
+})
+
+test.each([
+  {
+    rows: [
+      { substance: 'thc', result: 'confirmed-negative' },
+      { substance: 'thc', result: 'confirmed-negative' },
+    ],
+  },
+  {
+    rows: [
+      { substance: 'thc', result: 'confirmed-negative' },
+      { substance: 'opiates', result: 'confirmed-negative' },
+    ],
+  },
+  {
+    rows: [
+      { substance: 'thc', result: 'confirmed-negative' },
+      { substance: 'cocaine', result: 'unreported' },
+    ],
+  },
+])('duplicate, unrelated, and unknown results cannot complete an outstanding confirmation: %j', ({ rows }) => {
+  expect(isConfirmationComplete('request-confirmation', ['thc', 'cocaine'], rows)).toBe(false)
 })

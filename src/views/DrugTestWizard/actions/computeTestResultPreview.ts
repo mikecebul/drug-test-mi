@@ -1,10 +1,8 @@
 'use server'
 
 import type { SubstanceValue } from '@/fields/substanceOptions'
-import { getPayload } from 'payload'
-import config from '@payload-config'
+import { requireWizardAdmin } from '../server/requireWizardAdmin'
 import { computeTestResults } from '@/collections/DrugTests/services'
-import { FormMedications } from '../workflows/shared-validators'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 
 /**
@@ -28,7 +26,7 @@ export async function computeTestResultPreview(
     | 'etg-lab',
   breathalyzerTaken?: boolean,
   breathalyzerResult?: number | null,
-  medications?: FormMedications,
+  medications?: MedicationSnapshot[],
 ): Promise<{
   initialScreenResult:
     | 'negative'
@@ -42,7 +40,7 @@ export async function computeTestResultPreview(
   unexpectedNegatives: string[]
   autoAccept: boolean
 }> {
-  const payload = await getPayload({ config })
+  const { payload } = await requireWizardAdmin()
 
   let medicationsAtTestTime: MedicationSnapshot[]
 
@@ -62,8 +60,8 @@ export async function computeTestResultPreview(
     medicationsAtTestTime =
       client?.medications && Array.isArray(client.medications)
         ? client.medications
-            .filter((med: any) => med.status === 'active')
-            .map((med: any) => ({
+            .filter((med) => med.status === 'active')
+            .map((med) => ({
               medicationName: med.medicationName,
               detectedAs: med.detectedAs || [],
               required: med.requireConfirmation ?? undefined, // Convert null to undefined

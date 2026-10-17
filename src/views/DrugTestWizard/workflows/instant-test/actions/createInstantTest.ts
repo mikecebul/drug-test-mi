@@ -1,8 +1,7 @@
 'use server'
 
 import { createDrugTestWithEmailReview } from './createDrugTestWithEmailReview'
-import { getPayload } from 'payload'
-import config from '@payload-config'
+import { requireWizardAdmin } from '@/views/DrugTestWizard/server/requireWizardAdmin'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { FormMedications } from '../../shared-validators'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
@@ -42,7 +41,7 @@ export async function createInstantTest(
   testId?: string
   error?: string
 }> {
-  const payload = await getPayload({ config })
+  const { payload } = await requireWizardAdmin()
 
   const pdfSizeKB = (testData.pdfBuffer.length / 1024).toFixed(2)
   payload.logger.info({

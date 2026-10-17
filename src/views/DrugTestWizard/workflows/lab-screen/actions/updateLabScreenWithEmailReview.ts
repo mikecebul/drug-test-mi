@@ -6,7 +6,7 @@ import config from '@payload-config'
 import { confirmationPaymentRequired } from '@/collections/DrugTests/confirmation/policy'
 import { generateTestFilename } from '@/views/DrugTestWizard/utils/generateFilename'
 import { computeTestResultPreview } from '@/views/DrugTestWizard/actions'
-import { fetchDocument, sendEmails } from '@/collections/DrugTests/services'
+import { fetchDocument, sendEmails, computeFinalStatus } from '@/collections/DrugTests/services'
 import { createAdminAlert } from '@/lib/admin-alerts'
 import { labScreenDataSchema, type FormValues } from '../validators'
 import {
@@ -17,6 +17,7 @@ import {
 import { reconcileConfirmationSubmission, storedConfirmationRows } from '../../components/confirmation-review'
 import type { ExtractedPdfData } from '@/views/DrugTestWizard/queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
+import { eligibleLabCollection } from '../../lab-results/model'
 
 /**
  * Update existing drug test with screening results and send emails (lab-screen workflow final step)
@@ -42,6 +43,11 @@ export async function updateLabScreenWithEmailReview(
     if (!existingTest) {
       return { success: false, error: 'Drug test not found' }
     }
+    if (!eligibleLabCollection(existingTest, 'screening'))
+      return {
+        success: false,
+        error: 'This collection no longer accepts screening results. Refresh and choose it again.',
+      }
 
     const clientId =
       typeof existingTest.relatedClient === 'string' ? existingTest.relatedClient : existingTest.relatedClient.id
@@ -119,7 +125,7 @@ export async function updateLabScreenWithEmailReview(
       }
     }
 
-    const { buildScreenedEmail } = await import('@/collections/DrugTests/email/render')
+    const { buildScreenedEmail, buildCompleteEmail } = await import('@/collections/DrugTests/email/render')
     const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
 
     // Generate filename
@@ -165,6 +171,7 @@ export async function updateLabScreenWithEmailReview(
       updateData.confirmationDecision = 'request-confirmation'
       updateData.confirmationSubstances = confirmationSubstances
       updateData.confirmationResults = confirmationResults
+      updateData.confirmationDocument = uploadedFile.id
     }
     // Add confirmation decision from wizard (for tests with unexpected positives)
     else if (decision) {
@@ -207,15 +214,29 @@ export async function updateLabScreenWithEmailReview(
     // 10. Build email content
     const clientName = `${client.firstName} ${client.lastName}`
     const clientDob = client.dob || null
-    const emailData = await buildScreenedEmail({
+    const emailDetected = formValues.labScreenData.detectedSubstances.filter(
+      (substance) =>
+        !confirmationResults?.some((row) => row.substance === substance && row.result === 'confirmed-negative'),
+    ) as SubstanceValue[]
+    const emailPreview = reviewed
+      ? await computeTestResultPreview(
+          clientId,
+          emailDetected,
+          existingTest.testType,
+          existingTest.breathalyzerTaken || false,
+          existingTest.breathalyzerResult ?? null,
+          medicationsSnapshot,
+        )
+      : previewResult
+    const template = {
       clientName,
       collectionDate: formValues.labScreenData.collectionDate,
       testType: formValues.labScreenData.testType,
-      initialScreenResult: previewResult.initialScreenResult,
-      detectedSubstances: formValues.labScreenData.detectedSubstances as SubstanceValue[],
-      expectedPositives: previewResult.expectedPositives,
-      unexpectedPositives: previewResult.unexpectedPositives,
-      unexpectedNegatives: previewResult.unexpectedNegatives,
+      initialScreenResult: emailPreview.initialScreenResult,
+      detectedSubstances: emailDetected,
+      expectedPositives: emailPreview.expectedPositives,
+      unexpectedPositives: emailPreview.unexpectedPositives,
+      unexpectedNegatives: emailPreview.unexpectedNegatives,
       isDilute: formValues.labScreenData.isDilute,
       breathalyzerTaken: existingTest.breathalyzerTaken || false,
       breathalyzerResult: existingTest.breathalyzerResult ?? null,
@@ -226,7 +247,21 @@ export async function updateLabScreenWithEmailReview(
       confirmationHoldUntil: savedTest.confirmationHoldUntil,
       clientHeadshotDataUri,
       clientDob,
-    })
+    }
+    const stage = reviewed ? 'complete' : 'screened'
+    const emailData =
+      reviewed && confirmationResults
+        ? await buildCompleteEmail({
+            ...template,
+            confirmationResults,
+            finalStatus: computeFinalStatus({
+              ...emailPreview,
+              confirmationResults,
+              breathalyzerTaken: existingTest.breathalyzerTaken || false,
+              breathalyzerResult: existingTest.breathalyzerResult ?? null,
+            }),
+          })
+        : await buildScreenedEmail(template)
 
     const clientRecipients =
       !disableClientEmails && formValues.emails.clientEmailEnabled ? formValues.emails.clientRecipients : []
@@ -255,7 +290,7 @@ export async function updateLabScreenWithEmailReview(
           content: document.buffer,
           contentType: document.mimeType,
         },
-        emailStage: 'screened',
+        emailStage: stage,
         drugTestId: formValues.matchCollection.testId,
         clientId,
         clientName,
@@ -275,7 +310,7 @@ export async function updateLabScreenWithEmailReview(
 
     // 12. Update notification history
     const notificationEntry = {
-      stage: 'screened',
+      stage,
       sentAt: new Date().toISOString() || null,
       recipients: sentTo.join(', ') || null,
       status: failedTo.length > 0 ? 'failed' : 'sent',
@@ -290,7 +325,7 @@ export async function updateLabScreenWithEmailReview(
       collection: 'drug-tests',
       id: formValues.matchCollection.testId,
       data: {
-        notificationsSent: [notificationEntry],
+        notificationsSent: [...(existingTest.notificationsSent || []), notificationEntry],
       },
       context: {
         skipNotificationHook: true,

@@ -1,7 +1,6 @@
 'use server'
 
-import { getPayload } from 'payload'
-import config from '@payload-config'
+import { requireWizardAdmin } from '@/views/DrugTestWizard/server/requireWizardAdmin'
 import { sendEmails } from '@/collections/DrugTests/services'
 import { getActiveMedications } from '@/collections/DrugTests/helpers/getActiveMedications'
 import { buildCollectedEmail } from '@/collections/DrugTests/email/render'
@@ -12,6 +11,7 @@ import { getDrugTestPaymentSnapshot } from '../../paymentSnapshot'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 import { applyAvailableClientCredit } from '@/collections/Payments/services/applyPayment'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
+import { collectionSchema } from '../validators'
 
 // Extract medication type from Client payload type
 type MedicationInput = NonNullable<Client['medications']>[number] & {
@@ -39,9 +39,12 @@ export async function createCollectionWithEmailReview(
   testId?: string
   error?: string
 }> {
-  const payload = await getPayload({ config })
+  const { payload, user } = await requireWizardAdmin()
 
   try {
+    const collection = collectionSchema.shape.collection.safeParse(testData)
+    if (!collection.success)
+      return { success: false, error: collection.error.issues[0]?.message || 'Review the collection details.' }
     // Validate client exists before proceeding
     const existingClient = await payload.findByID({
       collection: 'clients',
@@ -99,39 +102,43 @@ export async function createCollectionWithEmailReview(
     const activeMedications = await getActiveMedications(testData.clientId, payload)
 
     // 3. Create drug test
-    const drugTest: DrugTest = await withPayloadTransaction(payload, async (req) => {
-      const createdDrugTest = await payload.create({
-        collection: 'drug-tests',
-        data: {
-          relatedClient: testData.clientId,
-          sourceBooking: paymentSnapshot.sourceBooking,
-          billingResponsibility: paymentSnapshot.billingResponsibility,
-          payment: paymentSnapshot.payment,
-          testType: testData.testType,
-          collectionDate: testData.collectionDate,
-          screeningStatus: 'collected',
-          detectedSubstances: [],
-          isDilute: false,
-          breathalyzerTaken: testData.breathalyzerTaken,
-          breathalyzerResult: testData.breathalyzerResult,
-          medicationsArrayAtTestTime: activeMedications,
-          processNotes: 'Specimen collected - awaiting lab results (email review)',
-        },
-        overrideAccess: true,
-        req,
-      })
-
-      if (!testData.bookingId && !billedToReferral) {
-        await applyAvailableClientCredit({
-          payload,
-          clientId: testData.clientId,
-          relatedDrugTest: createdDrugTest.id,
+    const drugTest: DrugTest = await withPayloadTransaction(
+      payload,
+      async (req) => {
+        const createdDrugTest = await payload.create({
+          collection: 'drug-tests',
+          data: {
+            relatedClient: testData.clientId,
+            sourceBooking: paymentSnapshot.sourceBooking,
+            billingResponsibility: paymentSnapshot.billingResponsibility,
+            payment: paymentSnapshot.payment,
+            testType: testData.testType,
+            collectionDate: testData.collectionDate,
+            screeningStatus: 'collected',
+            detectedSubstances: [],
+            isDilute: false,
+            breathalyzerTaken: testData.breathalyzerTaken,
+            breathalyzerResult: testData.breathalyzerResult,
+            medicationsArrayAtTestTime: activeMedications,
+            processNotes: 'Specimen collected - awaiting lab results (email review)',
+          },
+          overrideAccess: true,
           req,
         })
-      }
 
-      return createdDrugTest
-    })
+        if (!testData.bookingId && !billedToReferral && (await req.transactionID)) {
+          await applyAvailableClientCredit({
+            payload,
+            clientId: testData.clientId,
+            relatedDrugTest: createdDrugTest.id,
+            req,
+          })
+        }
+
+        return createdDrugTest
+      },
+      { user },
+    )
 
     if (testData.bookingId) {
       await payload.update({

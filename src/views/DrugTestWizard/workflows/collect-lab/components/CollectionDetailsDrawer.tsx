@@ -119,6 +119,7 @@ export function CollectionDetailsDrawer({
                 <Field data-invalid={field.state.meta.errors.length > 0}>
                   <FieldLabel htmlFor="lab-test-type">Test type</FieldLabel>
                   <Select
+                    name={field.name}
                     value={field.state.value}
                     onValueChange={(value) => {
                       if (value && labTests.includes(value as Details['testType']))
@@ -160,12 +161,13 @@ export function CollectionDetailsDrawer({
                         <InputGroupInput
                           ref={dateRef}
                           id="collection-date"
-                          name="collection-date"
+                          name={field.name}
                           type="date"
                           className="[&::-webkit-calendar-picker-indicator]:hidden"
                           value={field.state.value}
                           onInput={(event) => field.handleChange(event.currentTarget.value)}
                           onChange={(event) => field.handleChange(event.target.value)}
+                          onBlur={field.handleBlur}
                           aria-invalid={field.state.meta.errors.length > 0}
                           aria-describedby="collection-date-error"
                         />
@@ -205,13 +207,14 @@ export function CollectionDetailsDrawer({
                     <InputGroupInput
                       ref={timeRef}
                       id="collection-time"
-                      name="collection-time"
+                      name={field.name}
                       type="time"
                       className="[&::-webkit-calendar-picker-indicator]:hidden"
                       step="60"
                       value={field.state.value}
                       onInput={(event) => field.handleChange(event.currentTarget.value)}
                       onChange={(event) => field.handleChange(event.target.value)}
+                      onBlur={field.handleBlur}
                       aria-invalid={field.state.meta.errors.length > 0}
                       aria-describedby="collection-time-error"
                     />

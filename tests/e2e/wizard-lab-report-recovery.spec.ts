@@ -97,7 +97,7 @@ async function match(page: Page, testId: string, _legacyStep: string) {
 }
 async function choose(page: Page, index: number, result: 'Confirmed Negative' | 'Confirmed Positive') {
   await page.getByTestId(`confirmation-review-${index}`).click()
-  await page.locator(`#result-${index}`).click()
+  await page.getByRole('combobox', { name: 'Confirmation result', exact: true }).click()
   await page.getByRole('option', { name: result, exact: true }).click()
   await page.getByRole('button', { name: 'Use result', exact: true }).click()
 }

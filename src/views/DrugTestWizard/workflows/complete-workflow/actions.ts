@@ -1919,103 +1919,108 @@ export async function undoBookingPayment(
   const payload = await getAdminPayload(req)
 
   try {
-    const result = await withPayloadTransaction(payload, async (req) => {
-      const booking = await payload.findByID({
-        collection: 'bookings',
-        id: input.bookingId,
-        depth: 0,
-        overrideAccess: true,
-        req,
-      })
-      if (booking.sampleCollection?.status === 'collected') {
-        throw new Error('This payment cannot be undone after the sample has been collected.')
-      }
-
-      if (
-        operationId &&
-        booking.payment?.workflowOperationId === operationId &&
-        booking.payment.workflowOperationType === 'undo-payment'
-      ) {
-        return {
-          amountRemovedFromBooking: 0,
-          payment: booking.payment,
-          duplicate: true,
+    const actor = req?.user || (await payload.auth({ headers: await headers() })).user
+    const result = await withPayloadTransaction(
+      payload,
+      async (req) => {
+        const booking = await payload.findByID({
+          collection: 'bookings',
+          id: input.bookingId,
+          depth: 0,
+          overrideAccess: true,
+          req,
+        })
+        if (booking.sampleCollection?.status === 'collected') {
+          throw new Error('This payment cannot be undone after the sample has been collected.')
         }
-      }
 
-      const clientId = getRelationshipId(booking.relatedClient)
-      if (!clientId) {
-        throw new Error('Unable to identify the client for this payment.')
-      }
+        if (
+          operationId &&
+          booking.payment?.workflowOperationId === operationId &&
+          booking.payment.workflowOperationType === 'undo-payment'
+        ) {
+          return {
+            amountRemovedFromBooking: 0,
+            payment: booking.payment,
+            duplicate: true,
+          }
+        }
 
-      const paymentResult = await payload.find({
-        collection: 'payments',
-        where: {
-          and: [
-            { relatedBooking: { equals: input.bookingId } },
-            { source: { in: ['guided-workflow', 'credit-application'] } },
-            { status: { equals: 'posted' } },
-          ],
-        },
-        depth: 0,
-        limit: 1000,
-        sort: '-createdAt',
-        overrideAccess: true,
-        req,
-      })
-      if (paymentResult.docs.length === 0) {
-        throw new Error('No recorded guided payment is available to undo.')
-      }
+        const clientId = getRelationshipId(booking.relatedClient)
+        if (!clientId) {
+          throw new Error('Unable to identify the client for this payment.')
+        }
 
-      const reversed = await reversePostedPayments({
-        payload,
-        clientId,
-        payments: paymentResult.docs,
-        reason: 'Guided payment undone before sample collection',
-        req,
-      })
-      const amountRemovedFromBooking = paymentResult.docs.reduce(
-        (total, payment) => normalizeMoney(total + normalizeMoney(payment.reservedForBookingAmount)),
-        0,
-      )
-      const existingPayment = booking.payment || {}
-      const amountDue = normalizeMoney(existingPayment.amountDue)
-      const nextAmountPaid = Math.max(
-        0,
-        normalizeMoney(normalizeMoney(existingPayment.amountPaid) - amountRemovedFromBooking),
-      )
-      const balanceDue = Math.max(0, normalizeMoney(amountDue - nextAmountPaid))
-
-      const updatedBooking = await payload.update({
-        collection: 'bookings',
-        id: input.bookingId,
-        data: {
-          payment: {
-            ...existingPayment,
-            amountDue,
-            amountPaid: nextAmountPaid,
-            status: balanceDue <= 0 ? 'paid' : nextAmountPaid > 0 ? 'partial' : 'unpaid',
-            method: nextAmountPaid > 0 ? existingPayment.method || 'not-paid' : 'not-paid',
-            collectedAt: nextAmountPaid > 0 ? existingPayment.collectedAt : null,
-            ...(operationId
-              ? {
-                  workflowOperationId: operationId,
-                  workflowOperationType: 'undo-payment' as const,
-                }
-              : {}),
+        const paymentResult = await payload.find({
+          collection: 'payments',
+          where: {
+            and: [
+              { relatedBooking: { equals: input.bookingId } },
+              { source: { in: ['guided-workflow', 'credit-application'] } },
+              { status: { equals: 'posted' } },
+            ],
           },
-        },
-        depth: 0,
-        overrideAccess: true,
-        req,
-      })
+          depth: 0,
+          limit: 1000,
+          sort: '-createdAt',
+          overrideAccess: true,
+          req,
+        })
+        if (paymentResult.docs.length === 0) {
+          throw new Error('No recorded guided payment is available to undo.')
+        }
 
-      return {
-        ...reversed,
-        amountRemovedFromBooking,
-        payment: updatedBooking.payment,
-      }
-    })
+        const reversed = await reversePostedPayments({
+          payload,
+          clientId,
+          payments: paymentResult.docs,
+          reason: 'Guided payment undone before sample collection',
+          req,
+        })
+        const amountRemovedFromBooking = paymentResult.docs.reduce(
+          (total, payment) => normalizeMoney(total + normalizeMoney(payment.reservedForBookingAmount)),
+          0,
+        )
+        const existingPayment = booking.payment || {}
+        const amountDue = normalizeMoney(existingPayment.amountDue)
+        const nextAmountPaid = Math.max(
+          0,
+          normalizeMoney(normalizeMoney(existingPayment.amountPaid) - amountRemovedFromBooking),
+        )
+        const balanceDue = Math.max(0, normalizeMoney(amountDue - nextAmountPaid))
+
+        const updatedBooking = await payload.update({
+          collection: 'bookings',
+          id: input.bookingId,
+          data: {
+            payment: {
+              ...existingPayment,
+              amountDue,
+              amountPaid: nextAmountPaid,
+              status: balanceDue <= 0 ? 'paid' : nextAmountPaid > 0 ? 'partial' : 'unpaid',
+              method: nextAmountPaid > 0 ? existingPayment.method || 'not-paid' : 'not-paid',
+              collectedAt: nextAmountPaid > 0 ? existingPayment.collectedAt : null,
+              ...(operationId
+                ? {
+                    workflowOperationId: operationId,
+                    workflowOperationType: 'undo-payment' as const,
+                  }
+                : {}),
+            },
+          },
+          depth: 0,
+          overrideAccess: true,
+          req,
+        })
+
+        return {
+          ...reversed,
+          amountRemovedFromBooking,
+          payment: updatedBooking.payment,
+        }
+      },
+      { requireTransaction: true, user: actor },
+    )
 
     revalidateBookingViews()
     return { success: true, ...result }

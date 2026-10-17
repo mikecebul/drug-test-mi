@@ -9,6 +9,7 @@ import { labConfirmationDataSchema } from '../lab-confirmation/validators'
 import { emailsGroupSchema, uploadSchema } from '../shared-validators'
 import { getReportClientMatch, getReportClientMismatchKey } from '../instant-test/utils/reportClientMatch'
 import type { ClientDetailsValue } from '../components/client/ClientDetailsCard'
+import { isLabTestTypeValue, isTestTypeValue } from '@/config/test-types'
 
 export const labSteps = ['upload', 'match', 'results', 'review'] as const
 export const reportTypes = ['auto', 'screening', 'confirmation'] as const
@@ -55,12 +56,14 @@ export function resolveEntryMode(type: ReportType, report: ParsedPDFData | undef
   return 'screening'
 }
 export function eligibleLabCollection(
-  test: Pick<DrugTest, 'screeningStatus' | 'confirmationDecision'>,
+  test: Pick<DrugTest, 'screeningStatus' | 'confirmationDecision' | 'testType'>,
   type: ReportType,
   report?: ParsedPDFData,
 ) {
+  if (!isTestTypeValue(test.testType)) return false
   if (test.screeningStatus === 'complete') return false
-  if (test.screeningStatus === 'collected') return type !== 'confirmation' && report?.reportKind !== 'confirmation'
+  if (test.screeningStatus === 'collected')
+    return isLabTestTypeValue(test.testType) && type !== 'confirmation' && report?.reportKind !== 'confirmation'
   return (
     (test.screeningStatus === 'screened' || test.screeningStatus === 'confirmation-pending') &&
     test.confirmationDecision === 'request-confirmation' &&

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { getEmailPreview } from '../../../actions'
 import { useGetClientFromTestQuery, useGetDrugTestWithMedicationsQuery } from '../../../queries'
+import type { ConfirmationResult } from '@/collections/DrugTests/services/testResults'
 
 interface UseLabScreenEmailPreviewParams {
   testId?: string
@@ -13,6 +14,7 @@ interface UseLabScreenEmailPreviewParams {
   confirmationPaymentRequired?: boolean
   confirmationHoldUntil?: string | null
   confirmationCompleted?: boolean
+  confirmationResults?: ConfirmationResult[]
   // Note: medications, breathalyzerTaken, and breathalyzerResult are fetched from the matched test
 }
 
@@ -58,6 +60,7 @@ export function useLabScreenEmailPreview(params: UseLabScreenEmailPreviewParams)
       params.confirmationPaymentRequired,
       params.confirmationHoldUntil,
       params.confirmationCompleted,
+      params.confirmationResults,
       matchedTest?.medicationsArrayAtTestTime,
       matchedTest?.breathalyzerTaken,
       matchedTest?.breathalyzerResult,
@@ -101,6 +104,7 @@ export function useLabScreenEmailPreview(params: UseLabScreenEmailPreviewParams)
         confirmationPaymentRequired: params.confirmationPaymentRequired,
         confirmationHoldUntil: params.confirmationHoldUntil,
         confirmationCompleted: params.confirmationCompleted,
+        confirmationResults: params.confirmationResults,
         breathalyzerTaken,
         breathalyzerResult,
         medications, // Pass medications from matched test

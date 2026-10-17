@@ -3,22 +3,14 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Field, FieldGroup, FieldLabel, FieldError } from '@/components/ui/field'
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import { allSubstanceOptions } from '@/fields/substanceOptions'
+import { FieldError } from '@/components/ui/field'
 import { formatSubstance } from '@/lib/substances'
 import type { ParsedPDFData } from '../../types'
 import type { ConfirmationReviewRow } from '../components/confirmation-review'
 import { OptionalDetails } from '../../components/OptionalDetails'
 
-const subjects = allSubstanceOptions.filter((option) => option.value !== 'none')
-const choices = [
-  { label: 'Confirmed Negative', value: 'confirmed-negative' },
-  { label: 'Confirmed Positive', value: 'confirmed-positive' },
-  { label: 'Inconclusive', value: 'inconclusive' },
-]
+import { ConfirmationResultDialog } from './ConfirmationResultDialog'
+
 export function ConfirmationTable({
   rows,
   report,
@@ -35,16 +27,6 @@ export function ConfirmationTable({
   errors?: Parameters<typeof FieldError>[0]['errors']
 }) {
   const [editing, setEditing] = useState<number | null>(null)
-  const [draft, setDraft] = useState<ConfirmationReviewRow>({ substance: '', result: '' })
-  const edit = (index: number) => {
-    setDraft({ ...rows[index] })
-    setEditing(index)
-  }
-  const save = () => {
-    if (editing === null || !draft.substance || !draft.result) return
-    onChange(rows.map((row, index) => (index === editing ? { ...draft, sourceLabels: row.sourceLabels } : row)))
-    setEditing(null)
-  }
   return (
     <div className="flex flex-col gap-4" data-testid="confirmation-results-editor">
       <Table>
@@ -114,7 +96,7 @@ export function ConfirmationTable({
                     variant={row.result ? 'ghost' : 'outline'}
                     size="sm"
                     data-testid={`confirmation-review-${index}`}
-                    onClick={() => edit(index)}
+                    onClick={() => setEditing(index)}
                   >
                     {row.result ? 'Edit' : 'Review'}
                   </Button>
@@ -130,7 +112,6 @@ export function ConfirmationTable({
           type="button"
           variant="outline"
           onClick={() => {
-            setDraft({ substance: '', result: '', notes: '' })
             setEditing(rows.length)
           }}
         >
@@ -149,89 +130,21 @@ export function ConfirmationTable({
             </Button>
           ))}
       </OptionalDetails>
-      <Dialog
-        open={editing !== null}
-        onOpenChange={(open) => {
-          if (!open) setEditing(null)
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Review confirmation result</DialogTitle>
-          </DialogHeader>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor={`substance-${editing}`}>Substance</FieldLabel>
-              <Select
-                items={subjects}
-                value={draft.substance}
-                onValueChange={(value) => setDraft({ ...draft, substance: value ?? '' })}
-              >
-                <SelectTrigger id={`substance-${editing}`}>
-                  <SelectValue placeholder="Select substance" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {subjects.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor={`result-${editing}`}>Confirmation result</FieldLabel>
-              <Select
-                items={choices}
-                value={draft.result}
-                onValueChange={(value) =>
-                  setDraft({ ...draft, result: (value ?? '') as ConfirmationReviewRow['result'] })
-                }
-              >
-                <SelectTrigger id={`result-${editing}`}>
-                  <SelectValue placeholder="Select result" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {choices.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="confirmation-notes">Notes</FieldLabel>
-              <Textarea
-                id="confirmation-notes"
-                value={draft.notes ?? ''}
-                onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
-              />
-            </Field>
-          </FieldGroup>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setEditing(null)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={!draft.substance || !draft.result}
-              onClick={() => {
-                if (editing === rows.length) {
-                  onChange([...rows, draft])
-                  setEditing(null)
-                } else save()
-              }}
-            >
-              Use result
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {editing !== null && (
+        <ConfirmationResultDialog
+          key={editing}
+          value={rows[editing] ?? { substance: '', result: '', notes: '' }}
+          onClose={() => setEditing(null)}
+          onApply={(draft) => {
+            onChange(
+              editing === rows.length
+                ? [...rows, draft]
+                : rows.map((row, index) => (index === editing ? { ...draft, sourceLabels: row.sourceLabels } : row)),
+            )
+            setEditing(null)
+          }}
+        />
+      )}
     </div>
   )
 }

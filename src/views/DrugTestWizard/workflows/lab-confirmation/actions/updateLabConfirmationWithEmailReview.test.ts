@@ -41,6 +41,7 @@ const current = () => ({
   id: 'test-1',
   relatedClient: 'client-1',
   screeningStatus: 'confirmation-pending',
+  confirmationDecision: 'request-confirmation',
   testType: '11-panel-lab',
   detectedSubstances: ['fentanyl', 'thc'],
   confirmationSubstances: ['fentanyl', 'thc'],

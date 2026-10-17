@@ -5,10 +5,11 @@ import { z } from 'zod'
 import { AccountPaymentRejection, postAccountPayment } from '@/collections/Payments/services/accountPayment'
 import { PaymentTransactionsUnavailableError } from '@/collections/Payments/services/withPayloadTransaction'
 import { clientBalances, clientName, headshotUrl } from '@/views/staff/summary-helpers'
+import { paymentAmountSchema } from '@/collections/Payments/services/paymentAmount'
 
 const command = z.object({
   clientId: z.string().min(1),
-  amount: z.number().finite().positive(),
+  amount: paymentAmountSchema,
   operationId: z.string().min(8).max(200),
   sendReceipt: z.boolean().optional(),
 })

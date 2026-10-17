@@ -45,6 +45,7 @@ test('a collection completed while being reviewed cannot be overwritten', async 
 })
 test('a received confirmation delegates to the confirmation action and preserves identity acknowledgement', async () => {
   mocks.find.mockResolvedValue({
+    testType: '11-panel-lab',
     screeningStatus: 'confirmation-pending',
     confirmationDecision: 'request-confirmation',
   })
@@ -60,4 +61,14 @@ test('a received confirmation delegates to the confirmation action and preserves
     undefined,
     { confirmed: true, key: 'checked-identity' },
   )
+})
+
+test('a malformed enabled recipient list is rejected before saving a report', async () => {
+  const value = values()
+  value.emails.referralEmailEnabled = true
+  value.emails.referralRecipients = []
+  expect((await submitLabResults(value)).success).toBe(false)
+  expect(mocks.find).not.toHaveBeenCalled()
+  expect(mocks.screen).not.toHaveBeenCalled()
+  expect(mocks.confirmation).not.toHaveBeenCalled()
 })

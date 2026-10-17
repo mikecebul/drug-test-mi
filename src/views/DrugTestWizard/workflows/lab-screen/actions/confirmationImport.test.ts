@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   update: vi.fn(),
   sendEmails: vi.fn(),
+  preview: vi.fn(),
+  fetchDocument: vi.fn(),
 }))
 vi.mock('payload', () => ({ getPayload: mocks.getPayload }))
 vi.mock('next/headers', () => ({ headers: async () => new Headers() }))
@@ -19,9 +21,13 @@ vi.mock('../../components/readLabReport', () => ({
 }))
 vi.mock('@/views/DrugTestWizard/actions', () => ({
   updateTestWithScreening: mocks.updateTest,
-  computeTestResultPreview: vi.fn(),
+  computeTestResultPreview: mocks.preview,
 }))
-vi.mock('@/collections/DrugTests/services', () => ({ fetchDocument: vi.fn(), sendEmails: mocks.sendEmails }))
+vi.mock('@/collections/DrugTests/services', async (original) => ({
+  ...(await original<object>()),
+  fetchDocument: mocks.fetchDocument,
+  sendEmails: mocks.sendEmails,
+}))
 vi.mock('@/lib/admin-alerts', () => ({ createAdminAlert: vi.fn() }))
 import { updateLabScreenAction } from './updateLabScreen'
 import { updateLabScreenWithEmailReview } from './updateLabScreenWithEmailReview'
@@ -44,13 +50,19 @@ beforeEach(() => {
     findByID: vi.fn(({ collection }) =>
       Promise.resolve(
         collection === 'drug-tests'
-          ? { relatedClient: 'client-1', confirmationSubstances: [], confirmationResults: [] }
+          ? {
+              relatedClient: 'client-1',
+              testType: '11-panel-lab',
+              screeningStatus: 'collected',
+              confirmationSubstances: [],
+              confirmationResults: [],
+            }
           : { id: 'client-1' },
       ),
     ),
     create: mocks.create,
     update: mocks.update,
-    logger: { error: vi.fn() },
+    logger: { error: vi.fn(), info: vi.fn() },
   })
   mocks.updateTest.mockResolvedValue({ success: true })
 })
@@ -101,4 +113,77 @@ test('denies an unauthenticated direct save before parsing or any mutation', asy
   expect(mocks.readReport).not.toHaveBeenCalled()
   expect(mocks.create).not.toHaveBeenCalled()
   expect(mocks.update).not.toHaveBeenCalled()
+})
+
+test('combined report delivery includes confirmation results and retains collection notification history', async () => {
+  const input = form()
+  input.matchCollection.testId = 'test'
+  input.matchCollection.clientName = 'Alex Morgan'
+  input.labScreenData.detectedSubstances = ['fentanyl']
+  input.labScreenData.confirmationResults = [{ substance: 'fentanyl', result: 'confirmed-negative' }]
+  const previous = { stage: 'collected', sentAt: '2026-10-01T14:00:00Z', status: 'sent' }
+  const payload = await mocks.getPayload()
+  payload.findByID.mockImplementation(({ collection }: { collection: string }) =>
+    Promise.resolve(
+      collection === 'drug-tests'
+        ? {
+            id: 'test',
+            testType: '11-panel-lab',
+            screeningStatus: 'collected',
+            relatedClient: 'client-1',
+            notificationsSent: [previous],
+          }
+        : { id: 'client-1', firstName: 'Alex', lastName: 'Morgan' },
+    ),
+  )
+  mocks.preview.mockResolvedValue({
+    initialScreenResult: 'negative',
+    expectedPositives: [],
+    unexpectedPositives: [],
+    unexpectedNegatives: [],
+    autoAccept: true,
+  })
+  mocks.create.mockResolvedValue({ id: 'report' })
+  mocks.update.mockResolvedValue({
+    confirmationDecision: 'request-confirmation',
+    confirmationResults: input.labScreenData.confirmationResults,
+    isComplete: true,
+  })
+  mocks.fetchDocument.mockResolvedValue({
+    filename: 'report.pdf',
+    buffer: Buffer.from('PDF'),
+    mimeType: 'application/pdf',
+  })
+  mocks.sendEmails.mockResolvedValue({ sentTo: [], failedRecipients: [] })
+  const result = await updateLabScreenWithEmailReview(input, undefined)
+  expect(result.success).toBe(true)
+  expect(mocks.update).toHaveBeenCalledWith(
+    expect.objectContaining({ data: expect.objectContaining({ confirmationDocument: 'report' }) }),
+  )
+  expect(mocks.sendEmails).toHaveBeenCalledWith(
+    expect.objectContaining({
+      emailStage: 'complete',
+      referralEmailData: expect.objectContaining({ html: expect.stringContaining('Confirmed negative') }),
+    }),
+  )
+  expect(mocks.update).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      data: { notificationsSent: [previous, expect.objectContaining({ stage: 'complete' })] },
+    }),
+  )
+})
+
+test('a stale direct screening save cannot replace a completed test', async () => {
+  const payload = await mocks.getPayload()
+  payload.findByID.mockResolvedValue({
+    id: 'test',
+    relatedClient: 'client-1',
+    testType: '11-panel-lab',
+    screeningStatus: 'complete',
+  })
+  const result = await updateLabScreenWithEmailReview(form(), undefined)
+  expect(result.success).toBe(false)
+  expect(mocks.create).not.toHaveBeenCalled()
+  expect(mocks.readReport).not.toHaveBeenCalled()
+  expect(mocks.sendEmails).not.toHaveBeenCalled()
 })

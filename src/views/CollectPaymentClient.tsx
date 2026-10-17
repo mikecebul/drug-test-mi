@@ -4,6 +4,11 @@ import Link from 'next/link'
 import { useRef, useState } from 'react'
 import { parseAsString, useQueryState } from 'nuqs'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { revalidateLogic, useStore } from '@tanstack/react-form'
+import { useAppForm } from '@/blocks/Form/hooks/form'
+import { Field, FieldError, FieldLabel, FieldSet, FieldLegend } from '@/components/ui/field'
+import { accountPaymentFormSchema, paymentAmountSchema } from '@/collections/Payments/services/paymentAmount'
+import { focusFirstInvalidFieldWithToast } from '@/lib/form-scroll-focus'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -59,8 +64,18 @@ async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function CollectPaymentClient() {
   const [clientId, setClientId] = useQueryState('clientId', parseAsString)
-  const [amount, setAmount] = useState('')
-  const [sendReceipt, setSendReceipt] = useState(true)
+  const formRef = useRef<HTMLFormElement>(null)
+  const posting = useRef(false)
+  const form = useAppForm({
+    defaultValues: { amount: '', sendReceipt: true },
+    validationLogic: revalidateLogic(),
+    validators: { onDynamic: accountPaymentFormSchema },
+    onSubmitInvalid: () => focusFirstInvalidFieldWithToast(formRef.current, 'account-payment-invalid'),
+    onSubmit: async () => {
+      await collect()
+    },
+  })
+  const { amount, sendReceipt } = useStore(form.store, (state) => state.values)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<Awaited<ReturnType<typeof postAccountPayment>> | null>(null)
@@ -76,18 +91,14 @@ export function CollectPaymentClient() {
     retry: false,
   })
   const entered = Number(amount)
-  const valid =
-    amount.trim() !== '' &&
-    Number.isFinite(entered) &&
-    entered > 0 &&
-    Number.isSafeInteger(Math.round(entered * 100)) &&
-    Math.abs(entered * 100 - Math.round(entered * 100)) < 0.00001
+  const valid = paymentAmountSchema.safeParse(entered).success
   const client = data?.client
   const collect = async () => {
-    if ((!uncertain && (!clientId || !valid || isFetching)) || pending) return
+    if ((!uncertain && (!clientId || !valid || isFetching || isError || saved)) || posting.current) return
+    posting.current = true
     setPending(true)
     setError(null)
-    const fingerprint = `${clientId}:${entered}`
+    const fingerprint = `${clientId}:${entered}:${Boolean(client?.email && sendReceipt)}`
     if (!uncertain && operation.current?.fingerprint !== fingerprint)
       operation.current = {
         fingerprint,
@@ -100,6 +111,7 @@ export function CollectPaymentClient() {
     const request = operation.current
     setActiveOperation(request)
     if (!request) {
+      posting.current = false
       setPending(false)
       return
     }
@@ -125,12 +137,13 @@ export function CollectPaymentClient() {
           : 'Unable to confirm payment. Check payment history before trying again.',
       )
     } finally {
+      posting.current = false
       setPending(false)
     }
   }
   if (activeOperation && activeOperation.clientId !== clientId && (pending || uncertain || saved)) {
     return (
-      <ShadcnWrapper className="staff-interface mx-auto max-w-5xl space-y-4 py-6">
+      <ShadcnWrapper className="staff-interface mx-auto flex max-w-5xl flex-col gap-4 py-6">
         <h1 className="text-3xl font-semibold">Account payment</h1>
         <Alert variant={saved ? 'success' : 'warning'}>
           <AlertTitle>{saved ? 'Payment recorded' : 'Payment needs verification'}</AlertTitle>
@@ -177,7 +190,7 @@ export function CollectPaymentClient() {
             selectedClientId={clientId || ''}
             onSelect={(client) => {
               void setClientId(client.id)
-              setAmount('')
+              form.reset()
               setSaved(null)
               setError(null)
               operation.current = null
@@ -235,16 +248,25 @@ export function CollectPaymentClient() {
         client &&
         data &&
         !isError && (
-          <>
+          <form
+            ref={formRef}
+            noValidate
+            className="flex flex-col gap-5"
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (uncertain) void collect()
+              else void form.handleSubmit()
+            }}
+          >
             <Card>
               <CardContent className="flex flex-col gap-6 p-5 sm:p-6">
                 <div>
                   <p className="text-muted-foreground text-sm">Client balance</p>
                   <p className="text-3xl font-semibold">{money.format(data.clientBalance)}</p>
                 </div>
-                <div className="border-t pt-5">
-                  <Label className="mb-3 block">Payment method</Label>
-                  <RadioGroup value="cash" className="flex gap-6">
+                <FieldSet className="border-t pt-5">
+                  <FieldLegend variant="label">Payment method</FieldLegend>
+                  <RadioGroup value="cash" aria-label="Payment method" className="flex gap-6">
                     <div className="flex items-center gap-2">
                       <RadioGroupItem id="account-cash" value="cash" />
                       <Label htmlFor="account-cash">Cash</Label>
@@ -256,37 +278,45 @@ export function CollectPaymentClient() {
                       </Label>
                     </div>
                   </RadioGroup>
-                </div>
-                <div className="max-w-sm space-y-2">
-                  <Label htmlFor="account-amount">Amount received</Label>
-                  <Input
-                    id="account-amount"
-                    type="number"
-                    inputMode="decimal"
-                    min="0.01"
-                    step="0.01"
-                    value={amount}
-                    onChange={(event) => setAmount(event.target.value)}
-                    disabled={pending || uncertain}
-                    aria-invalid={(amount !== '' && !valid) || undefined}
-                  />
-                  {amount !== '' && !valid && (
-                    <p className="text-destructive text-sm">
-                      Enter a positive amount with no more than two decimal places.
-                    </p>
+                </FieldSet>
+                <form.Field name="amount">
+                  {(field) => (
+                    <Field className="max-w-sm" data-invalid={field.state.meta.errors.length > 0}>
+                      <FieldLabel htmlFor="account-amount">Amount received</FieldLabel>
+                      <Input
+                        id="account-amount"
+                        type="number"
+                        inputMode="decimal"
+                        min="0.01"
+                        step="0.01"
+                        name={field.name}
+                        value={field.state.value}
+                        onChange={(event) => field.handleChange(event.target.value)}
+                        onBlur={field.handleBlur}
+                        disabled={pending || uncertain}
+                        aria-invalid={field.state.meta.errors.length > 0}
+                        aria-describedby="account-amount-error"
+                      />
+                      <FieldError id="account-amount-error" errors={field.state.meta.errors} />
+                    </Field>
                   )}
-                </div>
-                {client.email && (
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="account-receipt"
-                      checked={sendReceipt}
-                      onCheckedChange={(checked) => setSendReceipt(checked === true)}
-                      disabled={pending || uncertain}
-                    />
-                    <Label htmlFor="account-receipt">Email receipt to {client.email}</Label>
-                  </div>
-                )}
+                </form.Field>
+                <form.Field name="sendReceipt">
+                  {(field) =>
+                    client.email && (
+                      <Field orientation="horizontal">
+                        <Checkbox
+                          id="account-receipt"
+                          name={field.name}
+                          checked={field.state.value}
+                          onCheckedChange={(checked) => field.handleChange(checked === true)}
+                          disabled={pending || uncertain}
+                        />
+                        <FieldLabel htmlFor="account-receipt">Email receipt to {client.email}</FieldLabel>
+                      </Field>
+                    )
+                  }
+                </form.Field>
                 <div className="border-t pt-5">
                   <p className="text-muted-foreground text-sm">Remaining client balance</p>
                   <p className="text-2xl font-semibold">
@@ -322,7 +352,7 @@ export function CollectPaymentClient() {
               >
                 Cancel
               </Button>
-              <Button disabled={!valid || pending || isFetching || isError} onClick={collect}>
+              <Button type="submit" disabled={pending || isFetching || isError}>
                 {pending
                   ? 'Recording...'
                   : uncertain
@@ -330,7 +360,7 @@ export function CollectPaymentClient() {
                     : `Record ${money.format(valid ? entered : 0)} cash payment`}
               </Button>
             </footer>
-          </>
+          </form>
         )
       )}
     </ShadcnWrapper>

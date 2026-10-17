@@ -439,6 +439,7 @@ export function LabResultsWorkflow({
     confirmationHoldUntil:
       preparedDecision && preparedDecision.testId === test?.id ? preparedDecision.confirmationHoldUntil : undefined,
     confirmationCompleted: !!confirmations?.length && values.results.screening.reportHasConfirmation,
+    confirmationResults: values.results.screening.reportHasConfirmation ? (confirmations ?? undefined) : undefined,
   })
   const confirmationEmail = useLabConfirmationEmailPreview({
     testId: mode === 'confirmation' ? test?.id : undefined,

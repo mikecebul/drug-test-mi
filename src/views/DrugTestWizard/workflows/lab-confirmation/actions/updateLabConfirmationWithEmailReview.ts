@@ -16,6 +16,7 @@ import {
 import { reconcileConfirmationSubmission, storedConfirmationRows } from '../../components/confirmation-review'
 import type { ExtractedPdfData } from '@/views/DrugTestWizard/queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
+import { eligibleLabCollection } from '../../lab-results/model'
 
 /**
  * Update existing drug test with confirmation results and send complete emails
@@ -42,7 +43,7 @@ export async function updateLabConfirmationWithEmailReview(
     }
 
     // Verify test is in correct status
-    if (existingTest.screeningStatus !== 'screened' && existingTest.screeningStatus !== 'confirmation-pending') {
+    if (!eligibleLabCollection(existingTest, 'confirmation')) {
       return {
         success: false,
         error: `Cannot add confirmation to test with status '${existingTest.screeningStatus}'. Test must be 'screened' or 'confirmation-pending'.`,

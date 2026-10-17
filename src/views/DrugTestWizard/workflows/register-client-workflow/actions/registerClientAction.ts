@@ -1,7 +1,7 @@
 'use server'
 
-import { getPayload } from 'payload'
-import config from '@payload-config'
+import type { getPayload } from 'payload'
+import { requireWizardAdmin } from '@/views/DrugTestWizard/server/requireWizardAdmin'
 import type { CompleteRegistrationValues } from '../validators'
 import { formatMiddleInitial, formatPersonName, formatPhoneNumber } from '@/lib/client-utils'
 import { formatRequiredDobISO } from '@/lib/date-utils'
@@ -109,7 +109,7 @@ export async function registerClientAction(formData: CompleteRegistrationValues)
   clientEmail?: string
   error?: string
 }> {
-  const payload = await getPayload({ config })
+  const { payload } = await requireWizardAdmin()
 
   try {
     const { personalInfo, accountInfo, screeningType, recipients } = formData
