@@ -1,3 +1,5 @@
+/** @jsxImportSource react */
+
 import * as React from 'react'
 import { formatSubstance } from '../utils/formatters'
 import { ResultRow } from './ResultRow'

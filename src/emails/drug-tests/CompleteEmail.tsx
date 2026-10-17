@@ -1,3 +1,5 @@
+/** @jsxImportSource react */
+
 import * as React from 'react'
 import type { CompleteEmailData } from '@/collections/DrugTests/email/types'
 import { ConfirmationSection } from './components/ConfirmationSection'

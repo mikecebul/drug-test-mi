@@ -1,3 +1,5 @@
+/** @jsxImportSource react */
+
 import * as React from 'react'
 import type { ScreenedEmailData } from '@/collections/DrugTests/email/types'
 import { ConfirmationDecisionNotice } from './components/ConfirmationDecisionNotice'

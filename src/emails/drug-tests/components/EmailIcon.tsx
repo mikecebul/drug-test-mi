@@ -1,3 +1,5 @@
+/** @jsxImportSource react */
+
 import { Img } from '@react-email/components'
 import * as React from 'react'
 import { getServerSideURL } from '@/utilities/getURL'

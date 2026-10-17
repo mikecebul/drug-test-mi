@@ -1,3 +1,5 @@
+/** @jsxImportSource react */
+
 import { Button, Column, Hr, Row, Section, Text } from '@react-email/components'
 import * as React from 'react'
 import { ClientIdentity } from '../drug-tests/components/ClientIdentity'

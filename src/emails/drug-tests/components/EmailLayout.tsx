@@ -1,3 +1,5 @@
+/** @jsxImportSource react */
+
 import { Body, Column, Container, Head, Hr, Html, Link, Preview, Row, Section, Text } from '@react-email/components'
 import * as React from 'react'
 import { colors, rule, text } from '../utils/theme'

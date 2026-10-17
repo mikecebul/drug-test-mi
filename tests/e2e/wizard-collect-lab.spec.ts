@@ -65,7 +65,7 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await page.getByRole('grid').getByRole('button', { name: /15th,/ }).click()
     await expect(page.getByRole('grid')).not.toBeVisible()
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
-    await expect(page.getByTestId('lab-collection-details')).toHaveText(originalDetails)
+    await expect(page.getByTestId('lab-collection-details')).toHaveText(originalDetails, { useInnerText: true })
 
     await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
     const collectionDate = page.locator('#collection-date')

@@ -1,3 +1,5 @@
+/** @jsxImportSource react */
+
 import { Column, Img, Row, Section, Text } from '@react-email/components'
 import * as React from 'react'
 import { formatEmailDob } from '../utils/formatters'

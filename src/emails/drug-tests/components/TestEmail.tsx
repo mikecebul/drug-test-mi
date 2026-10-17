@@ -1,3 +1,5 @@
+/** @jsxImportSource react */
+
 import { Hr, Text } from '@react-email/components'
 import * as React from 'react'
 import type { CollectedEmailData } from '@/collections/DrugTests/email/types'
