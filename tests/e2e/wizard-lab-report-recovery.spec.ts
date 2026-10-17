@@ -190,8 +190,9 @@ test(
     await choose(page, 0, 'Confirmed Negative')
     await finish(page)
     const testId = fixtures.tests.labScreenCollectedTestId
-    const record = await assertNotificationSent({ testId, stage: 'screened' })
+    const record = await assertNotificationSent({ testId, stage: 'complete' })
     expect(record.testDocument).toBeTruthy()
+    expect(record.confirmationDocument).toEqual(record.testDocument)
     expect(record.confirmationResults).toEqual([
       expect.objectContaining({ substance: 'fentanyl', result: 'confirmed-negative' }),
     ])

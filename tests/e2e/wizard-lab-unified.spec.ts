@@ -90,8 +90,9 @@ for (const kind of ['screening', 'confirmation', 'combined-collected', 'combined
         await expect(page.getByTestId('test-summary-payment')).toBeVisible()
         await expect(page.getByTestId('test-summary-medications')).toBeVisible()
       }
-      const record = await assertNotificationSent({ testId, stage: isConfirmation ? 'complete' : 'screened' })
+      const record = await assertNotificationSent({ testId, stage: kind === 'screening' ? 'screened' : 'complete' })
       expect(record.medicationsArrayAtTestTime).toEqual(before.medicationsArrayAtTestTime)
+      if (kind === 'combined-collected') expect(record.confirmationDocument).toEqual(record.testDocument)
       if (isConfirmation) {
         expect(record.detectedSubstances).toEqual(before.detectedSubstances)
         expect(record.isDilute).toBe(before.isDilute)

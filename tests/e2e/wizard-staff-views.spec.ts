@@ -267,7 +267,7 @@ test.describe('Standard staff views and account payments', () => {
     await page.setViewportSize({ width: 768, height: 1024 })
     await page.screenshot({ path: test.info().outputPath('client-summary-portrait.png'), fullPage: true })
     await page.locator(`a[href="/admin/collections/drug-tests/${clientDebtId}/summary"]`).click()
-    await expect(page.getByRole('heading', { name: 'Drug Test Summary', exact: true })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Drug test summary', exact: true })).toBeVisible()
     await page.goto(`/admin/collections/clients/${fixtures.clients.instant.id}/summary`)
     const edit = page.getByRole('button', { name: 'Edit client', exact: true })
     await edit.click()

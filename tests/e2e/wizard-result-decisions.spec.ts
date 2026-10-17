@@ -42,6 +42,11 @@ for (const workflow of ['instant', 'lab'] as const) {
         await applyScreeningReportEdits(page)
       }
       await selectResultDecision(page, decision)
+      if (workflow === 'lab' && decision === 'request-confirmation') {
+        // This case covers unpaid continuation; the payment suite verifies the
+        // checkout and SMTP round trip with a stubbed Stripe gateway.
+        await page.getByRole('checkbox', { name: 'Email client a Stripe payment link', exact: true }).uncheck()
+      }
       await clickNext(page)
       await expectWizardStep(page, workflow === 'instant' ? 'reviewEmails' : 'review')
       const started = new Date()
