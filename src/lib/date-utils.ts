@@ -203,6 +203,14 @@ export function formatCollectionDateShort(dateString: string | Date): string {
   return format(tzDate, 'MM/dd/yy')
 }
 
+/** Readable collection timestamp in the clinic timezone, without seconds. */
+export function formatCollectionDateTimeCompact(value?: string | Date | null): string {
+  if (!value) return 'Not set'
+  const date = typeof value === 'string' ? new Date(value) : value
+  if (!Number.isFinite(date.getTime())) return 'Not set'
+  return format(TZDate.tz(APP_TIMEZONE, date), 'MMM d, yyyy · h:mm a')
+}
+
 /**
  * Format date-only fields (DOB, medication dates, etc.)
  * NO timezone conversion - these are calendar dates, not specific moments in time

@@ -1,3 +1,4 @@
+import { expectValidationError, expectWizardStep } from './helpers/wizard'
 import { expect, test, type Page } from '@playwright/test'
 import { cleanupFixtures } from './helpers/cleanup'
 import { assertNotificationSent, getDrugTestById } from './helpers/db-assert'
@@ -16,20 +17,14 @@ import {
 
 let fixtures: FixtureContext
 
-function isoDateTimeForInput(date: string) {
-  return new Date(date).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  })
-}
-
 async function expectReferralRecipientsReady(page: Page, count: number) {
-  const readyAlert = page.getByRole('alert').filter({ hasText: /Ready to send/i })
-  await expect(readyAlert).toContainText(new RegExp(`Referral recipients:\\s*${count}`, 'i'))
+  const notifications = page.getByRole('checkbox', { name: /Send referral notifications/i })
+  if (count === 0) {
+    await expect(notifications).not.toBeChecked()
+  } else {
+    await expect(notifications).toBeChecked()
+    await expect(page.getByTestId('referral-recipient-row')).toHaveCount(count)
+  }
 }
 
 test.describe('Wizard Collect Lab Workflow', () => {
@@ -55,60 +50,75 @@ test.describe('Wizard Collect Lab Workflow', () => {
 
   test('validates client/collection/email-required branches and supports back-forward navigation', async ({ page }) => {
     await clickNext(page)
-    await expect(page.getByText('Please select a client')).toBeVisible()
+    await expectValidationError(page)
 
     await selectClientFromSearchDialog(page, fixtures.clients.collectLab.fullName)
     await clickNext(page)
     await clickNext(page)
 
-    await expect(page.getByRole('heading', { name: 'Confirm Details' })).toBeVisible()
+    await expectWizardStep(page, 'collection')
+    const originalDetails = await page.getByTestId('lab-collection-details').innerText()
+    await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
+    await page.getByRole('button', { name: 'Choose collection date', exact: true }).click()
+    await expect(page.getByRole('grid')).toBeVisible()
+    await page.getByRole('button', { name: 'Go to the Next Month', exact: true }).click()
+    await page.getByRole('grid').getByRole('button', { name: /15th,/ }).click()
+    await expect(page.getByRole('grid')).not.toBeVisible()
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(page.getByTestId('lab-collection-details')).toHaveText(originalDetails, { useInnerText: true })
 
+    await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
     const collectionDate = page.locator('#collection-date')
     await expect(collectionDate).not.toBeEmpty()
     await collectionDate.fill('')
-    await collectionDate.press('Tab')
-    await clickNext(page)
-    await expect(page.getByText('Collection date is required')).toBeVisible()
+    await page.getByRole('button', { name: 'Apply changes', exact: true }).click()
+    await expectValidationError(page, page.locator('#collection-date'))
     await expect(collectionDate).toBeFocused()
 
-    await collectionDate.fill(isoDateTimeForInput('2026-01-07T23:11:00-05:00'))
-    await collectionDate.press('Tab')
+    await collectionDate.fill('2026-01-07')
+    await page.getByLabel('Time', { exact: true }).fill('23:11')
+    await page.getByRole('button', { name: 'Apply changes', exact: true }).click()
+    await expect(page.getByRole('dialog', { name: 'Edit test details', exact: true })).not.toBeVisible()
+    await expect(page.getByTestId('lab-collection-details')).toContainText('01/07/2026 11:11 PM')
 
-    await page.getByLabel(/Breathalyzer test was administered/i).check()
+    await page.getByRole('checkbox', { name: 'Does the client need a PBT?', exact: true }).check()
     await clickNext(page)
-    await expect(page.getByText('Breathalyzer result is required')).toBeVisible()
+    await expectValidationError(page, page.locator('#breathalyzerResult'))
     await expect(page.locator('#breathalyzerResult')).toBeFocused()
 
+    await page.locator('#breathalyzerResult').fill('0.125')
+    await page.getByRole('checkbox', { name: 'Does the client need a PBT?', exact: true }).uncheck()
+    await expect(page.locator('#breathalyzerResult')).not.toBeVisible()
+    await page.getByRole('checkbox', { name: 'Does the client need a PBT?', exact: true }).check()
+    await expect(page.locator('#breathalyzerResult')).toBeEmpty()
     await page.locator('#breathalyzerResult').fill('0.000')
     await clickNext(page)
 
-    await expect(page.getByRole('heading', { name: 'Review Collection Notification' })).toBeVisible()
+    await expectWizardStep(page, 'reviewEmails')
     await clickBack(page)
-    await expect(page.getByRole('heading', { name: 'Confirm Details' })).toBeVisible()
+    await expectWizardStep(page, 'collection')
     await clickNext(page)
 
-    await expect(page.getByRole('heading', { name: 'Review Collection Notification' })).toBeVisible()
+    await expectWizardStep(page, 'reviewEmails')
 
     await page.getByLabel(/Send referral notifications/i).uncheck()
-    await expect(page.getByText('No notifications will be sent')).toBeVisible()
-    await expect(page.getByRole('button', { name: /^Submit$/i })).toBeEnabled()
+    await expectReferralRecipientsReady(page, 0)
+    await expect(page.getByTestId('wizard-next-button')).toBeEnabled()
 
     await page.getByLabel(/Send referral notifications/i).check()
     await expectReferralRecipientsReady(page, 1)
-    await expect(page.getByRole('button', { name: /^Submit$/i })).toBeEnabled()
+    await expect(page.getByTestId('wizard-next-button')).toBeEnabled()
   })
 
   test('keeps the full headshot cropper visible in iPad viewports', async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 768 })
     await selectClientFromSearchDialog(page, fixtures.clients.collectLab.fullName)
     await clickNext(page)
-    await expect(page.getByText('Verify Medications')).toBeVisible()
+    await expectWizardStep(page, 'medications')
     await clickNext(page)
-    await expect(page.getByRole('heading', { name: 'Confirm Details' })).toBeVisible()
+    await expectWizardStep(page, 'collection')
 
-    await page
-      .getByRole('button', { name: new RegExp(`Edit ${fixtures.clients.collectLab.fullName}`, 'i') })
-      .click()
+    await page.getByRole('button', { name: new RegExp(`Edit ${fixtures.clients.collectLab.fullName}`, 'i') }).click()
     const clientEditor = page.getByRole('dialog', { name: 'Edit Client Details' })
     await expect(clientEditor).toBeVisible()
 
@@ -167,53 +177,54 @@ test.describe('Wizard Collect Lab Workflow', () => {
     await expectCropperToFit()
   })
 
-  test('submits collect-lab workflow, creates test, and verifies collected-stage email in Mailpit', async ({
-    page,
-  }) => {
-    const env = getE2EEnv({ requirePdfs: false })
-    const testStart = new Date()
+  test(
+    'submits collect-lab workflow, creates test, and verifies collected-stage email in Mailpit',
+    { tag: '@regression' },
+    async ({ page }) => {
+      const env = getE2EEnv({ requirePdfs: false })
+      const testStart = new Date()
 
-    await selectClientFromSearchDialog(page, fixtures.clients.collectLab.fullName)
-    await clickNext(page)
-    await clickNext(page)
+      await selectClientFromSearchDialog(page, fixtures.clients.collectLab.fullName)
+      await clickNext(page)
+      await clickNext(page)
 
-    await page.locator('#collection-date').fill(isoDateTimeForInput(new Date().toISOString()))
-    await page.locator('#collection-date').press('Tab')
-    await clickNext(page)
+      await page.getByRole('button', { name: 'Edit test details', exact: true }).click()
+      await expect(page.getByRole('dialog', { name: 'Edit test details', exact: true })).toBeVisible()
+      await page.getByRole('button', { name: 'Apply changes', exact: true }).click()
+      await clickNext(page)
 
-    await expect(page.getByRole('heading', { name: 'Review Collection Notification' })).toBeVisible()
+      await expectWizardStep(page, 'reviewEmails')
 
-    await page.getByLabel(/Send referral notifications/i).check()
-    await expectReferralRecipientsReady(page, 1)
+      await page.getByLabel(/Send referral notifications/i).check()
+      await expectReferralRecipientsReady(page, 1)
 
-    await page.getByRole('button', { name: /^Submit$/i }).click()
+      await page.getByTestId('wizard-next-button').click()
 
-    await expect(page.getByRole('heading', { name: 'Drug Test Created Successfully!' })).toBeVisible({
-      timeout: 30_000,
-    })
+      const testId = await extractTestIdFromSuccess(page)
+      fixtures.created.drugTestIds.push(testId)
 
-    const testId = await extractTestIdFromSuccess(page)
-    fixtures.created.drugTestIds.push(testId)
+      const testRecord = await assertNotificationSent({ testId, stage: 'collected' })
 
-    const testRecord = await assertNotificationSent({ testId, stage: 'collected' })
+      expect(testRecord.screeningStatus).toBe('collected')
 
-    expect(testRecord.screeningStatus).toBe('collected')
+      const expectedSubject = `Drug Test Sample Collected - ${fixtures.clients.collectLab.firstName} ${fixtures.clients.collectLab.lastName}`
 
-    const expectedSubject = `Drug Test Sample Collected - ${fixtures.clients.collectLab.firstName} ${fixtures.clients.collectLab.lastName}`
+      if (env.enableMailpitAssertions) {
+        const messages = await findMailpitMessages({
+          apiBase: env.mailpitApiBase,
+          createdAfter: testStart,
+          // This self-referred fixture has no additional contact; its collection
+          // notification goes to the client's own address.
+          to: fixtures.clients.collectLab.email,
+          subject: expectedSubject,
+          requireAttachment: 'none',
+          timeoutMs: 45_000,
+        })
+        expect(messages.length).toBeGreaterThan(0)
+      }
 
-    if (env.enableMailpitAssertions) {
-      const messages = await findMailpitMessages({
-        apiBase: env.mailpitApiBase,
-        createdAfter: testStart,
-        to: fixtures.clients.collectLab.referralRecipients[0],
-        subject: expectedSubject,
-        requireAttachment: 'none',
-        timeoutMs: 45_000,
-      })
-      expect(messages.length).toBeGreaterThan(0)
-    }
-
-    const refreshed = await getDrugTestById(testId)
-    expect(refreshed.notificationsSent?.length || 0).toBeGreaterThan(0)
-  })
+      const refreshed = await getDrugTestById(testId)
+      expect(refreshed.notificationsSent?.length || 0).toBeGreaterThan(0)
+    },
+  )
 })

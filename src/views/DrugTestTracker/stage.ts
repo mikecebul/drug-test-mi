@@ -1,5 +1,11 @@
+import { confirmationPaymentRequired, confirmationHoldExpired } from '@/collections/DrugTests/confirmation/policy'
 export type TrackerStageTest = {
   isComplete: boolean
+  screenedAt?: string
+  confirmationHoldUntil?: string
+  billedToReferral?: boolean
+  billingResponsibility?: { payer?: string | null }
+
   initialScreenResult?: string
   confirmationDecision?: string
   confirmationResults?: Array<{ result?: string }>
@@ -8,6 +14,9 @@ export type TrackerStageTest = {
     status?: string | null
     balanceDue?: number | null
     confirmationFeeDue?: number | null
+    confirmationFeePaid?: number | null
+    amountDue?: number | null
+    amountPaid?: number | null
     confirmationPaymentBypassed?: boolean | null
   }
 }
@@ -17,6 +26,8 @@ export function getBalanceDue(test: TrackerStageTest) {
 }
 
 export function getTestStage(test: TrackerStageTest) {
+  if (test.confirmationDecision === 'pending-decision' && confirmationHoldExpired(test))
+    return { stage: getBalanceDue(test) > 0 ? 'Payment Due' : 'Lab Hold Ended', color: 'bg-gray-500', priority: 1 }
   // An unpaid balance is an old-balance action only after the test workflow is complete.
   // Collected tests that are still processing remain in their operational tracker stage.
   if (test.isComplete && getBalanceDue(test) > 0) {
@@ -53,7 +64,9 @@ export function getTestStage(test: TrackerStageTest) {
     }
 
     if (test.confirmationDecision === 'request-confirmation') {
-      if (getBalanceDue(test) > 0 && test.payment?.confirmationFeeDue && !test.payment.confirmationPaymentBypassed) {
+      if (confirmationHoldExpired(test) && confirmationPaymentRequired(test))
+        return { stage: 'Lab Hold Ended', color: 'bg-gray-500', priority: 1 }
+      if (!test.billedToReferral && confirmationPaymentRequired(test)) {
         return { stage: 'Awaiting Confirmation Payment', color: 'bg-red-500', priority: 3 }
       }
 
@@ -77,5 +90,6 @@ export function getTestStage(test: TrackerStageTest) {
 }
 
 export function shouldStayInTracker(test: TrackerStageTest) {
+  if (test.confirmationDecision === 'pending-decision' && confirmationHoldExpired(test)) return getBalanceDue(test) > 0
   return !test.isComplete || getBalanceDue(test) > 0
 }

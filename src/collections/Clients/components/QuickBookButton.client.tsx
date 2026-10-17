@@ -1,5 +1,7 @@
 'use client'
 
+import { usePathname } from 'next/navigation'
+
 import { ShadcnWrapper } from '@/components/ShadcnWrapper'
 import { QuickBookControl } from '@/components/quick-book/QuickBookControl.client'
 import type { ClientGender } from '@/lib/client-gender'
@@ -12,6 +14,7 @@ interface QuickBookButtonClientProps {
   recommendedTestTypeId?: string
   recommendedTestTypeValue?: string
   calLink?: string
+  hideOnSummary?: boolean
 }
 
 /**
@@ -26,7 +29,10 @@ export function QuickBookButtonClient({
   recommendedTestTypeId,
   recommendedTestTypeValue,
   calLink,
+  hideOnSummary = false,
 }: QuickBookButtonClientProps) {
+  const pathname = usePathname()
+  if (hideOnSummary && pathname.endsWith('/summary')) return null
   return (
     <ShadcnWrapper className="pb-0">
       <QuickBookControl

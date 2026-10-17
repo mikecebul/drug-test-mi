@@ -1,14 +1,22 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { generateTestFilename } from '@/views/DrugTestWizard/utils/generateFilename'
 import { computeTestResultPreview } from '@/views/DrugTestWizard/actions'
 import { fetchDocument, sendEmails, computeFinalStatus } from '@/collections/DrugTests/services'
 import { createAdminAlert } from '@/lib/admin-alerts'
-import type { FormValues } from '../validators'
+import { labConfirmationDataSchema, type FormValues } from '../validators'
+import {
+  readLabReportFile,
+  verifyLabReportIdentity,
+  type ReportIdentityAcknowledgement,
+} from '../../components/readLabReport'
+import { reconcileConfirmationSubmission, storedConfirmationRows } from '../../components/confirmation-review'
 import type { ExtractedPdfData } from '@/views/DrugTestWizard/queries'
 import type { SubstanceValue } from '@/fields/substanceOptions'
+import { eligibleLabCollection } from '../../lab-results/model'
 
 /**
  * Update existing drug test with confirmation results and send complete emails
@@ -16,8 +24,11 @@ import type { SubstanceValue } from '@/fields/substanceOptions'
 export async function updateLabConfirmationWithEmailReview(
   formValues: FormValues,
   _extractedData: ExtractedPdfData | undefined,
+  acknowledgement?: ReportIdentityAcknowledgement,
 ): Promise<{ success: boolean; testId?: string; error?: string }> {
   const payload = await getPayload({ config })
+  const { user } = await payload.auth({ headers: await headers() })
+  if (!user || user.collection !== 'admins') return { success: false, error: 'Admin access required' }
 
   try {
     // 1. Get existing test
@@ -32,7 +43,7 @@ export async function updateLabConfirmationWithEmailReview(
     }
 
     // Verify test is in correct status
-    if (existingTest.screeningStatus !== 'screened' && existingTest.screeningStatus !== 'confirmation-pending') {
+    if (!eligibleLabCollection(existingTest, 'confirmation')) {
       return {
         success: false,
         error: `Cannot add confirmation to test with status '${existingTest.screeningStatus}'. Test must be 'screened' or 'confirmation-pending'.`,
@@ -58,14 +69,28 @@ export async function updateLabConfirmationWithEmailReview(
     }
     const disableClientEmails = (existingClient as { disableClientEmails?: boolean }).disableClientEmails === true
 
-    // Import email functions
+    // Validate the actual PDF and every originally requested result before any write.
+    let buffer: Buffer
+    let reviewed: ReturnType<typeof reconcileConfirmationSubmission>
+    try {
+      const input = labConfirmationDataSchema.shape.labConfirmationData.safeParse(formValues.labConfirmationData)
+      if (!input.success) return { success: false, error: 'Review every confirmation result before saving' }
+      const file = await readLabReportFile(formValues.upload.file)
+      await verifyLabReportIdentity(file.report, existingClient, acknowledgement)
+      buffer = file.buffer
+      reviewed = reconcileConfirmationSubmission(
+        file.report,
+        input.data.confirmationResults,
+        existingTest.confirmationSubstances ?? [],
+        storedConfirmationRows(existingTest.confirmationResults ?? []),
+      )
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Review the confirmation report' }
+    }
+    const confirmationResults = reviewed.results
+
     const { buildCompleteEmail } = await import('@/collections/DrugTests/email/render')
     const { fetchClientHeadshot } = await import('@/collections/DrugTests/email/fetch-headshot')
-
-    // 2. Upload PDF to confirmationDocument
-    const arrayBuffer = await formValues.upload.file.arrayBuffer()
-    const pdfBuffer = Array.from(new Uint8Array(arrayBuffer))
-    const buffer = Buffer.from(pdfBuffer)
 
     // Generate filename
     const nameParts = formValues.matchCollection.clientName.split(' ')
@@ -95,12 +120,6 @@ export async function updateLabConfirmationWithEmailReview(
     })
 
     // 3. Compute adjusted substances (remove confirmed-negatives)
-    const confirmationResults = formValues.labConfirmationData.confirmationResults.map((r) => ({
-      substance: r.substance as SubstanceValue,
-      result: r.result,
-      notes: r.notes,
-    }))
-
     const originalDetectedSubstances = (existingTest.detectedSubstances || []) as SubstanceValue[]
     const adjustedSubstances = originalDetectedSubstances.filter((substance) => {
       const confirmationResult = confirmationResults.find((r) => r.substance.toLowerCase() === substance.toLowerCase())
@@ -142,7 +161,7 @@ export async function updateLabConfirmationWithEmailReview(
     })
 
     // 6. Update the drug test
-    const confirmationSubstances = confirmationResults.map((r) => r.substance)
+    const confirmationSubstances = reviewed.substances
 
     await payload.update({
       collection: 'drug-tests',

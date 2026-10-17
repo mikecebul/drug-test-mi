@@ -47,7 +47,7 @@ export default function ParsedDataDisplayField({ data, showRawText = true }: Par
   const ConfidenceIcon = confidence.icon
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="parsed-report" data-results-complete={data.resultsComplete}>
       <Alert variant={confidence.type}>
         <ConfidenceIcon className="" />
         <AlertTitle className={confidence.titleColor}>
@@ -117,36 +117,40 @@ export default function ParsedDataDisplayField({ data, showRawText = true }: Par
             </div>
           )}
 
-          <div className="space-y-2 border-t pt-2">
-            <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">Detected Substances</div>
-            <div className="pl-6">
-              {data.detectedSubstances.length > 0 ? (
-                <div className="space-y-2">
-                  <Badge variant="destructive" className="gap-1">
-                    <XCircle className="h-3 w-3" />
-                    {data.detectedSubstances.length} Positive
-                  </Badge>
-                  <div className="flex flex-wrap gap-2">
-                    {data.detectedSubstances.map((substance) => (
-                      <Badge key={substance} variant="outline" className="text-xs">
-                        {substance}
-                      </Badge>
-                    ))}
+          {data.hasScreening !== false && data.reportKind !== 'confirmation' && (
+            <div className="space-y-2 border-t pt-2" data-testid="parsed-screening-results">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+                Detected Substances
+              </div>
+              <div className="pl-6">
+                {data.detectedSubstances.length > 0 ? (
+                  <div className="space-y-2">
+                    <Badge variant="destructive" className="gap-1">
+                      <XCircle className="h-3 w-3" />
+                      {data.detectedSubstances.length} Positive
+                    </Badge>
+                    <div className="flex flex-wrap gap-2">
+                      {data.detectedSubstances.map((substance) => (
+                        <Badge key={substance} variant="outline" className="text-xs">
+                          {substance}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ) : data.resultsComplete === false ? (
-                <Badge variant="warning" className="gap-1">
-                  <AlertTriangle className="h-3 w-3" />
-                  Results Incomplete - Review PDF
-                </Badge>
-              ) : (
-                <Badge variant="default" className="gap-1 bg-green-600">
-                  <CheckCircle2 className="h-3 w-3" />
-                  All Negative
-                </Badge>
-              )}
+                ) : data.resultsComplete === false ? (
+                  <Badge variant="warning" className="gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Results Incomplete - Review PDF
+                  </Badge>
+                ) : (
+                  <Badge variant="default" className="gap-1 bg-green-600">
+                    <CheckCircle2 className="h-3 w-3" />
+                    All Negative
+                  </Badge>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {data.hasConfirmation && data.confirmationResults && data.confirmationResults.length > 0 && (
             <div className="space-y-2 border-t pt-2">

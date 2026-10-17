@@ -1,3 +1,5 @@
+/** @jsxImportSource react */
+
 import { render } from '@react-email/components'
 import { NewClientRegistrationEmail, type NewClientRegistrationEmailProps } from './NewClientRegistrationEmail'
 

@@ -172,10 +172,7 @@ export async function adminUpdateMedicationAction(data: {
   }
 }
 
-export async function adminToggleMedicationStatusAction(data: {
-  clientId: string
-  medicationIndex: number
-}) {
+export async function adminToggleMedicationStatusAction(data: { clientId: string; medicationIndex: number }) {
   const payload = await getPayload({ config: configPromise })
 
   try {
@@ -238,10 +235,7 @@ export async function adminToggleMedicationStatusAction(data: {
   }
 }
 
-export async function adminDeleteMedicationAction(data: {
-  clientId: string
-  medicationIndex: number
-}) {
+export async function adminDeleteMedicationAction(data: { clientId: string; medicationIndex: number }) {
   const payload = await getPayload({ config: configPromise })
 
   try {
@@ -265,9 +259,7 @@ export async function adminDeleteMedicationAction(data: {
     }
 
     // Remove the medication at the specified index
-    const updatedMedications = currentMedications.filter(
-      (_, index) => index !== data.medicationIndex,
-    )
+    const updatedMedications = currentMedications.filter((_, index) => index !== data.medicationIndex)
 
     // Update the client
     await payload.update({

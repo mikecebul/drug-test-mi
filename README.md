@@ -221,36 +221,50 @@ Minimum local development usually requires:
 
 Notes:
 - In development, Payload uses the Nodemailer adapter by default (`NODE_ENV !== 'production'`).
-- If `EMAIL_HOST` / `EMAIL_PORT` are not set, the app defaults to `localhost:1025` (works well with Mailpit).
+- Set `EMAIL_HOST=localhost` and `EMAIL_PORT=1026` for this project's Mailpit.
 - `.env.example` includes many production/integration variables; not all are required for basic local startup.
 
 ### Local services
 
-#### Start MongoDB (recommended via Docker Compose)
+#### Start the project's Docker services
 
-This repo includes a `docker-compose.yml` with `mongo` and a production-style `payload` service.
-
-For normal local development, start only MongoDB and run the app with `pnpm dev`:
+Use the project replica set so cash, card, and account-credit operations can use transactions:
 
 ```bash
-docker compose up -d mongo
+docker compose up -d --wait
+pnpm db:check
+pnpm dev
+```
+
+Set `DATABASE_URI` to `mongodb://127.0.0.1:28017/drug-test-mi?replicaSet=drug-test-mi-payments&directConnection=true` for a new database. Keep your existing project database name when copying existing data. Follow [local payment database setup](docs/local-payment-database.md) for backups and the initial copy; restarting containers does not require copying data again.
+
+MongoDB, Mailpit, and the optional Redwood worker belong to one `drug-test-mi` group in Docker Desktop. Mailpit's inbox is at [localhost:8026](http://localhost:8026). The worker remains opt-in:
+
+```bash
+docker compose --profile redwood-worker up -d --build --wait
+```
+
+For a fresh checkout, create the external database volume once before the first startup:
+
+```bash
+docker volume create drug-test-mi-payments_payments-mongo-data
 ```
 
 Notes:
-- The compose file also defines a `payload` container intended for containerized/prod-like runs.
+- The examples use the `drug-test-mi` database. Point `DATABASE_URI` and `DOCKER_DATABASE_URI` at the same project database; the worker requires an explicit URL and has no database fallback. Keep an existing project database name when updating connection options.
+- The single Compose file reuses the verified replica-set volume and initializes fresh replica sets automatically. Its historical volume name is retained to preserve existing data. The original standalone database volume is retained separately for rollback.
+- When using a replica set, include its `replicaSet` name in both URLs so Payload enables transactions. A single Docker endpoint also needs `directConnection=true`.
+- After changing the MongoDB configuration or connection URLs, restart the app and any running worker. Their existing connections may have transactions disabled.
+- This setup is for local development; keep your production MongoDB/Atlas connection configuration.
 - Most local development is simpler with a local Node process (`pnpm dev`) plus the compose MongoDB container.
 
-#### Optional: Run Mailpit for local email inspection
+MongoDB references: [convert an existing standalone database](https://www.mongodb.com/docs/manual/tutorial/convert-standalone-to-replica-set/) and [connect to a Docker replica set](https://www.mongodb.com/docs/drivers/node/current/connect/connection-targets/#replica-set).
 
-Example Docker command:
+#### Mailpit for local email inspection
 
-```bash
-docker run --rm -p 1025:1025 -p 8025:8025 axllent/mailpit
-```
-
-Mailpit URLs commonly used in this repo's e2e helpers:
-- Web UI: `http://127.0.0.1:8025`
-- API: `http://127.0.0.1:8025/api/v1`
+Mailpit starts with the default Compose services; it does not need a separate container.
+The host app uses `localhost:1026` for SMTP and the Docker worker uses `mailpit:1025` internally.
+For local email E2E tests, set `E2E_MAILPIT_API_BASE=http://127.0.0.1:8026/api/v1`.
 
 ### Install and start the app
 

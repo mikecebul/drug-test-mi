@@ -20,6 +20,7 @@ import {
   recoverPendingPaymentBooking,
   refreshBookingClientContext,
   setBookingScheduledTestType,
+  setBookingBillingResponsibility,
   startBookingTerminalPayment,
   undoBookingPayment,
 } from '@/views/DrugTestWizard/workflows/complete-workflow/actions'
@@ -31,6 +32,14 @@ const requiredId = z.string().trim().min(1)
 const operationId = z.string().trim().min(8).max(200)
 
 const commandSchema = z.discriminatedUnion('operation', [
+  z.object({
+    operation: z.literal('set-payer'),
+    input: z.object({
+      bookingId: requiredId,
+      payer: z.enum(['client', 'referral']),
+      expectedPayer: z.enum(['client', 'referral']),
+    }),
+  }),
   z.object({
     operation: z.literal('cancel-booking'),
     input: z.object({ bookingId: requiredId }),
@@ -187,6 +196,8 @@ export async function POST(request: NextRequest) {
     const adminRequest = auth.adminRequest
 
     switch (command.operation) {
+      case 'set-payer':
+        return json(await setBookingBillingResponsibility(command.input, adminRequest))
       case 'cancel-booking':
         return json(await cancelGuidedBooking(command.input, adminRequest))
       case 'cancel-refund-booking':

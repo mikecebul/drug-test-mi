@@ -13,7 +13,10 @@ export const collectionSchema = z.object({
   collection: z
     .object({
       testType: z.enum(labTests),
-      collectionDate: z.string().min(1, 'Collection date is required'),
+      collectionDate: z
+        .string()
+        .min(1, 'Collection date is required')
+        .refine((value) => Number.isFinite(Date.parse(value)), 'Enter a valid collection date'),
       breathalyzerTaken: z.boolean(),
       breathalyzerResult: z.number().nullable().optional(),
     })

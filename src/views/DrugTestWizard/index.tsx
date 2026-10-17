@@ -37,7 +37,7 @@ export default function DrugTestWizard({ initPageResult, params, searchParams }:
     >
       <SetStepNav nav={navItem} />
       <NuqsAdapter>
-        <ShadcnWrapper>
+        <ShadcnWrapper className="staff-interface">
           <WizardContainer>
             <div className="relative">
               <WizardSessionGuard>

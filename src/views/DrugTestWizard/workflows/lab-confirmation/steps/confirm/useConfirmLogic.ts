@@ -1,3 +1,4 @@
+import { resolvedConfirmationReview } from '../../../components/confirmation-review'
 import { useMemo } from 'react'
 import {
   useGetClientFromTestQuery,
@@ -22,19 +23,22 @@ export function useConfirmLogic(formValues: FormValues) {
   // Get medications snapshot
   const medications = matchedTest?.medicationsArrayAtTestTime || []
 
+  const confirmationResults = useMemo(
+    () => resolvedConfirmationReview(labConfirmationData.confirmationResults, labConfirmationData.requiredSubstances),
+    [labConfirmationData.confirmationResults, labConfirmationData.requiredSubstances],
+  )
   // Compute adjusted substances (remove confirmed-negatives)
   const adjustedSubstances = useMemo(() => {
     const originalSubstances = labConfirmationData?.originalDetectedSubstances || []
-    const confirmationResults = labConfirmationData?.confirmationResults || []
 
     return originalSubstances.filter((substance: string) => {
-      const confirmationResult = confirmationResults.find(
+      const confirmationResult = (confirmationResults ?? []).find(
         (r: any) => r.substance.toLowerCase() === substance.toLowerCase(),
       )
       // Exclude if confirmed-negative
       return !(confirmationResult && confirmationResult.result === 'confirmed-negative')
     })
-  }, [labConfirmationData])
+  }, [labConfirmationData, confirmationResults])
 
   // Compute test result preview with adjusted substances
   const previewQuery = useComputeTestResultPreviewQuery(
@@ -55,21 +59,17 @@ export function useConfirmLogic(formValues: FormValues) {
 
   // Compute final status using service layer
   const finalStatus = useMemo(() => {
-    if (!previewQuery.data || !labConfirmationData?.confirmationResults) return null
+    if (!previewQuery.data || !confirmationResults) return null
 
     return computeFinalStatus({
       initialScreenResult: previewQuery.data.initialScreenResult,
       expectedPositives: previewQuery.data.expectedPositives,
       unexpectedPositives: previewQuery.data.unexpectedPositives,
-      confirmationResults: labConfirmationData.confirmationResults.map((r: any) => ({
-        substance: r.substance,
-        result: r.result,
-        notes: r.notes,
-      })),
+      confirmationResults,
       breathalyzerTaken: matchedTest?.breathalyzerTaken ?? false,
       breathalyzerResult: matchedTest?.breathalyzerResult ?? null,
     })
-  }, [previewQuery.data, labConfirmationData, matchedTest])
+  }, [previewQuery.data, confirmationResults, matchedTest])
 
   const newFilename = generateTestFilename({
     client: client || null,

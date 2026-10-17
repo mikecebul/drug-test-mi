@@ -49,7 +49,9 @@ export function focusFirstInvalidField(container: ParentNode | null) {
   if (!field) return false
 
   scrollElementIntoViewWithMargin(field, {
-    behavior: 'smooth',
+    // WebKit can discard focus while a native scroll animation is active.
+    // Reveal the invalid control immediately before moving keyboard focus.
+    behavior: 'auto',
     block: 'center',
   })
   focusElementWithoutScroll(field)

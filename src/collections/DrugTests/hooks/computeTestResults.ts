@@ -1,10 +1,7 @@
 import type { CollectionBeforeChangeHook } from 'payload'
+import { confirmationPaymentRequired } from '../confirmation/policy'
 import { isConfirmationComplete } from '../helpers/confirmationStatus'
 import { computeTestResults as computeTestResultsService, computeFinalStatus } from '../services'
-
-function readPositiveNumber(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
-}
 
 /**
  * Business Logic Hook: Computes test result classification
@@ -124,13 +121,11 @@ export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req
     // 1. Auto-accepted (negative or expected-positive)
     // 2. Manually accepted
     // 3. Confirmation requested and ALL results received
-    const isComplete = autoAccept || data.confirmationDecision === 'accept' || confirmationComplete
+    const isComplete =
+      data.confirmationDecision === 'accept' || confirmationComplete || (autoAccept && !data.confirmationDecision)
     data.isComplete = isComplete
     const confirmationPaymentBlocking =
-      data.confirmationDecision === 'request-confirmation' &&
-      readPositiveNumber(data.payment?.confirmationFeeDue) > 0 &&
-      readPositiveNumber(data.payment?.balanceDue) > 0 &&
-      data.payment?.confirmationPaymentBypassed !== true
+      data.confirmationDecision === 'request-confirmation' && confirmationPaymentRequired(data)
 
     // Keep screeningStatus aligned with completion state so status is the single workflow source.
     if (isComplete) {

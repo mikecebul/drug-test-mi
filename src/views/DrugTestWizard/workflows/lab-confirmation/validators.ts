@@ -1,15 +1,9 @@
 import { z } from 'zod'
+import { confirmationReviewArraySchema, validateConfirmationReview } from '../components/confirmation-review'
 import { emailsGroupSchema, emailsSchema, uploadSchema, extractSchema } from '../shared-validators'
 
 // Step names as readonly tuple (6 steps - same as lab-screen but for confirmation)
-export const steps = [
-  'upload',
-  'extract',
-  'matchCollection',
-  'labConfirmationData',
-  'confirm',
-  'emails',
-] as const
+export const steps = ['upload', 'extract', 'matchCollection', 'labConfirmationData', 'confirm', 'emails'] as const
 export type Steps = typeof steps
 
 export const matchCollectionSchema = z.object({
@@ -26,22 +20,21 @@ export const matchCollectionSchema = z.object({
 })
 
 export const labConfirmationDataSchema = z.object({
-  labConfirmationData: z.object({
-    // Original screening data (read-only, stored for reference and calculation)
-    originalDetectedSubstances: z.array(z.string()),
-    originalIsDilute: z.boolean(),
-
-    // Confirmation results (editable)
-    confirmationResults: z
-      .array(
-        z.object({
-          substance: z.string().min(1, 'Substance is required'),
-          result: z.enum(['confirmed-positive', 'confirmed-negative', 'inconclusive']),
-          notes: z.string().optional(),
-        }),
-      )
-      .min(1, 'At least one confirmation result is required'),
-  }),
+  labConfirmationData: z
+    .object({
+      originalDetectedSubstances: z.array(z.string()),
+      originalIsDilute: z.boolean(),
+      requiredSubstances: z.array(z.string()).default([]),
+      reviewSourceKey: z.string().nullable().default(null),
+      confirmationResults: confirmationReviewArraySchema.min(1, 'At least one confirmation result is required'),
+    })
+    .superRefine((data, ctx) => {
+      try {
+        validateConfirmationReview(data.confirmationResults, data.requiredSubstances)
+      } catch (error) {
+        ctx.addIssue({ code: 'custom', message: (error as Error).message, path: ['confirmationResults'] })
+      }
+    }),
 })
 
 export { emailsGroupSchema, emailsSchema, uploadSchema, extractSchema }

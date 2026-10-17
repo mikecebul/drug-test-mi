@@ -1,7 +1,7 @@
 'use server'
 
-import { getPayload, type RequiredDataFromCollectionSlug } from 'payload'
-import config from '@payload-config'
+import type { RequiredDataFromCollectionSlug } from 'payload'
+import { requireWizardAdmin } from '@/views/DrugTestWizard/server/requireWizardAdmin'
 import type { SubstanceValue } from '@/fields/substanceOptions'
 import { computeTestResultPreview } from '@/views/DrugTestWizard/actions'
 import { fetchDocument, sendEmails } from '@/collections/DrugTests/services'
@@ -10,7 +10,6 @@ import { createAdminAlert } from '@/lib/admin-alerts'
 import { getDrugTestPaymentSnapshot } from '../../paymentSnapshot'
 import { applyAvailableClientCredit } from '@/collections/Payments/services/applyPayment'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
-import { isClientBilledToReferral } from '@/lib/referral-invoices/payer'
 import type { DrugTest } from '@/payload-types'
 
 /**
@@ -49,7 +48,7 @@ export async function createDrugTestWithEmailReview(
   testId?: string
   error?: string
 }> {
-  const payload = await getPayload({ config })
+  const { payload, user } = await requireWizardAdmin()
 
   payload.logger.info('[createDrugTestWithEmailReview] Starting...')
 
@@ -69,7 +68,13 @@ export async function createDrugTestWithEmailReview(
         error: 'Client not found. They may have been deleted. Please go back and select a different client.',
       }
     }
-    const billedToReferral = await isClientBilledToReferral(payload, testData.clientId)
+    const paymentSnapshot = await getDrugTestPaymentSnapshot({
+      payload,
+      clientId: testData.clientId,
+      bookingId: testData.bookingId,
+      testType: testData.testType,
+    })
+    const billedToReferral = paymentSnapshot.billingResponsibility?.payer === 'referral'
     const disableClientEmails = (existingClient as { disableClientEmails?: boolean }).disableClientEmails === true
 
     // Import email functions
@@ -143,16 +148,11 @@ export async function createDrugTestWithEmailReview(
     })
     payload.logger.info({ msg: '[createDrugTestWithEmailReview] PDF uploaded', fileId: uploadedFile.id })
 
-    const paymentSnapshot = await getDrugTestPaymentSnapshot({
-      payload,
-      bookingId: testData.bookingId,
-      testType: testData.testType,
-    })
-
     // 3. Prepare drug test data
     const drugTestData: RequiredDataFromCollectionSlug<'drug-tests'> = {
       relatedClient: testData.clientId,
       sourceBooking: paymentSnapshot.sourceBooking,
+      billingResponsibility: paymentSnapshot.billingResponsibility,
       payment: paymentSnapshot.payment,
       testType: testData.testType,
       collectionDate: testData.collectionDate,
@@ -194,25 +194,29 @@ export async function createDrugTestWithEmailReview(
 
     // 4. Create drug test record with skipNotificationHook context
     payload.logger.info('[createDrugTestWithEmailReview] Creating drug test record...')
-    const drugTest: DrugTest = await withPayloadTransaction(payload, async (req) => {
-      const createdDrugTest = await payload.create({
-        collection: 'drug-tests',
-        data: drugTestData,
-        overrideAccess: true,
-        req,
-      })
-
-      if (!testData.bookingId && !billedToReferral) {
-        await applyAvailableClientCredit({
-          payload,
-          clientId: testData.clientId,
-          relatedDrugTest: createdDrugTest.id,
+    const drugTest: DrugTest = await withPayloadTransaction(
+      payload,
+      async (req) => {
+        const createdDrugTest = await payload.create({
+          collection: 'drug-tests',
+          data: drugTestData,
+          overrideAccess: true,
           req,
         })
-      }
 
-      return createdDrugTest
-    })
+        if (!testData.bookingId && !billedToReferral && (await req.transactionID)) {
+          await applyAvailableClientCredit({
+            payload,
+            clientId: testData.clientId,
+            relatedDrugTest: createdDrugTest.id,
+            req,
+          })
+        }
+
+        return createdDrugTest
+      },
+      { user },
+    )
 
     payload.logger.info({ msg: '[createDrugTestWithEmailReview] Drug test created', testId: drugTest.id })
 

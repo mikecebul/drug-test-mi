@@ -107,8 +107,7 @@ describe('monthly referral invoicing', () => {
     const preview = await previewReferralInvoice(payload, 'courts', 'court-1', month)
     expect(preview.upcoming).toBe(true)
     const drugTestFind = find.mock.calls.find(([args]) => args.collection === 'drug-tests')?.[0] as
-      | { where: { and: Array<{ collectionDate?: { less_than: string } }> } }
-      | undefined
+      { where: { and: Array<{ collectionDate?: { less_than: string } }> } } | undefined
     const cutoff = drugTestFind?.where.and[2].collectionDate?.less_than
     expect(cutoff).toBeDefined()
     if (!cutoff) throw new Error('Missing current-month cutoff')
@@ -139,6 +138,59 @@ describe('monthly referral invoicing', () => {
         },
       }),
     )
+  })
+
+  it.each(['unpaid', 'partial', 'paid'])(
+    'excludes a client-pay exception from the referral invoice even when its payment status is %s',
+    async (status) => {
+      const { payload } = mockPayload()
+      const originalFind = payload.find.bind(payload)
+      payload.find = vi.fn(async (args) => {
+        const result = await originalFind(args)
+        if (args.collection !== 'drug-tests') return result
+        return {
+          ...result,
+          docs: result.docs.map((doc, index) =>
+            index === 1
+              ? { ...doc, billingResponsibility: { payer: 'client' }, payment: { balanceDue: 35, status } }
+              : doc,
+          ),
+        }
+      }) as Payload['find']
+      const preview = await previewReferralInvoice(payload, 'courts', 'court-1', '2026-08')
+      expect(preview.items.map((item) => item.drugTest)).toEqual(['test-1'])
+      expect(preview.amount).toBe(20)
+    },
+  )
+
+  it('invoices the captured referral after the client moves away', async () => {
+    const { payload } = mockPayload()
+    const originalFind = payload.find.bind(payload)
+    payload.find = vi.fn(async (args) => {
+      if (args.collection === 'clients') return { docs: [], hasNextPage: false }
+      if (args.collection === 'drug-tests')
+        return {
+          docs: [
+            {
+              id: 'captured-test',
+              relatedClient: 'client-1',
+              collectionDate: '2026-08-12T14:00:00Z',
+              testType: '11-panel-lab',
+              payment: { balanceDue: 40 },
+              billingResponsibility: { payer: 'referral', referral: { relationTo: 'courts', value: 'court-1' } },
+            },
+          ],
+          hasNextPage: false,
+        }
+      return originalFind(args)
+    }) as Payload['find']
+    payload.findByID = vi.fn(async (args) =>
+      args.collection === 'clients'
+        ? { id: 'client-1', firstName: 'Jane', lastName: 'Doe', referral: { relationTo: 'courts', value: 'new-court' } }
+        : { id: 'court-1', name: 'Original court', isBillable: true, billingEmail: 'billing@court.test' },
+    ) as Payload['findByID']
+    expect((await previewReferralInvoice(payload, 'courts', 'court-1', '2026-08')).amount).toBe(40)
+    expect((await previewReferralInvoice(payload, 'courts', 'new-court', '2026-08')).amount).toBe(0)
   })
 
   it('hides replacement when the sent invoice already matches the tests and balances', async () => {
@@ -287,7 +339,11 @@ describe('monthly referral invoicing', () => {
     expect(result.status).toBe('sent')
     expect(stripe.checkout.sessions.expire).toHaveBeenCalledWith('cs_old')
     expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({ collection: 'payments', id: 'pending-checkout', data: expect.objectContaining({ status: 'voided' }) }),
+      expect.objectContaining({
+        collection: 'payments',
+        id: 'pending-checkout',
+        data: expect.objectContaining({ status: 'voided' }),
+      }),
     )
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({ collection: 'referral-invoices', data: expect.objectContaining({ amount: 55 }) }),

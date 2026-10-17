@@ -79,8 +79,10 @@ export function getE2EEnv(options?: { requirePdfs?: boolean; pdfs?: PdfInput[] }
 
   const env: E2EEnv = {
     pdfInstantPath: process.env.E2E_PDF_INSTANT_PATH || DEFAULT_INSTANT_PDF,
-    pdfLabScreenPath: process.env.E2E_PDF_LAB_SCREEN_PATH || '',
-    pdfLabConfirmPath: process.env.E2E_PDF_LAB_CONFIRM_PATH || '',
+    pdfLabScreenPath:
+      process.env.E2E_PDF_LAB_SCREEN_PATH || path.resolve(process.cwd(), 'tests/e2e/fixtures/lab-screen.pdf'),
+    pdfLabConfirmPath:
+      process.env.E2E_PDF_LAB_CONFIRM_PATH || path.resolve(process.cwd(), 'tests/e2e/fixtures/lab-confirmation.pdf'),
     mailpitApiBase: process.env.E2E_MAILPIT_API_BASE || 'http://127.0.0.1:8025/api/v1',
     smtpWebBase: process.env.E2E_SMTP_WEB_BASE || 'http://127.0.0.1:8025',
     requireEmailTestModeFalse: parseBoolean(process.env.E2E_REQUIRE_EMAIL_TEST_MODE_FALSE, true),

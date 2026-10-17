@@ -82,9 +82,9 @@ export async function findGuidedTerminalReader(stripe: Stripe) {
 
   const location = configuredLocationId
     ? await stripe.terminal.locations.retrieve(configuredLocationId)
-    : (
-        await stripe.terminal.locations.list({ limit: 100 }).autoPagingToArray({ limit: 1000 })
-      ).find((candidate) => normalizeLookupValue(candidate.display_name) === normalizeLookupValue(locationName))
+    : (await stripe.terminal.locations.list({ limit: 100 }).autoPagingToArray({ limit: 1000 })).find(
+        (candidate) => normalizeLookupValue(candidate.display_name) === normalizeLookupValue(locationName),
+      )
 
   if (!location || 'deleted' in location) {
     throw new Error(
@@ -596,118 +596,127 @@ export async function reconcileSucceededGuidedTerminalPayment(input: {
   const paymentId = input.paymentIntent.metadata.paymentId
   if (!paymentId) throw new Error('Guided Terminal PaymentIntent is missing its payment ID.')
 
-  await withPayloadTransaction(input.payload, async (req) => {
-    const payment = (await input.payload.findByID({
-      collection: 'payments',
-      id: paymentId,
-      depth: 0,
-      overrideAccess: true,
-      req,
-    })) as Payment
+  await withPayloadTransaction(
+    input.payload,
+    async (req) => {
+      const payment = (await input.payload.findByID({
+        collection: 'payments',
+        id: paymentId,
+        depth: 0,
+        overrideAccess: true,
+        req,
+      })) as Payment
 
-    if (payment.status === 'posted') return
-    if (payment.status === 'refunded' || (payment.status === 'voided' && payment.stripeTerminalStatus === 'succeeded')) {
-      input.payload.logger.warn(`Ignoring succeeded Terminal PaymentIntent for ${payment.status} payment ${paymentId}`)
-      return
-    }
-    if (payment.stripePaymentIntentId !== input.paymentIntent.id) {
-      throw new Error(`Terminal PaymentIntent does not match payment ${paymentId}.`)
-    }
+      if (payment.status === 'posted') return
+      if (
+        payment.status === 'refunded' ||
+        (payment.status === 'voided' && payment.stripeTerminalStatus === 'succeeded')
+      ) {
+        input.payload.logger.warn(
+          `Ignoring succeeded Terminal PaymentIntent for ${payment.status} payment ${paymentId}`,
+        )
+        return
+      }
+      if (payment.stripePaymentIntentId !== input.paymentIntent.id) {
+        throw new Error(`Terminal PaymentIntent does not match payment ${paymentId}.`)
+      }
 
-    const clientId = readRelationshipId(payment.relatedClient)
-    const bookingId = readRelationshipId(payment.relatedBooking)
-    if (!clientId || !bookingId) {
-      throw new Error(`Terminal payment ${paymentId} is missing its client or booking.`)
-    }
+      const clientId = readRelationshipId(payment.relatedClient)
+      const bookingId = readRelationshipId(payment.relatedBooking)
+      if (!clientId || !bookingId) {
+        throw new Error(`Terminal payment ${paymentId} is missing its client or booking.`)
+      }
 
-    const chargedAmount = normalizeMoney(input.paymentIntent.amount_received / 100)
-    if (chargedAmount !== normalizeMoney(payment.amount)) {
-      throw new Error(`Terminal payment ${paymentId} amount does not match the succeeded PaymentIntent.`)
-    }
+      const chargedAmount = normalizeMoney(input.paymentIntent.amount_received / 100)
+      if (chargedAmount !== normalizeMoney(payment.amount)) {
+        throw new Error(`Terminal payment ${paymentId} amount does not match the succeeded PaymentIntent.`)
+      }
 
-    const booking = (await input.payload.findByID({
-      collection: 'bookings',
-      id: bookingId,
-      depth: 0,
-      overrideAccess: true,
-      req,
-    })) as Booking
-    const amountDue = normalizeMoney(payment.pendingBookingAmountDue ?? booking.payment?.amountDue)
-    const existingAmountPaid = Math.min(normalizeMoney(booking.payment?.amountPaid), amountDue)
-    const currentBookingBalance = Math.max(0, normalizeMoney(amountDue - existingAmountPaid))
-    const requestedCredit = normalizeMoney(payment.pendingCreditAmount)
-    const availableCredit = await getClientCreditBalance(input.payload, clientId, req)
-    const creditToApply = Math.min(requestedCredit, availableCredit)
-    let creditAppliedToBooking = 0
+      const booking = (await input.payload.findByID({
+        collection: 'bookings',
+        id: bookingId,
+        depth: 0,
+        overrideAccess: true,
+        req,
+      })) as Booking
+      const amountDue = normalizeMoney(payment.pendingBookingAmountDue ?? booking.payment?.amountDue)
+      const existingAmountPaid = Math.min(normalizeMoney(booking.payment?.amountPaid), amountDue)
+      const currentBookingBalance = Math.max(0, normalizeMoney(amountDue - existingAmountPaid))
+      const requestedCredit = normalizeMoney(payment.pendingCreditAmount)
+      const availableCredit = await getClientCreditBalance(input.payload, clientId, req)
+      const creditToApply = Math.min(requestedCredit, availableCredit)
+      let creditAppliedToBooking = 0
 
-    if (creditToApply > 0) {
-      const creditPayment = await applyAvailableClientCredit({
+      if (creditToApply > 0) {
+        const creditPayment = await applyAvailableClientCredit({
+          payload: input.payload,
+          clientId,
+          amount: creditToApply,
+          relatedBooking: bookingId,
+          bookingBalanceDue: currentBookingBalance,
+          allocationOrder: 'oldest-balance-first',
+          req,
+        })
+        creditAppliedToBooking = normalizeMoney(creditPayment?.payment.reservedForBookingAmount)
+      }
+
+      const ledgerPayment = await applyIncomingPayment({
         payload: input.payload,
+        existingPaymentId: paymentId,
         clientId,
-        amount: creditToApply,
+        amount: chargedAmount,
+        method: 'stripe',
+        source: 'guided-workflow',
         relatedBooking: bookingId,
-        bookingBalanceDue: currentBookingBalance,
+        bookingBalanceDue: Math.max(0, normalizeMoney(currentBookingBalance - creditAppliedToBooking)),
         allocationOrder: 'oldest-balance-first',
+        stripePaymentIntentId: input.paymentIntent.id,
         req,
       })
-      creditAppliedToBooking = normalizeMoney(creditPayment?.payment.reservedForBookingAmount)
-    }
 
-    const ledgerPayment = await applyIncomingPayment({
-      payload: input.payload,
-      existingPaymentId: paymentId,
-      clientId,
-      amount: chargedAmount,
-      method: 'stripe',
-      source: 'guided-workflow',
-      relatedBooking: bookingId,
-      bookingBalanceDue: Math.max(0, normalizeMoney(currentBookingBalance - creditAppliedToBooking)),
-      allocationOrder: 'oldest-balance-first',
-      stripePaymentIntentId: input.paymentIntent.id,
-      req,
-    })
+      const moneyAppliedToBooking = normalizeMoney(ledgerPayment.reservedForBookingAmount)
+      const nextAmountPaid = Math.min(
+        amountDue,
+        normalizeMoney(existingAmountPaid + creditAppliedToBooking + moneyAppliedToBooking),
+      )
+      const nextBalanceDue = Math.max(0, normalizeMoney(amountDue - nextAmountPaid))
 
-    const moneyAppliedToBooking = normalizeMoney(ledgerPayment.reservedForBookingAmount)
-    const nextAmountPaid = Math.min(
-      amountDue,
-      normalizeMoney(existingAmountPaid + creditAppliedToBooking + moneyAppliedToBooking),
-    )
-    const nextBalanceDue = Math.max(0, normalizeMoney(amountDue - nextAmountPaid))
-
-    await input.payload.update({
-      collection: 'bookings',
-      id: bookingId,
-      data: {
-        payment: {
-          ...booking.payment,
-          amountDue,
-          amountPaid: nextAmountPaid,
-          method: moneyAppliedToBooking > 0 ? 'card' : creditAppliedToBooking > 0 ? 'credit' : 'not-paid',
-          status: nextBalanceDue <= 0 ? 'paid' : nextAmountPaid > 0 ? 'partial' : 'unpaid',
-          collectedAt: new Date().toISOString(),
-          workflowOperationId: payment.workflowOperationId,
-          workflowOperationType: 'record-payment',
+      await input.payload.update({
+        collection: 'bookings',
+        id: bookingId,
+        data: {
+          payment: {
+            ...booking.payment,
+            amountDue,
+            amountPaid: nextAmountPaid,
+            method: moneyAppliedToBooking > 0 ? 'card' : creditAppliedToBooking > 0 ? 'credit' : 'not-paid',
+            status: nextBalanceDue <= 0 ? 'paid' : nextAmountPaid > 0 ? 'partial' : 'unpaid',
+            collectedAt: new Date().toISOString(),
+            workflowOperationId: payment.workflowOperationId,
+            workflowOperationType: 'record-payment',
+          },
         },
-      },
-      depth: 0,
-      overrideAccess: true,
-      req,
-    })
+        depth: 0,
+        overrideAccess: true,
+        req,
+      })
 
-    await input.payload.update({
-      collection: 'payments',
-      id: paymentId,
-      data: {
-        stripeTerminalStatus: 'succeeded',
-        stripeTerminalFailureMessage: null,
-        voidedAt: null,
-        voidReason: null,
-      },
-      depth: 0,
-      overrideAccess: true,
-      req,
-    })
-  })
+      await input.payload.update({
+        collection: 'payments',
+        id: paymentId,
+        data: {
+          stripeTerminalStatus: 'succeeded',
+          stripeTerminalFailureMessage: null,
+          voidedAt: null,
+          voidReason: null,
+        },
+        depth: 0,
+        overrideAccess: true,
+        req,
+      })
+    },
+    { requireTransaction: true },
+  )
 
   return true
 }

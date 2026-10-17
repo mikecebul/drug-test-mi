@@ -1,3 +1,5 @@
+name: drug-test-mi
+
 services:
   # payload:
   #   build:
@@ -39,37 +41,55 @@ services:
         condition: service_healthy
     environment:
       - NODE_ENV=production
-      - DATABASE_URI=${DOCKER_DATABASE_URI:-mongodb://mongo:27017/cvx-junior-golf}
+      - DATABASE_URI=${DOCKER_DATABASE_URI:?Set DOCKER_DATABASE_URI to the drug-test-mi database}
+      - EMAIL_HOST=mailpit
+      - EMAIL_PORT=1025
       - TZ=America/Detroit
     env_file: .env
 
-  # Ensure your DATABASE_URI uses 'mongo' as the hostname ie. mongodb://mongo/my-db-name
+  # The existing project replica-set volume is reused; the original standalone volume is retained separately.
   mongo:
-    image: mongo:latest
+    image: mongo@sha256:98028cf281bb5d49ace5e1ddbd4509e8f1382fe80ef1cf101eeefdc106d76cd4
     ports:
-      - '27017:27017'
-    command:
-      - --storageEngine=wiredTiger
+      - '127.0.0.1:28017:27017'
+    command: ['mongod', '--replSet', 'drug-test-mi-payments', '--bind_ip_all']
     volumes:
-      - mongo-data:/data/db
+      - payments-mongo-data:/data/db
     networks:
-      - app-network
+      app-network:
+        # Existing replica-set metadata advertises this hostname.
+        aliases:
+          - mongo-payments
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - >-
+          try { rs.status(); }
+          catch (error) {
+            if (error.code !== 94) throw error;
+            rs.initiate({ _id: 'drug-test-mi-payments', members: [{ _id: 0, host: 'mongo:27017' }] });
+          }
+          if (!db.hello().isWritablePrimary) quit(1);
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 12
 
   mailpit:
     image: axllent/mailpit:latest
     ports:
-      - '1025:1025'
-      - '8025:8025'
+      - '127.0.0.1:1026:1025'
+      - '127.0.0.1:8026:8025'
     networks:
       - app-network
 
 volumes:
-  mongo-data:
+  payments-mongo-data:
+    # Re-group the services without moving, replacing, or deleting database data.
+    external: true
+    name: drug-test-mi-payments_payments-mongo-data
   payload-public:
 
 networks:

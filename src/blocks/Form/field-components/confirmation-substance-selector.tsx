@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Field,
@@ -11,6 +12,7 @@ import {
   FieldLegend,
   FieldSet,
 } from '@/components/ui/field'
+import { cn } from '@/utilities/cn'
 import { formatSubstance } from '@/lib/substances'
 
 interface ConfirmationSubstanceSelectorProps {
@@ -18,7 +20,9 @@ interface ConfirmationSubstanceSelectorProps {
   selectedSubstances: string[]
   onSelectionChange: (substances: string[]) => void
   error?: string
+  compact?: boolean
   invalid?: boolean
+  disabled?: boolean
 }
 
 export function ConfirmationSubstanceSelector({
@@ -27,7 +31,10 @@ export function ConfirmationSubstanceSelector({
   onSelectionChange,
   error,
   invalid = false,
+  compact = false,
+  disabled = false,
 }: ConfirmationSubstanceSelectorProps) {
+  const id = React.useId()
   const toggleSubstance = (substance: string) => {
     if (selectedSubstances.includes(substance)) {
       onSelectionChange(selectedSubstances.filter((s) => s !== substance))
@@ -45,39 +52,47 @@ export function ConfirmationSubstanceSelector({
   }
 
   return (
-    <FieldSet data-invalid={invalid} className="border-muted bg-card space-y-3 rounded-md border p-4">
-      <div className="flex items-center justify-between">
-        <FieldLegend variant="label">Select Substances for Confirmation</FieldLegend>
-        <div className="flex gap-2">
-          <button type="button" onClick={selectAll} className="text-primary text-xs hover:underline">
-            Select All
-          </button>
-          <span className="text-muted-foreground text-xs">|</span>
-          <button type="button" onClick={selectNone} className="text-primary text-xs hover:underline">
-            Clear
-          </button>
-        </div>
-      </div>
+    <FieldSet
+      disabled={disabled}
+      data-invalid={invalid}
+      className={cn('gap-3', !compact && 'border-muted bg-card rounded-md border p-4')}
+    >
+      <FieldLegend variant="label" className="mb-0 flex items-center justify-between gap-3">
+        <span>{compact ? 'Confirm substances' : 'Select Substances for Confirmation'}</span>
+        {(!compact || unexpectedPositives.length > 1) && (
+          <div className="flex gap-2">
+            <Button type="button" variant="link" size="sm" onClick={selectAll} disabled={disabled}>
+              Select All
+            </Button>
+            <Button type="button" variant="link" size="sm" onClick={selectNone} disabled={disabled}>
+              Clear
+            </Button>
+          </div>
+        )}
+      </FieldLegend>
 
-      <FieldGroup className="grid grid-cols-2 gap-2">
+      <FieldGroup className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {unexpectedPositives.map((substance, index) => (
           <Field key={substance} orientation="horizontal">
             <Checkbox
-              id={`confirm-${substance}`}
+              id={`${id}-confirm-${substance}`}
+              disabled={disabled}
               checked={selectedSubstances.includes(substance)}
               onCheckedChange={() => toggleSubstance(substance)}
               aria-invalid={index === 0 ? invalid : undefined}
             />
-            <FieldLabel htmlFor={`confirm-${substance}`} className="cursor-pointer text-sm font-normal">
+            <FieldLabel htmlFor={`${id}-confirm-${substance}`} className="cursor-pointer text-sm font-normal">
               {formatSubstance(substance)}
             </FieldLabel>
           </Field>
         ))}
       </FieldGroup>
 
-      <FieldDescription className="text-xs">
-        Selected: {selectedSubstances.length} of {unexpectedPositives.length} substances
-      </FieldDescription>
+      {!compact && (
+        <FieldDescription className="text-xs">
+          Selected: {selectedSubstances.length} of {unexpectedPositives.length} substances
+        </FieldDescription>
+      )}
 
       <FieldError>{error}</FieldError>
     </FieldSet>

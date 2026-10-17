@@ -21,8 +21,13 @@ const getDefaultValues = (): FormValues => ({
   labScreenData: {
     testType: '11-panel-lab' as const,
     collectionDate: new Date().toISOString(),
+    screeningResultDate: new Date().toISOString(),
     detectedSubstances: [],
     isDilute: false,
+    reportHasConfirmation: false,
+    requiredConfirmationSubstances: [],
+    confirmationResults: [],
+    reviewSourceKey: null,
     confirmationDecisionRequired: false,
     confirmationDecision: undefined,
     confirmationSubstances: [],

@@ -1,364 +1,56 @@
-import { describe, test, expect } from 'vitest'
+import { describe, expect, test } from 'vitest'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import { extract15PanelInstant, extractInstantDonorName } from '../extract15PanelInstant'
-import fs from 'fs/promises'
-import path from 'path'
-import { format } from 'date-fns'
-import { TZDate } from '@date-fns/tz'
-import { APP_TIMEZONE } from '@/lib/date-utils'
 
-// Fixture paths - can be overridden via environment variables for local testing
-const FIXTURES_DIR = path.join(__dirname, 'fixtures')
-const LOCAL_INSTANT_SCREEN_PDF = process.env.INSTANT_SCREEN_PDF
-const LOCAL_INSTANT_MULTI_POSITIVE_PDF = process.env.INSTANT_MULTI_POSITIVE_PDF
-
-// Helper to check if fixture exists and get the buffer
-async function getTestPdf(
-  fixturePath: string,
-  localPath?: string,
-): Promise<{ buffer: Buffer; skipped: false } | { buffer: null; skipped: true }> {
-  // Try fixture first
-  try {
-    const buffer = await fs.readFile(path.join(FIXTURES_DIR, fixturePath))
-    return { buffer, skipped: false }
-  } catch {
-    // Fixture not found, try local path if provided
-  }
-
-  if (localPath) {
-    try {
-      const buffer = await fs.readFile(localPath)
-      return { buffer, skipped: false }
-    } catch {
-      // Local path also not found
-    }
-  }
-
-  return { buffer: null, skipped: true }
-}
-
-function assertCollectionDateString(dateString: string): Date {
-  expect(dateString).toMatch(/^\d{4}-\d{2}-\d{2}T.+(?:Z|[+-]\d{2}:\d{2})$/)
-  const date = new Date(dateString)
-  expect(Number.isNaN(date.getTime())).toBe(false)
-  return date
-}
-
-describe('extract15PanelInstant', () => {
+describe('instant extraction from required PDFs', () => {
   test.each([
-    ['ASCII hyphen', '-'],
-    ['Unicode hyphen', '\u2010'],
-    ['non-breaking hyphen', '\u2011'],
-    ['en dash', '\u2013'],
-    ['minus sign', '\u2212'],
-    ['soft hyphen', '\u00AD'],
-    ['spaced hyphen', ' - '],
-    ['wrapped hyphen', '-\n'],
-  ])('preserves a Cole-Hess donor last name with a %s', (_description, separator) => {
-    const text = `Phone: (248)555-1212\nJordan Q Cole${separator}Hess\niCup Urine`
-
-    expect(extractInstantDonorName(text)).toBe('Jordan Q Cole-Hess')
-  })
-
-  test('extracts all-negative 17-panel instant results', async () => {
-    const pdf = await getTestPdf('17-panel-instant/all-neg.pdf')
-
-    if (pdf.skipped) {
-      console.log('Skipping: 17-panel-instant all-negative fixture not found')
-      return
-    }
-
-    const result = await extract15PanelInstant(pdf.buffer)
-
-    expect(result.testType).toBe('17-panel-instant')
-    expect(result.donorName).toBe('Michael J Cebulski')
-    expect(result.detectedSubstances).toEqual([])
-    expect(result.resultRowCount).toBe(17)
-    expect(result.resultsComplete).toBe(true)
-    expect(result.confidence).toBe('high')
-    expect(result.parseWarnings).toEqual([])
-    expect(result.extractedFields).toContain('testType')
-  })
-
-  test('extracts kratom and morphine positives from 17-panel instant results', async () => {
-    const pdf = await getTestPdf('17-panel-instant/pos-kratom-morphine.pdf')
-
-    if (pdf.skipped) {
-      console.log('Skipping: 17-panel-instant positive fixture not found')
-      return
-    }
-
-    const result = await extract15PanelInstant(pdf.buffer)
-
-    expect(result.testType).toBe('17-panel-instant')
-    expect(result.donorName).toBe('Bob F Testing')
-    expect(result.detectedSubstances).toEqual(expect.arrayContaining(['kratom', 'morphine']))
+    ['17-panel-instant/all-neg.pdf', '17-panel-instant', 'Michael J Cebulski', 17, []],
+    ['17-panel-instant/pos-kratom-morphine.pdf', '17-panel-instant', 'Bob F Testing', 17, ['kratom', 'morphine']],
+    ['15-panel-instant/screening.pdf', '15-panel-instant', 'Sample Q Donor', 15, ['buprenorphine']],
+    ['17-panel-instant/multi-positive.pdf', '17-panel-instant', 'Sample Q Donor', 17, ['etg', 'thc']],
+  ])('extracts all rows and positives from %s', async (file, testType, donorName, resultRowCount, positives) => {
+    const result = await extract15PanelInstant(await readFile(path.join(__dirname, 'fixtures', file)))
+    expect(result).toMatchObject({
+      testType,
+      donorName,
+      resultRowCount,
+      resultsComplete: true,
+      confidence: 'high',
+      parseWarnings: [],
+    })
+    expect(result.detectedSubstances.toSorted()).toEqual(positives.toSorted())
     expect(result.detectedSubstances).not.toContain('opiates')
-    expect(result.detectedSubstances).not.toContain('6-mam')
-    expect(result.resultRowCount).toBe(17)
-    expect(result.resultsComplete).toBe(true)
+    expect(result.extractedFields).toEqual(
+      expect.arrayContaining(['donorName', 'collectionDate', 'detectedSubstances', 'testType']),
+    )
   })
-
-  test('extracts THC and EtG together from a local multi-positive production example', async () => {
-    const pdf = await getTestPdf('17-panel-instant/multi-positive.local.pdf', LOCAL_INSTANT_MULTI_POSITIVE_PDF)
-
-    if (pdf.skipped) {
-      console.log('Skipping: local instant THC/EtG multi-positive fixture not configured')
-      return
-    }
-
-    const result = await extract15PanelInstant(pdf.buffer)
-
-    expect(result.detectedSubstances).toEqual(expect.arrayContaining(['thc', 'etg']))
-    expect(result.resultsComplete).toBe(true)
-    expect(result.confidence).toBe('high')
+  test('anchors identity and collection time to their labels', async () => {
+    const result = await extract15PanelInstant(
+      await readFile(path.join(__dirname, 'fixtures/15-panel-instant/screening.pdf')),
+    )
+    expect(result).toMatchObject({
+      donorName: 'Sample Q Donor',
+      dob: '01/15/1990',
+      gender: 'M',
+      isDilute: false,
+    })
+    expect(new Date(result.collectionDate!).toISOString()).toBe('2025-11-20T23:27:00.000Z')
   })
-
-  test('should extract screening results from instant test PDF', async () => {
-    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
-
-    if (pdf.skipped) {
-      console.log('Skipping: 15-panel-instant screening fixture not found')
-      return
-    }
-
-    const result = await extract15PanelInstant(pdf.buffer)
-
-    // Verify basic extraction
-    expect(result.donorName).toBeTruthy()
-
-    expect(typeof result.collectionDate).toBe('string')
-
-    if (!result.collectionDate) {
-      throw new Error('Expected collectionDate to be present')
-    }
-    const date = assertCollectionDateString(result.collectionDate)
-    expect(date instanceof Date).toBe(true)
-
-    // This PDF shows "Presumptive Positive" for Buprenorphine
-    expect(result.detectedSubstances).toContain('buprenorphine')
-
-    // Should have high confidence if both name and date extracted
-    if (result.donorName && result.collectionDate) {
-      expect(result.confidence).toBe('high')
-    }
-
-    // Verify extracted fields tracking
-    expect(result.extractedFields).toContain('donorName')
-    expect(result.extractedFields).toContain('collectionDate')
-    expect(result.extractedFields).toContain('detectedSubstances')
+  test('rejects an invalid report', async () => {
+    await expect(extract15PanelInstant(Buffer.from('Not a valid PDF'))).rejects.toThrow(
+      'Failed to extract 15-panel instant test data',
+    )
   })
+})
 
-  test('should extract donor name correctly', async () => {
-    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
-
-    if (pdf.skipped) {
-      console.log('Skipping: 15-panel-instant screening fixture not found')
-      return
-    }
-
-    const result = await extract15PanelInstant(pdf.buffer)
-
-    // PDF shows: Dennis D Erfourth
-    expect(result.donorName).toBe('Dennis D Erfourth')
-    expect(result.extractedFields).toContain('donorName')
-  })
-
-  test('should extract collection date correctly', async () => {
-    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
-
-    if (pdf.skipped) {
-      console.log('Skipping: 15-panel-instant screening fixture not found')
-      return
-    }
-
-    const result = await extract15PanelInstant(pdf.buffer)
-
-    // PDF shows: Collected: 06:27 PM  11/20/2025
-    // collectionDate is now an ISO string
-    expect(typeof result.collectionDate).toBe('string')
-    expect(result.collectionDate).not.toBeNull()
-
-    if (result.collectionDate) {
-      // collectionDate is now an ISO string, convert to Date for testing
-      const parsedDate = assertCollectionDateString(result.collectionDate)
-      const collectionDateInAppTimezone = TZDate.tz(APP_TIMEZONE, parsedDate)
-
-      // Verify it's a valid date
-      expect(parsedDate.getTime()).toBeGreaterThan(0)
-      // Verify it's in the expected range (2025)
-      expect(parsedDate.getFullYear()).toBeGreaterThanOrEqual(2024)
-
-      // Verify specific date and time
-      expect(format(collectionDateInAppTimezone, 'MM/dd/yyyy')).toBe('11/20/2025')
-      expect(format(collectionDateInAppTimezone, 'h:mm a')).toBe('6:27 PM')
-    }
-  })
-
-  test('should detect Presumptive Positive results', async () => {
-    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
-
-    if (pdf.skipped) {
-      console.log('Skipping: 15-panel-instant screening fixture not found')
-      return
-    }
-
-    const result = await extract15PanelInstant(pdf.buffer)
-
-    // This PDF shows Buprenorphine as "Presumptive Positive"
-    expect(result.detectedSubstances).toContain('buprenorphine')
-    expect(result.detectedSubstances.length).toBe(1) // Only Buprenorphine should be positive
-  })
-
-  test('should not detect false positives from Negative results', async () => {
-    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
-
-    if (pdf.skipped) {
-      console.log('Skipping: 15-panel-instant screening fixture not found')
-      return
-    }
-
-    const result = await extract15PanelInstant(pdf.buffer)
-
-    // These substances are marked as Negative in the PDF
-    const negativeSubstances = [
-      '6-mam',
-      'amphetamines',
-      'benzodiazepines',
-      'cocaine',
-      'etg',
-      'fentanyl',
-      'mdma',
-      'methadone',
-      'methamphetamines',
-      'opiates',
-      'oxycodone',
-      'synthetic_cannabinoids',
-      'thc',
-      'tramadol',
-    ]
-
-    for (const substance of negativeSubstances) {
-      expect(result.detectedSubstances).not.toContain(substance)
-    }
-  })
-
-  test('should detect dilute samples', async () => {
-    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
-
-    if (pdf.skipped) {
-      console.log('Skipping: 15-panel-instant screening fixture not found')
-      return
-    }
-
-    const result = await extract15PanelInstant(pdf.buffer)
-
-    // This specific PDF is not dilute, but test the boolean type
-    expect(typeof result.isDilute).toBe('boolean')
-
-    if (result.isDilute) {
-      expect(result.extractedFields).toContain('isDilute')
-    }
-  })
-
-  test('should set confidence score based on extracted fields', async () => {
-    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
-
-    if (pdf.skipped) {
-      console.log('Skipping: 15-panel-instant screening fixture not found')
-      return
-    }
-
-    const result = await extract15PanelInstant(pdf.buffer)
-
-    // Confidence should be:
-    // - 'high' if both donorName AND collectionDate extracted
-    // - 'medium' if either donorName OR collectionDate extracted
-    // - 'low' if neither extracted
-
-    if (result.donorName && result.collectionDate) {
-      expect(result.confidence).toBe('high')
-    } else if (result.donorName || result.collectionDate) {
-      expect(result.confidence).toBe('medium')
-    } else {
-      expect(result.confidence).toBe('low')
-    }
-  })
-
-  test('should include raw text in results', async () => {
-    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
-
-    if (pdf.skipped) {
-      console.log('Skipping: 15-panel-instant screening fixture not found')
-      return
-    }
-
-    const result = await extract15PanelInstant(pdf.buffer)
-
-    // Verify raw text is present
-    expect(result.rawText).toBeTruthy()
-    expect(result.rawText.length).toBeGreaterThan(0)
-
-    // Verify it contains expected content
-    expect(result.rawText).toContain('Dennis')
-    expect(result.rawText).toContain('Buprenorphine')
-    expect(result.rawText).toContain('Presumptive Positive')
-  })
-
-  test('should handle substance name variations', async () => {
-    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
-
-    if (pdf.skipped) {
-      console.log('Skipping: 15-panel-instant screening fixture not found')
-      return
-    }
-
-    const result = await extract15PanelInstant(pdf.buffer)
-
-    // Verify substance mapping works for various formats
-    // The PDF uses "Methylenedioxymethamphetamine (MDMA) Ecstasy"
-    // Our mapping should handle both "MDMA" and "Methylenedioxymethamphetamine"
-    expect(result.detectedSubstances).not.toContain('mdma') // Should be negative in this PDF
-
-    // Verify 6-MAM mapping
-    expect(result.detectedSubstances).not.toContain('6-mam') // Should be negative in this PDF
-  })
-
-  test('should return valid structure even with parsing errors', async () => {
-    // Create a minimal buffer that will fail to parse properly
-    const emptyBuffer = Buffer.from('Not a valid PDF')
-
-    try {
-      await extract15PanelInstant(emptyBuffer)
-      // Should throw an error
-      expect(true).toBe(false)
-    } catch (error: unknown) {
-      // Should throw with helpful error message
-      expect(error).toBeInstanceOf(Error)
-      if (!(error instanceof Error)) throw error
-      expect(error.message).toContain('Failed to extract 15-panel instant test data')
-    }
-  })
-
-  test('should track all extracted fields correctly', async () => {
-    const pdf = await getTestPdf('15-panel-instant/screening.pdf', LOCAL_INSTANT_SCREEN_PDF)
-
-    if (pdf.skipped) {
-      console.log('Skipping: 15-panel-instant screening fixture not found')
-      return
-    }
-
-    const result = await extract15PanelInstant(pdf.buffer)
-
-    // extractedFields should contain an entry for each successfully extracted field
-    expect(Array.isArray(result.extractedFields)).toBe(true)
-
-    // For this PDF, we expect at least donor name, date, and substances
-    expect(result.extractedFields.length).toBeGreaterThan(0)
-
-    // All values should be valid field names
-    const validFields = ['donorName', 'collectionDate', 'detectedSubstances', 'isDilute', 'dob', 'gender', 'testType']
-    for (const field of result.extractedFields) {
-      expect(validFields).toContain(field)
-    }
-  })
+describe('donor surname normalization', () => {
+  test.each(['-', '\u2010', '\u2011', '\u2013', '\u2212', '\u00AD', ' - ', '-\n'])(
+    'preserves Cole-Hess with separator %j',
+    (separator) => {
+      expect(extractInstantDonorName(`Phone: (248)555-1212\nJordan Q Cole${separator}Hess\niCup Urine`)).toBe(
+        'Jordan Q Cole-Hess',
+      )
+    },
+  )
 })

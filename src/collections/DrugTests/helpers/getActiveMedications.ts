@@ -14,10 +14,7 @@ export type MedicationSnapshot = NonNullable<DrugTest['medicationsArrayAtTestTim
  * @param payload - Payload instance
  * @returns Array of active medications with their detected substances
  */
-export async function getActiveMedications(
-  clientId: string,
-  payload: Payload,
-): Promise<MedicationSnapshot[]> {
+export async function getActiveMedications(clientId: string, payload: Payload): Promise<MedicationSnapshot[]> {
   try {
     const client = await payload.findByID({
       collection: 'clients',
@@ -31,15 +28,16 @@ export async function getActiveMedications(
     }
 
     const activeMeds = client.medications
-      .filter((med: any) => med.status === 'active')
-      .map((med: any) => ({
+      .filter((med) => med.status === 'active')
+      .map((med) => ({
         medicationName: med.medicationName,
         detectedAs: med.detectedAs || [],
+        required: med.requireConfirmation ?? false,
       }))
 
     return activeMeds
   } catch (error) {
-    console.error('Error fetching client medications:', error)
-    return []
+    payload.logger.error({ err: error, msg: 'Unable to capture medications at collection.' })
+    throw new Error('Medications could not be loaded. Refresh before recording the collection.')
   }
 }

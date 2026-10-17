@@ -16,8 +16,8 @@ type ConfirmationResult = {
  * Confirmation is considered complete when:
  * 1. Confirmation was requested
  * 2. Both confirmationResults and confirmationSubstances arrays exist and have items
- * 3. The number of results matches the number of substances requested
- * 4. Every result has both a substance and a result value
+ * 3. Every requested substance has exactly one recognized result
+ * 4. No unrelated or duplicate result can stand in for a missing substance
  *
  * @param confirmationDecision - Whether confirmation was requested ('request-confirmation' or 'accept')
  * @param confirmationSubstances - Array of substances that were sent for confirmation
@@ -53,5 +53,12 @@ export function isConfirmationComplete(
 
   if (results.length !== substances.length) return false
 
-  return results.every((result) => result.result && result.substance)
+  const requested = new Set(substances)
+  const received = new Set(results.map((result) => result.substance))
+  if (requested.size !== substances.length || received.size !== results.length) return false
+  return results.every(
+    (result) =>
+      requested.has(result.substance) &&
+      ['confirmed-positive', 'confirmed-negative', 'inconclusive'].includes(result.result),
+  )
 }
