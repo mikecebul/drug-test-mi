@@ -59,7 +59,7 @@ function mapInstantSubstance(label: string): SubstanceValue | null {
   )
 }
 
-function extractInstantScreenRows(lines: PositionedTextLine[]) {
+function extractInstantScreenRows(lines: PositionedTextLine[], testType: Extracted15PanelData['testType']) {
   const rows = new Map<SubstanceValue, 'negative' | 'positive'>()
 
   for (const line of lines) {
@@ -79,7 +79,11 @@ function extractInstantScreenRows(lines: PositionedTextLine[]) {
     )
     if (!substance) continue
 
-    rows.set(substance, /positive/i.test(line.items[resultIndex].text) ? 'positive' : 'negative')
+    // The revised 17-panel cup calls its MOP/OPI300 assay 'Opiates'. Keep
+    // the existing Morphine key for this same assay and its medication matching.
+    // 15-panel Opiates results retain their original category.
+    const canonicalSubstance = testType === '17-panel-instant' && substance === 'opiates' ? 'morphine' : substance
+    rows.set(canonicalSubstance, /positive/i.test(line.items[resultIndex].text) ? 'positive' : 'negative')
   }
 
   return rows
@@ -168,7 +172,7 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
 
     // Initialize result object
     const result: Extracted15PanelData = {
-      testType: /17\s+Panel\s+Slim\s+Cup/i.test(text) ? '17-panel-instant' : '15-panel-instant',
+      testType: /\b(?:17\s+Panel\s+Slim\s+Cup|17\s+Drug\s+Panel\s*:)/i.test(text) ? '17-panel-instant' : '15-panel-instant',
       donorName: null,
       collectionDate: null,
       dob: null,
@@ -285,7 +289,7 @@ export async function extract15PanelInstant(buffer: Buffer): Promise<Extracted15
       result.extractedFields.push('isDilute')
     }
 
-    const screenRows = extractInstantScreenRows(document.lines)
+    const screenRows = extractInstantScreenRows(document.lines, result.testType)
     result.resultRowCount = screenRows.size
     const expectedRowCount = result.testType === '17-panel-instant' ? 17 : 15
     result.resultsComplete = result.resultRowCount >= expectedRowCount

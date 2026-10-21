@@ -15,6 +15,18 @@ Flattened PDF text does not preserve table relationships. On Redwood reports, a 
 
 Requiring a complete same-row structure prevents footer definitions such as “LC-MS/MS - Liquid Chromatography Tandem Mass Spectrometry” from being treated as test results.
 
+## Instant 17-panel report versions
+
+Both the original `FFUO - 17 Panel Slim Cup` and revised `17 Drug Panel:` reports use the existing `17-panel-instant` test type. Keep support for both while the remaining original cups are used.
+
+The revised report lowers Barbiturates and Benzodiazepines cutoffs from 300 to 200 ng/mL and Buprenorphine from 10 to 5 ng/mL. Instant parsing uses the printed CIA result, not a hardcoded cutoff. `Methamphetamine 500` continues to map to `methamphetamines`.
+
+The revised report labels the same MOP/OPI300 assay `Opiates` instead of `Morphine`. For 17-panel instant reports only, both labels map to the existing `morphine` key so medication expectations, manual review, confirmation requests and historical results remain compatible. The 15-panel `opiates` mapping is unchanged.
+
+`SVT:OX,CR,pH,NI,SG` lists validity checks; their presence alone does not report a result or establish dilution. These names are not drug results and do not count toward the 17 screening rows.
+
+Required in-memory PDF regressions cover the revised two-page layout, wrapped panel description, lower cutoffs, renamed positive assays, all-negative/all-positive results and a missing row. They use fictional identity data. The source client report remains outside the repository.
+
 ## Confirmation aggregation
 
 A requested substance can produce several LC-MS/MS analyte rows. Fentanyl, for example, may have rows for fentanyl, norfentanyl, and analogs. Rows are mapped to the parent substance and aggregated using this precedence:
