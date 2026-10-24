@@ -26,9 +26,12 @@ services:
   worker-redwood:
     image: mikecebul/drug-test-mi:latest-worker
     pull_policy: always
-    restart: always
+    restart: unless-stopped
     # Preserve one host CPU for the web app if a worker or database query regresses.
     cpus: 1.0
+    # Cap memory so a runaway worker cannot freeze the host; Docker OOM-kills
+    # and restart: unless-stopped brings it back up automatically.
+    mem_limit: 400m
     env_file:
       - .env
     environment:
