@@ -197,9 +197,11 @@ Sentry plugin is configured in Payload and can be enabled/configured via environ
 
 ### Prerequisites
 
-- Node.js and pnpm versions compatible with `package.json` engines:
-  - Node: `^20.19.0 || ^22.13.0 || >=24.0.0`
-  - pnpm: `^9 || ^10`
+- Node.js 24.22.1 or a newer Node 24 release (`^24.22.1` in `package.json`):
+  - Run `nvm install && nvm use` to use the version pinned in `.nvmrc`, also used by CI.
+  - Docker uses `node:24.22.1-alpine` for both the web app and Redwood worker.
+  - This minimum includes the October 2026 security fixes, including [CVE-2026-111497](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases).
+- pnpm 11.4.0 (pinned in `package.json` `packageManager`)
 - Docker + Docker Compose (recommended for local MongoDB)
 - Optional: Mailpit (for local email inbox inspection and e2e email assertions)
 
