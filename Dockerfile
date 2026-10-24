@@ -1,4 +1,4 @@
-FROM node:24.15.0-alpine AS base
+FROM node:24.22.1-alpine AS base
 
 ENV PNPM_VERSION=11.4.0
 
