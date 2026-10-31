@@ -8,6 +8,7 @@ import { FormMedications } from '../../shared-validators'
 import { MedicationSnapshot } from '@/collections/DrugTests/helpers/getActiveMedications'
 import { createAdminAlert } from '@/lib/admin-alerts'
 import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
+import { sendCompletedTestReceipt } from '@/collections/Payments/services/completedTestReceipt'
 
 export async function createInstantTest(
   testData: {
@@ -114,6 +115,7 @@ export async function createInstantTest(
         overrideAccess: true,
       })
       revalidateBookingViews()
+      await sendCompletedTestReceipt(payload, testData.bookingId)
     }
 
     return result

@@ -13,6 +13,7 @@ import { revalidateBookingViews } from '@/utilities/revalidateBookingViews'
 import { applyAvailableClientCredit } from '@/collections/Payments/services/applyPayment'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
 import { isClientBilledToReferral } from '@/lib/referral-invoices/payer'
+import { sendCompletedTestReceipt } from '@/collections/Payments/services/completedTestReceipt'
 
 // Extract medication type from Client payload type
 type MedicationInput = NonNullable<Client['medications']>[number] & {
@@ -147,6 +148,7 @@ export async function createCollectionWithEmailReview(
         overrideAccess: true,
       })
       revalidateBookingViews()
+      await sendCompletedTestReceipt(payload, testData.bookingId)
     }
 
     // 4. Fetch client for email generation
