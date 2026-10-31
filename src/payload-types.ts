@@ -1209,6 +1209,8 @@ export interface Booking {
     workflowOperationId?: string | null;
     workflowOperationType?: ('record-payment' | 'undo-payment') | null;
   };
+  receiptEmailClaimedAt?: string | null;
+  unpaidReceiptRequested?: boolean | null;
   /**
    * Tracks whether the scheduled specimen collection was completed in a workflow.
    */
@@ -3564,6 +3566,8 @@ export interface BookingsSelect<T extends boolean = true> {
         workflowOperationId?: T;
         workflowOperationType?: T;
       };
+  receiptEmailClaimedAt?: T;
+  unpaidReceiptRequested?: T;
   sampleCollection?:
     | T
     | {

@@ -26,6 +26,7 @@ import {
 } from '@/collections/Payments/services/applyPayment'
 import { reversePostedPayments } from '@/collections/Payments/services/reversePayments'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
+import { hasPreviousBookingReceipt } from '@/collections/Payments/services/bookingReceipt'
 import {
   cancelGuidedTerminalPayment,
   getGuidedTerminalPaymentStatus,
@@ -1597,6 +1598,7 @@ export async function recordBookingPayment(
         collection: 'bookings',
         id: input.bookingId,
         data: {
+          unpaidReceiptRequested: Boolean(input.sendReceipt && receiptEmail && nextAmountPaid === 0),
           payment: {
             amountDue,
             amountPaid: nextAmountPaid,
@@ -1674,10 +1676,12 @@ export async function recordBookingPayment(
     if (result.receipt) {
       try {
         const delivery = await sendClientPaymentReceipt({
+          bookingId: input.bookingId,
           data: result.receipt.data,
           payload,
           receiptEmail: result.receipt.receiptEmail,
         })
+        if (!delivery) return { success: true, payment: result.payment, receipt: null }
         const sentAt = new Date().toISOString()
 
         try {
@@ -1802,7 +1806,10 @@ export async function startBookingTerminalPayment(
     creditAmount: creditApplied,
     operationId: input.operationId.trim(),
     payload,
-    receiptEmail,
+    receiptEmail:
+      booking.receiptEmailClaimedAt || (await hasPreviousBookingReceipt(payload, input.bookingId))
+        ? null
+        : receiptEmail,
   })
 }
 

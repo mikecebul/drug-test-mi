@@ -1,17 +1,11 @@
 import type { Payload } from 'payload'
 
-import {
-  buildPaymentReceiptEmail,
-  type PaymentReceiptEmailProps,
-  type PaymentReceiptType,
-} from '@/emails/payments'
+import { buildPaymentReceiptEmail, type PaymentReceiptEmailProps, type PaymentReceiptType } from '@/emails/payments'
 import { APP_TIMEZONE } from '@/lib/date-utils'
 import { prefixNonLiveEmailSubject, resolveOutboundNotificationRecipients } from '@/lib/email-safety'
+import { claimBookingReceipt } from './bookingReceipt'
 
-export function resolveClientReceiptEmail(input: {
-  disableClientEmails?: boolean | null
-  email?: string | null
-}) {
+export function resolveClientReceiptEmail(input: { disableClientEmails?: boolean | null; email?: string | null }) {
   if (input.disableClientEmails) return null
   return input.email?.trim() || null
 }
@@ -19,7 +13,7 @@ export function resolveClientReceiptEmail(input: {
 export function classifyPaymentReceipt(input: {
   creditAdded: number
   remainingBalance: number
-}): PaymentReceiptType {
+}): Exclude<PaymentReceiptType, 'unpaid'> {
   if (input.creditAdded > 0) return 'credit-added'
   if (input.remainingBalance > 0) return 'partial'
   return 'paid-in-full'
@@ -37,6 +31,7 @@ function formatPaymentDate(value: string) {
 }
 
 export async function sendClientPaymentReceipt(input: {
+  bookingId?: string
   data: Omit<PaymentReceiptEmailProps, 'paymentDate'> & { collectedAt: string }
   payload: Payload
   receiptEmail: string
@@ -47,6 +42,10 @@ export async function sendClientPaymentReceipt(input: {
     paymentDate: formatPaymentDate(collectedAt),
   })
   const notificationRecipients = resolveOutboundNotificationRecipients([input.receiptEmail])
+
+  // Persist before contacting the mail provider. A failed/ambiguous delivery
+  // must not cause navigation or retries to send a second receipt.
+  if (input.bookingId && !(await claimBookingReceipt(input.payload, input.bookingId))) return null
 
   await input.payload.sendEmail({
     to: notificationRecipients.recipients,

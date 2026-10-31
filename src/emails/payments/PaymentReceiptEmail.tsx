@@ -1,7 +1,7 @@
 import { Body, Container, Head, Heading, Hr, Html, Preview, Section, Text } from '@react-email/components'
 import * as React from 'react'
 
-export type PaymentReceiptType = 'credit-added' | 'paid-in-full' | 'partial'
+export type PaymentReceiptType = 'credit-added' | 'paid-in-full' | 'partial' | 'unpaid'
 
 export type PaymentReceiptEmailProps = {
   appliedToPreviousBalances: number
@@ -34,12 +34,16 @@ function Detail({ label, value }: { label: string; value: string }) {
 }
 
 function getReceiptHeading(receiptType: PaymentReceiptType) {
+  if (receiptType === 'unpaid') return 'No payment received'
   if (receiptType === 'partial') return 'Partial payment received'
   if (receiptType === 'credit-added') return 'Payment received and credit added'
   return 'Payment received in full'
 }
 
 function getStatusMessage(props: PaymentReceiptEmailProps) {
+  if (props.receiptType === 'unpaid') {
+    return `${currency.format(props.remainingBalance)} remains due for your test.`
+  }
   if (props.receiptType === 'partial') {
     return `${currency.format(props.remainingBalance)} remains due on your account.`
   }
@@ -70,7 +74,11 @@ export function PaymentReceiptEmail(props: PaymentReceiptEmailProps) {
             <Text style={eyebrow}>PAYMENT RECEIPT</Text>
             <Heading style={headingStyle}>{heading}</Heading>
             <Text style={intro}>Hello {props.clientName},</Text>
-            <Text style={intro}>Thank you. This email confirms the payment recorded on your account.</Text>
+            <Text style={intro}>
+              {props.receiptType === 'unpaid'
+                ? 'Your test visit is complete. No payment was received for this test.'
+                : 'Thank you. This email confirms the payment recorded on your account.'}
+            </Text>
 
             <Section style={statusCard}>
               <Text style={statusAmount}>{currency.format(totalTendered)}</Text>
@@ -91,10 +99,7 @@ export function PaymentReceiptEmail(props: PaymentReceiptEmailProps) {
                 <Detail label="Client credit applied" value={currency.format(props.clientCreditApplied)} />
               ) : null}
               {props.appliedToPreviousBalances > 0 ? (
-                <Detail
-                  label="Applied to previous balances"
-                  value={currency.format(props.appliedToPreviousBalances)}
-                />
+                <Detail label="Applied to previous balances" value={currency.format(props.appliedToPreviousBalances)} />
               ) : null}
               <Detail label="Applied to today's test" value={currency.format(props.appliedToToday)} />
               <Detail label="Total applied" value={currency.format(totalApplied)} />

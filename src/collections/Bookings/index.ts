@@ -212,6 +212,18 @@ export const Bookings: CollectionConfig = {
       ],
     },
     {
+      name: 'receiptEmailClaimedAt',
+      type: 'date',
+      access: { create: () => false, update: () => false },
+      admin: { hidden: true },
+    },
+    {
+      name: 'unpaidReceiptRequested',
+      type: 'checkbox',
+      access: { create: () => false, update: () => false },
+      admin: { hidden: true },
+    },
+    {
       name: 'sampleCollection',
       type: 'group',
       admin: {
