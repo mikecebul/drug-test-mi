@@ -20,6 +20,7 @@ import * as migration_20260723_203006_increase_client_dobs_one_day from './20260
 import * as migration_20260723_205754_restore_client_dobs_after_render_fix from './20260723_205754_restore_client_dobs_after_render_fix'
 import * as migration_20260724_000000_clear_isaac_legacy_redwood_match from './20260724_000000_clear_isaac_legacy_redwood_match'
 import * as migration_20260924_000000_backfill_referral_invoice_test_states from './20260924_000000_backfill_referral_invoice_test_states'
+import * as migration_20261127_000000_backfill_referral_default_test_types from './20261127_000000_backfill_referral_default_test_types'
 
 export const migrations = [
   {
@@ -131,5 +132,10 @@ export const migrations = [
     up: migration_20260924_000000_backfill_referral_invoice_test_states.up,
     down: migration_20260924_000000_backfill_referral_invoice_test_states.down,
     name: '20260924_000000_backfill_referral_invoice_test_states',
+  },
+  {
+    up: migration_20261127_000000_backfill_referral_default_test_types.up,
+    down: migration_20261127_000000_backfill_referral_default_test_types.down,
+    name: '20261127_000000_backfill_referral_default_test_types',
   },
 ]

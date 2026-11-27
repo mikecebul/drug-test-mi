@@ -2,9 +2,9 @@ import type { CollectionConfig } from 'payload'
 import { admins } from '@/access/admins'
 import { anyone } from '@/access/anyone'
 import { superAdmin } from '@/access/superAdmin'
-import { testTypeSelectOptions } from '@/config/test-types'
 import { syncLinkedClientDefaultTestsFromReferral } from '@/collections/Clients/hooks/syncLinkedClientDefaultTestsFromReferral'
 import { referralBillingFields } from '@/fields/referralBilling'
+import { referralPreferredTestTypeField } from '@/fields/referralPreferredTestType'
 
 export const Courts: CollectionConfig = {
   slug: 'courts',
@@ -75,11 +75,7 @@ export const Courts: CollectionConfig = {
         description: 'Recipient contacts. The first row is treated as the main contact for display purposes.',
       },
     },
-    {
-      name: 'preferredTestType',
-      type: 'select',
-      options: testTypeSelectOptions,
-    },
+    referralPreferredTestTypeField,
     {
       name: 'isActive',
       type: 'checkbox',
