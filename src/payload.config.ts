@@ -43,6 +43,7 @@ import { CompanyInfo } from './globals/CompanyInfo/config'
 import { superAdmin } from './access/superAdmin'
 import { restrictMcpApiKeyCollection } from './plugins/mcp/restrictApiKeyCollection'
 import { clientPaymentTools } from './plugins/mcp/clientPaymentTools'
+import { bundledCheckoutLinkEndpoint } from './collections/Payments/services/bundledCheckout/checkoutLink'
 import { syncBundledCheckouts } from './collections/Payments/services/bundledCheckout/settle'
 import { Bookings } from './collections/Bookings'
 import { Media } from './collections/Media'
@@ -422,7 +423,7 @@ export default buildConfig({
             },
           },
         }),
-  endpoints: [],
+  endpoints: [bundledCheckoutLinkEndpoint],
   globals: [Header, Footer, CompanyInfo],
   graphQL: { disable: true },
   jobs: {
