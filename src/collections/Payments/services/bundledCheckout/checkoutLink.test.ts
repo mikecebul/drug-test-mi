@@ -27,7 +27,7 @@ function setup() {
   const shortUrl = getCheckoutEmailLink(payload, paymentId)
   const token = new URL(shortUrl).pathname.split('/').at(-1)!
   const open = (value = token) => bundledCheckoutLinkEndpoint.handler(
-    Object.assign(new Request(shortUrl), { payload, routeParams: { token: value } }) as PayloadRequest,
+    { payload, routeParams: { token: value } } as unknown as PayloadRequest,
   )
   return { payment, findByID, payload, shortUrl, token, open }
 }
