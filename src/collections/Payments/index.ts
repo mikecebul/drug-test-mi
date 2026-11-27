@@ -57,6 +57,45 @@ export const Payments: CollectionConfig = {
       index: true,
     },
     {
+      name: 'activeCheckoutTestIds',
+      type: 'text',
+      hasMany: true,
+      access: { create: () => false, update: () => false },
+      admin: { hidden: true },
+    },
+    {
+      name: 'bundledCheckout',
+      type: 'group',
+      access: { create: () => false, update: () => false },
+      admin: { readOnly: true, condition: (_, siblingData) => Boolean(siblingData?.bundledCheckout?.requestId) },
+      fields: [
+        { name: 'requestId', type: 'text', unique: true },
+        { name: 'requestedBy', type: 'relationship', relationTo: 'admins' },
+        { name: 'recipientEmail', type: 'email' },
+        { name: 'resendEmailId', type: 'text' },
+        { name: 'unappliedAmount', type: 'number', min: 0 },
+        {
+          name: 'charges',
+          type: 'array',
+          fields: [
+            { name: 'drugTest', type: 'relationship', relationTo: 'drug-tests', required: true },
+            {
+              name: 'kind',
+              type: 'select',
+              required: true,
+              options: [
+                { label: 'Screen', value: 'screen' },
+                { label: 'Existing Confirmation Fee', value: 'confirmation' },
+                { label: 'New Confirmation Fee', value: 'new-confirmation' },
+              ],
+            },
+            { name: 'label', type: 'text', required: true },
+            { name: 'amountCents', type: 'number', required: true, min: 1 },
+          ],
+        },
+      ],
+    },
+    {
       name: 'amount',
       type: 'number',
       required: true,
@@ -213,7 +252,7 @@ export const Payments: CollectionConfig = {
           type: 'array',
           admin: {
             readOnly: true,
-            description: 'Drug-test balances paid by this record, oldest first.',
+            description: 'Drug-test balances paid by this record.',
           },
           fields: [
             {
@@ -440,10 +479,14 @@ export const Payments: CollectionConfig = {
   ],
   hooks: {
     beforeChange: [
-      ({ data }) => {
+      ({ data, originalDoc }) => {
         const now = new Date().toISOString()
 
-        if (!data.collectedAt) {
+        if (data.status && data.status !== 'pending') {
+          data.activeCheckoutTestIds = []
+        }
+
+        if (!data.collectedAt && !originalDoc?.collectedAt) {
           data.collectedAt = now
         }
 
@@ -459,9 +502,9 @@ export const Payments: CollectionConfig = {
           data.refundedAt = now
         }
 
-        const amount = typeof data.amount === 'number' ? data.amount : 0
-        const method = typeof data.method === 'string' ? data.method : 'unknown'
-        const date = new Date(data.collectedAt).toLocaleDateString('en-US')
+        const amount = data.amount ?? originalDoc?.amount ?? 0
+        const method = data.method ?? originalDoc?.method ?? 'unknown'
+        const date = new Date(data.collectedAt ?? originalDoc?.collectedAt).toLocaleDateString('en-US')
         data.title = `${method.replaceAll('-', ' ')} payment - $${amount.toFixed(2)} - ${date}`
 
         return data

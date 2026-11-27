@@ -201,6 +201,7 @@ export interface Config {
     tasks: {
       'send-monthly-referral-invoices': TaskSendMonthlyReferralInvoices;
       'sync-referral-invoice-payments': TaskSyncReferralInvoicePayments;
+      'sync-bundled-checkouts': TaskSyncBundledCheckouts;
       'redwood-diagnostics-probe': TaskRedwoodDiagnosticsProbe;
       'redwood-import-client': TaskRedwoodImportClient;
       'redwood-update-client': TaskRedwoodUpdateClient;
@@ -2263,6 +2264,23 @@ export interface Payment {
   relatedDrugTest?: (string | null) | DrugTest;
   relatedReferralInvoice?: (string | null) | ReferralInvoice;
   relatedBooking?: (string | null) | Booking;
+  activeCheckoutTestIds?: string[] | null;
+  bundledCheckout?: {
+    requestId?: string | null;
+    requestedBy?: (string | null) | Admin;
+    recipientEmail?: string | null;
+    resendEmailId?: string | null;
+    unappliedAmount?: number | null;
+    charges?:
+      | {
+          drugTest: string | DrugTest;
+          kind: 'screen' | 'confirmation' | 'new-confirmation';
+          label: string;
+          amountCents: number;
+          id?: string | null;
+        }[]
+      | null;
+  };
   /**
    * Total money collected or applied in this payment record.
    */
@@ -2302,7 +2320,7 @@ export interface Payment {
    */
   creditAmount?: number | null;
   /**
-   * Drug-test balances paid by this record, oldest first.
+   * Drug-test balances paid by this record.
    */
   allocations?:
     | {
@@ -2347,25 +2365,6 @@ export interface Payment {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "form-submissions".
- */
-export interface FormSubmission {
-  id: string;
-  form: string | Form;
-  data:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "admins".
  */
 export interface Admin {
@@ -2391,6 +2390,25 @@ export interface Admin {
     | null;
   password?: string | null;
   collection: 'admins';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-submissions".
+ */
+export interface FormSubmission {
+  id: string;
+  form: string | Form;
+  data:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * Business-critical alerts requiring admin attention
@@ -2773,6 +2791,16 @@ export interface PayloadMcpApiKey {
      */
     find?: boolean | null;
   };
+  'payload-mcp-tool'?: {
+    /**
+     * Preview an itemized one-time client payment for explicit test IDs and amounts in cents. Use screen for an outstanding screen, confirmation for an existing fee, or new-confirmation for an explicitly authorized fee on a paid screen. New fees are recorded when Stripe confirms payment. This does not send anything.
+     */
+    previewClientPayment?: boolean | null;
+    /**
+     * Create one Stripe Checkout link for the exact charges in previewClientPayment and email it to the verified account email. Call only when the user has authorized sending that payment request. Use the same request ID when retrying. Use findPayments with the returned paymentId to check posting.
+     */
+    sendClientPayment?: boolean | null;
+  };
   updatedAt: string;
   createdAt: string;
   enableAPIKey?: boolean | null;
@@ -2854,6 +2882,7 @@ export interface PayloadJob {
           | 'inline'
           | 'send-monthly-referral-invoices'
           | 'sync-referral-invoice-payments'
+          | 'sync-bundled-checkouts'
           | 'redwood-diagnostics-probe'
           | 'redwood-import-client'
           | 'redwood-update-client'
@@ -2902,6 +2931,7 @@ export interface PayloadJob {
         | 'inline'
         | 'send-monthly-referral-invoices'
         | 'sync-referral-invoice-payments'
+        | 'sync-bundled-checkouts'
         | 'redwood-diagnostics-probe'
         | 'redwood-import-client'
         | 'redwood-update-client'
@@ -4287,6 +4317,25 @@ export interface PaymentsSelect<T extends boolean = true> {
   relatedDrugTest?: T;
   relatedReferralInvoice?: T;
   relatedBooking?: T;
+  activeCheckoutTestIds?: T;
+  bundledCheckout?:
+    | T
+    | {
+        requestId?: T;
+        requestedBy?: T;
+        recipientEmail?: T;
+        resendEmailId?: T;
+        unappliedAmount?: T;
+        charges?:
+          | T
+          | {
+              drugTest?: T;
+              kind?: T;
+              label?: T;
+              amountCents?: T;
+              id?: T;
+            };
+      };
   amount?: T;
   method?: T;
   source?: T;
@@ -4488,6 +4537,12 @@ export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
     | T
     | {
         find?: T;
+      };
+  'payload-mcp-tool'?:
+    | T
+    | {
+        previewClientPayment?: T;
+        sendClientPayment?: T;
       };
   updatedAt?: T;
   createdAt?: T;
@@ -4841,6 +4896,14 @@ export interface TaskSendMonthlyReferralInvoices {
  * via the `definition` "TaskSync-referral-invoice-payments".
  */
 export interface TaskSyncReferralInvoicePayments {
+  input?: unknown;
+  output?: unknown;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskSync-bundled-checkouts".
+ */
+export interface TaskSyncBundledCheckouts {
   input?: unknown;
   output?: unknown;
 }

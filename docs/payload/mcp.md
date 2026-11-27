@@ -15,8 +15,8 @@ https://<deployment-origin>/api/mcp
 ## Access model
 
 The plugin configuration exposes read-only (`find`) tools for operational collections, selected content
-collections, and public site globals. It does not expose create, update, or delete tools. Admin accounts and
-private media are not exposed.
+collections, and public site globals. Admin accounts and private media are not exposed. A separate tool
+grant allows super admins to send an itemized client payment request.
 
 Every request in every environment requires an MCP API key. Payload applies both the capabilities selected
 on that key and the access rules of the admin associated with the key.
@@ -52,13 +52,31 @@ launchctl setenv PAYLOAD_MCP_API_KEY "$(security find-generic-password -a "$USER
 Fully quit and reopen Codex after setting the variable or changing `.codex/config.toml`. The Keychain item is
 persistent; the `launchctl` environment value may need to be restored after signing out or restarting macOS.
 
-The committed project configuration targets the local development server. To connect Codex to production,
-create a separate production API key in the production Payload admin and add a user-level MCP server entry in
-`~/.codex/config.toml` that points at the deployed `/api/mcp` URL. Reference a separate environment variable,
-such as `PAYLOAD_PRODUCTION_MCP_API_KEY`, rather than placing the production key in the config file.
+The project also includes a `payload_production` entry for the deployed `/api/mcp` endpoint. Use a separate
+production key stored in `PAYLOAD_PRODUCTION_MCP_API_KEY` in the launch environment.
 
 To remove the value from the launch environment:
 
 ```sh
 launchctl unsetenv PAYLOAD_MCP_API_KEY
 ```
+
+## Send an itemized client payment request
+
+Grant `previewClientPayment` and `sendClientPayment` to a specific MCP key associated with a Super Admin.
+Both grants default to off. Include read access to `clients`, `drug-tests`, and `payments` for record lookup
+and payment tracking. Production uses the existing Stripe and Resend credentials and Stripe Checkout
+webhook. MongoDB must support transactions. Run the app migrations before making the tools available.
+
+1. Use `findClients` and `findDrugTests` to match the client, test dates, and charge amounts.
+2. Call `previewClientPayment` with the client ID and exact test IDs, kinds, and amounts in USD cents.
+   `screen` selects an outstanding screen balance. `confirmation` selects a recorded fee on a paid screen.
+   `new-confirmation` records a specifically authorized fee when paid, on a test with a paid screen and
+   no prior confirmation fee. The preview shows the account email and itemized total.
+3. Once the user authorizes sending, call `sendClientPayment` with the same charges, the preview's
+   `recipientEmail` as `expectedEmail`, and a UUID as `requestId`. Reuse that UUID if the call times out or
+   email acceptance is uncertain. The result includes the payment ID and, in production, the Resend email ID.
+4. Use `findPayments` with the payment ID to check its status. A pending request is awaiting Stripe payment.
+   Stripe's paid event posts the payment to the selected tests and updates the client's balance. The hourly
+   worker also reconciles paid or expired sessions. A payment amount that could not be applied generates an
+   admin alert for refund review.

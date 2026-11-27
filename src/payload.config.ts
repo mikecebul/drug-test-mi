@@ -42,6 +42,8 @@ import { Page } from 'src/payload-types'
 import { CompanyInfo } from './globals/CompanyInfo/config'
 import { superAdmin } from './access/superAdmin'
 import { restrictMcpApiKeyCollection } from './plugins/mcp/restrictApiKeyCollection'
+import { clientPaymentTools } from './plugins/mcp/clientPaymentTools'
+import { syncBundledCheckouts } from './collections/Payments/services/bundledCheckout/settle'
 import { Bookings } from './collections/Bookings'
 import { Media } from './collections/Media'
 import { PrivateMedia } from './collections/PrivateMedia'
@@ -448,6 +450,16 @@ export default buildConfig({
           const key = process.env.STRIPE_SECRET_KEY
           if (!key) throw new Error('Stripe is not configured.')
           return { output: await syncSentReferralInvoicePayments(req.payload, new Stripe(key, {})) }
+        },
+      },
+      {
+        slug: 'sync-bundled-checkouts',
+        retries: 1,
+        schedule: process.env.STRIPE_SECRET_KEY ? [{ cron: '0 10 * * * *', queue: 'redwood' }] : [],
+        handler: async ({ req }) => {
+          const key = process.env.STRIPE_SECRET_KEY
+          if (!key) throw new Error('Stripe is not configured.')
+          return { output: await syncBundledCheckouts(req.payload, new Stripe(key, { timeout: 15_000 })) }
         },
       },
       {
@@ -987,6 +999,7 @@ export default buildConfig({
         },
       },
       mcp: {
+        tools: clientPaymentTools,
         serverOptions: {
           serverInfo: {
             name: 'MI Drug Test Payload',

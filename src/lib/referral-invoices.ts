@@ -287,7 +287,7 @@ async function closePendingClientCheckoutLinks(payload: Payload, stripe: Stripe,
       collection: 'payments',
       where: {
         and: [
-          { relatedDrugTest: { in: testIds } },
+          { or: [{ relatedDrugTest: { in: testIds } }, { activeCheckoutTestIds: { in: testIds } }] },
           { source: { equals: 'stripe-checkout' } },
           { status: { equals: 'pending' } },
         ],
@@ -297,6 +297,9 @@ async function closePendingClientCheckoutLinks(payload: Payload, stripe: Stripe,
       page,
     }),
   )
+  if (pending.some((payment) => payment.bundledCheckout?.requestId)) {
+    throw new Error('A bundled client payment request is still active for one or more of these tests.')
+  }
   for (const payment of pending) {
     if (!payment.stripeCheckoutSessionId)
       throw new Error('A client payment link is still being created. Retry this invoice shortly.')

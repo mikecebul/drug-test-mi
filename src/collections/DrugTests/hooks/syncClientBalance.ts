@@ -40,7 +40,7 @@ async function calculateMoneyOwed(req: PayloadRequest, clientId: ClientId) {
   }, 0)
 }
 
-async function syncClientMoneyOwed(req: PayloadRequest, clientId: ClientId | null) {
+export async function syncClientMoneyOwed(req: PayloadRequest, clientId: ClientId | null) {
   if (!clientId) return
 
   const moneyOwed = await calculateMoneyOwed(req, clientId)

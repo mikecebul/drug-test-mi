@@ -4,16 +4,28 @@ import { APIError } from 'payload'
 import { applyIncomingPayment, readRelationshipId } from '@/collections/Payments/services/applyPayment'
 import type { Payment } from '@/payload-types'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
+import { settleBundledCheckout } from '@/collections/Payments/services/bundledCheckout/settle'
 import {
   findCalcomBookingForStripeSession,
   recordCalcomStripeCheckoutPayment,
 } from '@/collections/Payments/services/calcomBookingPayment'
 
 export const checkoutSessionCompleted: StripeWebhookHandler<{
+  created?: number
   data: {
     object: Stripe.Checkout.Session
   }
 }> = async ({ event, payload }) => {
+  if (event.data.object.metadata?.bundledPaymentId) {
+    try {
+      await settleBundledCheckout(payload, event.data.object, event.created)
+    } catch (err) {
+      // The Stripe plugin acknowledges delivery before running handlers. The worker retries posting.
+      payload.logger.error({ msg: `Could not post bundled checkout ${event.data.object.id}`, err })
+    }
+    return
+  }
+
   const {
     id: sessionId,
     metadata,
