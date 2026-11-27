@@ -6,7 +6,7 @@ export async function closePendingClientCheckoutSessions(payload: Payload, strip
     collection: 'payments',
     where: {
       and: [
-        { relatedDrugTest: { equals: testId } },
+        { or: [{ relatedDrugTest: { equals: testId } }, { activeCheckoutTestIds: { equals: testId } }] },
         { source: { equals: 'stripe-checkout' } },
         { status: { equals: 'pending' } },
       ],
@@ -16,6 +16,9 @@ export async function closePendingClientCheckoutSessions(payload: Payload, strip
     overrideAccess: true,
   })
   if (pending.hasNextPage) throw new Error('Too many pending payment links exist for this test. Contact an administrator.')
+  if (pending.docs.some((payment) => payment.bundledCheckout?.requestId)) {
+    throw new Error('This test already has an active bundled payment link.')
+  }
 
   for (const payment of pending.docs) {
     if (!payment.stripeCheckoutSessionId)

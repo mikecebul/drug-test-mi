@@ -384,6 +384,7 @@ export async function sendDrugTestStripePaymentLink(testId: string) {
         method: 'stripe',
         source: 'stripe-checkout',
         status: 'pending',
+        activeCheckoutTestIds: [testId],
         reservedForBookingAmount: 0,
         appliedAmount: 0,
         creditAmount: 0,

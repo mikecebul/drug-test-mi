@@ -21,6 +21,7 @@ import * as migration_20260723_205754_restore_client_dobs_after_render_fix from 
 import * as migration_20260724_000000_clear_isaac_legacy_redwood_match from './20260724_000000_clear_isaac_legacy_redwood_match'
 import * as migration_20260924_000000_backfill_referral_invoice_test_states from './20260924_000000_backfill_referral_invoice_test_states'
 import * as migration_20261127_000000_backfill_referral_default_test_types from './20261127_000000_backfill_referral_default_test_types'
+import * as migration_20261127_010000_index_client_payment_checkouts from './20261127_010000_index_client_payment_checkouts'
 
 export const migrations = [
   {
@@ -137,5 +138,10 @@ export const migrations = [
     up: migration_20261127_000000_backfill_referral_default_test_types.up,
     down: migration_20261127_000000_backfill_referral_default_test_types.down,
     name: '20261127_000000_backfill_referral_default_test_types',
+  },
+  {
+    up: migration_20261127_010000_index_client_payment_checkouts.up,
+    down: migration_20261127_010000_index_client_payment_checkouts.down,
+    name: '20261127_010000_index_client_payment_checkouts',
   },
 ]

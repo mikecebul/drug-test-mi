@@ -31,7 +31,7 @@ function readPositiveNumber(value: unknown): number {
  * - inconclusive: Unable to determine
  */
 export const computeTestResults: CollectionBeforeChangeHook = async ({ data, req }) => {
-  if (!data) return data
+  if (!data || req.context?.skipTestResultComputation) return data
 
   // Handle inconclusive tests FIRST - skip all other computation
   // Inconclusive means the sample was invalid (leaked, damaged, or unable to screen)
