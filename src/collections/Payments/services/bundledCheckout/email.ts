@@ -1,4 +1,7 @@
+import { render } from '@react-email/components'
 import type { Payload } from 'payload'
+import { createElement } from 'react'
+import PaymentRequestEmail from '@/emails/payments/PaymentRequestEmail'
 import { prefixNonLiveEmailSubject, resolveOutboundNotificationRecipients } from '@/lib/email-safety'
 import type { BundledCharge } from './charges'
 import { getCheckoutEmailLink } from './checkoutLink'
@@ -12,24 +15,19 @@ export async function emailCheckout(
 ): Promise<string | undefined> {
   const money = (cents: number) => `$${(cents / 100).toFixed(2)}`
   const checkoutUrl = getCheckoutEmailLink(payload, paymentId)
-  const escape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')
   const intro = 'You can pay the following MI Drug Test charges by card through Stripe.'
-  const items = charges.map((charge) => `${charge.label}  ${money(charge.amountCents)}`)
+  const items = charges.map(({ label, amountCents }) => ({ label, amount: money(amountCents) }))
+  const total = money(totalCents)
   const text = [
     intro,
     '',
-    ...items,
+    ...items.map(({ label, amount }) => `${label}  ${amount}`),
     '',
-    `Total due  ${money(totalCents)}`,
+    `Total due  ${total}`,
     '',
     checkoutUrl,
   ].join('\n')
-  const html = [
-    `<p>${intro}</p>`,
-    `<ul>${items.map((item) => `<li>${escape(item)}</li>`).join('')}</ul>`,
-    `<p><strong>Total due ${money(totalCents)}</strong></p>`,
-    `<p><a href="${escape(checkoutUrl)}">Pay securely by card</a></p>`,
-  ].join('')
+  const html = await render(createElement(PaymentRequestEmail, { charges: items, total, checkoutUrl }))
   const subject = prefixNonLiveEmailSubject('Your MI Drug Test payment link')
   const { recipients } = resolveOutboundNotificationRecipients([to])
 

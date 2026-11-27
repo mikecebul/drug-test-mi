@@ -1,5 +1,5 @@
 import type { Payload, PayloadRequest } from 'payload'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { bundledCheckoutLinkEndpoint, getCheckoutEmailLink } from './checkoutLink'
 import { emailCheckout } from './email'
 
@@ -19,41 +19,38 @@ function setup() {
     bundledCheckout: { requestId: 'request' },
   }
   const findByID = vi.fn(async () => payment)
+  const sendEmail = vi.fn<(email: { html: string; text: string }) => Promise<void>>().mockResolvedValue(undefined)
   const payload = {
     secret: 'test-only-secret',
     findByID,
-    email: { defaultFromName: 'MI Drug Test', defaultFromAddress: 'example@example.com' },
+    sendEmail,
   } as unknown as Payload
   const shortUrl = getCheckoutEmailLink(payload, paymentId)
   const token = new URL(shortUrl).pathname.split('/').at(-1)!
   const open = (value = token) => bundledCheckoutLinkEndpoint.handler(
     { payload, routeParams: { token: value } } as unknown as PayloadRequest,
   )
-  return { payment, findByID, payload, shortUrl, token, open }
+  return { payment, findByID, payload, sendEmail, shortUrl, token, open }
 }
-
-afterEach(() => {
-  vi.unstubAllEnvs()
-  vi.unstubAllGlobals()
-})
 
 describe('bundled checkout email link', () => {
   it('sends the same fragment-free link in both versions and redirects to the complete Stripe URL', async () => {
-    const { payload, shortUrl, open } = setup()
-    vi.stubEnv('NODE_ENV', 'production')
-    vi.stubEnv('RESEND_API_KEY', 'test')
-    vi.stubGlobal('fetch', vi.fn(async (_url, options: RequestInit) => {
-      const email = JSON.parse(String(options.body))
-      expect(email.html).toContain(`href="${shortUrl}"`)
-      expect(email.text).toContain(shortUrl)
-      expect(email.text).not.toContain('checkout.stripe.com')
-      expect(new URL(shortUrl).hash).toBe('')
-      return Response.json({ id: 'email' })
-    }))
-
-    await expect(emailCheckout(payload, paymentId, 'client@example.com', [{
+    const { payload, sendEmail, shortUrl, open } = setup()
+    await emailCheckout(payload, paymentId, 'client@example.com', [{
       drugTest: paymentId, label: '11/20/2026 screen', kind: 'screen', amountCents: 4000,
-    }], 4000)).resolves.toBe('email')
+    }], 4000)
+
+    expect(sendEmail).toHaveBeenCalledTimes(1)
+    const [{ html, text }] = sendEmail.mock.calls[0]
+    expect(html).toContain(`href="${shortUrl}"`)
+    expect(html).toContain('Payment request')
+    expect(html).toContain('aria-label="Payment summary"')
+    expect(html).toContain('11/20/2026 screen')
+    expect(html).toContain('$40.00')
+    expect(html).toContain('Pay securely by card')
+    expect(text).toContain(shortUrl)
+    expect(text).not.toContain('checkout.stripe.com')
+    expect(new URL(shortUrl).hash).toBe('')
 
     const response = await open()
     expect(response.status).toBe(302)
