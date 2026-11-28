@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findRedwoodAccession } from './redwoodAccession'
+import { findRedwoodAccession, findRedwoodReportAccountNumber } from './redwoodAccession'
 
 describe('Redwood report accession', () => {
   it('reads the accession next to its label on page one', () => {
@@ -33,5 +33,31 @@ describe('Redwood report accession', () => {
     ]
     expect(findRedwoodAccession(lines)).toBe('260304-00123')
     expect(findRedwoodAccession(lines.slice(0, 2))).toBeNull()
+  })
+})
+
+describe('Redwood report account number', () => {
+  it('reads Account and Agency labels only from the first page', () => {
+    expect(findRedwoodReportAccountNumber([
+      { page: 1, text: 'Account #:\t310872' },
+      { page: 2, text: 'Agency # 310974' },
+    ])).toBe('310872')
+    expect(findRedwoodReportAccountNumber([{ page: 1, text: 'Agency Number 310974' }])).toBe('310974')
+  })
+
+  it('recognizes a shifted Account # value while excluding other nearby numbers', () => {
+    const entry = (text: string, x: number, y: number, width: number) => ({ text, x, y, width, height: 8, page: 1 })
+    expect(findRedwoodReportAccountNumber([
+      { page: 1, text: 'Account #', items: [entry('Account #', 220, 681.85, 46)] },
+      { page: 1, text: '310872', items: [entry('310872', 313, 678.5, 42), entry('987654', 438, 678.5, 42)] },
+    ])).toBe('310872')
+  })
+
+  it('leaves unrelated and conflicting account values unverified', () => {
+    expect(findRedwoodReportAccountNumber([{ page: 1, text: 'Requisition #: 310872' }])).toBeNull()
+    expect(findRedwoodReportAccountNumber([
+      { page: 1, text: 'Account Number: 310872' },
+      { page: 1, text: 'Agency No.: 310974' },
+    ])).toBeNull()
   })
 })

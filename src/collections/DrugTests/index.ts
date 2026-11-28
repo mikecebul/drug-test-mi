@@ -3,7 +3,9 @@ import { superAdmin } from '@/access/superAdmin'
 import { admins } from '@/access/admins'
 import { superAdminFieldAccess } from '@/access/superAdminFieldAccess'
 import { captureRedwoodAccession } from './hooks/captureRedwoodAccession'
+import { priceLabConfirmation } from './hooks/priceLabConfirmation'
 import { queuePaidRedwoodConfirmation } from '@/lib/redwood/confirmation/order'
+import { getTestTypeByValue } from '@/config/test-types'
 import { computeTestResults } from './hooks/computeTestResults'
 import { syncClientBalanceAfterChange, syncClientBalanceAfterDelete } from './hooks/syncClientBalance'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
@@ -15,7 +17,7 @@ export const DrugTests: CollectionConfig = {
     plural: 'Drug Tests',
   },
   hooks: {
-    beforeChange: [captureRedwoodAccession, computeTestResults],
+    beforeChange: [priceLabConfirmation, captureRedwoodAccession, computeTestResults],
     afterChange: [queuePaidRedwoodConfirmation, syncClientBalanceAfterChange],
     afterDelete: [syncClientBalanceAfterDelete],
   },
@@ -64,24 +66,6 @@ export const DrugTests: CollectionConfig = {
     },
   },
   fields: [
-    {
-      name: 'accessionNumber',
-      type: 'text',
-      access: superAdminFieldAccess,
-      admin: { description: 'Specimen accession number captured from the lab PDF.' },
-    },
-    {
-      name: 'redwoodConfirmationSentAt',
-      type: 'date',
-      access: { read: superAdminFieldAccess.read, create: () => false, update: () => false },
-      admin: { readOnly: true },
-    },
-    {
-      name: 'redwoodConfirmationEmailId',
-      type: 'text',
-      access: { read: superAdminFieldAccess.read, create: () => false, update: () => false },
-      admin: { readOnly: true },
-    },
     // Computed field for display title (stored in DB)
     {
       name: 'clientName',
@@ -601,6 +585,22 @@ export const DrugTests: CollectionConfig = {
               },
             },
             {
+              name: 'accessionNumber',
+              type: 'text',
+              access: superAdminFieldAccess,
+              admin: { description: 'Specimen accession number captured from the lab PDF.' },
+            },
+            {
+              name: 'redwoodReportAccountNumber',
+              label: 'Redwood Report Account Number',
+              type: 'text',
+              access: { read: superAdminFieldAccess.read, create: () => false, update: () => false },
+              admin: {
+                readOnly: true,
+                condition: (_, siblingData) => getTestTypeByValue(siblingData?.testType)?.category === 'lab',
+              },
+            },
+            {
               name: 'isDilute',
               type: 'checkbox',
               admin: {
@@ -702,7 +702,7 @@ export const DrugTests: CollectionConfig = {
                 description: 'Date and time confirmation was requested',
                 condition: (_, siblingData) => siblingData?.confirmationDecision === 'request-confirmation',
                 date: {
-                  pickerAppearance: 'default',
+                  pickerAppearance: 'dayAndTime',
                 },
               },
               hooks: {
@@ -716,6 +716,29 @@ export const DrugTests: CollectionConfig = {
                   },
                 ],
               },
+            },
+            {
+              name: 'redwoodConfirmationEmailOnHold',
+              label: 'Redwood Confirmation Email on Hold',
+              type: 'checkbox',
+              defaultValue: false,
+              access: { ...superAdminFieldAccess, create: superAdminFieldAccess.update },
+              admin: {
+                condition: (_, siblingData) => getTestTypeByValue(siblingData?.testType)?.category === 'lab',
+              },
+            },
+            {
+              name: 'redwoodConfirmationSentAt',
+              label: 'Redwood Confirmation Email Sent At',
+              type: 'date',
+              access: { read: superAdminFieldAccess.read, create: () => false, update: () => false },
+              admin: { readOnly: true, date: { pickerAppearance: 'dayAndTime' } },
+            },
+            {
+              name: 'redwoodConfirmationEmailId',
+              type: 'text',
+              access: { read: superAdminFieldAccess.read, create: () => false, update: () => false },
+              admin: { readOnly: true },
             },
             {
               name: 'confirmationDocument',

@@ -20,9 +20,20 @@ function setup() {
   const tests = [
     ...selected.map((charge) => ({
       id: charge.drugTest,
+      testType: '11-panel-lab',
+      screeningStatus: 'screened',
+      confirmationDecision: 'pending-decision',
+      confirmationSubstances: [] as string[],
       payment: { amountDue: 40, amountPaid: charge.kind === 'screen' ? 0 : 40, confirmationFeeDue: 0 },
     })),
-    { id: 'excluded-confirmation', payment: { amountDue: 85, amountPaid: 40, confirmationFeeDue: 45 } },
+    {
+      id: 'excluded-confirmation',
+      testType: '11-panel-lab',
+      screeningStatus: 'screened',
+      confirmationDecision: 'request-confirmation',
+      confirmationSubstances: ['fentanyl'],
+      payment: { amountDue: 85, amountPaid: 40, confirmationFeeDue: 45 },
+    },
   ]
   const payment = {
     id: 'payment',
@@ -66,12 +77,29 @@ describe('bundled Stripe checkout settlement', () => {
     expect(changes[0].data.payment).toMatchObject({
       amountDue: 85, confirmationFeeDue: 45, amountPaid: 85, balanceDue: 0, status: 'paid',
     })
+    expect(changes[0].data).not.toHaveProperty('screeningStatus')
     expect(changes[3].data.payment).toMatchObject({ amountDue: 40, amountPaid: 40, balanceDue: 0, status: 'paid' })
     expect(payload.update).toHaveBeenCalledWith(expect.objectContaining({
       collection: 'payments',
       data: expect.objectContaining({ status: 'posted', appliedAmount: 170, bundledCheckout: { unappliedAmount: 0 } }),
     }))
     expect(syncClientMoneyOwed).toHaveBeenCalledWith(expect.objectContaining({ transactionID: 'transaction' }), 'client')
+  })
+
+  it('advances an existing lab request when its full confirmation fee is settled', async () => {
+    const { payload, settle, tests } = setup()
+    Object.assign(tests[0], {
+      confirmationDecision: 'request-confirmation',
+      confirmationSubstances: ['fentanyl'],
+      payment: { amountDue: 85, amountPaid: 40, confirmationFeeDue: 45 },
+    })
+
+    await settle()
+
+    expect(payload.update).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'confirmation-1',
+      data: expect.objectContaining({ screeningStatus: 'confirmation-pending' }),
+    }))
   })
 
   it('leaves a balance paid through another channel unapplied and alerts an admin', async () => {

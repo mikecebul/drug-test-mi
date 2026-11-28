@@ -473,9 +473,27 @@ export default buildConfig({
           { name: 'testId', type: 'text', required: true },
           { name: 'orderKey', type: 'text', required: true },
         ],
-        handler: async ({ input, job, req }) => ({
-          output: await sendPaidRedwoodConfirmation(req, input.testId, input.orderKey, job.createdAt),
-        }),
+        handler: async ({ input, job, req }) => {
+          await recordRunningJobRun(req.payload, job)
+          try {
+            const output = await sendPaidRedwoodConfirmation(req, input.testId, input.orderKey, job.createdAt)
+            await recordCompletedJobRun(req.payload, {
+              job,
+              output,
+              resultStatus: output.status,
+              status: 'succeeded',
+            })
+            return { output }
+          } catch (error) {
+            await recordCompletedJobRun(req.payload, {
+              job,
+              errorMessage: getErrorMessage(error),
+              resultStatus: 'failed',
+              status: 'failed',
+            })
+            throw error
+          }
+        },
       },
       {
         slug: 'redwood-diagnostics-probe',
