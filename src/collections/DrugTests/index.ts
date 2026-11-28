@@ -64,25 +64,6 @@ export const DrugTests: CollectionConfig = {
     },
   },
   fields: [
-    {
-      name: 'accessionNumber',
-      type: 'text',
-      access: superAdminFieldAccess,
-      admin: { description: 'Specimen accession number captured from the lab PDF.' },
-    },
-    {
-      name: 'redwoodConfirmationSentAt',
-      label: 'Redwood Confirmation Email Sent At',
-      type: 'date',
-      access: { read: superAdminFieldAccess.read, create: () => false, update: () => false },
-      admin: { readOnly: true },
-    },
-    {
-      name: 'redwoodConfirmationEmailId',
-      type: 'text',
-      access: { read: superAdminFieldAccess.read, create: () => false, update: () => false },
-      admin: { readOnly: true },
-    },
     // Computed field for display title (stored in DB)
     {
       name: 'clientName',
@@ -602,6 +583,12 @@ export const DrugTests: CollectionConfig = {
               },
             },
             {
+              name: 'accessionNumber',
+              type: 'text',
+              access: superAdminFieldAccess,
+              admin: { description: 'Specimen accession number captured from the lab PDF.' },
+            },
+            {
               name: 'isDilute',
               type: 'checkbox',
               admin: {
@@ -717,6 +704,19 @@ export const DrugTests: CollectionConfig = {
                   },
                 ],
               },
+            },
+            {
+              name: 'redwoodConfirmationSentAt',
+              label: 'Redwood Confirmation Email Sent At',
+              type: 'date',
+              access: { read: superAdminFieldAccess.read, create: () => false, update: () => false },
+              admin: { readOnly: true },
+            },
+            {
+              name: 'redwoodConfirmationEmailId',
+              type: 'text',
+              access: { read: superAdminFieldAccess.read, create: () => false, update: () => false },
+              admin: { readOnly: true },
             },
             {
               name: 'confirmationDocument',

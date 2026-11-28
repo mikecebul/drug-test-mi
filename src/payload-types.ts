@@ -1783,12 +1783,6 @@ export interface Employer {
  */
 export interface DrugTest {
   id: string;
-  /**
-   * Specimen accession number captured from the lab PDF.
-   */
-  accessionNumber?: string | null;
-  redwoodConfirmationSentAt?: string | null;
-  redwoodConfirmationEmailId?: string | null;
   clientName?: string | null;
   /**
    * AUTO-UPDATED: Current workflow status based on entered data (SuperAdmin can override)
@@ -1958,6 +1952,10 @@ export interface DrugTest {
    */
   testDocument?: (string | null) | PrivateMedia;
   /**
+   * Specimen accession number captured from the lab PDF.
+   */
+  accessionNumber?: string | null;
+  /**
    * Mark if the test sample was dilute
    */
   isDilute?: boolean | null;
@@ -2089,6 +2087,8 @@ export interface DrugTest {
    * Date and time confirmation was requested
    */
   confirmationRequestedAt?: string | null;
+  redwoodConfirmationSentAt?: string | null;
+  redwoodConfirmationEmailId?: string | null;
   /**
    * Confirmation test report (PDF). Shows both initial screen and confirmation results. Required before final emails are sent.
    */
@@ -4249,9 +4249,6 @@ export interface ClientsSelect<T extends boolean = true> {
  * via the `definition` "drug-tests_select".
  */
 export interface DrugTestsSelect<T extends boolean = true> {
-  accessionNumber?: T;
-  redwoodConfirmationSentAt?: T;
-  redwoodConfirmationEmailId?: T;
   clientName?: T;
   screeningStatus?: T;
   isInconclusive?: T;
@@ -4291,6 +4288,7 @@ export interface DrugTestsSelect<T extends boolean = true> {
       };
   processNotes?: T;
   testDocument?: T;
+  accessionNumber?: T;
   isDilute?: T;
   breathalyzerTaken?: T;
   breathalyzerResult?: T;
@@ -4299,6 +4297,8 @@ export interface DrugTestsSelect<T extends boolean = true> {
   unexpectedPositives?: T;
   unexpectedNegatives?: T;
   confirmationRequestedAt?: T;
+  redwoodConfirmationSentAt?: T;
+  redwoodConfirmationEmailId?: T;
   confirmationDocument?: T;
   confirmationSubstances?: T;
   confirmationResults?:
