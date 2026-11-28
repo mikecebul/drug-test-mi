@@ -42,6 +42,8 @@ import { Page } from 'src/payload-types'
 import { CompanyInfo } from './globals/CompanyInfo/config'
 import { superAdmin } from './access/superAdmin'
 import { restrictMcpApiKeyCollection } from './plugins/mcp/restrictApiKeyCollection'
+import { drugTestReportDownloadEndpoint, drugTestReportTool } from './plugins/mcp/drugTestReportTool'
+import { sendPaidRedwoodConfirmation } from './lib/redwood/confirmation/order'
 import { clientPaymentTools } from './plugins/mcp/clientPaymentTools'
 import { bundledCheckoutLinkEndpoint } from './collections/Payments/services/bundledCheckout/checkoutLink'
 import { syncBundledCheckouts } from './collections/Payments/services/bundledCheckout/settle'
@@ -423,7 +425,7 @@ export default buildConfig({
             },
           },
         }),
-  endpoints: [bundledCheckoutLinkEndpoint],
+  endpoints: [bundledCheckoutLinkEndpoint, drugTestReportDownloadEndpoint],
   globals: [Header, Footer, CompanyInfo],
   graphQL: { disable: true },
   jobs: {
@@ -462,6 +464,18 @@ export default buildConfig({
           if (!key) throw new Error('Stripe is not configured.')
           return { output: await syncBundledCheckouts(req.payload, new Stripe(key, { timeout: 15_000 })) }
         },
+      },
+      {
+        slug: 'send-paid-redwood-confirmation',
+        retries: 3,
+        concurrency: { key: ({ input }) => `paid-redwood-confirmation:${input.testId}` },
+        inputSchema: [
+          { name: 'testId', type: 'text', required: true },
+          { name: 'orderKey', type: 'text', required: true },
+        ],
+        handler: async ({ input, job, req }) => ({
+          output: await sendPaidRedwoodConfirmation(req, input.testId, input.orderKey, job.createdAt),
+        }),
       },
       {
         slug: 'redwood-diagnostics-probe',
@@ -1000,7 +1014,7 @@ export default buildConfig({
         },
       },
       mcp: {
-        tools: clientPaymentTools,
+        tools: [...clientPaymentTools, drugTestReportTool],
         serverOptions: {
           serverInfo: {
             name: 'MI Drug Test Payload',

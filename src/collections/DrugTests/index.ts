@@ -2,6 +2,8 @@ import { CollectionConfig } from 'payload'
 import { superAdmin } from '@/access/superAdmin'
 import { admins } from '@/access/admins'
 import { superAdminFieldAccess } from '@/access/superAdminFieldAccess'
+import { captureRedwoodAccession } from './hooks/captureRedwoodAccession'
+import { queuePaidRedwoodConfirmation } from '@/lib/redwood/confirmation/order'
 import { computeTestResults } from './hooks/computeTestResults'
 import { syncClientBalanceAfterChange, syncClientBalanceAfterDelete } from './hooks/syncClientBalance'
 import { allSubstanceOptions } from '@/fields/substanceOptions'
@@ -13,8 +15,8 @@ export const DrugTests: CollectionConfig = {
     plural: 'Drug Tests',
   },
   hooks: {
-    beforeChange: [computeTestResults],
-    afterChange: [syncClientBalanceAfterChange],
+    beforeChange: [captureRedwoodAccession, computeTestResults],
+    afterChange: [queuePaidRedwoodConfirmation, syncClientBalanceAfterChange],
     afterDelete: [syncClientBalanceAfterDelete],
   },
   access: {
@@ -62,6 +64,24 @@ export const DrugTests: CollectionConfig = {
     },
   },
   fields: [
+    {
+      name: 'accessionNumber',
+      type: 'text',
+      access: superAdminFieldAccess,
+      admin: { description: 'Specimen accession number captured from the lab PDF.' },
+    },
+    {
+      name: 'redwoodConfirmationSentAt',
+      type: 'date',
+      access: { read: superAdminFieldAccess.read, create: () => false, update: () => false },
+      admin: { readOnly: true },
+    },
+    {
+      name: 'redwoodConfirmationEmailId',
+      type: 'text',
+      access: { read: superAdminFieldAccess.read, create: () => false, update: () => false },
+      admin: { readOnly: true },
+    },
     // Computed field for display title (stored in DB)
     {
       name: 'clientName',

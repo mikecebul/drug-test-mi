@@ -1,4 +1,5 @@
 import type { SubstanceValue } from '@/fields/substanceOptions'
+import { findRedwoodAccession } from './redwoodAccession'
 import { TZDate } from '@date-fns/tz'
 import { ALL_CAPS_FULL_NAME_PATTERN, FULL_NAME_PATTERN, normalizeExtractedDonorName } from './donorName'
 import {
@@ -14,6 +15,7 @@ type ConfirmationResult = 'confirmed-positive' | 'confirmed-negative' | 'inconcl
 
 export interface ExtractedLabData {
   donorName: string | null
+  accessionNumber: string | null
   collectionDate: string | null
   detectedSubstances: SubstanceValue[]
   isDilute: boolean
@@ -287,6 +289,7 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
   try {
     const document = await extractPositionedPdfText(buffer)
     const text = document.rawText
+    const accessionNumber = findRedwoodAccession(document.lines)
     const testType = detectLabTestType(text)
     const expectedRowCount = EXPECTED_SCREEN_ROWS[testType]
     const anchoredDonorName = findAnchoredValue(document.lines, /^Identification:$/i)
@@ -356,6 +359,7 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
     const isDilute = creatinineResult?.isDilute === true || /\b(?:specimen is dilute|dilute specimen)\b/i.test(text)
     const extractedFields: string[] = ['testType']
     if (donorName) extractedFields.push('donorName')
+    if (accessionNumber) extractedFields.push('accessionNumber')
     if (collectionDate) extractedFields.push('collectionDate')
     if (screenData.rows.size > 0) extractedFields.push('detectedSubstances')
     if (isDilute) extractedFields.push('isDilute')
@@ -363,6 +367,7 @@ export async function extractLabTest(buffer: Buffer): Promise<ExtractedLabData> 
 
     return {
       donorName,
+      accessionNumber,
       collectionDate,
       detectedSubstances,
       isDilute,

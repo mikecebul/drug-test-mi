@@ -21,6 +21,13 @@ grant allows super admins to send an itemized client payment request.
 Every request in every environment requires an MCP API key. Payload applies both the capabilities selected
 on that key and the access rules of the admin associated with the key.
 
+## Download a private lab report
+
+A Super Admin can grant `downloadDrugTestReport` to a specific MCP key. The tool accepts a drug-test ID and
+either `screen` or `confirmation`. It returns a five-minute link to the attached PDF after checking that
+the report and test belong to the same client. Treat the link as confidential. The grant does not expose
+the Private Media collection to MCP.
+
 ## Create a development key
 
 1. Start the development server and sign in at `http://127.0.0.1:3000/admin`.
