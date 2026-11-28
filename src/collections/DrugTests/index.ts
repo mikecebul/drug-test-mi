@@ -72,6 +72,7 @@ export const DrugTests: CollectionConfig = {
     },
     {
       name: 'redwoodConfirmationSentAt',
+      label: 'Redwood Confirmation Email Sent At',
       type: 'date',
       access: { read: superAdminFieldAccess.read, create: () => false, update: () => false },
       admin: { readOnly: true },
