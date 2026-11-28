@@ -16,6 +16,7 @@ export const JOB_TASK_LABELS = {
   'redwood-sync-upcoming-random-testing': 'Upcoming Random Testing Calendar Holds',
   'redwood-sync-todays-random-testing': 'Today’s Random Testing Schedule',
   'send-monthly-referral-invoices': 'Monthly Referral Invoices',
+  'send-paid-redwood-confirmation': 'Redwood Confirmation Email',
   'sync-referral-invoice-payments': 'Referral Invoice Payment Sync',
 } as const
 

@@ -1955,6 +1955,7 @@ export interface DrugTest {
    * Specimen accession number captured from the lab PDF.
    */
   accessionNumber?: string | null;
+  redwoodReportAccountNumber?: string | null;
   /**
    * Mark if the test sample was dilute
    */
@@ -2087,6 +2088,7 @@ export interface DrugTest {
    * Date and time confirmation was requested
    */
   confirmationRequestedAt?: string | null;
+  redwoodConfirmationEmailOnHold?: boolean | null;
   redwoodConfirmationSentAt?: string | null;
   redwoodConfirmationEmailId?: string | null;
   /**
@@ -4289,6 +4291,7 @@ export interface DrugTestsSelect<T extends boolean = true> {
   processNotes?: T;
   testDocument?: T;
   accessionNumber?: T;
+  redwoodReportAccountNumber?: T;
   isDilute?: T;
   breathalyzerTaken?: T;
   breathalyzerResult?: T;
@@ -4297,6 +4300,7 @@ export interface DrugTestsSelect<T extends boolean = true> {
   unexpectedPositives?: T;
   unexpectedNegatives?: T;
   confirmationRequestedAt?: T;
+  redwoodConfirmationEmailOnHold?: T;
   redwoodConfirmationSentAt?: T;
   redwoodConfirmationEmailId?: T;
   confirmationDocument?: T;

@@ -1,8 +1,14 @@
 import type { DrugTest, Payment } from '@/payload-types'
 import type { Payload } from 'payload'
 import type Stripe from 'stripe'
+import { getTestTypeByValue } from '@/config/test-types'
 import { isClientBilledToReferral } from '@/lib/referral-invoices/payer'
 import { syncClientMoneyOwed } from '@/collections/DrugTests/hooks/syncClientBalance'
+import {
+  getConfirmationSubstances,
+  getOutstandingConfirmations,
+  LAB_CONFIRMATION_FEE,
+} from '@/collections/DrugTests/helpers/confirmationPayment'
 import { readRelationshipId } from '../applyPayment'
 import { withPayloadTransaction } from '../withPayloadTransaction'
 import { getChargeBalance, isReferralInvoiced, toCents, type BundledCharge } from './charges'
@@ -32,6 +38,18 @@ function allocationForCharge(test: DrugTest, charge: BundledCharge) {
   }
   if (fee === 0 && due > 0 && due === paid) return { applied: cents, addedFee: cents }
   return { applied: 0, addedFee: 0 }
+}
+
+function shouldAdvanceConfirmation(test: DrugTest, confirmationFee: number, balanceDue: number) {
+  if (
+    balanceDue !== 0 || test.screeningStatus !== 'screened' || test.isComplete || test.isInconclusive ||
+    test.confirmationDocument || test.confirmationDecision !== 'request-confirmation' ||
+    getTestTypeByValue(test.testType)?.category !== 'lab'
+  ) return false
+
+  const selected = getConfirmationSubstances(test.confirmationSubstances)
+  return confirmationFee >= LAB_CONFIRMATION_FEE * selected.length &&
+    getOutstandingConfirmations(selected, test.confirmationResults).length > 0
 }
 
 export async function settleBundledCheckout(payload: Payload, session: Stripe.Checkout.Session, eventTime?: number) {
@@ -81,14 +99,18 @@ export async function settleBundledCheckout(payload: Payload, session: Stripe.Ch
 
       const { due, paid, fee } = getChargeBalance(test)
       const balanceDue = (due + addedFee - paid - applied) / 100
+      const confirmationFeeDue = (fee + addedFee) / 100
       await payload.update({
         collection: 'drug-tests',
         id: test.id,
         data: {
+          ...(shouldAdvanceConfirmation(test, confirmationFeeDue, balanceDue)
+            ? { screeningStatus: 'confirmation-pending' }
+            : {}),
           payment: {
             ...test.payment,
             amountDue: (due + addedFee) / 100,
-            confirmationFeeDue: (fee + addedFee) / 100,
+            confirmationFeeDue,
             amountPaid: (paid + applied) / 100,
             balanceDue,
             status: balanceDue ? 'partial' : 'paid',

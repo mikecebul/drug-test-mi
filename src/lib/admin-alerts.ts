@@ -1,4 +1,4 @@
-import type { Payload } from 'payload'
+import type { Payload, PayloadRequest } from 'payload'
 
 export type AlertSeverity = 'critical' | 'high' | 'medium'
 export type AlertType =
@@ -46,10 +46,12 @@ export interface CreateAdminAlertParams {
 export async function createAdminAlert(
   payload: Payload,
   params: CreateAdminAlertParams,
+  req?: PayloadRequest,
 ): Promise<void> {
   try {
     await payload.create({
       collection: 'admin-alerts',
+      req,
       data: {
         title: params.title,
         severity: params.severity,

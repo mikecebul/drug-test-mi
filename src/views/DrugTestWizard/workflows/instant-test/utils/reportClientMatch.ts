@@ -78,6 +78,15 @@ function getClientName(client: ClientName) {
     .join(' ')
 }
 
+export function matchesReportClientName(donorName: string | null | undefined, client: ClientName): boolean {
+  const report = parseName(donorName)
+  const expected = parseName(getClientName(client))
+  if (!report || !expected) return false
+
+  return report.firstName === expected.firstName && report.lastName === expected.lastName &&
+    (!report.middleInitial || !expected.middleInitial || report.middleInitial === expected.middleInitial)
+}
+
 export function getReportClientMatch(donorName: string | null | undefined, client: ClientName): ReportClientMatch {
   const clientName = getClientName(client)
   const parsedReportName = parseName(donorName)

@@ -10,7 +10,12 @@ import {
   applyIncomingPayment,
   type PaymentMethod,
 } from '@/collections/Payments/services/applyPayment'
-import type { SubstanceValue } from '@/fields/substanceOptions'
+import { getTestTypeByValue } from '@/config/test-types'
+import {
+  getConfirmationSubstances,
+  LAB_CONFIRMATION_FEE,
+  priceConfirmation,
+} from '@/collections/DrugTests/helpers/confirmationPayment'
 import { baseUrl } from '@/utilities/baseUrl'
 import { withPayloadTransaction } from '@/collections/Payments/services/withPayloadTransaction'
 import { closePendingClientCheckoutSessions } from '@/collections/Payments/services/closePendingClientCheckoutSessions'
@@ -244,7 +249,8 @@ export async function requestDrugTestConfirmation(input: {
     return { success: false, error: 'Drug test is required.' }
   }
 
-  if (!input.confirmationSubstances.length) {
+  const selected = getConfirmationSubstances(input.confirmationSubstances)
+  if (!selected.length) {
     return { success: false, error: 'Select at least one substance for confirmation.' }
   }
 
@@ -268,15 +274,10 @@ export async function requestDrugTestConfirmation(input: {
         Boolean(test.payment?.referralInvoice) ||
         (await isClientBilledToReferral(payload, clientId, req))
 
-      const feePerSubstance = test.testType === '17-panel-instant' || test.testType === '15-panel-instant' ? 30 : 45
-      const confirmationFeeDue = feePerSubstance * input.confirmationSubstances.length
-      const currentPayment = test.payment || {}
-      const currentAmountDue = typeof currentPayment.amountDue === 'number' ? currentPayment.amountDue : 0
-      const currentAmountPaid = typeof currentPayment.amountPaid === 'number' ? currentPayment.amountPaid : 0
-      const previousConfirmationFee =
-        typeof currentPayment.confirmationFeeDue === 'number' ? currentPayment.confirmationFeeDue : 0
-      const nextAmountDue = Math.max(0, currentAmountDue - previousConfirmationFee + confirmationFeeDue)
-      const nextBalanceDue = Math.max(0, nextAmountDue - currentAmountPaid)
+      const category = getTestTypeByValue(test.testType)?.category
+      const payment = category === 'lab'
+        ? test.payment
+        : priceConfirmation(test.payment, (category === 'instant' ? 30 : LAB_CONFIRMATION_FEE) * selected.length)
       const bypassPaymentRequirement = input.bypassPaymentRequirement === true
 
       await payload.update({
@@ -284,21 +285,9 @@ export async function requestDrugTestConfirmation(input: {
         id: input.testId,
         data: {
           confirmationDecision: 'request-confirmation',
-          confirmationSubstances: input.confirmationSubstances as SubstanceValue[],
+          confirmationSubstances: selected,
           payment: {
-            ...currentPayment,
-            status:
-              nextBalanceDue <= 0
-                ? 'paid'
-                : test.payment?.status === 'invoiced'
-                  ? 'invoiced'
-                  : currentAmountPaid > 0
-                    ? 'partial'
-                    : 'unpaid',
-            amountDue: nextAmountDue,
-            amountPaid: currentAmountPaid,
-            balanceDue: nextBalanceDue,
-            confirmationFeeDue,
+            ...payment,
             confirmationPaymentBypassed: bypassPaymentRequirement,
             confirmationPaymentBypassedAt: bypassPaymentRequirement ? new Date().toISOString() : null,
           },
