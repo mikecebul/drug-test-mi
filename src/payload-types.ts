@@ -202,6 +202,7 @@ export interface Config {
       'send-monthly-referral-invoices': TaskSendMonthlyReferralInvoices;
       'sync-referral-invoice-payments': TaskSyncReferralInvoicePayments;
       'sync-bundled-checkouts': TaskSyncBundledCheckouts;
+      'send-paid-redwood-confirmation': TaskSendPaidRedwoodConfirmation;
       'redwood-diagnostics-probe': TaskRedwoodDiagnosticsProbe;
       'redwood-import-client': TaskRedwoodImportClient;
       'redwood-update-client': TaskRedwoodUpdateClient;
@@ -1782,6 +1783,12 @@ export interface Employer {
  */
 export interface DrugTest {
   id: string;
+  /**
+   * Specimen accession number captured from the lab PDF.
+   */
+  accessionNumber?: string | null;
+  redwoodConfirmationSentAt?: string | null;
+  redwoodConfirmationEmailId?: string | null;
   clientName?: string | null;
   /**
    * AUTO-UPDATED: Current workflow status based on entered data (SuperAdmin can override)
@@ -2800,6 +2807,10 @@ export interface PayloadMcpApiKey {
      * Create one Stripe Checkout link for the exact charges in previewClientPayment and email it to the verified account email. Call only when the user has authorized sending that payment request. Use the same request ID when retrying. Use findPayments with the returned paymentId to check posting.
      */
     sendClientPayment?: boolean | null;
+    /**
+     * Get a five-minute download link for a screening or confirmation PDF attached to a specific drug test. Requires a Super Admin and an explicit MCP key grant.
+     */
+    downloadDrugTestReport?: boolean | null;
   };
   updatedAt: string;
   createdAt: string;
@@ -2883,6 +2894,7 @@ export interface PayloadJob {
           | 'send-monthly-referral-invoices'
           | 'sync-referral-invoice-payments'
           | 'sync-bundled-checkouts'
+          | 'send-paid-redwood-confirmation'
           | 'redwood-diagnostics-probe'
           | 'redwood-import-client'
           | 'redwood-update-client'
@@ -2932,6 +2944,7 @@ export interface PayloadJob {
         | 'send-monthly-referral-invoices'
         | 'sync-referral-invoice-payments'
         | 'sync-bundled-checkouts'
+        | 'send-paid-redwood-confirmation'
         | 'redwood-diagnostics-probe'
         | 'redwood-import-client'
         | 'redwood-update-client'
@@ -4236,6 +4249,9 @@ export interface ClientsSelect<T extends boolean = true> {
  * via the `definition` "drug-tests_select".
  */
 export interface DrugTestsSelect<T extends boolean = true> {
+  accessionNumber?: T;
+  redwoodConfirmationSentAt?: T;
+  redwoodConfirmationEmailId?: T;
   clientName?: T;
   screeningStatus?: T;
   isInconclusive?: T;
@@ -4543,6 +4559,7 @@ export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
     | {
         previewClientPayment?: T;
         sendClientPayment?: T;
+        downloadDrugTestReport?: T;
       };
   updatedAt?: T;
   createdAt?: T;
@@ -4905,6 +4922,17 @@ export interface TaskSyncReferralInvoicePayments {
  */
 export interface TaskSyncBundledCheckouts {
   input?: unknown;
+  output?: unknown;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskSend-paid-redwood-confirmation".
+ */
+export interface TaskSendPaidRedwoodConfirmation {
+  input: {
+    testId: string;
+    orderKey: string;
+  };
   output?: unknown;
 }
 /**

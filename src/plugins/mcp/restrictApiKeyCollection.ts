@@ -3,13 +3,16 @@ import { superAdmin } from '@/access/superAdmin'
 import { superAdminFieldAccess } from '@/access/superAdminFieldAccess'
 import type { Access, CollectionConfig } from 'payload'
 import { clientPaymentToolNames } from './clientPaymentTools'
+import { drugTestReportToolName } from './drugTestReportTool'
+
+const restrictedTools = [...clientPaymentToolNames, drugTestReportToolName]
 
 const manageMcpKey: Access = (args) => {
   if (!admins(args)) return false
   if (superAdmin(args)) return true
-  // A key with billing permissions cannot be read or rotated by a regular admin.
+  // A key with billing or private report permissions cannot be read or rotated by a regular admin.
   return {
-    and: clientPaymentToolNames.map((name) => ({ [`payload-mcp-tool.${name}`]: { not_equals: true } })),
+    and: restrictedTools.map((name) => ({ [`payload-mcp-tool.${name}`]: { not_equals: true } })),
   }
 }
 
@@ -26,7 +29,7 @@ export function restrictMcpApiKeyCollection(collection: CollectionConfig): Colle
           return {
             ...group,
             fields: group.fields.map((tool) => {
-              if (tool.type !== 'checkbox' || !clientPaymentToolNames.some((name) => name === tool.name)) return tool
+              if (tool.type !== 'checkbox' || !restrictedTools.some((name) => name === tool.name)) return tool
               return {
                 ...tool,
                 defaultValue: false,

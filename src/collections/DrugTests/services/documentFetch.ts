@@ -1,7 +1,8 @@
-import type { Payload } from 'payload'
+import type { Payload, PayloadRequest } from 'payload'
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 import { promises as fsPromises } from 'fs'
 import path from 'path'
+import { readRelationshipId } from '@/collections/Payments/services/applyPayment'
 
 export type FetchDocumentResult = {
   buffer: Buffer
@@ -21,12 +22,15 @@ export type FetchDocumentResult = {
 export async function fetchDocument(
   documentId: string,
   payload: Payload,
+  options?: { req?: PayloadRequest; reportClientId?: string },
 ): Promise<FetchDocumentResult> {
   // Fetch the document record from database using local API with overrideAccess
   const document = await payload.findByID({
     collection: 'private-media',
     id: documentId,
+    depth: 0,
     overrideAccess: true,
+    req: options?.req,
   })
 
   if (!document || !document.filename) {
@@ -42,6 +46,13 @@ export async function fetchDocument(
   }
 
   const mimeType = document.mimeType || 'application/pdf'
+  if (
+    options?.reportClientId &&
+    (readRelationshipId(document.relatedClient) !== options.reportClientId ||
+      document.documentType !== 'drug-test-report' || mimeType !== 'application/pdf')
+  ) {
+    throw new Error('The selected PDF does not belong to this client’s drug test.')
+  }
   const filename = document.filename
 
   // Fetch file buffer - handle both S3 (production) and local storage (development)

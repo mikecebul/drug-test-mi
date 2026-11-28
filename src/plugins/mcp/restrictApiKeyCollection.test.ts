@@ -46,6 +46,7 @@ describe('restrictMcpApiKeyCollection', () => {
         and: [
           { 'payload-mcp-tool.previewClientPayment': { not_equals: true } },
           { 'payload-mcp-tool.sendClientPayment': { not_equals: true } },
+          { 'payload-mcp-tool.downloadDrugTestReport': { not_equals: true } },
         ],
       })
     },

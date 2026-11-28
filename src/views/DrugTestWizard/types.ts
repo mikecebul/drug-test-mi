@@ -50,6 +50,7 @@ export interface SimpleClient {
 
 export interface ParsedPDFData {
   donorName: string | null
+  accessionNumber?: string | null
   collectionDate: string | null // ISO string with timezone offset (or UTC Z)
   dob?: string | null // Date of birth in MM/DD/YYYY format when present on instant reports
   gender?: string | null // M or F when present on instant reports
